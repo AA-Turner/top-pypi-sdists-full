@@ -8,7 +8,7 @@ from typing import Optional
 from pyrit.datasets.seed_datasets.remote.remote_dataset_loader import (
     _RemoteDatasetLoader,
 )
-from pyrit.models import SeedDataset, SeedPrompt
+from pyrit.models import Modality, SeedDataset, SeedPrompt
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +22,11 @@ class _SorryBenchDataset(_RemoteDatasetLoader):
 
     Reference: [@xie2024sorrybench]
     """
+
+    # Metadata
+    modalities: tuple[Modality, ...] = (Modality.TEXT,)
+    size: str = "medium"  # 440 base prompts (style mutations not loaded by default)
+    tags: frozenset[str] = frozenset({"safety", "jailbreak", "synthetic"})
 
     VALID_CATEGORIES = [
         "Personal Insulting Words",
@@ -101,7 +106,7 @@ class _SorryBenchDataset(_RemoteDatasetLoader):
         categories: Optional[list[str]] = None,
         prompt_style: Optional[str] = None,
         token: Optional[str] = None,
-    ):
+    ) -> None:
         """
         Initialize the Sorry-Bench dataset loader.
 
@@ -140,7 +145,7 @@ class _SorryBenchDataset(_RemoteDatasetLoader):
         """Return the dataset name."""
         return "sorry_bench"
 
-    async def fetch_dataset(self, *, cache: bool = True) -> SeedDataset:
+    async def fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
         """
         Fetch Sorry-Bench dataset and return as SeedDataset.
 
@@ -156,7 +161,7 @@ class _SorryBenchDataset(_RemoteDatasetLoader):
         try:
             logger.info(f"Loading Sorry-Bench dataset from {self.source}")
 
-            data = await self._fetch_from_huggingface(
+            data = await self._fetch_from_huggingface_async(
                 dataset_name=self.source,
                 split="train",
                 cache=cache,
@@ -205,7 +210,7 @@ class _SorryBenchDataset(_RemoteDatasetLoader):
                         "prompt_style": item_prompt_style,
                         "question_id": question_id,
                     },
-                    **common_metadata,  # type: ignore[arg-type]
+                    **common_metadata,  # type: ignore[ty:invalid-argument-type]
                 )
 
                 seed_prompts.append(seed_prompt)

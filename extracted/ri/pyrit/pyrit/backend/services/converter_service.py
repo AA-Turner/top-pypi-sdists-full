@@ -19,7 +19,7 @@ import re
 import uuid
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Literal, Optional, Union, get_args, get_origin
+from typing import Any, Literal, Union, get_args, get_origin
 from urllib.parse import parse_qs, urlparse
 
 from pyrit import prompt_converter
@@ -39,7 +39,7 @@ from pyrit.backend.models.converters import (
 from pyrit.models import PromptDataType
 from pyrit.models.data_type_serializer import data_serializer_factory
 from pyrit.prompt_converter import PromptConverter
-from pyrit.prompt_target import PromptChatTarget
+from pyrit.prompt_target import PromptTarget
 from pyrit.registry.object_registries import ConverterRegistry
 
 _DATA_TYPE_EXTENSION: dict[str, str] = {
@@ -119,7 +119,7 @@ def _parse_arg_descriptions(converter_class: type) -> dict[str, str]:
     Returns:
         dict[str, str]: Mapping of parameter names to their descriptions.
     """
-    doc = (converter_class.__init__.__doc__ or converter_class.__doc__ or "").strip()  # type: ignore[misc]
+    doc = (converter_class.__init__.__doc__ or converter_class.__doc__ or "").strip()
     match = re.search(r"Args:\s*\n(.*?)(?:\n\s*\n|\n\s*Returns:|\n\s*Raises:|\Z)", doc, re.DOTALL)
     if not match:
         return {}
@@ -142,7 +142,7 @@ def _extract_parameters(converter_class: type) -> list[ConverterParameterSchema]
         list[ConverterParameterSchema]: List of parameter schemas.
     """
     try:
-        sig = inspect.signature(converter_class.__init__)  # type: ignore[misc]
+        sig = inspect.signature(converter_class.__init__)
     except (ValueError, TypeError):
         return []
 
@@ -161,11 +161,11 @@ def _extract_parameters(converter_class: type) -> list[ConverterParameterSchema]
         is_sentinel = hasattr(p.default, "__class__") and "Sentinel" in type(p.default).__name__
         required = no_default or is_sentinel
 
-        default_value: Optional[str] = None
+        default_value: str | None = None
         if not required and p.default is not None:
             default_value = str(p.default)
 
-        choices: Optional[list[str]] = None
+        choices: list[str] | None = None
         if get_origin(p.annotation) is Literal:
             choices = [str(a) for a in get_args(p.annotation)]
 
@@ -184,9 +184,18 @@ def _extract_parameters(converter_class: type) -> list[ConverterParameterSchema]
 
 
 def _is_llm_based(converter_class: type) -> bool:
-    """Return True if the converter requires an LLM target parameter."""
+    """
+    Check if the converter requires a target parameter.
+
+    Matches any converter whose ``__init__`` accepts
+    a ``PromptTarget`` (or subclass) parameter.
+    These converters perform LLM-based transformations and should not automatically be applied
+
+    Returns:
+        bool: True if the converter is LLM-based, False otherwise.
+    """
     try:
-        sig = inspect.signature(converter_class.__init__)  # type: ignore[misc]
+        sig = inspect.signature(converter_class.__init__)
     except (ValueError, TypeError):
         return False
 
@@ -197,7 +206,7 @@ def _is_llm_based(converter_class: type) -> bool:
         if ann is inspect.Parameter.empty:
             continue
         try:
-            if isinstance(ann, type) and issubclass(ann, PromptChatTarget):
+            if isinstance(ann, type) and issubclass(ann, PromptTarget):
                 return True
         except TypeError:
             continue
@@ -283,7 +292,7 @@ class ConverterService:
 
         return ConverterCatalogResponse(items=items)
 
-    async def get_converter_async(self, *, converter_id: str) -> Optional[ConverterInstance]:
+    async def get_converter_async(self, *, converter_id: str) -> ConverterInstance | None:
         """
         Get a converter instance by ID.
 
@@ -295,7 +304,7 @@ class ConverterService:
             return None
         return self._build_instance_from_object(converter_id=converter_id, converter_obj=obj)
 
-    def get_converter_object(self, *, converter_id: str) -> Optional[Any]:
+    def get_converter_object(self, *, converter_id: str) -> Any | None:
         """
         Get the actual converter object.
 
@@ -373,7 +382,7 @@ class ConverterService:
                     data_type=data_type,
                     extension=ext,
                 )
-                await serializer.save_b64_image(data=value)
+                await serializer.save_b64_image_async(data=value)
                 original_value = str(serializer.value)
             # Already an existing file on disk — keep as-is
             elif Path(original_value).is_file():
@@ -387,11 +396,11 @@ class ConverterService:
                     data_type=data_type,
                     extension=ext,
                 )
-                await serializer.save_b64_image(data=original_value)
+                await serializer.save_b64_image_async(data=original_value)
                 original_value = str(serializer.value)
 
         converters = self._gather_converters(converter_ids=request.converter_ids)
-        steps, final_value, final_type = await self._apply_converters(
+        steps, final_value, final_type = await self._apply_converters_async(
             converters=converters, initial_value=original_value, initial_type=data_type
         )
 
@@ -477,7 +486,7 @@ class ConverterService:
             Params dict with values coerced to the expected types.
         """
         try:
-            sig = inspect.signature(converter_class.__init__)  # type: ignore[misc]
+            sig = inspect.signature(converter_class.__init__)
         except (ValueError, TypeError) as e:
             raise ValueError(
                 f"Failed to inspect __init__ signature for converter '{converter_class.__name__}': {e}"
@@ -531,7 +540,7 @@ class ConverterService:
             Params dict with data-URI values replaced by file paths.
         """
         try:
-            sig = inspect.signature(converter_class.__init__)  # type: ignore[misc]
+            sig = inspect.signature(converter_class.__init__)
         except (ValueError, TypeError):
             return params
 
@@ -558,7 +567,7 @@ class ConverterService:
                 data_type="binary_path",
                 extension=ext,
             )
-            await serializer.save_data(data=base64.b64decode(payload))
+            await serializer.save_data_async(data=base64.b64decode(payload))
             file_path = str(serializer.value)
 
             # Coerce to Path if the constructor expects it
@@ -593,7 +602,7 @@ class ConverterService:
             converters.append((conv_id, conv_type, conv_obj))
         return converters
 
-    async def _apply_converters(
+    async def _apply_converters_async(
         self,
         *,
         converters: list[tuple[str, str, Any]],

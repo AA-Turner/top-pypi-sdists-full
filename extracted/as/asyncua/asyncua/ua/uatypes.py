@@ -2,40 +2,26 @@
 implement ua datatypes
 """
 
+from __future__ import annotations
+
 import binascii
-import collections
 import itertools
 import logging
 import re
-import sys
+import types
 import uuid
 from base64 import b64decode, b64encode
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import IntEnum
-from typing import Any, Generic, List, Optional, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Union, get_args, get_origin
+
+from typing_extensions import Self
 
 from asyncua.ua.object_ids import ObjectIds
 
-# hack to support python < 3.8
-if sys.version_info.minor < 10:
-
-    def get_origin(tp):
-        if hasattr(tp, "__origin__"):
-            return tp.__origin__
-        if tp is Generic:
-            return Generic
-        return None
-
-    def get_args(tp):
-        if hasattr(tp, "__args__"):
-            res = tp.__args__
-            if get_origin(tp) is collections.abc.Callable and res[0] is not Ellipsis:
-                res = (list(res[:-1]), res[-1])
-            return res
-        return ()
-else:
-    from typing import get_args, get_origin  # type: ignore
+if TYPE_CHECKING:
+    import asyncua.ua as ua
 
 
 from asyncua.ua import status_codes
@@ -56,19 +42,31 @@ MAX_OPC_FILETIME = (
 MAX_INT64 = 2**63 - 1
 
 
-def type_is_union(uatype):
-    return get_origin(uatype) == Union
+def type_is_optional(uatype: Any) -> bool:
+    origin = get_origin(uatype)
+    union_types = (Union,)
+    if hasattr(types, "UnionType"):
+        union_types += (types.UnionType,)  # type: ignore[attr-defined]
+    return origin in union_types and type(None) in get_args(uatype)
 
 
-def type_is_list(uatype):
+def type_is_union(uatype: Any) -> bool:
+    origin = get_origin(uatype)
+    union_types = (Union,)
+    if hasattr(types, "UnionType"):
+        union_types += (types.UnionType,)  # type: ignore[attr-defined]
+    return origin in union_types
+
+
+def type_is_list(uatype: Any) -> bool:
     return get_origin(uatype) is list
 
 
-def type_allow_subclass(uatype):
-    return get_origin(uatype) not in [Union, list, None]
+def type_allow_subclass(uatype: Any) -> bool:
+    return get_origin(uatype) not in [types.UnionType, Union, list, None]
 
 
-def types_or_list_from_union(uatype):
+def types_or_list_from_union(uatype: Any) -> tuple[bool, Any]:
     # returns the type of a union or the list of type if a list is inside the union
     types = []
     for subtype in get_args(uatype):
@@ -76,7 +74,7 @@ def types_or_list_from_union(uatype):
             # @hack how to check if a parameter is a list:
             # check if have _paramspec_tvars works for type[X]
             return True, subtype
-        elif hasattr(subtype, "_name"):
+        if hasattr(subtype, "_name"):
             # @hack how to check if parameter is union or list
             # if _name is not List, it is Union
             if subtype._name == "List":
@@ -88,7 +86,7 @@ def types_or_list_from_union(uatype):
     return False, types[0]
 
 
-def types_from_union(uatype, origin=None):
+def types_from_union(uatype: Any, origin: Any = None) -> list[Any]:
     if origin is None:
         origin = get_origin(uatype)
     if origin != Union:
@@ -100,19 +98,33 @@ def types_from_union(uatype, origin=None):
     return types
 
 
-def type_from_list(uatype):
+def type_from_list(uatype: Any) -> Any:
     return get_args(uatype)[0]
 
 
-def type_from_optional(uatype):
+def type_from_optional(uatype: Any) -> Any:
     return get_args(uatype)[0]
 
 
-def type_from_allow_subtype(uatype):
+def type_from_allow_subtype(uatype: Any) -> Any:
     return get_args(uatype)[0]
 
 
-def type_string_from_type(uatype):
+def type_string_from_type(uatype: Any) -> str:
+    if isinstance(uatype, str):
+        # PEP 563 / Python 3.14: type annotations may surface as strings from
+        # dataclasses.fields(). Strip optional/list wrappers, quotes, and module
+        # prefixes so callers get the bare class name (e.g. "QualifiedName").
+        s = uatype.strip("'\" ")
+        for prefix in ("Optional[", "list[", "List["):
+            if s.startswith(prefix):
+                s = s[len(prefix) : -1]
+        s = s.strip("'\" ")
+        # Strip "| None" (PEP 604 unions used for Optional fields).
+        s = s.split("|", 1)[0].strip()
+        return s.rsplit(".", 1)[-1]
+    if type_is_optional(uatype):
+        uatype = type_from_optional(uatype)
     if type_is_union(uatype):
         uatype = types_from_union(uatype)[0]
     elif type_is_list(uatype):
@@ -124,9 +136,7 @@ def type_string_from_type(uatype):
 
 @dataclass
 class UaUnion:
-    """class to identify unions"""
-
-    pass
+    _union_types: ClassVar[list[Any]] = []
 
 
 class Number(float):
@@ -205,10 +215,14 @@ class Guid(uuid.UUID):
     pass
 
 
+class Enumeration(IntEnum):
+    pass
+
+
 _microsecond = timedelta(microseconds=1)
 
 
-def datetime_to_win_epoch(dt: datetime):
+def datetime_to_win_epoch(dt: datetime) -> int:
     if dt.tzinfo is None:
         ref = FILETIME_EPOCH_AS_DATETIME
         max_ep = MAX_FILETIME_EPOCH_DATETIME
@@ -226,20 +240,17 @@ def datetime_to_win_epoch(dt: datetime):
     return 10 * ((dt - ref) // _microsecond)
 
 
-def get_win_epoch():
+def get_win_epoch() -> datetime:
     return win_epoch_to_datetime(0)
 
 
-def win_epoch_to_datetime(epch):
+def win_epoch_to_datetime(epch: int) -> datetime:
     if epch >= MAX_OPC_FILETIME:
         # FILETIMEs after 31 Dec 9999 are truncated to max value
         return MAX_FILETIME_EPOCH_AS_UTC_DATETIME
     if epch < 0:
         return FILETIME_EPOCH_AS_UTC_DATETIME
     return FILETIME_EPOCH_AS_UTC_DATETIME + timedelta(microseconds=epch // 10)
-
-
-FROZEN: bool = False
 
 
 class ValueRank(IntEnum):
@@ -262,14 +273,14 @@ class ValueRank(IntEnum):
 
 class _MaskEnum(IntEnum):
     @classmethod
-    def parse_bitfield(cls, the_int):
+    def parse_bitfield(cls, the_int: int) -> set[Self]:
         """Take an integer and interpret it as a set of enum values."""
         if not isinstance(the_int, int):
             raise ValueError(f"Argument should be an int, we received {the_int} fo type {type(the_int)}")
-        return {cls(b) for b in cls._bits(the_int)}
+        return {cls(b) for b in cls._bits(the_int) if b in cls._value2member_map_}
 
     @classmethod
-    def to_bitfield(cls, collection):
+    def to_bitfield(cls, collection: Any) -> int:
         """Takes some enum values and creates an integer from them."""
         # make sure all elements are of the correct type (use itertools.tee in case we get passed an
         # iterator)
@@ -279,11 +290,11 @@ class _MaskEnum(IntEnum):
         return sum(x.mask for x in iter2)
 
     @property
-    def mask(self):
+    def mask(self) -> int:
         return 1 << self.value
 
     @staticmethod
-    def _bits(n):
+    def _bits(n: int) -> Any:
         """Iterate over the bits in n.
 
         e.g. bits(44) yields at 2, 3, 5
@@ -358,7 +369,7 @@ class EventNotifier(_MaskEnum):
     HistoryWrite = 3
 
 
-@dataclass(frozen=True)
+@dataclass(slots=True)
 class StatusCode:
     """
     :ivar value:
@@ -369,20 +380,20 @@ class StatusCode:
     :vartype doc: string
     """
 
-    value: UInt32 = status_codes.StatusCodes.Good
+    value: "ua.UInt32" = status_codes.StatusCodes.Good
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if isinstance(self.value, str):
             object.__setattr__(self, "value", getattr(status_codes.StatusCodes, self.value))
 
-    def check(self):
+    def check(self) -> None:
         """
         Raises an exception if the status code is anything else than 0 (good).
         """
         if not self.is_good():
             raise UaStatusCodeError(self.value)
 
-    def is_good(self):
+    def is_good(self) -> bool:
         """
         return True if status is Good (00).
         """
@@ -391,7 +402,7 @@ class StatusCode:
             return True
         return False
 
-    def is_bad(self):
+    def is_bad(self) -> bool:
         """
         https://reference.opcfoundation.org/v104/Core/docs/Part4/7.34.1/
         11   Reserved for future use. All Clients should treat a StatusCode with this severity as “Bad”.
@@ -403,7 +414,7 @@ class StatusCode:
             return True
         return False
 
-    def is_uncertain(self):
+    def is_uncertain(self) -> bool:
         """
         return True if status is Uncertain (01).
         """
@@ -413,12 +424,12 @@ class StatusCode:
         return False
 
     @property
-    def name(self):
+    def name(self) -> str:
         name, _ = status_codes.get_name_and_doc(self.value)
         return name
 
     @property
-    def doc(self):
+    def doc(self) -> str:
         _, doc = status_codes.get_name_and_doc(self.value)
         return doc
 
@@ -432,10 +443,7 @@ class NodeIdType(IntEnum):
     ByteString = 5
 
 
-_NodeIdType = NodeIdType  # ugly hack
-
-
-@dataclass(frozen=True, eq=False, order=False)
+@dataclass(eq=False, order=False, slots=True)
 class NodeId:
     """
     NodeId Object
@@ -457,11 +465,11 @@ class NodeId:
     :vartype ServerIndex: Int
     """
 
-    Identifier: Union[Int32, String, Guid, ByteString] = 0
-    NamespaceIndex: Int16 = 0
-    NodeIdType: _NodeIdType = None
+    Identifier: "ua.Int32 | ua.String | ua.Guid | ua.ByteString" = 0
+    NamespaceIndex: "ua.Int16" = 0
+    NodeIdType: "ua.NodeIdType" = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.NodeIdType is None:
             if isinstance(self.Identifier, int):
                 if self.Identifier < 255 and self.NamespaceIndex == 0:
@@ -481,7 +489,7 @@ class NodeId:
         else:
             self.check_identifier_type_compatibility()
 
-    def check_identifier_type_compatibility(self):
+    def check_identifier_type_compatibility(self) -> None:
         """
         Check whether the given identifier can be interpreted as the given node identifier type.
         """
@@ -495,23 +503,23 @@ class NodeId:
             if isinstance(self.Identifier, identifier) and self.NodeIdType in valid_node_types:
                 return
         raise UaError(
-            f"NodeId of type {self.NodeIdType.name} has an incompatible identifier {self.Identifier} of type {type(self.Identifier)}"
+            f"NodeId of type {self.NodeIdType.name} has an incompatible identifier {self.Identifier!r} of type {type(self.Identifier)}"
         )
 
-    def __eq__(self, node):
+    def __eq__(self, node: object) -> bool:
         return (
             isinstance(node, NodeId)
             and self.NamespaceIndex == node.NamespaceIndex
             and self.Identifier == node.Identifier
         )
 
-    def __ne__(self, other):
+    def __ne__(self, other: object) -> bool:
         return not self.__eq__(other)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((self.NamespaceIndex, self.Identifier))
 
-    def __lt__(self, other):
+    def __lt__(self, other: object) -> bool:
         if not isinstance(other, NodeId):
             raise AttributeError("Can only compare to NodeId")
         return (self.NodeIdType, self.NamespaceIndex, self.Identifier) < (
@@ -520,27 +528,29 @@ class NodeId:
             other.Identifier,
         )
 
-    def is_null(self):
+    def is_null(self) -> bool:
         if self.NamespaceIndex != 0:
             return False
         return self.has_null_identifier()
 
-    def has_null_identifier(self):
+    def has_null_identifier(self) -> bool:
         if not self.Identifier:
             return True
-        if self.NodeIdType is NodeIdType.Guid and self.Identifier.int == 0:
-            return True
+        if self.NodeIdType is NodeIdType.Guid:
+            if not isinstance(self.Identifier, uuid.UUID):
+                raise ValueError(f"Expected Guid, got {type(self.Identifier)}")
+            return self.Identifier.int == 0
         return False
 
     @staticmethod
-    def from_string(string):
+    def from_string(string: str) -> NodeId:
         try:
             return NodeId._from_string(string)
         except ValueError as ex:
             raise UaStringParsingError(f"Error parsing string {string}", ex) from ex
 
     @staticmethod
-    def _from_string(string):
+    def _from_string(string: str) -> NodeId:
         elements = string.split(";")
         identifier = None
         namespace = 0
@@ -590,7 +600,7 @@ class NodeId:
             return ExpandedNodeId(identifier, namespace, ntype, NamespaceUri=nsu, ServerIndex=srv)
         return NodeId(identifier, namespace, ntype)
 
-    def to_string(self):
+    def to_string(self) -> str:
         string = []
         if self.NamespaceIndex != 0:
             string.append(f"ns={self.NamespaceIndex}")
@@ -609,18 +619,18 @@ class NodeId:
         elif self.NodeIdType == NodeIdType.ByteString:
             ntype = "b"
             identifier = b64encode(identifier).decode("ascii")
-        string.append(f"{ntype}={identifier}")
+        string.append(f"{ntype}={identifier!s}")
         return ";".join(string)
 
-    def to_binary(self):
+    def to_binary(self) -> bytes | bytearray:
         import asyncua
 
         return asyncua.ua.ua_binary.nodeid_to_binary(self)
 
 
-@dataclass(frozen=True, eq=False, order=False)
+@dataclass(eq=False, order=False, slots=True)
 class TwoByteNodeId(NodeId):
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         object.__setattr__(self, "NodeIdType", NodeIdType.TwoByte)
         if not isinstance(self.Identifier, int):
             raise ValueError(f"{self.__class__.__name__} Identifier must be int")
@@ -630,9 +640,9 @@ class TwoByteNodeId(NodeId):
             raise ValueError(f"{self.__class__.__name__}  cannot have NamespaceIndex != 0")
 
 
-@dataclass(frozen=True, eq=False, order=False)
+@dataclass(eq=False, order=False, slots=True)
 class FourByteNodeId(NodeId):
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         object.__setattr__(self, "NodeIdType", NodeIdType.FourByte)
         if not isinstance(self.Identifier, int):
             raise ValueError(f"{self.__class__.__name__} Identifier must be int")
@@ -642,46 +652,46 @@ class FourByteNodeId(NodeId):
             raise ValueError(f"{self.__class__.__name__} cannot have NamespaceIndex != 0")
 
 
-@dataclass(frozen=True, eq=False, order=False)
+@dataclass(eq=False, order=False, slots=True)
 class NumericNodeId(NodeId):
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         object.__setattr__(self, "NodeIdType", NodeIdType.Numeric)
         if not isinstance(self.Identifier, int):
             raise ValueError(f"{self.__class__.__name__} Identifier must be int")
 
 
-@dataclass(frozen=True, eq=False, order=False)
+@dataclass(eq=False, order=False, slots=True)
 class ByteStringNodeId(NodeId):
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         object.__setattr__(self, "NodeIdType", NodeIdType.ByteString)
         if not isinstance(self.Identifier, bytes):
             raise ValueError(f"{self.__class__.__name__} Identifier must be bytes")
 
 
-@dataclass(frozen=True, eq=False, order=False)
+@dataclass(eq=False, order=False, slots=True)
 class GuidNodeId(NodeId):
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         object.__setattr__(self, "NodeIdType", NodeIdType.Guid)
         if not isinstance(self.Identifier, uuid.UUID):
             raise ValueError(f"{self.__class__.__name__} Identifier must be uuid")
 
 
-@dataclass(frozen=True, eq=False, order=False)
+@dataclass(eq=False, order=False, slots=True)
 class StringNodeId(NodeId):
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         object.__setattr__(self, "NodeIdType", NodeIdType.String)
         if not isinstance(self.Identifier, str):
             raise ValueError(f"{self.__class__.__name__} Identifier must be string")
 
 
-@dataclass(frozen=True, eq=False, order=False)
+@dataclass(eq=False, order=False, slots=True)
 class ExpandedNodeId(NodeId):
-    NamespaceUri: Optional[String] = field(default=None, compare=True)
+    NamespaceUri: String | None = field(default=None, compare=True)
     ServerIndex: Int32 = field(default=0, compare=True)
 
-    def to_string(self):
-        string = NodeId.to_string(self)
-        string = [string]
+    def to_string(self) -> str:
+        nid_string = NodeId.to_string(self)
+        string = [nid_string]
         if self.ServerIndex:
             string.append(f"srv={self.ServerIndex}")
         if self.NamespaceUri:
@@ -689,30 +699,30 @@ class ExpandedNodeId(NodeId):
         return ";".join(string)
 
 
-@dataclass(frozen=True, init=False, order=True)
+@dataclass(init=False, order=True, slots=True)
 class QualifiedName:
     """
     A string qualified with a namespace index.
     """
 
-    NamespaceIndex: UInt16 = 0
-    Name: String = ""
+    NamespaceIndex: "ua.Int16" = 0
+    Name: "ua.String" = ""
 
-    def __init__(self, Name=None, NamespaceIndex=0):
+    def __init__(self, Name: str | None = None, NamespaceIndex: int = 0) -> None:
         object.__setattr__(self, "Name", Name)
         object.__setattr__(self, "NamespaceIndex", NamespaceIndex)
         if isinstance(self.NamespaceIndex, str) and isinstance(self.Name, int):
             # originally the order or argument was inversed, try to support it
             _logger.warning("QualifiedName are str, int, while int, str is expected, switching")
 
-        if not isinstance(self.NamespaceIndex, int) or not isinstance(self.Name, (str, type(None))):
+        if not isinstance(self.NamespaceIndex, int) or not isinstance(self.Name, str | type(None)):
             raise ValueError(f"QualifiedName constructor args have wrong types, {self}")
 
-    def to_string(self):
+    def to_string(self) -> str:
         return f"{self.NamespaceIndex}:{self.Name}"
 
     @staticmethod
-    def from_string(string, default_idx=0):
+    def from_string(string: str, default_idx: int = 0) -> QualifiedName:
         if ":" in string:
             try:
                 idx, name = string.split(":", 1)
@@ -742,10 +752,10 @@ class RelativePathElement:
 
     data_type = NodeId(537)
 
-    ReferenceTypeId: NodeId = field(default_factory=NodeId)
-    IsInverse: Boolean = True
-    IncludeSubtypes: Boolean = True
-    TargetName: QualifiedName = field(default_factory=QualifiedName)
+    ReferenceTypeId: "ua.NodeId" = field(default_factory=NodeId)
+    IsInverse: "ua.Boolean" = True
+    IncludeSubtypes: "ua.Boolean" = True
+    TargetName: "ua.QualifiedName" = field(default_factory=QualifiedName)
 
 
 @dataclass(frozen=False)
@@ -759,10 +769,10 @@ class RelativePath:
 
     data_type = NodeId(540)
 
-    Elements: List[RelativePathElement] = field(default_factory=list)
+    Elements: "list[ua.RelativePathElement]" = field(default_factory=list)
 
     @staticmethod
-    def from_string(string: str):
+    def from_string(string: str) -> RelativePath:
         from asyncua.ua.relative_path import RelativePathFormatter
 
         return RelativePathFormatter.parse(string).build()
@@ -774,20 +784,21 @@ class RelativePath:
         return RelativePathFormatter(self).to_string()
 
 
-@dataclass(frozen=True, init=False)
+@dataclass(init=False, slots=True)
 class LocalizedText:
     """
     A string qualified with a namespace index.
     """
 
-    Encoding: Byte = field(default=0, repr=False, init=False, compare=False)
-    Locale: Optional[String] = None
-    Text: Optional[String] = None
+    Encoding: "ua.Byte" = field(default=0, repr=False, init=False, compare=False)
+    Locale: "ua.String| None" = None
+    Text: "ua.String | None" = None
 
-    def __init__(self, Text=None, Locale=None):
+    def __init__(self, Text: str | None = None, Locale: str | None = None) -> None:
         # need to write init method since args ar inverted in original implementation
         object.__setattr__(self, "Text", Text)
         object.__setattr__(self, "Locale", Locale)
+        object.__setattr__(self, "Encoding", 0)
 
         if self.Text is not None:
             if not isinstance(self.Text, str):
@@ -802,11 +813,11 @@ class LocalizedText:
                     f" not a {type(self.Locale)}, {self.Locale}"
                 )
 
-    def to_string(self):
+    def to_string(self) -> str:
         return self.__str__()
 
     @staticmethod
-    def from_string(string):
+    def from_string(string: str) -> LocalizedText:
         m = re.match(r"^LocalizedText\(Locale='(.*)', Text='(.*)'\)$", string)
         if m:
             text = m.group(2) if m.group(2) != str(None) else None
@@ -826,11 +837,11 @@ class ExtensionObject:
     :vartype Body: bytes
     """
 
-    TypeId: NodeId = NodeId()
-    Encoding: Byte = field(default=0, repr=False, init=False, compare=False)
-    Body: Optional[ByteString] = None
+    TypeId: "ua.NodeId" = field(default_factory=NodeId)
+    Encoding: "ua.Byte" = field(default=0, repr=False, init=False, compare=False)
+    Body: "ua.ByteString | None" = None
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return self.Body is not None
 
 
@@ -902,25 +913,28 @@ class VariantTypeCustom:
     variants can only be of VariantType
     """
 
-    def __init__(self, val):
+    def __init__(self, val: int) -> None:
         self.name = "Custom"
         self.value = val
         if self.value > 0b00111111:
             raise UaError(f"Cannot create VariantType. VariantType must be {0b111111} > x > {25}, received {val}")
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"VariantType.Custom:{self.value}"
 
     __repr__ = __str__
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return isinstance(other, type(self)) and self.value == other.value
 
     def __hash__(self) -> int:
         return self.value.__hash__()
 
 
-@dataclass(frozen=True)
+_VariantTypeUnion = VariantType | VariantTypeCustom
+
+
+@dataclass(slots=True)
 class Variant:
     """
     Create an OPC-UA Variant object.
@@ -940,13 +954,13 @@ class Variant:
 
     # FIXME: typing is wrong here
     Value: Any = None
-    VariantType: "VariantType" = None
-    Dimensions: Optional[List[Int32]] = None
-    is_array: Optional[bool] = None
+    VariantType: "ua.VariantType" = None
+    Dimensions: "list[ua.Int32]" | None = None
+    is_array: bool | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.is_array is None:
-            if isinstance(self.Value, (list, tuple)) or self.Dimensions:
+            if isinstance(self.Value, list | tuple) or self.Dimensions:
                 object.__setattr__(self, "is_array", True)
             else:
                 object.__setattr__(self, "is_array", False)
@@ -955,7 +969,7 @@ class Variant:
             object.__setattr__(self, "VariantType", self.Value.VariantType)
             object.__setattr__(self, "Value", self.Value.Value)
 
-        if not isinstance(self.VariantType, (VariantType, VariantTypeCustom)):
+        if not isinstance(self.VariantType, VariantType | VariantTypeCustom):
             if self.VariantType is None:
                 object.__setattr__(self, "VariantType", self._guess_type(self.Value))
             else:
@@ -978,24 +992,24 @@ class Variant:
             ):
                 raise UaError(f"Non array Variant of type {self.VariantType} cannot have value None")
 
-        if self.Dimensions is None and isinstance(self.Value, (list, tuple)):
+        if self.Dimensions is None and isinstance(self.Value, list | tuple):
             dims = get_shape(self.Value)
             if len(dims) > 1:
                 object.__setattr__(self, "Dimensions", dims)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, Variant) and self.VariantType == other.VariantType and self.Value == other.Value:
             return True
         return False
 
-    def __ne__(self, other):
+    def __ne__(self, other: object) -> bool:
         return not self.__eq__(other)
 
-    def _guess_type(self, val):
+    def _guess_type(self, val: Any) -> _VariantTypeUnion:
         error_val = None
-        if isinstance(val, (list, tuple)):
+        if isinstance(val, list | tuple):
             error_val = val
-        while isinstance(val, (list, tuple)):
+        while isinstance(val, list | tuple):
             if len(val) == 0:
                 raise UaError(f"could not guess UA type of variable {error_val}")
             val = val[0]
@@ -1030,9 +1044,9 @@ class Variant:
         raise UaError(f"Could not guess UA type of {val} with type {type(val)}, specify UA type")
 
 
-def flatten_and_get_shape(mylist):
+def flatten_and_get_shape(mylist: list[Any]) -> tuple[list[Any], list[int]]:
     dims = [len(mylist)]
-    while isinstance(mylist[0], (list, tuple)):
+    while isinstance(mylist[0], list | tuple):
         dims.append(len(mylist[0]))
         mylist = [item for sublist in mylist for item in sublist]
         if len(mylist) == 0:
@@ -1040,21 +1054,21 @@ def flatten_and_get_shape(mylist):
     return mylist, dims
 
 
-def flatten(mylist):
+def flatten(mylist: list[Any] | None) -> list[Any] | None:
     if mylist is None:
         return None
     if len(mylist) == 0:
         return mylist
-    while isinstance(mylist[0], (list, tuple)):
+    while isinstance(mylist[0], list | tuple):
         mylist = [item for sublist in mylist for item in sublist]
         if len(mylist) == 0:
             break
     return mylist
 
 
-def get_shape(mylist):
-    dims = []
-    while isinstance(mylist, (list, tuple)):
+def get_shape(mylist: Any) -> list[int]:
+    dims: list[int] = []
+    while isinstance(mylist, list | tuple):
         dims.append(len(mylist))
         if len(mylist) == 0:
             break
@@ -1069,7 +1083,7 @@ UInteger = Variant
 Integer = Variant
 
 
-@dataclass(frozen=True)
+@dataclass(slots=True)
 class DataValue:
     """
     A value with an associated timestamp, and quality.
@@ -1077,7 +1091,7 @@ class DataValue:
 
     :ivar Value:
     :vartype Value: Variant
-    :ivar StatusCode_:
+    :ivar StatusCode:
     :vartype StatusCode: StatusCode
     :ivar SourceTimestamp:
     :vartype SourceTimestamp: datetime
@@ -1091,28 +1105,22 @@ class DataValue:
 
     data_type = NodeId(Int32(ObjectIds.DataValue))
 
-    Encoding: Byte = field(default=0, repr=False, init=False, compare=False)
-    Value: Optional[Variant] = None
-    StatusCode_: Optional[StatusCode] = field(default_factory=StatusCode)
-    SourceTimestamp: Optional[DateTime] = (
-        None  # FIXME type DateType raises type hinting errors because datetime is assigned
-    )
-    ServerTimestamp: Optional[DateTime] = None
-    SourcePicoseconds: Optional[UInt16] = None
-    ServerPicoseconds: Optional[UInt16] = None
+    Encoding: "ua.Byte" = field(default=0, repr=False, init=False, compare=False)
+    Value: "ua.Variant | None" = None
+    StatusCode: "ua.StatusCode | None" = field(default_factory=StatusCode)
+    SourceTimestamp: "ua.DateTime | None" = None
+    ServerTimestamp: "ua.DateTime | None" = None
+    SourcePicoseconds: "ua.UInt16 | None" = None
+    ServerPicoseconds: "ua.UInt16 | None" = None
 
     def __post_init__(
         self,
-    ):
+    ) -> None:
         if not isinstance(self.Value, Variant):
             object.__setattr__(self, "Value", Variant(self.Value))
 
-    @property
-    def StatusCode(self):
-        return self.StatusCode_
 
-
-@dataclass(frozen=True)
+@dataclass(slots=True)
 class DiagnosticInfo:
     """
     A recursive structure containing diagnostic information associated with a status code.
@@ -1138,17 +1146,17 @@ class DiagnosticInfo:
 
     data_type = NodeId(25)
 
-    Encoding: Byte = field(default=0, repr=False, init=False, compare=False)
-    SymbolicId: Optional[Int32] = None
-    NamespaceURI: Optional[Int32] = None
-    Locale: Optional[Int32] = None
-    LocalizedText: Optional[Int32] = None
-    AdditionalInfo: Optional[String] = None
-    InnerStatusCode: Optional[StatusCode] = None
-    InnerDiagnosticInfo: Optional[ExtensionObject] = None
+    Encoding: "ua.Byte" = field(default=0, repr=False, init=False, compare=False)
+    SymbolicId: "ua.Int32 | None" = None
+    NamespaceURI: "ua.Int32 | None" = None
+    Locale: "ua.Int32 | None" = None
+    LocalizedText: "ua.Int32 | None" = None
+    AdditionalInfo: "ua.String | None" = None
+    InnerStatusCode: "ua.StatusCode | None" = None
+    InnerDiagnosticInfo: "ua.ExtensionObject | None" = None
 
 
-def datatype_to_varianttype(int_type):
+def datatype_to_varianttype(int_type: int | NodeId) -> VariantType | VariantTypeCustom:
     """
     Takes a NodeId or int and return a VariantType
     This is only supported if int_type < 63 due to VariantType encoding
@@ -1157,13 +1165,15 @@ def datatype_to_varianttype(int_type):
     """
     if isinstance(int_type, NodeId):
         int_type = int_type.Identifier
+    if not isinstance(int_type, int):
+        raise UaError(f"Expected int type for VariantType, got {type(int_type)}")
 
     if int_type <= 25:
         return VariantType(int_type)
     return VariantTypeCustom(int_type)
 
 
-def get_default_value(vtype):
+def get_default_value(vtype: VariantType) -> Any:
     """
     Given a variant type return default value for this type
     """
@@ -1206,49 +1216,70 @@ def get_default_value(vtype):
     raise RuntimeError(f"function take a uatype as argument, got: {vtype}")
 
 
-basetype_by_datatype = {}
-basetype_datatypes = {}
+basetype_by_datatype: dict[NodeId, str] = {}
+basetype_datatypes: dict[type, NodeId] = {}
+
+
+def _set_ua_attribute(name: str, class_type: type, data_type: NodeId | None) -> None:
+    import asyncua.ua as _ua
+
+    existing = getattr(_ua, name, None)
+    if existing is None:
+        setattr(_ua, name, class_type)
+        return
+    if existing is class_type:
+        return
+    existing_dt = getattr(existing, "data_type", None)
+    if existing_dt is not None and data_type is not None and existing_dt == data_type:
+        return
+    _logger.warning(
+        "Browsename collision: ua.%s is already bound (data_type=%s); new class with data_type=%s "
+        "is registered only in the NodeId-keyed lookup dicts. Use ua.get_type(node_id) or "
+        "ua.extension_objects_by_datatype[node_id] to access it.",
+        name,
+        existing_dt,
+        data_type,
+    )
 
 
 # register of alias of basetypes
-def register_basetype(name, nodeid, class_type):
+def register_basetype(name: str, nodeid: NodeId, class_type: type) -> None:
     """
     Register a new alias of basetypes for automatic decoding and make them available in ua module
     """
     _logger.info("registering new basetype alias: %s %s %s", name, nodeid, class_type)
     basetype_by_datatype[nodeid] = name
     basetype_datatypes[class_type] = nodeid
-    import asyncua.ua
-
-    setattr(asyncua.ua, name, class_type)
+    _set_ua_attribute(name, class_type, None)
 
 
 # register of custom enums (Those loaded with load_enums())
-enums_by_datatype = {}
-enums_datatypes = {}
+enums_by_datatype: dict[NodeId, type] = {}
+enums_datatypes: dict[type, NodeId] = {}
 
 
-def register_enum(name, nodeid, class_type):
+def register_enum(name: str, nodeid: NodeId, class_type: type) -> None:
     """
     Register a new enum for automatic decoding and make them available in ua module
     """
     _logger.info("registering new enum: %s %s %s", name, nodeid, class_type)
     enums_by_datatype[nodeid] = class_type
     enums_datatypes[class_type] = nodeid
-    import asyncua.ua
-
-    setattr(asyncua.ua, name, class_type)
+    class_type.data_type = nodeid  # type: ignore[attr-defined]
+    _set_ua_attribute(name, class_type, nodeid)
 
 
 # These dictionaries are used to register extensions classes for automatic
 # decoding and encoding
-extension_objects_by_datatype = {}  # Dict[Datatype, type]
-extension_objects_by_typeid = {}  # Dict[EncodingId, type]
-extension_object_typeids = {}
-datatype_by_extension_object = {}
+extension_objects_by_datatype: dict[NodeId, type] = {}
+extension_objects_by_typeid: dict[NodeId, type] = {}
+datatype_by_extension_object: dict[type, NodeId] = {}
+typeid_by_extension_objects: dict[type, NodeId] = {}
 
 
-def register_extension_object(name, encoding_nodeid, class_type, datatype_nodeid=None):
+def register_extension_object(
+    name: str, encoding_nodeid: NodeId, class_type: type, datatype_nodeid: NodeId | None = None
+) -> None:
     """
     Register a new extension object for automatic decoding and make them available in ua module
     """
@@ -1263,15 +1294,29 @@ def register_extension_object(name, encoding_nodeid, class_type, datatype_nodeid
         extension_objects_by_datatype[datatype_nodeid] = class_type
         datatype_by_extension_object[class_type] = datatype_nodeid
     extension_objects_by_typeid[encoding_nodeid] = class_type
-    extension_object_typeids[name] = encoding_nodeid
-    # FIXME: Next line is not exactly a Python best practices, so feel free to propose something else
-    # add new extensions objects to ua modules to automate decoding
-    import asyncua.ua
-
-    setattr(asyncua.ua, name, class_type)
+    typeid_by_extension_objects[class_type] = encoding_nodeid
+    _set_ua_attribute(name, class_type, datatype_nodeid)
 
 
-def get_extensionobject_class_type(typeid):
+def get_type(node_id: NodeId) -> type:
+    """
+    Resolve a DataType NodeId to its registered Python class.
+
+    Checks struct, enum, and basetype registries. This is the authoritative lookup
+    when browsenames collide across namespaces.
+    """
+    if node_id in extension_objects_by_datatype:
+        return extension_objects_by_datatype[node_id]
+    if node_id in enums_by_datatype:
+        return enums_by_datatype[node_id]
+    if node_id in basetype_by_datatype:
+        import asyncua.ua as _ua
+
+        return getattr(_ua, basetype_by_datatype[node_id])
+    raise KeyError(f"No registered type for DataType {node_id}")
+
+
+def get_extensionobject_class_type(typeid: NodeId) -> type | None:
     """
     Returns the registered class type for typid of an extension object
     """

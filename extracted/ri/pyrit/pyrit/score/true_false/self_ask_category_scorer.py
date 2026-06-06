@@ -9,9 +9,8 @@ import yaml
 
 from pyrit.common import verify_and_resolve_path
 from pyrit.common.path import SCORER_CONTENT_CLASSIFIERS_PATH
-from pyrit.identifiers import ComponentIdentifier
-from pyrit.models import MessagePiece, Score, SeedPrompt, UnvalidatedScore
-from pyrit.prompt_target import PromptChatTarget
+from pyrit.models import ComponentIdentifier, MessagePiece, Score, SeedPrompt, UnvalidatedScore
+from pyrit.prompt_target import CHAT_TARGET_REQUIREMENTS, PromptTarget
 from pyrit.score.scorer_prompt_validator import ScorerPromptValidator
 from pyrit.score.true_false.true_false_score_aggregator import (
     TrueFalseAggregatorFunc,
@@ -36,12 +35,13 @@ class SelfAskCategoryScorer(TrueFalseScorer):
     There is also a false category that is used if the MessagePiece does not fit any of the categories.
     """
 
-    _DEFAULT_VALIDATOR: ScorerPromptValidator = ScorerPromptValidator()
+    _DEFAULT_VALIDATOR: ScorerPromptValidator = ScorerPromptValidator(supported_data_types=["text"])
+    TARGET_REQUIREMENTS = CHAT_TARGET_REQUIREMENTS
 
     def __init__(
         self,
         *,
-        chat_target: PromptChatTarget,
+        chat_target: PromptTarget,
         content_classifier_path: Union[str, Path],
         score_aggregator: TrueFalseAggregatorFunc = TrueFalseScoreAggregator.OR,
         validator: Optional[ScorerPromptValidator] = None,
@@ -50,13 +50,17 @@ class SelfAskCategoryScorer(TrueFalseScorer):
         Initialize a new instance of the SelfAskCategoryScorer class.
 
         Args:
-            chat_target (PromptChatTarget): The chat target to interact with.
+            chat_target (PromptTarget): The chat target to interact with.
             content_classifier_path (Union[str, Path]): The path to the classifier YAML file.
             score_aggregator (TrueFalseAggregatorFunc): The aggregator function to use.
                 Defaults to TrueFalseScoreAggregator.OR.
             validator (Optional[ScorerPromptValidator]): Custom validator. Defaults to None.
         """
-        super().__init__(score_aggregator=score_aggregator, validator=validator or self._DEFAULT_VALIDATOR)
+        super().__init__(
+            score_aggregator=score_aggregator,
+            validator=validator or self._DEFAULT_VALIDATOR,
+            chat_target=chat_target,
+        )
 
         self._prompt_target = chat_target
 
@@ -88,7 +92,7 @@ class SelfAskCategoryScorer(TrueFalseScorer):
         return self._create_identifier(
             params={
                 "system_prompt_template": self._system_prompt,
-                "score_aggregator": self._score_aggregator.__name__,
+                "score_aggregator": self._score_aggregator.__name__,  # type: ignore[ty:unresolved-attribute]
             },
             children={
                 "prompt_target": self._prompt_target.get_identifier(),
@@ -140,7 +144,7 @@ class SelfAskCategoryScorer(TrueFalseScorer):
                          The score_value is True in all cases unless no category fits. In which case,
                          the score value is false and the _false_category is used.
         """
-        unvalidated_score: UnvalidatedScore = await self._score_value_with_llm(
+        unvalidated_score: UnvalidatedScore = await self._score_value_with_llm_async(
             prompt_target=self._prompt_target,
             system_prompt=self._system_prompt,
             message_value=message_piece.converted_value,

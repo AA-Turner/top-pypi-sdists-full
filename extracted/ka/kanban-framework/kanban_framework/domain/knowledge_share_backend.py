@@ -70,6 +70,8 @@ class ShareBackend:
                 from kanban_framework.domain.knowledge_search import _filter_by_biz
                 results = _filter_by_biz(results, biz_context)
             if results:
+                from kanban_framework.domain.knowledge_search import _normalize_relevance
+                _normalize_relevance(results)
                 return results
             return []
         except Exception:
@@ -83,6 +85,8 @@ class ShareBackend:
                 if biz_context is not None:
                     from kanban_framework.domain.knowledge_search import _filter_by_biz
                     results = _filter_by_biz(results, biz_context)
+                from kanban_framework.domain.knowledge_search import _normalize_relevance
+                _normalize_relevance(results)
                 return results
             except Exception:
                 return []
@@ -97,7 +101,12 @@ class ShareBackend:
         return self._search_share(keyword, limit=limit, biz_context=biz_context)
 
     def add_entry(self, **kwargs):
-        """Push entry to shared knowledge base. (#237)"""
+        """Push entry to shared knowledge base. (#237)
+
+        When a same-title+domain entry exists:
+          - force=True: auto-merge (legacy behavior)
+          - force=False (default): return conflict status for manual resolution
+        """
         if not hasattr(self, '_share_conn') or self._share_conn is None:
             raise RuntimeError("Share backend not available")
         import json
@@ -106,6 +115,7 @@ class ShareBackend:
         title = kwargs.get("title", "")
         domain = kwargs.get("domain", "")
         content = kwargs.get("content", "")
+        force = kwargs.pop("force", False)
 
         existing = self._share_conn.execute(
             "SELECT id, content, tags, source FROM entries WHERE title=? AND domain=? AND status='active' LIMIT 1",
@@ -113,6 +123,15 @@ class ShareBackend:
         ).fetchone()
 
         if existing:
+            if not force:
+                return {
+                    "status": "conflict",
+                    "existing_id": existing[0],
+                    "existing_content_preview": (existing[1] or "")[:200],
+                    "incoming_content_preview": content[:200],
+                    "suggested_actions": ["keep_existing", "keep_incoming", "merge_both", "skip"],
+                    "message": "同名条目已存在。使用 --force 强制自动合并，或 --resolve 手动解决。",
+                }
             existing_id = existing[0]
             existing_content = existing[1] or ""
             existing_tags = json.loads(existing[2]) if existing[2] else []
@@ -197,6 +216,77 @@ class ShareBackend:
         self._share_conn.commit()
         return {**kwargs, "id": eid, "source": source}
 
+    def resolve_conflict(self, existing_id: str, action: str,
+                         incoming: dict | None = None,
+                         merged_content: str | None = None) -> dict:
+        """Resolve a conflict on an existing shared entry. (#481)
+
+        Actions:
+          - keep_existing: no change, skip incoming
+          - keep_incoming: replace with incoming content
+          - merge_both: use merged_content parameter
+          - skip: no-op, record the decision
+        """
+        if not hasattr(self, '_share_conn') or self._share_conn is None:
+            raise RuntimeError("Share backend not available")
+        import json
+
+        row = self._share_conn.execute(
+            "SELECT id, title, domain FROM entries WHERE id=? LIMIT 1",
+            (existing_id,),
+        ).fetchone()
+        if not row:
+            raise ValueError(f"entry {existing_id} not found in shared DB")
+
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc).isoformat()
+
+        if action == "skip" or action == "keep_existing":
+            return {"id": existing_id, "action": action, "resolved": True}
+
+        if action == "keep_incoming" and incoming:
+            content = incoming.get("content", "")
+            segmented = ""
+            try:
+                from kanban_framework.domain.knowledge import _get_jieba
+                jieba = _get_jieba()
+                if jieba:
+                    segmented = ' '.join(jieba.cut(row[1] + ' ' + content))
+            except Exception:
+                pass
+            self._share_conn.execute(
+                """UPDATE entries SET content=?, content_segmented=?, code_example=?,
+                   tags=?, severity=?, updated_at=? WHERE id=?""",
+                (content, segmented,
+                 incoming.get("code_example", ""),
+                 json.dumps(incoming.get("tags", [])),
+                 incoming.get("severity", "medium"),
+                 now, existing_id),
+            )
+            self._share_conn.commit()
+            return {"id": existing_id, "action": action, "resolved": True}
+
+        if action == "merge_both" and merged_content:
+            segmented = ""
+            try:
+                from kanban_framework.domain.knowledge import _get_jieba
+                jieba = _get_jieba()
+                if jieba:
+                    segmented = ' '.join(jieba.cut(row[1] + ' ' + merged_content))
+            except Exception:
+                pass
+            tags = incoming.get("tags", []) if incoming else []
+            self._share_conn.execute(
+                """UPDATE entries SET content=?, content_segmented=?,
+                   tags=?, updated_at=? WHERE id=?""",
+                (merged_content, segmented,
+                 json.dumps(tags), now, existing_id),
+            )
+            self._share_conn.commit()
+            return {"id": existing_id, "action": action, "resolved": True}
+
+        raise ValueError(f"invalid action '{action}' or missing parameters")
+
     def list_entries(self, domain=None, category=None, status="active", limit=50, offset=0, biz_context=None):
         if not hasattr(self, '_share_conn') or self._share_conn is None:
             return []
@@ -210,8 +300,8 @@ class ShareBackend:
                 clauses.append("category=?")
                 params.append(category)
             if biz_context:
-                clauses.append("(biz_context IS NULL OR biz_context LIKE ?)")
-                params.append(f"%{biz_context}%")
+                clauses.append("(biz_context IS NULL OR biz_context = ?)")
+                params.append(biz_context)
             where = " AND ".join(clauses)
             params.extend([limit, offset])
             rows = self._share_conn.execute(

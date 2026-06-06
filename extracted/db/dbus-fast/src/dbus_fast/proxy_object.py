@@ -67,6 +67,9 @@ class BaseProxyInterface:
         self.introspection = introspection
         self.bus = bus
         self._signal_handlers: dict[str, list[SignalHandler]] = {}
+        self._signals_by_name: dict[str, intr.Signal] = {}
+        for intr_signal in introspection.signals:
+            self._signals_by_name.setdefault(intr_signal.name, intr_signal)
         self._signal_match_rule = f"type='signal',sender={bus_name},interface={introspection.name},path={path}"
         self._background_tasks: set[asyncio.Task] = set()
 
@@ -102,9 +105,9 @@ class BaseProxyInterface:
 
     def _message_handler(self, msg: Message) -> None:
         if (
-            msg.message_type != MessageType.SIGNAL
+            msg.path != self.path
+            or msg.message_type != MessageType.SIGNAL
             or msg.interface != self.introspection.name
-            or msg.path != self.path
             or msg.member not in self._signal_handlers
         ):
             return
@@ -119,10 +122,9 @@ class BaseProxyInterface:
             # on the bus for this purpose.
             return
 
-        match = [s for s in self.introspection.signals if s.name == msg.member]
-        if not match:
+        intr_signal = self._signals_by_name.get(msg.member)
+        if intr_signal is None:
             return
-        intr_signal = match[0]
         if intr_signal.signature != msg.signature:
             _LOGGER.warning(
                 f'got signal "{self.introspection.name}.{msg.member}" with unexpected signature "{msg.signature}"'
@@ -140,7 +142,7 @@ class BaseProxyInterface:
                 data = body
 
             cb_result = handler.fn(*data)
-            if isinstance(cb_result, Coroutine):
+            if cb_result is not None and isinstance(cb_result, Coroutine):
                 # Save a strong reference to the task so it doesn't get garbage
                 # collected before it finishes.
                 task = asyncio.create_task(cb_result)

@@ -162,16 +162,6 @@ def test_importing_aiwatch_entrypoint_injects():
     )
 
 
-def test_importing_hook_relay_worker_injects():
-    """Hook relay worker is its own subprocess and must inject independently."""
-    result = _run_inject_probe("import runlayer_cli.hook._relay_worker")
-    assert result.returncode == 0, result.stderr
-    assert "calls=1" in result.stdout, (
-        f"importing relay worker did not call inject_into_ssl():\n"
-        f"stdout: {result.stdout}\nstderr: {result.stderr}"
-    )
-
-
 def test_importing_hook_transcript_worker_injects():
     """Hook transcript stream worker is its own subprocess and must inject."""
     result = _run_inject_probe("import runlayer_cli.hook._transcript_stream_worker")

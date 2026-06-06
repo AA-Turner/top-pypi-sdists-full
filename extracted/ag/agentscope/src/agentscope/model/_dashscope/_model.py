@@ -102,8 +102,10 @@ class DashScopeChatModel(ChatModelBase):
         parameters: "DashScopeChatModel.Parameters | None" = None,
         stream: bool = True,
         max_retries: int = 3,
+        retry_delay: float = 1.0,
         context_size: int = 131072,
         formatter: FormatterBase | None = None,
+        client_kwargs: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the DashScope chat model.
 
@@ -120,12 +122,17 @@ class DashScopeChatModel(ChatModelBase):
                 Whether to enable streaming output.
             max_retries (`int`, defaults to `3`):
                 The maximum number of retries for the DashScope API.
+            retry_delay (`float`, defaults to `1.0`):
+                Seconds to sleep between retry attempts.
             context_size (`int`, defaults to `131072`):
                 The model context size used for context compression.
             formatter (`FormatterBase | None`, defaults to `None`):
                 The formatter that converts ``Msg`` objects to the format
                 required by the DashScope API. When ``None``, a
                 ``DashScopeChatFormatter`` instance will be used.
+            client_kwargs (`dict[str, Any] | None`, defaults to `None`):
+                Extra keyword arguments forwarded to ``openai.AsyncClient``
+                (e.g. ``timeout``, ``default_headers``, ``http_client``).
         """
         super().__init__(
             credential=credential,
@@ -133,9 +140,22 @@ class DashScopeChatModel(ChatModelBase):
             parameters=parameters or self.Parameters(),
             stream=stream,
             max_retries=max_retries,
+            retry_delay=retry_delay,
             context_size=context_size,
         )
         self.formatter = formatter or DashScopeChatFormatter()
+        self.client_kwargs = client_kwargs or {}
+
+    @classmethod
+    def _get_retryable_exceptions(cls) -> tuple[Type[Exception], ...]:
+        import openai
+
+        return (
+            openai.APIConnectionError,
+            openai.APITimeoutError,
+            openai.RateLimitError,
+            openai.InternalServerError,
+        )
 
     async def _call_api(
         self,
@@ -164,8 +184,11 @@ class DashScopeChatModel(ChatModelBase):
         import openai
 
         client = openai.AsyncClient(
-            api_key=self.credential.api_key.get_secret_value(),
-            base_url=self.credential.base_url,
+            **{
+                "api_key": self.credential.api_key.get_secret_value(),
+                "base_url": self.credential.base_url,
+                **self.client_kwargs,
+            },
         )
 
         formatted_messages = await self.formatter.format(messages)
@@ -533,6 +556,8 @@ class DashScopeChatModel(ChatModelBase):
         default ``tool_choice`` to ``"auto"`` and rely on the base class's
         injected system-reminder prompt to guide the model. When thinking
         is disabled, this falls through to the base implementation.
+
+        See: https://help.aliyun.com/en/model-studio/qwen-function-calling
 
         Args:
             model_name (`str`):

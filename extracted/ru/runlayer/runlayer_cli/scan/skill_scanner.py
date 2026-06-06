@@ -38,6 +38,7 @@ _GLOBAL_SKILL_DIRS: list[tuple[str, str]] = [
     (".skillport/skills", "skillport"),
     (".copilot/skills", "github_copilot_cli"),
     (".cline/skills", "cline"),
+    (".warp/skills", "warp"),
 ]
 
 # Home-level dot-directories → tool identifier for user-scope skills
@@ -52,6 +53,7 @@ _HOME_CLIENT_TOOL_MAP: dict[str, str] = {
     ".skillport": "skillport",
     ".copilot": "github_copilot_cli",
     ".cline": "cline",
+    ".warp": "warp",
 }
 
 # ---------------------------------------------------------------------------

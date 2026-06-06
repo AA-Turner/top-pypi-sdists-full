@@ -1079,6 +1079,7 @@ def init(
     # exact prior behavior. A bare `init` on a TTY is guided.
     from efterlev.cli.first_run_wizard import is_interactive as _is_tty
     from efterlev.config import (
+        DEFAULT_BEDROCK_OPENAI_MODEL,
         DEFAULT_FALLBACK_MODEL,
         DEFAULT_OPENAI_MODEL,
         BoundaryConfig,
@@ -1109,17 +1110,21 @@ def init(
 
     # Typer-level validation: fail fast on obvious CLI mistakes before
     # Pydantic's model_validator catches the same thing at config construction.
-    if llm_backend not in ("anthropic", "bedrock", "claude_code", "openai"):
+    if llm_backend not in ("anthropic", "bedrock", "claude_code", "openai", "bedrock_openai"):
         typer.echo(
             f"error: --llm-backend must be 'anthropic', 'bedrock', "
-            f"'claude_code', or 'openai', got {llm_backend!r}",
+            f"'claude_code', 'openai', or 'bedrock_openai', got {llm_backend!r}",
             err=True,
         )
         raise typer.Exit(code=2)
-    if llm_backend == "bedrock" and not llm_region:
+    if llm_backend in ("bedrock", "bedrock_openai") and not llm_region:
+        hint = (
+            "'us-gov-west-1' or 'us-east-1'"
+            if llm_backend == "bedrock"
+            else "'us-east-2' or 'us-west-2' (commercial only at launch)"
+        )
         typer.echo(
-            "error: --llm-region is required when --llm-backend=bedrock "
-            "(e.g. 'us-gov-west-1' or 'us-east-1')",
+            f"error: --llm-region is required when --llm-backend={llm_backend} (e.g. {hint})",
             err=True,
         )
         raise typer.Exit(code=2)
@@ -1221,6 +1226,12 @@ def init(
         # validated set (v0.1.213). Pass --llm-model to override (e.g. gpt-5
         # for the safer under-classification failure mode).
         configured_model = DEFAULT_OPENAI_MODEL
+    elif llm_backend == "bedrock_openai" and not llm_model:
+        # Same rationale as openai: the per-agent Claude defaults are invalid
+        # on the Mantle endpoint, so pin the validated default (gpt-5.5; see
+        # config.DEFAULT_BEDROCK_OPENAI_MODEL). Pass --llm-model openai.gpt-5.4
+        # for the alternative.
+        configured_model = DEFAULT_BEDROCK_OPENAI_MODEL
     else:
         configured_model = llm_model
     # v0.1.175 / #381: the prior "Opus is free upside on subscription"
@@ -1231,7 +1242,9 @@ def init(
     # a Claude fallback would 404, so disable it — the client's 3-attempt
     # within-provider retry covers transients, and the factory drops any
     # non-OpenAI fallback as a backstop.
-    fallback_model_for_backend = "" if llm_backend == "openai" else DEFAULT_FALLBACK_MODEL
+    fallback_model_for_backend = (
+        "" if llm_backend in ("openai", "bedrock_openai") else DEFAULT_FALLBACK_MODEL
+    )
     llm_config = LLMConfig(
         backend=llm_backend,  # type: ignore[arg-type]
         model=configured_model,

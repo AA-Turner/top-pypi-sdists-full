@@ -8,7 +8,7 @@ use gam::estimate::{
     saved_mixture_state_from_fit, saved_sas_state_from_fit,
 };
 use gam::faer_ndarray::{
-    FaerCholesky, array2_to_matmut, factorize_symmetricwith_fallback, fast_ata, fast_atb,
+    FaerCholesky, FaerSvd, array2_to_matmut, factorize_symmetricwith_fallback, fast_ata, fast_atb,
     fast_xt_diag_x,
 };
 use gam::families::inverse_link::apply_inverse_link_vec;
@@ -140,7 +140,7 @@ use pyo3::IntoPyObjectExt;
 type PyObject = pyo3::Py<pyo3::PyAny>;
 use pyo3::exceptions::{PyKeyError, PyNotImplementedError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyBytes, PyDict, PyFloat, PyList, PyString, PyTuple};
+use pyo3::types::{PyAny, PyBytes, PyDict, PyFloat, PyList, PyString, PyTuple, PyType};
 use rayon::prelude::*;
 use regex::Regex;
 use serde::de::{MapAccess, Visitor};
@@ -193,7 +193,7 @@ struct PyFitConfig {
     noise_offset: Option<String>,
 
     firth: Option<bool>,
-    robust_identification: Option<String>,
+    outer_max_iter: Option<usize>,
     gpu: Option<String>,
     device: Option<String>,
 
@@ -1236,6 +1236,15 @@ fn estimation_error_to_pyerr(err: EstimationError) -> PyErr {
         EstimationError::PerfectSeparationDetected { .. } => {
             PerfectSeparationError::new_err(message)
         }
+        EstimationError::PrefitPerfectSeparationDetected { .. } => {
+            PerfectSeparationError::new_err(message)
+        }
+        EstimationError::PrefitLinearSeparationDetected { .. } => {
+            PerfectSeparationError::new_err(message)
+        }
+        EstimationError::MultinomialSeparationDetected { .. } => {
+            PerfectSeparationError::new_err(message)
+        }
         EstimationError::HessianNotPositiveDefinite { .. } => {
             HessianNotPositiveDefiniteError::new_err(message)
         }
@@ -1243,6 +1252,9 @@ fn estimation_error_to_pyerr(err: EstimationError) -> PyErr {
         EstimationError::GradientUnavailable { .. } => GradientUnavailableError::new_err(message),
         EstimationError::LayoutError(_) => LayoutError::new_err(message),
         EstimationError::ModelOverparameterized { .. } => {
+            ModelOverparameterizedError::new_err(message)
+        }
+        EstimationError::PrefitRankDeficientDesignDetected { .. } => {
             ModelOverparameterizedError::new_err(message)
         }
         EstimationError::ModelIsIllConditioned { .. } => IllConditionedError::new_err(message),
@@ -4982,7 +4994,7 @@ fn ordered_prediction_columns(columns_json: &str) -> PyResult<String> {
 ///  ]}
 /// ```
 /// Output JSON: `{"ranked": [...], "winner_index": 0}` with entries sorted
-/// descending by `tk_score`.
+/// ascending by `tk_score`.
 #[pyfunction]
 fn rank_topology_candidates(evidence_json: &str) -> PyResult<String> {
     #[derive(Deserialize)]
@@ -5024,39 +5036,56 @@ fn rank_topology_candidates(evidence_json: &str) -> PyResult<String> {
             "rank_topology_candidates: at least one candidate is required".to_string(),
         ));
     }
-    let mut ranked: Vec<serde_json::Value> = Vec::with_capacity(bundle.candidates.len());
-    for entry in &bundle.candidates {
-        let tk = gam::solver::topology_selector::tk_normalized_score(
-            entry.raw_reml,
-            entry.null_dim,
-            entry.null_space_logdet,
-            entry.effective_dim,
-            entry.n_obs,
-            score_scale,
-        )
-        .map_err(PyValueError::new_err)?;
-        ranked.push(serde_json::json!({
-            "name": entry.name,
-            "tk_score": tk,
-            "raw_reml": entry.raw_reml,
-            "effective_dim": entry.effective_dim,
-            "n_obs": entry.n_obs,
-        }));
+
+    let mut candidate_kinds = Vec::with_capacity(bundle.candidates.len());
+    let mut evidence_by_kind = HashMap::with_capacity(bundle.candidates.len());
+    for entry in bundle.candidates {
+        let kind = gam::solver::AutoTopologyKind::parse(&entry.name)
+            .map_err(|err| py_value_error(format!("rank_topology_candidates: {err}")))?;
+        if evidence_by_kind.insert(kind, entry).is_some() {
+            return Err(py_value_error(format!(
+                "rank_topology_candidates: duplicate topology candidate {:?}",
+                kind.as_str()
+            )));
+        }
+        candidate_kinds.push(kind);
     }
-    ranked.sort_by(|lhs, rhs| {
-        let l = lhs
-            .get("tk_score")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(f64::NEG_INFINITY);
-        let r = rhs
-            .get("tk_score")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(f64::NEG_INFINITY);
-        r.partial_cmp(&l).unwrap_or(std::cmp::Ordering::Equal)
-    });
+    let selector = gam::solver::TopologyAutoSelector {
+        candidates: candidate_kinds,
+        score_scale,
+        latent: None,
+    };
+    let ranked = gam::solver::select_topology_with_fit(&selector, |kind| {
+        let entry = evidence_by_kind
+            .get(&kind)
+            .ok_or_else(|| format!("missing evidence for topology {:?}", kind.as_str()))?;
+        Ok::<_, String>(gam::solver::TopologyAutoFitEvidence {
+            topology_name: entry.name.clone(),
+            raw_reml: entry.raw_reml,
+            null_dim: entry.null_dim,
+            null_space_logdet: entry.null_space_logdet,
+            effective_dim: entry.effective_dim,
+            n_obs: entry.n_obs,
+            fit_handle: (),
+        })
+    })
+    .map_err(PyValueError::new_err)?;
+    let ranked_rows: Vec<serde_json::Value> = ranked
+        .ranked
+        .into_iter()
+        .map(|row| {
+            serde_json::json!({
+                "name": row.topology_name,
+                "tk_score": row.tk_score,
+                "raw_reml": row.raw_reml,
+                "effective_dim": row.effective_dim,
+                "n_obs": row.n_obs,
+            })
+        })
+        .collect();
     let out = serde_json::json!({
-        "ranked": ranked,
-        "winner_index": 0_usize,
+        "ranked": ranked_rows,
+        "winner_index": ranked.winner_index,
     });
     serde_json::to_string(&out)
         .map_err(|err| py_value_error(format!("rank_topology_candidates: serialise: {err}")))
@@ -5891,7 +5920,6 @@ fn gaussian_reml_fit_blocks_forward<'py>(
         nullspace_dims: vec![0; s_list.len()],
         linear_constraints: None,
         firth_bias_reduction: false,
-        robust_identification: gam::RobustIdentification::Off,
         adaptive_regularization: None,
         penalty_shrinkage_floor: None,
         rho_prior: Default::default(),
@@ -6332,7 +6360,6 @@ fn gaussian_reml_fit_with_constraints_forward<'py>(
         nullspace_dims: vec![0; s_list.len()],
         linear_constraints: constraints_opt.clone(),
         firth_bias_reduction: false,
-        robust_identification: gam::RobustIdentification::Off,
         adaptive_regularization: None,
         penalty_shrinkage_floor: Some(1e-6),
         rho_prior: Default::default(),
@@ -10291,6 +10318,183 @@ fn sae_residual_seed_logits(
     Ok(logits)
 }
 
+fn sae_output_energy_cluster_labels(z: ArrayView2<'_, f64>, k_atoms: usize) -> Vec<usize> {
+    let (n_obs, p_out) = z.dim();
+    let mut labels = vec![0usize; n_obs];
+    if n_obs == 0 || p_out == 0 || k_atoms <= 1 {
+        return labels;
+    }
+    let mut features = Array2::<f64>::zeros((n_obs, p_out));
+    let mut row_energy = vec![0.0_f64; n_obs];
+    for row in 0..n_obs {
+        let mut energy = 0.0_f64;
+        for col in 0..p_out {
+            let value = z[[row, col]];
+            energy += value * value;
+        }
+        row_energy[row] = energy;
+        let denom = energy.max(1.0e-12);
+        for col in 0..p_out {
+            let value = z[[row, col]];
+            features[[row, col]] = value * value / denom;
+        }
+    }
+
+    let mut centers = Array2::<f64>::zeros((k_atoms, p_out));
+    let first = row_energy
+        .iter()
+        .enumerate()
+        .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
+        .map(|(idx, _)| idx)
+        .unwrap_or(0);
+    centers.row_mut(0).assign(&features.row(first));
+    let mut min_dist = vec![0.0_f64; n_obs];
+    for row in 0..n_obs {
+        let mut dist = 0.0_f64;
+        for col in 0..p_out {
+            let diff = features[[row, col]] - centers[[0, col]];
+            dist += diff * diff;
+        }
+        min_dist[row] = dist;
+    }
+    for atom_idx in 1..k_atoms {
+        let next = min_dist
+            .iter()
+            .enumerate()
+            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|(idx, _)| idx)
+            .unwrap_or(0);
+        centers.row_mut(atom_idx).assign(&features.row(next));
+        for row in 0..n_obs {
+            let mut dist = 0.0_f64;
+            for col in 0..p_out {
+                let diff = features[[row, col]] - centers[[atom_idx, col]];
+                dist += diff * diff;
+            }
+            if dist < min_dist[row] {
+                min_dist[row] = dist;
+            }
+        }
+    }
+
+    for _ in 0..20 {
+        let mut changed = false;
+        for row in 0..n_obs {
+            let mut best_atom = 0usize;
+            let mut best_dist = f64::INFINITY;
+            for atom_idx in 0..k_atoms {
+                let mut dist = 0.0_f64;
+                for col in 0..p_out {
+                    let diff = features[[row, col]] - centers[[atom_idx, col]];
+                    dist += diff * diff;
+                }
+                if dist < best_dist {
+                    best_dist = dist;
+                    best_atom = atom_idx;
+                }
+            }
+            if labels[row] != best_atom {
+                labels[row] = best_atom;
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+
+        centers.fill(0.0);
+        let mut counts = vec![0usize; k_atoms];
+        for row in 0..n_obs {
+            let atom_idx = labels[row];
+            counts[atom_idx] += 1;
+            for col in 0..p_out {
+                centers[[atom_idx, col]] += features[[row, col]];
+            }
+        }
+        for atom_idx in 0..k_atoms {
+            if counts[atom_idx] == 0 {
+                let row = atom_idx % n_obs;
+                centers.row_mut(atom_idx).assign(&features.row(row));
+                continue;
+            }
+            let inv = 1.0 / counts[atom_idx] as f64;
+            for col in 0..p_out {
+                centers[[atom_idx, col]] *= inv;
+            }
+        }
+    }
+    labels
+}
+
+fn sae_refine_periodic_seed_coords_by_cluster(
+    z: ArrayView2<'_, f64>,
+    plans: &[SaeAtomBuildPlan],
+    labels: &[usize],
+    seed_coords: &mut Array3<f64>,
+) -> Result<(), String> {
+    let (n_obs, p_out) = z.dim();
+    let k_atoms = plans.len();
+    if labels.len() != n_obs {
+        return Err(format!(
+            "sae_refine_periodic_seed_coords_by_cluster: labels length {} must equal n_obs={n_obs}",
+            labels.len()
+        ));
+    }
+    if n_obs < 2 || p_out < 2 || k_atoms <= 1 {
+        return Ok(());
+    }
+    for (atom_idx, plan) in plans.iter().enumerate() {
+        if !matches!(plan.kind, SaeAtomBasisKind::Periodic) {
+            continue;
+        }
+        let rows: Vec<usize> = (0..n_obs).filter(|&row| labels[row] == atom_idx).collect();
+        if rows.len() < 2 {
+            continue;
+        }
+        let mut mean = Array1::<f64>::zeros(p_out);
+        for &row in &rows {
+            for col in 0..p_out {
+                mean[col] += z[[row, col]];
+            }
+        }
+        let inv_count = 1.0 / rows.len() as f64;
+        for col in 0..p_out {
+            mean[col] *= inv_count;
+        }
+
+        let mut local = Array2::<f64>::zeros((rows.len(), p_out));
+        for (out_row, &src_row) in rows.iter().enumerate() {
+            for col in 0..p_out {
+                local[[out_row, col]] = z[[src_row, col]] - mean[col];
+            }
+        }
+        let (_u_opt, _s_vals, vt_opt) = local.svd(false, true).map_err(|err| {
+            format!("sae_refine_periodic_seed_coords_by_cluster: SVD failed: {err:?}")
+        })?;
+        let vt = vt_opt.ok_or_else(|| {
+            "sae_refine_periodic_seed_coords_by_cluster: SVD returned no Vt".to_string()
+        })?;
+        if vt.nrows() < 2 {
+            continue;
+        }
+        let pc1 = vt.row(0);
+        let pc2 = vt.row(1);
+        let two_pi = std::f64::consts::TAU;
+        for row in 0..n_obs {
+            let mut a = 0.0_f64;
+            let mut b = 0.0_f64;
+            for col in 0..p_out {
+                let centered = z[[row, col]] - mean[col];
+                a += centered * pc1[col];
+                b += centered * pc2[col];
+            }
+            let phase = b.atan2(a) / two_pi;
+            seed_coords[[atom_idx, row, 0]] = phase - phase.floor();
+        }
+    }
+    Ok(())
+}
+
 fn sae_decoder_lsq_init(
     basis_values: ArrayView3<'_, f64>,
     basis_sizes: &[usize],
@@ -11382,7 +11586,7 @@ fn sae_manifold_fit_minimal<'py>(
     // (`plans`) is always built from the PCA seed so the atom geometry matches
     // the cold-start fit. Shape must be `(K, N, D_max)` with `D_max` covering
     // every atom's `plan.latent_dim`.
-    let start_coords: Array3<f64> = match &initial_coords {
+    let mut start_coords: Array3<f64> = match &initial_coords {
         Some(arr) => {
             let view = arr.as_array();
             let shape = view.shape();
@@ -11414,6 +11618,14 @@ fn sae_manifold_fit_minimal<'py>(
         }
         None => seed_coords.clone(),
     };
+    if initial_coords.is_none()
+        && k_atoms > 1
+        && matches!(assignment_kind.as_str(), "softmax" | "ibp_map")
+    {
+        let labels = sae_output_energy_cluster_labels(z_view, k_atoms);
+        sae_refine_periodic_seed_coords_by_cluster(z_view, &plans, &labels, &mut start_coords)
+            .map_err(py_value_error)?;
+    }
     let (basis_values, basis_jacobian, smooth_penalties, basis_sizes, _coord_blocks) =
         sae_build_padded_basis_stacks(&plans, start_coords.view(), n_obs)
             .map_err(py_value_error)?;
@@ -13262,7 +13474,6 @@ fn glm_reml_fit_latent_impl(
         nullspace_dims: vec![0],
         linear_constraints: None,
         firth_bias_reduction: Some(false),
-        robust_identification: gam::RobustIdentification::Off,
         penalty_shrinkage_floor: None,
         rho_prior: RhoPrior::Flat,
         kronecker_penalty_system: None,
@@ -14344,7 +14555,6 @@ fn gaussian_reml_fit_formula_table_impl(
         nullspace_dims: vec![0; s_list.len()],
         linear_constraints: None,
         firth_bias_reduction: false,
-        robust_identification: gam::RobustIdentification::Off,
         adaptive_regularization: None,
         penalty_shrinkage_floor: None,
         rho_prior: Default::default(),
@@ -23130,6 +23340,29 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
         "IntegrationError",
         module.py().get_type::<IntegrationError>(),
     )?;
+
+    // #773: `create_exception!` stamps every gamfit exception with
+    // `__module__ = "_rust"`, but the compiled extension is importable only as
+    // `gamfit._rust` (see `gamfit._binding.rust_module`). Pickle records a class
+    // by `(__module__, __qualname__)` and reconstructs it with `import _rust;
+    // getattr(...)`, which fails — so any `_rust.*` exception raised inside a
+    // `ProcessPoolExecutor` worker is masked by an opaque `PicklingError` that
+    // hides the real failure and takes down the whole pool. Repoint each
+    // exception class at its true importable module so the type round-trips
+    // through pickle. Walking the module dict for `GamError` subclasses keeps
+    // this correct as exceptions are added — no parallel name list to drift.
+    {
+        let gam_error = module.py().get_type::<GamError>();
+        for (_name, value) in module.dict().iter() {
+            let Ok(ty) = value.cast::<PyType>() else {
+                continue;
+            };
+            if ty.is_subclass(gam_error.as_any())? {
+                ty.as_any().setattr("__module__", "gamfit._rust")?;
+            }
+        }
+    }
+
     module.add_class::<EuclideanManifold>()?;
     module.add_class::<CircleManifold>()?;
     module.add_class::<SphereManifold>()?;
@@ -28373,14 +28606,11 @@ fn parse_fit_config(config_json: Option<&str>) -> Result<(FitConfig, Option<Stri
     if let Some(flag) = py_config.firth {
         fit_config.firth = flag;
     }
-    if let Some(raw) = py_config.robust_identification {
-        fit_config.robust_identification =
-            gam::RobustIdentification::parse(&raw).ok_or_else(|| {
-                format!(
-                    "invalid robust_identification '{}'; expected off, auto, or force",
-                    raw
-                )
-            })?;
+    if let Some(value) = py_config.outer_max_iter {
+        if value == 0 {
+            return Err("outer_max_iter must be >= 1".to_string());
+        }
+        fit_config.outer_max_iter = Some(value);
     }
     if let Some(raw_gpu) = py_config.gpu {
         fit_config.gpu_policy = gam::gpu::GpuPolicy::parse(&raw_gpu).ok_or_else(|| {
@@ -28761,12 +28991,9 @@ fn dataset_with_model_schema(
     }
     let schema = model.require_data_schema()?;
     let records = string_records_from_rows(headers, rows)?;
-    encode_recordswith_schema(
-        headers.to_vec(),
-        records,
-        schema,
-        UnseenCategoryPolicy::Error,
-    )
+    let policy =
+        UnseenCategoryPolicy::encode_unknown_for_columns(model.random_effect_group_columns());
+    encode_recordswith_schema(headers.to_vec(), records, schema, policy)
 }
 
 fn dataset_from_xy_arrays(
@@ -29022,12 +29249,9 @@ fn schema_check(
 
     if issues.is_empty() {
         let records = string_records_from_rows(headers, rows)?;
-        if let Err(message) = encode_recordswith_schema(
-            headers.to_vec(),
-            records,
-            schema,
-            UnseenCategoryPolicy::Error,
-        ) {
+        let policy =
+            UnseenCategoryPolicy::encode_unknown_for_columns(model.random_effect_group_columns());
+        if let Err(message) = encode_recordswith_schema(headers.to_vec(), records, schema, policy) {
             issues.push(SchemaIssue {
                 kind: "schema_error".to_string(),
                 message,
@@ -29957,6 +30181,23 @@ fn compute_null_space_metadata(
             hessian.nrows(),
             hessian.ncols()
         ));
+    }
+
+    // #757: A smooth-free model (`y ~ x1 + x2`, any family) carries no penalty
+    // blocks, so the assembled penalty is identically zero and its "null space"
+    // is the entire coefficient space. This metadata is the Tierney-Kadane /
+    // topology normalizer `log|Nᵀ H N|` over the *penalty* null space — a
+    // quantity that only discriminates among penalized-smooth topologies and is
+    // vacuous for a fully-parametric GLM (there is no penalized prior to
+    // Laplace-integrate; a REML restricted-likelihood already carries the
+    // fixed-effect `log|XᵀWX|` term). With an all-zero penalty the code below
+    // would Cholesky-factor the full Hessian in a basis that does not round-trip
+    // for the rank-zero penalty, which rejected every smooth-free fit from the
+    // Python payload path even though the fit converged and the CLI (which never
+    // computes this) accepts it. Treat "no penalty" as "no null-space
+    // normalizer", consistent with the full-penalty-rank (`q == 0`) branch below.
+    if design.penalties.is_empty() {
+        return Ok((0, 0.0));
     }
 
     let mut penalty = Array2::<f64>::zeros((p, p));
@@ -31606,7 +31847,6 @@ mod tests {
             nullspace_dims: vec![0; s_list.len()],
             linear_constraints: None,
             firth_bias_reduction: false,
-            robust_identification: gam::RobustIdentification::Off,
             adaptive_regularization: None,
             penalty_shrinkage_floor: None,
             rho_prior: Default::default(),

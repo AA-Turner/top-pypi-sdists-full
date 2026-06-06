@@ -4,7 +4,7 @@
 import logging
 from typing import Literal, Optional
 
-from pyrit.identifiers import ComponentIdentifier
+from pyrit.models import ComponentIdentifier
 from pyrit.prompt_converter.token_smuggling.base import SmugglerConverter
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ class VariationSelectorSmugglerConverter(SmugglerConverter):
         action: Literal["encode", "decode"] = "encode",
         base_char_utf8: Optional[str] = None,
         embed_in_base: bool = True,
-    ):
+    ) -> None:
         """
         Initialize the converter with options for encoding/decoding.
 

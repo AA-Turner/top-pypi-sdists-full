@@ -1,0 +1,160 @@
+"""
+@author: cunyue
+@file: __init__.py
+@time: 2026/3/6 12:45
+@description: SwanLab 运行时上下文，存储Key等存粹的动态信息
+"""
+
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass
+from functools import cached_property
+from pathlib import Path
+from typing import Generator, Optional
+
+from swanlab.sdk.internal.context.components.probe import create_probe
+from swanlab.sdk.internal.settings import Settings
+from swanlab.sdk.typings.context import CallbacksType
+
+from .components import CallbackManager, create_callback_manager, create_core
+from .transformer import TransformData, TransformMedia
+
+__all__ = [
+    # value
+    "use_context",
+    # class
+    "RunContext",
+    "RunConfig",
+    "TransformData",
+    "TransformMedia",
+    "CallbackManager",
+]
+
+
+# 运行配置，包含当前运行上下文的必要状态
+@dataclass(frozen=True)
+class RunConfig:
+    run_dir: Path
+    settings: Settings
+
+
+# 上下文宿主
+class RunContext:
+    def __init__(self, config: RunConfig, callbacks: Optional[CallbacksType] = None):
+        self._global_step: int = -1
+        self._global_system_step: Optional[int] = None
+        self.config: RunConfig = config
+        self.callbacker = create_callback_manager(callbacks=callbacks)
+        self.core = create_core(self)
+        self.probe = create_probe(core=self.core, disabled=self.config.settings.mode == "disabled")
+
+    @property
+    def global_system_step(self) -> int:
+        if self._global_system_step is None:
+            raise RuntimeError("Global system step is not set.")
+        return self._global_system_step
+
+    @global_system_step.setter
+    def global_system_step(self, value: int):
+        """
+        设置全局系统步数，仅用于初始化时设置，后续不允许修改
+        """
+        if self._global_system_step is not None:
+            raise RuntimeError("Global system step is already set.")
+        self._global_system_step = value
+
+    def next_step(self, user_step: Optional[int] = None) -> int:
+        """
+        获取下一个全局步数
+        在设计上我们允许用户在log时乱序设置step，但是global_step永远是最大的或者自增的那个，
+        因此我们需要一个方法来获取当前的global_step，并且保证global_step是自增的
+        """
+        if user_step is not None:
+            self._global_step = max(self._global_step, user_step)
+            return user_step
+        self._global_step += 1
+        return self._global_step
+
+    @cached_property
+    def run_dir(self) -> Path:
+        return self.config.run_dir
+
+    @cached_property
+    def media_dir(self) -> Path:
+        return self.config.run_dir / "media"
+
+    @cached_property
+    def debug_dir(self) -> Path:
+        return self.config.run_dir / "debug"
+
+    @cached_property
+    def files_dir(self) -> Path:
+        return self.config.run_dir / "files"
+
+    @cached_property
+    def metadata_file(self) -> Path:
+        return self.files_dir / "swanlab-metadata.json"
+
+    @cached_property
+    def config_file(self) -> Path:
+        return self.files_dir / "config.yaml"
+
+    @cached_property
+    def requirements_file(self) -> Path:
+        return self.files_dir / "requirements.txt"
+
+    @cached_property
+    def conda_file(self) -> Path:
+        return self.files_dir / "conda.yaml"
+
+    @cached_property
+    def run_file(self) -> Path:
+        run_id = self.config.settings.run.id
+        assert run_id, "Run ID is not set."
+        return self.config.run_dir / f"run-{run_id}.swanlab"
+
+
+# 运行上下文
+_current_ctx: ContextVar[Optional[RunContext]] = ContextVar("swanlab_run_ctx", default=None)
+
+
+def has_context() -> bool:
+    """
+    检查SwanLab运行上下文是否已初始化。
+    """
+    return _current_ctx.get() is not None
+
+
+def get_context() -> RunContext:
+    """
+    获取SwanLab运行上下文。
+
+    若上下文未初始化则抛出RuntimeError。
+    """
+    ctx = _current_ctx.get()
+    if ctx is None:
+        raise RuntimeError("SwanLab Context is not initialized.")
+    return ctx
+
+
+@contextmanager
+def use_context(ctx: RunContext) -> Generator[RunContext, None, None]:
+    """
+    创建 SwanLab 运行上下文的上下文管理器，仅用于实验开启时。
+
+    前置条件：仅允许在当前不存在上下文时使用。
+    退出行为：无论是否发生异常，离开 with 块时都会自动清空上下文。
+    """
+    # 1. 严格检查：如果已经存在上下文，直接拦截报错
+    if _current_ctx.get() is not None:
+        raise RuntimeError("SwanLab Context is already active. Cannot nest or overwrite temp contexts.")
+
+    # 2. 前置操作：设置上下文
+    _current_ctx.set(ctx)
+
+    try:
+        # 3. 交出执行权，并把 ctx yield 出去，方便外部直接用 `as` 接收
+        yield ctx
+    finally:
+        # 4. 最终清理（回退）：无论业务代码报什么错，绝对保证上下文被清空，不会污染全局 ContextVar
+        _current_ctx.set(None)

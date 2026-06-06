@@ -5,7 +5,7 @@ import random
 import string
 from typing import Optional
 
-from pyrit.identifiers import ComponentIdentifier
+from pyrit.models import ComponentIdentifier
 from pyrit.prompt_converter.text_selection_strategy import (
     WordProportionSelectionStrategy,
     WordSelectionStrategy,
@@ -23,7 +23,7 @@ class CharSwapConverter(WordLevelConverter):
         *,
         max_iterations: int = 10,
         word_selection_strategy: Optional[WordSelectionStrategy] = None,
-    ):
+    ) -> None:
         """
         Initialize the converter with the specified parameters.
 

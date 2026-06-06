@@ -52,6 +52,48 @@ DEFAULT_PREFILL_BATCH_SIZE = 8
 DEFAULT_BATCH_CACHE_EVAL_INTERVAL = 50
 
 
+def _policy_enabled(policy) -> bool:
+    return bool(getattr(policy, "enabled", policy))
+
+
+def _chunked_prefill_enabled(
+    model,
+    *,
+    input_ids=None,
+    inputs_embeds=None,
+    prompt_cache=None,
+    draft_model=None,
+    draft_kind=None,
+    prefill_kwargs=None,
+) -> bool:
+    prefill_kwargs = prefill_kwargs or {}
+    candidates = [model]
+    language_model = getattr(model, "language_model", None)
+    if language_model is not None and language_model is not model:
+        candidates.append(language_model)
+
+    for candidate in candidates:
+        policy = getattr(candidate, "chunked_prefill_policy", None)
+        if callable(policy):
+            return _policy_enabled(
+                policy(
+                    input_ids=input_ids,
+                    inputs_embeds=inputs_embeds,
+                    prompt_cache=prompt_cache,
+                    draft_model=draft_model,
+                    draft_kind=draft_kind,
+                    prefill_kwargs=prefill_kwargs,
+                )
+            )
+
+    if any(getattr(candidate, "no_chunked_prefill", False) for candidate in candidates):
+        return False
+
+    # Hidden-state speculative prefill is model-contract dependent. Keep unknown
+    # target models conservative unless they expose a chunked_prefill_policy.
+    return draft_model is None
+
+
 def _get_batch_cache_eval_interval() -> int:
     raw = os.environ.get("MLX_VLM_BATCH_CACHE_EVAL_INTERVAL")
     if raw is None:
@@ -315,7 +357,6 @@ def generate_step(
             )
         else:
             kwargs["capture_layer_ids"] = list(draft_model.config.target_layer_ids)
-        prefill_step_size = None
         # Reset stale mRoPE state from any previous generation.
         lm = model.language_model if hasattr(model, "language_model") else model
         if hasattr(lm, "_position_ids"):
@@ -389,7 +430,15 @@ def generate_step(
                 if k != "inputs_embeds" and v is not None
             }
         )
-        if getattr(model, "no_chunked_prefill", False):
+        if prefill_step_size is not None and not _chunked_prefill_enabled(
+            model,
+            input_ids=input_ids,
+            inputs_embeds=inputs_embeds,
+            prompt_cache=prompt_cache,
+            draft_model=draft_model,
+            draft_kind=draft_kind,
+            prefill_kwargs=kwargs,
+        ):
             prefill_step_size = None
         checkpoint_len = (
             int(prompt_cache_checkpoint_len)
@@ -1595,6 +1644,23 @@ class PromptProcessingBatch:
                     )
                 prepare(right_padding=right_pad_per_row, lengths=self._suffix_lens)
 
+        if self.prefill_step_size is not None:
+            policy_kwargs = dict(self._prompt_kwargs)
+            if draft_model is not None and draft_kind is not None:
+                policy_kwargs.update(
+                    speculative_prefill_kwargs(draft_kind, draft_model)
+                )
+            if not _chunked_prefill_enabled(
+                self.model,
+                input_ids=self._input_ids,
+                inputs_embeds=self._inputs_embeds,
+                prompt_cache=self.prompt_cache,
+                draft_model=draft_model,
+                draft_kind=draft_kind,
+                prefill_kwargs=policy_kwargs,
+            ):
+                self.prefill_step_size = None
+
     def __len__(self):
         return len(self.uids)
 
@@ -1668,6 +1734,13 @@ class PromptProcessingBatch:
         )
         return prefix_len + min(self._suffix_lens[batch_idx], max(0, real_done))
 
+    def _apc_prompt_cache_for_store(self, batch_idx: int) -> Optional[List[Any]]:
+        # Single-request cold batches use an unbatched cache that is already
+        # row-specific, so there is nothing to extract.
+        if batch_idx == 0 and len(self.uids) == 1 and self._right_pad_per_row is None:
+            return self.prompt_cache
+        return _apc.extract_prompt_cache_from_batch(self.prompt_cache, batch_idx)
+
     def _store_apc_exact_checkpoints(self) -> None:
         if self._apc_manager is None or self._apc_mode != "exact":
             return
@@ -1679,10 +1752,7 @@ class PromptProcessingBatch:
                 continue
             if self._row_real_tokens_processed(batch_idx) != checkpoint_len:
                 continue
-            prompt_cache = _apc.extract_prompt_cache_from_batch(
-                self.prompt_cache,
-                batch_idx,
-            )
+            prompt_cache = self._apc_prompt_cache_for_store(batch_idx)
             if prompt_cache is None:
                 continue
             self._apc_manager.store_exact_cache(
@@ -1946,10 +2016,7 @@ class PromptProcessingBatch:
                     if meta is None:
                         continue
                     if self._apc_mode == "exact":
-                        prompt_cache = _apc.extract_prompt_cache_from_batch(
-                            self.prompt_cache,
-                            batch_idx,
-                        )
+                        prompt_cache = self._apc_prompt_cache_for_store(batch_idx)
                         if prompt_cache is not None:
                             self._apc_manager.store_exact_cache(
                                 meta["full_input_ids"],
@@ -2002,9 +2069,17 @@ class PromptProcessingBatch:
         if rope_deltas.shape[0] == 1 and B > 1:
             rope_deltas = mx.broadcast_to(rope_deltas, (B, 1))
         if rope_deltas.shape[0] != B:
-            raise RuntimeError(
-                f"_rope_deltas shape {rope_deltas.shape} does not match prefill batch size {B}"
-            )
+            if rope_deltas.shape[0] > B:
+                rope_deltas = rope_deltas[:B]
+            else:
+                pad = B - rope_deltas.shape[0]
+                rope_deltas = mx.concatenate(
+                    [
+                        rope_deltas,
+                        mx.broadcast_to(rope_deltas[-1:], (pad, rope_deltas.shape[1])),
+                    ],
+                    axis=0,
+                )
         return rope_deltas
 
 
@@ -2060,7 +2135,6 @@ class BatchGenerator:
         self.draft_block_size = draft_block_size
         self.greedy_sampling = greedy_sampling or sampler is None
         if self.draft_model is not None:
-            prefill_step_size = None
             apc_manager = None
             compute_logprobs = False
             top_logprobs_k = 0
@@ -3004,9 +3078,28 @@ def _generate_batch(
         if k not in ["input_ids", "pixel_values", "attention_mask"]
     }
 
-    if getattr(model, "no_chunked_prefill", False):
-        kwargs.pop("prefill_step_size", None)
-        kwargs["prefill_step_size"] = None
+    embedding_output = model.get_input_embeddings(
+        input_ids, pixel_values, mask=mask, **data_kwargs
+    )
+
+    gen_kwargs = {**data_kwargs, **embedding_output.to_dict()}
+
+    if kwargs.get("prefill_step_size", DEFAULT_PREFILL_STEP_SIZE) is not None:
+        policy_kwargs = dict(gen_kwargs)
+        draft_model = kwargs.get("draft_model")
+        draft_kind = kwargs.get("draft_kind")
+        if draft_model is not None and draft_kind is not None:
+            policy_kwargs.update(speculative_prefill_kwargs(draft_kind, draft_model))
+        if not _chunked_prefill_enabled(
+            model,
+            input_ids=input_ids,
+            inputs_embeds=embedding_output.inputs_embeds,
+            draft_model=draft_model,
+            draft_kind=draft_kind,
+            prefill_kwargs=policy_kwargs,
+        ):
+            kwargs.pop("prefill_step_size", None)
+            kwargs["prefill_step_size"] = None
 
     # Use batch_size for prefill and completion to ensure consistent processing
     gen = BatchGenerator(
@@ -3017,12 +3110,6 @@ def _generate_batch(
         compute_logprobs=False,
         **kwargs,
     )
-
-    embedding_output = model.get_input_embeddings(
-        input_ids, pixel_values, mask=mask, **data_kwargs
-    )
-
-    gen_kwargs = {**data_kwargs, **embedding_output.to_dict()}
 
     if logits_processors and all(
         callable(processor) for processor in logits_processors

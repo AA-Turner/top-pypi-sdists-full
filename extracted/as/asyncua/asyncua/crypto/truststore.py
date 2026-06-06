@@ -7,13 +7,14 @@ Use of cryptography module is prefered, but  doesn't provide functionality for t
 
 """
 
-from typing import List
-from pathlib import Path
+import logging
 import re
 from datetime import datetime, timezone
-import logging
+from pathlib import Path
+
 from cryptography import x509
 from OpenSSL import crypto
+
 from asyncua.crypto.uacrypto import get_content, load_certificate
 
 _logger = logging.getLogger("asyncuagds.validate")
@@ -28,7 +29,7 @@ class TrustStore:
     It doesn't check other content of extensions of the certificate
     """
 
-    def __init__(self, trust_locations: List[Path], crl_locations: List[Path]):
+    def __init__(self, trust_locations: list[Path], crl_locations: list[Path]):
         """Constructor of the TrustStore
 
         Args:
@@ -36,19 +37,19 @@ class TrustStore:
             crl_locations (list[Path]): one or multiple locations that contain CRL. TYpe should be DER.
         """
 
-        self._trust_locations: List[Path] = trust_locations
-        self._crl_locations: List[Path] = crl_locations
+        self._trust_locations: list[Path] = trust_locations
+        self._crl_locations: list[Path] = crl_locations
 
         self._trust_store: crypto.X509Store = crypto.X509Store()
 
-        self._revoked_list: List[x509.RevokedCertificate] = []
+        self._revoked_list: list[x509.RevokedCertificate] = []
 
     @property
-    def trust_locations(self) -> List[Path]:
+    def trust_locations(self) -> list[Path]:
         return self._trust_locations
 
     @property
-    def crl_locations(self) -> List[Path]:
+    def crl_locations(self) -> list[Path]:
         return self._crl_locations
 
     async def load(self):
@@ -149,7 +150,7 @@ class TrustStore:
         Args:
             location (Path): location to scan for certificates
         """
-        files = Path(location).glob("*.*")
+        files = Path(location).glob("*.*")  # noqa: ASYNC240
         for file_name in files:
             if re.match(".*(der|pem)", file_name.name.lower()):
                 _logger.debug("Add certificate to TrustStore : '%s'", file_name)
@@ -162,7 +163,7 @@ class TrustStore:
         Args:
             location (Path): location to scan for crls
         """
-        files = Path(location).glob("*.*")
+        files = Path(location).glob("*.*")  # noqa: ASYNC240
         for file_name in files:
             if re.match(".*(der|pem)", file_name.name.lower()):
                 _logger.debug("Add CRL to list : '%s'", file_name)

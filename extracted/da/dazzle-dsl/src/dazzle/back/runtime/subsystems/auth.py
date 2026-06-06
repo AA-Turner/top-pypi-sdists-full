@@ -57,6 +57,25 @@ class AuthSubsystem:
         # (magic link consumer, qa_routes, etc.)
         ctx.app.state.auth_store = ctx.auth_store
 
+        # auth Plan 1c — single-org auto-provision + the 1b memberships gate.
+        # When on, activation lazily provisions one default org + membership
+        # (invisible single-org), and a genuinely org-less identity routes to
+        # /auth/no-orgs rather than the legacy proceed. Default off → unchanged
+        # 1b behavior for existing apps.
+        _auto_provision = bool(getattr(ctx.config, "auto_provision_single_org", False))
+        ctx.app.state.single_org_auto_provision = _auto_provision
+        ctx.app.state.memberships_required = _auto_provision
+        # auth Plan 3a: personas allowed to invite / manage org members
+        # (fail-closed — empty means nobody can invite). Read by the invite route.
+        _auth_cfg = getattr(ctx.config, "auth_config", None)
+        ctx.app.state.org_admin_roles = list(getattr(_auth_cfg, "org_admin_roles", []) or [])
+        # auth Plan 1d: expose the AppSpec for the activation path's 1:1 org<->
+        # tenant-root mirror provisioning (archetype apps).
+        ctx.app.state.appspec = ctx.appspec
+        # auth Plan 3c.ii: expose the entity repositories so the /me/profile route
+        # can resolve the profile entity's Repository at request time.
+        ctx.app.state.repositories = getattr(ctx, "repositories", {}) or {}
+
         # Mount the magic link consumer router (general-purpose, production-safe)
         from dazzle.back.runtime.auth.magic_link_routes import create_magic_link_routes
 
@@ -138,6 +157,58 @@ class AuthSubsystem:
         password_login_router = create_password_login_routes()
         ctx.app.include_router(password_login_router)
 
+        # Phase-2 org-context routes (auth Plan 1b): /auth/select-org,
+        # /auth/switch-org, /auth/no-orgs. Mounted unconditionally — they
+        # no-op (redirect to /login) for unauthenticated callers and only
+        # matter once an identity has >1 membership.
+        from dazzle.back.runtime.auth.org_context_routes import (
+            create_org_context_routes,
+        )
+
+        ctx.app.include_router(create_org_context_routes())
+
+        # auth Plan 3a: org invitations (invite / accept). Authz is fail-closed on
+        # app.state.org_admin_roles; accept enforces the verified-email join rule.
+        from dazzle.back.runtime.auth.invitation_routes import create_invitation_routes
+
+        ctx.app.include_router(create_invitation_routes())
+
+        # auth Plan 3b: member-admin surface (roster + role/suspend/remove). Each
+        # mutation is admin-gated, cross-org-guarded, and last-admin-protected.
+        from dazzle.back.runtime.auth.member_admin_routes import create_member_admin_routes
+
+        ctx.app.include_router(create_member_admin_routes())
+
+        # Org-admin connection surface: an org admin manages their org's connections'
+        # domains (claim + DNS-TXT verify) in-app, RBAC-gated + org-scoped + secret-free.
+        # Inert if the org has no connections; creation stays in the operator CLI.
+        from dazzle.back.runtime.auth.connection_admin_routes import (
+            create_connection_admin_routes,
+        )
+
+        ctx.app.include_router(create_connection_admin_routes())
+
+        # auth Plan 3c.ii: the member's own profile (archetype: profile) — get-or-
+        # create by (active membership tenant, current_user.id), RLS-bound.
+        from dazzle.back.runtime.auth.profile_routes import create_profile_routes
+
+        ctx.app.include_router(create_profile_routes())
+
+        # Phase E.2 — secret-gated contained QA-auth mint (#1339). Self-disabling:
+        # the factory returns None unless QA_AUTH_SECRET is set, so prod is off by
+        # default with no request-time flag to misconfigure. The mint enforces the
+        # DB containment invariant (ADR-0035) — it can only scope a session into a
+        # qa-namespaced, is_test, run-matched org.
+        from dazzle.back.runtime.qa_secure_routes import create_qa_secure_routes
+
+        _qa_secure = create_qa_secure_routes()
+        if _qa_secure is not None:
+            ctx.app.include_router(_qa_secure)
+            logger.warning(
+                "[QA-AUTH] secret-gated QA mint mounted at /qa/secure/mint "
+                "(QA_AUTH_SECRET set) — ensure this deployment is a test instance"
+            )
+
         # Form-encoded 2FA challenge submit routes (Phase 1.D.1,
         # v0.67.35) — the typed challenge view posts here instead of
         # the JSON `/auth/2fa/verify` endpoint, so the form works
@@ -161,14 +232,30 @@ class AuthSubsystem:
 
         configured = load_sso_providers_from_env()
         ctx.app.state.sso_providers = configured
-        if configured:
-            # SessionMiddleware backs Authlib's `state` storage between
-            # the initiate redirect and the callback. The session
-            # cookie is signed (not encrypted) via itsdangerous — fine
-            # for the short-lived state token but DON'T put sensitive
-            # data in `request.session`. The secret defaults to a
-            # random per-process value; production deployments should
-            # set DAZZLE_SESSION_SECRET so the cookie survives restarts.
+
+        # Enterprise (per-org) SSO connections (auth Plan 4b) are a *runtime*
+        # capability — created as DB rows per org, not env-configured — so we can't
+        # know at startup whether any exist. Gate availability on the [sso] extra
+        # (authlib importable): apps that didn't opt into SSO are wholly unaffected
+        # (no extra middleware, no extra routes); apps that did get the enterprise
+        # endpoints whether or not a global social provider is also configured.
+        from importlib.util import find_spec
+
+        enterprise_enabled = find_spec("authlib") is not None
+        # SAML (Plan 5) is a SEPARATE [saml] extra (needs native libxmlsec1) — gated on
+        # python3-saml being importable, independent of OIDC.
+        saml_enabled = find_spec("onelogin") is not None
+
+        # SessionMiddleware backs Authlib's `state` storage between the initiate
+        # redirect and the callback (global-SSO + OIDC enterprise + SAML all need it —
+        # SAML stashes the connection id + AuthnRequest id there for InResponseTo). The
+        # session cookie is signed (not encrypted) via itsdangerous — fine for the
+        # short-lived state token but DON'T put sensitive data in `request.session`.
+        # The secret defaults to a random per-process value; production deployments
+        # should set DAZZLE_SESSION_SECRET so the cookie survives restarts. Added at
+        # most once, and only when something actually needs it (no blast radius for
+        # non-SSO apps).
+        if configured or enterprise_enabled or saml_enabled:
             import os
             import secrets
 
@@ -181,7 +268,43 @@ class AuthSubsystem:
                 same_site="lax",
                 https_only=False,  # cookie_secure() controls per-cookie
             )
+
+        if configured:
             ctx.app.include_router(create_sso_routes())
+
+        if enterprise_enabled:
+            # Register the native OIDC provider for the (oidc, native) seam and mount
+            # the per-org enterprise routes. Registration is idempotent across app
+            # boots: the process-wide registry is keyed by (type, provider), so a
+            # re-call just overwrites with an equivalent stateless provider (its
+            # per-connection authlib clients, keyed by connection id+revision, live
+            # inside the instance — no cross-app collision).
+            from dazzle.back.runtime.auth.enterprise_routes import (
+                create_enterprise_sso_routes,
+            )
+            from dazzle.back.runtime.auth.oidc_provider import register_native_oidc
+
+            register_native_oidc()
+            ctx.app.include_router(create_enterprise_sso_routes())
+
+        if saml_enabled:
+            # Register the native SAML provider for (saml, native) + mount the SAML
+            # routes (gated on the [saml] extra / libxmlsec1). The ACS POST lives under
+            # the /auth/ CSRF-exempt prefix — correct, as its integrity is the signed
+            # assertion + InResponseTo, not a CSRF token.
+            from dazzle.back.runtime.auth.saml_provider import register_native_saml
+            from dazzle.back.runtime.auth.saml_routes import create_saml_routes
+
+            register_native_saml()
+            ctx.app.include_router(create_saml_routes())
+
+        # SCIM 2.0 provisioning endpoints (auth Plan 4c). Mounted unconditionally —
+        # SCIM is stateless bearer auth over JSON (no authlib / no SessionMiddleware);
+        # every request is authenticated by its per-connection bearer and returns 401
+        # without a valid one, so the endpoints are inert until a SCIM connection exists.
+        from dazzle.back.runtime.auth.scim_routes import create_scim_routes
+
+        ctx.app.include_router(create_scim_routes())
 
         # 2FA routes — thread the AppSpec-level TwoFactorConfig through so
         # DSL authors can tune recovery-code count etc. at app-configuration

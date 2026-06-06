@@ -264,6 +264,16 @@ jobs:
       - name: cargo deny check
         run: cargo deny --all-features check
 
+  server-binary-dependency-policy:
+    name: Server binary dependency policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Forbid OpenSSL in release server graph
+        shell: bash
+        run: bash scripts/ci/check_server_binary_tls_graph.sh
+
 
   # ── Build ABI3 wheel (one per OS, reused by python-test) ──
   # Intentionally does NOT `needs: [rust-check]` — maturin runs its own compile
@@ -389,7 +399,8 @@ jobs:
   # `just build-py37` directly, which hid a pyo3-stub-gen Python<3.10 compat
   # bug (PyEncodingWarning missing on py37) that only surfaced in the release
   # build-wheels workflow. Now both paths go through the same composite action.
-  # Note: Must use older OS runners where Python 3.7 is still available via setup-python
+  # Windows runners no longer expose Python 3.7 via setup-python, so the
+  # composite action installs the python.org build there.
   build-wheel-py37:
     name: Build wheel (py3.7, ${{ matrix.os }})
     needs: [admin-ui-bundle]
@@ -398,7 +409,7 @@ jobs:
         include:
           - os: ubuntu-22.04  # Ubuntu 24.04 dropped Python 3.7 support
             target: x86_64
-          - os: windows-2022  # Use Windows 2022 for Python 3.7 availability
+          - os: windows-2022
             target: x64
       fail-fast: false
     runs-on: ${{ matrix.os }}
@@ -557,6 +568,36 @@ jobs:
             "${{ steps.py314.outputs.python-path }}" scripts/vrs_replay.py \
               --base-url http://127.0.0.1:1 --dry-run --trace "$f"
           done
+
+  # -- Sentry E2E: real ingest through dcc-mcp-server init_sentry() --
+  # Requires DCC_MCP_SENTRY_DSN GitHub Actions secret. Skips cleanly when
+  # the secret is absent so forks / local clones do not fail the workflow.
+  sentry-e2e:
+    name: Sentry E2E
+    needs: [rust-check]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: loonghao/vx@v0.9.11
+        with:
+          version: "0.9.11"
+          cache: "false"
+
+      - name: Run Sentry real-ingest E2E
+        env:
+          DCC_MCP_SENTRY_DSN: ${{ secrets.DCC_MCP_SENTRY_DSN }}
+          DCC_MCP_SENTRY_ENVIRONMENT: ci-e2e
+          DCC_MCP_SENTRY_SAMPLE_RATE: "1.0"
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${DCC_MCP_SENTRY_DSN:-}" ]; then
+            echo "DCC_MCP_SENTRY_DSN secret not configured; skipping Sentry E2E"
+            exit 0
+          fi
+          vx cargo test -p dcc-mcp-server --features sentry sentry_real_ingest_e2e \
+            -- --exact --test-threads=1 --nocapture
 
   # -- mcpcall e2e: real MCP client vs live MCP servers/gateway --
   # Exercises the full HTTP stack from outside the process:

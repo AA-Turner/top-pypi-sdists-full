@@ -84,6 +84,47 @@ def test_openai_config_keeps_openai_fallback() -> None:
     assert client.fallback_model == "gpt-5"
 
 
+def test_bedrock_openai_config_returns_mantle_client_with_region() -> None:
+    from efterlev.llm.mantle_client import BedrockOpenAIClient
+
+    config = LLMConfig(
+        backend="bedrock_openai", region="us-east-2", model="openai.gpt-5.4", fallback_model=""
+    )
+    client = get_client_from_config(config)
+    assert isinstance(client, BedrockOpenAIClient)
+    assert client.region == "us-east-2"
+
+
+def test_bedrock_openai_config_drops_claude_fallback() -> None:
+    """A Claude-shaped fallback would 404 on the Mantle endpoint; the factory
+    drops any non-`openai.`-prefixed fallback."""
+    from efterlev.llm.mantle_client import BedrockOpenAIClient
+
+    config = LLMConfig(
+        backend="bedrock_openai",
+        region="us-east-2",
+        model="openai.gpt-5.4",
+        fallback_model="claude-sonnet-4-6",
+    )
+    client = get_client_from_config(config)
+    assert isinstance(client, BedrockOpenAIClient)
+    assert client.fallback_model is None
+
+
+def test_bedrock_openai_config_keeps_openai_prefixed_fallback() -> None:
+    from efterlev.llm.mantle_client import BedrockOpenAIClient
+
+    config = LLMConfig(
+        backend="bedrock_openai",
+        region="us-east-2",
+        model="openai.gpt-5.4",
+        fallback_model="openai.gpt-5.5",
+    )
+    client = get_client_from_config(config)
+    assert isinstance(client, BedrockOpenAIClient)
+    assert client.fallback_model == "openai.gpt-5.5"
+
+
 def test_bedrock_without_region_raises_defensively() -> None:
     """Belt-and-suspenders: even if Pydantic validator was bypassed, the
     factory refuses to construct a Bedrock client without a region."""

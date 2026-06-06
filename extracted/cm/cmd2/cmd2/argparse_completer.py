@@ -1,57 +1,60 @@
-"""Module defines the ArgparseCompleter class which provides argparse-based tab completion to cmd2 apps.
+"""Module defines the ArgparseCompleter class which provides argparse-based completion to cmd2 apps.
 
-See the header of argparse_custom.py for instructions on how to use these features.
+See the header of argparse_utils.py for instructions on how to use these features.
 """
 
 import argparse
+import dataclasses
 import inspect
-import numbers
-from collections import (
-    deque,
+from collections import deque
+from collections.abc import (
+    Mapping,
+    MutableSequence,
+    Sequence,
 )
-from collections.abc import Sequence
 from typing import (
     IO,
     TYPE_CHECKING,
+    Any,
     cast,
 )
 
+from rich.table import Column
+from rich.text import Text
+
+from .argparse_utils import (
+    Cmd2ArgumentParser,
+    build_range_error,
+)
+from .command_set import CommandSet
+from .completion import (
+    CompletionItem,
+    Completions,
+)
 from .constants import INFINITY
-from .rich_utils import Cmd2GeneralConsole
+from .exceptions import CompletionError
+from .rich_utils import Cmd2SimpleTable
+from .types import (
+    CmdOrSetT,
+    UnboundChoicesProvider,
+    UnboundCompleter,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from .cmd2 import Cmd
 
-from rich.box import SIMPLE_HEAD
-from rich.table import (
-    Column,
-    Table,
-)
-
-from .argparse_custom import (
-    ChoicesCallable,
-    ChoicesProviderFuncWithTokens,
-    CompletionItem,
-    generate_range_error,
-)
-from .command_definition import CommandSet
-from .exceptions import CompletionError
-from .styles import Cmd2Style
-
-# If no descriptive headers are supplied, then this will be used instead
-DEFAULT_DESCRIPTIVE_HEADERS: Sequence[str | Column] = ['Description']
 
 # Name of the choice/completer function argument that, if present, will be passed a dictionary of
 # command line tokens up through the token being completed mapped to their argparse destination name.
-ARG_TOKENS = 'arg_tokens'
+ARG_TOKENS = "arg_tokens"
 
 
-def _build_hint(parser: argparse.ArgumentParser, arg_action: argparse.Action) -> str:
-    """Build tab completion hint for a given argument."""
+def _build_hint(parser: Cmd2ArgumentParser, arg_action: argparse.Action) -> str:
+    """Build completion hint for a given argument."""
     # Check if hinting is disabled for this argument
     suppress_hint = arg_action.get_suppress_tab_hint()  # type: ignore[attr-defined]
     if suppress_hint or arg_action.help == argparse.SUPPRESS:
-        return ''
+        return ""
 
     # Use the parser's help formatter to display just this action's help text
     formatter = parser._get_formatter()
@@ -61,12 +64,12 @@ def _build_hint(parser: argparse.ArgumentParser, arg_action: argparse.Action) ->
     return formatter.format_help()
 
 
-def _single_prefix_char(token: str, parser: argparse.ArgumentParser) -> bool:
+def _single_prefix_char(token: str, parser: Cmd2ArgumentParser) -> bool:
     """Is a token just a single flag prefix character."""
     return len(token) == 1 and token[0] in parser.prefix_chars
 
 
-def _looks_like_flag(token: str, parser: argparse.ArgumentParser) -> bool:
+def _looks_like_flag(token: str, parser: Cmd2ArgumentParser) -> bool:
     """Determine if a token looks like a flag.
 
     Unless an argument has nargs set to argparse.REMAINDER, then anything that looks like a flag
@@ -87,7 +90,7 @@ def _looks_like_flag(token: str, parser: argparse.ArgumentParser) -> bool:
         return False
 
     # Flags can't have a space
-    return ' ' not in token
+    return " " not in token
 
 
 class _ArgumentState:
@@ -95,13 +98,13 @@ class _ArgumentState:
 
     def __init__(self, arg_action: argparse.Action) -> None:
         self.action = arg_action
-        self.min: int | str
-        self.max: float | int | str
+        self.min: int
+        self.max: float | int
         self.count = 0
         self.is_remainder = self.action.nargs == argparse.REMAINDER
 
         # Check if nargs is a range
-        nargs_range = self.action.get_nargs_range()  # type: ignore[attr-defined]
+        nargs_range: tuple[int, int | float] | None = self.action.get_nargs_range()  # type: ignore[attr-defined]
         if nargs_range is not None:
             self.min = nargs_range[0]
             self.max = nargs_range[1]
@@ -120,8 +123,8 @@ class _ArgumentState:
             self.min = 1
             self.max = INFINITY
         else:
-            self.min = self.action.nargs
-            self.max = self.action.nargs
+            self.min = cast(int, self.action.nargs)
+            self.max = cast(int, self.action.nargs)
 
 
 class _UnfinishedFlagError(CompletionError):
@@ -130,50 +133,61 @@ class _UnfinishedFlagError(CompletionError):
 
         :param flag_arg_state: information about the unfinished flag action.
         """
-        arg = f'{argparse._get_action_name(flag_arg_state.action)}'
-        err = f'{generate_range_error(cast(int, flag_arg_state.min), cast(int | float, flag_arg_state.max))}'
+        arg = f"{argparse._get_action_name(flag_arg_state.action)}"
+        err = f"{build_range_error(flag_arg_state.min, flag_arg_state.max)}"
         error = f"Error: argument {arg}: {err} ({flag_arg_state.count} entered)"
         super().__init__(error)
 
 
 class _NoResultsError(CompletionError):
-    def __init__(self, parser: argparse.ArgumentParser, arg_action: argparse.Action) -> None:
+    def __init__(self, parser: Cmd2ArgumentParser, arg_action: argparse.Action) -> None:
         """CompletionError which occurs when there are no results.
 
-        If hinting is allowed, then its message will be a hint about the argument being tab completed.
+        If hinting is allowed on this argument, then its hint text will display.
 
-        :param parser: ArgumentParser instance which owns the action being tab completed
-        :param arg_action: action being tab completed.
+        :param parser: Cmd2ArgumentParser instance which owns the action being completed
+        :param arg_action: action being completed.
         """
         # Set apply_style to False because we don't want hints to look like errors
         super().__init__(_build_hint(parser, arg_action), apply_style=False)
 
 
 class ArgparseCompleter:
-    """Automatic command line tab completion based on argparse parameters."""
+    """Automatic command line completion based on argparse parameters."""
 
     def __init__(
-        self, parser: argparse.ArgumentParser, cmd2_app: 'Cmd', *, parent_tokens: dict[str, list[str]] | None = None
+        self,
+        parser: Cmd2ArgumentParser,
+        cmd_app: "Cmd",
+        *,
+        parent_tokens: Mapping[str, MutableSequence[str]] | None = None,
     ) -> None:
         """Create an ArgparseCompleter.
 
-        :param parser: ArgumentParser instance
-        :param cmd2_app: reference to the Cmd2 application that owns this ArgparseCompleter
-        :param parent_tokens: optional dictionary mapping parent parsers' arg names to their tokens
+        :param parser: Cmd2ArgumentParser instance
+        :param cmd_app: reference to the cmd2.Cmd instance that owns this ArgparseCompleter
+        :param parent_tokens: optional Mapping of parent parsers' arg names to their tokens
                               This is only used by ArgparseCompleter when recursing on subcommand parsers
                               Defaults to None
         """
         self._parser = parser
-        self._cmd2_app = cmd2_app
+        self._cmd_app = cmd_app
 
         if parent_tokens is None:
             parent_tokens = {}
         self._parent_tokens = parent_tokens
 
-        self._flags = []  # all flags in this command
-        self._flag_to_action = {}  # maps flags to the argparse action object
-        self._positional_actions = []  # actions for positional arguments (by position index)
-        self._subcommand_action = None  # this will be set if self._parser has subcommands
+        # All flags in this command
+        self._flags: list[str] = []
+
+        # Maps flags to the argparse action object
+        self._flag_to_action: dict[str, argparse.Action] = {}
+
+        # Actions for positional arguments (by position index)
+        self._positional_actions: list[argparse.Action] = []
+
+        # This will be set if self._parser has subcommands
+        self._subcommand_action: argparse._SubParsersAction[Cmd2ArgumentParser] | None = None
 
         # Start digging through the argparse structures.
         # _actions is the top level container of parameter definitions
@@ -193,22 +207,29 @@ class ArgparseCompleter:
                     self._subcommand_action = action
 
     def complete(
-        self, text: str, line: str, begidx: int, endidx: int, tokens: list[str], *, cmd_set: CommandSet | None = None
-    ) -> list[str]:
+        self,
+        text: str,
+        line: str,
+        begidx: int,
+        endidx: int,
+        tokens: Sequence[str],
+        *,
+        cmd_set: CommandSet[Any] | None = None,
+    ) -> Completions:
         """Complete text using argparse metadata.
 
         :param text: the string prefix we are attempting to match (all matches must begin with it)
         :param line: the current input line with leading whitespace removed
         :param begidx: the beginning index of the prefix text
         :param endidx: the ending index of the prefix text
-        :param tokens: list of argument tokens being passed to the parser
-        :param cmd_set: if tab completing a command, the CommandSet the command's function belongs to, if applicable.
+        :param tokens: Sequence of argument tokens being passed to the parser
+        :param cmd_set: if completing a command, the CommandSet the command's function belongs to, if applicable.
                         Defaults to None.
-
-        :raises CompletionError: for various types of tab completion errors
+        :return: a Completions object
+        :raises CompletionError: for various types of completion errors
         """
         if not tokens:
-            return []
+            return Completions()
 
         # Positionals args that are left to parse
         remaining_positionals = deque(self._positional_actions)
@@ -224,58 +245,18 @@ class ArgparseCompleter:
         flag_arg_state: _ArgumentState | None = None
 
         # Non-reusable flags that we've parsed
-        matched_flags: list[str] = []
+        used_flags: set[str] = set()
 
         # Keeps track of arguments we've seen and any tokens they consumed
-        consumed_arg_values: dict[str, list[str]] = {}  # dict(arg_name -> list[tokens])
+        consumed_arg_values: dict[str, list[str]] = {}
 
         # Completed mutually exclusive groups
         completed_mutex_groups: dict[argparse._MutuallyExclusiveGroup, argparse.Action] = {}
 
-        def consume_argument(arg_state: _ArgumentState) -> None:
-            """Consuming token as an argument."""
+        def consume_argument(arg_state: _ArgumentState, arg_token: str) -> None:
+            """Consume token as an argument."""
             arg_state.count += 1
-            consumed_arg_values.setdefault(arg_state.action.dest, [])
-            consumed_arg_values[arg_state.action.dest].append(token)
-
-        def update_mutex_groups(arg_action: argparse.Action) -> None:
-            """Check if an argument belongs to a mutually exclusive group potenitally mark that group complete.
-
-            Either mark the group as complete or print an error if the group has already been completed.
-
-            :param arg_action: the action of the argument
-            :raises CompletionError: if the group is already completed.
-            """
-            # Check if this action is in a mutually exclusive group
-            for group in self._parser._mutually_exclusive_groups:
-                if arg_action in group._group_actions:
-                    # Check if the group this action belongs to has already been completed
-                    if group in completed_mutex_groups:
-                        # If this is the action that completed the group, then there is no error
-                        # since it's allowed to appear on the command line more than once.
-                        completer_action = completed_mutex_groups[group]
-                        if arg_action == completer_action:
-                            return
-
-                        arg_str = f'{argparse._get_action_name(arg_action)}'
-                        completer_str = f'{argparse._get_action_name(completer_action)}'
-                        error = f"Error: argument {arg_str}: not allowed with argument {completer_str}"
-                        raise CompletionError(error)
-
-                    # Mark that this action completed the group
-                    completed_mutex_groups[group] = arg_action
-
-                    # Don't tab complete any of the other args in the group
-                    for group_action in group._group_actions:
-                        if group_action == arg_action:
-                            continue
-                        if group_action in self._flag_to_action.values():
-                            matched_flags.extend(group_action.option_strings)
-                        elif group_action in remaining_positionals:
-                            remaining_positionals.remove(group_action)
-
-                    # Arg can only be in one group, so we are done
-                    break
+            consumed_arg_values.setdefault(arg_state.action.dest, []).append(arg_token)
 
         #############################################################################################
         # Parse all but the last token
@@ -283,19 +264,19 @@ class ArgparseCompleter:
         for token_index, token in enumerate(tokens[:-1]):
             # If we're in a positional REMAINDER arg, force all future tokens to go to that
             if pos_arg_state is not None and pos_arg_state.is_remainder:
-                consume_argument(pos_arg_state)
+                consume_argument(pos_arg_state, token)
                 continue
 
             # If we're in a flag REMAINDER arg, force all future tokens to go to that until a double dash is hit
             if flag_arg_state is not None and flag_arg_state.is_remainder:
-                if token == '--':  # noqa: S105
+                if token == "--":  # noqa: S105
                     flag_arg_state = None
                 else:
-                    consume_argument(flag_arg_state)
+                    consume_argument(flag_arg_state, token)
                 continue
 
             # Handle '--' which tells argparse all remaining arguments are non-flags
-            if token == '--' and not skip_remaining_flags:  # noqa: S105
+            if token == "--" and not skip_remaining_flags:  # noqa: S105
                 # Check if there is an unfinished flag
                 if (
                     flag_arg_state is not None
@@ -309,7 +290,7 @@ class ArgparseCompleter:
                 skip_remaining_flags = True
                 continue
 
-            # Check the format of the current token to see if it can be an argument's value
+            # Check if token is a flag
             if _looks_like_flag(token, self._parser) and not skip_remaining_flags:
                 # Check if there is an unfinished flag
                 if (
@@ -333,35 +314,43 @@ class ArgparseCompleter:
                         action = self._flag_to_action[candidates_flags[0]]
 
                 if action is not None:
-                    update_mutex_groups(action)
-                    if isinstance(action, (argparse._AppendAction, argparse._AppendConstAction, argparse._CountAction)):
-                        # Flags with action set to append, append_const, and count can be reused
-                        # Therefore don't erase any tokens already consumed for this flag
-                        consumed_arg_values.setdefault(action.dest, [])
-                    else:
-                        # This flag is not reusable, so mark that we've seen it
-                        matched_flags.extend(action.option_strings)
+                    self._update_mutex_groups(action, completed_mutex_groups, used_flags, remaining_positionals)
 
-                        # It's possible we already have consumed values for this flag if it was used
-                        # earlier in the command line. Reset them now for this use of it.
+                    # Check if the action type allows the same flag to be provided multiple times.
+                    # Reusable actions (append, count, extend) preserve their history so the
+                    # completion logic knows which values have already been 'consumed'.
+                    if not isinstance(
+                        action,
+                        (
+                            argparse._AppendAction,
+                            argparse._AppendConstAction,
+                            argparse._CountAction,
+                            argparse._ExtendAction,
+                        ),
+                    ):
+                        # For standard 'overwrite' actions (e.g., --store), providing the flag
+                        # again resets its state. We mark the flags as 'used' to potentially
+                        # filter them from future completion results and clear any previously
+                        # recorded values for this destination.
+                        used_flags.update(action.option_strings)
                         consumed_arg_values[action.dest] = []
 
                     new_arg_state = _ArgumentState(action)
 
                     # Keep track of this flag if it can receive arguments
-                    if new_arg_state.max > 0:  # type: ignore[operator]
+                    if new_arg_state.max > 0:
                         flag_arg_state = new_arg_state
                         skip_remaining_flags = flag_arg_state.is_remainder
 
-            # Check if we are consuming a flag
+            # Check if token is a flag's argument
             elif flag_arg_state is not None:
-                consume_argument(flag_arg_state)
+                consume_argument(flag_arg_state, token)
 
                 # Check if we have finished with this flag
-                if isinstance(flag_arg_state.max, (float, int)) and flag_arg_state.count >= flag_arg_state.max:
+                if flag_arg_state.count >= flag_arg_state.max:
                     flag_arg_state = None
 
-            # Otherwise treat as a positional argument
+            # Otherwise treat token as a positional argument
             else:
                 # If we aren't current tracking a positional, then get the next positional arg to handle this token
                 if pos_arg_state is None and remaining_positionals:
@@ -370,36 +359,33 @@ class ArgparseCompleter:
                     # Are we at a subcommand? If so, forward to the matching completer
                     if self._subcommand_action is not None and action == self._subcommand_action:
                         if token in self._subcommand_action.choices:
-                            # Merge self._parent_tokens and consumed_arg_values
                             parent_tokens = {**self._parent_tokens, **consumed_arg_values}
 
                             # Include the subcommand name if its destination was set
                             if action.dest != argparse.SUPPRESS:
                                 parent_tokens[action.dest] = [token]
 
-                            parser: argparse.ArgumentParser = self._subcommand_action.choices[token]
-                            completer_type = self._cmd2_app._determine_ap_completer_type(parser)
-
-                            completer = completer_type(parser, self._cmd2_app, parent_tokens=parent_tokens)
-
+                            parser = self._subcommand_action.choices[token]
+                            completer = parser.completer_class(parser, self._cmd_app, parent_tokens=parent_tokens)
                             return completer.complete(text, line, begidx, endidx, tokens[token_index + 1 :], cmd_set=cmd_set)
+
                         # Invalid subcommand entered, so no way to complete remaining tokens
-                        return []
+                        return Completions()
 
                     # Otherwise keep track of the argument
                     pos_arg_state = _ArgumentState(action)
 
                 # Check if we have a positional to consume this token
                 if pos_arg_state is not None:
-                    update_mutex_groups(pos_arg_state.action)
-                    consume_argument(pos_arg_state)
+                    self._update_mutex_groups(pos_arg_state.action, completed_mutex_groups, used_flags, remaining_positionals)
+                    consume_argument(pos_arg_state, token)
 
                     # No more flags are allowed if this is a REMAINDER argument
                     if pos_arg_state.is_remainder:
                         skip_remaining_flags = True
 
                     # Check if we have finished with this positional
-                    elif isinstance(pos_arg_state.max, (float, int)) and pos_arg_state.count >= pos_arg_state.max:
+                    elif pos_arg_state.count >= pos_arg_state.max:
                         pos_arg_state = None
 
                         # Check if the next positional has nargs set to argparse.REMAINDER.
@@ -410,7 +396,81 @@ class ArgparseCompleter:
         #############################################################################################
         # We have parsed all but the last token and have enough information to complete it
         #############################################################################################
+        return self._handle_last_token(
+            text,
+            line,
+            begidx,
+            endidx,
+            flag_arg_state,
+            pos_arg_state,
+            remaining_positionals,
+            consumed_arg_values,
+            used_flags,
+            skip_remaining_flags,
+            cmd_set,
+        )
 
+    def _update_mutex_groups(
+        self,
+        arg_action: argparse.Action,
+        completed_mutex_groups: dict[argparse._MutuallyExclusiveGroup, argparse.Action],
+        used_flags: set[str],
+        remaining_positionals: deque[argparse.Action],
+    ) -> None:
+        """Manage mutually exclusive group constraints and argument pruning for a given action.
+
+        If an action belongs to a mutually exclusive group, this method ensures no other member
+        has been used and updates the parser state to "consume" all remaining conflicting arguments.
+
+        :raises CompletionError: if another member of the same mutually exclusive group
+                                 has already been used.
+        """
+        # Check if this action is in a mutually exclusive group
+        for group in self._parser._mutually_exclusive_groups:
+            if arg_action in group._group_actions:
+                # Check if the group this action belongs to has already been completed
+                if group in completed_mutex_groups:
+                    # If this is the action that completed the group, then there is no error
+                    # since it's allowed to appear on the command line more than once.
+                    completer_action = completed_mutex_groups[group]
+                    if arg_action == completer_action:
+                        return
+
+                    arg_str = f"{argparse._get_action_name(arg_action)}"
+                    completer_str = f"{argparse._get_action_name(completer_action)}"
+                    error = f"Error: argument {arg_str}: not allowed with argument {completer_str}"
+                    raise CompletionError(error)
+
+                # Mark that this action completed the group
+                completed_mutex_groups[group] = arg_action
+
+                # Don't complete any of the other args in the group
+                for group_action in group._group_actions:
+                    if group_action == arg_action:
+                        continue
+                    if group_action in self._flag_to_action.values():
+                        used_flags.update(group_action.option_strings)
+                    elif group_action in remaining_positionals:
+                        remaining_positionals.remove(group_action)
+
+                # Arg can only be in one group, so we are done
+                break
+
+    def _handle_last_token(
+        self,
+        text: str,
+        line: str,
+        begidx: int,
+        endidx: int,
+        flag_arg_state: _ArgumentState | None,
+        pos_arg_state: _ArgumentState | None,
+        remaining_positionals: deque[argparse.Action],
+        consumed_arg_values: dict[str, list[str]],
+        used_flags: set[str],
+        skip_remaining_flags: bool,
+        cmd_set: CommandSet[Any] | None,
+    ) -> Completions:
+        """Perform final completion step handling positionals and flags."""
         # Check if we are completing a flag name. This check ignores strings with a length of one, like '-'.
         # This is because that could be the start of a negative number which may be a valid completion for
         # the current argument. We will handle the completion of flags that start with only one prefix
@@ -422,22 +482,15 @@ class ArgparseCompleter:
                 and flag_arg_state.count < flag_arg_state.min
             ):
                 raise _UnfinishedFlagError(flag_arg_state)
-            return self._complete_flags(text, line, begidx, endidx, matched_flags)
-
-        completion_results = []
+            return self._complete_flags(text, line, begidx, endidx, used_flags)
 
         # Check if we are completing a flag's argument
         if flag_arg_state is not None:
-            completion_results = self._complete_arg(
-                text, line, begidx, endidx, flag_arg_state, consumed_arg_values, cmd_set=cmd_set
-            )
+            completions = self._complete_arg(text, line, begidx, endidx, flag_arg_state, consumed_arg_values, cmd_set=cmd_set)
 
             # If we have results, then return them
-            if completion_results:
-                # Don't overwrite an existing hint
-                if not self._cmd2_app.completion_hint:
-                    self._cmd2_app.completion_hint = _build_hint(self._parser, flag_arg_state.action)
-                return completion_results
+            if completions:
+                return completions
 
             # Otherwise, print a hint if the flag isn't finished or text isn't possibly the start of a flag
             if (
@@ -454,16 +507,11 @@ class ArgparseCompleter:
                 action = remaining_positionals.popleft()
                 pos_arg_state = _ArgumentState(action)
 
-            completion_results = self._complete_arg(
-                text, line, begidx, endidx, pos_arg_state, consumed_arg_values, cmd_set=cmd_set
-            )
+            completions = self._complete_arg(text, line, begidx, endidx, pos_arg_state, consumed_arg_values, cmd_set=cmd_set)
 
             # If we have results, then return them
-            if completion_results:
-                # Don't overwrite an existing hint
-                if not self._cmd2_app.completion_hint:
-                    self._cmd2_app.completion_hint = _build_hint(self._parser, pos_arg_state.action)
-                return completion_results
+            if completions:
+                return completions
 
             # Otherwise, print a hint if text isn't possibly the start of a flag
             if not _single_prefix_char(text, self._parser) or skip_remaining_flags:
@@ -473,127 +521,137 @@ class ArgparseCompleter:
         #   1. text is a single flag prefix character that didn't complete against any argument values
         #   2. there are no more positionals to complete
         if not skip_remaining_flags and (_single_prefix_char(text, self._parser) or not remaining_positionals):
-            # Reset any completion settings that may have been set by functions which actually had no matches.
-            # Otherwise, those settings could alter how the flags are displayed.
-            self._cmd2_app._reset_completion_defaults()
-            return self._complete_flags(text, line, begidx, endidx, matched_flags)
+            return self._complete_flags(text, line, begidx, endidx, used_flags)
 
-        return completion_results
+        return Completions()
 
-    def _complete_flags(self, text: str, line: str, begidx: int, endidx: int, matched_flags: list[str]) -> list[str]:
-        """Tab completion routine for a parsers unused flags."""
-        # Build a list of flags that can be tab completed
-        match_against = []
+    def _complete_flags(self, text: str, line: str, begidx: int, endidx: int, used_flags: set[str]) -> Completions:
+        """Completion routine for a parsers unused flags."""
+        # Build a list of flags that can be completed
+        match_against: list[str] = []
 
         for flag in self._flags:
             # Make sure this flag hasn't already been used
-            if flag not in matched_flags:
+            if flag not in used_flags:
                 # Make sure this flag isn't considered hidden
                 action = self._flag_to_action[flag]
                 if action.help != argparse.SUPPRESS:
                     match_against.append(flag)
 
-        matches = self._cmd2_app.basic_complete(text, line, begidx, endidx, match_against)
-
         # Build a dictionary linking actions with their matched flag names
         matched_actions: dict[argparse.Action, list[str]] = {}
-        for flag in matches:
-            action = self._flag_to_action[flag]
-            matched_actions.setdefault(action, [])
-            matched_actions[action].append(flag)
 
-        # For tab completion suggestions, group matched flags by action
+        # Keep flags sorted in the order provided by argparse so our completion
+        # suggestions display the same as argparse help text.
+        matched_flags = self._cmd_app.basic_complete(text, line, begidx, endidx, match_against, sort=False)
+
+        for flag in matched_flags.to_strings():
+            action = self._flag_to_action[flag]
+            matched_actions.setdefault(action, []).append(flag)
+
+        # For completion suggestions, group matched flags by action
+        items: list[CompletionItem] = []
         for action, option_strings in matched_actions.items():
-            flag_text = ', '.join(option_strings)
+            flag_text = ", ".join(option_strings)
 
             # Mark optional flags with brackets
             if not action.required:
-                flag_text = '[' + flag_text + ']'
-            self._cmd2_app.display_matches.append(flag_text)
+                flag_text = "[" + flag_text + "]"
 
-        return matches
-
-    def _format_completions(self, arg_state: _ArgumentState, completions: list[str] | list[CompletionItem]) -> list[str]:
-        """Format CompletionItems into hint table."""
-        # Nothing to do if we don't have at least 2 completions which are all CompletionItems
-        if len(completions) < 2 or not all(isinstance(c, CompletionItem) for c in completions):
-            return cast(list[str], completions)
-
-        completion_items = cast(list[CompletionItem], completions)
-
-        # Check if the data being completed have a numerical type
-        all_nums = all(isinstance(c.orig_value, numbers.Number) for c in completion_items)
-
-        # Sort CompletionItems before building the hint table
-        if not self._cmd2_app.matches_sorted:
-            # If all orig_value types are numbers, then sort by that value
-            if all_nums:
-                completion_items.sort(key=lambda c: c.orig_value)
-
-            # Otherwise sort as strings
-            else:
-                completion_items.sort(key=self._cmd2_app.default_sort_key)
-
-            self._cmd2_app.matches_sorted = True
-
-        # Check if there are too many CompletionItems to display as a table
-        if len(completions) <= self._cmd2_app.max_completion_items:
-            # If a metavar was defined, use that instead of the dest field
-            destination = arg_state.action.metavar or arg_state.action.dest
-
-            # Handle case where metavar was a tuple
-            if isinstance(destination, tuple):
-                # Figure out what string in the tuple to use based on how many of the arguments have been completed.
-                # Use min() to avoid going passed the end of the tuple to support nargs being ZERO_OR_MORE and
-                # ONE_OR_MORE. In those cases, argparse limits metavar tuple to 2 elements but we may be completing
-                # the 3rd or more argument here.
-                tuple_index = min(len(destination) - 1, arg_state.count)
-                destination = destination[tuple_index]
-
-            desc_headers = cast(Sequence[str | Column] | None, arg_state.action.get_descriptive_headers())  # type: ignore[attr-defined]
-            if desc_headers is None:
-                desc_headers = DEFAULT_DESCRIPTIVE_HEADERS
-
-            # Build all headers for the hint table
-            headers: list[Column] = []
-            headers.append(
-                Column(
-                    destination.upper(),
-                    justify="right" if all_nums else "left",
-                    no_wrap=True,
+            # Use the first option string as the completion result for this action
+            items.append(
+                CompletionItem(
+                    option_strings[0],
+                    display=flag_text,
+                    display_meta=action.help or "",
                 )
             )
-            for desc_header in desc_headers:
-                header = (
-                    desc_header
-                    if isinstance(desc_header, Column)
-                    else Column(
-                        desc_header,
-                        overflow="fold",
-                    )
+
+        return Completions(items)
+
+    @staticmethod
+    def _validate_table_data(arg_state: _ArgumentState, completions: Completions) -> None:
+        """Verify the integrity of completion table data.
+
+        :raises ValueError: if there is an error with the data.
+        """
+        table_columns = arg_state.action.get_table_columns()  # type: ignore[attr-defined]
+        has_table_data = any(item.table_data for item in completions)
+
+        if table_columns is None:
+            if has_table_data:
+                raise ValueError(
+                    f"Argument '{arg_state.action.dest}' has CompletionItems with table_data, "
+                    f"but no table_columns were defined in add_argument()."
                 )
-                headers.append(header)
+            return
 
-            # Build the hint table
-            hint_table = Table(
-                *headers,
-                box=SIMPLE_HEAD,
-                show_edge=False,
-                border_style=Cmd2Style.TABLE_BORDER,
+        # If columns are defined, then every item must have data, and lengths must match
+        for item in completions:
+            if not item.table_data:
+                raise ValueError(
+                    f"Argument '{arg_state.action.dest}' has table_columns defined, "
+                    f"but the CompletionItem for '{item.text}' is missing table_data."
+                )
+            if len(item.table_data) != len(table_columns):
+                raise ValueError(
+                    f"Argument '{arg_state.action.dest}': table_data length ({len(item.table_data)}) "
+                    f"does not match table_columns length ({len(table_columns)}) for item '{item.text}'."
+                )
+
+    def _build_completion_table(self, arg_state: _ArgumentState, completions: Completions) -> Completions:
+        """Build a rich.Table for completion results if applicable."""
+        # Verify integrity of completion data
+        self._validate_table_data(arg_state, completions)
+
+        table_columns = cast(
+            Sequence[str | Column] | None,
+            arg_state.action.get_table_columns(),  # type: ignore[attr-defined]
+        )
+
+        # Skip table generation if results are outside thresholds or no columns are defined
+        if (
+            len(completions) < 2
+            or len(completions) > self._cmd_app.max_completion_table_items
+            or table_columns is None
+        ):  # fmt: skip
+            return completions
+
+        # If a metavar was defined, use that instead of the dest field
+        destination = arg_state.action.metavar or arg_state.action.dest
+
+        # Handle case where metavar was a tuple
+        if isinstance(destination, tuple):
+            # Figure out what string in the tuple to use based on how many of the arguments have been completed.
+            # Use min() to avoid going passed the end of the tuple to support nargs being ZERO_OR_MORE and
+            # ONE_OR_MORE. In those cases, argparse limits metavar tuple to 2 elements but we may be completing
+            # the 3rd or more argument here.
+            destination = destination[min(len(destination) - 1, arg_state.count)]
+
+        # Build header row
+        rich_columns: list[Column] = []
+        rich_columns.append(
+            Column(
+                destination.upper(),
+                justify="right" if completions.numeric_display else "left",
+                no_wrap=True,
             )
-            for item in completion_items:
-                hint_table.add_row(item, *item.descriptive_data)
+        )
+        rich_columns.extend(
+            column if isinstance(column, Column) else Column(column, overflow="fold") for column in table_columns
+        )
 
-            # Generate the hint table string
-            console = Cmd2GeneralConsole()
-            with console.capture() as capture:
-                console.print(hint_table, end="", soft_wrap=False)
-            self._cmd2_app.formatted_completions = capture.get()
+        # Build the table
+        table = Cmd2SimpleTable(*rich_columns)
+        for item in completions:
+            table.add_row(Text.from_ansi(item.display), *item.table_data)
 
-        # Return sorted list of completions
-        return cast(list[str], completions)
+        return dataclasses.replace(
+            completions,
+            table=table,
+        )
 
-    def complete_subcommand_help(self, text: str, line: str, begidx: int, endidx: int, tokens: list[str]) -> list[str]:
+    def complete_subcommand_help(self, text: str, line: str, begidx: int, endidx: int, tokens: Sequence[str]) -> Completions:
         """Supports cmd2's help command in the completion of subcommand names.
 
         :param text: the string prefix we are attempting to match (all matches must begin with it)
@@ -601,25 +659,24 @@ class ArgparseCompleter:
         :param begidx: the beginning index of the prefix text
         :param endidx: the ending index of the prefix text
         :param tokens: arguments passed to command/subcommand
-        :return: list of subcommand completions.
+        :return: a Completions object
         """
         # If our parser has subcommands, we must examine the tokens and check if they are subcommands
         # If so, we will let the subcommand's parser handle the rest of the tokens via another ArgparseCompleter.
         if self._subcommand_action is not None:
             for token_index, token in enumerate(tokens):
                 if token in self._subcommand_action.choices:
-                    parser: argparse.ArgumentParser = self._subcommand_action.choices[token]
-                    completer_type = self._cmd2_app._determine_ap_completer_type(parser)
-
-                    completer = completer_type(parser, self._cmd2_app)
+                    parser = self._subcommand_action.choices[token]
+                    completer = parser.completer_class(parser, self._cmd_app)
                     return completer.complete_subcommand_help(text, line, begidx, endidx, tokens[token_index + 1 :])
+
                 if token_index == len(tokens) - 1:
                     # Since this is the last token, we will attempt to complete it
-                    return self._cmd2_app.basic_complete(text, line, begidx, endidx, self._subcommand_action.choices)
+                    return self._cmd_app.basic_complete(text, line, begidx, endidx, self._subcommand_action.choices)
                 break
-        return []
+        return Completions()
 
-    def print_help(self, tokens: list[str], file: IO[str] | None = None) -> None:
+    def print_help(self, tokens: Sequence[str], file: IO[str] | None = None) -> None:
         """Supports cmd2's help command in the printing of help text.
 
         :param tokens: arguments passed to help command
@@ -629,18 +686,63 @@ class ArgparseCompleter:
         # If our parser has subcommands, we must examine the tokens and check if they are subcommands.
         # If so, we will let the subcommand's parser handle the rest of the tokens via another ArgparseCompleter.
         if tokens and self._subcommand_action is not None:
-            parser = cast(
-                argparse.ArgumentParser | None,
-                self._subcommand_action.choices.get(tokens[0]),
-            )
-
-            if parser:
-                completer_type = self._cmd2_app._determine_ap_completer_type(parser)
-                completer = completer_type(parser, self._cmd2_app)
-                completer.print_help(tokens[1:], file=file)
+            parser = self._subcommand_action.choices.get(tokens[0])
+            if parser is not None:
+                completer = parser.completer_class(parser, self._cmd_app)
+                completer.print_help(tokens[1:], file)
                 return
+        self._parser.print_help(file)
 
-        self._parser.print_help(file=file)
+    def _choices_to_items(self, arg_state: _ArgumentState) -> list[CompletionItem]:
+        """Convert choices from action to list of CompletionItems."""
+        if arg_state.action.choices is None:
+            return []
+
+        # If choices are subcommands, then get their help text to populate display_meta.
+        if isinstance(arg_state.action, argparse._SubParsersAction):
+            parser_help = {}
+            for action in arg_state.action._choices_actions:
+                if action.dest in arg_state.action.choices:
+                    subparser = arg_state.action.choices[action.dest]
+                    parser_help[subparser] = action.help or ""
+
+            return [
+                CompletionItem(name, display_meta=parser_help.get(subparser, ""))
+                for name, subparser in arg_state.action.choices.items()
+            ]
+
+        # Standard choices
+        return [
+            choice if isinstance(choice, CompletionItem) else CompletionItem(choice) for choice in arg_state.action.choices
+        ]
+
+    def _prepare_callable_params(
+        self,
+        to_call: UnboundChoicesProvider[CmdOrSetT] | UnboundCompleter[CmdOrSetT],
+        arg_state: _ArgumentState,
+        text: str,
+        consumed_arg_values: dict[str, list[str]],
+        cmd_set: CommandSet[Any] | None,
+    ) -> tuple[list[Any], dict[str, Any]]:
+        """Resolve the instance and arguments required to call a choices/completer function."""
+        args: list[Any] = []
+        kwargs: dict[str, Any] = {}
+
+        # Resolve the 'self' instance for the method
+        self_arg = self._cmd_app._resolve_func_self(to_call, cmd_set)
+        if self_arg is None:
+            raise CompletionError("Could not find CommandSet instance matching defining type")
+
+        args.append(self_arg)
+
+        # Check if the function expects 'arg_tokens'
+        to_call_params = inspect.signature(to_call).parameters
+        if ARG_TOKENS in to_call_params:
+            arg_tokens = {**self._parent_tokens, **consumed_arg_values}
+            arg_tokens.setdefault(arg_state.action.dest, []).append(text)
+            kwargs[ARG_TOKENS] = arg_tokens
+
+        return args, kwargs
 
     def _complete_arg(
         self,
@@ -651,110 +753,57 @@ class ArgparseCompleter:
         arg_state: _ArgumentState,
         consumed_arg_values: dict[str, list[str]],
         *,
-        cmd_set: CommandSet | None = None,
-    ) -> list[str]:
-        """Tab completion routine for an argparse argument.
+        cmd_set: CommandSet[Any] | None = None,
+    ) -> Completions:
+        """Completion routine for an argparse argument.
 
-        :return: list of completions
-        :raises CompletionError: if the completer or choices function this calls raises one.
+        :return: a Completions object
+        :raises CompletionError: if the completer or choices function this calls raises one
         """
-        # Check if the arg provides choices to the user
-        arg_choices: list[str] | ChoicesCallable
-        if arg_state.action.choices is not None:
-            arg_choices = list(arg_state.action.choices)
-            if not arg_choices:
-                return []
-
-            # If these choices are numbers, then sort them now
-            if all(isinstance(x, numbers.Number) for x in arg_choices):
-                arg_choices.sort()
-                self._cmd2_app.matches_sorted = True
-
-            # Since choices can be various types, make sure they are all strings
-            for index, choice in enumerate(arg_choices):
-                # Prevent converting anything that is already a str (i.e. CompletionItem)
-                if not isinstance(choice, str):
-                    arg_choices[index] = str(choice)  # type: ignore[unreachable]
-        else:
-            choices_attr = arg_state.action.get_choices_callable()  # type: ignore[attr-defined]
-            if choices_attr is None:
-                return []
-            arg_choices = choices_attr
-
-        # If we are going to call a completer/choices function, then set up the common arguments
-        args = []
-        kwargs = {}
-        if isinstance(arg_choices, ChoicesCallable):
-            # The completer may or may not be defined in the same class as the command. Since completer
-            # functions are registered with the command argparser before anything is instantiated, we
-            # need to find an instance at runtime that matches the types during declaration
-            self_arg = self._cmd2_app._resolve_func_self(arg_choices.to_call, cmd_set)
-            if self_arg is None:
-                # No cases matched, raise an error
-                raise CompletionError('Could not find CommandSet instance matching defining type for completer')
-
-            args.append(self_arg)
-
-            # Check if arg_choices.to_call expects arg_tokens
-            to_call_params = inspect.signature(arg_choices.to_call).parameters
-            if ARG_TOKENS in to_call_params:
-                # Merge self._parent_tokens and consumed_arg_values
-                arg_tokens = {**self._parent_tokens, **consumed_arg_values}
-
-                # Include the token being completed
-                arg_tokens.setdefault(arg_state.action.dest, [])
-                arg_tokens[arg_state.action.dest].append(text)
-
-                # Add the namespace to the keyword arguments for the function we are calling
-                kwargs[ARG_TOKENS] = arg_tokens
-
-        # Check if the argument uses a specific tab completion function to provide its choices
-        if isinstance(arg_choices, ChoicesCallable) and arg_choices.is_completer:
+        # Check if the argument uses a completer
+        completer = arg_state.action.get_completer()  # type: ignore[attr-defined]
+        if completer is not None:
+            args, kwargs = self._prepare_callable_params(
+                completer,
+                arg_state,
+                text,
+                consumed_arg_values,
+                cmd_set,
+            )
             args.extend([text, line, begidx, endidx])
-            results = arg_choices.completer(*args, **kwargs)  # type: ignore[arg-type]
+            completions: Completions = completer(*args, **kwargs)
 
-        # Otherwise use basic_complete on the choices
+        # Otherwise it uses a choices provider or choices list
         else:
-            # Check if the choices come from a function
-            completion_items: list[str] = []
-            if isinstance(arg_choices, ChoicesCallable):
-                if not arg_choices.is_completer:
-                    choices_func = arg_choices.choices_provider
-                    if isinstance(choices_func, ChoicesProviderFuncWithTokens):
-                        completion_items = choices_func(*args, **kwargs)
-                    else:  # pragma: no cover
-                        # This won't hit because runtime checking doesn't check function argument types and will always
-                        # resolve true above. Mypy, however, does see the difference and gives an error that can't be
-                        # ignored. Mypy issue #5485 discusses this problem
-                        completion_items = choices_func(*args)
-                # else case is already covered above
+            choices_provider = arg_state.action.get_choices_provider()  # type: ignore[attr-defined]
+            if choices_provider is not None:
+                args, kwargs = self._prepare_callable_params(
+                    choices_provider,
+                    arg_state,
+                    text,
+                    consumed_arg_values,
+                    cmd_set,
+                )
+                all_choices = list(choices_provider(*args, **kwargs))
             else:
-                completion_items = arg_choices
+                all_choices = self._choices_to_items(arg_state)
 
-            # Filter out arguments we already used
+            # Filter used values and run basic completion
             used_values = consumed_arg_values.get(arg_state.action.dest, [])
-            completion_items = [choice for choice in completion_items if choice not in used_values]
+            filtered = [choice for choice in all_choices if choice.text not in used_values]
+            completions = self._cmd_app.basic_complete(text, line, begidx, endidx, filtered)
 
-            # Do tab completion on the choices
-            results = self._cmd2_app.basic_complete(text, line, begidx, endidx, completion_items)
-
-        if not results:
-            # Reset the value for matches_sorted. This is because completion of flag names
-            # may still be attempted after we return and they haven't been sorted yet.
-            self._cmd2_app.matches_sorted = False
-            return []
-
-        return self._format_completions(arg_state, results)
+        return self._build_completion_table(arg_state, completions)
 
 
 # The default ArgparseCompleter class for a cmd2 app
-DEFAULT_AP_COMPLETER: type[ArgparseCompleter] = ArgparseCompleter
+DEFAULT_ARGPARSE_COMPLETER: type[ArgparseCompleter] = ArgparseCompleter
 
 
-def set_default_ap_completer_type(completer_type: type[ArgparseCompleter]) -> None:
+def set_default_argparse_completer(completer_class: type[ArgparseCompleter]) -> None:
     """Set the default ArgparseCompleter class for a cmd2 app.
 
-    :param completer_type: Type that is a subclass of ArgparseCompleter.
+    :param completer_class: Type that is a subclass of ArgparseCompleter.
     """
-    global DEFAULT_AP_COMPLETER  # noqa: PLW0603
-    DEFAULT_AP_COMPLETER = completer_type
+    global DEFAULT_ARGPARSE_COMPLETER  # noqa: PLW0603
+    DEFAULT_ARGPARSE_COMPLETER = completer_class

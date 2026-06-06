@@ -12,6 +12,8 @@ from azure.storage.blob import (
 )
 from azure.storage.blob.aio import BlobServiceClient
 
+from pyrit.common.deprecation import print_deprecation_message
+
 
 class AzureStorageAuth:
     """
@@ -20,7 +22,7 @@ class AzureStorageAuth:
     """
 
     @staticmethod
-    async def get_user_delegation_key(blob_service_client: BlobServiceClient) -> UserDelegationKey:
+    async def get_user_delegation_key_async(blob_service_client: BlobServiceClient) -> UserDelegationKey:
         """
         Retrieve a user delegation key valid for one day.
 
@@ -39,7 +41,28 @@ class AzureStorageAuth:
         )
 
     @staticmethod
-    async def get_sas_token(container_url: str) -> str:
+    async def get_user_delegation_key(
+        blob_service_client: BlobServiceClient,
+    ) -> UserDelegationKey:  # pyrit-async-suffix-exempt
+        """
+        Retrieve a user delegation key (deprecated alias of ``get_user_delegation_key_async``).
+
+        Args:
+            blob_service_client (BlobServiceClient): An instance of BlobServiceClient to interact
+            with Azure Blob Storage.
+
+        Returns:
+            UserDelegationKey: A user delegation key valid for one day.
+        """
+        print_deprecation_message(
+            old_item="AzureStorageAuth.get_user_delegation_key",
+            new_item="AzureStorageAuth.get_user_delegation_key_async",
+            removed_in="0.16.0",
+        )
+        return await AzureStorageAuth.get_user_delegation_key_async(blob_service_client)
+
+    @staticmethod
+    async def get_sas_token_async(container_url: str) -> str:
         """
         Generate a SAS token for the specified blob using a user delegation key.
 
@@ -72,7 +95,7 @@ class AzureStorageAuth:
 
         try:
             async with BlobServiceClient(account_url=account_url, credential=credential) as blob_service_client:
-                user_delegation_key = await AzureStorageAuth.get_user_delegation_key(
+                user_delegation_key = await AzureStorageAuth.get_user_delegation_key_async(
                     blob_service_client=blob_service_client
                 )
                 container_name = parsed_url.path.lstrip("/")
@@ -86,11 +109,29 @@ class AzureStorageAuth:
                     account_name=storage_account_name,
                     container_name=container_name,
                     user_delegation_key=user_delegation_key,
-                    permission=ContainerSasPermissions(read=True, write=True, create=True, list=True, delete=True),  # type: ignore[no-untyped-call, unused-ignore]
+                    permission=ContainerSasPermissions(read=True, write=True, create=True, list=True, delete=True),
                     expiry=expiry_time,
                     start=start_time,
                 )
         finally:
             await credential.close()
 
-        return sas_token  # type: ignore[return-value, no-any-return, unused-ignore]
+        return sas_token
+
+    @staticmethod
+    async def get_sas_token(container_url: str) -> str:  # pyrit-async-suffix-exempt
+        """
+        Generate a SAS token (deprecated alias of ``get_sas_token_async``).
+
+        Args:
+            container_url (str): The URL of the Azure Blob Storage container.
+
+        Returns:
+            str: The generated SAS token.
+        """
+        print_deprecation_message(
+            old_item="AzureStorageAuth.get_sas_token",
+            new_item="AzureStorageAuth.get_sas_token_async",
+            removed_in="0.16.0",
+        )
+        return await AzureStorageAuth.get_sas_token_async(container_url)

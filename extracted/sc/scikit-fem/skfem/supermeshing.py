@@ -69,9 +69,17 @@ def _intersect2d(p1, t1, p2, t2):
 
 def _intersect1d(p1, t1, p2, t2):
     """One-dimensional supermesh."""
-    # find unique supermesh facets by combining nodes from both sides
-    p = np.concatenate((p1.flatten().round(decimals=10),
-                        p2.flatten().round(decimals=10)))
+    # Find unique supermesh facets by combining nodes from both
+    # sides in the intersection of x-ranges.
+    p1f = p1.flatten().round(decimals=10)
+    p2f = p2.flatten().round(decimals=10)
+
+    xmin = max(p1f.min(), p2f.min())
+    xmax = min(p1f.max(), p2f.max())
+
+    p1f = p1f[(p1f >= xmin) & (p1f <= xmax)]
+    p2f = p2f[(p2f >= xmin) & (p2f <= xmax)]
+    p = np.concatenate((p1f, p2f))
     p = np.unique(p)
     t = np.array([np.arange(len(p) - 1), np.arange(1, len(p))])
     p = np.array([p])

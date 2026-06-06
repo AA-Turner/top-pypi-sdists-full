@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: snaptrade-python-sdk
-Version: 11.0.201
+Version: 11.0.202
 Summary: Client for SnapTrade
 License: MIT
 Author: SnapTrade
@@ -30,7 +30,7 @@ Description-Content-Type: text/markdown
 Connect brokerage accounts to your app for live positions and trading
 
 
-[![PyPI](https://img.shields.io/badge/PyPI-v11.0.201-blue)](https://pypi.org/project/snaptrade-python-sdk/11.0.201)
+[![PyPI](https://img.shields.io/badge/PyPI-v11.0.202-blue)](https://pypi.org/project/snaptrade-python-sdk/11.0.202)
 [![README.md](https://img.shields.io/badge/README-Click%20Here-green)](https://github.com/passiv/snaptrade-sdks/tree/master/sdks/python#readme)
 [![More Info](https://img.shields.io/badge/More%20Info-Click%20Here-orange)](https://snaptrade.com/)
 
@@ -122,7 +122,7 @@ Python >=3.8
 ## Installation<a id="installation"></a>
 
 ```sh
-pip install snaptrade-python-sdk==11.0.201
+pip install snaptrade-python-sdk==11.0.202
 ```
 
 ## Getting Started<a id="getting-started"></a>
@@ -1474,6 +1474,7 @@ This endpoint requires `userId` and `userSecret` in addition to the partner sign
 ```python
 add_subscription_response = snaptrade.experimental_endpoints.add_subscription(
     account_id="917c8734-8470-4a3e-a18f-57c3f2ee6631",
+    check_interval_seconds=300,
     user_id="snaptrade-user-123",
     user_secret="adf2aa34-8219-40f7-a6b3-60156985cc61",
 )
@@ -1484,6 +1485,10 @@ add_subscription_response = snaptrade.experimental_endpoints.add_subscription(
 ##### account_id: `str`<a id="account_id-str"></a>
 
 Unique identifier for the connected brokerage account. This is the UUID used to reference the account in SnapTrade.
+
+##### check_interval_seconds: `int`<a id="check_interval_seconds-int"></a>
+
+How often the subscribed account should be checked for new trades. Must match an active Trade Detection plan.
 
 ##### user_id: `str`<a id="user_id-str"></a>
 

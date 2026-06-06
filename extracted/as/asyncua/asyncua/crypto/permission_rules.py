@@ -1,6 +1,5 @@
-from enum import Enum
 from dataclasses import dataclass
-from typing import Optional
+from enum import Enum
 
 from asyncua import ua
 
@@ -24,7 +23,9 @@ USER_TYPES = [
     ua.ObjectIds.FindServersRequest_Encoding_DefaultBinary,
     ua.ObjectIds.TranslateBrowsePathsToNodeIdsRequest_Encoding_DefaultBinary,
     ua.ObjectIds.CreateSubscriptionRequest_Encoding_DefaultBinary,
+    ua.ObjectIds.ModifySubscriptionRequest_Encoding_DefaultBinary,
     ua.ObjectIds.DeleteSubscriptionsRequest_Encoding_DefaultBinary,
+    ua.ObjectIds.TransferSubscriptionsRequest_Encoding_DefaultBinary,
     ua.ObjectIds.CreateMonitoredItemsRequest_Encoding_DefaultBinary,
     ua.ObjectIds.ModifyMonitoredItemsRequest_Encoding_DefaultBinary,
     ua.ObjectIds.DeleteMonitoredItemsRequest_Encoding_DefaultBinary,
@@ -53,7 +54,7 @@ class UserRole(Enum):
 @dataclass
 class User:
     role: UserRole = UserRole.Anonymous
-    name: Optional[str] = None
+    name: str | None = None
 
 
 class PermissionRuleset:
@@ -83,5 +84,4 @@ class SimpleRoleRuleset(PermissionRuleset):
     def check_validity(self, user, action_type_id, body):
         if action_type_id in self._permission_dict[user.role]:
             return True
-        else:
-            return False
+        return False

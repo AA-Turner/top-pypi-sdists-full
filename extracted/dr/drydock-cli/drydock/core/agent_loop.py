@@ -1503,32 +1503,77 @@ class AgentLoop:
                                 logger.debug("bad-tool-call drop failed: %s", drop_err)
 
                         try:
-                            # First try: truncate old messages
-                            for i, msg in enumerate(self.messages):
-                                if i >= len(self.messages) - 4:
-                                    break
-                                if msg.role == Role.tool and hasattr(msg, 'content'):
-                                    content = str(msg.content) if msg.content else ""
-                                    if len(content) > 200:
-                                        msg.content = content[:100] + "\n[truncated]"
-                                elif msg.role == Role.assistant and hasattr(msg, 'content'):
-                                    content = str(msg.content) if msg.content else ""
-                                    if len(content) > 500:
-                                        msg.content = content[:200] + "\n[truncated]"
-
-                            # Second try: if messages > 20, keep only last 6
-                            if len(self.messages) > 20:
+                            # 2026-06-05: track API-error count for self-/clear
+                            # escalation. Operator: 20-file rename task hit API
+                            # error so bad that only manual /clear could recover.
+                            self._api_error_session_count = (
+                                getattr(self, "_api_error_session_count", 0) + 1
+                            )
+                            # SELF-CLEAR: 2nd+ API error in this session ⇒
+                            # do what the operator would have done manually.
+                            # Keep system msg + original user task ONLY,
+                            # inject a restart note. Everything else dropped.
+                            if self._api_error_session_count >= 2:
+                                kept = []
+                                # messages[0] = system
+                                if len(self.messages) > 0:
+                                    kept.append(self.messages[0])
+                                # First user message = original task
                                 first_user = None
                                 for msg in self.messages:
-                                    if msg.role == Role.user:
+                                    if msg.role == Role.user and not (
+                                        (msg.content or "").startswith("[Drydock")
+                                    ):
                                         first_user = msg
                                         break
-                                kept = []
                                 if first_user:
                                     kept.append(first_user)
-                                kept.extend(self.messages[-5:])
+                                kept.append(LLMMessage(
+                                    role=Role.user,
+                                    content=(
+                                        "[Drydock self-/clear] Previous attempts "
+                                        "hit repeated API errors and got pruned. "
+                                        "Re-read the task above. Take a SIMPLER "
+                                        "approach: for multi-file edits use "
+                                        "`mechanical_rename` if applicable, "
+                                        "otherwise do ONE file at a time with "
+                                        "small write_file payloads."
+                                    ),
+                                ))
                                 self.messages.reset(kept)
-                                logger.info("Emergency reset: kept first user + last 5 messages")
+                                self._api_error_session_count = 0
+                                logger.warning(
+                                    "[SELF-CLEAR] auto-recovered from repeated "
+                                    "API errors — kept system + first user + "
+                                    "restart note (%d msgs total)", len(kept),
+                                )
+                            else:
+                                # First try: truncate old messages
+                                for i, msg in enumerate(self.messages):
+                                    if i >= len(self.messages) - 4:
+                                        break
+                                    if msg.role == Role.tool and hasattr(msg, 'content'):
+                                        content = str(msg.content) if msg.content else ""
+                                        if len(content) > 200:
+                                            msg.content = content[:100] + "\n[truncated]"
+                                    elif msg.role == Role.assistant and hasattr(msg, 'content'):
+                                        content = str(msg.content) if msg.content else ""
+                                        if len(content) > 500:
+                                            msg.content = content[:200] + "\n[truncated]"
+
+                                # Second try: if messages > 20, keep only last 6
+                                if len(self.messages) > 20:
+                                    first_user = None
+                                    for msg in self.messages:
+                                        if msg.role == Role.user:
+                                            first_user = msg
+                                            break
+                                    kept = []
+                                    if first_user:
+                                        kept.append(first_user)
+                                    kept.extend(self.messages[-5:])
+                                    self.messages.reset(kept)
+                                    logger.info("Emergency reset: kept first user + last 5 messages")
                         except Exception:
                             pass
                         if dropped_bad_tool_call:
@@ -1706,6 +1751,15 @@ class AgentLoop:
                             # bare backtick commands containing pytest/bash/make
                             r"`(pytest\s[^`]*|bash\s+[^`]*\.sh[^`]*|make\s+test[^`]*|"
                             r"npm\s+test[^`]*|cargo\s+test[^`]*|go\s+test[^`]*)`",
+                            # Fix Q (2026-06-05): broaden detection — most tasks
+                            # mention "pytest" without backticks. e.g. "run
+                            # pytest", "tests use pytest", "verify with pytest".
+                            # Match bare command names that imply a verifier.
+                            r"\b(pytest(?:\s+-[a-zA-Z]+)?)\b",
+                            r"\b(python(?:3)?\s+-m\s+pytest(?:\s+-[a-zA-Z]+)?)\b",
+                            r"\b(python(?:3)?\s+-m\s+unittest)\b",
+                            r"\b(bash\s+[/\w.-]+\.sh)\b",
+                            r"\b(make\s+test|make\s+check)\b",
                         ]
                         for p in cmd_patterns:
                             for m in _re2.finditer(p, task_text, _re2.IGNORECASE):
@@ -1866,6 +1920,94 @@ class AgentLoop:
                                 "the source, then run it again. Don't stop "
                                 "until verify returns passed=True."
                             )
+                        # Fix N (2026-06-05): when a verify-command is named
+                        # and the model has written files but hasn't run it,
+                        # drydock runs the verifier in a subprocess and
+                        # APPENDS the output to the nudge. The model sees
+                        # real ground-truth feedback instead of just being
+                        # asked to run it. Cap at 3 auto-runs per session.
+                        auto_run_count = getattr(self, "_auto_verifier_runs", 0)
+                        # Fix V (2026-06-05 cycle 1): fall back to discovering
+                        # test files even when the task doesn't name an explicit
+                        # verifier command. Cycle 1 batch on v2.9.65: Fix N
+                        # fired 0 times because the regex patterns required
+                        # specific phrases that few tasks contain. Many tbench
+                        # tasks have `/tests/test_*.py` files that pytest
+                        # discovers automatically — just running bare `pytest`
+                        # would surface them.
+                        if (not has_missing_verify and writes_so_far > 0
+                                and auto_run_count < 2):
+                            # No explicit command — try pytest in the trial cwd
+                            # as a generic fallback. Most tbench tasks use it.
+                            try:
+                                import subprocess as _sub_fb
+                                # Discover test files first so we don't run
+                                # pytest in /tmp with nothing.
+                                _disc = _sub_fb.run(
+                                    "find /app /tests -maxdepth 3 "
+                                    "\\( -name 'test_*.py' -o -name '*_test.py' "
+                                    "-o -name 'tests.py' \\) 2>/dev/null | head -5",
+                                    shell=True, capture_output=True,
+                                    timeout=5, text=True,
+                                )
+                                test_files = (_disc.stdout or "").strip()
+                                if test_files:
+                                    missing_verify_cmds = [
+                                        f"pytest -x {test_files.replace(chr(10), ' ')}"
+                                    ]
+                                    has_missing_verify = True
+                            except Exception:
+                                pass
+                        if (has_missing_verify and writes_so_far > 0
+                                and auto_run_count < 3):
+                            cmd = missing_verify_cmds[0]
+                            # Sanity-check the command — only allow pytest /
+                            # bash / make / npm / cargo / go / python invocations.
+                            # Refuse anything else for safety.
+                            safe_prefixes = (
+                                "pytest", "python -m pytest", "python3 -m pytest",
+                                "bash ", "sh ", "make ", "npm ", "cargo ",
+                                "go test", "python ", "python3 ",
+                            )
+                            if any(cmd.strip().startswith(p) for p in safe_prefixes):
+                                try:
+                                    import subprocess as _sub
+                                    import shlex as _sx
+                                    _proc = _sub.run(
+                                        cmd, shell=True, capture_output=True,
+                                        timeout=45, text=True,
+                                        cwd=str(Path.cwd()),
+                                    )
+                                    out = (_proc.stdout or "") + (_proc.stderr or "")
+                                    if len(out) > 2000:
+                                        out = out[:2000] + (
+                                            f"\n...[truncated, {len(out)} bytes total]"
+                                        )
+                                    rc = _proc.returncode
+                                    self._auto_verifier_runs = auto_run_count + 1
+                                    note += (
+                                        f"\n\n[AUTO-VERIFIER RAN] I ran `{cmd}` "
+                                        f"for you. Exit code: {rc}. Output:\n"
+                                        f"-----VERIFIER OUTPUT-----\n{out}\n"
+                                        f"-----END VERIFIER OUTPUT-----\n"
+                                        f"{'PASSED — you can exit if everything looks correct.' if rc == 0 else 'FAILED — read the failures above, fix the source, then run it again.'}"
+                                    )
+                                    logger.warning(
+                                        "[AUTO-VERIFIER] ran `%s` rc=%d "
+                                        "(auto-run #%d/3)",
+                                        cmd, rc, self._auto_verifier_runs,
+                                    )
+                                except _sub.TimeoutExpired:
+                                    note += (
+                                        f"\n\n[AUTO-VERIFIER TIMED OUT after 45s] "
+                                        f"`{cmd}` didn't finish in time. Try a "
+                                        f"narrower test (e.g. `pytest -x` to stop "
+                                        f"at first fail) or skip this check."
+                                    )
+                                except Exception as _e:
+                                    logger.warning(
+                                        "[AUTO-VERIFIER] failed: %s", _e
+                                    )
                         self._inject_system_note(note)
                         should_break_loop = False
                         logger.warning(
@@ -2496,7 +2638,174 @@ class AgentLoop:
         return ""
 
     def _circuit_breaker_check(self, tool_call: ResolvedToolCall) -> str | None:
-        """Block exact-duplicate tool calls after a high threshold.
+        """DISABLED 2026-06-05 — return None always, let tool run.
+
+        Operator feedback: visible "Skipped" / "CIRCUIT BREAKER" messages
+        looked unprofessional, didn't actually stop loops (model kept
+        emitting same calls), and after ~20 min of work the accumulated
+        counts blocked legitimate repeated reads. Claude Code doesn't
+        show breakers; it trusts the model to handle redundant calls.
+        Drydock now does the same: tools always run, model figures it out.
+
+        Keep the signature counter as telemetry (logged via debug) so we
+        can post-hoc investigate pathological loops without polluting
+        the conversation.
+
+        Below kept commented-out for fast revert if a regression hits.
+        """
+        # Track for telemetry but never block.
+        args_str = json.dumps(tool_call.args_dict, sort_keys=True, default=str)
+        sig = hashlib.sha256(
+            f"{tool_call.tool_name}:{args_str}".encode()
+        ).hexdigest()
+        count, last_result = self._tool_call_history.get(sig, (0, ""))
+        self._tool_call_history[sig] = (count + 1, last_result)
+        if count >= 5:
+            logger.debug(
+                "[CIRCUIT-NOOP] %s called %d× with same args (no block, telemetry only)",
+                tool_call.tool_name, count + 1,
+            )
+        return None
+
+    def _infer_path_from_recent_reads(self) -> str | None:
+        """Scan recent history for the last successful read_file or write_file
+        path. Used to auto-fix missing-path tool calls before dispatch.
+
+        Looks at the last 20 messages. For tool messages produced by
+        read_file or write_file, extract the path from the tool result
+        text. Returns the most recent unique path found, or None.
+
+        Conservative: only returns a path when ONE path dominates the
+        recent window. If the model has been touching 5 different files,
+        we can't safely guess which one this new call meant — return None
+        and let the preflight reject the call.
+        """
+        path_re = __import__("re").compile(
+            r"(?:path|file_path):\s*([\w./_-]+)"
+        )
+        recent_paths: list[str] = []
+        for m in self.messages[-20:]:
+            if m.role != Role.tool:
+                continue
+            name = getattr(m, "name", "") or ""
+            if name not in ("read_file", "write_file", "search_replace"):
+                continue
+            content = m.content or ""
+            mm = path_re.search(content)
+            if mm:
+                p = mm.group(1).strip()
+                if p and not p.endswith("(missing)"):
+                    recent_paths.append(p)
+        if not recent_paths:
+            return None
+        # If exactly one unique path in recent window → safe to infer
+        unique = list(dict.fromkeys(recent_paths))
+        if len(unique) == 1:
+            return unique[0]
+        # If multiple, prefer the most recent unique one but only if it
+        # was touched 2+ times recently (signal of "this is the working
+        # file"). Otherwise refuse to guess.
+        last_path = recent_paths[-1]
+        if recent_paths.count(last_path) >= 2:
+            return last_path
+        return None
+
+    def _maybe_perform_loop_surgery(self, tool_call: ResolvedToolCall) -> None:
+        """Detect tool-call loops and rewrite history to break them.
+
+        Theory: the model gets locked into a loop because the bloated
+        context (3+ same call + 3+ same error result) keeps reinforcing
+        the pattern. Each nudge ADDS to the locked-in context. Real fix:
+        SHORTEN the context — remove the loop residue, keep only what's
+        useful, inject a fresh marker so the model "starts over."
+
+        Triggers when:
+          1. This tool signature has been called 3+ times AND
+          2. Last surgery was >= 6 messages ago (avoid surgery spam)
+
+        Surgery:
+          - Keep messages[0] (system) and messages[1] (original user task)
+          - Keep last 3 productive (non-error) tool result pairs
+          - Drop everything else
+          - Inject a system note: "Looping detected — context reset."
+        """
+        args_str = json.dumps(tool_call.args_dict, sort_keys=True, default=str)
+        sig = hashlib.sha256(
+            f"{tool_call.tool_name}:{args_str}".encode()
+        ).hexdigest()
+        count = self._tool_call_history.get(sig, (0, ""))[0]
+        if count < 3:
+            return
+        last_surgery_idx = getattr(self, "_last_loop_surgery_idx", -10)
+        if len(self.messages) - last_surgery_idx < 6:
+            return  # already cleaned recently, give it time
+        # Identify "productive" tool results = those without <tool_error>,
+        # 'Skipped:', 'NO `path`', 'REPEATED READ', etc.
+        bad_markers = (
+            "<tool_error>", "Skipped:", "NO `path`", "NO path supplied",
+            "REPEATED READ", "2nd identical", "BLOCKED:", "HARD-BLOCK",
+            "PREMATURE EXIT",
+        )
+        productive_pairs: list[tuple[int, int]] = []  # (assistant_idx, tool_idx)
+        i = 0
+        while i < len(self.messages) - 1:
+            m = self.messages[i]
+            if m.role == Role.assistant and m.tool_calls:
+                # Find paired tool result(s)
+                j = i + 1
+                pair_good = True
+                while j < len(self.messages) and self.messages[j].role == Role.tool:
+                    content = self.messages[j].content or ""
+                    if any(b in content for b in bad_markers):
+                        pair_good = False
+                        break
+                    j += 1
+                if pair_good and j > i + 1:
+                    productive_pairs.append((i, j - 1))
+                i = j
+            else:
+                i += 1
+        keep_indices = {0}  # system
+        if len(self.messages) >= 2:
+            keep_indices.add(1)  # original user
+        # Keep last 3 productive pairs
+        for ai, ti in productive_pairs[-3:]:
+            for k in range(ai, ti + 1):
+                keep_indices.add(k)
+        kept = [self.messages[i] for i in sorted(keep_indices)]
+        if len(kept) >= len(self.messages):
+            return  # nothing actually got removed; bail
+        removed_count = len(self.messages) - len(kept)
+        # Inject a fresh "context-was-bloated" system note as a user-role
+        # message (so it's not seen as model self-talk) right after the
+        # original user task. The model reads this as "the task is still
+        # active; previous attempts didn't help; try a different approach."
+        surgery_note = LLMMessage(
+            role=Role.user,
+            content=(
+                f"[Drydock loop surgery] Your last {removed_count} messages "
+                f"got pruned because the same tool call signature fired "
+                f"{count}+ times with identical args and no progress. "
+                f"The locked-in retry pattern is gone. Re-read the task above, "
+                f"pick a DIFFERENT first action than what you were doing, "
+                f"and continue."
+            ),
+        )
+        kept.append(surgery_note)
+        self.messages.reset(kept)
+        self._last_loop_surgery_idx = len(self.messages)
+        # Reset the relevant tool-call history so the same sig can be
+        # tried fresh (just once). We don't wipe ALL history to keep
+        # other loop-prevention signals intact.
+        self._tool_call_history.pop(sig, None)
+        logger.warning(
+            "[LOOP-SURGERY] tool=%s sig=%s count=%d — pruned %d msgs, "
+            "kept %d productive frames + injected restart note",
+            tool_call.tool_name, sig[:8], count, removed_count, len(kept) - 1,
+        )
+
+    def _circuit_breaker_check_OLD(self, tool_call: ResolvedToolCall) -> str | None:
+        """OLD impl — kept for reference. Block exact-duplicate tool calls.
 
         Re-enabled v2.6.102 after stress session 20260415_171815 hit
         91× identical search_replace with the same content
@@ -2553,7 +2862,12 @@ class AgentLoop:
             except (OSError, AttributeError):
                 pass  # best-effort — fall through to normal threshold check
 
-        threshold = 5 if is_readonly else 8
+        # 2026-06-05: lowered readonly threshold 5 → 3 to match the FULL
+        # circuit breaker. Operator session showed read_file looping 5×
+        # on the same file in TUI before block fired here. The tool
+        # already injects a "2nd identical read" header; if the model
+        # hasn't pivoted by the 3rd call, it never will.
+        threshold = 3 if is_readonly else 8
         if count < threshold:
             return None
         # Increment so the count escalates on every repeated fire, giving the
@@ -2638,7 +2952,7 @@ class AgentLoop:
             f"take the next step."
         )
 
-    def _circuit_breaker_check_FULL(self, tool_call: ResolvedToolCall) -> str | None:
+    def _circuit_breaker_check_FULL_DISABLED(self, tool_call: ResolvedToolCall) -> str | None:
         """Block exact-duplicate tool calls. Returns cached result or None.
 
         Thresholds:
@@ -2742,6 +3056,99 @@ class AgentLoop:
         # nudges the model but must never stop the session — only
         # MAX_TOOL_TURNS (200) is a hard stop. See the 2026-04-16 stress
         # run where FORCED STOP poisoned every subsequent prompt.
+        # 2026-06-05: Context surgery on loop detection. When the same
+        # tool signature has fired 3+ times AND we haven't done surgery
+        # recently, REWRITE history: keep system + original user + last
+        # productive tool result + a NEW system note telling the model
+        # to start fresh. Breaks the locked-in pattern by changing what
+        # the model sees instead of just nudging.
+        # 2026-06-05 Pre-flight path validation. Operator: "why can't tool
+        # calls check the right pathing BEFORE doing it?" Right answer.
+        # For file tools that REQUIRE a path arg, validate before dispatch.
+        # On failure: emit a SHORT advisory, mark the call as failed, AND
+        # immediately drop the assistant's failed tool_calls message from
+        # history so the model can't see its own past attempts and loop.
+        # This prevents the missing-path retry loop architecturally — the
+        # model literally can't see what it did wrong, so it can't repeat.
+        path_required = ("write_file", "read_file", "search_replace")
+        if tool_call.tool_name in path_required:
+            p = (
+                tool_call.args_dict.get("path")
+                or tool_call.args_dict.get("file_path")
+                or tool_call.args_dict.get("filename")
+            )
+            if not (isinstance(p, str) and p.strip()):
+                # 2026-06-05: AUTO-INFER path from recent reads instead of
+                # rejecting the call. Operator: "I want to stamp out the
+                # read and write errors." The intent is usually clear —
+                # the model just lost the path arg mid-generation. Look
+                # at the most recent successful read_file in history; if
+                # exactly one path was read recently, use it. The model
+                # never sees an error, the tool just works.
+                inferred = self._infer_path_from_recent_reads()
+                if inferred:
+                    tool_call.args_dict["path"] = inferred
+                    # Also rewrite the assistant message's tool_call args
+                    # so the LLM history reflects the inferred path
+                    # (consistent with what we're about to execute).
+                    try:
+                        for m in reversed(self.messages):
+                            if m.role == Role.assistant and m.tool_calls:
+                                for tc in m.tool_calls:
+                                    if tc.id == tool_call.call_id:
+                                        try:
+                                            args = json.loads(
+                                                tc.function.arguments or "{}"
+                                            )
+                                            args["path"] = inferred
+                                            tc.function.arguments = json.dumps(args)
+                                        except Exception:
+                                            pass
+                                        break
+                                break
+                    except Exception:
+                        pass
+                    logger.warning(
+                        "[AUTO-INFER] %s called with no path — inferred "
+                        "%s from recent reads",
+                        tool_call.tool_name, inferred,
+                    )
+                    # Fall through to dispatch normally — no error, no nudge.
+                else:
+                    # No recent reads to infer from: emit a 1-line error and
+                    # drop the bad call from history so it can't loop.
+                    short_msg = f"{tool_call.tool_name}: path required"
+                    yield ToolResultEvent(
+                        tool_name=tool_call.tool_name,
+                        tool_class=tool_call.tool_class,
+                        error=short_msg,
+                        tool_call_id=tool_call.call_id,
+                    )
+                    self._handle_tool_response(tool_call, short_msg, "failure")
+                    try:
+                        bad_idx = None
+                        for i in range(len(self.messages) - 1, -1, -1):
+                            m = self.messages[i]
+                            if m.role == Role.assistant and m.tool_calls:
+                                if any(
+                                    tc.id == tool_call.call_id
+                                    for tc in m.tool_calls
+                                ):
+                                    bad_idx = i
+                                    break
+                        if bad_idx is not None:
+                            kept = list(self.messages[:bad_idx])
+                            self.messages.reset(kept)
+                            logger.warning(
+                                "[PREFLIGHT] %s missing path — dropped bad "
+                                "tool_call msg (idx=%d) so model can't loop on it",
+                                tool_call.tool_name, bad_idx,
+                            )
+                    except Exception as _e:
+                        logger.warning("[PREFLIGHT] history prune failed: %s", _e)
+                    return
+
+        self._maybe_perform_loop_surgery(tool_call)
         if blocked := self._circuit_breaker_check(tool_call):
             self._consecutive_circuit_breaker_fires += 1
             # 2026-05-18: render as `skipped` (yellow warning) not `error`
@@ -6220,6 +6627,10 @@ class AgentLoop:
             or msg_text.count("/app/") >= 2
             or msg_text.count("/tmp/") >= 2
             or ("write_file" in msg_text and "/app/" in msg_text)
+            # Local test-harness / direct coding prompts: "Initialize/Build/Create
+            # a … package … Requirements: …" with .py file mentions. These need
+            # tool calls (write_file/bash) not a text-only retrieval response.
+            or ("__init__.py" in msg_text and "Requirements:" in msg_text)
         )
         if is_file_task and os.environ.get(
             "DRYDOCK_AUTO_RETRIEVE_FORCE_ON", ""

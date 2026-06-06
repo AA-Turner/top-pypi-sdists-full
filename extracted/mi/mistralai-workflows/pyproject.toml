@@ -19,7 +19,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "mistralai>=2.4.7,<3.0.0",
+    "mistralai>=2.4.9,<3.0.0",
     # Core workflow orchestration - MOST CRITICAL
     # Pin tightly - only allow tested minor versions, must test before upgrading
     "temporalio>=1.27.2,<1.28.0",  # Tested: 1.27.2
@@ -35,6 +35,8 @@ dependencies = [
     
     # Utilities
     "tenacity>=9.1.2,<10.0.0",
+    "urllib3>=2.7.0",  # Not used directly - pinned to override a vulnerable transitive dependency via httpx
+    "starlette>=1.0.1",  # Not used directly - pinned to override a vulnerable transitive dependency via mcp
     "asynciolimiter>=1.2.0,<2.0.0",
     "jsonpatch>=1.33,<2.0.0",
     
@@ -65,6 +67,7 @@ webhook = [
 
 # Payload encryption - use client-python's extra
 encryption = ["mistralai[workflow-payload-encryption]"]
+compression = ["mistralai[workflow-payload-compression]"]
 
 # Cloud storage providers for payload offloading
 azure = ["mistralai[workflow-payload-offloading-azure]"]
@@ -77,6 +80,7 @@ all = [
     "mistralai-workflows[mistralai]",
     "mistralai-workflows[webhook]",
     "mistralai-workflows[encryption]",
+    "mistralai-workflows[compression]",
     "mistralai-workflows[storage]",
 ]
 
@@ -85,6 +89,7 @@ all-plugins = [
     "mistralai-workflows[mistralai]",
     "mistralai-workflows[webhook]",
     "mistralai-workflows[encryption]",
+    "mistralai-workflows[compression]",
     "mistralai-workflows[storage]",
 ]
 
@@ -116,6 +121,8 @@ dev = [
     "watchdog>=6.0.0",
     "griffe>=1.0.0",
     "ovide",
+    "mistralai[workflow-payload-encryption]",
+    "mistralai[workflow-payload-compression]",
 ]
 
 

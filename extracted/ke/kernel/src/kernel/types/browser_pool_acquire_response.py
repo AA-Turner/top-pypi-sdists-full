@@ -3,6 +3,7 @@
 from typing import Dict, Optional
 from datetime import datetime
 
+from .tags import Tags
 from .profile import Profile
 from .._models import BaseModel
 from .browser_usage import BrowserUsage
@@ -63,6 +64,9 @@ class BrowserPoolAcquireResponse(BaseModel):
     kiosk_mode: Optional[bool] = None
     """Whether the browser session is running in kiosk mode."""
 
+    name: Optional[str] = None
+    """Human-readable name of the browser session, if one was set at creation."""
+
     pool: Optional[BrowserPoolRef] = None
     """Browser pool this session was acquired from, if any."""
 
@@ -79,6 +83,12 @@ class BrowserPoolAcquireResponse(BaseModel):
     the browser without waiting for it to load, and any errors (DNS failure, bad
     status, timeout) are silently dropped. Captures what was requested, not what the
     browser actually loaded.
+    """
+
+    tags: Optional[Tags] = None
+    """User-defined key-value tags that were set on this browser session, if any.
+
+    Echoed back when present.
     """
 
     telemetry: Optional[BrowserTelemetryConfig] = None

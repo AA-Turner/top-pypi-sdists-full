@@ -1,1 +1,1 @@
-"""aiwatch-enforce — Python port of runlayer-hook.sh."""
+"""aiwatch-hook — Python port of runlayer-hook.sh."""

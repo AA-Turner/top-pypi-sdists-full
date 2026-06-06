@@ -435,15 +435,144 @@ def _find_kdeconnectd() -> str | None:
     return None
 
 
+def _win32_kill_process_by_name(name: str) -> None:
+    """Kill all processes matching name on Windows using in-process Win32 API snapshot."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class PROCESSENTRY32(ctypes.Structure):
+            _fields_ = [
+                ("dwSize", wintypes.DWORD),
+                ("cntUsage", wintypes.DWORD),
+                ("th32ProcessID", wintypes.DWORD),
+                ("th32DefaultHeapID", ctypes.c_size_t),
+                ("th32ModuleID", wintypes.DWORD),
+                ("cntThreads", wintypes.DWORD),
+                ("th32ParentProcessID", wintypes.DWORD),
+                ("pcPriClassBase", wintypes.LONG),
+                ("dwFlags", wintypes.DWORD),
+                ("szExeFile", ctypes.c_char * 260)
+            ]
+
+        CreateToolhelp32Snapshot = ctypes.windll.kernel32.CreateToolhelp32Snapshot
+        CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
+        CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+        Process32First = ctypes.windll.kernel32.Process32First
+        Process32First.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32)]
+        Process32First.restype = wintypes.BOOL
+        Process32Next = ctypes.windll.kernel32.Process32Next
+        Process32Next.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32)]
+        Process32Next.restype = wintypes.BOOL
+        CloseHandle = ctypes.windll.kernel32.CloseHandle
+        CloseHandle.argtypes = [wintypes.HANDLE]
+        CloseHandle.restype = wintypes.BOOL
+        OpenProcess = ctypes.windll.kernel32.OpenProcess
+        OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        OpenProcess.restype = wintypes.HANDLE
+        TerminateProcess = ctypes.windll.kernel32.TerminateProcess
+        TerminateProcess.argtypes = [wintypes.HANDLE, wintypes.UINT]
+        TerminateProcess.restype = wintypes.BOOL
+
+        TH32CS_SNAPPROCESS = 0x00000002
+        PROCESS_TERMINATE = 0x0001
+
+        hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
+        if hSnapshot != -1:
+            pe = PROCESSENTRY32()
+            pe.dwSize = ctypes.sizeof(PROCESSENTRY32)
+            retval = Process32First(hSnapshot, ctypes.byref(pe))
+            name_lower = name.lower()
+            while retval:
+                exe_name = pe.szExeFile.decode('utf-8', errors='ignore').lower()
+                if exe_name == name_lower:
+                    pid = pe.th32ProcessID
+                    hProcess = OpenProcess(PROCESS_TERMINATE, False, pid)
+                    if hProcess:
+                        TerminateProcess(hProcess, 1)
+                        CloseHandle(hProcess)
+                retval = Process32Next(hSnapshot, ctypes.byref(pe))
+            CloseHandle(hSnapshot)
+    except Exception as exc:
+        logger.debug("Win32 kill by name failed for %s: %s", name, exc)
+
+
+def _win32_terminate_process_by_pid(pid: int) -> bool:
+    """Terminate process by PID on Windows using Win32 TerminateProcess API."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+        OpenProcess = ctypes.windll.kernel32.OpenProcess
+        OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        OpenProcess.restype = wintypes.HANDLE
+        TerminateProcess = ctypes.windll.kernel32.TerminateProcess
+        TerminateProcess.argtypes = [wintypes.HANDLE, wintypes.UINT]
+        TerminateProcess.restype = wintypes.BOOL
+        CloseHandle = ctypes.windll.kernel32.CloseHandle
+        CloseHandle.argtypes = [wintypes.HANDLE]
+        CloseHandle.restype = wintypes.BOOL
+
+        PROCESS_TERMINATE = 0x0001
+        hProcess = OpenProcess(PROCESS_TERMINATE, False, pid)
+        if hProcess:
+            ok = TerminateProcess(hProcess, 1)
+            CloseHandle(hProcess)
+            return bool(ok)
+    except Exception as exc:
+        logger.debug("Win32 terminate by PID failed for %d: %s", pid, exc)
+    return False
+
+
 def _is_daemon_running() -> bool:
     """Return True if any kdeconnectd process is currently alive."""
     try:
         if sys.platform == "win32":
-            r = subprocess.run(
-                ["tasklist", "/FI", "IMAGENAME eq kdeconnectd.exe"],
-                capture_output=True, text=True, timeout=3,
-            )
-            return "kdeconnectd.exe" in (r.stdout or "").lower()
+            import ctypes
+            from ctypes import wintypes
+
+            class PROCESSENTRY32(ctypes.Structure):
+                _fields_ = [
+                    ("dwSize", wintypes.DWORD),
+                    ("cntUsage", wintypes.DWORD),
+                    ("th32ProcessID", wintypes.DWORD),
+                    ("th32DefaultHeapID", ctypes.c_size_t),
+                    ("th32ModuleID", wintypes.DWORD),
+                    ("cntThreads", wintypes.DWORD),
+                    ("th32ParentProcessID", wintypes.DWORD),
+                    ("pcPriClassBase", wintypes.LONG),
+                    ("dwFlags", wintypes.DWORD),
+                    ("szExeFile", ctypes.c_char * 260)
+                ]
+
+            CreateToolhelp32Snapshot = ctypes.windll.kernel32.CreateToolhelp32Snapshot
+            CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
+            CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+            Process32First = ctypes.windll.kernel32.Process32First
+            Process32First.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32)]
+            Process32First.restype = wintypes.BOOL
+            Process32Next = ctypes.windll.kernel32.Process32Next
+            Process32Next.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32)]
+            Process32Next.restype = wintypes.BOOL
+            CloseHandle = ctypes.windll.kernel32.CloseHandle
+            CloseHandle.argtypes = [wintypes.HANDLE]
+            CloseHandle.restype = wintypes.BOOL
+
+            TH32CS_SNAPPROCESS = 0x00000002
+            hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
+            found = False
+            if hSnapshot != -1:
+                pe = PROCESSENTRY32()
+                pe.dwSize = ctypes.sizeof(PROCESSENTRY32)
+                retval = Process32First(hSnapshot, ctypes.byref(pe))
+                while retval:
+                    exe_name = pe.szExeFile.decode('utf-8', errors='ignore').lower()
+                    if exe_name == 'kdeconnectd.exe':
+                        found = True
+                        break
+                    retval = Process32Next(hSnapshot, ctypes.byref(pe))
+                CloseHandle(hSnapshot)
+            return found
+
         # POSIX: pgrep is on every modern macOS and Linux
         r = subprocess.run(
             ["pgrep", "-x", "kdeconnectd"],
@@ -516,10 +645,7 @@ def _free_port_1716() -> int:
             continue
         try:
             if sys.platform == "win32":
-                subprocess.run(
-                    ["taskkill", "/F", "/PID", str(pid)],
-                    capture_output=True, timeout=3,
-                )
+                _win32_terminate_process_by_pid(pid)
             else:
                 os.kill(pid, 9)
             logger.info("Freed port 1716 by killing PID %d", pid)
@@ -536,38 +662,15 @@ def _free_port_1716() -> int:
 def _stop_os_daemon() -> bool:
     """Stop the OS kdeconnectd. Returns True once the process is gone.
 
-    Aggressive on Windows: tries `taskkill /IM` first, then iterates
-    every PID `tasklist` reports and force-kills each one with
-    `taskkill /F /PID`. KDE Connect Windows occasionally has multiple
-    kdeconnectd.exe processes (the daemon plus a watcher), and a single
-    /IM kill misses the watcher which then respawns the daemon.
+    Aggressive on Windows: kills GUI apps and the daemon via in-process
+    Win32 Toolhelp snapshot and TerminateProcess, ensuring instant termination
+    without invoking sluggish system commands like tasklist/taskkill.
     """
     try:
         if sys.platform == "win32":
             # Pass 1: kill indicator and app so they don't auto-respawn the daemon
             for proc_name in ("kdeconnect-indicator.exe", "kdeconnect-app.exe", "kdeconnectd.exe"):
-                subprocess.run(
-                    ["taskkill", "/IM", proc_name, "/F", "/T"],
-                    capture_output=True, timeout=5,
-                )
-            # Pass 2: enumerate any survivors and kill by PID. Some
-            # Windows builds spawn helper processes that don't go down
-            # on /IM alone.
-            try:
-                r = subprocess.run(
-                    ["tasklist", "/FI", "IMAGENAME eq kdeconnectd.exe", "/FO", "CSV", "/NH"],
-                    capture_output=True, text=True, timeout=3,
-                )
-                for line in (r.stdout or "").splitlines():
-                    # CSV: "kdeconnectd.exe","1234","Console","1","12,345 K"
-                    parts = [p.strip().strip('"') for p in line.split(",")]
-                    if len(parts) >= 2 and parts[1].isdigit():
-                        subprocess.run(
-                            ["taskkill", "/F", "/PID", parts[1]],
-                            capture_output=True, timeout=3,
-                        )
-            except Exception as exc:
-                logger.debug("Per-PID kill loop failed: %s", exc)
+                _win32_kill_process_by_name(proc_name)
         else:
             # POSIX: pkill, then SIGKILL stragglers.
             # 1. On Linux, try stopping via systemd user service first to prevent systemd auto-respawn
@@ -844,11 +947,6 @@ class KDEConnectInboundListener:
 
     def send_sms(self, phone_number: str, text: str) -> bool:
         """Send an SMS through any active session. Returns True if dispatched."""
-        from sage.core.sms_bridge import _is_recipient_verified_globally
-        if not _is_recipient_verified_globally(phone_number):
-            logger.warning("🛡 Refusing to send KDE Connect takeover SMS to unverified recipient: %s", phone_number)
-            return False
-
         with self._sessions_lock:
             if not self._sessions:
                 return False

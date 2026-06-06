@@ -68,7 +68,7 @@ use gam::smooth::{
     BoundedCoefficientPriorSpec, LinearCoefficientGeometry, LinearTermSpec, SmoothBasisSpec,
     SmoothStructureAnalysis, SmoothTermSpec, SpatialLengthScaleOptimizationOptions,
     TermCollectionSpec, analyze_smooth_ownership, build_term_collection_design,
-    freeze_term_collection_from_design, smooth_term_feature_cols,
+    fit_term_collection_forspec, freeze_term_collection_from_design, smooth_term_feature_cols,
 };
 use gam::smooth_test::SmoothTestScale;
 use gam::survival::{
@@ -422,13 +422,6 @@ struct FitArgs {
     /// non-binomial families.
     #[arg(long = "firth", default_value_t = false)]
     firth: bool,
-    /// Universal under-identification robustness policy: `off` (default),
-    /// `auto`, or `force`. When set, the solver applies link-general
-    /// Jeffreys/Firth regularization on the under-identified span and exact
-    /// orthogonalization of structural confounds. `off` leaves behavior
-    /// byte-identical to the released solver.
-    #[arg(long = "robust-identification", default_value = "off")]
-    robust_identification: String,
     /// Explicit response family. Use `auto` to infer the family.
     #[arg(long = "family", value_enum, default_value_t = FamilyArg::Auto)]
     family: FamilyArg,
@@ -750,7 +743,6 @@ struct CliFirthValidation<'a> {
     enabled: bool,
     family: LikelihoodSpec,
     predict_noise: bool,
-    has_bounded_terms: bool,
     is_survival: bool,
     link_choice: Option<&'a LinkChoice>,
 }
@@ -771,11 +763,6 @@ fn validate_cli_firth_configuration(ctx: CliFirthValidation<'_>) -> Result<(), C
                 .to_string(),
         });
     }
-    if ctx.has_bounded_terms {
-        return Err(CliError::IncompatibleConfig {
-            reason: "--firth is not yet supported with bounded() coefficients".to_string(),
-        });
-    }
     if ctx.family.supports_firth() {
         return Ok(());
     }
@@ -791,8 +778,7 @@ fn validate_cli_firth_configuration(ctx: CliFirthValidation<'_>) -> Result<(), C
 
     Err(CliError::IncompatibleConfig {
         reason: format!(
-            "--firth currently requires {}; resolved family is {}",
-            LikelihoodSpec::binomial_logit().pretty_name(),
+            "--firth currently requires a Binomial inverse link with a Fisher-weight jet; resolved family is {}",
             ctx.family.pretty_name()
         ),
     })
@@ -993,7 +979,6 @@ fn run_fit(args: FitArgs) -> Result<(), String> {
             enabled: args.firth,
             family: LikelihoodSpec::royston_parmar(),
             predict_noise: args.predict_noise.is_some(),
-            has_bounded_terms: false,
             is_survival: true,
             link_choice: None,
         })?;
@@ -1357,7 +1342,6 @@ fn run_fit(args: FitArgs) -> Result<(), String> {
         enabled: args.firth,
         family: family.clone(),
         predict_noise: args.predict_noise.is_some(),
-        has_bounded_terms,
         is_survival: false,
         link_choice: link_choice.as_ref(),
     })?;
@@ -1407,13 +1391,6 @@ fn run_fit(args: FitArgs) -> Result<(), String> {
         }
         None
     };
-    let robust_identification = gam::RobustIdentification::parse(&args.robust_identification)
-        .ok_or_else(|| {
-            format!(
-                "invalid --robust-identification '{}'; expected off, auto, or force",
-                args.robust_identification
-            )
-        })?;
     let base_fit_options = FitOptions {
         latent_cloglog: latent_cloglog_state,
         mixture_link: mixture_linkspec.clone(),
@@ -1437,7 +1414,6 @@ fn run_fit(args: FitArgs) -> Result<(), String> {
         nullspace_dims: vec![],
         linear_constraints: None,
         firth_bias_reduction: false,
-        robust_identification,
         adaptive_regularization: adaptive_opts,
         penalty_shrinkage_floor: Some(1e-6),
         rho_prior: Default::default(),
@@ -1515,7 +1491,6 @@ fn run_fit(args: FitArgs) -> Result<(), String> {
                 nullspace_dims: design.nullspace_dims.clone(),
                 linear_constraints: design.linear_constraints.clone(),
                 firth_bias_reduction: Some(true),
-                robust_identification,
                 penalty_shrinkage_floor: Some(1e-6),
                 rho_prior: Default::default(),
                 kronecker_penalty_system: None,
@@ -2762,9 +2737,8 @@ fn run_predict(args: PredictArgs) -> Result<(), String> {
         phase_start.elapsed().as_secs_f64()
     );
     progress.advance_workflow(1);
-    let schema = model.require_data_schema()?;
     progress.set_stage("predict", "loading new data");
-    let ds = load_datasetwith_schema(&args.new_data, schema)?;
+    let ds = load_datasetwith_model_schema(&args.new_data, &model)?;
     require_dataset_rows("predict", &args.new_data, ds.values.nrows())?;
     log::info!(
         "[PHASE] predict load-data done elapsed={:.3}s n={}",
@@ -3902,9 +3876,8 @@ fn run_diagnose(args: DiagnoseArgs) -> Result<(), String> {
             model_class = model.predict_model_class()
         ));
     }
-    let schema = model.require_data_schema()?;
     progress.set_stage("diagnose", "loading diagnostic dataset");
-    let ds = load_datasetwith_schema(&args.data, schema)?;
+    let ds = load_datasetwith_model_schema(&args.data, &model)?;
     require_dataset_rows("diagnose", &args.data, ds.values.nrows())?;
     progress.advance_workflow(2);
     let col_map = ds.column_map();
@@ -3919,12 +3892,6 @@ fn run_diagnose(args: DiagnoseArgs) -> Result<(), String> {
         &col_map,
         "resolved_termspec",
     )?;
-    if termspec_has_bounded_terms(&spec) {
-        return Err(
-            "diagnose --alo is not yet supported for models with bounded() coefficients"
-                .to_string(),
-        );
-    }
     progress.set_stage("diagnose", "building diagnostic design");
     let design = build_term_collection_design(ds.values.view(), &spec)
         .map_err(|e| format!("failed to build term collection design: {e}"))?;
@@ -3952,38 +3919,72 @@ fn run_diagnose(args: DiagnoseArgs) -> Result<(), String> {
             .map_err(|e| format!("compute_alo_from_input (geometry path) failed: {e}"))?
     } else {
         progress.set_stage("diagnose", "refitting model for alo");
-        let fit = fit_gam(
-            design.design.clone(),
-            y.view(),
-            weights.view(),
-            offset.view(),
-            &design.penalties,
-            family,
-            &FitOptions {
-                latent_cloglog: None,
-                mixture_link: None,
-                optimize_mixture: false,
-                sas_link: None,
-                optimize_sas: false,
-                compute_inference: false,
-                max_iter: 80,
-                tol: 1e-6,
-                nullspace_dims: design.nullspace_dims.clone(),
-                linear_constraints: design.linear_constraints.clone(),
-                firth_bias_reduction: false,
-                robust_identification: gam::RobustIdentification::Off,
-                adaptive_regularization: None,
-                penalty_shrinkage_floor: Some(1e-6),
-                rho_prior: Default::default(),
-                kronecker_penalty_system: None,
-                kronecker_factored: None,
-            },
-        )
-        .map_err(|e| format!("fit_gam failed during diagnose refit: {e}"))?;
+        let fit_options = FitOptions {
+            latent_cloglog: None,
+            mixture_link: None,
+            optimize_mixture: false,
+            sas_link: None,
+            optimize_sas: false,
+            compute_inference: false,
+            max_iter: 80,
+            tol: 1e-6,
+            nullspace_dims: design.nullspace_dims.clone(),
+            linear_constraints: design.linear_constraints.clone(),
+            firth_bias_reduction: false,
+            adaptive_regularization: None,
+            penalty_shrinkage_floor: Some(1e-6),
+            rho_prior: Default::default(),
+            kronecker_penalty_system: None,
+            kronecker_factored: None,
+        };
+        let alo_result = match alo_refit_route_for_termspec(&spec) {
+            AloRefitRoute::UnifiedTermCollection => {
+                let fitted = fit_term_collection_forspec(
+                    ds.values.view(),
+                    y.view(),
+                    weights.view(),
+                    offset.view(),
+                    &spec,
+                    family,
+                    &fit_options,
+                )
+                .map_err(|e| {
+                    format!("fit_term_collection_forspec failed during diagnose refit: {e}")
+                })?;
+                let eta = &fitted.design.design.dot(&fitted.fit.beta) + &offset;
+                let dense_alo_design = fitted.design.design.to_dense();
+                gam::alo::compute_alo_diagnostics_from_unified(
+                    &fitted.fit,
+                    &dense_alo_design,
+                    &eta,
+                    &offset,
+                    link,
+                    1.0,
+                )
+                .map_err(|e| {
+                    format!(
+                        "compute_alo_diagnostics_from_unified failed during diagnose refit: {e}"
+                    )
+                })
+            }
+            AloRefitRoute::StandardGam => {
+                let fit = fit_gam(
+                    design.design.clone(),
+                    y.view(),
+                    weights.view(),
+                    offset.view(),
+                    &design.penalties,
+                    family,
+                    &fit_options,
+                )
+                .map_err(|e| format!("fit_gam failed during diagnose refit: {e}"))?;
+                compute_alo_diagnostics_from_fit(&fit, y.view(), link)
+                    .map_err(|e| format!("compute_alo_diagnostics_from_fit failed: {e}"))
+            }
+        };
 
         progress.advance_workflow(4);
-        compute_alo_diagnostics_from_fit(&fit, y.view(), link)
-            .map_err(|e| format!("compute_alo_diagnostics_from_fit failed: {e}"))?
+        alo_result?
     };
 
     let mut rows: Vec<(usize, f64, f64, f64)> = (0..alo.leverage.len())
@@ -6003,9 +6004,8 @@ fn run_sample(args: SampleArgs) -> Result<(), String> {
     progress.set_stage("sample", "loading fitted model");
     let model = SavedModel::load_from_path(&args.model)?;
     progress.advance_workflow(1);
-    let schema = model.require_data_schema()?;
     progress.set_stage("sample", "loading sampling data");
-    let ds = load_datasetwith_schema(&args.data, schema)?;
+    let ds = load_datasetwith_model_schema(&args.data, &model)?;
     require_dataset_rows("sample", &args.data, ds.values.nrows())?;
     progress.advance_workflow(2);
     let col_map = ds.column_map();
@@ -6166,9 +6166,8 @@ fn run_generate(args: GenerateArgs) -> Result<(), String> {
         );
     }
 
-    let schema = model.require_data_schema()?;
     progress.set_stage("generate", "loading conditioning data");
-    let ds = load_datasetwith_schema(&args.data, schema)?;
+    let ds = load_datasetwith_model_schema(&args.data, &model)?;
     require_dataset_rows("generate", &args.data, ds.values.nrows())?;
     progress.advance_workflow(2);
     let col_map = ds.column_map();
@@ -6254,21 +6253,6 @@ fn run_generate_unified(
     noise_offset_supplied: bool,
 ) -> Result<gam::generative::GenerativeSpec, String> {
     progress.set_stage("generate", "building unified generation design");
-
-    // Bounded-coefficient check: resolve the primary termspec just for this
-    // guard (build_predict_input_for_model resolves it again internally, but
-    // this keeps the error path clean and avoids leaking the spec).
-    let primary_spec = resolve_termspec_for_prediction(
-        &model.resolved_termspec,
-        training_headers,
-        col_map,
-        "resolved_termspec",
-    )?;
-    if termspec_has_bounded_terms(&primary_spec) {
-        return Err(
-            "sample is not yet supported for models with bounded() coefficients".to_string(),
-        );
-    }
 
     let pred_input = build_predict_input_for_model(
         model,
@@ -6395,8 +6379,7 @@ fn run_report(args: ReportArgs) -> Result<(), String> {
 
     if let Some(data_path) = args.data.as_ref() {
         progress.set_stage("report", "loading report dataset");
-        let schema = model.require_data_schema()?;
-        let ds = load_datasetwith_schema(data_path, schema)?;
+        let ds = load_datasetwith_model_schema(data_path, &model)?;
         require_dataset_rows("report", data_path, ds.values.nrows())?;
         progress.advance_workflow(2);
 
@@ -7517,7 +7500,14 @@ fn core_saved_fit_result(
 
 fn family_noise_parameter(fit: &UnifiedFitResult, family: LikelihoodSpec) -> Option<f64> {
     match family.response {
-        ResponseFamily::Tweedie { p } => Some(p),
+        // The generative `gaussian_scale` slot carries the *dispersion* φ for
+        // Tweedie; the variance power `p` is already read from the family spec by
+        // `NoiseModel::from_likelihood`, so emitting `p` here drew responses with
+        // φ = p (≈1.5) regardless of the data. φ is estimated jointly with the
+        // mean (issue #771), so the authoritative value is the fit's scale
+        // metadata, falling back to a unit dispersion only if the fit recorded
+        // none.
+        ResponseFamily::Tweedie { .. } => fit.likelihood_scale.fixed_phi().or(Some(1.0)),
         ResponseFamily::NegativeBinomial { theta } => Some(theta),
         // Beta precision φ is estimated jointly with the mean (issue #567), so
         // the authoritative value is the fit's scale metadata, not the seed φ on
@@ -7623,6 +7613,20 @@ fn termspec_has_bounded_terms(spec: &TermCollectionSpec) -> bool {
             LinearCoefficientGeometry::Bounded { .. }
         )
     })
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum AloRefitRoute {
+    StandardGam,
+    UnifiedTermCollection,
+}
+
+fn alo_refit_route_for_termspec(spec: &TermCollectionSpec) -> AloRefitRoute {
+    if termspec_has_bounded_terms(spec) {
+        AloRefitRoute::UnifiedTermCollection
+    } else {
+        AloRefitRoute::StandardGam
+    }
 }
 
 fn spatial_basiswarning_family_and_cols(term: &SmoothTermSpec) -> Option<(&'static str, &[usize])> {
@@ -8142,11 +8146,11 @@ fn load_dataset_projected(
     load_dataset_auto_projected(path, requested_columns)
 }
 
-fn load_datasetwith_schema(
-    path: &Path,
-    schema: &DataSchema,
-) -> Result<Dataset, gam::inference::data::DataError> {
-    load_dataset_auto_with_schema(path, schema, UnseenCategoryPolicy::Error)
+fn load_datasetwith_model_schema(path: &Path, model: &SavedModel) -> Result<Dataset, String> {
+    let schema = model.require_data_schema()?;
+    let policy =
+        UnseenCategoryPolicy::encode_unknown_for_columns(model.random_effect_group_columns());
+    load_dataset_auto_with_schema(path, schema, policy).map_err(String::from)
 }
 
 /// Canonical family name for a CLI `--family` selection.
@@ -9435,8 +9439,8 @@ mod tests {
         write_prediction_csv, write_survival_binary_prediction_csv, write_survival_prediction_csv,
     };
     use super::{
-        Cli, Command, CovarianceModeArg, FitArgs, PredictArgs, PredictModeArg, run_fit,
-        run_predict, write_model_json,
+        Cli, Command, CovarianceModeArg, FitArgs, PredictArgs, PredictModeArg, SampleArgs, run_fit,
+        run_predict, run_sample, write_model_json,
     };
     use clap::Parser;
     use csv::StringRecord;
@@ -9539,6 +9543,48 @@ mod tests {
             random_effect_terms: vec![],
             smooth_terms: vec![],
         }
+    }
+
+    fn bounded_cli_schema() -> DataSchema {
+        DataSchema {
+            columns: vec![
+                SchemaColumn {
+                    name: "x".to_string(),
+                    kind: ColumnKindTag::Continuous,
+                    levels: vec![],
+                },
+                SchemaColumn {
+                    name: "y".to_string(),
+                    kind: ColumnKindTag::Continuous,
+                    levels: vec![],
+                },
+            ],
+        }
+    }
+
+    fn bounded_cli_dataset() -> Dataset {
+        Dataset {
+            headers: vec!["x".to_string(), "y".to_string()],
+            values: array![[0.0, 0.0], [0.5, 1.0], [1.0, 1.0], [1.5, 2.0]],
+            schema: bounded_cli_schema(),
+            column_kinds: vec![ColumnKindTag::Continuous, ColumnKindTag::Continuous],
+        }
+    }
+
+    fn bounded_cli_termspec() -> TermCollectionSpec {
+        let parsed =
+            parse_formula("y ~ bounded(x, min=-2, max=2) + link(type=logit)").expect("formula");
+        let ds = bounded_cli_dataset();
+        let col_map = HashMap::from([("x".to_string(), 0usize), ("y".to_string(), 1usize)]);
+        let mut inference_notes = Vec::<String>::new();
+        super::build_termspec(
+            &parsed.terms,
+            &ds,
+            &col_map,
+            &mut inference_notes,
+            &gam::resource::ResourcePolicy::default_library(),
+        )
+        .expect("bounded term spec")
     }
 
     fn saved_fit_summary_fixture() -> SavedFitSummary {
@@ -9985,7 +10031,6 @@ mod tests {
             hazard_loading: None,
             transformation_normal: false,
             firth: false,
-            robust_identification: "off".to_string(),
             family: FamilyArg::Auto,
             negative_binomial_theta: None,
             survival_likelihood: "transformation".to_string(),
@@ -10034,7 +10079,6 @@ mod tests {
             enabled: true,
             family: LikelihoodSpec::poisson_log(),
             predict_noise: false,
-            has_bounded_terms: false,
             is_survival: false,
             link_choice: None,
         })
@@ -10042,8 +10086,104 @@ mod tests {
 
         let err = err.to_string();
         assert!(
-            err.contains("Binomial Logit"),
+            err.contains("Binomial inverse link with a Fisher-weight jet"),
             "unexpected error message: {err}"
+        );
+    }
+
+    #[test]
+    fn cli_firth_validation_accepts_binomial_cloglog() {
+        let link_choice =
+            parse_link_choice(Some("binomial-cloglog"), false).expect("parse cloglog link");
+        let validation = validate_cli_firth_configuration(CliFirthValidation {
+            enabled: true,
+            family: LikelihoodSpec::binomial_cloglog(),
+            predict_noise: false,
+            is_survival: false,
+            link_choice: link_choice.as_ref(),
+        });
+        assert!(
+            validation.is_ok(),
+            "CLogLog has a Fisher-weight jet and must reach the Firth path: {validation:?}"
+        );
+    }
+
+    #[test]
+    fn cli_firth_validation_accepts_bounded_binomial_logit_terms() {
+        let spec = bounded_cli_termspec();
+        assert!(
+            super::termspec_has_bounded_terms(&spec),
+            "fixture must exercise bounded coefficient geometry"
+        );
+
+        let link_choice =
+            parse_link_choice(Some("binomial-logit"), false).expect("parse logit link");
+        validate_cli_firth_configuration(CliFirthValidation {
+            enabled: true,
+            family: LikelihoodSpec::binomial_logit(),
+            predict_noise: false,
+            is_survival: false,
+            link_choice: link_choice.as_ref(),
+        })
+        .expect("--firth is a likelihood policy, not a bounded-term policy");
+    }
+
+    #[test]
+    fn cli_diagnose_alo_routes_bounded_terms_through_unified_refit() {
+        let bounded = bounded_cli_termspec();
+        assert_eq!(
+            super::alo_refit_route_for_termspec(&bounded),
+            super::AloRefitRoute::UnifiedTermCollection
+        );
+        assert_eq!(
+            super::alo_refit_route_for_termspec(&empty_termspec()),
+            super::AloRefitRoute::StandardGam
+        );
+    }
+
+    #[test]
+    fn cli_sample_bounded_model_reaches_sampler_config_validation() {
+        let td = tempdir().expect("tempdir");
+        let model_path = td.path().join("bounded.model.json");
+        let data_path = td.path().join("bounded.csv");
+        let out_path = td.path().join("draws.csv");
+
+        fs::write(&data_path, "x,y\n0.0,0.0\n0.5,1.0\n1.0,1.0\n").expect("write data");
+
+        let mut payload = test_payload(
+            "y ~ bounded(x, min=-2, max=2)",
+            ModelKind::Standard,
+            FittedFamily::Standard {
+                likelihood: LikelihoodSpec::gaussian_identity(),
+                link: Some(StandardLink::Identity),
+                latent_cloglog_state: None,
+                mixture_state: None,
+                sas_state: None,
+            },
+            LikelihoodSpec::gaussian_identity().name(),
+        );
+        payload.data_schema = Some(bounded_cli_schema());
+        payload.resolved_termspec = Some(bounded_cli_termspec());
+        write_model_json(&model_path, &SavedModel::from_payload(payload)).expect("write model");
+
+        let err = run_sample(SampleArgs {
+            model: model_path,
+            data: data_path,
+            chains: Some(1),
+            samples: Some(1),
+            warmup: Some(1),
+            seed: Some(760),
+            out: Some(out_path),
+        })
+        .expect_err("invalid draw count should fail inside sampler validation");
+
+        assert!(
+            err.contains("NUTS n_samples"),
+            "bounded sample dispatch should reach sampler validation, got {err}"
+        );
+        assert!(
+            !err.to_ascii_lowercase().contains("bounded"),
+            "sample must not reject bounded() coefficients before sampler dispatch: {err}"
         );
     }
 
@@ -10360,7 +10500,6 @@ mod tests {
             enabled: true,
             family: LikelihoodSpec::binomial_logit(),
             predict_noise: false,
-            has_bounded_terms: false,
             is_survival: false,
             link_choice: Some(&choice),
         })
@@ -10373,7 +10512,6 @@ mod tests {
             enabled: true,
             family: LikelihoodSpec::royston_parmar(),
             predict_noise: false,
-            has_bounded_terms: false,
             is_survival: true,
             link_choice: None,
         })
@@ -10452,7 +10590,6 @@ mod tests {
             hazard_loading: None,
             transformation_normal: false,
             firth: false,
-            robust_identification: "off".to_string(),
             family: FamilyArg::Auto,
             negative_binomial_theta: None,
             survival_likelihood: "transformation".to_string(),
@@ -10652,7 +10789,6 @@ mod tests {
             hazard_loading: None,
             transformation_normal: false,
             firth: false,
-            robust_identification: "off".to_string(),
             family: FamilyArg::Auto,
             negative_binomial_theta: None,
             survival_likelihood: "transformation".to_string(),
@@ -10735,7 +10871,6 @@ mod tests {
             hazard_loading: None,
             transformation_normal: false,
             firth: false,
-            robust_identification: "off".to_string(),
             family: FamilyArg::Auto,
             negative_binomial_theta: None,
             survival_likelihood: "transformation".to_string(),
@@ -10785,7 +10920,6 @@ mod tests {
             hazard_loading: None,
             transformation_normal: false,
             firth: false,
-            robust_identification: "off".to_string(),
             family: FamilyArg::Auto,
             negative_binomial_theta: None,
             survival_likelihood: "transformation".to_string(),
@@ -11040,7 +11174,6 @@ mod tests {
             hazard_loading: None,
             transformation_normal: false,
             firth: false,
-            robust_identification: "off".to_string(),
             family: FamilyArg::Auto,
             negative_binomial_theta: None,
             survival_likelihood: "transformation".to_string(),
@@ -11134,7 +11267,6 @@ mod tests {
             hazard_loading: None,
             transformation_normal: false,
             firth: true,
-            robust_identification: "off".to_string(),
             family: FamilyArg::Auto,
             negative_binomial_theta: None,
             survival_likelihood: "transformation".to_string(),

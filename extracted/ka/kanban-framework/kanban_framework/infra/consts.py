@@ -16,6 +16,7 @@ class _Consts:
     KNOWLEDGE_DIR: str = "knowledge"
     OUTPUT_DIR_DEFAULT: str = "src"
     DEFAULT_MODE: str = "lightweight"
+    DEFAULT_EMBEDDING_MODEL: str = "BAAI/bge-small-zh-v1.5"
 
 
 Consts = _Consts()

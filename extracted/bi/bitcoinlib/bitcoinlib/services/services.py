@@ -2,7 +2,7 @@
 #
 #    BitcoinLib - Python Cryptocurrency Library
 #    SERVICES - Main Service connector
-#    © 2017 - 2024 June - 1200 Web Development <http://1200wd.com/>
+#    © 2017 - 2026 June - 1200 Web Development <http://1200wd.com/>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU Affero General Public License as
@@ -383,14 +383,12 @@ class Service(object):
                 qry_after_txid = bytes.fromhex(txs_cache[-1:][0].txid)
 
         # Get (extra) transactions from service providers
-        txs = []
-        if not (db_addr and db_addr.last_block and db_addr.last_block >= self.blockcount()) or not caching_enabled:
-            txs = self._provider_execute('gettransactions', address, qry_after_txid.hex(),  limit)
-            if txs is False:
-                raise ServiceError("Error when retrieving transactions from service provider")
-            for tx in txs:
-                if tx.date and not tx.date.tzinfo:
-                    tx.date = tx.date.replace(tzinfo=timezone.utc)
+        txs = self._provider_execute('gettransactions', address, qry_after_txid.hex(),  limit)
+        if txs is False:
+            raise ServiceError("Error when retrieving transactions from service provider")
+        for tx in txs:
+            if tx.date and not tx.date.tzinfo:
+                tx.date = tx.date.replace(tzinfo=timezone.utc)
 
         # Store transactions and address in cache
         # - disable cache if comparing providers or if after_txid is used and no cache is available

@@ -5,8 +5,11 @@ from __future__ import annotations
 import os
 import platform
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
+
+from runlayer_cli.scan.device import get_wsl_user_homes, list_wsl_distros
 
 
 @dataclass
@@ -75,6 +78,40 @@ class PluginPath(PlatformPath):
     mcp_filenames: tuple[str, ...] = ("mcp.json", ".mcp.json")
 
 
+@lru_cache(maxsize=1)
+def _is_windows_with_wsl() -> bool:
+    """Cached: running on a Windows host that has WSL distros installed."""
+    if platform.system() != "Windows":
+        return False
+    return bool(list_wsl_distros())
+
+
+@lru_cache(maxsize=1)
+def _wsl_homes() -> list[Path]:
+    """Cached Linux user home dirs across all installed WSL distros."""
+    if platform.system() != "Windows":
+        return []
+    homes: list[Path] = []
+    for distro in list_wsl_distros():
+        homes.extend(get_wsl_user_homes(distro))
+    return homes
+
+
+def _resolve_wsl_linux_paths(template: str) -> list[Path]:
+    """Translate a ``~/...`` Linux path template into WSL UNC paths.
+
+    Returns one path per discovered WSL user home. Empty when not on a Windows
+    host with WSL or when the template is not ``~``-rooted.
+    """
+    if not _is_windows_with_wsl():
+        return []
+    if not template.startswith("~/"):
+        return []
+
+    relative = template[2:]
+    return [home / relative for home in _wsl_homes()]
+
+
 @dataclass
 class MCPClientDefinition:
     """Definition of an MCP client application.
@@ -96,6 +133,10 @@ class MCPClientDefinition:
             (e.g., for Claude Code's "projects.*.mcpServers" structure)
         project_config: Optional pattern for project-level configs
         extensions_paths: Optional list of extension directories to scan for MCP servers
+        sqlite_paths: Optional list of sqlite db paths for clients that store some
+            servers in a database alongside their JSON config (e.g. Warp's in-app
+            gallery installs). Resolution/WSL handling lives here so paths stay in
+            one declarative place; the sqlite reading itself is client-specific.
         config_format: Config file format ("json" or "yaml")
         enabled: Whether to scan this client (allows disabling without removing)
         notes: Optional notes about this client's config format
@@ -112,6 +153,7 @@ class MCPClientDefinition:
     additional_project_configs: list[ProjectConfigPattern] | None = None
     extensions_paths: list[ExtensionsPath] | None = None  # Optional extensions folders
     plugin_paths: list[PluginPath] | None = None  # Optional plugin cache directories
+    sqlite_paths: list[ConfigPath] | None = None  # Optional sqlite db locations
     config_format: str = "json"  # "json" or "yaml"
     enabled: bool = True
     notes: str | None = None
@@ -128,6 +170,10 @@ class MCPClientDefinition:
     def get_config_paths(self) -> list[Path]:
         """Get all valid config paths for the current platform.
 
+        On a Windows host with WSL installed, the Linux-side paths are also
+        resolved (one per WSL user home) so that configs inside WSL distros
+        are discovered alongside native Windows ones.
+
         Returns:
             List of resolved paths that exist on the current platform.
         """
@@ -136,6 +182,80 @@ class MCPClientDefinition:
             path = config_path.resolve()
             if path is not None:
                 resolved.append(path)
+
+        if _is_windows_with_wsl():
+            for config_path in self.paths:
+                if config_path.platform == "linux":
+                    resolved.extend(_resolve_wsl_linux_paths(config_path.path))
+
+        return resolved
+
+    def get_resolved_sqlite_paths(self) -> list[Path]:
+        """Get candidate sqlite db paths for the current platform.
+
+        Mirrors ``get_config_paths`` (including WSL Linux-side resolution on a
+        Windows host with WSL) but for ``sqlite_paths``. Paths are candidates,
+        not guaranteed to exist; the caller checks existence.
+        """
+        if not self.sqlite_paths:
+            return []
+
+        resolved: list[Path] = []
+        for sqlite_path in self.sqlite_paths:
+            path = sqlite_path.resolve()
+            if path is not None:
+                resolved.append(path)
+
+        if _is_windows_with_wsl():
+            for sqlite_path in self.sqlite_paths:
+                if sqlite_path.platform == "linux":
+                    resolved.extend(_resolve_wsl_linux_paths(sqlite_path.path))
+
+        return resolved
+
+    def get_resolved_plugin_paths(
+        self,
+    ) -> list[tuple[Path, tuple[str, ...]]]:
+        """Get resolved plugin cache paths with MCP filenames.
+
+        Returns list of (resolved_path, mcp_filenames) tuples, including
+        WSL Linux-side paths when run on a Windows host with WSL.
+        """
+        if not self.plugin_paths:
+            return []
+        resolved: list[tuple[Path, tuple[str, ...]]] = []
+        for pp in self.plugin_paths:
+            path = pp.resolve()
+            if path is not None:
+                resolved.append((path, pp.mcp_filenames))
+        if _is_windows_with_wsl():
+            for pp in self.plugin_paths:
+                if pp.platform == "linux":
+                    for wsl_path in _resolve_wsl_linux_paths(pp.path):
+                        resolved.append((wsl_path, pp.mcp_filenames))
+        return resolved
+
+    def get_resolved_extensions_paths(
+        self,
+    ) -> list[tuple[Path, str]]:
+        """Get resolved extension paths with prefix.
+
+        Includes WSL Linux-side paths when run on a Windows host with WSL.
+
+        Returns list of (resolved_path, prefix) tuples.
+        """
+        if not self.extensions_paths:
+            return []
+        resolved: list[tuple[Path, str]] = []
+        for ep in self.extensions_paths:
+            path = ep.resolve()
+            if path is not None:
+                resolved.append((path, ep.prefix))
+        if _is_windows_with_wsl():
+            for ep in self.extensions_paths:
+                if ep.platform == "linux":
+                    for wsl_path in _resolve_wsl_linux_paths(ep.path):
+                        resolved.append((wsl_path, ep.prefix))
         return resolved
 
     def _extract_from_key_path(
@@ -268,6 +388,7 @@ MCP_CLIENTS: list[MCPClientDefinition] = [
         display_name="Cursor",
         paths=[
             ConfigPath("~/.cursor/mcp.json", platform="macos"),
+            ConfigPath("~/.cursor/mcp.json", platform="linux"),
             ConfigPath("%USERPROFILE%/.cursor/mcp.json", platform="windows"),
         ],
         servers_key="mcpServers",
@@ -277,6 +398,7 @@ MCP_CLIENTS: list[MCPClientDefinition] = [
         ),
         plugin_paths=[
             PluginPath("~/.cursor/plugins/cache/cursor-public", platform="macos"),
+            PluginPath("~/.cursor/plugins/cache/cursor-public", platform="linux"),
             PluginPath(
                 "%USERPROFILE%/.cursor/plugins/cache/cursor-public",
                 platform="windows",
@@ -297,12 +419,20 @@ MCP_CLIENTS: list[MCPClientDefinition] = [
                 "%APPDATA%/Claude/extensions-installations.json", platform="windows"
             ),
             ConfigPath(
+                "~/.config/Claude/extensions-installations.json",
+                platform="linux",
+            ),
+            ConfigPath(
                 "~/Library/Application Support/Claude/claude_desktop_config.json",
                 platform="macos",
             ),
             ConfigPath(
                 "%APPDATA%/Claude/claude_desktop_config.json",
                 platform="windows",
+            ),
+            ConfigPath(
+                "~/.config/Claude/claude_desktop_config.json",
+                platform="linux",
             ),
         ],
         servers_key="extensions",
@@ -316,6 +446,7 @@ MCP_CLIENTS: list[MCPClientDefinition] = [
         display_name="Claude Code",
         paths=[
             ConfigPath("~/.claude.json", platform="macos"),
+            ConfigPath("~/.claude.json", platform="linux"),
             ConfigPath("%USERPROFILE%/.claude.json", platform="windows"),
         ],
         servers_key="mcpServers",
@@ -336,6 +467,7 @@ MCP_CLIENTS: list[MCPClientDefinition] = [
                 "~/Library/Application Support/Code/User/mcp.json", platform="macos"
             ),
             ConfigPath("%APPDATA%/Code/User/mcp.json", platform="windows"),
+            ConfigPath("~/.config/Code/User/mcp.json", platform="linux"),
         ],
         servers_key="servers",  # VS Code uses "servers" NOT "mcpServers"!
         project_config=ProjectConfigPattern(
@@ -349,6 +481,7 @@ MCP_CLIENTS: list[MCPClientDefinition] = [
         display_name="Windsurf",
         paths=[
             ConfigPath("~/.codeium/windsurf/mcp_config.json", platform="macos"),
+            ConfigPath("~/.codeium/windsurf/mcp_config.json", platform="linux"),
             ConfigPath(
                 "%USERPROFILE%/.codeium/windsurf/mcp_config.json", platform="windows"
             ),
@@ -365,6 +498,7 @@ MCP_CLIENTS: list[MCPClientDefinition] = [
         display_name="Goose",
         paths=[
             ConfigPath("~/.config/goose/config.yaml", platform="macos"),
+            ConfigPath("~/.config/goose/config.yaml", platform="linux"),
             ConfigPath("%APPDATA%/Block/goose/config/config.yaml", platform="windows"),
         ],
         servers_key="extensions",
@@ -377,6 +511,7 @@ MCP_CLIENTS: list[MCPClientDefinition] = [
         display_name="Zed",
         paths=[
             ConfigPath("~/.config/zed/settings.json", platform="macos"),
+            ConfigPath("~/.config/zed/settings.json", platform="linux"),
             ConfigPath("%APPDATA%/Zed/settings.json", platform="windows"),
         ],
         servers_key="context_servers",
@@ -388,6 +523,11 @@ MCP_CLIENTS: list[MCPClientDefinition] = [
             ExtensionsPath(
                 "~/Library/Application Support/Zed/extensions/installed",
                 platform="macos",
+                prefix="mcp-server-",
+            ),
+            ExtensionsPath(
+                "~/.local/share/zed/extensions/installed",
+                platform="linux",
                 prefix="mcp-server-",
             ),
             ExtensionsPath(
@@ -532,22 +672,56 @@ MCP_CLIENTS: list[MCPClientDefinition] = [
         notes="$COPILOT_HOME overrides ~/.copilot. Project configs: .mcp.json "
         "and .github/mcp.json use mcpServers; .vscode/mcp.json (legacy) uses servers.",
     ),
+    MCPClientDefinition(
+        name="warp",
+        display_name="Warp",
+        paths=[
+            ConfigPath("~/.warp/.mcp.json", platform="macos"),
+            ConfigPath("~/.warp/.mcp.json", platform="linux"),
+            ConfigPath("%USERPROFILE%/.warp/.mcp.json", platform="windows"),
+        ],
+        servers_key="mcpServers",
+        project_config=ProjectConfigPattern(
+            relative_path=".warp/.mcp.json",
+            servers_key="mcpServers",
+        ),
+        sqlite_paths=[
+            # macOS sandboxed Group Container, Stable + Preview channels.
+            ConfigPath(
+                "~/Library/Group Containers/2BBY89MBSN.dev.warp/Library/"
+                "Application Support/dev.warp.Warp-Stable/warp.sqlite",
+                platform="macos",
+            ),
+            ConfigPath(
+                "~/Library/Group Containers/2BBY89MBSN.dev.warp/Library/"
+                "Application Support/dev.warp.Warp-Preview/warp.sqlite",
+                platform="macos",
+            ),
+            ConfigPath("%LOCALAPPDATA%/warp/Warp/data/warp.sqlite", platform="windows"),
+            ConfigPath(
+                "%LOCALAPPDATA%/warp/Warp Preview/data/warp.sqlite",
+                platform="windows",
+            ),
+            # Linux honors XDG_STATE_HOME, defaulting to ~/.local/state (both
+            # candidates listed, mirroring the $CLINE_DIR / ~/.cline pattern).
+            ConfigPath("$XDG_STATE_HOME/warp-terminal/warp.sqlite", platform="linux"),
+            ConfigPath(
+                "$XDG_STATE_HOME/warp-terminal-preview/warp.sqlite", platform="linux"
+            ),
+            ConfigPath("~/.local/state/warp-terminal/warp.sqlite", platform="linux"),
+            ConfigPath(
+                "~/.local/state/warp-terminal-preview/warp.sqlite", platform="linux"
+            ),
+        ],
+        notes="JSON. Global ~/.warp/.mcp.json; project .warp/.mcp.json. "
+        "Stable+Preview share ~/.warp/. No plugin marketplace. "
+        "In-app gallery servers live in warp.sqlite (mcp_server_installations) "
+        "at sqlite_paths; scan/warp_sqlite.py reads + merges them into the "
+        "global warp config.",
+    ),
     # ==========================================================================
     # DESCOPED FROM v0 - Add these in a future release
     # ==========================================================================
-    # MCPClientDefinition(
-    #     name="warp",
-    #     display_name="Warp",
-    #     paths=[
-    #         ConfigPath(
-    #             "~/Library/Group Containers/2BBY89MBSN.dev.warp/Library/Application Support/dev.warp.Warp-Stable/mcp/config.json",
-    #             platform="macos",
-    #         ),
-    #         ConfigPath("%APPDATA%/Warp/mcp/config.json", platform="windows"),
-    #     ],
-    #     servers_key="mcpServers",
-    #     notes="Descoped from v0 - complex path, Windows path unverified",
-    # ),
     # MCPClientDefinition(
     #     name="raycast",
     #     display_name="Raycast",

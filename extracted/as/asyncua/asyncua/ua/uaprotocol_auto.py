@@ -1,21 +1,20 @@
+from __future__ import annotations
 """
 Autogenerate code from xml spec
-Date:2025-03-31 12:18:27.134351+00:00
+Date:2026-05-16 06:47:19.383822+00:00
 """
 
 from datetime import datetime, timezone
 from enum import IntEnum, IntFlag
-from typing import Union, List, Optional, Type
 from dataclasses import dataclass, field
 
-from asyncua.ua.uatypes import FROZEN
 from asyncua.ua.uatypes import SByte, Byte, Bytes, ByteString, Int16, Int32, Int64, UInt16, UInt32
 from asyncua.ua.uatypes import UInt64, Boolean, Float, Double, Null, String, CharArray, DateTime, Guid
 from asyncua.ua.uatypes import AccessLevel, EventNotifier
 from asyncua.ua.uatypes import LocalizedText, Variant, QualifiedName, StatusCode, DataValue
 from asyncua.ua.uatypes import RelativePath, RelativePathElement
 from asyncua.ua.uatypes import NodeId, FourByteNodeId, ExpandedNodeId, ExtensionObject, DiagnosticInfo
-from asyncua.ua.uatypes import extension_object_typeids, extension_objects_by_typeid
+from asyncua.ua.uatypes import typeid_by_extension_objects, extension_objects_by_typeid
 from asyncua.ua.object_ids import ObjectIds
 
 
@@ -225,7 +224,7 @@ class AlarmMask(IntFlag):
 
 class TrustListValidationOptions(IntFlag):
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part12/7.8.2/#7.8.2.8
+    https://reference.opcfoundation.org/v105/Core/docs/Part12/7.8.2/#7.8.2.10
 
     :ivar SuppressCertificateExpired:
     :vartype SuppressCertificateExpired: Bit: 0
@@ -257,7 +256,7 @@ class TrustListValidationOptions(IntFlag):
 
 class TrustListMasks(IntEnum):
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part12/7.8.2/#7.8.2.7
+    https://reference.opcfoundation.org/v105/Core/docs/Part12/7.8.2/#7.8.2.9
 
     :ivar None_:
     :vartype None_: 0
@@ -278,6 +277,25 @@ class TrustListMasks(IntEnum):
     IssuerCertificates = 4
     IssuerCrls = 8
     All = 15
+
+
+class ConfigurationUpdateType(IntEnum):
+    """
+    https://reference.opcfoundation.org/v105/Core/docs/Part12/7.8.5/#7.8.5.7
+
+    :ivar Insert:
+    :vartype Insert: 1
+    :ivar Replace:
+    :vartype Replace: 2
+    :ivar InsertOrReplace:
+    :vartype InsertOrReplace: 3
+    :ivar Delete:
+    :vartype Delete: 4
+    """
+    Insert = 1
+    Replace = 2
+    InsertOrReplace = 3
+    Delete = 4
 
 
 class PubSubState(IntEnum):
@@ -1056,9 +1074,35 @@ class LldpSystemCapabilitiesMap(IntFlag):
         return "UInt32"
 
 
+class LogRecordMask(IntFlag):
+    """
+    https://reference.opcfoundation.org/v105/Core/docs/Part26/5.8
+
+    :ivar EventType:
+    :vartype EventType: Bit: 0
+    :ivar SourceNode:
+    :vartype SourceNode: Bit: 1
+    :ivar SourceName:
+    :vartype SourceName: Bit: 2
+    :ivar TraceContext:
+    :vartype TraceContext: Bit: 3
+    :ivar AdditionalData:
+    :vartype AdditionalData: Bit: 4
+    """
+    EventType = 1<<0
+    SourceNode = 1<<1
+    SourceName = 1<<2
+    TraceContext = 1<<3
+    AdditionalData = 1<<4
+
+    @staticmethod
+    def datatype() -> str:
+        return "UInt32"
+
+
 class IdType(IntEnum):
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.2.5/#12.2.5.1
+    https://reference.opcfoundation.org/v105/Core/docs/Part3/8.2.3
 
     :ivar Numeric:
     :vartype Numeric: 0
@@ -1077,7 +1121,7 @@ class IdType(IntEnum):
 
 class NodeClass(IntEnum):
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.2.5/#12.2.5.2
+    https://reference.opcfoundation.org/v105/Core/docs/Part3/8.29
 
     :ivar Unspecified:
     :vartype Unspecified: 0
@@ -1275,7 +1319,7 @@ class EventNotifierType(IntFlag):
 
 class AccessRestrictionType(IntFlag):
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.2.9/#12.2.9.13
+    https://reference.opcfoundation.org/v105/Core/docs/Part3/8.56
 
     :ivar SigningRequired:
     :vartype SigningRequired: Bit: 0
@@ -1298,7 +1342,7 @@ class AccessRestrictionType(IntFlag):
 
 class StructureType(IntEnum):
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.2.5/#12.2.5.3
+    https://reference.opcfoundation.org/v105/Core/docs/Part3/8.49
 
     :ivar Structure:
     :vartype Structure: 0
@@ -1339,7 +1383,7 @@ class ApplicationType(IntEnum):
 
 class MessageSecurityMode(IntEnum):
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.3.10
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.20
 
     :ivar Invalid:
     :vartype Invalid: 0
@@ -1358,7 +1402,7 @@ class MessageSecurityMode(IntEnum):
 
 class UserTokenType(IntEnum):
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.43
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.42
 
     :ivar Anonymous:
     :vartype Anonymous: 0
@@ -1704,7 +1748,7 @@ class FilterOperator(IntEnum):
 
 class TimestampsToReturn(IntEnum):
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.40
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.39
 
     :ivar Source:
     :vartype Source: 0
@@ -1899,7 +1943,7 @@ class ModelChangeStructureVerbMask(IntEnum):
 
 class AxisScaleEnumeration(IntEnum):
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part8/5.6.7
+    https://reference.opcfoundation.org/v105/Core/docs/Part8/5.6.8
 
     :ivar Linear:
     :vartype Linear: 0
@@ -1935,17 +1979,17 @@ class ExceptionDeviationFormat(IntEnum):
     Unknown = 4
 
 
-@dataclass(frozen=FROZEN) # type: ignore
+@dataclass(slots=True) # type: ignore
 class Union: # type: ignore
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.2.12/#12.2.12.12
+    https://reference.opcfoundation.org/v105/Core/docs/Part3/8.41
 
     """
 
     data_type = NodeId(ObjectIds.Union)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class KeyValuePair:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.21
@@ -1958,11 +2002,11 @@ class KeyValuePair:
 
     data_type = NodeId(ObjectIds.KeyValuePair)
 
-    Key: QualifiedName = field(default_factory=QualifiedName)
-    Value: Variant = field(default_factory=Variant)
+    Key: 'ua.QualifiedName' = field(default_factory=lambda: QualifiedName())
+    Value: 'ua.Variant' = field(default_factory=lambda: Variant())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class AdditionalParametersType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.1
@@ -1973,10 +2017,10 @@ class AdditionalParametersType:
 
     data_type = NodeId(ObjectIds.AdditionalParametersType)
 
-    Parameters: List[KeyValuePair] = field(default_factory=list)
+    Parameters: 'list[ua.KeyValuePair]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class EphemeralKeyType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.15
@@ -1989,11 +2033,11 @@ class EphemeralKeyType:
 
     data_type = NodeId(ObjectIds.EphemeralKeyType)
 
-    PublicKey: ByteString = None
-    Signature: ByteString = None
+    PublicKey: 'ua.ByteString' = None
+    Signature: 'ua.ByteString' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class EndpointType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part18/4.4.2
@@ -2010,13 +2054,13 @@ class EndpointType:
 
     data_type = NodeId(ObjectIds.EndpointType)
 
-    EndpointUrl: String = None
-    SecurityMode: MessageSecurityMode = MessageSecurityMode.Invalid
-    SecurityPolicyUri: String = None
-    TransportProfileUri: String = None
+    EndpointUrl: 'ua.String' = None
+    SecurityMode: 'ua.MessageSecurityMode' = field(default_factory=lambda:MessageSecurityMode.Invalid)
+    SecurityPolicyUri: 'ua.String' = None
+    TransportProfileUri: 'ua.String' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class BitFieldDefinition:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.45
@@ -2035,14 +2079,14 @@ class BitFieldDefinition:
 
     data_type = NodeId(ObjectIds.BitFieldDefinition)
 
-    Name: String = None
-    Description: LocalizedText = field(default_factory=LocalizedText)
-    Reserved: Boolean = True
-    StartingBitPosition: UInt32 = 0
-    EndingBitPosition: UInt32 = 0
+    Name: 'ua.String' = None
+    Description: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    Reserved: 'ua.Boolean' = True
+    StartingBitPosition: 'ua.UInt32' = 0
+    EndingBitPosition: 'ua.UInt32' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class RationalNumber:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.22
@@ -2055,11 +2099,11 @@ class RationalNumber:
 
     data_type = NodeId(ObjectIds.RationalNumber)
 
-    Numerator: Int32 = 0
-    Denominator: UInt32 = 0
+    Numerator: 'ua.Int32' = 0
+    Denominator: 'ua.UInt32' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class Vector:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.23
@@ -2069,7 +2113,7 @@ class Vector:
     data_type = NodeId(ObjectIds.Vector)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ThreeDVector(Vector):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.24
@@ -2084,12 +2128,12 @@ class ThreeDVector(Vector):
 
     data_type = NodeId(ObjectIds.ThreeDVector)
 
-    X: Double = 0
-    Y: Double = 0
-    Z: Double = 0
+    X: 'ua.Double' = 0
+    Y: 'ua.Double' = 0
+    Z: 'ua.Double' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CartesianCoordinates:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.25
@@ -2099,7 +2143,7 @@ class CartesianCoordinates:
     data_type = NodeId(ObjectIds.CartesianCoordinates)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ThreeDCartesianCoordinates(CartesianCoordinates):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.26
@@ -2114,12 +2158,12 @@ class ThreeDCartesianCoordinates(CartesianCoordinates):
 
     data_type = NodeId(ObjectIds.ThreeDCartesianCoordinates)
 
-    X: Double = 0
-    Y: Double = 0
-    Z: Double = 0
+    X: 'ua.Double' = 0
+    Y: 'ua.Double' = 0
+    Z: 'ua.Double' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class Orientation:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.27
@@ -2129,7 +2173,7 @@ class Orientation:
     data_type = NodeId(ObjectIds.Orientation)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ThreeDOrientation(Orientation):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.28
@@ -2144,12 +2188,12 @@ class ThreeDOrientation(Orientation):
 
     data_type = NodeId(ObjectIds.ThreeDOrientation)
 
-    A: Double = 0
-    B: Double = 0
-    C: Double = 0
+    A: 'ua.Double' = 0
+    B: 'ua.Double' = 0
+    C: 'ua.Double' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class Frame:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.29
@@ -2159,7 +2203,7 @@ class Frame:
     data_type = NodeId(ObjectIds.Frame)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ThreeDFrame(Frame):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.30
@@ -2172,11 +2216,11 @@ class ThreeDFrame(Frame):
 
     data_type = NodeId(ObjectIds.ThreeDFrame)
 
-    CartesianCoordinates: ThreeDCartesianCoordinates = field(default_factory=ThreeDCartesianCoordinates)
-    Orientation: ThreeDOrientation = field(default_factory=ThreeDOrientation)
+    CartesianCoordinates: 'ua.ThreeDCartesianCoordinates' = field(default_factory=lambda: ThreeDCartesianCoordinates())
+    Orientation: 'ua.ThreeDOrientation' = field(default_factory=lambda: ThreeDOrientation())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class IdentityMappingRuleType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part18/4.4.3
@@ -2189,14 +2233,14 @@ class IdentityMappingRuleType:
 
     data_type = NodeId(ObjectIds.IdentityMappingRuleType)
 
-    CriteriaType: IdentityCriteriaType = IdentityCriteriaType.UserName
-    Criteria: String = None
+    CriteriaType: 'ua.IdentityCriteriaType' = field(default_factory=lambda:IdentityCriteriaType.UserName)
+    Criteria: 'ua.String' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CurrencyUnitType:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.2.12/#12.2.12.2
+    https://reference.opcfoundation.org/v105/Core/docs/Part3/8.61
 
     :ivar NumericCode:
     :vartype NumericCode: Int16
@@ -2210,13 +2254,13 @@ class CurrencyUnitType:
 
     data_type = NodeId(ObjectIds.CurrencyUnitType)
 
-    NumericCode: Int16 = 0
-    Exponent: SByte = field(default_factory=SByte)
-    AlphabeticCode: String = None
-    Currency: LocalizedText = field(default_factory=LocalizedText)
+    NumericCode: 'ua.Int16' = 0
+    Exponent: 'ua.SByte' = field(default_factory=lambda: SByte())
+    AlphabeticCode: 'ua.String' = None
+    Currency: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class AnnotationDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part8/6.6.1
@@ -2231,12 +2275,12 @@ class AnnotationDataType:
 
     data_type = NodeId(ObjectIds.AnnotationDataType)
 
-    Annotation: String = None
-    Discipline: String = None
-    Uri: String = None
+    Annotation: 'ua.String' = None
+    Discipline: 'ua.String' = None
+    Uri: 'ua.String' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class LinearConversionDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part8/6.6.2
@@ -2253,13 +2297,13 @@ class LinearConversionDataType:
 
     data_type = NodeId(ObjectIds.LinearConversionDataType)
 
-    InitialAddend: Float = 0
-    Multiplicand: Float = 0
-    Divisor: Float = 0
-    FinalAddend: Float = 0
+    InitialAddend: 'ua.Float' = 0
+    Multiplicand: 'ua.Float' = 0
+    Divisor: 'ua.Float' = 0
+    FinalAddend: 'ua.Float' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class QuantityDimension:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part8/6.6.4
@@ -2284,20 +2328,20 @@ class QuantityDimension:
 
     data_type = NodeId(ObjectIds.QuantityDimension)
 
-    MassExponent: SByte = field(default_factory=SByte)
-    LengthExponent: SByte = field(default_factory=SByte)
-    TimeExponent: SByte = field(default_factory=SByte)
-    ElectricCurrentExponent: SByte = field(default_factory=SByte)
-    AmountOfSubstanceExponent: SByte = field(default_factory=SByte)
-    LuminousIntensityExponent: SByte = field(default_factory=SByte)
-    AbsoluteTemperatureExponent: SByte = field(default_factory=SByte)
-    DimensionlessExponent: SByte = field(default_factory=SByte)
+    MassExponent: 'ua.SByte' = field(default_factory=lambda: SByte())
+    LengthExponent: 'ua.SByte' = field(default_factory=lambda: SByte())
+    TimeExponent: 'ua.SByte' = field(default_factory=lambda: SByte())
+    ElectricCurrentExponent: 'ua.SByte' = field(default_factory=lambda: SByte())
+    AmountOfSubstanceExponent: 'ua.SByte' = field(default_factory=lambda: SByte())
+    LuminousIntensityExponent: 'ua.SByte' = field(default_factory=lambda: SByte())
+    AbsoluteTemperatureExponent: 'ua.SByte' = field(default_factory=lambda: SByte())
+    DimensionlessExponent: 'ua.SByte' = field(default_factory=lambda: SByte())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class TrustListDataType:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part12/7.8.2/#7.8.2.6
+    https://reference.opcfoundation.org/v105/Core/docs/Part12/7.8.2/#7.8.2.8
 
     :ivar SpecifiedLists:
     :vartype SpecifiedLists: UInt32
@@ -2313,17 +2357,97 @@ class TrustListDataType:
 
     data_type = NodeId(ObjectIds.TrustListDataType)
 
-    SpecifiedLists: UInt32 = 0
-    TrustedCertificates: List[ByteString] = field(default_factory=list)
-    TrustedCrls: List[ByteString] = field(default_factory=list)
-    IssuerCertificates: List[ByteString] = field(default_factory=list)
-    IssuerCrls: List[ByteString] = field(default_factory=list)
+    SpecifiedLists: 'ua.UInt32' = 0
+    TrustedCertificates: 'list[ua.ByteString]' = field(default_factory=list)
+    TrustedCrls: 'list[ua.ByteString]' = field(default_factory=list)
+    IssuerCertificates: 'list[ua.ByteString]' = field(default_factory=list)
+    IssuerCrls: 'list[ua.ByteString]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
+class BaseConfigurationDataType:
+    """
+    https://reference.opcfoundation.org/v105/Core/docs/Part12/7.8.5/#7.8.5.4
+
+    :ivar ConfigurationVersion:
+    :vartype ConfigurationVersion: VersionTime
+    :ivar ConfigurationProperties:
+    :vartype ConfigurationProperties: KeyValuePair
+    """
+
+    data_type = NodeId(ObjectIds.BaseConfigurationDataType)
+
+    ConfigurationVersion: 'ua.VersionTime' = 0
+    ConfigurationProperties: 'list[ua.KeyValuePair]' = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class BaseConfigurationRecordDataType:
+    """
+    https://reference.opcfoundation.org/v105/Core/docs/Part12/7.8.5/#7.8.5.5
+
+    :ivar Name:
+    :vartype Name: String
+    :ivar RecordProperties:
+    :vartype RecordProperties: KeyValuePair
+    """
+
+    data_type = NodeId(ObjectIds.BaseConfigurationRecordDataType)
+
+    Name: 'ua.String' = None
+    RecordProperties: 'list[ua.KeyValuePair]' = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class CertificateGroupDataType(BaseConfigurationRecordDataType):
+    """
+    https://reference.opcfoundation.org/v105/Core/docs/Part12/7.8.3/#7.8.3.4
+
+    :ivar Name:
+    :vartype Name: String
+    :ivar RecordProperties:
+    :vartype RecordProperties: KeyValuePair
+    :ivar Purpose:
+    :vartype Purpose: NodeId
+    :ivar CertificateTypes:
+    :vartype CertificateTypes: NodeId
+    :ivar IsCertificateAssigned:
+    :vartype IsCertificateAssigned: Boolean
+    :ivar ValidationOptions:
+    :vartype ValidationOptions: TrustListValidationOptions
+    """
+
+    data_type = NodeId(ObjectIds.CertificateGroupDataType)
+
+    Name: 'ua.String' = None
+    RecordProperties: 'list[ua.KeyValuePair]' = field(default_factory=list)
+    Purpose: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    CertificateTypes: 'list[ua.NodeId]' = field(default_factory=list)
+    IsCertificateAssigned: 'list[ua.Boolean]' = field(default_factory=list)
+    ValidationOptions: 'ua.TrustListValidationOptions' = field(default_factory=lambda:TrustListValidationOptions(0))
+
+
+@dataclass(slots=True)
+class ConfigurationUpdateTargetType:
+    """
+    https://reference.opcfoundation.org/v105/Core/docs/Part12/7.8.5/#7.8.5.6
+
+    :ivar Path:
+    :vartype Path: String
+    :ivar UpdateType:
+    :vartype UpdateType: ConfigurationUpdateType
+    """
+
+    data_type = NodeId(ObjectIds.ConfigurationUpdateTargetType)
+
+    Path: 'ua.String' = None
+    UpdateType: 'ua.ConfigurationUpdateType' = field(default_factory=lambda:ConfigurationUpdateType.Insert)
+
+
+@dataclass(slots=True)
 class TransactionErrorType:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part12/7.10.16
+    https://reference.opcfoundation.org/v105/Core/docs/Part12/7.10.18
 
     :ivar TargetId:
     :vartype TargetId: NodeId
@@ -2335,12 +2459,189 @@ class TransactionErrorType:
 
     data_type = NodeId(ObjectIds.TransactionErrorType)
 
-    TargetId: NodeId = field(default_factory=NodeId)
-    Error: StatusCode = field(default_factory=StatusCode)
-    Message: LocalizedText = field(default_factory=LocalizedText)
+    TargetId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    Error: 'ua.StatusCode' = field(default_factory=lambda: StatusCode())
+    Message: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
+class EndpointDataType(BaseConfigurationRecordDataType):
+    """
+    https://reference.opcfoundation.org/v105/Core/docs/Part12/7.10.22
+
+    :ivar Name:
+    :vartype Name: String
+    :ivar RecordProperties:
+    :vartype RecordProperties: KeyValuePair
+    :ivar DiscoveryUrls:
+    :vartype DiscoveryUrls: UriString
+    :ivar NetworkName:
+    :vartype NetworkName: String
+    :ivar Port:
+    :vartype Port: UInt16
+    """
+
+    data_type = NodeId(ObjectIds.EndpointDataType)
+
+    Name: 'ua.String' = None
+    RecordProperties: 'list[ua.KeyValuePair]' = field(default_factory=list)
+    DiscoveryUrls: 'list[ua.UriString]' = field(default_factory=list)
+    NetworkName: 'ua.String' = None
+    Port: 'ua.UInt16' = 0
+
+
+@dataclass(slots=True)
+class ServerEndpointDataType(EndpointDataType):
+    """
+    https://reference.opcfoundation.org/v105/Core/docs/Part12/7.10.23
+
+    :ivar Name:
+    :vartype Name: String
+    :ivar RecordProperties:
+    :vartype RecordProperties: KeyValuePair
+    :ivar DiscoveryUrls:
+    :vartype DiscoveryUrls: UriString
+    :ivar NetworkName:
+    :vartype NetworkName: String
+    :ivar Port:
+    :vartype Port: UInt16
+    :ivar EndpointUrls:
+    :vartype EndpointUrls: UriString
+    :ivar SecuritySettingNames:
+    :vartype SecuritySettingNames: String
+    :ivar TransportProfileUri:
+    :vartype TransportProfileUri: UriString
+    :ivar UserTokenSettingNames:
+    :vartype UserTokenSettingNames: String
+    :ivar ReverseConnectUrls:
+    :vartype ReverseConnectUrls: String
+    """
+
+    data_type = NodeId(ObjectIds.ServerEndpointDataType)
+
+    Name: 'ua.String' = None
+    RecordProperties: 'list[ua.KeyValuePair]' = field(default_factory=list)
+    DiscoveryUrls: 'list[ua.UriString]' = field(default_factory=list)
+    NetworkName: 'ua.String' = None
+    Port: 'ua.UInt16' = 0
+    EndpointUrls: 'list[ua.UriString]' = field(default_factory=list)
+    SecuritySettingNames: 'list[ua.String]' = field(default_factory=list)
+    TransportProfileUri: 'ua.UriString' = None
+    UserTokenSettingNames: 'list[ua.String]' = field(default_factory=list)
+    ReverseConnectUrls: 'list[ua.String]' = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class SecuritySettingsDataType(BaseConfigurationRecordDataType):
+    """
+    https://reference.opcfoundation.org/v105/Core/docs/Part12/7.10.24
+
+    :ivar Name:
+    :vartype Name: String
+    :ivar RecordProperties:
+    :vartype RecordProperties: KeyValuePair
+    :ivar SecurityModes:
+    :vartype SecurityModes: MessageSecurityMode
+    :ivar SecurityPolicyUris:
+    :vartype SecurityPolicyUris: String
+    :ivar CertificateGroupName:
+    :vartype CertificateGroupName: String
+    """
+
+    data_type = NodeId(ObjectIds.SecuritySettingsDataType)
+
+    Name: 'ua.String' = None
+    RecordProperties: 'list[ua.KeyValuePair]' = field(default_factory=list)
+    SecurityModes: 'list[ua.MessageSecurityMode]' = field(default_factory=list)
+    SecurityPolicyUris: 'list[ua.String]' = field(default_factory=list)
+    CertificateGroupName: 'ua.String' = None
+
+
+@dataclass(slots=True)
+class UserTokenSettingsDataType(BaseConfigurationRecordDataType):
+    """
+    https://reference.opcfoundation.org/v105/Core/docs/Part12/7.10.25
+
+    :ivar Name:
+    :vartype Name: String
+    :ivar RecordProperties:
+    :vartype RecordProperties: KeyValuePair
+    :ivar TokenType:
+    :vartype TokenType: UserTokenType
+    :ivar IssuedTokenType:
+    :vartype IssuedTokenType: String
+    :ivar IssuerEndpointUrl:
+    :vartype IssuerEndpointUrl: String
+    :ivar SecurityPolicyUri:
+    :vartype SecurityPolicyUri: String
+    :ivar CertificateGroupName:
+    :vartype CertificateGroupName: String
+    :ivar AuthorizationServiceName:
+    :vartype AuthorizationServiceName: String
+    """
+
+    data_type = NodeId(ObjectIds.UserTokenSettingsDataType)
+
+    Name: 'ua.String' = None
+    RecordProperties: 'list[ua.KeyValuePair]' = field(default_factory=list)
+    TokenType: 'ua.UserTokenType' = field(default_factory=lambda:UserTokenType.Anonymous)
+    IssuedTokenType: 'ua.String' = None
+    IssuerEndpointUrl: 'ua.String' = None
+    SecurityPolicyUri: 'ua.String' = None
+    CertificateGroupName: 'ua.String' = None
+    AuthorizationServiceName: 'ua.String' = None
+
+
+@dataclass(slots=True)
+class ServiceCertificateDataType:
+    """
+    https://reference.opcfoundation.org/v105/Core/docs/Part12/9.7.5
+
+    :ivar Certificate:
+    :vartype Certificate: ByteString
+    :ivar Issuers:
+    :vartype Issuers: ByteString
+    :ivar ValidFrom:
+    :vartype ValidFrom: UtcTime
+    :ivar ValidTo:
+    :vartype ValidTo: UtcTime
+    """
+
+    data_type = NodeId(ObjectIds.ServiceCertificateDataType)
+
+    Certificate: 'ua.ByteString' = None
+    Issuers: 'list[ua.ByteString]' = field(default_factory=list)
+    ValidFrom: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    ValidTo: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+@dataclass(slots=True)
+class AuthorizationServiceConfigurationDataType(BaseConfigurationRecordDataType):
+    """
+    https://reference.opcfoundation.org/v105/Core/docs/Part12/9.7.5
+
+    :ivar Name:
+    :vartype Name: String
+    :ivar RecordProperties:
+    :vartype RecordProperties: KeyValuePair
+    :ivar ServiceUri:
+    :vartype ServiceUri: UriString
+    :ivar ServiceCertificates:
+    :vartype ServiceCertificates: ServiceCertificateDataType
+    :ivar IssuerEndpointSettings:
+    :vartype IssuerEndpointSettings: String
+    """
+
+    data_type = NodeId(ObjectIds.AuthorizationServiceConfigurationDataType)
+
+    Name: 'ua.String' = None
+    RecordProperties: 'list[ua.KeyValuePair]' = field(default_factory=list)
+    ServiceUri: 'ua.UriString' = None
+    ServiceCertificates: 'list[ua.ServiceCertificateDataType]' = field(default_factory=list)
+    IssuerEndpointSettings: 'ua.String' = None
+
+
+@dataclass(slots=True)
 class DecimalDataType:
     """
     :ivar Scale:
@@ -2351,11 +2652,11 @@ class DecimalDataType:
 
     data_type = NodeId(ObjectIds.DecimalDataType)
 
-    Scale: Int16 = 0
-    Value: ByteString = None
+    Scale: 'ua.Int16' = 0
+    Value: 'ua.ByteString' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DataTypeDescription:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.32
@@ -2368,11 +2669,11 @@ class DataTypeDescription:
 
     data_type = NodeId(ObjectIds.DataTypeDescription)
 
-    DataTypeId: NodeId = field(default_factory=NodeId)
-    Name: QualifiedName = field(default_factory=QualifiedName)
+    DataTypeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    Name: 'ua.QualifiedName' = field(default_factory=lambda: QualifiedName())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SimpleTypeDescription(DataTypeDescription):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.35
@@ -2389,13 +2690,13 @@ class SimpleTypeDescription(DataTypeDescription):
 
     data_type = NodeId(ObjectIds.SimpleTypeDescription)
 
-    DataTypeId: NodeId = field(default_factory=NodeId)
-    Name: QualifiedName = field(default_factory=QualifiedName)
-    BaseDataType: NodeId = field(default_factory=NodeId)
-    BuiltInType: Byte = 0
+    DataTypeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    Name: 'ua.QualifiedName' = field(default_factory=lambda: QualifiedName())
+    BaseDataType: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    BuiltInType: 'ua.Byte' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class PortableQualifiedName:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.37
@@ -2408,11 +2709,11 @@ class PortableQualifiedName:
 
     data_type = NodeId(ObjectIds.PortableQualifiedName)
 
-    NamespaceUri: String = None
-    Name: String = None
+    NamespaceUri: 'ua.String' = None
+    Name: 'ua.String' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class UnsignedRationalNumber:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.40
@@ -2425,11 +2726,11 @@ class UnsignedRationalNumber:
 
     data_type = NodeId(ObjectIds.UnsignedRationalNumber)
 
-    Numerator: UInt32 = 0
-    Denominator: UInt32 = 0
+    Numerator: 'ua.UInt32' = 0
+    Denominator: 'ua.UInt32' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class FieldMetaData:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.3/#6.2.3.2.4
@@ -2458,19 +2759,19 @@ class FieldMetaData:
 
     data_type = NodeId(ObjectIds.FieldMetaData)
 
-    Name: String = None
-    Description: LocalizedText = field(default_factory=LocalizedText)
-    FieldFlags: DataSetFieldFlags = field(default_factory=lambda:DataSetFieldFlags(0))
-    BuiltInType: Byte = 0
-    DataType: NodeId = field(default_factory=NodeId)
-    ValueRank: Int32 = 0
-    ArrayDimensions: List[UInt32] = field(default_factory=list)
-    MaxStringLength: UInt32 = 0
-    DataSetFieldId: Guid = Guid(int=0)
-    Properties: List[KeyValuePair] = field(default_factory=list)
+    Name: 'ua.String' = None
+    Description: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    FieldFlags: 'ua.DataSetFieldFlags' = field(default_factory=lambda:DataSetFieldFlags(0))
+    BuiltInType: 'ua.Byte' = 0
+    DataType: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    ValueRank: 'ua.Int32' = 0
+    ArrayDimensions: 'list[ua.UInt32]' = field(default_factory=list)
+    MaxStringLength: 'ua.UInt32' = 0
+    DataSetFieldId: 'ua.Guid' = Guid(int=0)
+    Properties: 'list[ua.KeyValuePair]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ConfigurationVersionDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.3/#6.2.3.2.6
@@ -2483,11 +2784,11 @@ class ConfigurationVersionDataType:
 
     data_type = NodeId(ObjectIds.ConfigurationVersionDataType)
 
-    MajorVersion: VersionTime = 0
-    MinorVersion: VersionTime = 0
+    MajorVersion: 'ua.VersionTime' = 0
+    MinorVersion: 'ua.VersionTime' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class PublishedDataSetSourceDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.3/#6.2.3.6
@@ -2497,7 +2798,7 @@ class PublishedDataSetSourceDataType:
     data_type = NodeId(ObjectIds.PublishedDataSetSourceDataType)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class PublishedVariableDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.3/#6.2.3.7.1
@@ -2522,17 +2823,17 @@ class PublishedVariableDataType:
 
     data_type = NodeId(ObjectIds.PublishedVariableDataType)
 
-    PublishedVariable: NodeId = field(default_factory=NodeId)
-    AttributeId: IntegerId = 0
-    SamplingIntervalHint: Duration = 0
-    DeadbandType: UInt32 = 0
-    DeadbandValue: Double = 0
-    IndexRange: NumericRange = None
-    SubstituteValue: Variant = field(default_factory=Variant)
-    MetaDataProperties: List[QualifiedName] = field(default_factory=list)
+    PublishedVariable: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    AttributeId: 'ua.IntegerId' = 0
+    SamplingIntervalHint: 'ua.Duration' = 0
+    DeadbandType: 'ua.UInt32' = 0
+    DeadbandValue: 'ua.Double' = 0
+    IndexRange: 'ua.NumericRange' = None
+    SubstituteValue: 'ua.Variant' = field(default_factory=lambda: Variant())
+    MetaDataProperties: 'list[ua.QualifiedName]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class PublishedDataItemsDataType(PublishedDataSetSourceDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.3/#6.2.3.7.2
@@ -2543,10 +2844,10 @@ class PublishedDataItemsDataType(PublishedDataSetSourceDataType):
 
     data_type = NodeId(ObjectIds.PublishedDataItemsDataType)
 
-    PublishedData: List[PublishedVariableDataType] = field(default_factory=list)
+    PublishedData: 'list[ua.PublishedVariableDataType]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class PublishedDataSetCustomSourceDataType(PublishedDataSetSourceDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.3/#6.2.3.9.2
@@ -2557,10 +2858,10 @@ class PublishedDataSetCustomSourceDataType(PublishedDataSetSourceDataType):
 
     data_type = NodeId(ObjectIds.PublishedDataSetCustomSourceDataType)
 
-    CyclicDataSet: Boolean = True
+    CyclicDataSet: 'ua.Boolean' = True
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ActionTargetDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.3/#6.2.3.10.3
@@ -2575,12 +2876,12 @@ class ActionTargetDataType:
 
     data_type = NodeId(ObjectIds.ActionTargetDataType)
 
-    ActionTargetId: UInt16 = 0
-    Name: String = None
-    Description: LocalizedText = field(default_factory=LocalizedText)
+    ActionTargetId: 'ua.UInt16' = 0
+    Name: 'ua.String' = None
+    Description: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ActionMethodDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.3/#6.2.3.10.5
@@ -2593,11 +2894,11 @@ class ActionMethodDataType:
 
     data_type = NodeId(ObjectIds.ActionMethodDataType)
 
-    ObjectId: NodeId = field(default_factory=NodeId)
-    MethodId: NodeId = field(default_factory=NodeId)
+    ObjectId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    MethodId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DataSetWriterTransportDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.4/#6.2.4.5.2
@@ -2607,7 +2908,7 @@ class DataSetWriterTransportDataType:
     data_type = NodeId(ObjectIds.DataSetWriterTransportDataType)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DataSetWriterMessageDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.4/#6.2.4.5.3
@@ -2617,7 +2918,7 @@ class DataSetWriterMessageDataType:
     data_type = NodeId(ObjectIds.DataSetWriterMessageDataType)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DataSetWriterDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.4/#6.2.4.5.1
@@ -2644,26 +2945,18 @@ class DataSetWriterDataType:
 
     data_type = NodeId(ObjectIds.DataSetWriterDataType)
 
-    Name: String = None
-    Enabled: Boolean = True
-    DataSetWriterId: UInt16 = 0
-    DataSetFieldContentMask_: DataSetFieldContentMask = field(default_factory=lambda:DataSetFieldContentMask(0))
-    KeyFrameCount: UInt32 = 0
-    DataSetName: String = None
-    DataSetWriterProperties: List[KeyValuePair] = field(default_factory=list)
-    TransportSettings: Type[DataSetWriterTransportDataType] = field(default_factory=DataSetWriterTransportDataType)
-    MessageSettings: Type[DataSetWriterMessageDataType] = field(default_factory=DataSetWriterMessageDataType)
-
-    @property
-    def DataSetFieldContentMask(self):
-        return self.DataSetFieldContentMask_
-
-    @DataSetFieldContentMask.setter
-    def DataSetFieldContentMask(self, val):
-        self.DataSetFieldContentMask_ = val
+    Name: 'ua.String' = None
+    Enabled: 'ua.Boolean' = True
+    DataSetWriterId: 'ua.UInt16' = 0
+    DataSetFieldContentMask: 'ua.DataSetFieldContentMask' = field(default_factory=lambda:DataSetFieldContentMask(0))
+    KeyFrameCount: 'ua.UInt32' = 0
+    DataSetName: 'ua.String' = None
+    DataSetWriterProperties: 'list[ua.KeyValuePair]' = field(default_factory=list)
+    TransportSettings: 'type[ua.DataSetWriterTransportDataType]' = field(default_factory=lambda: DataSetWriterTransportDataType())
+    MessageSettings: 'type[ua.DataSetWriterMessageDataType]' = field(default_factory=lambda: DataSetWriterMessageDataType())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class WriterGroupTransportDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.6/#6.2.6.7.2
@@ -2673,7 +2966,7 @@ class WriterGroupTransportDataType:
     data_type = NodeId(ObjectIds.WriterGroupTransportDataType)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class WriterGroupMessageDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.6/#6.2.6.7.3
@@ -2683,7 +2976,7 @@ class WriterGroupMessageDataType:
     data_type = NodeId(ObjectIds.WriterGroupMessageDataType)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ConnectionTransportDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.7/#6.2.7.5.2
@@ -2693,7 +2986,7 @@ class ConnectionTransportDataType:
     data_type = NodeId(ObjectIds.ConnectionTransportDataType)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class NetworkAddressDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.7/#6.2.7.5.3
@@ -2704,10 +2997,10 @@ class NetworkAddressDataType:
 
     data_type = NodeId(ObjectIds.NetworkAddressDataType)
 
-    NetworkInterface: String = None
+    NetworkInterface: 'ua.String' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class NetworkAddressUrlDataType(NetworkAddressDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.7/#6.2.7.5.4
@@ -2720,11 +3013,11 @@ class NetworkAddressUrlDataType(NetworkAddressDataType):
 
     data_type = NodeId(ObjectIds.NetworkAddressUrlDataType)
 
-    NetworkInterface: String = None
-    Url: String = None
+    NetworkInterface: 'ua.String' = None
+    Url: 'ua.String' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ReaderGroupTransportDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.8/#6.2.8.2.2
@@ -2734,7 +3027,7 @@ class ReaderGroupTransportDataType:
     data_type = NodeId(ObjectIds.ReaderGroupTransportDataType)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ReaderGroupMessageDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.8/#6.2.8.2.3
@@ -2744,7 +3037,7 @@ class ReaderGroupMessageDataType:
     data_type = NodeId(ObjectIds.ReaderGroupMessageDataType)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DataSetReaderTransportDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.9/#6.2.9.13.2
@@ -2754,7 +3047,7 @@ class DataSetReaderTransportDataType:
     data_type = NodeId(ObjectIds.DataSetReaderTransportDataType)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DataSetReaderMessageDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.9/#6.2.9.13.3
@@ -2764,7 +3057,7 @@ class DataSetReaderMessageDataType:
     data_type = NodeId(ObjectIds.DataSetReaderMessageDataType)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SubscribedDataSetDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.10/#6.2.10.1
@@ -2774,7 +3067,7 @@ class SubscribedDataSetDataType:
     data_type = NodeId(ObjectIds.SubscribedDataSetDataType)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class FieldTargetDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.10/#6.2.10.2.3
@@ -2797,24 +3090,16 @@ class FieldTargetDataType:
 
     data_type = NodeId(ObjectIds.FieldTargetDataType)
 
-    DataSetFieldId: Guid = Guid(int=0)
-    ReceiverIndexRange: NumericRange = None
-    TargetNodeId: NodeId = field(default_factory=NodeId)
-    AttributeId: IntegerId = 0
-    WriteIndexRange: NumericRange = None
-    OverrideValueHandling_: OverrideValueHandling = OverrideValueHandling.Disabled
-    OverrideValue: Variant = field(default_factory=Variant)
-
-    @property
-    def OverrideValueHandling(self):
-        return self.OverrideValueHandling_
-
-    @OverrideValueHandling.setter
-    def OverrideValueHandling(self, val):
-        self.OverrideValueHandling_ = val
+    DataSetFieldId: 'ua.Guid' = Guid(int=0)
+    ReceiverIndexRange: 'ua.NumericRange' = None
+    TargetNodeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    AttributeId: 'ua.IntegerId' = 0
+    WriteIndexRange: 'ua.NumericRange' = None
+    OverrideValueHandling: 'ua.OverrideValueHandling' = field(default_factory=lambda:OverrideValueHandling.Disabled)
+    OverrideValue: 'ua.Variant' = field(default_factory=lambda: Variant())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class TargetVariablesDataType(SubscribedDataSetDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.10/#6.2.10.2.2
@@ -2825,10 +3110,10 @@ class TargetVariablesDataType(SubscribedDataSetDataType):
 
     data_type = NodeId(ObjectIds.TargetVariablesDataType)
 
-    TargetVariables: List[FieldTargetDataType] = field(default_factory=list)
+    TargetVariables: 'list[ua.FieldTargetDataType]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class StandaloneSubscribedDataSetRefDataType(SubscribedDataSetDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.10/#6.2.10.4
@@ -2839,10 +3124,10 @@ class StandaloneSubscribedDataSetRefDataType(SubscribedDataSetDataType):
 
     data_type = NodeId(ObjectIds.StandaloneSubscribedDataSetRefDataType)
 
-    DataSetName: String = None
+    DataSetName: 'ua.String' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class UadpWriterGroupMessageDataType(WriterGroupMessageDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.3.1/#6.3.1.1.7
@@ -2861,14 +3146,14 @@ class UadpWriterGroupMessageDataType(WriterGroupMessageDataType):
 
     data_type = NodeId(ObjectIds.UadpWriterGroupMessageDataType)
 
-    GroupVersion: VersionTime = 0
-    DataSetOrdering: DataSetOrderingType = DataSetOrderingType.Undefined
-    NetworkMessageContentMask: UadpNetworkMessageContentMask = field(default_factory=lambda:UadpNetworkMessageContentMask(0))
-    SamplingOffset: Duration = 0
-    PublishingOffset: List[Duration] = field(default_factory=list)
+    GroupVersion: 'ua.VersionTime' = 0
+    DataSetOrdering: 'ua.DataSetOrderingType' = field(default_factory=lambda:DataSetOrderingType.Undefined)
+    NetworkMessageContentMask: 'ua.UadpNetworkMessageContentMask' = field(default_factory=lambda:UadpNetworkMessageContentMask(0))
+    SamplingOffset: 'ua.Duration' = 0
+    PublishingOffset: 'list[ua.Duration]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class UadpDataSetWriterMessageDataType(DataSetWriterMessageDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.3.1/#6.3.1.3.6
@@ -2885,13 +3170,13 @@ class UadpDataSetWriterMessageDataType(DataSetWriterMessageDataType):
 
     data_type = NodeId(ObjectIds.UadpDataSetWriterMessageDataType)
 
-    DataSetMessageContentMask: UadpDataSetMessageContentMask = field(default_factory=lambda:UadpDataSetMessageContentMask(0))
-    ConfiguredSize: UInt16 = 0
-    NetworkMessageNumber: UInt16 = 0
-    DataSetOffset: UInt16 = 0
+    DataSetMessageContentMask: 'ua.UadpDataSetMessageContentMask' = field(default_factory=lambda:UadpDataSetMessageContentMask(0))
+    ConfiguredSize: 'ua.UInt16' = 0
+    NetworkMessageNumber: 'ua.UInt16' = 0
+    DataSetOffset: 'ua.UInt16' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class UadpDataSetReaderMessageDataType(DataSetReaderMessageDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.3.1/#6.3.1.4.10
@@ -2918,18 +3203,18 @@ class UadpDataSetReaderMessageDataType(DataSetReaderMessageDataType):
 
     data_type = NodeId(ObjectIds.UadpDataSetReaderMessageDataType)
 
-    GroupVersion: VersionTime = 0
-    NetworkMessageNumber: UInt16 = 0
-    DataSetOffset: UInt16 = 0
-    DataSetClassId: Guid = Guid(int=0)
-    NetworkMessageContentMask: UadpNetworkMessageContentMask = field(default_factory=lambda:UadpNetworkMessageContentMask(0))
-    DataSetMessageContentMask: UadpDataSetMessageContentMask = field(default_factory=lambda:UadpDataSetMessageContentMask(0))
-    PublishingInterval: Duration = 0
-    ReceiveOffset: Duration = 0
-    ProcessingOffset: Duration = 0
+    GroupVersion: 'ua.VersionTime' = 0
+    NetworkMessageNumber: 'ua.UInt16' = 0
+    DataSetOffset: 'ua.UInt16' = 0
+    DataSetClassId: 'ua.Guid' = Guid(int=0)
+    NetworkMessageContentMask: 'ua.UadpNetworkMessageContentMask' = field(default_factory=lambda:UadpNetworkMessageContentMask(0))
+    DataSetMessageContentMask: 'ua.UadpDataSetMessageContentMask' = field(default_factory=lambda:UadpDataSetMessageContentMask(0))
+    PublishingInterval: 'ua.Duration' = 0
+    ReceiveOffset: 'ua.Duration' = 0
+    ProcessingOffset: 'ua.Duration' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class JsonWriterGroupMessageDataType(WriterGroupMessageDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.3.2/#6.3.2.1.2
@@ -2940,10 +3225,10 @@ class JsonWriterGroupMessageDataType(WriterGroupMessageDataType):
 
     data_type = NodeId(ObjectIds.JsonWriterGroupMessageDataType)
 
-    NetworkMessageContentMask: JsonNetworkMessageContentMask = field(default_factory=lambda:JsonNetworkMessageContentMask(0))
+    NetworkMessageContentMask: 'ua.JsonNetworkMessageContentMask' = field(default_factory=lambda:JsonNetworkMessageContentMask(0))
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class JsonDataSetWriterMessageDataType(DataSetWriterMessageDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.3.2/#6.3.2.3.2
@@ -2954,10 +3239,10 @@ class JsonDataSetWriterMessageDataType(DataSetWriterMessageDataType):
 
     data_type = NodeId(ObjectIds.JsonDataSetWriterMessageDataType)
 
-    DataSetMessageContentMask: JsonDataSetMessageContentMask = field(default_factory=lambda:JsonDataSetMessageContentMask(0))
+    DataSetMessageContentMask: 'ua.JsonDataSetMessageContentMask' = field(default_factory=lambda:JsonDataSetMessageContentMask(0))
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class JsonDataSetReaderMessageDataType(DataSetReaderMessageDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.3.2/#6.3.2.4.3
@@ -2970,11 +3255,11 @@ class JsonDataSetReaderMessageDataType(DataSetReaderMessageDataType):
 
     data_type = NodeId(ObjectIds.JsonDataSetReaderMessageDataType)
 
-    NetworkMessageContentMask: JsonNetworkMessageContentMask = field(default_factory=lambda:JsonNetworkMessageContentMask(0))
-    DataSetMessageContentMask: JsonDataSetMessageContentMask = field(default_factory=lambda:JsonDataSetMessageContentMask(0))
+    NetworkMessageContentMask: 'ua.JsonNetworkMessageContentMask' = field(default_factory=lambda:JsonNetworkMessageContentMask(0))
+    DataSetMessageContentMask: 'ua.JsonDataSetMessageContentMask' = field(default_factory=lambda:JsonDataSetMessageContentMask(0))
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class QosDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.4.1/#6.4.1.1.2
@@ -2984,7 +3269,7 @@ class QosDataType:
     data_type = NodeId(ObjectIds.QosDataType)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class TransmitQosDataType(QosDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.4.1/#6.4.1.1.3
@@ -2994,7 +3279,7 @@ class TransmitQosDataType(QosDataType):
     data_type = NodeId(ObjectIds.TransmitQosDataType)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class TransmitQosPriorityDataType(TransmitQosDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.4.1/#6.4.1.1.4.2
@@ -3005,10 +3290,10 @@ class TransmitQosPriorityDataType(TransmitQosDataType):
 
     data_type = NodeId(ObjectIds.TransmitQosPriorityDataType)
 
-    PriorityLabel: String = None
+    PriorityLabel: 'ua.String' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ReceiveQosDataType(QosDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.4.1/#6.4.1.1.5
@@ -3018,7 +3303,7 @@ class ReceiveQosDataType(QosDataType):
     data_type = NodeId(ObjectIds.ReceiveQosDataType)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ReceiveQosPriorityDataType(ReceiveQosDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.4.1/#6.4.1.1.6.2
@@ -3029,10 +3314,10 @@ class ReceiveQosPriorityDataType(ReceiveQosDataType):
 
     data_type = NodeId(ObjectIds.ReceiveQosPriorityDataType)
 
-    PriorityLabel: String = None
+    PriorityLabel: 'ua.String' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DatagramConnectionTransportDataType(ConnectionTransportDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.4.1/#6.4.1.2.2
@@ -3043,10 +3328,10 @@ class DatagramConnectionTransportDataType(ConnectionTransportDataType):
 
     data_type = NodeId(ObjectIds.DatagramConnectionTransportDataType)
 
-    DiscoveryAddress: Type[NetworkAddressDataType] = field(default_factory=NetworkAddressDataType)
+    DiscoveryAddress: 'type[ua.NetworkAddressDataType]' = field(default_factory=lambda: NetworkAddressDataType())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DatagramConnectionTransport2DataType(DatagramConnectionTransportDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.4.1/#6.4.1.2.7
@@ -3065,14 +3350,14 @@ class DatagramConnectionTransport2DataType(DatagramConnectionTransportDataType):
 
     data_type = NodeId(ObjectIds.DatagramConnectionTransport2DataType)
 
-    DiscoveryAddress: Type[NetworkAddressDataType] = field(default_factory=NetworkAddressDataType)
-    DiscoveryAnnounceRate: UInt32 = 0
-    DiscoveryMaxMessageSize: UInt32 = 0
-    QosCategory: String = None
-    DatagramQos: List[Type[QosDataType]] = field(default_factory=list)
+    DiscoveryAddress: 'type[ua.NetworkAddressDataType]' = field(default_factory=lambda: NetworkAddressDataType())
+    DiscoveryAnnounceRate: 'ua.UInt32' = 0
+    DiscoveryMaxMessageSize: 'ua.UInt32' = 0
+    QosCategory: 'ua.String' = None
+    DatagramQos: 'list[type[ua.QosDataType]]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DatagramWriterGroupTransportDataType(WriterGroupTransportDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.4.1/#6.4.1.3.3
@@ -3085,11 +3370,11 @@ class DatagramWriterGroupTransportDataType(WriterGroupTransportDataType):
 
     data_type = NodeId(ObjectIds.DatagramWriterGroupTransportDataType)
 
-    MessageRepeatCount: Byte = 0
-    MessageRepeatDelay: Duration = 0
+    MessageRepeatCount: 'ua.Byte' = 0
+    MessageRepeatDelay: 'ua.Duration' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DatagramWriterGroupTransport2DataType(DatagramWriterGroupTransportDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.4.1/#6.4.1.3.9
@@ -3112,16 +3397,16 @@ class DatagramWriterGroupTransport2DataType(DatagramWriterGroupTransportDataType
 
     data_type = NodeId(ObjectIds.DatagramWriterGroupTransport2DataType)
 
-    MessageRepeatCount: Byte = 0
-    MessageRepeatDelay: Duration = 0
-    Address: Type[NetworkAddressDataType] = field(default_factory=NetworkAddressDataType)
-    QosCategory: String = None
-    DatagramQos: List[Type[TransmitQosDataType]] = field(default_factory=list)
-    DiscoveryAnnounceRate: UInt32 = 0
-    Topic: String = None
+    MessageRepeatCount: 'ua.Byte' = 0
+    MessageRepeatDelay: 'ua.Duration' = 0
+    Address: 'type[ua.NetworkAddressDataType]' = field(default_factory=lambda: NetworkAddressDataType())
+    QosCategory: 'ua.String' = None
+    DatagramQos: 'list[type[ua.TransmitQosDataType]]' = field(default_factory=list)
+    DiscoveryAnnounceRate: 'ua.UInt32' = 0
+    Topic: 'ua.String' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DatagramDataSetReaderTransportDataType(DataSetReaderTransportDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.4.1/#6.4.1.6.5
@@ -3138,13 +3423,13 @@ class DatagramDataSetReaderTransportDataType(DataSetReaderTransportDataType):
 
     data_type = NodeId(ObjectIds.DatagramDataSetReaderTransportDataType)
 
-    Address: Type[NetworkAddressDataType] = field(default_factory=NetworkAddressDataType)
-    QosCategory: String = None
-    DatagramQos: List[Type[ReceiveQosDataType]] = field(default_factory=list)
-    Topic: String = None
+    Address: 'type[ua.NetworkAddressDataType]' = field(default_factory=lambda: NetworkAddressDataType())
+    QosCategory: 'ua.String' = None
+    DatagramQos: 'list[type[ua.ReceiveQosDataType]]' = field(default_factory=list)
+    Topic: 'ua.String' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DtlsPubSubConnectionDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.4.1/#6.4.1.7.6
@@ -3163,14 +3448,14 @@ class DtlsPubSubConnectionDataType:
 
     data_type = NodeId(ObjectIds.DtlsPubSubConnectionDataType)
 
-    ClientCipherSuite: String = None
-    ServerCipherSuites: List[String] = field(default_factory=list)
-    ZeroRTT: Boolean = True
-    CertificateGroupId: NodeId = field(default_factory=NodeId)
-    VerifyClientCertificate: Boolean = True
+    ClientCipherSuite: 'ua.String' = None
+    ServerCipherSuites: 'list[ua.String]' = field(default_factory=list)
+    ZeroRTT: 'ua.Boolean' = True
+    CertificateGroupId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    VerifyClientCertificate: 'ua.Boolean' = True
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class BrokerConnectionTransportDataType(ConnectionTransportDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.4.2/#6.4.2.2.3
@@ -3183,11 +3468,11 @@ class BrokerConnectionTransportDataType(ConnectionTransportDataType):
 
     data_type = NodeId(ObjectIds.BrokerConnectionTransportDataType)
 
-    ResourceUri: String = None
-    AuthenticationProfileUri: String = None
+    ResourceUri: 'ua.String' = None
+    AuthenticationProfileUri: 'ua.String' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class BrokerWriterGroupTransportDataType(WriterGroupTransportDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.4.2/#6.4.2.3.5
@@ -3204,13 +3489,13 @@ class BrokerWriterGroupTransportDataType(WriterGroupTransportDataType):
 
     data_type = NodeId(ObjectIds.BrokerWriterGroupTransportDataType)
 
-    QueueName: String = None
-    ResourceUri: String = None
-    AuthenticationProfileUri: String = None
-    RequestedDeliveryGuarantee: BrokerTransportQualityOfService = BrokerTransportQualityOfService.NotSpecified
+    QueueName: 'ua.String' = None
+    ResourceUri: 'ua.String' = None
+    AuthenticationProfileUri: 'ua.String' = None
+    RequestedDeliveryGuarantee: 'ua.BrokerTransportQualityOfService' = field(default_factory=lambda:BrokerTransportQualityOfService.NotSpecified)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class BrokerDataSetWriterTransportDataType(DataSetWriterTransportDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.4.2/#6.4.2.5.7
@@ -3231,15 +3516,15 @@ class BrokerDataSetWriterTransportDataType(DataSetWriterTransportDataType):
 
     data_type = NodeId(ObjectIds.BrokerDataSetWriterTransportDataType)
 
-    QueueName: String = None
-    ResourceUri: String = None
-    AuthenticationProfileUri: String = None
-    RequestedDeliveryGuarantee: BrokerTransportQualityOfService = BrokerTransportQualityOfService.NotSpecified
-    MetaDataQueueName: String = None
-    MetaDataUpdateTime: Duration = 0
+    QueueName: 'ua.String' = None
+    ResourceUri: 'ua.String' = None
+    AuthenticationProfileUri: 'ua.String' = None
+    RequestedDeliveryGuarantee: 'ua.BrokerTransportQualityOfService' = field(default_factory=lambda:BrokerTransportQualityOfService.NotSpecified)
+    MetaDataQueueName: 'ua.String' = None
+    MetaDataUpdateTime: 'ua.Duration' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class BrokerDataSetReaderTransportDataType(DataSetReaderTransportDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.4.2/#6.4.2.6.6
@@ -3258,14 +3543,14 @@ class BrokerDataSetReaderTransportDataType(DataSetReaderTransportDataType):
 
     data_type = NodeId(ObjectIds.BrokerDataSetReaderTransportDataType)
 
-    QueueName: String = None
-    ResourceUri: String = None
-    AuthenticationProfileUri: String = None
-    RequestedDeliveryGuarantee: BrokerTransportQualityOfService = BrokerTransportQualityOfService.NotSpecified
-    MetaDataQueueName: String = None
+    QueueName: 'ua.String' = None
+    ResourceUri: 'ua.String' = None
+    AuthenticationProfileUri: 'ua.String' = None
+    RequestedDeliveryGuarantee: 'ua.BrokerTransportQualityOfService' = field(default_factory=lambda:BrokerTransportQualityOfService.NotSpecified)
+    MetaDataQueueName: 'ua.String' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class PubSubConfigurationRefDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/9.1.3/#9.1.3.7.3
@@ -3282,13 +3567,13 @@ class PubSubConfigurationRefDataType:
 
     data_type = NodeId(ObjectIds.PubSubConfigurationRefDataType)
 
-    ConfigurationMask: PubSubConfigurationRefMask = field(default_factory=lambda:PubSubConfigurationRefMask(0))
-    ElementIndex: UInt16 = 0
-    ConnectionIndex: UInt16 = 0
-    GroupIndex: UInt16 = 0
+    ConfigurationMask: 'ua.PubSubConfigurationRefMask' = field(default_factory=lambda:PubSubConfigurationRefMask(0))
+    ElementIndex: 'ua.UInt16' = 0
+    ConnectionIndex: 'ua.UInt16' = 0
+    GroupIndex: 'ua.UInt16' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class PubSubConfigurationValueDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/9.1.3/#9.1.3.7.4
@@ -3303,12 +3588,12 @@ class PubSubConfigurationValueDataType:
 
     data_type = NodeId(ObjectIds.PubSubConfigurationValueDataType)
 
-    ConfigurationElement: PubSubConfigurationRefDataType = field(default_factory=PubSubConfigurationRefDataType)
-    Name: String = None
-    Identifier: Variant = field(default_factory=Variant)
+    ConfigurationElement: 'ua.PubSubConfigurationRefDataType' = field(default_factory=lambda: PubSubConfigurationRefDataType())
+    Name: 'ua.String' = None
+    Identifier: 'ua.Variant' = field(default_factory=lambda: Variant())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class JsonNetworkMessage:
     """
     :ivar MessageId:
@@ -3327,15 +3612,15 @@ class JsonNetworkMessage:
 
     data_type = NodeId(ObjectIds.JsonNetworkMessage)
 
-    MessageId: String = None
-    MessageType: String = None
-    PublisherId: String = None
-    WriterGroupName: String = None
-    DataSetClassId: String = None
-    Messages: List[ExtensionObject] = field(default_factory=list)
+    MessageId: 'ua.String' = None
+    MessageType: 'ua.String' = None
+    PublisherId: 'ua.String' = None
+    WriterGroupName: 'ua.String' = None
+    DataSetClassId: 'ua.String' = None
+    Messages: 'list[ua.ExtensionObject]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class JsonDataSetMessage:
     """
     :ivar DataSetWriterId:
@@ -3364,20 +3649,20 @@ class JsonDataSetMessage:
 
     data_type = NodeId(ObjectIds.JsonDataSetMessage)
 
-    DataSetWriterId: UInt16 = 0
-    DataSetWriterName: String = None
-    PublisherId: String = None
-    WriterGroupName: String = None
-    SequenceNumber: UInt32 = 0
-    MetaDataVersion: ConfigurationVersionDataType = field(default_factory=ConfigurationVersionDataType)
-    MinorVersion: VersionTime = 0
-    Timestamp: DateTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    Status: StatusCode = field(default_factory=StatusCode)
-    MessageType: String = None
-    Payload: ExtensionObject = ExtensionObject()
+    DataSetWriterId: 'ua.UInt16' = 0
+    DataSetWriterName: 'ua.String' = None
+    PublisherId: 'ua.String' = None
+    WriterGroupName: 'ua.String' = None
+    SequenceNumber: 'ua.UInt32' = 0
+    MetaDataVersion: 'ua.ConfigurationVersionDataType' = field(default_factory=lambda: ConfigurationVersionDataType())
+    MinorVersion: 'ua.VersionTime' = 0
+    Timestamp: 'ua.DateTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    Status: 'ua.StatusCode' = field(default_factory=lambda: StatusCode())
+    MessageType: 'ua.String' = None
+    Payload: 'ua.ExtensionObject' = ExtensionObject()
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class JsonStatusMessage:
     """
     :ivar MessageId:
@@ -3398,16 +3683,16 @@ class JsonStatusMessage:
 
     data_type = NodeId(ObjectIds.JsonStatusMessage)
 
-    MessageId: String = None
-    MessageType: String = None
-    PublisherId: String = None
-    Timestamp: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    IsCyclic: Boolean = True
-    Status: PubSubState = PubSubState.Disabled
-    NextReportTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
+    MessageId: 'ua.String' = None
+    MessageType: 'ua.String' = None
+    PublisherId: 'ua.String' = None
+    Timestamp: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    IsCyclic: 'ua.Boolean' = True
+    Status: 'ua.PubSubState' = field(default_factory=lambda:PubSubState.Disabled)
+    NextReportTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class JsonActionNetworkMessage:
     """
     :ivar MessageId:
@@ -3432,18 +3717,18 @@ class JsonActionNetworkMessage:
 
     data_type = NodeId(ObjectIds.JsonActionNetworkMessage)
 
-    MessageId: String = None
-    MessageType: String = None
-    PublisherId: String = None
-    Timestamp: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    ResponseAddress: String = None
-    CorrelationData: ByteString = None
-    RequestorId: String = None
-    TimeoutHint: Duration = 0
-    Messages: List[ExtensionObject] = field(default_factory=list)
+    MessageId: 'ua.String' = None
+    MessageType: 'ua.String' = None
+    PublisherId: 'ua.String' = None
+    Timestamp: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    ResponseAddress: 'ua.String' = None
+    CorrelationData: 'ua.ByteString' = None
+    RequestorId: 'ua.String' = None
+    TimeoutHint: 'ua.Duration' = 0
+    Messages: 'list[ua.ExtensionObject]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class JsonActionRequestMessage:
     """
     :ivar DataSetWriterId:
@@ -3472,28 +3757,20 @@ class JsonActionRequestMessage:
 
     data_type = NodeId(ObjectIds.JsonActionRequestMessage)
 
-    DataSetWriterId: UInt16 = 0
-    ActionTargetId: UInt16 = 0
-    DataSetWriterName: String = None
-    WriterGroupName: String = None
-    MetaDataVersion: ConfigurationVersionDataType = field(default_factory=ConfigurationVersionDataType)
-    MinorVersion: VersionTime = 0
-    Timestamp: DateTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    MessageType: String = None
-    RequestId: UInt16 = 0
-    ActionState_: ActionState = ActionState.Idle
-    Payload: ExtensionObject = ExtensionObject()
-
-    @property
-    def ActionState(self):
-        return self.ActionState_
-
-    @ActionState.setter
-    def ActionState(self, val):
-        self.ActionState_ = val
+    DataSetWriterId: 'ua.UInt16' = 0
+    ActionTargetId: 'ua.UInt16' = 0
+    DataSetWriterName: 'ua.String' = None
+    WriterGroupName: 'ua.String' = None
+    MetaDataVersion: 'ua.ConfigurationVersionDataType' = field(default_factory=lambda: ConfigurationVersionDataType())
+    MinorVersion: 'ua.VersionTime' = 0
+    Timestamp: 'ua.DateTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    MessageType: 'ua.String' = None
+    RequestId: 'ua.UInt16' = 0
+    ActionState: 'ua.ActionState' = field(default_factory=lambda:ActionState.Idle)
+    Payload: 'ua.ExtensionObject' = ExtensionObject()
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class JsonActionResponseMessage:
     """
     :ivar DataSetWriterId:
@@ -3524,29 +3801,21 @@ class JsonActionResponseMessage:
 
     data_type = NodeId(ObjectIds.JsonActionResponseMessage)
 
-    DataSetWriterId: UInt16 = 0
-    ActionTargetId: UInt16 = 0
-    DataSetWriterName: String = None
-    WriterGroupName: String = None
-    MetaDataVersion: ConfigurationVersionDataType = field(default_factory=ConfigurationVersionDataType)
-    MinorVersion: VersionTime = 0
-    Timestamp: DateTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    Status: StatusCode = field(default_factory=StatusCode)
-    MessageType: String = None
-    RequestId: UInt16 = 0
-    ActionState_: ActionState = ActionState.Idle
-    Payload: ExtensionObject = ExtensionObject()
-
-    @property
-    def ActionState(self):
-        return self.ActionState_
-
-    @ActionState.setter
-    def ActionState(self, val):
-        self.ActionState_ = val
+    DataSetWriterId: 'ua.UInt16' = 0
+    ActionTargetId: 'ua.UInt16' = 0
+    DataSetWriterName: 'ua.String' = None
+    WriterGroupName: 'ua.String' = None
+    MetaDataVersion: 'ua.ConfigurationVersionDataType' = field(default_factory=lambda: ConfigurationVersionDataType())
+    MinorVersion: 'ua.VersionTime' = 0
+    Timestamp: 'ua.DateTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    Status: 'ua.StatusCode' = field(default_factory=lambda: StatusCode())
+    MessageType: 'ua.String' = None
+    RequestId: 'ua.UInt16' = 0
+    ActionState: 'ua.ActionState' = field(default_factory=lambda:ActionState.Idle)
+    Payload: 'ua.ExtensionObject' = ExtensionObject()
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class AliasNameDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part17/7.2
@@ -3559,11 +3828,68 @@ class AliasNameDataType:
 
     data_type = NodeId(ObjectIds.AliasNameDataType)
 
-    AliasName: QualifiedName = field(default_factory=QualifiedName)
-    ReferencedNodes: List[ExpandedNodeId] = field(default_factory=list)
+    AliasName: 'ua.QualifiedName' = field(default_factory=lambda: QualifiedName())
+    ReferencedNodes: 'list[ua.ExpandedNodeId]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
+class AliasNameVerboseDataType:
+    """
+    https://reference.opcfoundation.org/v105/Core/docs/Part17/7.3
+
+    :ivar AliasName:
+    :vartype AliasName: QualifiedName
+    :ivar ReferencedNodes:
+    :vartype ReferencedNodes: ExpandedNodeId
+    :ivar ServerUris:
+    :vartype ServerUris: String
+    :ivar AliasNameCategoryId:
+    :vartype AliasNameCategoryId: NodeId
+    """
+
+    data_type = NodeId(ObjectIds.AliasNameVerboseDataType)
+
+    AliasName: 'ua.QualifiedName' = field(default_factory=lambda: QualifiedName())
+    ReferencedNodes: 'list[ua.ExpandedNodeId]' = field(default_factory=list)
+    ServerUris: 'list[ua.String]' = field(default_factory=list)
+    AliasNameCategoryId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+
+
+@dataclass(slots=True)
+class AliasCategoryUpdateDataType:
+    """
+    https://reference.opcfoundation.org/v105/Core/docs/Part17/D.2.1
+
+    :ivar Category:
+    :vartype Category: PortableNodeId
+    :ivar LastChange:
+    :vartype LastChange: VersionTime
+    """
+
+    data_type = NodeId(ObjectIds.AliasCategoryUpdateDataType)
+
+    Category: 'ua.PortableNodeId' = field(default_factory=lambda: PortableNodeId())
+    LastChange: 'ua.VersionTime' = 0
+
+
+@dataclass(slots=True)
+class AliasUpdateDataType:
+    """
+    https://reference.opcfoundation.org/v105/Core/docs/Part17/D.2.2
+
+    :ivar ApplicationUri:
+    :vartype ApplicationUri: String
+    :ivar Categories:
+    :vartype Categories: AliasCategoryUpdateDataType
+    """
+
+    data_type = NodeId(ObjectIds.AliasUpdateDataType)
+
+    ApplicationUri: 'ua.String' = None
+    Categories: 'list[ua.AliasCategoryUpdateDataType]' = field(default_factory=list)
+
+
+@dataclass(slots=True)
 class UserManagementDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part18/5.2.4
@@ -3578,12 +3904,12 @@ class UserManagementDataType:
 
     data_type = NodeId(ObjectIds.UserManagementDataType)
 
-    UserName: String = None
-    UserConfiguration: UserConfigurationMask = field(default_factory=lambda:UserConfigurationMask(0))
-    Description: String = None
+    UserName: 'ua.String' = None
+    UserConfiguration: 'ua.UserConfigurationMask' = field(default_factory=lambda:UserConfigurationMask(0))
+    Description: 'ua.String' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class PriorityMappingEntryType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part22/5.3.2/#5.3.2.1
@@ -3600,13 +3926,13 @@ class PriorityMappingEntryType:
 
     data_type = NodeId(ObjectIds.PriorityMappingEntryType)
 
-    MappingUri: String = None
-    PriorityLabel: String = None
-    PriorityValue_PCP: Byte = 0
-    PriorityValue_DSCP: UInt32 = 0
+    MappingUri: 'ua.String' = None
+    PriorityLabel: 'ua.String' = None
+    PriorityValue_PCP: 'ua.Byte' = 0
+    PriorityValue_DSCP: 'ua.UInt32' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class LldpManagementAddressTxPortType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part22/5.3.2/#5.3.2.2
@@ -3627,15 +3953,15 @@ class LldpManagementAddressTxPortType:
 
     data_type = NodeId(ObjectIds.LldpManagementAddressTxPortType)
 
-    AddressSubtype: UInt32 = 0
-    ManAddress: String = None
-    TxEnable: Boolean = True
-    AddrLen: UInt32 = 0
-    IfSubtype: ManAddrIfSubtype = ManAddrIfSubtype.None_
-    IfId: UInt32 = 0
+    AddressSubtype: 'ua.UInt32' = 0
+    ManAddress: 'ua.String' = None
+    TxEnable: 'ua.Boolean' = True
+    AddrLen: 'ua.UInt32' = 0
+    IfSubtype: 'ua.ManAddrIfSubtype' = field(default_factory=lambda:ManAddrIfSubtype.None_)
+    IfId: 'ua.UInt32' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class LldpManagementAddressType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part22/5.3.2/#5.3.2.3
@@ -3652,13 +3978,13 @@ class LldpManagementAddressType:
 
     data_type = NodeId(ObjectIds.LldpManagementAddressType)
 
-    AddressSubtype: UInt32 = 0
-    Address: String = None
-    IfSubtype: ManAddrIfSubtype = ManAddrIfSubtype.None_
-    IfId: UInt32 = 0
+    AddressSubtype: 'ua.UInt32' = 0
+    Address: 'ua.String' = None
+    IfSubtype: 'ua.ManAddrIfSubtype' = field(default_factory=lambda:ManAddrIfSubtype.None_)
+    IfId: 'ua.UInt32' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class LldpTlvType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part22/5.3.2/#5.3.2.4
@@ -3671,11 +3997,11 @@ class LldpTlvType:
 
     data_type = NodeId(ObjectIds.LldpTlvType)
 
-    TlvType: UInt32 = 0
-    TlvInfo: ByteString = None
+    TlvType: 'ua.UInt32' = 0
+    TlvInfo: 'ua.ByteString' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ReferenceDescriptionDataType:
     """
     :ivar SourceNode:
@@ -3690,13 +4016,13 @@ class ReferenceDescriptionDataType:
 
     data_type = NodeId(ObjectIds.ReferenceDescriptionDataType)
 
-    SourceNode: NodeId = field(default_factory=NodeId)
-    ReferenceType: NodeId = field(default_factory=NodeId)
-    IsForward: Boolean = True
-    TargetNode: ExpandedNodeId = field(default_factory=ExpandedNodeId)
+    SourceNode: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    ReferenceType: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    IsForward: 'ua.Boolean' = True
+    TargetNode: 'ua.ExpandedNodeId' = field(default_factory=lambda: ExpandedNodeId())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ReferenceListEntryDataType:
     """
     :ivar ReferenceType:
@@ -3709,15 +4035,121 @@ class ReferenceListEntryDataType:
 
     data_type = NodeId(ObjectIds.ReferenceListEntryDataType)
 
-    ReferenceType: NodeId = field(default_factory=NodeId)
-    IsForward: Boolean = True
-    TargetNode: ExpandedNodeId = field(default_factory=ExpandedNodeId)
+    ReferenceType: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    IsForward: 'ua.Boolean' = True
+    TargetNode: 'ua.ExpandedNodeId' = field(default_factory=lambda: ExpandedNodeId())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
+class SpanContextDataType:
+    """
+    https://reference.opcfoundation.org/v105/Core/docs/Part26/5.6.2
+
+    :ivar TraceId:
+    :vartype TraceId: Guid
+    :ivar SpanId:
+    :vartype SpanId: UInt64
+    """
+
+    data_type = NodeId(ObjectIds.SpanContextDataType)
+
+    TraceId: 'ua.Guid' = Guid(int=0)
+    SpanId: 'ua.UInt64' = 0
+
+
+@dataclass(slots=True)
+class TraceContextDataType(SpanContextDataType):
+    """
+    https://reference.opcfoundation.org/v105/Core/docs/Part26/5.6.3
+
+    :ivar TraceId:
+    :vartype TraceId: Guid
+    :ivar SpanId:
+    :vartype SpanId: UInt64
+    :ivar ParentSpanId:
+    :vartype ParentSpanId: UInt64
+    :ivar ParentIdentifier:
+    :vartype ParentIdentifier: String
+    """
+
+    data_type = NodeId(ObjectIds.TraceContextDataType)
+
+    TraceId: 'ua.Guid' = Guid(int=0)
+    SpanId: 'ua.UInt64' = 0
+    ParentSpanId: 'ua.UInt64' = 0
+    ParentIdentifier: 'ua.String' = None
+
+
+@dataclass(slots=True)
+class NameValuePair:
+    """
+    https://reference.opcfoundation.org/v105/Core/docs/Part26/5.7
+
+    :ivar Name:
+    :vartype Name: String
+    :ivar Value:
+    :vartype Value: Variant
+    """
+
+    data_type = NodeId(ObjectIds.NameValuePair)
+
+    Name: 'ua.String' = None
+    Value: 'ua.Variant' = field(default_factory=lambda: Variant())
+
+
+@dataclass(slots=True)
+class LogRecord:
+    """
+    https://reference.opcfoundation.org/v105/Core/docs/Part26/5.5
+
+    :ivar Time:
+    :vartype Time: DateTime
+    :ivar Severity:
+    :vartype Severity: UInt16
+    :ivar EventType:
+    :vartype EventType: NodeId
+    :ivar SourceNode:
+    :vartype SourceNode: NodeId
+    :ivar SourceName:
+    :vartype SourceName: String
+    :ivar Message:
+    :vartype Message: LocalizedText
+    :ivar TraceContext:
+    :vartype TraceContext: TraceContextDataType
+    :ivar AdditionalData:
+    :vartype AdditionalData: NameValuePair
+    """
+
+    data_type = NodeId(ObjectIds.LogRecord)
+
+    Time: 'ua.DateTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    Severity: 'ua.UInt16' = 0
+    EventType: 'ua.NodeId | None' = None
+    SourceNode: 'ua.NodeId | None' = None
+    SourceName: 'ua.String | None' = None
+    Message: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    TraceContext: 'ua.TraceContextDataType | None' = None
+    AdditionalData: 'list[ua.NameValuePair] | None' = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class LogRecordsDataType:
+    """
+    https://reference.opcfoundation.org/v105/Core/docs/Part26/5.10
+
+    :ivar LogRecordArray:
+    :vartype LogRecordArray: LogRecord
+    """
+
+    data_type = NodeId(ObjectIds.LogRecordsDataType)
+
+    LogRecordArray: 'list[ua.LogRecord]' = field(default_factory=list)
+
+
+@dataclass(slots=True)
 class RolePermissionType:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.2.12/#12.2.12.9
+    https://reference.opcfoundation.org/v105/Core/docs/Part3/5.2.9
 
     :ivar RoleId:
     :vartype RoleId: NodeId
@@ -3727,11 +4159,11 @@ class RolePermissionType:
 
     data_type = NodeId(ObjectIds.RolePermissionType)
 
-    RoleId: NodeId = field(default_factory=NodeId)
-    Permissions: PermissionType = field(default_factory=lambda:PermissionType(0))
+    RoleId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    Permissions: 'ua.PermissionType' = field(default_factory=lambda:PermissionType(0))
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SubscribedDataSetMirrorDataType(SubscribedDataSetDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.10/#6.2.10.3.4
@@ -3744,11 +4176,11 @@ class SubscribedDataSetMirrorDataType(SubscribedDataSetDataType):
 
     data_type = NodeId(ObjectIds.SubscribedDataSetMirrorDataType)
 
-    ParentNodeName: String = None
-    RolePermissions: List[RolePermissionType] = field(default_factory=list)
+    ParentNodeName: 'ua.String' = None
+    RolePermissions: 'list[ua.RolePermissionType]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SecurityGroupDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.12/#6.2.12.2
@@ -3775,31 +4207,31 @@ class SecurityGroupDataType:
 
     data_type = NodeId(ObjectIds.SecurityGroupDataType)
 
-    Name: String = None
-    SecurityGroupFolder: List[String] = field(default_factory=list)
-    KeyLifetime: Duration = 0
-    SecurityPolicyUri: String = None
-    MaxFutureKeyCount: UInt32 = 0
-    MaxPastKeyCount: UInt32 = 0
-    SecurityGroupId: String = None
-    RolePermissions: List[RolePermissionType] = field(default_factory=list)
-    GroupProperties: List[KeyValuePair] = field(default_factory=list)
+    Name: 'ua.String' = None
+    SecurityGroupFolder: 'list[ua.String]' = field(default_factory=list)
+    KeyLifetime: 'ua.Duration' = 0
+    SecurityPolicyUri: 'ua.String' = None
+    MaxFutureKeyCount: 'ua.UInt32' = 0
+    MaxPastKeyCount: 'ua.UInt32' = 0
+    SecurityGroupId: 'ua.String' = None
+    RolePermissions: 'list[ua.RolePermissionType]' = field(default_factory=list)
+    GroupProperties: 'list[ua.KeyValuePair]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DataTypeDefinition:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.2.12/#12.2.12.3
+    https://reference.opcfoundation.org/v105/Core/docs/Part3/8.47
 
     """
 
     data_type = NodeId(ObjectIds.DataTypeDefinition)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class StructureField:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.2.12/#12.2.12.10
+    https://reference.opcfoundation.org/v105/Core/docs/Part3/8.51
 
     :ivar Name:
     :vartype Name: String
@@ -3819,19 +4251,19 @@ class StructureField:
 
     data_type = NodeId(ObjectIds.StructureField)
 
-    Name: String = None
-    Description: LocalizedText = field(default_factory=LocalizedText)
-    DataType: NodeId = field(default_factory=NodeId)
-    ValueRank: Int32 = 0
-    ArrayDimensions: List[UInt32] = field(default_factory=list)
-    MaxStringLength: UInt32 = 0
-    IsOptional: Boolean = True
+    Name: 'ua.String' = None
+    Description: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    DataType: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    ValueRank: 'ua.Int32' = 0
+    ArrayDimensions: 'list[ua.UInt32]' = field(default_factory=list)
+    MaxStringLength: 'ua.UInt32' = 0
+    IsOptional: 'ua.Boolean' = True
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class StructureDefinition(DataTypeDefinition):
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.2.12/#12.2.12.5
+    https://reference.opcfoundation.org/v105/Core/docs/Part3/8.48
 
     :ivar DefaultEncodingId:
     :vartype DefaultEncodingId: NodeId
@@ -3845,21 +4277,13 @@ class StructureDefinition(DataTypeDefinition):
 
     data_type = NodeId(ObjectIds.StructureDefinition)
 
-    DefaultEncodingId: NodeId = field(default_factory=NodeId)
-    BaseDataType: NodeId = field(default_factory=NodeId)
-    StructureType_: StructureType = StructureType.Structure
-    Fields: List[StructureField] = field(default_factory=list)
-
-    @property
-    def StructureType(self):
-        return self.StructureType_
-
-    @StructureType.setter
-    def StructureType(self, val):
-        self.StructureType_ = val
+    DefaultEncodingId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    BaseDataType: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    StructureType: 'ua.StructureType' = field(default_factory=lambda:StructureType.Structure)
+    Fields: 'list[ua.StructureField]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class StructureDescription(DataTypeDescription):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.33
@@ -3874,23 +4298,15 @@ class StructureDescription(DataTypeDescription):
 
     data_type = NodeId(ObjectIds.StructureDescription)
 
-    DataTypeId: NodeId = field(default_factory=NodeId)
-    Name: QualifiedName = field(default_factory=QualifiedName)
-    StructureDefinition_: StructureDefinition = field(default_factory=StructureDefinition)
-
-    @property
-    def StructureDefinition(self):
-        return self.StructureDefinition_
-
-    @StructureDefinition.setter
-    def StructureDefinition(self, val):
-        self.StructureDefinition_ = val
+    DataTypeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    Name: 'ua.QualifiedName' = field(default_factory=lambda: QualifiedName())
+    StructureDefinition: 'ua.StructureDefinition' = field(default_factory=lambda: StructureDefinition())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class Argument:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.2.12/#12.2.12.1
+    https://reference.opcfoundation.org/v105/Core/docs/Part3/8.6
 
     :ivar Name:
     :vartype Name: String
@@ -3906,17 +4322,17 @@ class Argument:
 
     data_type = NodeId(ObjectIds.Argument)
 
-    Name: String = None
-    DataType: NodeId = field(default_factory=NodeId)
-    ValueRank: Int32 = 0
-    ArrayDimensions: List[UInt32] = field(default_factory=list)
-    Description: LocalizedText = field(default_factory=LocalizedText)
+    Name: 'ua.String' = None
+    DataType: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    ValueRank: 'ua.Int32' = 0
+    ArrayDimensions: 'list[ua.UInt32]' = field(default_factory=list)
+    Description: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class EnumValueType:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.2.12/#12.2.12.6
+    https://reference.opcfoundation.org/v105/Core/docs/Part3/8.39
 
     :ivar Value:
     :vartype Value: Int64
@@ -3928,15 +4344,15 @@ class EnumValueType:
 
     data_type = NodeId(ObjectIds.EnumValueType)
 
-    Value: Int64 = 0
-    DisplayName: LocalizedText = field(default_factory=LocalizedText)
-    Description: LocalizedText = field(default_factory=LocalizedText)
+    Value: 'ua.Int64' = 0
+    DisplayName: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    Description: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class EnumField(EnumValueType):
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.2.12/#12.2.12.7
+    https://reference.opcfoundation.org/v105/Core/docs/Part3/8.52
 
     :ivar Value:
     :vartype Value: Int64
@@ -3950,16 +4366,16 @@ class EnumField(EnumValueType):
 
     data_type = NodeId(ObjectIds.EnumField)
 
-    Value: Int64 = 0
-    DisplayName: LocalizedText = field(default_factory=LocalizedText)
-    Description: LocalizedText = field(default_factory=LocalizedText)
-    Name: String = None
+    Value: 'ua.Int64' = 0
+    DisplayName: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    Description: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    Name: 'ua.String' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class EnumDefinition(DataTypeDefinition):
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.2.12/#12.2.12.4
+    https://reference.opcfoundation.org/v105/Core/docs/Part3/8.50
 
     :ivar Fields:
     :vartype Fields: EnumField
@@ -3967,10 +4383,10 @@ class EnumDefinition(DataTypeDefinition):
 
     data_type = NodeId(ObjectIds.EnumDefinition)
 
-    Fields: List[EnumField] = field(default_factory=list)
+    Fields: 'list[ua.EnumField]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class EnumDescription(DataTypeDescription):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.34
@@ -3987,24 +4403,16 @@ class EnumDescription(DataTypeDescription):
 
     data_type = NodeId(ObjectIds.EnumDescription)
 
-    DataTypeId: NodeId = field(default_factory=NodeId)
-    Name: QualifiedName = field(default_factory=QualifiedName)
-    EnumDefinition_: EnumDefinition = field(default_factory=EnumDefinition)
-    BuiltInType: Byte = 0
-
-    @property
-    def EnumDefinition(self):
-        return self.EnumDefinition_
-
-    @EnumDefinition.setter
-    def EnumDefinition(self, val):
-        self.EnumDefinition_ = val
+    DataTypeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    Name: 'ua.QualifiedName' = field(default_factory=lambda: QualifiedName())
+    EnumDefinition: 'ua.EnumDefinition' = field(default_factory=lambda: EnumDefinition())
+    BuiltInType: 'ua.Byte' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DataTypeSchemaHeader:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.3/#6.2.3.2.2
+    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.31
 
     :ivar Namespaces:
     :vartype Namespaces: String
@@ -4018,13 +4426,13 @@ class DataTypeSchemaHeader:
 
     data_type = NodeId(ObjectIds.DataTypeSchemaHeader)
 
-    Namespaces: List[String] = field(default_factory=list)
-    StructureDataTypes: List[StructureDescription] = field(default_factory=list)
-    EnumDataTypes: List[EnumDescription] = field(default_factory=list)
-    SimpleDataTypes: List[SimpleTypeDescription] = field(default_factory=list)
+    Namespaces: 'list[ua.String]' = field(default_factory=list)
+    StructureDataTypes: 'list[ua.StructureDescription]' = field(default_factory=list)
+    EnumDataTypes: 'list[ua.EnumDescription]' = field(default_factory=list)
+    SimpleDataTypes: 'list[ua.SimpleTypeDescription]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class UABinaryFileDataType(DataTypeSchemaHeader):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.36
@@ -4047,16 +4455,16 @@ class UABinaryFileDataType(DataTypeSchemaHeader):
 
     data_type = NodeId(ObjectIds.UABinaryFileDataType)
 
-    Namespaces: List[String] = field(default_factory=list)
-    StructureDataTypes: List[StructureDescription] = field(default_factory=list)
-    EnumDataTypes: List[EnumDescription] = field(default_factory=list)
-    SimpleDataTypes: List[SimpleTypeDescription] = field(default_factory=list)
-    SchemaLocation: String = None
-    FileHeader: List[KeyValuePair] = field(default_factory=list)
-    Body: Variant = field(default_factory=Variant)
+    Namespaces: 'list[ua.String]' = field(default_factory=list)
+    StructureDataTypes: 'list[ua.StructureDescription]' = field(default_factory=list)
+    EnumDataTypes: 'list[ua.EnumDescription]' = field(default_factory=list)
+    SimpleDataTypes: 'list[ua.SimpleTypeDescription]' = field(default_factory=list)
+    SchemaLocation: 'ua.String' = None
+    FileHeader: 'list[ua.KeyValuePair]' = field(default_factory=list)
+    Body: 'ua.Variant' = field(default_factory=lambda: Variant())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DataSetMetaDataType(DataTypeSchemaHeader):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.3/#6.2.3.2.3
@@ -4083,18 +4491,18 @@ class DataSetMetaDataType(DataTypeSchemaHeader):
 
     data_type = NodeId(ObjectIds.DataSetMetaDataType)
 
-    Namespaces: List[String] = field(default_factory=list)
-    StructureDataTypes: List[StructureDescription] = field(default_factory=list)
-    EnumDataTypes: List[EnumDescription] = field(default_factory=list)
-    SimpleDataTypes: List[SimpleTypeDescription] = field(default_factory=list)
-    Name: String = None
-    Description: LocalizedText = field(default_factory=LocalizedText)
-    Fields: List[FieldMetaData] = field(default_factory=list)
-    DataSetClassId: Guid = Guid(int=0)
-    ConfigurationVersion: ConfigurationVersionDataType = field(default_factory=ConfigurationVersionDataType)
+    Namespaces: 'list[ua.String]' = field(default_factory=list)
+    StructureDataTypes: 'list[ua.StructureDescription]' = field(default_factory=list)
+    EnumDataTypes: 'list[ua.EnumDescription]' = field(default_factory=list)
+    SimpleDataTypes: 'list[ua.SimpleTypeDescription]' = field(default_factory=list)
+    Name: 'ua.String' = None
+    Description: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    Fields: 'list[ua.FieldMetaData]' = field(default_factory=list)
+    DataSetClassId: 'ua.Guid' = Guid(int=0)
+    ConfigurationVersion: 'ua.ConfigurationVersionDataType' = field(default_factory=lambda: ConfigurationVersionDataType())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class PublishedDataSetDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.3/#6.2.3.5
@@ -4113,14 +4521,14 @@ class PublishedDataSetDataType:
 
     data_type = NodeId(ObjectIds.PublishedDataSetDataType)
 
-    Name: String = None
-    DataSetFolder: List[String] = field(default_factory=list)
-    DataSetMetaData: DataSetMetaDataType = field(default_factory=DataSetMetaDataType)
-    ExtensionFields: List[KeyValuePair] = field(default_factory=list)
-    DataSetSource: Type[PublishedDataSetSourceDataType] = field(default_factory=PublishedDataSetSourceDataType)
+    Name: 'ua.String' = None
+    DataSetFolder: 'list[ua.String]' = field(default_factory=list)
+    DataSetMetaData: 'ua.DataSetMetaDataType' = field(default_factory=lambda: DataSetMetaDataType())
+    ExtensionFields: 'list[ua.KeyValuePair]' = field(default_factory=list)
+    DataSetSource: 'type[ua.PublishedDataSetSourceDataType]' = field(default_factory=lambda: PublishedDataSetSourceDataType())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class PublishedActionDataType(PublishedDataSetSourceDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.3/#6.2.3.10.4
@@ -4133,11 +4541,11 @@ class PublishedActionDataType(PublishedDataSetSourceDataType):
 
     data_type = NodeId(ObjectIds.PublishedActionDataType)
 
-    RequestDataSetMetaData: DataSetMetaDataType = field(default_factory=DataSetMetaDataType)
-    ActionTargets: List[ActionTargetDataType] = field(default_factory=list)
+    RequestDataSetMetaData: 'ua.DataSetMetaDataType' = field(default_factory=lambda: DataSetMetaDataType())
+    ActionTargets: 'list[ua.ActionTargetDataType]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class PublishedActionMethodDataType(PublishedActionDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.3/#6.2.3.10.6
@@ -4152,12 +4560,12 @@ class PublishedActionMethodDataType(PublishedActionDataType):
 
     data_type = NodeId(ObjectIds.PublishedActionMethodDataType)
 
-    RequestDataSetMetaData: DataSetMetaDataType = field(default_factory=DataSetMetaDataType)
-    ActionTargets: List[ActionTargetDataType] = field(default_factory=list)
-    ActionMethods: List[ActionMethodDataType] = field(default_factory=list)
+    RequestDataSetMetaData: 'ua.DataSetMetaDataType' = field(default_factory=lambda: DataSetMetaDataType())
+    ActionTargets: 'list[ua.ActionTargetDataType]' = field(default_factory=list)
+    ActionMethods: 'list[ua.ActionMethodDataType]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class StandaloneSubscribedDataSetDataType(SubscribedDataSetDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.10/#6.2.10.5
@@ -4174,13 +4582,13 @@ class StandaloneSubscribedDataSetDataType(SubscribedDataSetDataType):
 
     data_type = NodeId(ObjectIds.StandaloneSubscribedDataSetDataType)
 
-    Name: String = None
-    DataSetFolder: List[String] = field(default_factory=list)
-    DataSetMetaData: DataSetMetaDataType = field(default_factory=DataSetMetaDataType)
-    SubscribedDataSet: Type[SubscribedDataSetDataType] = field(default_factory=SubscribedDataSetDataType)
+    Name: 'ua.String' = None
+    DataSetFolder: 'list[ua.String]' = field(default_factory=list)
+    DataSetMetaData: 'ua.DataSetMetaDataType' = field(default_factory=lambda: DataSetMetaDataType())
+    SubscribedDataSet: 'type[ua.SubscribedDataSetDataType]' = field(default_factory=lambda: SubscribedDataSetDataType())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class JsonDataSetMetaDataMessage:
     """
     :ivar MessageId:
@@ -4203,17 +4611,17 @@ class JsonDataSetMetaDataMessage:
 
     data_type = NodeId(ObjectIds.JsonDataSetMetaDataMessage)
 
-    MessageId: String = None
-    MessageType: String = None
-    PublisherId: String = None
-    DataSetWriterId: UInt16 = 0
-    WriterGroupName: String = None
-    DataSetWriterName: String = None
-    Timestamp: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    MetaData: DataSetMetaDataType = field(default_factory=DataSetMetaDataType)
+    MessageId: 'ua.String' = None
+    MessageType: 'ua.String' = None
+    PublisherId: 'ua.String' = None
+    DataSetWriterId: 'ua.UInt16' = 0
+    WriterGroupName: 'ua.String' = None
+    DataSetWriterName: 'ua.String' = None
+    Timestamp: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    MetaData: 'ua.DataSetMetaDataType' = field(default_factory=lambda: DataSetMetaDataType())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class JsonActionMetaDataMessage:
     """
     :ivar MessageId:
@@ -4240,22 +4648,22 @@ class JsonActionMetaDataMessage:
 
     data_type = NodeId(ObjectIds.JsonActionMetaDataMessage)
 
-    MessageId: String = None
-    MessageType: String = None
-    PublisherId: String = None
-    DataSetWriterId: UInt16 = 0
-    DataSetWriterName: String = None
-    Timestamp: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    ActionTargets: List[ActionTargetDataType] = field(default_factory=list)
-    Request: DataSetMetaDataType = field(default_factory=DataSetMetaDataType)
-    Response: DataSetMetaDataType = field(default_factory=DataSetMetaDataType)
-    ActionMethods: List[ActionMethodDataType] = field(default_factory=list)
+    MessageId: 'ua.String' = None
+    MessageType: 'ua.String' = None
+    PublisherId: 'ua.String' = None
+    DataSetWriterId: 'ua.UInt16' = 0
+    DataSetWriterName: 'ua.String' = None
+    Timestamp: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    ActionTargets: 'list[ua.ActionTargetDataType]' = field(default_factory=list)
+    Request: 'ua.DataSetMetaDataType' = field(default_factory=lambda: DataSetMetaDataType())
+    Response: 'ua.DataSetMetaDataType' = field(default_factory=lambda: DataSetMetaDataType())
+    ActionMethods: 'list[ua.ActionMethodDataType]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class OptionSet:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.2.12/#12.2.12.8
+    https://reference.opcfoundation.org/v105/Core/docs/Part3/8.40
 
     :ivar Value:
     :vartype Value: ByteString
@@ -4265,14 +4673,14 @@ class OptionSet:
 
     data_type = NodeId(ObjectIds.OptionSet)
 
-    Value: ByteString = None
-    ValidBits: ByteString = None
+    Value: 'ua.ByteString' = None
+    ValidBits: 'ua.ByteString' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class TimeZoneDataType:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.2.12/#12.2.12.11
+    https://reference.opcfoundation.org/v105/Core/docs/Part3/8.28
 
     :ivar Offset:
     :vartype Offset: Int16
@@ -4282,14 +4690,14 @@ class TimeZoneDataType:
 
     data_type = NodeId(ObjectIds.TimeZoneDataType)
 
-    Offset: Int16 = 0
-    DaylightSavingInOffset: Boolean = True
+    Offset: 'ua.Int16' = 0
+    DaylightSavingInOffset: 'ua.Boolean' = True
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ApplicationDescription:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part14/7.2.4/#7.2.4.6.5
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.2
 
     :ivar ApplicationUri:
     :vartype ApplicationUri: String
@@ -4309,24 +4717,80 @@ class ApplicationDescription:
 
     data_type = NodeId(ObjectIds.ApplicationDescription)
 
-    ApplicationUri: String = None
-    ProductUri: String = None
-    ApplicationName: LocalizedText = field(default_factory=LocalizedText)
-    ApplicationType_: ApplicationType = ApplicationType.Server
-    GatewayServerUri: String = None
-    DiscoveryProfileUri: String = None
-    DiscoveryUrls: List[String] = field(default_factory=list)
-
-    @property
-    def ApplicationType(self):
-        return self.ApplicationType_
-
-    @ApplicationType.setter
-    def ApplicationType(self, val):
-        self.ApplicationType_ = val
+    ApplicationUri: 'ua.String' = None
+    ProductUri: 'ua.String' = None
+    ApplicationName: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    ApplicationType: 'ua.ApplicationType' = field(default_factory=lambda:ApplicationType.Server)
+    GatewayServerUri: 'ua.String' = None
+    DiscoveryProfileUri: 'ua.String' = None
+    DiscoveryUrls: 'list[ua.String]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
+class ApplicationIdentityDataType(BaseConfigurationRecordDataType):
+    """
+    https://reference.opcfoundation.org/v105/Core/docs/Part12/7.10.21
+
+    :ivar Name:
+    :vartype Name: String
+    :ivar RecordProperties:
+    :vartype RecordProperties: KeyValuePair
+    :ivar ApplicationUri:
+    :vartype ApplicationUri: UriString
+    :ivar ApplicationNames:
+    :vartype ApplicationNames: LocalizedText
+    :ivar AdditionalServers:
+    :vartype AdditionalServers: ApplicationDescription
+    """
+
+    data_type = NodeId(ObjectIds.ApplicationIdentityDataType)
+
+    Name: 'ua.String' = None
+    RecordProperties: 'list[ua.KeyValuePair]' = field(default_factory=list)
+    ApplicationUri: 'ua.UriString' = None
+    ApplicationNames: 'list[ua.LocalizedText]' = field(default_factory=list)
+    AdditionalServers: 'list[ua.ApplicationDescription]' = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class ApplicationConfigurationDataType(BaseConfigurationDataType):
+    """
+    https://reference.opcfoundation.org/v105/Core/docs/Part12/7.10.19
+
+    :ivar ConfigurationVersion:
+    :vartype ConfigurationVersion: VersionTime
+    :ivar ConfigurationProperties:
+    :vartype ConfigurationProperties: KeyValuePair
+    :ivar ApplicationIdentity:
+    :vartype ApplicationIdentity: ApplicationIdentityDataType
+    :ivar CertificateGroups:
+    :vartype CertificateGroups: CertificateGroupDataType
+    :ivar ServerEndpoints:
+    :vartype ServerEndpoints: ServerEndpointDataType
+    :ivar ClientEndpoints:
+    :vartype ClientEndpoints: EndpointDataType
+    :ivar SecuritySettings:
+    :vartype SecuritySettings: SecuritySettingsDataType
+    :ivar UserTokenSettings:
+    :vartype UserTokenSettings: UserTokenSettingsDataType
+    :ivar AuthorizationServices:
+    :vartype AuthorizationServices: AuthorizationServiceConfigurationDataType
+    """
+
+    data_type = NodeId(ObjectIds.ApplicationConfigurationDataType)
+
+    ConfigurationVersion: 'ua.VersionTime' = 0
+    ConfigurationProperties: 'list[ua.KeyValuePair]' = field(default_factory=list)
+    ApplicationIdentity: 'ua.ApplicationIdentityDataType' = field(default_factory=lambda: ApplicationIdentityDataType())
+    CertificateGroups: 'list[ua.CertificateGroupDataType]' = field(default_factory=list)
+    ServerEndpoints: 'list[ua.ServerEndpointDataType]' = field(default_factory=list)
+    ClientEndpoints: 'list[ua.EndpointDataType]' = field(default_factory=list)
+    SecuritySettings: 'list[ua.SecuritySettingsDataType]' = field(default_factory=list)
+    UserTokenSettings: 'list[ua.UserTokenSettingsDataType]' = field(default_factory=list)
+    AuthorizationServices: 'list[ua.AuthorizationServiceConfigurationDataType]' = field(default_factory=list)
+
+
+@dataclass(slots=True)
 class JsonApplicationDescriptionMessage:
     """
     :ivar MessageId:
@@ -4345,18 +4809,18 @@ class JsonApplicationDescriptionMessage:
 
     data_type = NodeId(ObjectIds.JsonApplicationDescriptionMessage)
 
-    MessageId: String = None
-    MessageType: String = None
-    PublisherId: String = None
-    Timestamp: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    Description: ApplicationDescription = field(default_factory=ApplicationDescription)
-    ServerCapabilities: List[String] = field(default_factory=list)
+    MessageId: 'ua.String' = None
+    MessageType: 'ua.String' = None
+    PublisherId: 'ua.String' = None
+    Timestamp: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    Description: 'ua.ApplicationDescription' = field(default_factory=lambda: ApplicationDescription())
+    ServerCapabilities: 'list[ua.String]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class RequestHeader:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.33
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.32
 
     :ivar AuthenticationToken:
     :vartype AuthenticationToken: SessionAuthenticationToken
@@ -4376,19 +4840,19 @@ class RequestHeader:
 
     data_type = NodeId(ObjectIds.RequestHeader)
 
-    AuthenticationToken: SessionAuthenticationToken = field(default_factory=NodeId)
-    Timestamp: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    RequestHandle: IntegerId = 0
-    ReturnDiagnostics: UInt32 = 0
-    AuditEntryId: String = None
-    TimeoutHint: UInt32 = 0
-    AdditionalHeader: ExtensionObject = ExtensionObject()
+    AuthenticationToken: 'ua.SessionAuthenticationToken' = field(default_factory=lambda: NodeId())
+    Timestamp: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    RequestHandle: 'ua.IntegerId' = 0
+    ReturnDiagnostics: 'ua.UInt32' = 0
+    AuditEntryId: 'ua.String' = None
+    TimeoutHint: 'ua.UInt32' = 0
+    AdditionalHeader: 'ua.ExtensionObject' = ExtensionObject()
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ResponseHeader:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.34
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.33
 
     :ivar Timestamp:
     :vartype Timestamp: UtcTime
@@ -4406,18 +4870,18 @@ class ResponseHeader:
 
     data_type = NodeId(ObjectIds.ResponseHeader)
 
-    Timestamp: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    RequestHandle: IntegerId = 0
-    ServiceResult: StatusCode = field(default_factory=StatusCode)
-    ServiceDiagnostics: DiagnosticInfo = field(default_factory=DiagnosticInfo)
-    StringTable: List[String] = field(default_factory=list)
-    AdditionalHeader: ExtensionObject = ExtensionObject()
+    Timestamp: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    RequestHandle: 'ua.IntegerId' = 0
+    ServiceResult: 'ua.StatusCode' = field(default_factory=lambda: StatusCode())
+    ServiceDiagnostics: 'ua.DiagnosticInfo' = field(default_factory=lambda: DiagnosticInfo())
+    StringTable: 'list[ua.String]' = field(default_factory=list)
+    AdditionalHeader: 'ua.ExtensionObject' = ExtensionObject()
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ServiceFault:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.35
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.34
 
     :ivar TypeId:
     :vartype TypeId: NodeId
@@ -4427,19 +4891,11 @@ class ServiceFault:
 
     data_type = NodeId(ObjectIds.ServiceFault)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.ServiceFault_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.ServiceFault_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SessionlessInvokeRequestType:
     """
     :ivar UrisVersion:
@@ -4456,14 +4912,14 @@ class SessionlessInvokeRequestType:
 
     data_type = NodeId(ObjectIds.SessionlessInvokeRequestType)
 
-    UrisVersion: VersionTime = 0
-    NamespaceUris: List[String] = field(default_factory=list)
-    ServerUris: List[String] = field(default_factory=list)
-    LocaleIds: List[LocaleId] = field(default_factory=list)
-    ServiceId: UInt32 = 0
+    UrisVersion: 'ua.VersionTime' = 0
+    NamespaceUris: 'list[ua.String]' = field(default_factory=list)
+    ServerUris: 'list[ua.String]' = field(default_factory=list)
+    LocaleIds: 'list[ua.LocaleId]' = field(default_factory=list)
+    ServiceId: 'ua.UInt32' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SessionlessInvokeResponseType:
     """
     :ivar NamespaceUris:
@@ -4476,12 +4932,12 @@ class SessionlessInvokeResponseType:
 
     data_type = NodeId(ObjectIds.SessionlessInvokeResponseType)
 
-    NamespaceUris: List[String] = field(default_factory=list)
-    ServerUris: List[String] = field(default_factory=list)
-    ServiceId: UInt32 = 0
+    NamespaceUris: 'list[ua.String]' = field(default_factory=list)
+    ServerUris: 'list[ua.String]' = field(default_factory=list)
+    ServiceId: 'ua.UInt32' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class FindServersParameters:
     """
     :ivar EndpointUrl:
@@ -4492,12 +4948,12 @@ class FindServersParameters:
     :vartype ServerUris: String
     """
 
-    EndpointUrl: String = None
-    LocaleIds: List[LocaleId] = field(default_factory=list)
-    ServerUris: List[String] = field(default_factory=list)
+    EndpointUrl: 'ua.String' = None
+    LocaleIds: 'list[ua.LocaleId]' = field(default_factory=list)
+    ServerUris: 'list[ua.String]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class FindServersRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.5.2/#5.5.2.2
@@ -4512,20 +4968,12 @@ class FindServersRequest:
 
     data_type = NodeId(ObjectIds.FindServersRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.FindServersRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: FindServersParameters = field(default_factory=FindServersParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.FindServersRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.FindServersParameters' = field(default_factory=lambda: FindServersParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class FindServersResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.5.2/#5.5.2.2
@@ -4540,20 +4988,12 @@ class FindServersResponse:
 
     data_type = NodeId(ObjectIds.FindServersResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.FindServersResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Servers: List[ApplicationDescription] = field(default_factory=list)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.FindServersResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Servers: 'list[ua.ApplicationDescription]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ServerOnNetwork:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.5.3/#5.5.3.2
@@ -4570,13 +5010,13 @@ class ServerOnNetwork:
 
     data_type = NodeId(ObjectIds.ServerOnNetwork)
 
-    RecordId: UInt32 = 0
-    ServerName: String = None
-    DiscoveryUrl: String = None
-    ServerCapabilities: List[String] = field(default_factory=list)
+    RecordId: 'ua.UInt32' = 0
+    ServerName: 'ua.String' = None
+    DiscoveryUrl: 'ua.String' = None
+    ServerCapabilities: 'list[ua.String]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class FindServersOnNetworkParameters:
     """
     :ivar StartingRecordId:
@@ -4587,12 +5027,12 @@ class FindServersOnNetworkParameters:
     :vartype ServerCapabilityFilter: String
     """
 
-    StartingRecordId: Counter = 0
-    MaxRecordsToReturn: UInt32 = 0
-    ServerCapabilityFilter: List[String] = field(default_factory=list)
+    StartingRecordId: 'ua.Counter' = 0
+    MaxRecordsToReturn: 'ua.UInt32' = 0
+    ServerCapabilityFilter: 'list[ua.String]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class FindServersOnNetworkRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.5.3/#5.5.3.2
@@ -4607,20 +5047,12 @@ class FindServersOnNetworkRequest:
 
     data_type = NodeId(ObjectIds.FindServersOnNetworkRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.FindServersOnNetworkRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: FindServersOnNetworkParameters = field(default_factory=FindServersOnNetworkParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.FindServersOnNetworkRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.FindServersOnNetworkParameters' = field(default_factory=lambda: FindServersOnNetworkParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class FindServersOnNetworkResult:
     """
     :ivar LastCounterResetTime:
@@ -4629,11 +5061,11 @@ class FindServersOnNetworkResult:
     :vartype Servers: ServerOnNetwork
     """
 
-    LastCounterResetTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    Servers: List[ServerOnNetwork] = field(default_factory=list)
+    LastCounterResetTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    Servers: 'list[ua.ServerOnNetwork]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class FindServersOnNetworkResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.5.3/#5.5.3.2
@@ -4648,23 +5080,15 @@ class FindServersOnNetworkResponse:
 
     data_type = NodeId(ObjectIds.FindServersOnNetworkResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.FindServersOnNetworkResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Parameters: FindServersOnNetworkResult = field(default_factory=FindServersOnNetworkResult)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.FindServersOnNetworkResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Parameters: 'ua.FindServersOnNetworkResult' = field(default_factory=lambda: FindServersOnNetworkResult())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class UserTokenPolicy:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.42
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.41
 
     :ivar PolicyId:
     :vartype PolicyId: String
@@ -4680,14 +5104,14 @@ class UserTokenPolicy:
 
     data_type = NodeId(ObjectIds.UserTokenPolicy)
 
-    PolicyId: String = None
-    TokenType: UserTokenType = UserTokenType.Anonymous
-    IssuedTokenType: String = None
-    IssuerEndpointUrl: String = None
-    SecurityPolicyUri: String = None
+    PolicyId: 'ua.String' = None
+    TokenType: 'ua.UserTokenType' = field(default_factory=lambda:UserTokenType.Anonymous)
+    IssuedTokenType: 'ua.String' = None
+    IssuerEndpointUrl: 'ua.String' = None
+    SecurityPolicyUri: 'ua.String' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class PubSubKeyPushTargetDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.12/#6.2.12.3
@@ -4714,18 +5138,18 @@ class PubSubKeyPushTargetDataType:
 
     data_type = NodeId(ObjectIds.PubSubKeyPushTargetDataType)
 
-    ApplicationUri: String = None
-    PushTargetFolder: List[String] = field(default_factory=list)
-    EndpointUrl: String = None
-    SecurityPolicyUri: String = None
-    UserTokenType: UserTokenPolicy = field(default_factory=UserTokenPolicy)
-    RequestedKeyCount: UInt16 = 0
-    RetryInterval: Duration = 0
-    PushTargetProperties: List[KeyValuePair] = field(default_factory=list)
-    SecurityGroups: List[String] = field(default_factory=list)
+    ApplicationUri: 'ua.String' = None
+    PushTargetFolder: 'list[ua.String]' = field(default_factory=list)
+    EndpointUrl: 'ua.String' = None
+    SecurityPolicyUri: 'ua.String' = None
+    UserTokenType: 'ua.UserTokenPolicy' = field(default_factory=lambda: UserTokenPolicy())
+    RequestedKeyCount: 'ua.UInt16' = 0
+    RetryInterval: 'ua.Duration' = 0
+    PushTargetProperties: 'list[ua.KeyValuePair]' = field(default_factory=list)
+    SecurityGroups: 'list[ua.String]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class EndpointDescription:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.14
@@ -4750,17 +5174,17 @@ class EndpointDescription:
 
     data_type = NodeId(ObjectIds.EndpointDescription)
 
-    EndpointUrl: String = None
-    Server: ApplicationDescription = field(default_factory=ApplicationDescription)
-    ServerCertificate: ApplicationInstanceCertificate = None
-    SecurityMode: MessageSecurityMode = MessageSecurityMode.Invalid
-    SecurityPolicyUri: String = None
-    UserIdentityTokens: List[UserTokenPolicy] = field(default_factory=list)
-    TransportProfileUri: String = None
-    SecurityLevel: Byte = 0
+    EndpointUrl: 'ua.String' = None
+    Server: 'ua.ApplicationDescription' = field(default_factory=lambda: ApplicationDescription())
+    ServerCertificate: 'ua.ApplicationInstanceCertificate' = None
+    SecurityMode: 'ua.MessageSecurityMode' = field(default_factory=lambda:MessageSecurityMode.Invalid)
+    SecurityPolicyUri: 'ua.String' = None
+    UserIdentityTokens: 'list[ua.UserTokenPolicy]' = field(default_factory=list)
+    TransportProfileUri: 'ua.String' = None
+    SecurityLevel: 'ua.Byte' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class PubSubGroupDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.5/#6.2.5.7
@@ -4783,16 +5207,16 @@ class PubSubGroupDataType:
 
     data_type = NodeId(ObjectIds.PubSubGroupDataType)
 
-    Name: String = None
-    Enabled: Boolean = True
-    SecurityMode: MessageSecurityMode = MessageSecurityMode.Invalid
-    SecurityGroupId: String = None
-    SecurityKeyServices: List[EndpointDescription] = field(default_factory=list)
-    MaxNetworkMessageSize: UInt32 = 0
-    GroupProperties: List[KeyValuePair] = field(default_factory=list)
+    Name: 'ua.String' = None
+    Enabled: 'ua.Boolean' = True
+    SecurityMode: 'ua.MessageSecurityMode' = field(default_factory=lambda:MessageSecurityMode.Invalid)
+    SecurityGroupId: 'ua.String' = None
+    SecurityKeyServices: 'list[ua.EndpointDescription]' = field(default_factory=list)
+    MaxNetworkMessageSize: 'ua.UInt32' = 0
+    GroupProperties: 'list[ua.KeyValuePair]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class WriterGroupDataType(PubSubGroupDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.6/#6.2.6.7.1
@@ -4833,25 +5257,25 @@ class WriterGroupDataType(PubSubGroupDataType):
 
     data_type = NodeId(ObjectIds.WriterGroupDataType)
 
-    Name: String = None
-    Enabled: Boolean = True
-    SecurityMode: MessageSecurityMode = MessageSecurityMode.Invalid
-    SecurityGroupId: String = None
-    SecurityKeyServices: List[EndpointDescription] = field(default_factory=list)
-    MaxNetworkMessageSize: UInt32 = 0
-    GroupProperties: List[KeyValuePair] = field(default_factory=list)
-    WriterGroupId: UInt16 = 0
-    PublishingInterval: Duration = 0
-    KeepAliveTime: Duration = 0
-    Priority: Byte = 0
-    LocaleIds: List[LocaleId] = field(default_factory=list)
-    HeaderLayoutUri: String = None
-    TransportSettings: Type[WriterGroupTransportDataType] = field(default_factory=WriterGroupTransportDataType)
-    MessageSettings: Type[WriterGroupMessageDataType] = field(default_factory=WriterGroupMessageDataType)
-    DataSetWriters: List[DataSetWriterDataType] = field(default_factory=list)
+    Name: 'ua.String' = None
+    Enabled: 'ua.Boolean' = True
+    SecurityMode: 'ua.MessageSecurityMode' = field(default_factory=lambda:MessageSecurityMode.Invalid)
+    SecurityGroupId: 'ua.String' = None
+    SecurityKeyServices: 'list[ua.EndpointDescription]' = field(default_factory=list)
+    MaxNetworkMessageSize: 'ua.UInt32' = 0
+    GroupProperties: 'list[ua.KeyValuePair]' = field(default_factory=list)
+    WriterGroupId: 'ua.UInt16' = 0
+    PublishingInterval: 'ua.Duration' = 0
+    KeepAliveTime: 'ua.Duration' = 0
+    Priority: 'ua.Byte' = 0
+    LocaleIds: 'list[ua.LocaleId]' = field(default_factory=list)
+    HeaderLayoutUri: 'ua.String' = None
+    TransportSettings: 'type[ua.WriterGroupTransportDataType]' = field(default_factory=lambda: WriterGroupTransportDataType())
+    MessageSettings: 'type[ua.WriterGroupMessageDataType]' = field(default_factory=lambda: WriterGroupMessageDataType())
+    DataSetWriters: 'list[ua.DataSetWriterDataType]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DataSetReaderDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.9/#6.2.9.13.1
@@ -4894,34 +5318,26 @@ class DataSetReaderDataType:
 
     data_type = NodeId(ObjectIds.DataSetReaderDataType)
 
-    Name: String = None
-    Enabled: Boolean = True
-    PublisherId: Variant = field(default_factory=Variant)
-    WriterGroupId: UInt16 = 0
-    DataSetWriterId: UInt16 = 0
-    DataSetMetaData: DataSetMetaDataType = field(default_factory=DataSetMetaDataType)
-    DataSetFieldContentMask_: DataSetFieldContentMask = field(default_factory=lambda:DataSetFieldContentMask(0))
-    MessageReceiveTimeout: Duration = 0
-    KeyFrameCount: UInt32 = 0
-    HeaderLayoutUri: String = None
-    SecurityMode: MessageSecurityMode = MessageSecurityMode.Invalid
-    SecurityGroupId: String = None
-    SecurityKeyServices: List[EndpointDescription] = field(default_factory=list)
-    DataSetReaderProperties: List[KeyValuePair] = field(default_factory=list)
-    TransportSettings: Type[DataSetReaderTransportDataType] = field(default_factory=DataSetReaderTransportDataType)
-    MessageSettings: Type[DataSetReaderMessageDataType] = field(default_factory=DataSetReaderMessageDataType)
-    SubscribedDataSet: Type[SubscribedDataSetDataType] = field(default_factory=SubscribedDataSetDataType)
-
-    @property
-    def DataSetFieldContentMask(self):
-        return self.DataSetFieldContentMask_
-
-    @DataSetFieldContentMask.setter
-    def DataSetFieldContentMask(self, val):
-        self.DataSetFieldContentMask_ = val
+    Name: 'ua.String' = None
+    Enabled: 'ua.Boolean' = True
+    PublisherId: 'ua.Variant' = field(default_factory=lambda: Variant())
+    WriterGroupId: 'ua.UInt16' = 0
+    DataSetWriterId: 'ua.UInt16' = 0
+    DataSetMetaData: 'ua.DataSetMetaDataType' = field(default_factory=lambda: DataSetMetaDataType())
+    DataSetFieldContentMask: 'ua.DataSetFieldContentMask' = field(default_factory=lambda:DataSetFieldContentMask(0))
+    MessageReceiveTimeout: 'ua.Duration' = 0
+    KeyFrameCount: 'ua.UInt32' = 0
+    HeaderLayoutUri: 'ua.String' = None
+    SecurityMode: 'ua.MessageSecurityMode' = field(default_factory=lambda:MessageSecurityMode.Invalid)
+    SecurityGroupId: 'ua.String' = None
+    SecurityKeyServices: 'list[ua.EndpointDescription]' = field(default_factory=list)
+    DataSetReaderProperties: 'list[ua.KeyValuePair]' = field(default_factory=list)
+    TransportSettings: 'type[ua.DataSetReaderTransportDataType]' = field(default_factory=lambda: DataSetReaderTransportDataType())
+    MessageSettings: 'type[ua.DataSetReaderMessageDataType]' = field(default_factory=lambda: DataSetReaderMessageDataType())
+    SubscribedDataSet: 'type[ua.SubscribedDataSetDataType]' = field(default_factory=lambda: SubscribedDataSetDataType())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ReaderGroupDataType(PubSubGroupDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.8/#6.2.8.2.1
@@ -4950,19 +5366,19 @@ class ReaderGroupDataType(PubSubGroupDataType):
 
     data_type = NodeId(ObjectIds.ReaderGroupDataType)
 
-    Name: String = None
-    Enabled: Boolean = True
-    SecurityMode: MessageSecurityMode = MessageSecurityMode.Invalid
-    SecurityGroupId: String = None
-    SecurityKeyServices: List[EndpointDescription] = field(default_factory=list)
-    MaxNetworkMessageSize: UInt32 = 0
-    GroupProperties: List[KeyValuePair] = field(default_factory=list)
-    TransportSettings: Type[ReaderGroupTransportDataType] = field(default_factory=ReaderGroupTransportDataType)
-    MessageSettings: Type[ReaderGroupMessageDataType] = field(default_factory=ReaderGroupMessageDataType)
-    DataSetReaders: List[DataSetReaderDataType] = field(default_factory=list)
+    Name: 'ua.String' = None
+    Enabled: 'ua.Boolean' = True
+    SecurityMode: 'ua.MessageSecurityMode' = field(default_factory=lambda:MessageSecurityMode.Invalid)
+    SecurityGroupId: 'ua.String' = None
+    SecurityKeyServices: 'list[ua.EndpointDescription]' = field(default_factory=list)
+    MaxNetworkMessageSize: 'ua.UInt32' = 0
+    GroupProperties: 'list[ua.KeyValuePair]' = field(default_factory=list)
+    TransportSettings: 'type[ua.ReaderGroupTransportDataType]' = field(default_factory=lambda: ReaderGroupTransportDataType())
+    MessageSettings: 'type[ua.ReaderGroupMessageDataType]' = field(default_factory=lambda: ReaderGroupMessageDataType())
+    DataSetReaders: 'list[ua.DataSetReaderDataType]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class PubSubConnectionDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.7/#6.2.7.5.1
@@ -4989,18 +5405,18 @@ class PubSubConnectionDataType:
 
     data_type = NodeId(ObjectIds.PubSubConnectionDataType)
 
-    Name: String = None
-    Enabled: Boolean = True
-    PublisherId: Variant = field(default_factory=Variant)
-    TransportProfileUri: String = None
-    Address: Type[NetworkAddressDataType] = field(default_factory=NetworkAddressDataType)
-    ConnectionProperties: List[KeyValuePair] = field(default_factory=list)
-    TransportSettings: Type[ConnectionTransportDataType] = field(default_factory=ConnectionTransportDataType)
-    WriterGroups: List[WriterGroupDataType] = field(default_factory=list)
-    ReaderGroups: List[ReaderGroupDataType] = field(default_factory=list)
+    Name: 'ua.String' = None
+    Enabled: 'ua.Boolean' = True
+    PublisherId: 'ua.Variant' = field(default_factory=lambda: Variant())
+    TransportProfileUri: 'ua.String' = None
+    Address: 'type[ua.NetworkAddressDataType]' = field(default_factory=lambda: NetworkAddressDataType())
+    ConnectionProperties: 'list[ua.KeyValuePair]' = field(default_factory=list)
+    TransportSettings: 'type[ua.ConnectionTransportDataType]' = field(default_factory=lambda: ConnectionTransportDataType())
+    WriterGroups: 'list[ua.WriterGroupDataType]' = field(default_factory=list)
+    ReaderGroups: 'list[ua.ReaderGroupDataType]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class PubSubConfigurationDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.12/#6.2.12.1
@@ -5015,12 +5431,12 @@ class PubSubConfigurationDataType:
 
     data_type = NodeId(ObjectIds.PubSubConfigurationDataType)
 
-    PublishedDataSets: List[PublishedDataSetDataType] = field(default_factory=list)
-    Connections: List[PubSubConnectionDataType] = field(default_factory=list)
-    Enabled: Boolean = True
+    PublishedDataSets: 'list[ua.PublishedDataSetDataType]' = field(default_factory=list)
+    Connections: 'list[ua.PubSubConnectionDataType]' = field(default_factory=list)
+    Enabled: 'ua.Boolean' = True
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class JsonPubSubConnectionMessage:
     """
     :ivar MessageId:
@@ -5037,14 +5453,14 @@ class JsonPubSubConnectionMessage:
 
     data_type = NodeId(ObjectIds.JsonPubSubConnectionMessage)
 
-    MessageId: String = None
-    MessageType: String = None
-    PublisherId: String = None
-    Timestamp: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    Connection: PubSubConnectionDataType = field(default_factory=PubSubConnectionDataType)
+    MessageId: 'ua.String' = None
+    MessageType: 'ua.String' = None
+    PublisherId: 'ua.String' = None
+    Timestamp: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    Connection: 'ua.PubSubConnectionDataType' = field(default_factory=lambda: PubSubConnectionDataType())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class JsonActionResponderMessage:
     """
     :ivar MessageId:
@@ -5061,14 +5477,14 @@ class JsonActionResponderMessage:
 
     data_type = NodeId(ObjectIds.JsonActionResponderMessage)
 
-    MessageId: String = None
-    MessageType: String = None
-    PublisherId: String = None
-    Timestamp: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    Connection: PubSubConnectionDataType = field(default_factory=PubSubConnectionDataType)
+    MessageId: 'ua.String' = None
+    MessageType: 'ua.String' = None
+    PublisherId: 'ua.String' = None
+    Timestamp: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    Connection: 'ua.PubSubConnectionDataType' = field(default_factory=lambda: PubSubConnectionDataType())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class PubSubConfiguration2DataType(PubSubConfigurationDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.12/#6.2.12.4
@@ -5097,19 +5513,19 @@ class PubSubConfiguration2DataType(PubSubConfigurationDataType):
 
     data_type = NodeId(ObjectIds.PubSubConfiguration2DataType)
 
-    PublishedDataSets: List[PublishedDataSetDataType] = field(default_factory=list)
-    Connections: List[PubSubConnectionDataType] = field(default_factory=list)
-    Enabled: Boolean = True
-    SubscribedDataSets: List[StandaloneSubscribedDataSetDataType] = field(default_factory=list)
-    DataSetClasses: List[DataSetMetaDataType] = field(default_factory=list)
-    DefaultSecurityKeyServices: List[EndpointDescription] = field(default_factory=list)
-    SecurityGroups: List[SecurityGroupDataType] = field(default_factory=list)
-    PubSubKeyPushTargets: List[PubSubKeyPushTargetDataType] = field(default_factory=list)
-    ConfigurationVersion: VersionTime = 0
-    ConfigurationProperties: List[KeyValuePair] = field(default_factory=list)
+    PublishedDataSets: 'list[ua.PublishedDataSetDataType]' = field(default_factory=list)
+    Connections: 'list[ua.PubSubConnectionDataType]' = field(default_factory=list)
+    Enabled: 'ua.Boolean' = True
+    SubscribedDataSets: 'list[ua.StandaloneSubscribedDataSetDataType]' = field(default_factory=list)
+    DataSetClasses: 'list[ua.DataSetMetaDataType]' = field(default_factory=list)
+    DefaultSecurityKeyServices: 'list[ua.EndpointDescription]' = field(default_factory=list)
+    SecurityGroups: 'list[ua.SecurityGroupDataType]' = field(default_factory=list)
+    PubSubKeyPushTargets: 'list[ua.PubSubKeyPushTargetDataType]' = field(default_factory=list)
+    ConfigurationVersion: 'ua.VersionTime' = 0
+    ConfigurationProperties: 'list[ua.KeyValuePair]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class JsonServerEndpointsMessage:
     """
     :ivar MessageId:
@@ -5128,15 +5544,15 @@ class JsonServerEndpointsMessage:
 
     data_type = NodeId(ObjectIds.JsonServerEndpointsMessage)
 
-    MessageId: String = None
-    MessageType: String = None
-    PublisherId: String = None
-    Timestamp: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    Description: ApplicationDescription = field(default_factory=ApplicationDescription)
-    Endpoints: List[EndpointDescription] = field(default_factory=list)
+    MessageId: 'ua.String' = None
+    MessageType: 'ua.String' = None
+    PublisherId: 'ua.String' = None
+    Timestamp: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    Description: 'ua.ApplicationDescription' = field(default_factory=lambda: ApplicationDescription())
+    Endpoints: 'list[ua.EndpointDescription]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class GetEndpointsParameters:
     """
     :ivar EndpointUrl:
@@ -5147,12 +5563,12 @@ class GetEndpointsParameters:
     :vartype ProfileUris: String
     """
 
-    EndpointUrl: String = None
-    LocaleIds: List[LocaleId] = field(default_factory=list)
-    ProfileUris: List[String] = field(default_factory=list)
+    EndpointUrl: 'ua.String' = None
+    LocaleIds: 'list[ua.LocaleId]' = field(default_factory=list)
+    ProfileUris: 'list[ua.String]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class GetEndpointsRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.5.4/#5.5.4.2
@@ -5167,20 +5583,12 @@ class GetEndpointsRequest:
 
     data_type = NodeId(ObjectIds.GetEndpointsRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.GetEndpointsRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: GetEndpointsParameters = field(default_factory=GetEndpointsParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.GetEndpointsRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.GetEndpointsParameters' = field(default_factory=lambda: GetEndpointsParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class GetEndpointsResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.5.4/#5.5.4.2
@@ -5195,23 +5603,15 @@ class GetEndpointsResponse:
 
     data_type = NodeId(ObjectIds.GetEndpointsResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.GetEndpointsResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Endpoints: List[EndpointDescription] = field(default_factory=list)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.GetEndpointsResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Endpoints: 'list[ua.EndpointDescription]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class RegisteredServer:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.32
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.31
 
     :ivar ServerUri:
     :vartype ServerUri: String
@@ -5233,17 +5633,17 @@ class RegisteredServer:
 
     data_type = NodeId(ObjectIds.RegisteredServer)
 
-    ServerUri: String = None
-    ProductUri: String = None
-    ServerNames: List[LocalizedText] = field(default_factory=list)
-    ServerType: ApplicationType = ApplicationType.Server
-    GatewayServerUri: String = None
-    DiscoveryUrls: List[String] = field(default_factory=list)
-    SemaphoreFilePath: String = None
-    IsOnline: Boolean = True
+    ServerUri: 'ua.String' = None
+    ProductUri: 'ua.String' = None
+    ServerNames: 'list[ua.LocalizedText]' = field(default_factory=list)
+    ServerType: 'ua.ApplicationType' = field(default_factory=lambda:ApplicationType.Server)
+    GatewayServerUri: 'ua.String' = None
+    DiscoveryUrls: 'list[ua.String]' = field(default_factory=list)
+    SemaphoreFilePath: 'ua.String' = None
+    IsOnline: 'ua.Boolean' = True
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class RegisterServerRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.5.5/#5.5.5.2
@@ -5258,20 +5658,12 @@ class RegisterServerRequest:
 
     data_type = NodeId(ObjectIds.RegisterServerRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.RegisterServerRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Server: RegisteredServer = field(default_factory=RegisteredServer)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.RegisterServerRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Server: 'ua.RegisteredServer' = field(default_factory=lambda: RegisteredServer())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class RegisterServerResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.5.5/#5.5.5.2
@@ -5284,19 +5676,11 @@ class RegisterServerResponse:
 
     data_type = NodeId(ObjectIds.RegisterServerResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.RegisterServerResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.RegisterServerResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DiscoveryConfiguration:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.13.1
@@ -5306,7 +5690,7 @@ class DiscoveryConfiguration:
     data_type = NodeId(ObjectIds.DiscoveryConfiguration)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class MdnsDiscoveryConfiguration(DiscoveryConfiguration):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.13.2
@@ -5319,11 +5703,11 @@ class MdnsDiscoveryConfiguration(DiscoveryConfiguration):
 
     data_type = NodeId(ObjectIds.MdnsDiscoveryConfiguration)
 
-    MdnsServerName: String = None
-    ServerCapabilities: List[String] = field(default_factory=list)
+    MdnsServerName: 'ua.String' = None
+    ServerCapabilities: 'list[ua.String]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class RegisterServer2Parameters:
     """
     :ivar Server:
@@ -5332,11 +5716,11 @@ class RegisterServer2Parameters:
     :vartype DiscoveryConfiguration: ExtensionObject
     """
 
-    Server: RegisteredServer = field(default_factory=RegisteredServer)
-    DiscoveryConfiguration: List[ExtensionObject] = field(default_factory=list)
+    Server: 'ua.RegisteredServer' = field(default_factory=lambda: RegisteredServer())
+    DiscoveryConfiguration: 'list[ua.ExtensionObject]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class RegisterServer2Request:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.5.6/#5.5.6.2
@@ -5351,20 +5735,12 @@ class RegisterServer2Request:
 
     data_type = NodeId(ObjectIds.RegisterServer2Request)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.RegisterServer2Request_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: RegisterServer2Parameters = field(default_factory=RegisterServer2Parameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.RegisterServer2Request_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.RegisterServer2Parameters' = field(default_factory=lambda: RegisterServer2Parameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class RegisterServer2Response:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.5.6/#5.5.6.2
@@ -5381,21 +5757,13 @@ class RegisterServer2Response:
 
     data_type = NodeId(ObjectIds.RegisterServer2Response)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.RegisterServer2Response_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    ConfigurationResults: List[StatusCode] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.RegisterServer2Response_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    ConfigurationResults: 'list[ua.StatusCode]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ChannelSecurityToken:
     """
     :ivar ChannelId:
@@ -5410,13 +5778,13 @@ class ChannelSecurityToken:
 
     data_type = NodeId(ObjectIds.ChannelSecurityToken)
 
-    ChannelId: UInt32 = 0
-    TokenId: UInt32 = 0
-    CreatedAt: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    RevisedLifetime: UInt32 = 0
+    ChannelId: 'ua.UInt32' = 0
+    TokenId: 'ua.UInt32' = 0
+    CreatedAt: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    RevisedLifetime: 'ua.UInt32' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class OpenSecureChannelParameters:
     """
     :ivar ClientProtocolVersion:
@@ -5431,14 +5799,14 @@ class OpenSecureChannelParameters:
     :vartype RequestedLifetime: UInt32
     """
 
-    ClientProtocolVersion: UInt32 = 0
-    RequestType: SecurityTokenRequestType = SecurityTokenRequestType.Issue
-    SecurityMode: MessageSecurityMode = MessageSecurityMode.Invalid
-    ClientNonce: ByteString = None
-    RequestedLifetime: UInt32 = 0
+    ClientProtocolVersion: 'ua.UInt32' = 0
+    RequestType: 'ua.SecurityTokenRequestType' = field(default_factory=lambda:SecurityTokenRequestType.Issue)
+    SecurityMode: 'ua.MessageSecurityMode' = field(default_factory=lambda:MessageSecurityMode.Invalid)
+    ClientNonce: 'ua.ByteString' = None
+    RequestedLifetime: 'ua.UInt32' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class OpenSecureChannelRequest:
     """
     :ivar TypeId:
@@ -5451,20 +5819,12 @@ class OpenSecureChannelRequest:
 
     data_type = NodeId(ObjectIds.OpenSecureChannelRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.OpenSecureChannelRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: OpenSecureChannelParameters = field(default_factory=OpenSecureChannelParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.OpenSecureChannelRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.OpenSecureChannelParameters' = field(default_factory=lambda: OpenSecureChannelParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class OpenSecureChannelResult:
     """
     :ivar ServerProtocolVersion:
@@ -5475,12 +5835,12 @@ class OpenSecureChannelResult:
     :vartype ServerNonce: ByteString
     """
 
-    ServerProtocolVersion: UInt32 = 0
-    SecurityToken: ChannelSecurityToken = field(default_factory=ChannelSecurityToken)
-    ServerNonce: ByteString = None
+    ServerProtocolVersion: 'ua.UInt32' = 0
+    SecurityToken: 'ua.ChannelSecurityToken' = field(default_factory=lambda: ChannelSecurityToken())
+    ServerNonce: 'ua.ByteString' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class OpenSecureChannelResponse:
     """
     :ivar TypeId:
@@ -5493,20 +5853,12 @@ class OpenSecureChannelResponse:
 
     data_type = NodeId(ObjectIds.OpenSecureChannelResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.OpenSecureChannelResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Parameters: OpenSecureChannelResult = field(default_factory=OpenSecureChannelResult)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.OpenSecureChannelResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Parameters: 'ua.OpenSecureChannelResult' = field(default_factory=lambda: OpenSecureChannelResult())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CloseSecureChannelRequest:
     """
     :ivar TypeId:
@@ -5517,19 +5869,11 @@ class CloseSecureChannelRequest:
 
     data_type = NodeId(ObjectIds.CloseSecureChannelRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.CloseSecureChannelRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.CloseSecureChannelRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CloseSecureChannelResponse:
     """
     :ivar TypeId:
@@ -5540,22 +5884,14 @@ class CloseSecureChannelResponse:
 
     data_type = NodeId(ObjectIds.CloseSecureChannelResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.CloseSecureChannelResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.CloseSecureChannelResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SignedSoftwareCertificate:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.3.13
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.37
 
     :ivar CertificateData:
     :vartype CertificateData: ByteString
@@ -5565,14 +5901,14 @@ class SignedSoftwareCertificate:
 
     data_type = NodeId(ObjectIds.SignedSoftwareCertificate)
 
-    CertificateData: ByteString = None
-    Signature: ByteString = None
+    CertificateData: 'ua.ByteString' = None
+    Signature: 'ua.ByteString' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SignatureData:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.37
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.36
 
     :ivar Algorithm:
     :vartype Algorithm: String
@@ -5582,11 +5918,11 @@ class SignatureData:
 
     data_type = NodeId(ObjectIds.SignatureData)
 
-    Algorithm: String = None
-    Signature: ByteString = None
+    Algorithm: 'ua.String' = None
+    Signature: 'ua.ByteString' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CreateSessionParameters:
     """
     :ivar ClientDescription:
@@ -5607,17 +5943,17 @@ class CreateSessionParameters:
     :vartype MaxResponseMessageSize: UInt32
     """
 
-    ClientDescription: ApplicationDescription = field(default_factory=ApplicationDescription)
-    ServerUri: String = None
-    EndpointUrl: String = None
-    SessionName: String = None
-    ClientNonce: ByteString = None
-    ClientCertificate: ApplicationInstanceCertificate = None
-    RequestedSessionTimeout: Duration = 0
-    MaxResponseMessageSize: UInt32 = 0
+    ClientDescription: 'ua.ApplicationDescription' = field(default_factory=lambda: ApplicationDescription())
+    ServerUri: 'ua.String' = None
+    EndpointUrl: 'ua.String' = None
+    SessionName: 'ua.String' = None
+    ClientNonce: 'ua.ByteString' = None
+    ClientCertificate: 'ua.ApplicationInstanceCertificate' = None
+    RequestedSessionTimeout: 'ua.Duration' = 0
+    MaxResponseMessageSize: 'ua.UInt32' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CreateSessionRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.7.2/#5.7.2.2
@@ -5632,20 +5968,12 @@ class CreateSessionRequest:
 
     data_type = NodeId(ObjectIds.CreateSessionRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.CreateSessionRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: CreateSessionParameters = field(default_factory=CreateSessionParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.CreateSessionRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.CreateSessionParameters' = field(default_factory=lambda: CreateSessionParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CreateSessionResult:
     """
     :ivar SessionId:
@@ -5668,18 +5996,18 @@ class CreateSessionResult:
     :vartype MaxRequestMessageSize: UInt32
     """
 
-    SessionId: NodeId = field(default_factory=NodeId)
-    AuthenticationToken: SessionAuthenticationToken = field(default_factory=NodeId)
-    RevisedSessionTimeout: Duration = 0
-    ServerNonce: ByteString = None
-    ServerCertificate: ApplicationInstanceCertificate = None
-    ServerEndpoints: List[EndpointDescription] = field(default_factory=list)
-    ServerSoftwareCertificates: List[SignedSoftwareCertificate] = field(default_factory=list)
-    ServerSignature: SignatureData = field(default_factory=SignatureData)
-    MaxRequestMessageSize: UInt32 = 0
+    SessionId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    AuthenticationToken: 'ua.SessionAuthenticationToken' = field(default_factory=lambda: NodeId())
+    RevisedSessionTimeout: 'ua.Duration' = 0
+    ServerNonce: 'ua.ByteString' = None
+    ServerCertificate: 'ua.ApplicationInstanceCertificate' = None
+    ServerEndpoints: 'list[ua.EndpointDescription]' = field(default_factory=list)
+    ServerSoftwareCertificates: 'list[ua.SignedSoftwareCertificate]' = field(default_factory=list)
+    ServerSignature: 'ua.SignatureData' = field(default_factory=lambda: SignatureData())
+    MaxRequestMessageSize: 'ua.UInt32' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CreateSessionResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.7.2/#5.7.2.2
@@ -5694,23 +6022,15 @@ class CreateSessionResponse:
 
     data_type = NodeId(ObjectIds.CreateSessionResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.CreateSessionResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Parameters: CreateSessionResult = field(default_factory=CreateSessionResult)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.CreateSessionResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Parameters: 'ua.CreateSessionResult' = field(default_factory=lambda: CreateSessionResult())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class UserIdentityToken:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.3.15
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.40.1
 
     :ivar PolicyId:
     :vartype PolicyId: String
@@ -5718,13 +6038,13 @@ class UserIdentityToken:
 
     data_type = NodeId(ObjectIds.UserIdentityToken)
 
-    PolicyId: String = None
+    PolicyId: 'ua.String' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class AnonymousIdentityToken(UserIdentityToken):
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.3.15/#12.3.15.1
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.40.3
 
     :ivar PolicyId:
     :vartype PolicyId: String
@@ -5732,13 +6052,13 @@ class AnonymousIdentityToken(UserIdentityToken):
 
     data_type = NodeId(ObjectIds.AnonymousIdentityToken)
 
-    PolicyId: String = None
+    PolicyId: 'ua.String' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class UserNameIdentityToken(UserIdentityToken):
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.3.15/#12.3.15.3
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.40.4
 
     :ivar PolicyId:
     :vartype PolicyId: String
@@ -5752,16 +6072,16 @@ class UserNameIdentityToken(UserIdentityToken):
 
     data_type = NodeId(ObjectIds.UserNameIdentityToken)
 
-    PolicyId: String = None
-    UserName: String = None
-    Password: ByteString = None
-    EncryptionAlgorithm: String = None
+    PolicyId: 'ua.String' = None
+    UserName: 'ua.String' = None
+    Password: 'ua.ByteString' = None
+    EncryptionAlgorithm: 'ua.String' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class X509IdentityToken(UserIdentityToken):
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.3.15/#12.3.15.4
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.40.5
 
     :ivar PolicyId:
     :vartype PolicyId: String
@@ -5771,14 +6091,14 @@ class X509IdentityToken(UserIdentityToken):
 
     data_type = NodeId(ObjectIds.X509IdentityToken)
 
-    PolicyId: String = None
-    CertificateData: ByteString = None
+    PolicyId: 'ua.String' = None
+    CertificateData: 'ua.ByteString' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class IssuedIdentityToken(UserIdentityToken):
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.3.15/#12.3.15.2
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.40.6
 
     :ivar PolicyId:
     :vartype PolicyId: String
@@ -5790,12 +6110,12 @@ class IssuedIdentityToken(UserIdentityToken):
 
     data_type = NodeId(ObjectIds.IssuedIdentityToken)
 
-    PolicyId: String = None
-    TokenData: ByteString = None
-    EncryptionAlgorithm: String = None
+    PolicyId: 'ua.String' = None
+    TokenData: 'ua.ByteString' = None
+    EncryptionAlgorithm: 'ua.String' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ActivateSessionParameters:
     """
     :ivar ClientSignature:
@@ -5810,14 +6130,14 @@ class ActivateSessionParameters:
     :vartype UserTokenSignature: SignatureData
     """
 
-    ClientSignature: SignatureData = field(default_factory=SignatureData)
-    ClientSoftwareCertificates: List[SignedSoftwareCertificate] = field(default_factory=list)
-    LocaleIds: List[LocaleId] = field(default_factory=list)
-    UserIdentityToken: ExtensionObject = ExtensionObject()
-    UserTokenSignature: SignatureData = field(default_factory=SignatureData)
+    ClientSignature: 'ua.SignatureData' = field(default_factory=lambda: SignatureData())
+    ClientSoftwareCertificates: 'list[ua.SignedSoftwareCertificate]' = field(default_factory=list)
+    LocaleIds: 'list[ua.LocaleId]' = field(default_factory=list)
+    UserIdentityToken: 'ua.ExtensionObject' = ExtensionObject()
+    UserTokenSignature: 'ua.SignatureData' = field(default_factory=lambda: SignatureData())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ActivateSessionRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.7.3/#5.7.3.2
@@ -5832,20 +6152,12 @@ class ActivateSessionRequest:
 
     data_type = NodeId(ObjectIds.ActivateSessionRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.ActivateSessionRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: ActivateSessionParameters = field(default_factory=ActivateSessionParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.ActivateSessionRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.ActivateSessionParameters' = field(default_factory=lambda: ActivateSessionParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ActivateSessionResult:
     """
     :ivar ServerNonce:
@@ -5856,12 +6168,12 @@ class ActivateSessionResult:
     :vartype DiagnosticInfos: DiagnosticInfo
     """
 
-    ServerNonce: ByteString = None
-    Results: List[StatusCode] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
+    ServerNonce: 'ua.ByteString' = None
+    Results: 'list[ua.StatusCode]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ActivateSessionResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.7.3/#5.7.3.2
@@ -5876,20 +6188,12 @@ class ActivateSessionResponse:
 
     data_type = NodeId(ObjectIds.ActivateSessionResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.ActivateSessionResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Parameters: ActivateSessionResult = field(default_factory=ActivateSessionResult)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.ActivateSessionResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Parameters: 'ua.ActivateSessionResult' = field(default_factory=lambda: ActivateSessionResult())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CloseSessionRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.7.4/#5.7.4.2
@@ -5904,20 +6208,12 @@ class CloseSessionRequest:
 
     data_type = NodeId(ObjectIds.CloseSessionRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.CloseSessionRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    DeleteSubscriptions: Boolean = True
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.CloseSessionRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    DeleteSubscriptions: 'ua.Boolean' = True
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CloseSessionResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.7.4/#5.7.4.2
@@ -5930,29 +6226,21 @@ class CloseSessionResponse:
 
     data_type = NodeId(ObjectIds.CloseSessionResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.CloseSessionResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.CloseSessionResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CancelParameters:
     """
     :ivar RequestHandle:
     :vartype RequestHandle: IntegerId
     """
 
-    RequestHandle: IntegerId = 0
+    RequestHandle: 'ua.IntegerId' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CancelRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.7.5/#5.7.5.2
@@ -5967,30 +6255,22 @@ class CancelRequest:
 
     data_type = NodeId(ObjectIds.CancelRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.CancelRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: CancelParameters = field(default_factory=CancelParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.CancelRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.CancelParameters' = field(default_factory=lambda: CancelParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CancelResult:
     """
     :ivar CancelCount:
     :vartype CancelCount: UInt32
     """
 
-    CancelCount: UInt32 = 0
+    CancelCount: 'ua.UInt32' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CancelResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.7.5/#5.7.5.2
@@ -6005,20 +6285,12 @@ class CancelResponse:
 
     data_type = NodeId(ObjectIds.CancelResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.CancelResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Parameters: CancelResult = field(default_factory=CancelResult)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.CancelResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Parameters: 'ua.CancelResult' = field(default_factory=lambda: CancelResult())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class NodeAttributes:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.24.1
@@ -6037,14 +6309,14 @@ class NodeAttributes:
 
     data_type = NodeId(ObjectIds.NodeAttributes)
 
-    SpecifiedAttributes: UInt32 = 0
-    DisplayName: LocalizedText = field(default_factory=LocalizedText)
-    Description: LocalizedText = field(default_factory=LocalizedText)
-    WriteMask: UInt32 = 0
-    UserWriteMask: UInt32 = 0
+    SpecifiedAttributes: 'ua.UInt32' = 0
+    DisplayName: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    Description: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    WriteMask: 'ua.UInt32' = 0
+    UserWriteMask: 'ua.UInt32' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ObjectAttributes(NodeAttributes):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.24.2
@@ -6065,15 +6337,15 @@ class ObjectAttributes(NodeAttributes):
 
     data_type = NodeId(ObjectIds.ObjectAttributes)
 
-    SpecifiedAttributes: UInt32 = 0
-    DisplayName: LocalizedText = field(default_factory=LocalizedText)
-    Description: LocalizedText = field(default_factory=LocalizedText)
-    WriteMask: UInt32 = 0
-    UserWriteMask: UInt32 = 0
-    EventNotifier: Byte = 0
+    SpecifiedAttributes: 'ua.UInt32' = 0
+    DisplayName: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    Description: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    WriteMask: 'ua.UInt32' = 0
+    UserWriteMask: 'ua.UInt32' = 0
+    EventNotifier: 'ua.Byte' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class VariableAttributes(NodeAttributes):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.24.3
@@ -6108,22 +6380,22 @@ class VariableAttributes(NodeAttributes):
 
     data_type = NodeId(ObjectIds.VariableAttributes)
 
-    SpecifiedAttributes: UInt32 = 0
-    DisplayName: LocalizedText = field(default_factory=LocalizedText)
-    Description: LocalizedText = field(default_factory=LocalizedText)
-    WriteMask: UInt32 = 0
-    UserWriteMask: UInt32 = 0
-    Value: Variant = field(default_factory=Variant)
-    DataType: NodeId = field(default_factory=NodeId)
-    ValueRank: Int32 = 0
-    ArrayDimensions: List[UInt32] = field(default_factory=list)
-    AccessLevel: Byte = 0
-    UserAccessLevel: Byte = 0
-    MinimumSamplingInterval: Duration = 0
-    Historizing: Boolean = True
+    SpecifiedAttributes: 'ua.UInt32' = 0
+    DisplayName: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    Description: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    WriteMask: 'ua.UInt32' = 0
+    UserWriteMask: 'ua.UInt32' = 0
+    Value: 'ua.Variant' = field(default_factory=lambda: Variant())
+    DataType: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    ValueRank: 'ua.Int32' = 0
+    ArrayDimensions: 'list[ua.UInt32]' = field(default_factory=list)
+    AccessLevel: 'ua.Byte' = 0
+    UserAccessLevel: 'ua.Byte' = 0
+    MinimumSamplingInterval: 'ua.Duration' = 0
+    Historizing: 'ua.Boolean' = True
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class MethodAttributes(NodeAttributes):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.24.4
@@ -6146,16 +6418,16 @@ class MethodAttributes(NodeAttributes):
 
     data_type = NodeId(ObjectIds.MethodAttributes)
 
-    SpecifiedAttributes: UInt32 = 0
-    DisplayName: LocalizedText = field(default_factory=LocalizedText)
-    Description: LocalizedText = field(default_factory=LocalizedText)
-    WriteMask: UInt32 = 0
-    UserWriteMask: UInt32 = 0
-    Executable: Boolean = True
-    UserExecutable: Boolean = True
+    SpecifiedAttributes: 'ua.UInt32' = 0
+    DisplayName: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    Description: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    WriteMask: 'ua.UInt32' = 0
+    UserWriteMask: 'ua.UInt32' = 0
+    Executable: 'ua.Boolean' = True
+    UserExecutable: 'ua.Boolean' = True
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ObjectTypeAttributes(NodeAttributes):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.24.5
@@ -6176,15 +6448,15 @@ class ObjectTypeAttributes(NodeAttributes):
 
     data_type = NodeId(ObjectIds.ObjectTypeAttributes)
 
-    SpecifiedAttributes: UInt32 = 0
-    DisplayName: LocalizedText = field(default_factory=LocalizedText)
-    Description: LocalizedText = field(default_factory=LocalizedText)
-    WriteMask: UInt32 = 0
-    UserWriteMask: UInt32 = 0
-    IsAbstract: Boolean = True
+    SpecifiedAttributes: 'ua.UInt32' = 0
+    DisplayName: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    Description: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    WriteMask: 'ua.UInt32' = 0
+    UserWriteMask: 'ua.UInt32' = 0
+    IsAbstract: 'ua.Boolean' = True
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class VariableTypeAttributes(NodeAttributes):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.24.6
@@ -6213,19 +6485,19 @@ class VariableTypeAttributes(NodeAttributes):
 
     data_type = NodeId(ObjectIds.VariableTypeAttributes)
 
-    SpecifiedAttributes: UInt32 = 0
-    DisplayName: LocalizedText = field(default_factory=LocalizedText)
-    Description: LocalizedText = field(default_factory=LocalizedText)
-    WriteMask: UInt32 = 0
-    UserWriteMask: UInt32 = 0
-    Value: Variant = field(default_factory=Variant)
-    DataType: NodeId = field(default_factory=NodeId)
-    ValueRank: Int32 = 0
-    ArrayDimensions: List[UInt32] = field(default_factory=list)
-    IsAbstract: Boolean = True
+    SpecifiedAttributes: 'ua.UInt32' = 0
+    DisplayName: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    Description: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    WriteMask: 'ua.UInt32' = 0
+    UserWriteMask: 'ua.UInt32' = 0
+    Value: 'ua.Variant' = field(default_factory=lambda: Variant())
+    DataType: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    ValueRank: 'ua.Int32' = 0
+    ArrayDimensions: 'list[ua.UInt32]' = field(default_factory=list)
+    IsAbstract: 'ua.Boolean' = True
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ReferenceTypeAttributes(NodeAttributes):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.24.7
@@ -6250,17 +6522,17 @@ class ReferenceTypeAttributes(NodeAttributes):
 
     data_type = NodeId(ObjectIds.ReferenceTypeAttributes)
 
-    SpecifiedAttributes: UInt32 = 0
-    DisplayName: LocalizedText = field(default_factory=LocalizedText)
-    Description: LocalizedText = field(default_factory=LocalizedText)
-    WriteMask: UInt32 = 0
-    UserWriteMask: UInt32 = 0
-    IsAbstract: Boolean = True
-    Symmetric: Boolean = True
-    InverseName: LocalizedText = field(default_factory=LocalizedText)
+    SpecifiedAttributes: 'ua.UInt32' = 0
+    DisplayName: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    Description: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    WriteMask: 'ua.UInt32' = 0
+    UserWriteMask: 'ua.UInt32' = 0
+    IsAbstract: 'ua.Boolean' = True
+    Symmetric: 'ua.Boolean' = True
+    InverseName: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DataTypeAttributes(NodeAttributes):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.24.8
@@ -6281,15 +6553,15 @@ class DataTypeAttributes(NodeAttributes):
 
     data_type = NodeId(ObjectIds.DataTypeAttributes)
 
-    SpecifiedAttributes: UInt32 = 0
-    DisplayName: LocalizedText = field(default_factory=LocalizedText)
-    Description: LocalizedText = field(default_factory=LocalizedText)
-    WriteMask: UInt32 = 0
-    UserWriteMask: UInt32 = 0
-    IsAbstract: Boolean = True
+    SpecifiedAttributes: 'ua.UInt32' = 0
+    DisplayName: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    Description: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    WriteMask: 'ua.UInt32' = 0
+    UserWriteMask: 'ua.UInt32' = 0
+    IsAbstract: 'ua.Boolean' = True
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ViewAttributes(NodeAttributes):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.24.9
@@ -6312,16 +6584,16 @@ class ViewAttributes(NodeAttributes):
 
     data_type = NodeId(ObjectIds.ViewAttributes)
 
-    SpecifiedAttributes: UInt32 = 0
-    DisplayName: LocalizedText = field(default_factory=LocalizedText)
-    Description: LocalizedText = field(default_factory=LocalizedText)
-    WriteMask: UInt32 = 0
-    UserWriteMask: UInt32 = 0
-    ContainsNoLoops: Boolean = True
-    EventNotifier: Byte = 0
+    SpecifiedAttributes: 'ua.UInt32' = 0
+    DisplayName: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    Description: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    WriteMask: 'ua.UInt32' = 0
+    UserWriteMask: 'ua.UInt32' = 0
+    ContainsNoLoops: 'ua.Boolean' = True
+    EventNotifier: 'ua.Byte' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class GenericAttributeValue:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.24.10
@@ -6334,11 +6606,11 @@ class GenericAttributeValue:
 
     data_type = NodeId(ObjectIds.GenericAttributeValue)
 
-    AttributeId: IntegerId = 0
-    Value: Variant = field(default_factory=Variant)
+    AttributeId: 'ua.IntegerId' = 0
+    Value: 'ua.Variant' = field(default_factory=lambda: Variant())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class GenericAttributes(NodeAttributes):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.24.10
@@ -6359,18 +6631,18 @@ class GenericAttributes(NodeAttributes):
 
     data_type = NodeId(ObjectIds.GenericAttributes)
 
-    SpecifiedAttributes: UInt32 = 0
-    DisplayName: LocalizedText = field(default_factory=LocalizedText)
-    Description: LocalizedText = field(default_factory=LocalizedText)
-    WriteMask: UInt32 = 0
-    UserWriteMask: UInt32 = 0
-    AttributeValues: List[GenericAttributeValue] = field(default_factory=list)
+    SpecifiedAttributes: 'ua.UInt32' = 0
+    DisplayName: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    Description: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    WriteMask: 'ua.UInt32' = 0
+    UserWriteMask: 'ua.UInt32' = 0
+    AttributeValues: 'list[ua.GenericAttributeValue]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class AddNodesItem:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.3.1
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/5.8.2/#5.8.2.2
 
     :ivar ParentNodeId:
     :vartype ParentNodeId: ExpandedNodeId
@@ -6390,24 +6662,16 @@ class AddNodesItem:
 
     data_type = NodeId(ObjectIds.AddNodesItem)
 
-    ParentNodeId: ExpandedNodeId = field(default_factory=ExpandedNodeId)
-    ReferenceTypeId: NodeId = field(default_factory=NodeId)
-    RequestedNewNodeId: ExpandedNodeId = field(default_factory=ExpandedNodeId)
-    BrowseName: QualifiedName = field(default_factory=QualifiedName)
-    NodeClass_: NodeClass = NodeClass.Unspecified
-    NodeAttributes: ExtensionObject = ExtensionObject()
-    TypeDefinition: ExpandedNodeId = field(default_factory=ExpandedNodeId)
-
-    @property
-    def NodeClass(self):
-        return self.NodeClass_
-
-    @NodeClass.setter
-    def NodeClass(self, val):
-        self.NodeClass_ = val
+    ParentNodeId: 'ua.ExpandedNodeId' = field(default_factory=lambda: ExpandedNodeId())
+    ReferenceTypeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    RequestedNewNodeId: 'ua.ExpandedNodeId' = field(default_factory=lambda: ExpandedNodeId())
+    BrowseName: 'ua.QualifiedName' = field(default_factory=lambda: QualifiedName())
+    NodeClass: 'ua.NodeClass' = field(default_factory=lambda:NodeClass.Unspecified)
+    NodeAttributes: 'ua.ExtensionObject' = ExtensionObject()
+    TypeDefinition: 'ua.ExpandedNodeId' = field(default_factory=lambda: ExpandedNodeId())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class AddNodesResult:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.8.2/#5.8.2.2
@@ -6420,29 +6684,21 @@ class AddNodesResult:
 
     data_type = NodeId(ObjectIds.AddNodesResult)
 
-    StatusCode_: StatusCode = field(default_factory=StatusCode)
-    AddedNodeId: NodeId = field(default_factory=NodeId)
-
-    @property
-    def StatusCode(self):
-        return self.StatusCode_
-
-    @StatusCode.setter
-    def StatusCode(self, val):
-        self.StatusCode_ = val
+    StatusCode: 'ua.StatusCode' = field(default_factory=lambda: StatusCode())
+    AddedNodeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class AddNodesParameters:
     """
     :ivar NodesToAdd:
     :vartype NodesToAdd: AddNodesItem
     """
 
-    NodesToAdd: List[AddNodesItem] = field(default_factory=list)
+    NodesToAdd: 'list[ua.AddNodesItem]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class AddNodesRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.8.2/#5.8.2.2
@@ -6457,20 +6713,12 @@ class AddNodesRequest:
 
     data_type = NodeId(ObjectIds.AddNodesRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.AddNodesRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: AddNodesParameters = field(default_factory=AddNodesParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.AddNodesRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.AddNodesParameters' = field(default_factory=lambda: AddNodesParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class AddNodesResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.8.2/#5.8.2.2
@@ -6487,24 +6735,16 @@ class AddNodesResponse:
 
     data_type = NodeId(ObjectIds.AddNodesResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.AddNodesResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Results: List[AddNodesResult] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.AddNodesResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Results: 'list[ua.AddNodesResult]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class AddReferencesItem:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.3.2
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/5.8.3/#5.8.3.2
 
     :ivar SourceNodeId:
     :vartype SourceNodeId: NodeId
@@ -6522,25 +6762,25 @@ class AddReferencesItem:
 
     data_type = NodeId(ObjectIds.AddReferencesItem)
 
-    SourceNodeId: NodeId = field(default_factory=NodeId)
-    ReferenceTypeId: NodeId = field(default_factory=NodeId)
-    IsForward: Boolean = True
-    TargetServerUri: String = None
-    TargetNodeId: ExpandedNodeId = field(default_factory=ExpandedNodeId)
-    TargetNodeClass: NodeClass = NodeClass.Unspecified
+    SourceNodeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    ReferenceTypeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    IsForward: 'ua.Boolean' = True
+    TargetServerUri: 'ua.String' = None
+    TargetNodeId: 'ua.ExpandedNodeId' = field(default_factory=lambda: ExpandedNodeId())
+    TargetNodeClass: 'ua.NodeClass' = field(default_factory=lambda:NodeClass.Unspecified)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class AddReferencesParameters:
     """
     :ivar ReferencesToAdd:
     :vartype ReferencesToAdd: AddReferencesItem
     """
 
-    ReferencesToAdd: List[AddReferencesItem] = field(default_factory=list)
+    ReferencesToAdd: 'list[ua.AddReferencesItem]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class AddReferencesRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.8.3/#5.8.3.2
@@ -6555,20 +6795,12 @@ class AddReferencesRequest:
 
     data_type = NodeId(ObjectIds.AddReferencesRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.AddReferencesRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: AddReferencesParameters = field(default_factory=AddReferencesParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.AddReferencesRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.AddReferencesParameters' = field(default_factory=lambda: AddReferencesParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class AddReferencesResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.8.3/#5.8.3.2
@@ -6585,24 +6817,16 @@ class AddReferencesResponse:
 
     data_type = NodeId(ObjectIds.AddReferencesResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.AddReferencesResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Results: List[StatusCode] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.AddReferencesResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Results: 'list[ua.StatusCode]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DeleteNodesItem:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.3.6
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/5.8.4/#5.8.4.2
 
     :ivar NodeId:
     :vartype NodeId: NodeId
@@ -6612,29 +6836,21 @@ class DeleteNodesItem:
 
     data_type = NodeId(ObjectIds.DeleteNodesItem)
 
-    NodeId_: NodeId = field(default_factory=NodeId)
-    DeleteTargetReferences: Boolean = True
-
-    @property
-    def NodeId(self):
-        return self.NodeId_
-
-    @NodeId.setter
-    def NodeId(self, val):
-        self.NodeId_ = val
+    NodeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    DeleteTargetReferences: 'ua.Boolean' = True
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DeleteNodesParameters:
     """
     :ivar NodesToDelete:
     :vartype NodesToDelete: DeleteNodesItem
     """
 
-    NodesToDelete: List[DeleteNodesItem] = field(default_factory=list)
+    NodesToDelete: 'list[ua.DeleteNodesItem]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DeleteNodesRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.8.4/#5.8.4.2
@@ -6649,20 +6865,12 @@ class DeleteNodesRequest:
 
     data_type = NodeId(ObjectIds.DeleteNodesRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.DeleteNodesRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: DeleteNodesParameters = field(default_factory=DeleteNodesParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.DeleteNodesRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.DeleteNodesParameters' = field(default_factory=lambda: DeleteNodesParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DeleteNodesResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.8.4/#5.8.4.2
@@ -6679,24 +6887,16 @@ class DeleteNodesResponse:
 
     data_type = NodeId(ObjectIds.DeleteNodesResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.DeleteNodesResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Results: List[StatusCode] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.DeleteNodesResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Results: 'list[ua.StatusCode]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DeleteReferencesItem:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.3.7
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/5.8.5/#5.8.5.1
 
     :ivar SourceNodeId:
     :vartype SourceNodeId: NodeId
@@ -6712,24 +6912,24 @@ class DeleteReferencesItem:
 
     data_type = NodeId(ObjectIds.DeleteReferencesItem)
 
-    SourceNodeId: NodeId = field(default_factory=NodeId)
-    ReferenceTypeId: NodeId = field(default_factory=NodeId)
-    IsForward: Boolean = True
-    TargetNodeId: ExpandedNodeId = field(default_factory=ExpandedNodeId)
-    DeleteBidirectional: Boolean = True
+    SourceNodeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    ReferenceTypeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    IsForward: 'ua.Boolean' = True
+    TargetNodeId: 'ua.ExpandedNodeId' = field(default_factory=lambda: ExpandedNodeId())
+    DeleteBidirectional: 'ua.Boolean' = True
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DeleteReferencesParameters:
     """
     :ivar ReferencesToDelete:
     :vartype ReferencesToDelete: DeleteReferencesItem
     """
 
-    ReferencesToDelete: List[DeleteReferencesItem] = field(default_factory=list)
+    ReferencesToDelete: 'list[ua.DeleteReferencesItem]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DeleteReferencesRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.8.5/#5.8.5.1
@@ -6744,20 +6944,12 @@ class DeleteReferencesRequest:
 
     data_type = NodeId(ObjectIds.DeleteReferencesRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.DeleteReferencesRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: DeleteReferencesParameters = field(default_factory=DeleteReferencesParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.DeleteReferencesRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.DeleteReferencesParameters' = field(default_factory=lambda: DeleteReferencesParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DeleteReferencesResult:
     """
     :ivar Results:
@@ -6766,11 +6958,11 @@ class DeleteReferencesResult:
     :vartype DiagnosticInfos: DiagnosticInfo
     """
 
-    Results: List[StatusCode] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
+    Results: 'list[ua.StatusCode]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DeleteReferencesResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.8.5/#5.8.5.1
@@ -6785,23 +6977,15 @@ class DeleteReferencesResponse:
 
     data_type = NodeId(ObjectIds.DeleteReferencesResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.DeleteReferencesResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Parameters: DeleteReferencesResult = field(default_factory=DeleteReferencesResult)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.DeleteReferencesResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Parameters: 'ua.DeleteReferencesResult' = field(default_factory=lambda: DeleteReferencesResult())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ViewDescription:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.45
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.44
 
     :ivar ViewId:
     :vartype ViewId: NodeId
@@ -6813,12 +6997,12 @@ class ViewDescription:
 
     data_type = NodeId(ObjectIds.ViewDescription)
 
-    ViewId: NodeId = field(default_factory=NodeId)
-    Timestamp: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    ViewVersion: UInt32 = 0
+    ViewId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    Timestamp: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    ViewVersion: 'ua.UInt32' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class BrowseDescription:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.9.2/#5.9.2.2
@@ -6839,33 +7023,18 @@ class BrowseDescription:
 
     data_type = NodeId(ObjectIds.BrowseDescription)
 
-    NodeId_: NodeId = field(default_factory=NodeId)
-    BrowseDirection_: BrowseDirection = BrowseDirection.Forward
-    ReferenceTypeId: NodeId = field(default_factory=NodeId)
-    IncludeSubtypes: Boolean = True
-    NodeClassMask: UInt32 = 0
-    ResultMask: UInt32 = 0
-
-    @property
-    def NodeId(self):
-        return self.NodeId_
-
-    @NodeId.setter
-    def NodeId(self, val):
-        self.NodeId_ = val
-    @property
-    def BrowseDirection(self):
-        return self.BrowseDirection_
-
-    @BrowseDirection.setter
-    def BrowseDirection(self, val):
-        self.BrowseDirection_ = val
+    NodeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    BrowseDirection: 'ua.BrowseDirection' = field(default_factory=lambda:BrowseDirection.Forward)
+    ReferenceTypeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    IncludeSubtypes: 'ua.Boolean' = True
+    NodeClassMask: 'ua.UInt32' = 0
+    ResultMask: 'ua.UInt32' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ReferenceDescription:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.30
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.29
 
     :ivar ReferenceTypeId:
     :vartype ReferenceTypeId: NodeId
@@ -6885,24 +7054,16 @@ class ReferenceDescription:
 
     data_type = NodeId(ObjectIds.ReferenceDescription)
 
-    ReferenceTypeId: NodeId = field(default_factory=NodeId)
-    IsForward: Boolean = True
-    NodeId: ExpandedNodeId = field(default_factory=ExpandedNodeId)
-    BrowseName: QualifiedName = field(default_factory=QualifiedName)
-    DisplayName: LocalizedText = field(default_factory=LocalizedText)
-    NodeClass_: NodeClass = NodeClass.Unspecified
-    TypeDefinition: ExpandedNodeId = field(default_factory=ExpandedNodeId)
-
-    @property
-    def NodeClass(self):
-        return self.NodeClass_
-
-    @NodeClass.setter
-    def NodeClass(self, val):
-        self.NodeClass_ = val
+    ReferenceTypeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    IsForward: 'ua.Boolean' = True
+    NodeId: 'ua.ExpandedNodeId' = field(default_factory=lambda: ExpandedNodeId())
+    BrowseName: 'ua.QualifiedName' = field(default_factory=lambda: QualifiedName())
+    DisplayName: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    NodeClass: 'ua.NodeClass' = field(default_factory=lambda:NodeClass.Unspecified)
+    TypeDefinition: 'ua.ExpandedNodeId' = field(default_factory=lambda: ExpandedNodeId())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class BrowseResult:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.6
@@ -6917,27 +7078,12 @@ class BrowseResult:
 
     data_type = NodeId(ObjectIds.BrowseResult)
 
-    StatusCode_: StatusCode = field(default_factory=StatusCode)
-    ContinuationPoint_: ContinuationPoint = None
-    References: List[ReferenceDescription] = field(default_factory=list)
-
-    @property
-    def StatusCode(self):
-        return self.StatusCode_
-
-    @StatusCode.setter
-    def StatusCode(self, val):
-        self.StatusCode_ = val
-    @property
-    def ContinuationPoint(self):
-        return self.ContinuationPoint_
-
-    @ContinuationPoint.setter
-    def ContinuationPoint(self, val):
-        self.ContinuationPoint_ = val
+    StatusCode: 'ua.StatusCode' = field(default_factory=lambda: StatusCode())
+    ContinuationPoint: 'ua.ContinuationPoint' = None
+    References: 'list[ua.ReferenceDescription]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class BrowseParameters:
     """
     :ivar View:
@@ -6948,12 +7094,12 @@ class BrowseParameters:
     :vartype NodesToBrowse: BrowseDescription
     """
 
-    View: ViewDescription = field(default_factory=ViewDescription)
-    RequestedMaxReferencesPerNode: Counter = 0
-    NodesToBrowse: List[BrowseDescription] = field(default_factory=list)
+    View: 'ua.ViewDescription' = field(default_factory=lambda: ViewDescription())
+    RequestedMaxReferencesPerNode: 'ua.Counter' = 0
+    NodesToBrowse: 'list[ua.BrowseDescription]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class BrowseRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.9.2/#5.9.2.2
@@ -6968,20 +7114,12 @@ class BrowseRequest:
 
     data_type = NodeId(ObjectIds.BrowseRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.BrowseRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: BrowseParameters = field(default_factory=BrowseParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.BrowseRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.BrowseParameters' = field(default_factory=lambda: BrowseParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class BrowseResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.9.2/#5.9.2.2
@@ -6998,21 +7136,13 @@ class BrowseResponse:
 
     data_type = NodeId(ObjectIds.BrowseResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.BrowseResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Results: List[BrowseResult] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.BrowseResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Results: 'list[ua.BrowseResult]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class BrowseNextParameters:
     """
     :ivar ReleaseContinuationPoints:
@@ -7021,11 +7151,11 @@ class BrowseNextParameters:
     :vartype ContinuationPoints: ContinuationPoint
     """
 
-    ReleaseContinuationPoints: Boolean = True
-    ContinuationPoints: List[ContinuationPoint] = field(default_factory=list)
+    ReleaseContinuationPoints: 'ua.Boolean' = True
+    ContinuationPoints: 'list[ua.ContinuationPoint]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class BrowseNextRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.9.3/#5.9.3.2
@@ -7040,20 +7170,12 @@ class BrowseNextRequest:
 
     data_type = NodeId(ObjectIds.BrowseNextRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.BrowseNextRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: BrowseNextParameters = field(default_factory=BrowseNextParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.BrowseNextRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.BrowseNextParameters' = field(default_factory=lambda: BrowseNextParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class BrowseNextResult:
     """
     :ivar Results:
@@ -7062,11 +7184,11 @@ class BrowseNextResult:
     :vartype DiagnosticInfos: DiagnosticInfo
     """
 
-    Results: List[BrowseResult] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
+    Results: 'list[ua.BrowseResult]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class BrowseNextResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.9.3/#5.9.3.2
@@ -7081,20 +7203,12 @@ class BrowseNextResponse:
 
     data_type = NodeId(ObjectIds.BrowseNextResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.BrowseNextResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Parameters: BrowseNextResult = field(default_factory=BrowseNextResult)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.BrowseNextResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Parameters: 'ua.BrowseNextResult' = field(default_factory=lambda: BrowseNextResult())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class BrowsePath:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.9.4/#5.9.4.2
@@ -7107,19 +7221,11 @@ class BrowsePath:
 
     data_type = NodeId(ObjectIds.BrowsePath)
 
-    StartingNode: NodeId = field(default_factory=NodeId)
-    RelativePath_: RelativePath = field(default_factory=RelativePath)
-
-    @property
-    def RelativePath(self):
-        return self.RelativePath_
-
-    @RelativePath.setter
-    def RelativePath(self, val):
-        self.RelativePath_ = val
+    StartingNode: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    RelativePath: 'ua.RelativePath' = field(default_factory=lambda: RelativePath())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class BrowsePathTarget:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.9.4/#5.9.4.2
@@ -7132,11 +7238,11 @@ class BrowsePathTarget:
 
     data_type = NodeId(ObjectIds.BrowsePathTarget)
 
-    TargetId: ExpandedNodeId = field(default_factory=ExpandedNodeId)
-    RemainingPathIndex: Index = 0
+    TargetId: 'ua.ExpandedNodeId' = field(default_factory=lambda: ExpandedNodeId())
+    RemainingPathIndex: 'ua.Index' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class BrowsePathResult:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.9.4/#5.9.4.2
@@ -7149,29 +7255,21 @@ class BrowsePathResult:
 
     data_type = NodeId(ObjectIds.BrowsePathResult)
 
-    StatusCode_: StatusCode = field(default_factory=StatusCode)
-    Targets: List[BrowsePathTarget] = field(default_factory=list)
-
-    @property
-    def StatusCode(self):
-        return self.StatusCode_
-
-    @StatusCode.setter
-    def StatusCode(self, val):
-        self.StatusCode_ = val
+    StatusCode: 'ua.StatusCode' = field(default_factory=lambda: StatusCode())
+    Targets: 'list[ua.BrowsePathTarget]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class TranslateBrowsePathsToNodeIdsParameters:
     """
     :ivar BrowsePaths:
     :vartype BrowsePaths: BrowsePath
     """
 
-    BrowsePaths: List[BrowsePath] = field(default_factory=list)
+    BrowsePaths: 'list[ua.BrowsePath]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class TranslateBrowsePathsToNodeIdsRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.9.4/#5.9.4.2
@@ -7186,20 +7284,12 @@ class TranslateBrowsePathsToNodeIdsRequest:
 
     data_type = NodeId(ObjectIds.TranslateBrowsePathsToNodeIdsRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.TranslateBrowsePathsToNodeIdsRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: TranslateBrowsePathsToNodeIdsParameters = field(default_factory=TranslateBrowsePathsToNodeIdsParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.TranslateBrowsePathsToNodeIdsRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.TranslateBrowsePathsToNodeIdsParameters' = field(default_factory=lambda: TranslateBrowsePathsToNodeIdsParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class TranslateBrowsePathsToNodeIdsResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.9.4/#5.9.4.2
@@ -7216,31 +7306,23 @@ class TranslateBrowsePathsToNodeIdsResponse:
 
     data_type = NodeId(ObjectIds.TranslateBrowsePathsToNodeIdsResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.TranslateBrowsePathsToNodeIdsResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Results: List[BrowsePathResult] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.TranslateBrowsePathsToNodeIdsResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Results: 'list[ua.BrowsePathResult]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class RegisterNodesParameters:
     """
     :ivar NodesToRegister:
     :vartype NodesToRegister: NodeId
     """
 
-    NodesToRegister: List[NodeId] = field(default_factory=list)
+    NodesToRegister: 'list[ua.NodeId]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class RegisterNodesRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.9.5/#5.9.5.2
@@ -7255,30 +7337,22 @@ class RegisterNodesRequest:
 
     data_type = NodeId(ObjectIds.RegisterNodesRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.RegisterNodesRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: RegisterNodesParameters = field(default_factory=RegisterNodesParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.RegisterNodesRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.RegisterNodesParameters' = field(default_factory=lambda: RegisterNodesParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class RegisterNodesResult:
     """
     :ivar RegisteredNodeIds:
     :vartype RegisteredNodeIds: NodeId
     """
 
-    RegisteredNodeIds: List[NodeId] = field(default_factory=list)
+    RegisteredNodeIds: 'list[ua.NodeId]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class RegisterNodesResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.9.5/#5.9.5.2
@@ -7293,30 +7367,22 @@ class RegisterNodesResponse:
 
     data_type = NodeId(ObjectIds.RegisterNodesResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.RegisterNodesResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Parameters: RegisterNodesResult = field(default_factory=RegisterNodesResult)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.RegisterNodesResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Parameters: 'ua.RegisterNodesResult' = field(default_factory=lambda: RegisterNodesResult())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class UnregisterNodesParameters:
     """
     :ivar NodesToUnregister:
     :vartype NodesToUnregister: NodeId
     """
 
-    NodesToUnregister: List[NodeId] = field(default_factory=list)
+    NodesToUnregister: 'list[ua.NodeId]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class UnregisterNodesRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.9.6/#5.9.6.2
@@ -7331,20 +7397,12 @@ class UnregisterNodesRequest:
 
     data_type = NodeId(ObjectIds.UnregisterNodesRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.UnregisterNodesRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: UnregisterNodesParameters = field(default_factory=UnregisterNodesParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.UnregisterNodesRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.UnregisterNodesParameters' = field(default_factory=lambda: UnregisterNodesParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class UnregisterNodesResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.9.6/#5.9.6.2
@@ -7357,19 +7415,11 @@ class UnregisterNodesResponse:
 
     data_type = NodeId(ObjectIds.UnregisterNodesResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.UnregisterNodesResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.UnregisterNodesResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class EndpointConfiguration:
     """
     :ivar OperationTimeout:
@@ -7394,18 +7444,18 @@ class EndpointConfiguration:
 
     data_type = NodeId(ObjectIds.EndpointConfiguration)
 
-    OperationTimeout: Int32 = 0
-    UseBinaryEncoding: Boolean = True
-    MaxStringLength: Int32 = 0
-    MaxByteStringLength: Int32 = 0
-    MaxArrayLength: Int32 = 0
-    MaxMessageSize: Int32 = 0
-    MaxBufferSize: Int32 = 0
-    ChannelLifetime: Int32 = 0
-    SecurityTokenLifetime: Int32 = 0
+    OperationTimeout: 'ua.Int32' = 0
+    UseBinaryEncoding: 'ua.Boolean' = True
+    MaxStringLength: 'ua.Int32' = 0
+    MaxByteStringLength: 'ua.Int32' = 0
+    MaxArrayLength: 'ua.Int32' = 0
+    MaxMessageSize: 'ua.Int32' = 0
+    MaxBufferSize: 'ua.Int32' = 0
+    ChannelLifetime: 'ua.Int32' = 0
+    SecurityTokenLifetime: 'ua.Int32' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class QueryDataDescription:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.10.3/#5.10.3.1
@@ -7420,20 +7470,12 @@ class QueryDataDescription:
 
     data_type = NodeId(ObjectIds.QueryDataDescription)
 
-    RelativePath_: RelativePath = field(default_factory=RelativePath)
-    AttributeId: IntegerId = 0
-    IndexRange: NumericRange = None
-
-    @property
-    def RelativePath(self):
-        return self.RelativePath_
-
-    @RelativePath.setter
-    def RelativePath(self, val):
-        self.RelativePath_ = val
+    RelativePath: 'ua.RelativePath' = field(default_factory=lambda: RelativePath())
+    AttributeId: 'ua.IntegerId' = 0
+    IndexRange: 'ua.NumericRange' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class NodeTypeDescription:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.10.3/#5.10.3.1
@@ -7448,15 +7490,15 @@ class NodeTypeDescription:
 
     data_type = NodeId(ObjectIds.NodeTypeDescription)
 
-    TypeDefinitionNode: ExpandedNodeId = field(default_factory=ExpandedNodeId)
-    IncludeSubTypes: Boolean = True
-    DataToReturn: List[QueryDataDescription] = field(default_factory=list)
+    TypeDefinitionNode: 'ua.ExpandedNodeId' = field(default_factory=lambda: ExpandedNodeId())
+    IncludeSubTypes: 'ua.Boolean' = True
+    DataToReturn: 'list[ua.QueryDataDescription]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class QueryDataSet:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.28
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/B.2.5
 
     :ivar NodeId:
     :vartype NodeId: ExpandedNodeId
@@ -7468,12 +7510,12 @@ class QueryDataSet:
 
     data_type = NodeId(ObjectIds.QueryDataSet)
 
-    NodeId: ExpandedNodeId = field(default_factory=ExpandedNodeId)
-    TypeDefinitionNode: ExpandedNodeId = field(default_factory=ExpandedNodeId)
-    Values: List[Variant] = field(default_factory=list)
+    NodeId: 'ua.ExpandedNodeId' = field(default_factory=lambda: ExpandedNodeId())
+    TypeDefinitionNode: 'ua.ExpandedNodeId' = field(default_factory=lambda: ExpandedNodeId())
+    Values: 'list[ua.Variant]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class NodeReference:
     """
     :ivar NodeId:
@@ -7488,21 +7530,13 @@ class NodeReference:
 
     data_type = NodeId(ObjectIds.NodeReference)
 
-    NodeId_: NodeId = field(default_factory=NodeId)
-    ReferenceTypeId: NodeId = field(default_factory=NodeId)
-    IsForward: Boolean = True
-    ReferencedNodeIds: List[NodeId] = field(default_factory=list)
-
-    @property
-    def NodeId(self):
-        return self.NodeId_
-
-    @NodeId.setter
-    def NodeId(self, val):
-        self.NodeId_ = val
+    NodeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    ReferenceTypeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    IsForward: 'ua.Boolean' = True
+    ReferencedNodeIds: 'list[ua.NodeId]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ContentFilterElement:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.7.1
@@ -7515,22 +7549,14 @@ class ContentFilterElement:
 
     data_type = NodeId(ObjectIds.ContentFilterElement)
 
-    FilterOperator_: FilterOperator = FilterOperator.Equals
-    FilterOperands: List[ExtensionObject] = field(default_factory=list)
-
-    @property
-    def FilterOperator(self):
-        return self.FilterOperator_
-
-    @FilterOperator.setter
-    def FilterOperator(self, val):
-        self.FilterOperator_ = val
+    FilterOperator: 'ua.FilterOperator' = field(default_factory=lambda:FilterOperator.Equals)
+    FilterOperands: 'list[ua.ExtensionObject]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ContentFilter:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part5/12.3.4
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.7.1
 
     :ivar Elements:
     :vartype Elements: ContentFilterElement
@@ -7538,10 +7564,10 @@ class ContentFilter:
 
     data_type = NodeId(ObjectIds.ContentFilter)
 
-    Elements: List[ContentFilterElement] = field(default_factory=list)
+    Elements: 'list[ua.ContentFilterElement]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class FilterOperand:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.7.4
@@ -7551,7 +7577,7 @@ class FilterOperand:
     data_type = NodeId(ObjectIds.FilterOperand)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ElementOperand(FilterOperand):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.7.4/#7.7.4.2
@@ -7562,10 +7588,10 @@ class ElementOperand(FilterOperand):
 
     data_type = NodeId(ObjectIds.ElementOperand)
 
-    Index: UInt32 = 0
+    Index: 'ua.UInt32' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class LiteralOperand(FilterOperand):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.7.4/#7.7.4.3
@@ -7576,10 +7602,10 @@ class LiteralOperand(FilterOperand):
 
     data_type = NodeId(ObjectIds.LiteralOperand)
 
-    Value: Variant = field(default_factory=Variant)
+    Value: 'ua.Variant' = field(default_factory=lambda: Variant())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class AttributeOperand(FilterOperand):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.7.4/#7.7.4.4
@@ -7598,22 +7624,14 @@ class AttributeOperand(FilterOperand):
 
     data_type = NodeId(ObjectIds.AttributeOperand)
 
-    NodeId_: NodeId = field(default_factory=NodeId)
-    Alias: String = None
-    BrowsePath: RelativePath = field(default_factory=RelativePath)
-    AttributeId: IntegerId = 0
-    IndexRange: NumericRange = None
-
-    @property
-    def NodeId(self):
-        return self.NodeId_
-
-    @NodeId.setter
-    def NodeId(self, val):
-        self.NodeId_ = val
+    NodeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    Alias: 'ua.String' = None
+    BrowsePath: 'ua.RelativePath' = field(default_factory=lambda: RelativePath())
+    AttributeId: 'ua.IntegerId' = 0
+    IndexRange: 'ua.NumericRange' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SimpleAttributeOperand(FilterOperand):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.7.4/#7.7.4.5
@@ -7630,13 +7648,13 @@ class SimpleAttributeOperand(FilterOperand):
 
     data_type = NodeId(ObjectIds.SimpleAttributeOperand)
 
-    TypeDefinitionId: NodeId = field(default_factory=NodeId)
-    BrowsePath: List[QualifiedName] = field(default_factory=list)
-    AttributeId: IntegerId = 0
-    IndexRange: NumericRange = None
+    TypeDefinitionId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    BrowsePath: 'list[ua.QualifiedName]' = field(default_factory=list)
+    AttributeId: 'ua.IntegerId' = 0
+    IndexRange: 'ua.NumericRange' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class PublishedEventsDataType(PublishedDataSetSourceDataType):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part14/6.2.3/#6.2.3.8.4
@@ -7651,12 +7669,12 @@ class PublishedEventsDataType(PublishedDataSetSourceDataType):
 
     data_type = NodeId(ObjectIds.PublishedEventsDataType)
 
-    EventNotifier: NodeId = field(default_factory=NodeId)
-    SelectedFields: List[SimpleAttributeOperand] = field(default_factory=list)
-    Filter: ContentFilter = field(default_factory=ContentFilter)
+    EventNotifier: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    SelectedFields: 'list[ua.SimpleAttributeOperand]' = field(default_factory=list)
+    Filter: 'ua.ContentFilter' = field(default_factory=lambda: ContentFilter())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ContentFilterElementResult:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.7.2
@@ -7671,20 +7689,12 @@ class ContentFilterElementResult:
 
     data_type = NodeId(ObjectIds.ContentFilterElementResult)
 
-    StatusCode_: StatusCode = field(default_factory=StatusCode)
-    OperandStatusCodes: List[StatusCode] = field(default_factory=list)
-    OperandDiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
-
-    @property
-    def StatusCode(self):
-        return self.StatusCode_
-
-    @StatusCode.setter
-    def StatusCode(self, val):
-        self.StatusCode_ = val
+    StatusCode: 'ua.StatusCode' = field(default_factory=lambda: StatusCode())
+    OperandStatusCodes: 'list[ua.StatusCode]' = field(default_factory=list)
+    OperandDiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ContentFilterResult:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.7.2
@@ -7697,11 +7707,11 @@ class ContentFilterResult:
 
     data_type = NodeId(ObjectIds.ContentFilterResult)
 
-    ElementResults: List[ContentFilterElementResult] = field(default_factory=list)
-    ElementDiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
+    ElementResults: 'list[ua.ContentFilterElementResult]' = field(default_factory=list)
+    ElementDiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ParsingResult:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.10.3/#5.10.3.1
@@ -7716,20 +7726,12 @@ class ParsingResult:
 
     data_type = NodeId(ObjectIds.ParsingResult)
 
-    StatusCode_: StatusCode = field(default_factory=StatusCode)
-    DataStatusCodes: List[StatusCode] = field(default_factory=list)
-    DataDiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
-
-    @property
-    def StatusCode(self):
-        return self.StatusCode_
-
-    @StatusCode.setter
-    def StatusCode(self, val):
-        self.StatusCode_ = val
+    StatusCode: 'ua.StatusCode' = field(default_factory=lambda: StatusCode())
+    DataStatusCodes: 'list[ua.StatusCode]' = field(default_factory=list)
+    DataDiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class QueryFirstParameters:
     """
     :ivar View:
@@ -7744,14 +7746,14 @@ class QueryFirstParameters:
     :vartype MaxReferencesToReturn: Counter
     """
 
-    View: ViewDescription = field(default_factory=ViewDescription)
-    NodeTypes: List[NodeTypeDescription] = field(default_factory=list)
-    Filter: ContentFilter = field(default_factory=ContentFilter)
-    MaxDataSetsToReturn: Counter = 0
-    MaxReferencesToReturn: Counter = 0
+    View: 'ua.ViewDescription' = field(default_factory=lambda: ViewDescription())
+    NodeTypes: 'list[ua.NodeTypeDescription]' = field(default_factory=list)
+    Filter: 'ua.ContentFilter' = field(default_factory=lambda: ContentFilter())
+    MaxDataSetsToReturn: 'ua.Counter' = 0
+    MaxReferencesToReturn: 'ua.Counter' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class QueryFirstRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.10.3/#5.10.3.1
@@ -7766,20 +7768,12 @@ class QueryFirstRequest:
 
     data_type = NodeId(ObjectIds.QueryFirstRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.QueryFirstRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: QueryFirstParameters = field(default_factory=QueryFirstParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.QueryFirstRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.QueryFirstParameters' = field(default_factory=lambda: QueryFirstParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class QueryFirstResult:
     """
     :ivar QueryDataSets:
@@ -7794,22 +7788,14 @@ class QueryFirstResult:
     :vartype FilterResult: ContentFilterResult
     """
 
-    QueryDataSets: List[QueryDataSet] = field(default_factory=list)
-    ContinuationPoint_: ContinuationPoint = None
-    ParsingResults: List[ParsingResult] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
-    FilterResult: ContentFilterResult = field(default_factory=ContentFilterResult)
-
-    @property
-    def ContinuationPoint(self):
-        return self.ContinuationPoint_
-
-    @ContinuationPoint.setter
-    def ContinuationPoint(self, val):
-        self.ContinuationPoint_ = val
+    QueryDataSets: 'list[ua.QueryDataSet]' = field(default_factory=list)
+    ContinuationPoint: 'ua.ContinuationPoint' = None
+    ParsingResults: 'list[ua.ParsingResult]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
+    FilterResult: 'ua.ContentFilterResult' = field(default_factory=lambda: ContentFilterResult())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class QueryFirstResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.10.3/#5.10.3.1
@@ -7824,20 +7810,12 @@ class QueryFirstResponse:
 
     data_type = NodeId(ObjectIds.QueryFirstResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.QueryFirstResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Parameters: QueryFirstResult = field(default_factory=QueryFirstResult)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.QueryFirstResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Parameters: 'ua.QueryFirstResult' = field(default_factory=lambda: QueryFirstResult())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class QueryNextParameters:
     """
     :ivar ReleaseContinuationPoint:
@@ -7846,19 +7824,11 @@ class QueryNextParameters:
     :vartype ContinuationPoint: ContinuationPoint
     """
 
-    ReleaseContinuationPoint: Boolean = True
-    ContinuationPoint_: ContinuationPoint = None
-
-    @property
-    def ContinuationPoint(self):
-        return self.ContinuationPoint_
-
-    @ContinuationPoint.setter
-    def ContinuationPoint(self, val):
-        self.ContinuationPoint_ = val
+    ReleaseContinuationPoint: 'ua.Boolean' = True
+    ContinuationPoint: 'ua.ContinuationPoint' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class QueryNextRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.10.4/#5.10.4.2
@@ -7873,20 +7843,12 @@ class QueryNextRequest:
 
     data_type = NodeId(ObjectIds.QueryNextRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.QueryNextRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: QueryNextParameters = field(default_factory=QueryNextParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.QueryNextRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.QueryNextParameters' = field(default_factory=lambda: QueryNextParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class QueryNextResult:
     """
     :ivar QueryDataSets:
@@ -7895,11 +7857,11 @@ class QueryNextResult:
     :vartype RevisedContinuationPoint: ContinuationPoint
     """
 
-    QueryDataSets: List[QueryDataSet] = field(default_factory=list)
-    RevisedContinuationPoint: ContinuationPoint = None
+    QueryDataSets: 'list[ua.QueryDataSet]' = field(default_factory=list)
+    RevisedContinuationPoint: 'ua.ContinuationPoint' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class QueryNextResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.10.4/#5.10.4.2
@@ -7914,23 +7876,15 @@ class QueryNextResponse:
 
     data_type = NodeId(ObjectIds.QueryNextResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.QueryNextResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Parameters: QueryNextResult = field(default_factory=QueryNextResult)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.QueryNextResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Parameters: 'ua.QueryNextResult' = field(default_factory=lambda: QueryNextResult())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ReadValueId:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.29
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.28
 
     :ivar NodeId:
     :vartype NodeId: NodeId
@@ -7944,21 +7898,13 @@ class ReadValueId:
 
     data_type = NodeId(ObjectIds.ReadValueId)
 
-    NodeId_: NodeId = field(default_factory=NodeId)
-    AttributeId: IntegerId = 0
-    IndexRange: NumericRange = None
-    DataEncoding: QualifiedName = field(default_factory=QualifiedName)
-
-    @property
-    def NodeId(self):
-        return self.NodeId_
-
-    @NodeId.setter
-    def NodeId(self, val):
-        self.NodeId_ = val
+    NodeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    AttributeId: 'ua.IntegerId' = 0
+    IndexRange: 'ua.NumericRange' = None
+    DataEncoding: 'ua.QualifiedName' = field(default_factory=lambda: QualifiedName())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ReadParameters:
     """
     :ivar MaxAge:
@@ -7969,20 +7915,12 @@ class ReadParameters:
     :vartype NodesToRead: ReadValueId
     """
 
-    MaxAge: Duration = 0
-    TimestampsToReturn_: TimestampsToReturn = TimestampsToReturn.Source
-    NodesToRead: List[ReadValueId] = field(default_factory=list)
-
-    @property
-    def TimestampsToReturn(self):
-        return self.TimestampsToReturn_
-
-    @TimestampsToReturn.setter
-    def TimestampsToReturn(self, val):
-        self.TimestampsToReturn_ = val
+    MaxAge: 'ua.Duration' = 0
+    TimestampsToReturn: 'ua.TimestampsToReturn' = field(default_factory=lambda:TimestampsToReturn.Source)
+    NodesToRead: 'list[ua.ReadValueId]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ReadRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.11.2/#5.11.2.2
@@ -7997,20 +7935,12 @@ class ReadRequest:
 
     data_type = NodeId(ObjectIds.ReadRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.ReadRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: ReadParameters = field(default_factory=ReadParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.ReadRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.ReadParameters' = field(default_factory=lambda: ReadParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ReadResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.11.2/#5.11.2.2
@@ -8027,21 +7957,13 @@ class ReadResponse:
 
     data_type = NodeId(ObjectIds.ReadResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.ReadResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Results: List[DataValue] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.ReadResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Results: 'list[ua.DataValue]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class HistoryReadValueId:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.11.3/#5.11.3.2
@@ -8058,28 +7980,13 @@ class HistoryReadValueId:
 
     data_type = NodeId(ObjectIds.HistoryReadValueId)
 
-    NodeId_: NodeId = field(default_factory=NodeId)
-    IndexRange: NumericRange = None
-    DataEncoding: QualifiedName = field(default_factory=QualifiedName)
-    ContinuationPoint_: ContinuationPoint = None
-
-    @property
-    def NodeId(self):
-        return self.NodeId_
-
-    @NodeId.setter
-    def NodeId(self, val):
-        self.NodeId_ = val
-    @property
-    def ContinuationPoint(self):
-        return self.ContinuationPoint_
-
-    @ContinuationPoint.setter
-    def ContinuationPoint(self, val):
-        self.ContinuationPoint_ = val
+    NodeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    IndexRange: 'ua.NumericRange' = None
+    DataEncoding: 'ua.QualifiedName' = field(default_factory=lambda: QualifiedName())
+    ContinuationPoint: 'ua.ContinuationPoint' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class HistoryReadResult:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.11.3/#5.11.3.2
@@ -8094,27 +8001,12 @@ class HistoryReadResult:
 
     data_type = NodeId(ObjectIds.HistoryReadResult)
 
-    StatusCode_: StatusCode = field(default_factory=StatusCode)
-    ContinuationPoint_: ContinuationPoint = None
-    HistoryData: ExtensionObject = ExtensionObject()
-
-    @property
-    def StatusCode(self):
-        return self.StatusCode_
-
-    @StatusCode.setter
-    def StatusCode(self, val):
-        self.StatusCode_ = val
-    @property
-    def ContinuationPoint(self):
-        return self.ContinuationPoint_
-
-    @ContinuationPoint.setter
-    def ContinuationPoint(self, val):
-        self.ContinuationPoint_ = val
+    StatusCode: 'ua.StatusCode' = field(default_factory=lambda: StatusCode())
+    ContinuationPoint: 'ua.ContinuationPoint' = None
+    HistoryData: 'ua.ExtensionObject' = ExtensionObject()
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class HistoryReadDetails:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part11/6.5.1
@@ -8124,7 +8016,7 @@ class HistoryReadDetails:
     data_type = NodeId(ObjectIds.HistoryReadDetails)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SortRuleElement:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part11/6.5.7
@@ -8137,11 +8029,11 @@ class SortRuleElement:
 
     data_type = NodeId(ObjectIds.SortRuleElement)
 
-    SortOrder: SortOrderType = SortOrderType.Ascending
-    EventField: SimpleAttributeOperand = field(default_factory=SimpleAttributeOperand)
+    SortOrder: 'ua.SortOrderType' = field(default_factory=lambda:SortOrderType.Ascending)
+    EventField: 'ua.SimpleAttributeOperand' = field(default_factory=lambda: SimpleAttributeOperand())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ReadRawModifiedDetails(HistoryReadDetails):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part11/6.5.3/#6.5.3.1
@@ -8160,14 +8052,14 @@ class ReadRawModifiedDetails(HistoryReadDetails):
 
     data_type = NodeId(ObjectIds.ReadRawModifiedDetails)
 
-    IsReadModified: Boolean = True
-    StartTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    EndTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    NumValuesPerNode: Counter = 0
-    ReturnBounds: Boolean = True
+    IsReadModified: 'ua.Boolean' = True
+    StartTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    EndTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    NumValuesPerNode: 'ua.Counter' = 0
+    ReturnBounds: 'ua.Boolean' = True
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ReadAtTimeDetails(HistoryReadDetails):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part11/6.5.5/#6.5.5.1
@@ -8180,11 +8072,11 @@ class ReadAtTimeDetails(HistoryReadDetails):
 
     data_type = NodeId(ObjectIds.ReadAtTimeDetails)
 
-    ReqTimes: List[UtcTime] = field(default_factory=list)
-    UseSimpleBounds: Boolean = True
+    ReqTimes: 'list[ua.UtcTime]' = field(default_factory=list)
+    UseSimpleBounds: 'ua.Boolean' = True
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ReadAnnotationDataDetails(HistoryReadDetails):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part11/6.5.6/#6.5.6.1
@@ -8195,10 +8087,10 @@ class ReadAnnotationDataDetails(HistoryReadDetails):
 
     data_type = NodeId(ObjectIds.ReadAnnotationDataDetails)
 
-    ReqTimes: List[UtcTime] = field(default_factory=list)
+    ReqTimes: 'list[ua.UtcTime]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class HistoryData:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part11/6.6.2
@@ -8209,10 +8101,10 @@ class HistoryData:
 
     data_type = NodeId(ObjectIds.HistoryData)
 
-    DataValues: List[DataValue] = field(default_factory=list)
+    DataValues: 'list[ua.DataValue]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ModificationInfo:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part11/6.6.5
@@ -8227,12 +8119,12 @@ class ModificationInfo:
 
     data_type = NodeId(ObjectIds.ModificationInfo)
 
-    ModificationTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    UpdateType: HistoryUpdateType = HistoryUpdateType.Insert
-    UserName: String = None
+    ModificationTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    UpdateType: 'ua.HistoryUpdateType' = field(default_factory=lambda:HistoryUpdateType.Insert)
+    UserName: 'ua.String' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class HistoryModifiedData(HistoryData):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part11/6.6.3
@@ -8245,11 +8137,11 @@ class HistoryModifiedData(HistoryData):
 
     data_type = NodeId(ObjectIds.HistoryModifiedData)
 
-    DataValues: List[DataValue] = field(default_factory=list)
-    ModificationInfos: List[ModificationInfo] = field(default_factory=list)
+    DataValues: 'list[ua.DataValue]' = field(default_factory=list)
+    ModificationInfos: 'list[ua.ModificationInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class HistoryReadParameters:
     """
     :ivar HistoryReadDetails:
@@ -8262,21 +8154,13 @@ class HistoryReadParameters:
     :vartype NodesToRead: HistoryReadValueId
     """
 
-    HistoryReadDetails: ExtensionObject = ExtensionObject()
-    TimestampsToReturn_: TimestampsToReturn = TimestampsToReturn.Source
-    ReleaseContinuationPoints: Boolean = True
-    NodesToRead: List[HistoryReadValueId] = field(default_factory=list)
-
-    @property
-    def TimestampsToReturn(self):
-        return self.TimestampsToReturn_
-
-    @TimestampsToReturn.setter
-    def TimestampsToReturn(self, val):
-        self.TimestampsToReturn_ = val
+    HistoryReadDetails: 'ua.ExtensionObject' = ExtensionObject()
+    TimestampsToReturn: 'ua.TimestampsToReturn' = field(default_factory=lambda:TimestampsToReturn.Source)
+    ReleaseContinuationPoints: 'ua.Boolean' = True
+    NodesToRead: 'list[ua.HistoryReadValueId]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class HistoryReadRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.11.3/#5.11.3.2
@@ -8291,20 +8175,12 @@ class HistoryReadRequest:
 
     data_type = NodeId(ObjectIds.HistoryReadRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.HistoryReadRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: HistoryReadParameters = field(default_factory=HistoryReadParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.HistoryReadRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.HistoryReadParameters' = field(default_factory=lambda: HistoryReadParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class HistoryReadResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.11.3/#5.11.3.2
@@ -8321,21 +8197,13 @@ class HistoryReadResponse:
 
     data_type = NodeId(ObjectIds.HistoryReadResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.HistoryReadResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Results: List[HistoryReadResult] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.HistoryReadResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Results: 'list[ua.HistoryReadResult]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class WriteValue:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.11.4/#5.11.4.2
@@ -8352,31 +8220,23 @@ class WriteValue:
 
     data_type = NodeId(ObjectIds.WriteValue)
 
-    NodeId_: NodeId = field(default_factory=NodeId)
-    AttributeId: IntegerId = 0
-    IndexRange: NumericRange = None
-    Value: DataValue = field(default_factory=DataValue)
-
-    @property
-    def NodeId(self):
-        return self.NodeId_
-
-    @NodeId.setter
-    def NodeId(self, val):
-        self.NodeId_ = val
+    NodeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    AttributeId: 'ua.IntegerId' = 0
+    IndexRange: 'ua.NumericRange' = None
+    Value: 'ua.DataValue' = field(default_factory=lambda: DataValue())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class WriteParameters:
     """
     :ivar NodesToWrite:
     :vartype NodesToWrite: WriteValue
     """
 
-    NodesToWrite: List[WriteValue] = field(default_factory=list)
+    NodesToWrite: 'list[ua.WriteValue]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class WriteRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.11.4/#5.11.4.2
@@ -8391,20 +8251,12 @@ class WriteRequest:
 
     data_type = NodeId(ObjectIds.WriteRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.WriteRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: WriteParameters = field(default_factory=WriteParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.WriteRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.WriteParameters' = field(default_factory=lambda: WriteParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class WriteResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.11.4/#5.11.4.2
@@ -8421,21 +8273,13 @@ class WriteResponse:
 
     data_type = NodeId(ObjectIds.WriteResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.WriteResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Results: List[StatusCode] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.WriteResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Results: 'list[ua.StatusCode]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class HistoryUpdateDetails:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part11/6.9.1
@@ -8445,7 +8289,7 @@ class HistoryUpdateDetails:
     data_type = NodeId(ObjectIds.HistoryUpdateDetails)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class UpdateDataDetails(HistoryUpdateDetails):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part11/6.9.2/#6.9.2.1
@@ -8460,20 +8304,12 @@ class UpdateDataDetails(HistoryUpdateDetails):
 
     data_type = NodeId(ObjectIds.UpdateDataDetails)
 
-    NodeId_: NodeId = field(default_factory=NodeId)
-    PerformInsertReplace: PerformUpdateType = PerformUpdateType.Insert
-    UpdateValues: List[DataValue] = field(default_factory=list)
-
-    @property
-    def NodeId(self):
-        return self.NodeId_
-
-    @NodeId.setter
-    def NodeId(self, val):
-        self.NodeId_ = val
+    NodeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    PerformInsertReplace: 'ua.PerformUpdateType' = field(default_factory=lambda:PerformUpdateType.Insert)
+    UpdateValues: 'list[ua.DataValue]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class UpdateStructureDataDetails(HistoryUpdateDetails):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part11/6.9.3/#6.9.3.1
@@ -8488,20 +8324,12 @@ class UpdateStructureDataDetails(HistoryUpdateDetails):
 
     data_type = NodeId(ObjectIds.UpdateStructureDataDetails)
 
-    NodeId_: NodeId = field(default_factory=NodeId)
-    PerformInsertReplace: PerformUpdateType = PerformUpdateType.Insert
-    UpdateValues: List[DataValue] = field(default_factory=list)
-
-    @property
-    def NodeId(self):
-        return self.NodeId_
-
-    @NodeId.setter
-    def NodeId(self, val):
-        self.NodeId_ = val
+    NodeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    PerformInsertReplace: 'ua.PerformUpdateType' = field(default_factory=lambda:PerformUpdateType.Insert)
+    UpdateValues: 'list[ua.DataValue]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DeleteRawModifiedDetails(HistoryUpdateDetails):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part11/6.9.5/#6.9.5.1
@@ -8518,21 +8346,13 @@ class DeleteRawModifiedDetails(HistoryUpdateDetails):
 
     data_type = NodeId(ObjectIds.DeleteRawModifiedDetails)
 
-    NodeId_: NodeId = field(default_factory=NodeId)
-    IsDeleteModified: Boolean = True
-    StartTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    EndTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-
-    @property
-    def NodeId(self):
-        return self.NodeId_
-
-    @NodeId.setter
-    def NodeId(self, val):
-        self.NodeId_ = val
+    NodeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    IsDeleteModified: 'ua.Boolean' = True
+    StartTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    EndTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DeleteAtTimeDetails(HistoryUpdateDetails):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part11/6.9.6/#6.9.6.1
@@ -8545,19 +8365,11 @@ class DeleteAtTimeDetails(HistoryUpdateDetails):
 
     data_type = NodeId(ObjectIds.DeleteAtTimeDetails)
 
-    NodeId_: NodeId = field(default_factory=NodeId)
-    ReqTimes: List[UtcTime] = field(default_factory=list)
-
-    @property
-    def NodeId(self):
-        return self.NodeId_
-
-    @NodeId.setter
-    def NodeId(self, val):
-        self.NodeId_ = val
+    NodeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    ReqTimes: 'list[ua.UtcTime]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DeleteEventDetails(HistoryUpdateDetails):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part11/6.9.7/#6.9.7.1
@@ -8570,19 +8382,11 @@ class DeleteEventDetails(HistoryUpdateDetails):
 
     data_type = NodeId(ObjectIds.DeleteEventDetails)
 
-    NodeId_: NodeId = field(default_factory=NodeId)
-    EventIds: List[ByteString] = field(default_factory=list)
-
-    @property
-    def NodeId(self):
-        return self.NodeId_
-
-    @NodeId.setter
-    def NodeId(self, val):
-        self.NodeId_ = val
+    NodeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    EventIds: 'list[ua.ByteString]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class HistoryUpdateResult:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.11.5/#5.11.5.2
@@ -8597,30 +8401,22 @@ class HistoryUpdateResult:
 
     data_type = NodeId(ObjectIds.HistoryUpdateResult)
 
-    StatusCode_: StatusCode = field(default_factory=StatusCode)
-    OperationResults: List[StatusCode] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
-
-    @property
-    def StatusCode(self):
-        return self.StatusCode_
-
-    @StatusCode.setter
-    def StatusCode(self, val):
-        self.StatusCode_ = val
+    StatusCode: 'ua.StatusCode' = field(default_factory=lambda: StatusCode())
+    OperationResults: 'list[ua.StatusCode]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class HistoryUpdateParameters:
     """
     :ivar HistoryUpdateDetails:
     :vartype HistoryUpdateDetails: ExtensionObject
     """
 
-    HistoryUpdateDetails: List[ExtensionObject] = field(default_factory=list)
+    HistoryUpdateDetails: 'list[ua.ExtensionObject]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class HistoryUpdateRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.11.5/#5.11.5.2
@@ -8635,20 +8431,12 @@ class HistoryUpdateRequest:
 
     data_type = NodeId(ObjectIds.HistoryUpdateRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.HistoryUpdateRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: HistoryUpdateParameters = field(default_factory=HistoryUpdateParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.HistoryUpdateRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.HistoryUpdateParameters' = field(default_factory=lambda: HistoryUpdateParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class HistoryUpdateResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.11.5/#5.11.5.2
@@ -8665,21 +8453,13 @@ class HistoryUpdateResponse:
 
     data_type = NodeId(ObjectIds.HistoryUpdateResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.HistoryUpdateResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Results: List[HistoryUpdateResult] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.HistoryUpdateResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Results: 'list[ua.HistoryUpdateResult]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CallMethodRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.12.2/#5.12.2.2
@@ -8694,12 +8474,12 @@ class CallMethodRequest:
 
     data_type = NodeId(ObjectIds.CallMethodRequest)
 
-    ObjectId: NodeId = field(default_factory=NodeId)
-    MethodId: NodeId = field(default_factory=NodeId)
-    InputArguments: List[Variant] = field(default_factory=list)
+    ObjectId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    MethodId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    InputArguments: 'list[ua.Variant]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CallMethodResult:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.12.2/#5.12.2.2
@@ -8716,31 +8496,23 @@ class CallMethodResult:
 
     data_type = NodeId(ObjectIds.CallMethodResult)
 
-    StatusCode_: StatusCode = field(default_factory=StatusCode)
-    InputArgumentResults: List[StatusCode] = field(default_factory=list)
-    InputArgumentDiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
-    OutputArguments: List[Variant] = field(default_factory=list)
-
-    @property
-    def StatusCode(self):
-        return self.StatusCode_
-
-    @StatusCode.setter
-    def StatusCode(self, val):
-        self.StatusCode_ = val
+    StatusCode: 'ua.StatusCode' = field(default_factory=lambda: StatusCode())
+    InputArgumentResults: 'list[ua.StatusCode]' = field(default_factory=list)
+    InputArgumentDiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
+    OutputArguments: 'list[ua.Variant]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CallParameters:
     """
     :ivar MethodsToCall:
     :vartype MethodsToCall: CallMethodRequest
     """
 
-    MethodsToCall: List[CallMethodRequest] = field(default_factory=list)
+    MethodsToCall: 'list[ua.CallMethodRequest]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CallRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.12.2/#5.12.2.2
@@ -8755,20 +8527,12 @@ class CallRequest:
 
     data_type = NodeId(ObjectIds.CallRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.CallRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: CallParameters = field(default_factory=CallParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.CallRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.CallParameters' = field(default_factory=lambda: CallParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CallResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.12.2/#5.12.2.2
@@ -8785,21 +8549,13 @@ class CallResponse:
 
     data_type = NodeId(ObjectIds.CallResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.CallResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Results: List[CallMethodResult] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.CallResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Results: 'list[ua.CallMethodResult]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class MonitoringFilter:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.22.1
@@ -8809,7 +8565,7 @@ class MonitoringFilter:
     data_type = NodeId(ObjectIds.MonitoringFilter)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DataChangeFilter(MonitoringFilter):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.22.2
@@ -8824,12 +8580,12 @@ class DataChangeFilter(MonitoringFilter):
 
     data_type = NodeId(ObjectIds.DataChangeFilter)
 
-    Trigger: DataChangeTrigger = DataChangeTrigger.Status
-    DeadbandType: UInt32 = 0
-    DeadbandValue: Double = 0
+    Trigger: 'ua.DataChangeTrigger' = field(default_factory=lambda:DataChangeTrigger.Status)
+    DeadbandType: 'ua.UInt32' = 0
+    DeadbandValue: 'ua.Double' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class EventFilter(MonitoringFilter):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.22.3
@@ -8842,11 +8598,11 @@ class EventFilter(MonitoringFilter):
 
     data_type = NodeId(ObjectIds.EventFilter)
 
-    SelectClauses: List[SimpleAttributeOperand] = field(default_factory=list)
-    WhereClause: ContentFilter = field(default_factory=ContentFilter)
+    SelectClauses: 'list[ua.SimpleAttributeOperand]' = field(default_factory=list)
+    WhereClause: 'ua.ContentFilter' = field(default_factory=lambda: ContentFilter())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ReadEventDetails(HistoryReadDetails):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part11/6.5.2/#6.5.2.1
@@ -8863,13 +8619,13 @@ class ReadEventDetails(HistoryReadDetails):
 
     data_type = NodeId(ObjectIds.ReadEventDetails)
 
-    NumValuesPerNode: Counter = 0
-    StartTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    EndTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    Filter: EventFilter = field(default_factory=EventFilter)
+    NumValuesPerNode: 'ua.Counter' = 0
+    StartTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    EndTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    Filter: 'ua.EventFilter' = field(default_factory=lambda: EventFilter())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ReadEventDetails2(ReadEventDetails):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part11/6.5.2/#6.5.2.3
@@ -8888,14 +8644,14 @@ class ReadEventDetails2(ReadEventDetails):
 
     data_type = NodeId(ObjectIds.ReadEventDetails2)
 
-    NumValuesPerNode: Counter = 0
-    StartTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    EndTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    Filter: EventFilter = field(default_factory=EventFilter)
-    ReadModified: Boolean = True
+    NumValuesPerNode: 'ua.Counter' = 0
+    StartTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    EndTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    Filter: 'ua.EventFilter' = field(default_factory=lambda: EventFilter())
+    ReadModified: 'ua.Boolean' = True
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ReadEventDetailsSorted(ReadEventDetails):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part11/6.5.2/#6.5.2.5
@@ -8914,17 +8670,17 @@ class ReadEventDetailsSorted(ReadEventDetails):
 
     data_type = NodeId(ObjectIds.ReadEventDetailsSorted)
 
-    NumValuesPerNode: Counter = 0
-    StartTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    EndTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    Filter: EventFilter = field(default_factory=EventFilter)
-    SortClause: List[SortRuleElement] = field(default_factory=list)
+    NumValuesPerNode: 'ua.Counter' = 0
+    StartTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    EndTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    Filter: 'ua.EventFilter' = field(default_factory=lambda: EventFilter())
+    SortClause: 'list[ua.SortRuleElement]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class AggregateConfiguration:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part11/6.5.4/#6.5.4.1
+    https://reference.opcfoundation.org/v105/Core/docs/Part4/7.22.4
 
     :ivar UseServerCapabilitiesDefaults:
     :vartype UseServerCapabilitiesDefaults: Boolean
@@ -8940,17 +8696,17 @@ class AggregateConfiguration:
 
     data_type = NodeId(ObjectIds.AggregateConfiguration)
 
-    UseServerCapabilitiesDefaults: Boolean = True
-    TreatUncertainAsBad: Boolean = True
-    PercentDataBad: Byte = 0
-    PercentDataGood: Byte = 0
-    UseSlopedExtrapolation: Boolean = True
+    UseServerCapabilitiesDefaults: 'ua.Boolean' = True
+    TreatUncertainAsBad: 'ua.Boolean' = True
+    PercentDataBad: 'ua.Byte' = 0
+    PercentDataGood: 'ua.Byte' = 0
+    UseSlopedExtrapolation: 'ua.Boolean' = True
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ReadProcessedDetails(HistoryReadDetails):
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part11/6.5.4/#6.5.4.1
+    https://reference.opcfoundation.org/v105/Core/docs/Part13/5.2.2
 
     :ivar StartTime:
     :vartype StartTime: UtcTime
@@ -8966,22 +8722,14 @@ class ReadProcessedDetails(HistoryReadDetails):
 
     data_type = NodeId(ObjectIds.ReadProcessedDetails)
 
-    StartTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    EndTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    ProcessingInterval: Duration = 0
-    AggregateType: List[NodeId] = field(default_factory=list)
-    AggregateConfiguration_: AggregateConfiguration = field(default_factory=AggregateConfiguration)
-
-    @property
-    def AggregateConfiguration(self):
-        return self.AggregateConfiguration_
-
-    @AggregateConfiguration.setter
-    def AggregateConfiguration(self, val):
-        self.AggregateConfiguration_ = val
+    StartTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    EndTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    ProcessingInterval: 'ua.Duration' = 0
+    AggregateType: 'list[ua.NodeId]' = field(default_factory=list)
+    AggregateConfiguration: 'ua.AggregateConfiguration' = field(default_factory=lambda: AggregateConfiguration())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class AggregateFilter(MonitoringFilter):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.22.4
@@ -8998,21 +8746,13 @@ class AggregateFilter(MonitoringFilter):
 
     data_type = NodeId(ObjectIds.AggregateFilter)
 
-    StartTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    AggregateType: NodeId = field(default_factory=NodeId)
-    ProcessingInterval: Duration = 0
-    AggregateConfiguration_: AggregateConfiguration = field(default_factory=AggregateConfiguration)
-
-    @property
-    def AggregateConfiguration(self):
-        return self.AggregateConfiguration_
-
-    @AggregateConfiguration.setter
-    def AggregateConfiguration(self, val):
-        self.AggregateConfiguration_ = val
+    StartTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    AggregateType: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    ProcessingInterval: 'ua.Duration' = 0
+    AggregateConfiguration: 'ua.AggregateConfiguration' = field(default_factory=lambda: AggregateConfiguration())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class MonitoringFilterResult:
     """
     """
@@ -9020,7 +8760,7 @@ class MonitoringFilterResult:
     data_type = NodeId(ObjectIds.MonitoringFilterResult)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class EventFilterResult(MonitoringFilterResult):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.22.3
@@ -9035,12 +8775,12 @@ class EventFilterResult(MonitoringFilterResult):
 
     data_type = NodeId(ObjectIds.EventFilterResult)
 
-    SelectClauseResults: List[StatusCode] = field(default_factory=list)
-    SelectClauseDiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
-    WhereClauseResult: ContentFilterResult = field(default_factory=ContentFilterResult)
+    SelectClauseResults: 'list[ua.StatusCode]' = field(default_factory=list)
+    SelectClauseDiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
+    WhereClauseResult: 'ua.ContentFilterResult' = field(default_factory=lambda: ContentFilterResult())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class AggregateFilterResult(MonitoringFilterResult):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.22.4
@@ -9055,12 +8795,12 @@ class AggregateFilterResult(MonitoringFilterResult):
 
     data_type = NodeId(ObjectIds.AggregateFilterResult)
 
-    RevisedStartTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    RevisedProcessingInterval: Duration = 0
-    RevisedAggregateConfiguration: AggregateConfiguration = field(default_factory=AggregateConfiguration)
+    RevisedStartTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    RevisedProcessingInterval: 'ua.Duration' = 0
+    RevisedAggregateConfiguration: 'ua.AggregateConfiguration' = field(default_factory=lambda: AggregateConfiguration())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class MonitoringParameters:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.21
@@ -9079,14 +8819,14 @@ class MonitoringParameters:
 
     data_type = NodeId(ObjectIds.MonitoringParameters)
 
-    ClientHandle: IntegerId = 0
-    SamplingInterval: Duration = 0
-    Filter: ExtensionObject = ExtensionObject()
-    QueueSize: Counter = 0
-    DiscardOldest: Boolean = True
+    ClientHandle: 'ua.IntegerId' = 0
+    SamplingInterval: 'ua.Duration' = 0
+    Filter: 'ua.ExtensionObject' = ExtensionObject()
+    QueueSize: 'ua.Counter' = 0
+    DiscardOldest: 'ua.Boolean' = True
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class MonitoredItemCreateRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.13.2/#5.13.2.2
@@ -9101,20 +8841,12 @@ class MonitoredItemCreateRequest:
 
     data_type = NodeId(ObjectIds.MonitoredItemCreateRequest)
 
-    ItemToMonitor: ReadValueId = field(default_factory=ReadValueId)
-    MonitoringMode_: MonitoringMode = MonitoringMode.Disabled
-    RequestedParameters: MonitoringParameters = field(default_factory=MonitoringParameters)
-
-    @property
-    def MonitoringMode(self):
-        return self.MonitoringMode_
-
-    @MonitoringMode.setter
-    def MonitoringMode(self, val):
-        self.MonitoringMode_ = val
+    ItemToMonitor: 'ua.ReadValueId' = field(default_factory=lambda: ReadValueId())
+    MonitoringMode: 'ua.MonitoringMode' = field(default_factory=lambda:MonitoringMode.Disabled)
+    RequestedParameters: 'ua.MonitoringParameters' = field(default_factory=lambda: MonitoringParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class MonitoredItemCreateResult:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.13.2/#5.13.2.2
@@ -9133,22 +8865,14 @@ class MonitoredItemCreateResult:
 
     data_type = NodeId(ObjectIds.MonitoredItemCreateResult)
 
-    StatusCode_: StatusCode = field(default_factory=StatusCode)
-    MonitoredItemId: IntegerId = 0
-    RevisedSamplingInterval: Duration = 0
-    RevisedQueueSize: Counter = 0
-    FilterResult: ExtensionObject = ExtensionObject()
-
-    @property
-    def StatusCode(self):
-        return self.StatusCode_
-
-    @StatusCode.setter
-    def StatusCode(self, val):
-        self.StatusCode_ = val
+    StatusCode: 'ua.StatusCode' = field(default_factory=lambda: StatusCode())
+    MonitoredItemId: 'ua.IntegerId' = 0
+    RevisedSamplingInterval: 'ua.Duration' = 0
+    RevisedQueueSize: 'ua.Counter' = 0
+    FilterResult: 'ua.ExtensionObject' = ExtensionObject()
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CreateMonitoredItemsParameters:
     """
     :ivar SubscriptionId:
@@ -9159,20 +8883,12 @@ class CreateMonitoredItemsParameters:
     :vartype ItemsToCreate: MonitoredItemCreateRequest
     """
 
-    SubscriptionId: IntegerId = 0
-    TimestampsToReturn_: TimestampsToReturn = TimestampsToReturn.Source
-    ItemsToCreate: List[MonitoredItemCreateRequest] = field(default_factory=list)
-
-    @property
-    def TimestampsToReturn(self):
-        return self.TimestampsToReturn_
-
-    @TimestampsToReturn.setter
-    def TimestampsToReturn(self, val):
-        self.TimestampsToReturn_ = val
+    SubscriptionId: 'ua.IntegerId' = 0
+    TimestampsToReturn: 'ua.TimestampsToReturn' = field(default_factory=lambda:TimestampsToReturn.Source)
+    ItemsToCreate: 'list[ua.MonitoredItemCreateRequest]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CreateMonitoredItemsRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.13.2/#5.13.2.2
@@ -9187,20 +8903,12 @@ class CreateMonitoredItemsRequest:
 
     data_type = NodeId(ObjectIds.CreateMonitoredItemsRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.CreateMonitoredItemsRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: CreateMonitoredItemsParameters = field(default_factory=CreateMonitoredItemsParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.CreateMonitoredItemsRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.CreateMonitoredItemsParameters' = field(default_factory=lambda: CreateMonitoredItemsParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CreateMonitoredItemsResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.13.2/#5.13.2.2
@@ -9217,21 +8925,13 @@ class CreateMonitoredItemsResponse:
 
     data_type = NodeId(ObjectIds.CreateMonitoredItemsResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.CreateMonitoredItemsResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Results: List[MonitoredItemCreateResult] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.CreateMonitoredItemsResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Results: 'list[ua.MonitoredItemCreateResult]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class MonitoredItemModifyRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.13.3/#5.13.3.2
@@ -9244,11 +8944,11 @@ class MonitoredItemModifyRequest:
 
     data_type = NodeId(ObjectIds.MonitoredItemModifyRequest)
 
-    MonitoredItemId: IntegerId = 0
-    RequestedParameters: MonitoringParameters = field(default_factory=MonitoringParameters)
+    MonitoredItemId: 'ua.IntegerId' = 0
+    RequestedParameters: 'ua.MonitoringParameters' = field(default_factory=lambda: MonitoringParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class MonitoredItemModifyResult:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.13.3/#5.13.3.2
@@ -9265,21 +8965,13 @@ class MonitoredItemModifyResult:
 
     data_type = NodeId(ObjectIds.MonitoredItemModifyResult)
 
-    StatusCode_: StatusCode = field(default_factory=StatusCode)
-    RevisedSamplingInterval: Duration = 0
-    RevisedQueueSize: Counter = 0
-    FilterResult: ExtensionObject = ExtensionObject()
-
-    @property
-    def StatusCode(self):
-        return self.StatusCode_
-
-    @StatusCode.setter
-    def StatusCode(self, val):
-        self.StatusCode_ = val
+    StatusCode: 'ua.StatusCode' = field(default_factory=lambda: StatusCode())
+    RevisedSamplingInterval: 'ua.Duration' = 0
+    RevisedQueueSize: 'ua.Counter' = 0
+    FilterResult: 'ua.ExtensionObject' = ExtensionObject()
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ModifyMonitoredItemsParameters:
     """
     :ivar SubscriptionId:
@@ -9290,20 +8982,12 @@ class ModifyMonitoredItemsParameters:
     :vartype ItemsToModify: MonitoredItemModifyRequest
     """
 
-    SubscriptionId: IntegerId = 0
-    TimestampsToReturn_: TimestampsToReturn = TimestampsToReturn.Source
-    ItemsToModify: List[MonitoredItemModifyRequest] = field(default_factory=list)
-
-    @property
-    def TimestampsToReturn(self):
-        return self.TimestampsToReturn_
-
-    @TimestampsToReturn.setter
-    def TimestampsToReturn(self, val):
-        self.TimestampsToReturn_ = val
+    SubscriptionId: 'ua.IntegerId' = 0
+    TimestampsToReturn: 'ua.TimestampsToReturn' = field(default_factory=lambda:TimestampsToReturn.Source)
+    ItemsToModify: 'list[ua.MonitoredItemModifyRequest]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ModifyMonitoredItemsRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.13.3/#5.13.3.2
@@ -9318,20 +9002,12 @@ class ModifyMonitoredItemsRequest:
 
     data_type = NodeId(ObjectIds.ModifyMonitoredItemsRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.ModifyMonitoredItemsRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: ModifyMonitoredItemsParameters = field(default_factory=ModifyMonitoredItemsParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.ModifyMonitoredItemsRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.ModifyMonitoredItemsParameters' = field(default_factory=lambda: ModifyMonitoredItemsParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ModifyMonitoredItemsResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.13.3/#5.13.3.2
@@ -9348,21 +9024,13 @@ class ModifyMonitoredItemsResponse:
 
     data_type = NodeId(ObjectIds.ModifyMonitoredItemsResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.ModifyMonitoredItemsResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Results: List[MonitoredItemModifyResult] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.ModifyMonitoredItemsResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Results: 'list[ua.MonitoredItemModifyResult]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SetMonitoringModeParameters:
     """
     :ivar SubscriptionId:
@@ -9373,20 +9041,12 @@ class SetMonitoringModeParameters:
     :vartype MonitoredItemIds: IntegerId
     """
 
-    SubscriptionId: IntegerId = 0
-    MonitoringMode_: MonitoringMode = MonitoringMode.Disabled
-    MonitoredItemIds: List[IntegerId] = field(default_factory=list)
-
-    @property
-    def MonitoringMode(self):
-        return self.MonitoringMode_
-
-    @MonitoringMode.setter
-    def MonitoringMode(self, val):
-        self.MonitoringMode_ = val
+    SubscriptionId: 'ua.IntegerId' = 0
+    MonitoringMode: 'ua.MonitoringMode' = field(default_factory=lambda:MonitoringMode.Disabled)
+    MonitoredItemIds: 'list[ua.IntegerId]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SetMonitoringModeRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.13.4/#5.13.4.2
@@ -9401,20 +9061,12 @@ class SetMonitoringModeRequest:
 
     data_type = NodeId(ObjectIds.SetMonitoringModeRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.SetMonitoringModeRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: SetMonitoringModeParameters = field(default_factory=SetMonitoringModeParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.SetMonitoringModeRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.SetMonitoringModeParameters' = field(default_factory=lambda: SetMonitoringModeParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SetMonitoringModeResult:
     """
     :ivar Results:
@@ -9423,11 +9075,11 @@ class SetMonitoringModeResult:
     :vartype DiagnosticInfos: DiagnosticInfo
     """
 
-    Results: List[StatusCode] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
+    Results: 'list[ua.StatusCode]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SetMonitoringModeResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.13.4/#5.13.4.2
@@ -9442,20 +9094,12 @@ class SetMonitoringModeResponse:
 
     data_type = NodeId(ObjectIds.SetMonitoringModeResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.SetMonitoringModeResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Parameters: SetMonitoringModeResult = field(default_factory=SetMonitoringModeResult)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.SetMonitoringModeResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Parameters: 'ua.SetMonitoringModeResult' = field(default_factory=lambda: SetMonitoringModeResult())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SetTriggeringParameters:
     """
     :ivar SubscriptionId:
@@ -9468,13 +9112,13 @@ class SetTriggeringParameters:
     :vartype LinksToRemove: IntegerId
     """
 
-    SubscriptionId: IntegerId = 0
-    TriggeringItemId: IntegerId = 0
-    LinksToAdd: List[IntegerId] = field(default_factory=list)
-    LinksToRemove: List[IntegerId] = field(default_factory=list)
+    SubscriptionId: 'ua.IntegerId' = 0
+    TriggeringItemId: 'ua.IntegerId' = 0
+    LinksToAdd: 'list[ua.IntegerId]' = field(default_factory=list)
+    LinksToRemove: 'list[ua.IntegerId]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SetTriggeringRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.13.5/#5.13.5.2
@@ -9489,20 +9133,12 @@ class SetTriggeringRequest:
 
     data_type = NodeId(ObjectIds.SetTriggeringRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.SetTriggeringRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: SetTriggeringParameters = field(default_factory=SetTriggeringParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.SetTriggeringRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.SetTriggeringParameters' = field(default_factory=lambda: SetTriggeringParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SetTriggeringResult:
     """
     :ivar AddResults:
@@ -9515,13 +9151,13 @@ class SetTriggeringResult:
     :vartype RemoveDiagnosticInfos: DiagnosticInfo
     """
 
-    AddResults: List[StatusCode] = field(default_factory=list)
-    AddDiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
-    RemoveResults: List[StatusCode] = field(default_factory=list)
-    RemoveDiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
+    AddResults: 'list[ua.StatusCode]' = field(default_factory=list)
+    AddDiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
+    RemoveResults: 'list[ua.StatusCode]' = field(default_factory=list)
+    RemoveDiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SetTriggeringResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.13.5/#5.13.5.2
@@ -9536,20 +9172,12 @@ class SetTriggeringResponse:
 
     data_type = NodeId(ObjectIds.SetTriggeringResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.SetTriggeringResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Parameters: SetTriggeringResult = field(default_factory=SetTriggeringResult)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.SetTriggeringResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Parameters: 'ua.SetTriggeringResult' = field(default_factory=lambda: SetTriggeringResult())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DeleteMonitoredItemsParameters:
     """
     :ivar SubscriptionId:
@@ -9558,11 +9186,11 @@ class DeleteMonitoredItemsParameters:
     :vartype MonitoredItemIds: IntegerId
     """
 
-    SubscriptionId: IntegerId = 0
-    MonitoredItemIds: List[IntegerId] = field(default_factory=list)
+    SubscriptionId: 'ua.IntegerId' = 0
+    MonitoredItemIds: 'list[ua.IntegerId]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DeleteMonitoredItemsRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.13.6/#5.13.6.2
@@ -9577,20 +9205,12 @@ class DeleteMonitoredItemsRequest:
 
     data_type = NodeId(ObjectIds.DeleteMonitoredItemsRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.DeleteMonitoredItemsRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: DeleteMonitoredItemsParameters = field(default_factory=DeleteMonitoredItemsParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.DeleteMonitoredItemsRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.DeleteMonitoredItemsParameters' = field(default_factory=lambda: DeleteMonitoredItemsParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DeleteMonitoredItemsResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.13.6/#5.13.6.2
@@ -9607,21 +9227,13 @@ class DeleteMonitoredItemsResponse:
 
     data_type = NodeId(ObjectIds.DeleteMonitoredItemsResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.DeleteMonitoredItemsResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Results: List[StatusCode] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.DeleteMonitoredItemsResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Results: 'list[ua.StatusCode]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CreateSubscriptionParameters:
     """
     :ivar RequestedPublishingInterval:
@@ -9638,15 +9250,15 @@ class CreateSubscriptionParameters:
     :vartype Priority: Byte
     """
 
-    RequestedPublishingInterval: Duration = 0
-    RequestedLifetimeCount: Counter = 0
-    RequestedMaxKeepAliveCount: Counter = 0
-    MaxNotificationsPerPublish: Counter = 0
-    PublishingEnabled: Boolean = True
-    Priority: Byte = 0
+    RequestedPublishingInterval: 'ua.Duration' = 0
+    RequestedLifetimeCount: 'ua.Counter' = 0
+    RequestedMaxKeepAliveCount: 'ua.Counter' = 0
+    MaxNotificationsPerPublish: 'ua.Counter' = 0
+    PublishingEnabled: 'ua.Boolean' = True
+    Priority: 'ua.Byte' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CreateSubscriptionRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.14.2/#5.14.2.2
@@ -9661,20 +9273,12 @@ class CreateSubscriptionRequest:
 
     data_type = NodeId(ObjectIds.CreateSubscriptionRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.CreateSubscriptionRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: CreateSubscriptionParameters = field(default_factory=CreateSubscriptionParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.CreateSubscriptionRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.CreateSubscriptionParameters' = field(default_factory=lambda: CreateSubscriptionParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CreateSubscriptionResult:
     """
     :ivar SubscriptionId:
@@ -9687,13 +9291,13 @@ class CreateSubscriptionResult:
     :vartype RevisedMaxKeepAliveCount: Counter
     """
 
-    SubscriptionId: IntegerId = 0
-    RevisedPublishingInterval: Duration = 0
-    RevisedLifetimeCount: Counter = 0
-    RevisedMaxKeepAliveCount: Counter = 0
+    SubscriptionId: 'ua.IntegerId' = 0
+    RevisedPublishingInterval: 'ua.Duration' = 0
+    RevisedLifetimeCount: 'ua.Counter' = 0
+    RevisedMaxKeepAliveCount: 'ua.Counter' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class CreateSubscriptionResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.14.2/#5.14.2.2
@@ -9708,20 +9312,12 @@ class CreateSubscriptionResponse:
 
     data_type = NodeId(ObjectIds.CreateSubscriptionResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.CreateSubscriptionResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Parameters: CreateSubscriptionResult = field(default_factory=CreateSubscriptionResult)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.CreateSubscriptionResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Parameters: 'ua.CreateSubscriptionResult' = field(default_factory=lambda: CreateSubscriptionResult())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ModifySubscriptionParameters:
     """
     :ivar SubscriptionId:
@@ -9738,15 +9334,15 @@ class ModifySubscriptionParameters:
     :vartype Priority: Byte
     """
 
-    SubscriptionId: IntegerId = 0
-    RequestedPublishingInterval: Duration = 0
-    RequestedLifetimeCount: Counter = 0
-    RequestedMaxKeepAliveCount: Counter = 0
-    MaxNotificationsPerPublish: Counter = 0
-    Priority: Byte = 0
+    SubscriptionId: 'ua.IntegerId' = 0
+    RequestedPublishingInterval: 'ua.Duration' = 0
+    RequestedLifetimeCount: 'ua.Counter' = 0
+    RequestedMaxKeepAliveCount: 'ua.Counter' = 0
+    MaxNotificationsPerPublish: 'ua.Counter' = 0
+    Priority: 'ua.Byte' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ModifySubscriptionRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.14.3/#5.14.3.2
@@ -9761,20 +9357,12 @@ class ModifySubscriptionRequest:
 
     data_type = NodeId(ObjectIds.ModifySubscriptionRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.ModifySubscriptionRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: ModifySubscriptionParameters = field(default_factory=ModifySubscriptionParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.ModifySubscriptionRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.ModifySubscriptionParameters' = field(default_factory=lambda: ModifySubscriptionParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ModifySubscriptionResult:
     """
     :ivar RevisedPublishingInterval:
@@ -9785,12 +9373,12 @@ class ModifySubscriptionResult:
     :vartype RevisedMaxKeepAliveCount: Counter
     """
 
-    RevisedPublishingInterval: Duration = 0
-    RevisedLifetimeCount: Counter = 0
-    RevisedMaxKeepAliveCount: Counter = 0
+    RevisedPublishingInterval: 'ua.Duration' = 0
+    RevisedLifetimeCount: 'ua.Counter' = 0
+    RevisedMaxKeepAliveCount: 'ua.Counter' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ModifySubscriptionResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.14.3/#5.14.3.2
@@ -9805,20 +9393,12 @@ class ModifySubscriptionResponse:
 
     data_type = NodeId(ObjectIds.ModifySubscriptionResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.ModifySubscriptionResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Parameters: ModifySubscriptionResult = field(default_factory=ModifySubscriptionResult)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.ModifySubscriptionResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Parameters: 'ua.ModifySubscriptionResult' = field(default_factory=lambda: ModifySubscriptionResult())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SetPublishingModeParameters:
     """
     :ivar PublishingEnabled:
@@ -9827,11 +9407,11 @@ class SetPublishingModeParameters:
     :vartype SubscriptionIds: IntegerId
     """
 
-    PublishingEnabled: Boolean = True
-    SubscriptionIds: List[IntegerId] = field(default_factory=list)
+    PublishingEnabled: 'ua.Boolean' = True
+    SubscriptionIds: 'list[ua.IntegerId]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SetPublishingModeRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.14.4/#5.14.4.2
@@ -9846,20 +9426,12 @@ class SetPublishingModeRequest:
 
     data_type = NodeId(ObjectIds.SetPublishingModeRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.SetPublishingModeRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: SetPublishingModeParameters = field(default_factory=SetPublishingModeParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.SetPublishingModeRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.SetPublishingModeParameters' = field(default_factory=lambda: SetPublishingModeParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SetPublishingModeResult:
     """
     :ivar Results:
@@ -9868,11 +9440,11 @@ class SetPublishingModeResult:
     :vartype DiagnosticInfos: DiagnosticInfo
     """
 
-    Results: List[StatusCode] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
+    Results: 'list[ua.StatusCode]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SetPublishingModeResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.14.4/#5.14.4.2
@@ -9887,20 +9459,12 @@ class SetPublishingModeResponse:
 
     data_type = NodeId(ObjectIds.SetPublishingModeResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.SetPublishingModeResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Parameters: SetPublishingModeResult = field(default_factory=SetPublishingModeResult)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.SetPublishingModeResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Parameters: 'ua.SetPublishingModeResult' = field(default_factory=lambda: SetPublishingModeResult())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class NotificationMessage:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.26
@@ -9915,12 +9479,12 @@ class NotificationMessage:
 
     data_type = NodeId(ObjectIds.NotificationMessage)
 
-    SequenceNumber: Counter = 0
-    PublishTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    NotificationData: List[ExtensionObject] = field(default_factory=list)
+    SequenceNumber: 'ua.Counter' = 0
+    PublishTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    NotificationData: 'list[ua.ExtensionObject]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class NotificationData:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.25.1
@@ -9930,7 +9494,7 @@ class NotificationData:
     data_type = NodeId(ObjectIds.NotificationData)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class MonitoredItemNotification:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.25.2
@@ -9943,11 +9507,11 @@ class MonitoredItemNotification:
 
     data_type = NodeId(ObjectIds.MonitoredItemNotification)
 
-    ClientHandle: IntegerId = 0
-    Value: DataValue = field(default_factory=DataValue)
+    ClientHandle: 'ua.IntegerId' = 0
+    Value: 'ua.DataValue' = field(default_factory=lambda: DataValue())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DataChangeNotification(NotificationData):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.25.2
@@ -9960,11 +9524,11 @@ class DataChangeNotification(NotificationData):
 
     data_type = NodeId(ObjectIds.DataChangeNotification)
 
-    MonitoredItems: List[MonitoredItemNotification] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
+    MonitoredItems: 'list[ua.MonitoredItemNotification]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class EventFieldList:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.25.3
@@ -9977,11 +9541,11 @@ class EventFieldList:
 
     data_type = NodeId(ObjectIds.EventFieldList)
 
-    ClientHandle: IntegerId = 0
-    EventFields: List[Variant] = field(default_factory=list)
+    ClientHandle: 'ua.IntegerId' = 0
+    EventFields: 'list[ua.Variant]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class EventNotificationList(NotificationData):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.25.3
@@ -9992,10 +9556,10 @@ class EventNotificationList(NotificationData):
 
     data_type = NodeId(ObjectIds.EventNotificationList)
 
-    Events: List[EventFieldList] = field(default_factory=list)
+    Events: 'list[ua.EventFieldList]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class HistoryEventFieldList:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part11/6.6.4
@@ -10006,10 +9570,10 @@ class HistoryEventFieldList:
 
     data_type = NodeId(ObjectIds.HistoryEventFieldList)
 
-    EventFields: List[Variant] = field(default_factory=list)
+    EventFields: 'list[ua.Variant]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class HistoryEvent:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part11/6.6.4
@@ -10020,10 +9584,10 @@ class HistoryEvent:
 
     data_type = NodeId(ObjectIds.HistoryEvent)
 
-    Events: List[HistoryEventFieldList] = field(default_factory=list)
+    Events: 'list[ua.HistoryEventFieldList]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class HistoryModifiedEvent(HistoryEvent):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part11/6.6.5
@@ -10036,11 +9600,11 @@ class HistoryModifiedEvent(HistoryEvent):
 
     data_type = NodeId(ObjectIds.HistoryModifiedEvent)
 
-    Events: List[HistoryEventFieldList] = field(default_factory=list)
-    ModificationInfos: List[ModificationInfo] = field(default_factory=list)
+    Events: 'list[ua.HistoryEventFieldList]' = field(default_factory=list)
+    ModificationInfos: 'list[ua.ModificationInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class UpdateEventDetails(HistoryUpdateDetails):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part11/6.9.4/#6.9.4.1
@@ -10057,21 +9621,13 @@ class UpdateEventDetails(HistoryUpdateDetails):
 
     data_type = NodeId(ObjectIds.UpdateEventDetails)
 
-    NodeId_: NodeId = field(default_factory=NodeId)
-    PerformInsertReplace: PerformUpdateType = PerformUpdateType.Insert
-    Filter: EventFilter = field(default_factory=EventFilter)
-    EventData: List[HistoryEventFieldList] = field(default_factory=list)
-
-    @property
-    def NodeId(self):
-        return self.NodeId_
-
-    @NodeId.setter
-    def NodeId(self, val):
-        self.NodeId_ = val
+    NodeId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    PerformInsertReplace: 'ua.PerformUpdateType' = field(default_factory=lambda:PerformUpdateType.Insert)
+    Filter: 'ua.EventFilter' = field(default_factory=lambda: EventFilter())
+    EventData: 'list[ua.HistoryEventFieldList]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class StatusChangeNotification(NotificationData):
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/7.25.4
@@ -10084,19 +9640,11 @@ class StatusChangeNotification(NotificationData):
 
     data_type = NodeId(ObjectIds.StatusChangeNotification)
 
-    Status: StatusCode = field(default_factory=StatusCode)
-    DiagnosticInfo_: DiagnosticInfo = field(default_factory=DiagnosticInfo)
-
-    @property
-    def DiagnosticInfo(self):
-        return self.DiagnosticInfo_
-
-    @DiagnosticInfo.setter
-    def DiagnosticInfo(self, val):
-        self.DiagnosticInfo_ = val
+    Status: 'ua.StatusCode' = field(default_factory=lambda: StatusCode())
+    DiagnosticInfo: 'ua.DiagnosticInfo' = field(default_factory=lambda: DiagnosticInfo())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SubscriptionAcknowledgement:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.14.5/#5.14.5.2
@@ -10109,21 +9657,21 @@ class SubscriptionAcknowledgement:
 
     data_type = NodeId(ObjectIds.SubscriptionAcknowledgement)
 
-    SubscriptionId: IntegerId = 0
-    SequenceNumber: Counter = 0
+    SubscriptionId: 'ua.IntegerId' = 0
+    SequenceNumber: 'ua.Counter' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class PublishParameters:
     """
     :ivar SubscriptionAcknowledgements:
     :vartype SubscriptionAcknowledgements: SubscriptionAcknowledgement
     """
 
-    SubscriptionAcknowledgements: List[SubscriptionAcknowledgement] = field(default_factory=list)
+    SubscriptionAcknowledgements: 'list[ua.SubscriptionAcknowledgement]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class PublishRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.14.5/#5.14.5.2
@@ -10138,20 +9686,12 @@ class PublishRequest:
 
     data_type = NodeId(ObjectIds.PublishRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.PublishRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: PublishParameters = field(default_factory=PublishParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.PublishRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.PublishParameters' = field(default_factory=lambda: PublishParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class PublishResult:
     """
     :ivar SubscriptionId:
@@ -10168,23 +9708,15 @@ class PublishResult:
     :vartype DiagnosticInfos: DiagnosticInfo
     """
 
-    SubscriptionId: IntegerId = 0
-    AvailableSequenceNumbers: List[Counter] = field(default_factory=list)
-    MoreNotifications: Boolean = True
-    NotificationMessage_: NotificationMessage = field(default_factory=NotificationMessage)
-    Results: List[StatusCode] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
-
-    @property
-    def NotificationMessage(self):
-        return self.NotificationMessage_
-
-    @NotificationMessage.setter
-    def NotificationMessage(self, val):
-        self.NotificationMessage_ = val
+    SubscriptionId: 'ua.IntegerId' = 0
+    AvailableSequenceNumbers: 'list[ua.Counter]' = field(default_factory=list)
+    MoreNotifications: 'ua.Boolean' = True
+    NotificationMessage: 'ua.NotificationMessage' = field(default_factory=lambda: NotificationMessage())
+    Results: 'list[ua.StatusCode]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class PublishResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.14.5/#5.14.5.2
@@ -10199,20 +9731,12 @@ class PublishResponse:
 
     data_type = NodeId(ObjectIds.PublishResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.PublishResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Parameters: PublishResult = field(default_factory=PublishResult)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.PublishResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Parameters: 'ua.PublishResult' = field(default_factory=lambda: PublishResult())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class RepublishParameters:
     """
     :ivar SubscriptionId:
@@ -10221,11 +9745,11 @@ class RepublishParameters:
     :vartype RetransmitSequenceNumber: Counter
     """
 
-    SubscriptionId: IntegerId = 0
-    RetransmitSequenceNumber: Counter = 0
+    SubscriptionId: 'ua.IntegerId' = 0
+    RetransmitSequenceNumber: 'ua.Counter' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class RepublishRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.14.6/#5.14.6.2
@@ -10240,20 +9764,12 @@ class RepublishRequest:
 
     data_type = NodeId(ObjectIds.RepublishRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.RepublishRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: RepublishParameters = field(default_factory=RepublishParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.RepublishRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.RepublishParameters' = field(default_factory=lambda: RepublishParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class RepublishResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.14.6/#5.14.6.2
@@ -10268,27 +9784,12 @@ class RepublishResponse:
 
     data_type = NodeId(ObjectIds.RepublishResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.RepublishResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    NotificationMessage_: NotificationMessage = field(default_factory=NotificationMessage)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
-    @property
-    def NotificationMessage(self):
-        return self.NotificationMessage_
-
-    @NotificationMessage.setter
-    def NotificationMessage(self, val):
-        self.NotificationMessage_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.RepublishResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    NotificationMessage: 'ua.NotificationMessage' = field(default_factory=lambda: NotificationMessage())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class TransferResult:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.14.7/#5.14.7.2
@@ -10301,19 +9802,11 @@ class TransferResult:
 
     data_type = NodeId(ObjectIds.TransferResult)
 
-    StatusCode_: StatusCode = field(default_factory=StatusCode)
-    AvailableSequenceNumbers: List[Counter] = field(default_factory=list)
-
-    @property
-    def StatusCode(self):
-        return self.StatusCode_
-
-    @StatusCode.setter
-    def StatusCode(self, val):
-        self.StatusCode_ = val
+    StatusCode: 'ua.StatusCode' = field(default_factory=lambda: StatusCode())
+    AvailableSequenceNumbers: 'list[ua.Counter]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class TransferSubscriptionsParameters:
     """
     :ivar SubscriptionIds:
@@ -10322,11 +9815,11 @@ class TransferSubscriptionsParameters:
     :vartype SendInitialValues: Boolean
     """
 
-    SubscriptionIds: List[IntegerId] = field(default_factory=list)
-    SendInitialValues: Boolean = True
+    SubscriptionIds: 'list[ua.IntegerId]' = field(default_factory=list)
+    SendInitialValues: 'ua.Boolean' = True
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class TransferSubscriptionsRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.14.7/#5.14.7.2
@@ -10341,20 +9834,12 @@ class TransferSubscriptionsRequest:
 
     data_type = NodeId(ObjectIds.TransferSubscriptionsRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.TransferSubscriptionsRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: TransferSubscriptionsParameters = field(default_factory=TransferSubscriptionsParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.TransferSubscriptionsRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.TransferSubscriptionsParameters' = field(default_factory=lambda: TransferSubscriptionsParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class TransferSubscriptionsResult:
     """
     :ivar Results:
@@ -10363,11 +9848,11 @@ class TransferSubscriptionsResult:
     :vartype DiagnosticInfos: DiagnosticInfo
     """
 
-    Results: List[TransferResult] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
+    Results: 'list[ua.TransferResult]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class TransferSubscriptionsResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.14.7/#5.14.7.2
@@ -10382,30 +9867,22 @@ class TransferSubscriptionsResponse:
 
     data_type = NodeId(ObjectIds.TransferSubscriptionsResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.TransferSubscriptionsResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Parameters: TransferSubscriptionsResult = field(default_factory=TransferSubscriptionsResult)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.TransferSubscriptionsResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Parameters: 'ua.TransferSubscriptionsResult' = field(default_factory=lambda: TransferSubscriptionsResult())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DeleteSubscriptionsParameters:
     """
     :ivar SubscriptionIds:
     :vartype SubscriptionIds: IntegerId
     """
 
-    SubscriptionIds: List[IntegerId] = field(default_factory=list)
+    SubscriptionIds: 'list[ua.IntegerId]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DeleteSubscriptionsRequest:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.14.8/#5.14.8.2
@@ -10420,20 +9897,12 @@ class DeleteSubscriptionsRequest:
 
     data_type = NodeId(ObjectIds.DeleteSubscriptionsRequest)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.DeleteSubscriptionsRequest_Encoding_DefaultBinary)
-    RequestHeader_: RequestHeader = field(default_factory=RequestHeader)
-    Parameters: DeleteSubscriptionsParameters = field(default_factory=DeleteSubscriptionsParameters)
-
-    @property
-    def RequestHeader(self):
-        return self.RequestHeader_
-
-    @RequestHeader.setter
-    def RequestHeader(self, val):
-        self.RequestHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.DeleteSubscriptionsRequest_Encoding_DefaultBinary)
+    RequestHeader: 'ua.RequestHeader' = field(default_factory=lambda: RequestHeader())
+    Parameters: 'ua.DeleteSubscriptionsParameters' = field(default_factory=lambda: DeleteSubscriptionsParameters())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DeleteSubscriptionsResponse:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part4/5.14.8/#5.14.8.2
@@ -10450,21 +9919,13 @@ class DeleteSubscriptionsResponse:
 
     data_type = NodeId(ObjectIds.DeleteSubscriptionsResponse)
 
-    TypeId: NodeId = FourByteNodeId(ObjectIds.DeleteSubscriptionsResponse_Encoding_DefaultBinary)
-    ResponseHeader_: ResponseHeader = field(default_factory=ResponseHeader)
-    Results: List[StatusCode] = field(default_factory=list)
-    DiagnosticInfos: List[DiagnosticInfo] = field(default_factory=list)
-
-    @property
-    def ResponseHeader(self):
-        return self.ResponseHeader_
-
-    @ResponseHeader.setter
-    def ResponseHeader(self, val):
-        self.ResponseHeader_ = val
+    TypeId: 'ua.NodeId' = FourByteNodeId(ObjectIds.DeleteSubscriptionsResponse_Encoding_DefaultBinary)
+    ResponseHeader: 'ua.ResponseHeader' = field(default_factory=lambda: ResponseHeader())
+    Results: 'list[ua.StatusCode]' = field(default_factory=list)
+    DiagnosticInfos: 'list[ua.DiagnosticInfo]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class BuildInfo:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.4
@@ -10485,15 +9946,15 @@ class BuildInfo:
 
     data_type = NodeId(ObjectIds.BuildInfo)
 
-    ProductUri: String = None
-    ManufacturerName: String = None
-    ProductName: String = None
-    SoftwareVersion: String = None
-    BuildNumber: String = None
-    BuildDate: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
+    ProductUri: 'ua.String' = None
+    ManufacturerName: 'ua.String' = None
+    ProductName: 'ua.String' = None
+    SoftwareVersion: 'ua.String' = None
+    BuildNumber: 'ua.String' = None
+    BuildDate: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class RedundantServerDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.7
@@ -10508,20 +9969,12 @@ class RedundantServerDataType:
 
     data_type = NodeId(ObjectIds.RedundantServerDataType)
 
-    ServerId: String = None
-    ServiceLevel: Byte = 0
-    ServerState_: ServerState = ServerState.Running
-
-    @property
-    def ServerState(self):
-        return self.ServerState_
-
-    @ServerState.setter
-    def ServerState(self, val):
-        self.ServerState_ = val
+    ServerId: 'ua.String' = None
+    ServiceLevel: 'ua.Byte' = 0
+    ServerState: 'ua.ServerState' = field(default_factory=lambda:ServerState.Running)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class EndpointUrlListDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.20
@@ -10532,10 +9985,10 @@ class EndpointUrlListDataType:
 
     data_type = NodeId(ObjectIds.EndpointUrlListDataType)
 
-    EndpointUrlList: List[String] = field(default_factory=list)
+    EndpointUrlList: 'list[ua.String]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class NetworkGroupDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.19
@@ -10548,11 +10001,11 @@ class NetworkGroupDataType:
 
     data_type = NodeId(ObjectIds.NetworkGroupDataType)
 
-    ServerUri: String = None
-    NetworkPaths: List[EndpointUrlListDataType] = field(default_factory=list)
+    ServerUri: 'ua.String' = None
+    NetworkPaths: 'list[ua.EndpointUrlListDataType]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SamplingIntervalDiagnosticsDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.8
@@ -10569,13 +10022,13 @@ class SamplingIntervalDiagnosticsDataType:
 
     data_type = NodeId(ObjectIds.SamplingIntervalDiagnosticsDataType)
 
-    SamplingInterval: Duration = 0
-    MonitoredItemCount: UInt32 = 0
-    MaxMonitoredItemCount: UInt32 = 0
-    DisabledMonitoredItemCount: UInt32 = 0
+    SamplingInterval: 'ua.Duration' = 0
+    MonitoredItemCount: 'ua.UInt32' = 0
+    MaxMonitoredItemCount: 'ua.UInt32' = 0
+    DisabledMonitoredItemCount: 'ua.UInt32' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ServerDiagnosticsSummaryDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.9
@@ -10608,21 +10061,21 @@ class ServerDiagnosticsSummaryDataType:
 
     data_type = NodeId(ObjectIds.ServerDiagnosticsSummaryDataType)
 
-    ServerViewCount: UInt32 = 0
-    CurrentSessionCount: UInt32 = 0
-    CumulatedSessionCount: UInt32 = 0
-    SecurityRejectedSessionCount: UInt32 = 0
-    RejectedSessionCount: UInt32 = 0
-    SessionTimeoutCount: UInt32 = 0
-    SessionAbortCount: UInt32 = 0
-    CurrentSubscriptionCount: UInt32 = 0
-    CumulatedSubscriptionCount: UInt32 = 0
-    PublishingIntervalCount: UInt32 = 0
-    SecurityRejectedRequestsCount: UInt32 = 0
-    RejectedRequestsCount: UInt32 = 0
+    ServerViewCount: 'ua.UInt32' = 0
+    CurrentSessionCount: 'ua.UInt32' = 0
+    CumulatedSessionCount: 'ua.UInt32' = 0
+    SecurityRejectedSessionCount: 'ua.UInt32' = 0
+    RejectedSessionCount: 'ua.UInt32' = 0
+    SessionTimeoutCount: 'ua.UInt32' = 0
+    SessionAbortCount: 'ua.UInt32' = 0
+    CurrentSubscriptionCount: 'ua.UInt32' = 0
+    CumulatedSubscriptionCount: 'ua.UInt32' = 0
+    PublishingIntervalCount: 'ua.UInt32' = 0
+    SecurityRejectedRequestsCount: 'ua.UInt32' = 0
+    RejectedRequestsCount: 'ua.UInt32' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ServerStatusDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.10
@@ -10643,23 +10096,15 @@ class ServerStatusDataType:
 
     data_type = NodeId(ObjectIds.ServerStatusDataType)
 
-    StartTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    CurrentTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    State: ServerState = ServerState.Running
-    BuildInfo_: BuildInfo = field(default_factory=BuildInfo)
-    SecondsTillShutdown: UInt32 = 0
-    ShutdownReason: LocalizedText = field(default_factory=LocalizedText)
-
-    @property
-    def BuildInfo(self):
-        return self.BuildInfo_
-
-    @BuildInfo.setter
-    def BuildInfo(self, val):
-        self.BuildInfo_ = val
+    StartTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    CurrentTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    State: 'ua.ServerState' = field(default_factory=lambda:ServerState.Running)
+    BuildInfo: 'ua.BuildInfo' = field(default_factory=lambda: BuildInfo())
+    SecondsTillShutdown: 'ua.UInt32' = 0
+    ShutdownReason: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SessionSecurityDiagnosticsDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.12
@@ -10686,18 +10131,18 @@ class SessionSecurityDiagnosticsDataType:
 
     data_type = NodeId(ObjectIds.SessionSecurityDiagnosticsDataType)
 
-    SessionId: NodeId = field(default_factory=NodeId)
-    ClientUserIdOfSession: String = None
-    ClientUserIdHistory: List[String] = field(default_factory=list)
-    AuthenticationMechanism: String = None
+    SessionId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    ClientUserIdOfSession: 'ua.String' = None
+    ClientUserIdHistory: 'list[ua.String]' = field(default_factory=list)
+    AuthenticationMechanism: 'ua.String' = None
     Encoding: Byte = field(default=0, repr=False, init=False, compare=False)
-    TransportProtocol: String = None
-    SecurityMode: MessageSecurityMode = MessageSecurityMode.Invalid
-    SecurityPolicyUri: String = None
-    ClientCertificate: ByteString = None
+    TransportProtocol: 'ua.String' = None
+    SecurityMode: 'ua.MessageSecurityMode' = field(default_factory=lambda:MessageSecurityMode.Invalid)
+    SecurityPolicyUri: 'ua.String' = None
+    ClientCertificate: 'ua.ByteString' = None
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ServiceCounterDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.13
@@ -10710,11 +10155,11 @@ class ServiceCounterDataType:
 
     data_type = NodeId(ObjectIds.ServiceCounterDataType)
 
-    TotalCount: UInt32 = 0
-    ErrorCount: UInt32 = 0
+    TotalCount: 'ua.UInt32' = 0
+    ErrorCount: 'ua.UInt32' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SessionDiagnosticsDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.11
@@ -10809,52 +10254,52 @@ class SessionDiagnosticsDataType:
 
     data_type = NodeId(ObjectIds.SessionDiagnosticsDataType)
 
-    SessionId: NodeId = field(default_factory=NodeId)
-    SessionName: String = None
-    ClientDescription: ApplicationDescription = field(default_factory=ApplicationDescription)
-    ServerUri: String = None
-    EndpointUrl: String = None
-    LocaleIds: List[LocaleId] = field(default_factory=list)
-    ActualSessionTimeout: Duration = 0
-    MaxResponseMessageSize: UInt32 = 0
-    ClientConnectionTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    ClientLastContactTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    CurrentSubscriptionsCount: UInt32 = 0
-    CurrentMonitoredItemsCount: UInt32 = 0
-    CurrentPublishRequestsInQueue: UInt32 = 0
-    TotalRequestCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    UnauthorizedRequestCount: UInt32 = 0
-    ReadCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    HistoryReadCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    WriteCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    HistoryUpdateCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    CallCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    CreateMonitoredItemsCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    ModifyMonitoredItemsCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    SetMonitoringModeCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    SetTriggeringCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    DeleteMonitoredItemsCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    CreateSubscriptionCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    ModifySubscriptionCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    SetPublishingModeCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    PublishCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    RepublishCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    TransferSubscriptionsCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    DeleteSubscriptionsCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    AddNodesCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    AddReferencesCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    DeleteNodesCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    DeleteReferencesCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    BrowseCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    BrowseNextCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    TranslateBrowsePathsToNodeIdsCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    QueryFirstCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    QueryNextCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    RegisterNodesCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
-    UnregisterNodesCount: ServiceCounterDataType = field(default_factory=ServiceCounterDataType)
+    SessionId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    SessionName: 'ua.String' = None
+    ClientDescription: 'ua.ApplicationDescription' = field(default_factory=lambda: ApplicationDescription())
+    ServerUri: 'ua.String' = None
+    EndpointUrl: 'ua.String' = None
+    LocaleIds: 'list[ua.LocaleId]' = field(default_factory=list)
+    ActualSessionTimeout: 'ua.Duration' = 0
+    MaxResponseMessageSize: 'ua.UInt32' = 0
+    ClientConnectionTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    ClientLastContactTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    CurrentSubscriptionsCount: 'ua.UInt32' = 0
+    CurrentMonitoredItemsCount: 'ua.UInt32' = 0
+    CurrentPublishRequestsInQueue: 'ua.UInt32' = 0
+    TotalRequestCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    UnauthorizedRequestCount: 'ua.UInt32' = 0
+    ReadCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    HistoryReadCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    WriteCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    HistoryUpdateCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    CallCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    CreateMonitoredItemsCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    ModifyMonitoredItemsCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    SetMonitoringModeCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    SetTriggeringCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    DeleteMonitoredItemsCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    CreateSubscriptionCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    ModifySubscriptionCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    SetPublishingModeCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    PublishCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    RepublishCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    TransferSubscriptionsCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    DeleteSubscriptionsCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    AddNodesCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    AddReferencesCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    DeleteNodesCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    DeleteReferencesCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    BrowseCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    BrowseNextCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    TranslateBrowsePathsToNodeIdsCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    QueryFirstCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    QueryNextCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    RegisterNodesCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
+    UnregisterNodesCount: 'ua.ServiceCounterDataType' = field(default_factory=lambda: ServiceCounterDataType())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class StatusResult:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.14
@@ -10867,26 +10312,11 @@ class StatusResult:
 
     data_type = NodeId(ObjectIds.StatusResult)
 
-    StatusCode_: StatusCode = field(default_factory=StatusCode)
-    DiagnosticInfo_: DiagnosticInfo = field(default_factory=DiagnosticInfo)
-
-    @property
-    def StatusCode(self):
-        return self.StatusCode_
-
-    @StatusCode.setter
-    def StatusCode(self, val):
-        self.StatusCode_ = val
-    @property
-    def DiagnosticInfo(self):
-        return self.DiagnosticInfo_
-
-    @DiagnosticInfo.setter
-    def DiagnosticInfo(self, val):
-        self.DiagnosticInfo_ = val
+    StatusCode: 'ua.StatusCode' = field(default_factory=lambda: StatusCode())
+    DiagnosticInfo: 'ua.DiagnosticInfo' = field(default_factory=lambda: DiagnosticInfo())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SubscriptionDiagnosticsDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.15
@@ -10957,40 +10387,40 @@ class SubscriptionDiagnosticsDataType:
 
     data_type = NodeId(ObjectIds.SubscriptionDiagnosticsDataType)
 
-    SessionId: NodeId = field(default_factory=NodeId)
-    SubscriptionId: UInt32 = 0
-    Priority: Byte = 0
-    PublishingInterval: Duration = 0
-    MaxKeepAliveCount: UInt32 = 0
-    MaxLifetimeCount: UInt32 = 0
-    MaxNotificationsPerPublish: UInt32 = 0
-    PublishingEnabled: Boolean = True
-    ModifyCount: UInt32 = 0
-    EnableCount: UInt32 = 0
-    DisableCount: UInt32 = 0
-    RepublishRequestCount: UInt32 = 0
-    RepublishMessageRequestCount: UInt32 = 0
-    RepublishMessageCount: UInt32 = 0
-    TransferRequestCount: UInt32 = 0
-    TransferredToAltClientCount: UInt32 = 0
-    TransferredToSameClientCount: UInt32 = 0
-    PublishRequestCount: UInt32 = 0
-    DataChangeNotificationsCount: UInt32 = 0
-    EventNotificationsCount: UInt32 = 0
-    NotificationsCount: UInt32 = 0
-    LatePublishRequestCount: UInt32 = 0
-    CurrentKeepAliveCount: UInt32 = 0
-    CurrentLifetimeCount: UInt32 = 0
-    UnacknowledgedMessageCount: UInt32 = 0
-    DiscardedMessageCount: UInt32 = 0
-    MonitoredItemCount: UInt32 = 0
-    DisabledMonitoredItemCount: UInt32 = 0
-    MonitoringQueueOverflowCount: UInt32 = 0
-    NextSequenceNumber: UInt32 = 0
-    EventQueueOverflowCount: UInt32 = 0
+    SessionId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    SubscriptionId: 'ua.UInt32' = 0
+    Priority: 'ua.Byte' = 0
+    PublishingInterval: 'ua.Duration' = 0
+    MaxKeepAliveCount: 'ua.UInt32' = 0
+    MaxLifetimeCount: 'ua.UInt32' = 0
+    MaxNotificationsPerPublish: 'ua.UInt32' = 0
+    PublishingEnabled: 'ua.Boolean' = True
+    ModifyCount: 'ua.UInt32' = 0
+    EnableCount: 'ua.UInt32' = 0
+    DisableCount: 'ua.UInt32' = 0
+    RepublishRequestCount: 'ua.UInt32' = 0
+    RepublishMessageRequestCount: 'ua.UInt32' = 0
+    RepublishMessageCount: 'ua.UInt32' = 0
+    TransferRequestCount: 'ua.UInt32' = 0
+    TransferredToAltClientCount: 'ua.UInt32' = 0
+    TransferredToSameClientCount: 'ua.UInt32' = 0
+    PublishRequestCount: 'ua.UInt32' = 0
+    DataChangeNotificationsCount: 'ua.UInt32' = 0
+    EventNotificationsCount: 'ua.UInt32' = 0
+    NotificationsCount: 'ua.UInt32' = 0
+    LatePublishRequestCount: 'ua.UInt32' = 0
+    CurrentKeepAliveCount: 'ua.UInt32' = 0
+    CurrentLifetimeCount: 'ua.UInt32' = 0
+    UnacknowledgedMessageCount: 'ua.UInt32' = 0
+    DiscardedMessageCount: 'ua.UInt32' = 0
+    MonitoredItemCount: 'ua.UInt32' = 0
+    DisabledMonitoredItemCount: 'ua.UInt32' = 0
+    MonitoringQueueOverflowCount: 'ua.UInt32' = 0
+    NextSequenceNumber: 'ua.UInt32' = 0
+    EventQueueOverflowCount: 'ua.UInt32' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ModelChangeStructureDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.16
@@ -11005,12 +10435,12 @@ class ModelChangeStructureDataType:
 
     data_type = NodeId(ObjectIds.ModelChangeStructureDataType)
 
-    Affected: NodeId = field(default_factory=NodeId)
-    AffectedType: NodeId = field(default_factory=NodeId)
-    Verb: Byte = 0
+    Affected: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    AffectedType: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    Verb: 'ua.Byte' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class SemanticChangeStructureDataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part5/12.17
@@ -11023,11 +10453,11 @@ class SemanticChangeStructureDataType:
 
     data_type = NodeId(ObjectIds.SemanticChangeStructureDataType)
 
-    Affected: NodeId = field(default_factory=NodeId)
-    AffectedType: NodeId = field(default_factory=NodeId)
+    Affected: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    AffectedType: 'ua.NodeId' = field(default_factory=lambda: NodeId())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class Range:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part8/5.6.2
@@ -11040,14 +10470,14 @@ class Range:
 
     data_type = NodeId(ObjectIds.Range)
 
-    Low: Double = 0
-    High: Double = 0
+    Low: 'ua.Double' = 0
+    High: 'ua.Double' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class EUInformation:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part8/5.6.3/#5.6.3.3
+    https://reference.opcfoundation.org/v105/Core/docs/Part8/5.6.4/#5.6.4.3
 
     :ivar NamespaceUri:
     :vartype NamespaceUri: String
@@ -11061,16 +10491,16 @@ class EUInformation:
 
     data_type = NodeId(ObjectIds.EUInformation)
 
-    NamespaceUri: String = None
-    UnitId: Int32 = 0
-    DisplayName: LocalizedText = field(default_factory=LocalizedText)
-    Description: LocalizedText = field(default_factory=LocalizedText)
+    NamespaceUri: 'ua.String' = None
+    UnitId: 'ua.Int32' = 0
+    DisplayName: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    Description: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ComplexNumberType:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part8/5.6.4
+    https://reference.opcfoundation.org/v105/Core/docs/Part8/5.6.5
 
     :ivar Real:
     :vartype Real: Float
@@ -11080,14 +10510,14 @@ class ComplexNumberType:
 
     data_type = NodeId(ObjectIds.ComplexNumberType)
 
-    Real: Float = 0
-    Imaginary: Float = 0
+    Real: 'ua.Float' = 0
+    Imaginary: 'ua.Float' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class DoubleComplexNumberType:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part8/5.6.5
+    https://reference.opcfoundation.org/v105/Core/docs/Part8/5.6.6
 
     :ivar Real:
     :vartype Real: Double
@@ -11097,14 +10527,14 @@ class DoubleComplexNumberType:
 
     data_type = NodeId(ObjectIds.DoubleComplexNumberType)
 
-    Real: Double = 0
-    Imaginary: Double = 0
+    Real: 'ua.Double' = 0
+    Imaginary: 'ua.Double' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class AxisInformation:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part8/5.6.6
+    https://reference.opcfoundation.org/v105/Core/docs/Part8/5.6.7
 
     :ivar EngineeringUnits:
     :vartype EngineeringUnits: EUInformation
@@ -11120,17 +10550,17 @@ class AxisInformation:
 
     data_type = NodeId(ObjectIds.AxisInformation)
 
-    EngineeringUnits: EUInformation = field(default_factory=EUInformation)
-    EURange: Range = field(default_factory=Range)
-    Title: LocalizedText = field(default_factory=LocalizedText)
-    AxisScaleType: AxisScaleEnumeration = AxisScaleEnumeration.Linear
-    AxisSteps: List[Double] = field(default_factory=list)
+    EngineeringUnits: 'ua.EUInformation' = field(default_factory=lambda: EUInformation())
+    EURange: 'ua.Range' = field(default_factory=lambda: Range())
+    Title: 'ua.LocalizedText' = field(default_factory=lambda: LocalizedText())
+    AxisScaleType: 'ua.AxisScaleEnumeration' = field(default_factory=lambda:AxisScaleEnumeration.Linear)
+    AxisSteps: 'list[ua.Double]' = field(default_factory=list)
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class XVType:
     """
-    https://reference.opcfoundation.org/v105/Core/docs/Part8/5.6.8
+    https://reference.opcfoundation.org/v105/Core/docs/Part8/5.6.9
 
     :ivar X:
     :vartype X: Double
@@ -11140,11 +10570,11 @@ class XVType:
 
     data_type = NodeId(ObjectIds.XVType)
 
-    X: Double = 0
-    Value: Float = 0
+    X: 'ua.Double' = 0
+    Value: 'ua.Float' = 0
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ProgramDiagnosticDataType:
     """
     :ivar CreateSessionId:
@@ -11171,19 +10601,19 @@ class ProgramDiagnosticDataType:
 
     data_type = NodeId(ObjectIds.ProgramDiagnosticDataType)
 
-    CreateSessionId: NodeId = field(default_factory=NodeId)
-    CreateClientName: String = None
-    InvocationCreationTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    LastTransitionTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    LastMethodCall: String = None
-    LastMethodSessionId: NodeId = field(default_factory=NodeId)
-    LastMethodInputArguments: List[Argument] = field(default_factory=list)
-    LastMethodOutputArguments: List[Argument] = field(default_factory=list)
-    LastMethodCallTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    LastMethodReturnStatus: StatusResult = field(default_factory=StatusResult)
+    CreateSessionId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    CreateClientName: 'ua.String' = None
+    InvocationCreationTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    LastTransitionTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    LastMethodCall: 'ua.String' = None
+    LastMethodSessionId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    LastMethodInputArguments: 'list[ua.Argument]' = field(default_factory=list)
+    LastMethodOutputArguments: 'list[ua.Argument]' = field(default_factory=list)
+    LastMethodCallTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    LastMethodReturnStatus: 'ua.StatusResult' = field(default_factory=lambda: StatusResult())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class ProgramDiagnostic2DataType:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part10/5.2.8
@@ -11216,21 +10646,21 @@ class ProgramDiagnostic2DataType:
 
     data_type = NodeId(ObjectIds.ProgramDiagnostic2DataType)
 
-    CreateSessionId: NodeId = field(default_factory=NodeId)
-    CreateClientName: String = None
-    InvocationCreationTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    LastTransitionTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    LastMethodCall: String = None
-    LastMethodSessionId: NodeId = field(default_factory=NodeId)
-    LastMethodInputArguments: List[Argument] = field(default_factory=list)
-    LastMethodOutputArguments: List[Argument] = field(default_factory=list)
-    LastMethodInputValues: List[Variant] = field(default_factory=list)
-    LastMethodOutputValues: List[Variant] = field(default_factory=list)
-    LastMethodCallTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
-    LastMethodReturnStatus: StatusCode = field(default_factory=StatusCode)
+    CreateSessionId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    CreateClientName: 'ua.String' = None
+    InvocationCreationTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    LastTransitionTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    LastMethodCall: 'ua.String' = None
+    LastMethodSessionId: 'ua.NodeId' = field(default_factory=lambda: NodeId())
+    LastMethodInputArguments: 'list[ua.Argument]' = field(default_factory=list)
+    LastMethodOutputArguments: 'list[ua.Argument]' = field(default_factory=list)
+    LastMethodInputValues: 'list[ua.Variant]' = field(default_factory=list)
+    LastMethodOutputValues: 'list[ua.Variant]' = field(default_factory=list)
+    LastMethodCallTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
+    LastMethodReturnStatus: 'ua.StatusCode' = field(default_factory=lambda: StatusCode())
 
 
-@dataclass(frozen=FROZEN)
+@dataclass(slots=True)
 class Annotation:
     """
     https://reference.opcfoundation.org/v105/Core/docs/Part11/6.6.6
@@ -11245,995 +10675,1034 @@ class Annotation:
 
     data_type = NodeId(ObjectIds.Annotation)
 
-    Message: String = None
-    UserName: String = None
-    AnnotationTime: UtcTime = field(default_factory=lambda: datetime.now(timezone.utc))
+    Message: 'ua.String' = None
+    UserName: 'ua.String' = None
+    AnnotationTime: 'ua.UtcTime' = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 nid = FourByteNodeId(ObjectIds.Union_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = Union
-extension_object_typeids['Union'] = nid
+typeid_by_extension_objects[Union] = nid
 nid = FourByteNodeId(ObjectIds.KeyValuePair_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = KeyValuePair
-extension_object_typeids['KeyValuePair'] = nid
+typeid_by_extension_objects[KeyValuePair] = nid
 nid = FourByteNodeId(ObjectIds.AdditionalParametersType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = AdditionalParametersType
-extension_object_typeids['AdditionalParametersType'] = nid
+typeid_by_extension_objects[AdditionalParametersType] = nid
 nid = FourByteNodeId(ObjectIds.EphemeralKeyType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = EphemeralKeyType
-extension_object_typeids['EphemeralKeyType'] = nid
+typeid_by_extension_objects[EphemeralKeyType] = nid
 nid = FourByteNodeId(ObjectIds.EndpointType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = EndpointType
-extension_object_typeids['EndpointType'] = nid
+typeid_by_extension_objects[EndpointType] = nid
 nid = FourByteNodeId(ObjectIds.BitFieldDefinition_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = BitFieldDefinition
-extension_object_typeids['BitFieldDefinition'] = nid
+typeid_by_extension_objects[BitFieldDefinition] = nid
 nid = FourByteNodeId(ObjectIds.RationalNumber_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = RationalNumber
-extension_object_typeids['RationalNumber'] = nid
+typeid_by_extension_objects[RationalNumber] = nid
 nid = FourByteNodeId(ObjectIds.Vector_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = Vector
-extension_object_typeids['Vector'] = nid
+typeid_by_extension_objects[Vector] = nid
 nid = FourByteNodeId(ObjectIds.ThreeDVector_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ThreeDVector
-extension_object_typeids['ThreeDVector'] = nid
+typeid_by_extension_objects[ThreeDVector] = nid
 nid = FourByteNodeId(ObjectIds.CartesianCoordinates_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = CartesianCoordinates
-extension_object_typeids['CartesianCoordinates'] = nid
+typeid_by_extension_objects[CartesianCoordinates] = nid
 nid = FourByteNodeId(ObjectIds.ThreeDCartesianCoordinates_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ThreeDCartesianCoordinates
-extension_object_typeids['ThreeDCartesianCoordinates'] = nid
+typeid_by_extension_objects[ThreeDCartesianCoordinates] = nid
 nid = FourByteNodeId(ObjectIds.Orientation_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = Orientation
-extension_object_typeids['Orientation'] = nid
+typeid_by_extension_objects[Orientation] = nid
 nid = FourByteNodeId(ObjectIds.ThreeDOrientation_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ThreeDOrientation
-extension_object_typeids['ThreeDOrientation'] = nid
+typeid_by_extension_objects[ThreeDOrientation] = nid
 nid = FourByteNodeId(ObjectIds.Frame_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = Frame
-extension_object_typeids['Frame'] = nid
+typeid_by_extension_objects[Frame] = nid
 nid = FourByteNodeId(ObjectIds.ThreeDFrame_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ThreeDFrame
-extension_object_typeids['ThreeDFrame'] = nid
+typeid_by_extension_objects[ThreeDFrame] = nid
 nid = FourByteNodeId(ObjectIds.IdentityMappingRuleType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = IdentityMappingRuleType
-extension_object_typeids['IdentityMappingRuleType'] = nid
+typeid_by_extension_objects[IdentityMappingRuleType] = nid
 nid = FourByteNodeId(ObjectIds.CurrencyUnitType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = CurrencyUnitType
-extension_object_typeids['CurrencyUnitType'] = nid
+typeid_by_extension_objects[CurrencyUnitType] = nid
 nid = FourByteNodeId(ObjectIds.AnnotationDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = AnnotationDataType
-extension_object_typeids['AnnotationDataType'] = nid
+typeid_by_extension_objects[AnnotationDataType] = nid
 nid = FourByteNodeId(ObjectIds.LinearConversionDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = LinearConversionDataType
-extension_object_typeids['LinearConversionDataType'] = nid
+typeid_by_extension_objects[LinearConversionDataType] = nid
 nid = FourByteNodeId(ObjectIds.QuantityDimension_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = QuantityDimension
-extension_object_typeids['QuantityDimension'] = nid
+typeid_by_extension_objects[QuantityDimension] = nid
 nid = FourByteNodeId(ObjectIds.TrustListDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = TrustListDataType
-extension_object_typeids['TrustListDataType'] = nid
+typeid_by_extension_objects[TrustListDataType] = nid
+nid = FourByteNodeId(ObjectIds.BaseConfigurationDataType_Encoding_DefaultBinary)
+extension_objects_by_typeid[nid] = BaseConfigurationDataType
+typeid_by_extension_objects[BaseConfigurationDataType] = nid
+nid = FourByteNodeId(ObjectIds.BaseConfigurationRecordDataType_Encoding_DefaultBinary)
+extension_objects_by_typeid[nid] = BaseConfigurationRecordDataType
+typeid_by_extension_objects[BaseConfigurationRecordDataType] = nid
+nid = FourByteNodeId(ObjectIds.CertificateGroupDataType_Encoding_DefaultBinary)
+extension_objects_by_typeid[nid] = CertificateGroupDataType
+typeid_by_extension_objects[CertificateGroupDataType] = nid
+nid = FourByteNodeId(ObjectIds.ConfigurationUpdateTargetType_Encoding_DefaultBinary)
+extension_objects_by_typeid[nid] = ConfigurationUpdateTargetType
+typeid_by_extension_objects[ConfigurationUpdateTargetType] = nid
 nid = FourByteNodeId(ObjectIds.TransactionErrorType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = TransactionErrorType
-extension_object_typeids['TransactionErrorType'] = nid
+typeid_by_extension_objects[TransactionErrorType] = nid
+nid = FourByteNodeId(ObjectIds.EndpointDataType_Encoding_DefaultBinary)
+extension_objects_by_typeid[nid] = EndpointDataType
+typeid_by_extension_objects[EndpointDataType] = nid
+nid = FourByteNodeId(ObjectIds.ServerEndpointDataType_Encoding_DefaultBinary)
+extension_objects_by_typeid[nid] = ServerEndpointDataType
+typeid_by_extension_objects[ServerEndpointDataType] = nid
+nid = FourByteNodeId(ObjectIds.SecuritySettingsDataType_Encoding_DefaultBinary)
+extension_objects_by_typeid[nid] = SecuritySettingsDataType
+typeid_by_extension_objects[SecuritySettingsDataType] = nid
+nid = FourByteNodeId(ObjectIds.UserTokenSettingsDataType_Encoding_DefaultBinary)
+extension_objects_by_typeid[nid] = UserTokenSettingsDataType
+typeid_by_extension_objects[UserTokenSettingsDataType] = nid
+nid = FourByteNodeId(ObjectIds.ServiceCertificateDataType_Encoding_DefaultBinary)
+extension_objects_by_typeid[nid] = ServiceCertificateDataType
+typeid_by_extension_objects[ServiceCertificateDataType] = nid
+nid = FourByteNodeId(ObjectIds.AuthorizationServiceConfigurationDataType_Encoding_DefaultBinary)
+extension_objects_by_typeid[nid] = AuthorizationServiceConfigurationDataType
+typeid_by_extension_objects[AuthorizationServiceConfigurationDataType] = nid
 nid = FourByteNodeId(ObjectIds.DecimalDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DecimalDataType
-extension_object_typeids['DecimalDataType'] = nid
+typeid_by_extension_objects[DecimalDataType] = nid
 nid = FourByteNodeId(ObjectIds.DataTypeDescription_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DataTypeDescription
-extension_object_typeids['DataTypeDescription'] = nid
+typeid_by_extension_objects[DataTypeDescription] = nid
 nid = FourByteNodeId(ObjectIds.SimpleTypeDescription_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = SimpleTypeDescription
-extension_object_typeids['SimpleTypeDescription'] = nid
+typeid_by_extension_objects[SimpleTypeDescription] = nid
 nid = FourByteNodeId(ObjectIds.PortableQualifiedName_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = PortableQualifiedName
-extension_object_typeids['PortableQualifiedName'] = nid
+typeid_by_extension_objects[PortableQualifiedName] = nid
 nid = FourByteNodeId(ObjectIds.UnsignedRationalNumber_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = UnsignedRationalNumber
-extension_object_typeids['UnsignedRationalNumber'] = nid
+typeid_by_extension_objects[UnsignedRationalNumber] = nid
 nid = FourByteNodeId(ObjectIds.FieldMetaData_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = FieldMetaData
-extension_object_typeids['FieldMetaData'] = nid
+typeid_by_extension_objects[FieldMetaData] = nid
 nid = FourByteNodeId(ObjectIds.ConfigurationVersionDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ConfigurationVersionDataType
-extension_object_typeids['ConfigurationVersionDataType'] = nid
+typeid_by_extension_objects[ConfigurationVersionDataType] = nid
 nid = FourByteNodeId(ObjectIds.PublishedDataSetSourceDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = PublishedDataSetSourceDataType
-extension_object_typeids['PublishedDataSetSourceDataType'] = nid
+typeid_by_extension_objects[PublishedDataSetSourceDataType] = nid
 nid = FourByteNodeId(ObjectIds.PublishedVariableDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = PublishedVariableDataType
-extension_object_typeids['PublishedVariableDataType'] = nid
+typeid_by_extension_objects[PublishedVariableDataType] = nid
 nid = FourByteNodeId(ObjectIds.PublishedDataItemsDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = PublishedDataItemsDataType
-extension_object_typeids['PublishedDataItemsDataType'] = nid
+typeid_by_extension_objects[PublishedDataItemsDataType] = nid
 nid = FourByteNodeId(ObjectIds.PublishedDataSetCustomSourceDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = PublishedDataSetCustomSourceDataType
-extension_object_typeids['PublishedDataSetCustomSourceDataType'] = nid
+typeid_by_extension_objects[PublishedDataSetCustomSourceDataType] = nid
 nid = FourByteNodeId(ObjectIds.ActionTargetDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ActionTargetDataType
-extension_object_typeids['ActionTargetDataType'] = nid
+typeid_by_extension_objects[ActionTargetDataType] = nid
 nid = FourByteNodeId(ObjectIds.ActionMethodDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ActionMethodDataType
-extension_object_typeids['ActionMethodDataType'] = nid
+typeid_by_extension_objects[ActionMethodDataType] = nid
 nid = FourByteNodeId(ObjectIds.DataSetWriterTransportDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DataSetWriterTransportDataType
-extension_object_typeids['DataSetWriterTransportDataType'] = nid
+typeid_by_extension_objects[DataSetWriterTransportDataType] = nid
 nid = FourByteNodeId(ObjectIds.DataSetWriterMessageDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DataSetWriterMessageDataType
-extension_object_typeids['DataSetWriterMessageDataType'] = nid
+typeid_by_extension_objects[DataSetWriterMessageDataType] = nid
 nid = FourByteNodeId(ObjectIds.DataSetWriterDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DataSetWriterDataType
-extension_object_typeids['DataSetWriterDataType'] = nid
+typeid_by_extension_objects[DataSetWriterDataType] = nid
 nid = FourByteNodeId(ObjectIds.WriterGroupTransportDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = WriterGroupTransportDataType
-extension_object_typeids['WriterGroupTransportDataType'] = nid
+typeid_by_extension_objects[WriterGroupTransportDataType] = nid
 nid = FourByteNodeId(ObjectIds.WriterGroupMessageDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = WriterGroupMessageDataType
-extension_object_typeids['WriterGroupMessageDataType'] = nid
+typeid_by_extension_objects[WriterGroupMessageDataType] = nid
 nid = FourByteNodeId(ObjectIds.ConnectionTransportDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ConnectionTransportDataType
-extension_object_typeids['ConnectionTransportDataType'] = nid
+typeid_by_extension_objects[ConnectionTransportDataType] = nid
 nid = FourByteNodeId(ObjectIds.NetworkAddressDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = NetworkAddressDataType
-extension_object_typeids['NetworkAddressDataType'] = nid
+typeid_by_extension_objects[NetworkAddressDataType] = nid
 nid = FourByteNodeId(ObjectIds.NetworkAddressUrlDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = NetworkAddressUrlDataType
-extension_object_typeids['NetworkAddressUrlDataType'] = nid
+typeid_by_extension_objects[NetworkAddressUrlDataType] = nid
 nid = FourByteNodeId(ObjectIds.ReaderGroupTransportDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ReaderGroupTransportDataType
-extension_object_typeids['ReaderGroupTransportDataType'] = nid
+typeid_by_extension_objects[ReaderGroupTransportDataType] = nid
 nid = FourByteNodeId(ObjectIds.ReaderGroupMessageDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ReaderGroupMessageDataType
-extension_object_typeids['ReaderGroupMessageDataType'] = nid
+typeid_by_extension_objects[ReaderGroupMessageDataType] = nid
 nid = FourByteNodeId(ObjectIds.DataSetReaderTransportDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DataSetReaderTransportDataType
-extension_object_typeids['DataSetReaderTransportDataType'] = nid
+typeid_by_extension_objects[DataSetReaderTransportDataType] = nid
 nid = FourByteNodeId(ObjectIds.DataSetReaderMessageDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DataSetReaderMessageDataType
-extension_object_typeids['DataSetReaderMessageDataType'] = nid
+typeid_by_extension_objects[DataSetReaderMessageDataType] = nid
 nid = FourByteNodeId(ObjectIds.SubscribedDataSetDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = SubscribedDataSetDataType
-extension_object_typeids['SubscribedDataSetDataType'] = nid
+typeid_by_extension_objects[SubscribedDataSetDataType] = nid
 nid = FourByteNodeId(ObjectIds.FieldTargetDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = FieldTargetDataType
-extension_object_typeids['FieldTargetDataType'] = nid
+typeid_by_extension_objects[FieldTargetDataType] = nid
 nid = FourByteNodeId(ObjectIds.TargetVariablesDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = TargetVariablesDataType
-extension_object_typeids['TargetVariablesDataType'] = nid
+typeid_by_extension_objects[TargetVariablesDataType] = nid
 nid = FourByteNodeId(ObjectIds.StandaloneSubscribedDataSetRefDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = StandaloneSubscribedDataSetRefDataType
-extension_object_typeids['StandaloneSubscribedDataSetRefDataType'] = nid
+typeid_by_extension_objects[StandaloneSubscribedDataSetRefDataType] = nid
 nid = FourByteNodeId(ObjectIds.UadpWriterGroupMessageDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = UadpWriterGroupMessageDataType
-extension_object_typeids['UadpWriterGroupMessageDataType'] = nid
+typeid_by_extension_objects[UadpWriterGroupMessageDataType] = nid
 nid = FourByteNodeId(ObjectIds.UadpDataSetWriterMessageDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = UadpDataSetWriterMessageDataType
-extension_object_typeids['UadpDataSetWriterMessageDataType'] = nid
+typeid_by_extension_objects[UadpDataSetWriterMessageDataType] = nid
 nid = FourByteNodeId(ObjectIds.UadpDataSetReaderMessageDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = UadpDataSetReaderMessageDataType
-extension_object_typeids['UadpDataSetReaderMessageDataType'] = nid
+typeid_by_extension_objects[UadpDataSetReaderMessageDataType] = nid
+nid = FourByteNodeId(ObjectIds.JsonWriterGroupMessageDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = JsonWriterGroupMessageDataType
-extension_object_typeids['JsonWriterGroupMessageDataType'] = nid
+typeid_by_extension_objects[JsonWriterGroupMessageDataType] = nid
+nid = FourByteNodeId(ObjectIds.JsonDataSetWriterMessageDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = JsonDataSetWriterMessageDataType
-extension_object_typeids['JsonDataSetWriterMessageDataType'] = nid
+typeid_by_extension_objects[JsonDataSetWriterMessageDataType] = nid
+nid = FourByteNodeId(ObjectIds.JsonDataSetReaderMessageDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = JsonDataSetReaderMessageDataType
-extension_object_typeids['JsonDataSetReaderMessageDataType'] = nid
+typeid_by_extension_objects[JsonDataSetReaderMessageDataType] = nid
 nid = FourByteNodeId(ObjectIds.QosDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = QosDataType
-extension_object_typeids['QosDataType'] = nid
+typeid_by_extension_objects[QosDataType] = nid
 nid = FourByteNodeId(ObjectIds.TransmitQosDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = TransmitQosDataType
-extension_object_typeids['TransmitQosDataType'] = nid
+typeid_by_extension_objects[TransmitQosDataType] = nid
 nid = FourByteNodeId(ObjectIds.TransmitQosPriorityDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = TransmitQosPriorityDataType
-extension_object_typeids['TransmitQosPriorityDataType'] = nid
+typeid_by_extension_objects[TransmitQosPriorityDataType] = nid
 nid = FourByteNodeId(ObjectIds.ReceiveQosDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ReceiveQosDataType
-extension_object_typeids['ReceiveQosDataType'] = nid
+typeid_by_extension_objects[ReceiveQosDataType] = nid
 nid = FourByteNodeId(ObjectIds.ReceiveQosPriorityDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ReceiveQosPriorityDataType
-extension_object_typeids['ReceiveQosPriorityDataType'] = nid
+typeid_by_extension_objects[ReceiveQosPriorityDataType] = nid
 nid = FourByteNodeId(ObjectIds.DatagramConnectionTransportDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DatagramConnectionTransportDataType
-extension_object_typeids['DatagramConnectionTransportDataType'] = nid
+typeid_by_extension_objects[DatagramConnectionTransportDataType] = nid
 nid = FourByteNodeId(ObjectIds.DatagramConnectionTransport2DataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DatagramConnectionTransport2DataType
-extension_object_typeids['DatagramConnectionTransport2DataType'] = nid
+typeid_by_extension_objects[DatagramConnectionTransport2DataType] = nid
 nid = FourByteNodeId(ObjectIds.DatagramWriterGroupTransportDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DatagramWriterGroupTransportDataType
-extension_object_typeids['DatagramWriterGroupTransportDataType'] = nid
+typeid_by_extension_objects[DatagramWriterGroupTransportDataType] = nid
 nid = FourByteNodeId(ObjectIds.DatagramWriterGroupTransport2DataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DatagramWriterGroupTransport2DataType
-extension_object_typeids['DatagramWriterGroupTransport2DataType'] = nid
+typeid_by_extension_objects[DatagramWriterGroupTransport2DataType] = nid
 nid = FourByteNodeId(ObjectIds.DatagramDataSetReaderTransportDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DatagramDataSetReaderTransportDataType
-extension_object_typeids['DatagramDataSetReaderTransportDataType'] = nid
+typeid_by_extension_objects[DatagramDataSetReaderTransportDataType] = nid
 nid = FourByteNodeId(ObjectIds.DtlsPubSubConnectionDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DtlsPubSubConnectionDataType
-extension_object_typeids['DtlsPubSubConnectionDataType'] = nid
+typeid_by_extension_objects[DtlsPubSubConnectionDataType] = nid
 nid = FourByteNodeId(ObjectIds.BrokerConnectionTransportDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = BrokerConnectionTransportDataType
-extension_object_typeids['BrokerConnectionTransportDataType'] = nid
+typeid_by_extension_objects[BrokerConnectionTransportDataType] = nid
 nid = FourByteNodeId(ObjectIds.BrokerWriterGroupTransportDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = BrokerWriterGroupTransportDataType
-extension_object_typeids['BrokerWriterGroupTransportDataType'] = nid
+typeid_by_extension_objects[BrokerWriterGroupTransportDataType] = nid
 nid = FourByteNodeId(ObjectIds.BrokerDataSetWriterTransportDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = BrokerDataSetWriterTransportDataType
-extension_object_typeids['BrokerDataSetWriterTransportDataType'] = nid
+typeid_by_extension_objects[BrokerDataSetWriterTransportDataType] = nid
 nid = FourByteNodeId(ObjectIds.BrokerDataSetReaderTransportDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = BrokerDataSetReaderTransportDataType
-extension_object_typeids['BrokerDataSetReaderTransportDataType'] = nid
+typeid_by_extension_objects[BrokerDataSetReaderTransportDataType] = nid
 nid = FourByteNodeId(ObjectIds.PubSubConfigurationRefDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = PubSubConfigurationRefDataType
-extension_object_typeids['PubSubConfigurationRefDataType'] = nid
+typeid_by_extension_objects[PubSubConfigurationRefDataType] = nid
 nid = FourByteNodeId(ObjectIds.PubSubConfigurationValueDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = PubSubConfigurationValueDataType
-extension_object_typeids['PubSubConfigurationValueDataType'] = nid
-extension_objects_by_typeid[nid] = JsonNetworkMessage
-extension_object_typeids['JsonNetworkMessage'] = nid
-extension_objects_by_typeid[nid] = JsonDataSetMessage
-extension_object_typeids['JsonDataSetMessage'] = nid
-extension_objects_by_typeid[nid] = JsonStatusMessage
-extension_object_typeids['JsonStatusMessage'] = nid
-extension_objects_by_typeid[nid] = JsonActionNetworkMessage
-extension_object_typeids['JsonActionNetworkMessage'] = nid
-extension_objects_by_typeid[nid] = JsonActionRequestMessage
-extension_object_typeids['JsonActionRequestMessage'] = nid
-extension_objects_by_typeid[nid] = JsonActionResponseMessage
-extension_object_typeids['JsonActionResponseMessage'] = nid
+typeid_by_extension_objects[PubSubConfigurationValueDataType] = nid
 nid = FourByteNodeId(ObjectIds.AliasNameDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = AliasNameDataType
-extension_object_typeids['AliasNameDataType'] = nid
+typeid_by_extension_objects[AliasNameDataType] = nid
+nid = FourByteNodeId(ObjectIds.AliasNameVerboseDataType_Encoding_DefaultBinary)
+extension_objects_by_typeid[nid] = AliasNameVerboseDataType
+typeid_by_extension_objects[AliasNameVerboseDataType] = nid
+nid = FourByteNodeId(ObjectIds.AliasCategoryUpdateDataType_Encoding_DefaultBinary)
+extension_objects_by_typeid[nid] = AliasCategoryUpdateDataType
+typeid_by_extension_objects[AliasCategoryUpdateDataType] = nid
+nid = FourByteNodeId(ObjectIds.AliasUpdateDataType_Encoding_DefaultBinary)
+extension_objects_by_typeid[nid] = AliasUpdateDataType
+typeid_by_extension_objects[AliasUpdateDataType] = nid
 nid = FourByteNodeId(ObjectIds.UserManagementDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = UserManagementDataType
-extension_object_typeids['UserManagementDataType'] = nid
+typeid_by_extension_objects[UserManagementDataType] = nid
 nid = FourByteNodeId(ObjectIds.PriorityMappingEntryType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = PriorityMappingEntryType
-extension_object_typeids['PriorityMappingEntryType'] = nid
+typeid_by_extension_objects[PriorityMappingEntryType] = nid
 nid = FourByteNodeId(ObjectIds.LldpManagementAddressTxPortType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = LldpManagementAddressTxPortType
-extension_object_typeids['LldpManagementAddressTxPortType'] = nid
+typeid_by_extension_objects[LldpManagementAddressTxPortType] = nid
 nid = FourByteNodeId(ObjectIds.LldpManagementAddressType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = LldpManagementAddressType
-extension_object_typeids['LldpManagementAddressType'] = nid
+typeid_by_extension_objects[LldpManagementAddressType] = nid
 nid = FourByteNodeId(ObjectIds.LldpTlvType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = LldpTlvType
-extension_object_typeids['LldpTlvType'] = nid
+typeid_by_extension_objects[LldpTlvType] = nid
 nid = FourByteNodeId(ObjectIds.ReferenceDescriptionDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ReferenceDescriptionDataType
-extension_object_typeids['ReferenceDescriptionDataType'] = nid
+typeid_by_extension_objects[ReferenceDescriptionDataType] = nid
 nid = FourByteNodeId(ObjectIds.ReferenceListEntryDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ReferenceListEntryDataType
-extension_object_typeids['ReferenceListEntryDataType'] = nid
+typeid_by_extension_objects[ReferenceListEntryDataType] = nid
+nid = FourByteNodeId(ObjectIds.SpanContextDataType_Encoding_DefaultBinary)
+extension_objects_by_typeid[nid] = SpanContextDataType
+typeid_by_extension_objects[SpanContextDataType] = nid
+nid = FourByteNodeId(ObjectIds.TraceContextDataType_Encoding_DefaultBinary)
+extension_objects_by_typeid[nid] = TraceContextDataType
+typeid_by_extension_objects[TraceContextDataType] = nid
+nid = FourByteNodeId(ObjectIds.NameValuePair_Encoding_DefaultBinary)
+extension_objects_by_typeid[nid] = NameValuePair
+typeid_by_extension_objects[NameValuePair] = nid
+nid = FourByteNodeId(ObjectIds.LogRecord_Encoding_DefaultBinary)
+extension_objects_by_typeid[nid] = LogRecord
+typeid_by_extension_objects[LogRecord] = nid
+nid = FourByteNodeId(ObjectIds.LogRecordsDataType_Encoding_DefaultBinary)
+extension_objects_by_typeid[nid] = LogRecordsDataType
+typeid_by_extension_objects[LogRecordsDataType] = nid
 nid = FourByteNodeId(ObjectIds.RolePermissionType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = RolePermissionType
-extension_object_typeids['RolePermissionType'] = nid
+typeid_by_extension_objects[RolePermissionType] = nid
 nid = FourByteNodeId(ObjectIds.SubscribedDataSetMirrorDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = SubscribedDataSetMirrorDataType
-extension_object_typeids['SubscribedDataSetMirrorDataType'] = nid
+typeid_by_extension_objects[SubscribedDataSetMirrorDataType] = nid
 nid = FourByteNodeId(ObjectIds.SecurityGroupDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = SecurityGroupDataType
-extension_object_typeids['SecurityGroupDataType'] = nid
+typeid_by_extension_objects[SecurityGroupDataType] = nid
 nid = FourByteNodeId(ObjectIds.DataTypeDefinition_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DataTypeDefinition
-extension_object_typeids['DataTypeDefinition'] = nid
+typeid_by_extension_objects[DataTypeDefinition] = nid
 nid = FourByteNodeId(ObjectIds.StructureField_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = StructureField
-extension_object_typeids['StructureField'] = nid
+typeid_by_extension_objects[StructureField] = nid
 nid = FourByteNodeId(ObjectIds.StructureDefinition_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = StructureDefinition
-extension_object_typeids['StructureDefinition'] = nid
+typeid_by_extension_objects[StructureDefinition] = nid
 nid = FourByteNodeId(ObjectIds.StructureDescription_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = StructureDescription
-extension_object_typeids['StructureDescription'] = nid
+typeid_by_extension_objects[StructureDescription] = nid
 nid = FourByteNodeId(ObjectIds.Argument_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = Argument
-extension_object_typeids['Argument'] = nid
+typeid_by_extension_objects[Argument] = nid
 nid = FourByteNodeId(ObjectIds.EnumValueType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = EnumValueType
-extension_object_typeids['EnumValueType'] = nid
+typeid_by_extension_objects[EnumValueType] = nid
 nid = FourByteNodeId(ObjectIds.EnumField_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = EnumField
-extension_object_typeids['EnumField'] = nid
+typeid_by_extension_objects[EnumField] = nid
 nid = FourByteNodeId(ObjectIds.EnumDefinition_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = EnumDefinition
-extension_object_typeids['EnumDefinition'] = nid
+typeid_by_extension_objects[EnumDefinition] = nid
 nid = FourByteNodeId(ObjectIds.EnumDescription_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = EnumDescription
-extension_object_typeids['EnumDescription'] = nid
+typeid_by_extension_objects[EnumDescription] = nid
 nid = FourByteNodeId(ObjectIds.DataTypeSchemaHeader_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DataTypeSchemaHeader
-extension_object_typeids['DataTypeSchemaHeader'] = nid
+typeid_by_extension_objects[DataTypeSchemaHeader] = nid
 nid = FourByteNodeId(ObjectIds.UABinaryFileDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = UABinaryFileDataType
-extension_object_typeids['UABinaryFileDataType'] = nid
+typeid_by_extension_objects[UABinaryFileDataType] = nid
 nid = FourByteNodeId(ObjectIds.DataSetMetaDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DataSetMetaDataType
-extension_object_typeids['DataSetMetaDataType'] = nid
+typeid_by_extension_objects[DataSetMetaDataType] = nid
 nid = FourByteNodeId(ObjectIds.PublishedDataSetDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = PublishedDataSetDataType
-extension_object_typeids['PublishedDataSetDataType'] = nid
+typeid_by_extension_objects[PublishedDataSetDataType] = nid
 nid = FourByteNodeId(ObjectIds.PublishedActionDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = PublishedActionDataType
-extension_object_typeids['PublishedActionDataType'] = nid
+typeid_by_extension_objects[PublishedActionDataType] = nid
 nid = FourByteNodeId(ObjectIds.PublishedActionMethodDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = PublishedActionMethodDataType
-extension_object_typeids['PublishedActionMethodDataType'] = nid
+typeid_by_extension_objects[PublishedActionMethodDataType] = nid
 nid = FourByteNodeId(ObjectIds.StandaloneSubscribedDataSetDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = StandaloneSubscribedDataSetDataType
-extension_object_typeids['StandaloneSubscribedDataSetDataType'] = nid
-extension_objects_by_typeid[nid] = JsonDataSetMetaDataMessage
-extension_object_typeids['JsonDataSetMetaDataMessage'] = nid
-extension_objects_by_typeid[nid] = JsonActionMetaDataMessage
-extension_object_typeids['JsonActionMetaDataMessage'] = nid
+typeid_by_extension_objects[StandaloneSubscribedDataSetDataType] = nid
 nid = FourByteNodeId(ObjectIds.OptionSet_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = OptionSet
-extension_object_typeids['OptionSet'] = nid
+typeid_by_extension_objects[OptionSet] = nid
 nid = FourByteNodeId(ObjectIds.TimeZoneDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = TimeZoneDataType
-extension_object_typeids['TimeZoneDataType'] = nid
+typeid_by_extension_objects[TimeZoneDataType] = nid
 nid = FourByteNodeId(ObjectIds.ApplicationDescription_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ApplicationDescription
-extension_object_typeids['ApplicationDescription'] = nid
-extension_objects_by_typeid[nid] = JsonApplicationDescriptionMessage
-extension_object_typeids['JsonApplicationDescriptionMessage'] = nid
+typeid_by_extension_objects[ApplicationDescription] = nid
+nid = FourByteNodeId(ObjectIds.ApplicationIdentityDataType_Encoding_DefaultBinary)
+extension_objects_by_typeid[nid] = ApplicationIdentityDataType
+typeid_by_extension_objects[ApplicationIdentityDataType] = nid
+nid = FourByteNodeId(ObjectIds.ApplicationConfigurationDataType_Encoding_DefaultBinary)
+extension_objects_by_typeid[nid] = ApplicationConfigurationDataType
+typeid_by_extension_objects[ApplicationConfigurationDataType] = nid
 nid = FourByteNodeId(ObjectIds.RequestHeader_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = RequestHeader
-extension_object_typeids['RequestHeader'] = nid
+typeid_by_extension_objects[RequestHeader] = nid
 nid = FourByteNodeId(ObjectIds.ResponseHeader_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ResponseHeader
-extension_object_typeids['ResponseHeader'] = nid
+typeid_by_extension_objects[ResponseHeader] = nid
 nid = FourByteNodeId(ObjectIds.ServiceFault_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ServiceFault
-extension_object_typeids['ServiceFault'] = nid
+typeid_by_extension_objects[ServiceFault] = nid
 nid = FourByteNodeId(ObjectIds.SessionlessInvokeRequestType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = SessionlessInvokeRequestType
-extension_object_typeids['SessionlessInvokeRequestType'] = nid
+typeid_by_extension_objects[SessionlessInvokeRequestType] = nid
 nid = FourByteNodeId(ObjectIds.SessionlessInvokeResponseType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = SessionlessInvokeResponseType
-extension_object_typeids['SessionlessInvokeResponseType'] = nid
+typeid_by_extension_objects[SessionlessInvokeResponseType] = nid
 nid = FourByteNodeId(ObjectIds.FindServersRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = FindServersRequest
-extension_object_typeids['FindServersRequest'] = nid
+typeid_by_extension_objects[FindServersRequest] = nid
 nid = FourByteNodeId(ObjectIds.FindServersResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = FindServersResponse
-extension_object_typeids['FindServersResponse'] = nid
+typeid_by_extension_objects[FindServersResponse] = nid
 nid = FourByteNodeId(ObjectIds.ServerOnNetwork_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ServerOnNetwork
-extension_object_typeids['ServerOnNetwork'] = nid
+typeid_by_extension_objects[ServerOnNetwork] = nid
 nid = FourByteNodeId(ObjectIds.FindServersOnNetworkRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = FindServersOnNetworkRequest
-extension_object_typeids['FindServersOnNetworkRequest'] = nid
+typeid_by_extension_objects[FindServersOnNetworkRequest] = nid
 nid = FourByteNodeId(ObjectIds.FindServersOnNetworkResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = FindServersOnNetworkResponse
-extension_object_typeids['FindServersOnNetworkResponse'] = nid
+typeid_by_extension_objects[FindServersOnNetworkResponse] = nid
 nid = FourByteNodeId(ObjectIds.UserTokenPolicy_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = UserTokenPolicy
-extension_object_typeids['UserTokenPolicy'] = nid
+typeid_by_extension_objects[UserTokenPolicy] = nid
 nid = FourByteNodeId(ObjectIds.PubSubKeyPushTargetDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = PubSubKeyPushTargetDataType
-extension_object_typeids['PubSubKeyPushTargetDataType'] = nid
+typeid_by_extension_objects[PubSubKeyPushTargetDataType] = nid
 nid = FourByteNodeId(ObjectIds.EndpointDescription_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = EndpointDescription
-extension_object_typeids['EndpointDescription'] = nid
+typeid_by_extension_objects[EndpointDescription] = nid
 nid = FourByteNodeId(ObjectIds.PubSubGroupDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = PubSubGroupDataType
-extension_object_typeids['PubSubGroupDataType'] = nid
+typeid_by_extension_objects[PubSubGroupDataType] = nid
 nid = FourByteNodeId(ObjectIds.WriterGroupDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = WriterGroupDataType
-extension_object_typeids['WriterGroupDataType'] = nid
+typeid_by_extension_objects[WriterGroupDataType] = nid
 nid = FourByteNodeId(ObjectIds.DataSetReaderDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DataSetReaderDataType
-extension_object_typeids['DataSetReaderDataType'] = nid
+typeid_by_extension_objects[DataSetReaderDataType] = nid
 nid = FourByteNodeId(ObjectIds.ReaderGroupDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ReaderGroupDataType
-extension_object_typeids['ReaderGroupDataType'] = nid
+typeid_by_extension_objects[ReaderGroupDataType] = nid
 nid = FourByteNodeId(ObjectIds.PubSubConnectionDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = PubSubConnectionDataType
-extension_object_typeids['PubSubConnectionDataType'] = nid
+typeid_by_extension_objects[PubSubConnectionDataType] = nid
 nid = FourByteNodeId(ObjectIds.PubSubConfigurationDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = PubSubConfigurationDataType
-extension_object_typeids['PubSubConfigurationDataType'] = nid
-extension_objects_by_typeid[nid] = JsonPubSubConnectionMessage
-extension_object_typeids['JsonPubSubConnectionMessage'] = nid
-extension_objects_by_typeid[nid] = JsonActionResponderMessage
-extension_object_typeids['JsonActionResponderMessage'] = nid
+typeid_by_extension_objects[PubSubConfigurationDataType] = nid
 nid = FourByteNodeId(ObjectIds.PubSubConfiguration2DataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = PubSubConfiguration2DataType
-extension_object_typeids['PubSubConfiguration2DataType'] = nid
-extension_objects_by_typeid[nid] = JsonServerEndpointsMessage
-extension_object_typeids['JsonServerEndpointsMessage'] = nid
+typeid_by_extension_objects[PubSubConfiguration2DataType] = nid
 nid = FourByteNodeId(ObjectIds.GetEndpointsRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = GetEndpointsRequest
-extension_object_typeids['GetEndpointsRequest'] = nid
+typeid_by_extension_objects[GetEndpointsRequest] = nid
 nid = FourByteNodeId(ObjectIds.GetEndpointsResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = GetEndpointsResponse
-extension_object_typeids['GetEndpointsResponse'] = nid
+typeid_by_extension_objects[GetEndpointsResponse] = nid
 nid = FourByteNodeId(ObjectIds.RegisteredServer_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = RegisteredServer
-extension_object_typeids['RegisteredServer'] = nid
+typeid_by_extension_objects[RegisteredServer] = nid
 nid = FourByteNodeId(ObjectIds.RegisterServerRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = RegisterServerRequest
-extension_object_typeids['RegisterServerRequest'] = nid
+typeid_by_extension_objects[RegisterServerRequest] = nid
 nid = FourByteNodeId(ObjectIds.RegisterServerResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = RegisterServerResponse
-extension_object_typeids['RegisterServerResponse'] = nid
+typeid_by_extension_objects[RegisterServerResponse] = nid
 nid = FourByteNodeId(ObjectIds.DiscoveryConfiguration_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DiscoveryConfiguration
-extension_object_typeids['DiscoveryConfiguration'] = nid
+typeid_by_extension_objects[DiscoveryConfiguration] = nid
 nid = FourByteNodeId(ObjectIds.MdnsDiscoveryConfiguration_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = MdnsDiscoveryConfiguration
-extension_object_typeids['MdnsDiscoveryConfiguration'] = nid
+typeid_by_extension_objects[MdnsDiscoveryConfiguration] = nid
 nid = FourByteNodeId(ObjectIds.RegisterServer2Request_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = RegisterServer2Request
-extension_object_typeids['RegisterServer2Request'] = nid
+typeid_by_extension_objects[RegisterServer2Request] = nid
 nid = FourByteNodeId(ObjectIds.RegisterServer2Response_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = RegisterServer2Response
-extension_object_typeids['RegisterServer2Response'] = nid
+typeid_by_extension_objects[RegisterServer2Response] = nid
 nid = FourByteNodeId(ObjectIds.ChannelSecurityToken_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ChannelSecurityToken
-extension_object_typeids['ChannelSecurityToken'] = nid
+typeid_by_extension_objects[ChannelSecurityToken] = nid
 nid = FourByteNodeId(ObjectIds.OpenSecureChannelRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = OpenSecureChannelRequest
-extension_object_typeids['OpenSecureChannelRequest'] = nid
+typeid_by_extension_objects[OpenSecureChannelRequest] = nid
 nid = FourByteNodeId(ObjectIds.OpenSecureChannelResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = OpenSecureChannelResponse
-extension_object_typeids['OpenSecureChannelResponse'] = nid
+typeid_by_extension_objects[OpenSecureChannelResponse] = nid
 nid = FourByteNodeId(ObjectIds.CloseSecureChannelRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = CloseSecureChannelRequest
-extension_object_typeids['CloseSecureChannelRequest'] = nid
+typeid_by_extension_objects[CloseSecureChannelRequest] = nid
 nid = FourByteNodeId(ObjectIds.CloseSecureChannelResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = CloseSecureChannelResponse
-extension_object_typeids['CloseSecureChannelResponse'] = nid
+typeid_by_extension_objects[CloseSecureChannelResponse] = nid
 nid = FourByteNodeId(ObjectIds.SignedSoftwareCertificate_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = SignedSoftwareCertificate
-extension_object_typeids['SignedSoftwareCertificate'] = nid
+typeid_by_extension_objects[SignedSoftwareCertificate] = nid
 nid = FourByteNodeId(ObjectIds.SignatureData_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = SignatureData
-extension_object_typeids['SignatureData'] = nid
+typeid_by_extension_objects[SignatureData] = nid
 nid = FourByteNodeId(ObjectIds.CreateSessionRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = CreateSessionRequest
-extension_object_typeids['CreateSessionRequest'] = nid
+typeid_by_extension_objects[CreateSessionRequest] = nid
 nid = FourByteNodeId(ObjectIds.CreateSessionResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = CreateSessionResponse
-extension_object_typeids['CreateSessionResponse'] = nid
+typeid_by_extension_objects[CreateSessionResponse] = nid
 nid = FourByteNodeId(ObjectIds.UserIdentityToken_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = UserIdentityToken
-extension_object_typeids['UserIdentityToken'] = nid
+typeid_by_extension_objects[UserIdentityToken] = nid
 nid = FourByteNodeId(ObjectIds.AnonymousIdentityToken_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = AnonymousIdentityToken
-extension_object_typeids['AnonymousIdentityToken'] = nid
+typeid_by_extension_objects[AnonymousIdentityToken] = nid
 nid = FourByteNodeId(ObjectIds.UserNameIdentityToken_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = UserNameIdentityToken
-extension_object_typeids['UserNameIdentityToken'] = nid
+typeid_by_extension_objects[UserNameIdentityToken] = nid
 nid = FourByteNodeId(ObjectIds.X509IdentityToken_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = X509IdentityToken
-extension_object_typeids['X509IdentityToken'] = nid
+typeid_by_extension_objects[X509IdentityToken] = nid
 nid = FourByteNodeId(ObjectIds.IssuedIdentityToken_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = IssuedIdentityToken
-extension_object_typeids['IssuedIdentityToken'] = nid
+typeid_by_extension_objects[IssuedIdentityToken] = nid
 nid = FourByteNodeId(ObjectIds.ActivateSessionRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ActivateSessionRequest
-extension_object_typeids['ActivateSessionRequest'] = nid
+typeid_by_extension_objects[ActivateSessionRequest] = nid
 nid = FourByteNodeId(ObjectIds.ActivateSessionResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ActivateSessionResponse
-extension_object_typeids['ActivateSessionResponse'] = nid
+typeid_by_extension_objects[ActivateSessionResponse] = nid
 nid = FourByteNodeId(ObjectIds.CloseSessionRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = CloseSessionRequest
-extension_object_typeids['CloseSessionRequest'] = nid
+typeid_by_extension_objects[CloseSessionRequest] = nid
 nid = FourByteNodeId(ObjectIds.CloseSessionResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = CloseSessionResponse
-extension_object_typeids['CloseSessionResponse'] = nid
+typeid_by_extension_objects[CloseSessionResponse] = nid
 nid = FourByteNodeId(ObjectIds.CancelRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = CancelRequest
-extension_object_typeids['CancelRequest'] = nid
+typeid_by_extension_objects[CancelRequest] = nid
 nid = FourByteNodeId(ObjectIds.CancelResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = CancelResponse
-extension_object_typeids['CancelResponse'] = nid
+typeid_by_extension_objects[CancelResponse] = nid
 nid = FourByteNodeId(ObjectIds.NodeAttributes_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = NodeAttributes
-extension_object_typeids['NodeAttributes'] = nid
+typeid_by_extension_objects[NodeAttributes] = nid
 nid = FourByteNodeId(ObjectIds.ObjectAttributes_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ObjectAttributes
-extension_object_typeids['ObjectAttributes'] = nid
+typeid_by_extension_objects[ObjectAttributes] = nid
 nid = FourByteNodeId(ObjectIds.VariableAttributes_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = VariableAttributes
-extension_object_typeids['VariableAttributes'] = nid
+typeid_by_extension_objects[VariableAttributes] = nid
 nid = FourByteNodeId(ObjectIds.MethodAttributes_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = MethodAttributes
-extension_object_typeids['MethodAttributes'] = nid
+typeid_by_extension_objects[MethodAttributes] = nid
 nid = FourByteNodeId(ObjectIds.ObjectTypeAttributes_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ObjectTypeAttributes
-extension_object_typeids['ObjectTypeAttributes'] = nid
+typeid_by_extension_objects[ObjectTypeAttributes] = nid
 nid = FourByteNodeId(ObjectIds.VariableTypeAttributes_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = VariableTypeAttributes
-extension_object_typeids['VariableTypeAttributes'] = nid
+typeid_by_extension_objects[VariableTypeAttributes] = nid
 nid = FourByteNodeId(ObjectIds.ReferenceTypeAttributes_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ReferenceTypeAttributes
-extension_object_typeids['ReferenceTypeAttributes'] = nid
+typeid_by_extension_objects[ReferenceTypeAttributes] = nid
 nid = FourByteNodeId(ObjectIds.DataTypeAttributes_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DataTypeAttributes
-extension_object_typeids['DataTypeAttributes'] = nid
+typeid_by_extension_objects[DataTypeAttributes] = nid
 nid = FourByteNodeId(ObjectIds.ViewAttributes_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ViewAttributes
-extension_object_typeids['ViewAttributes'] = nid
+typeid_by_extension_objects[ViewAttributes] = nid
 nid = FourByteNodeId(ObjectIds.GenericAttributeValue_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = GenericAttributeValue
-extension_object_typeids['GenericAttributeValue'] = nid
+typeid_by_extension_objects[GenericAttributeValue] = nid
 nid = FourByteNodeId(ObjectIds.GenericAttributes_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = GenericAttributes
-extension_object_typeids['GenericAttributes'] = nid
+typeid_by_extension_objects[GenericAttributes] = nid
 nid = FourByteNodeId(ObjectIds.AddNodesItem_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = AddNodesItem
-extension_object_typeids['AddNodesItem'] = nid
+typeid_by_extension_objects[AddNodesItem] = nid
 nid = FourByteNodeId(ObjectIds.AddNodesResult_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = AddNodesResult
-extension_object_typeids['AddNodesResult'] = nid
+typeid_by_extension_objects[AddNodesResult] = nid
 nid = FourByteNodeId(ObjectIds.AddNodesRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = AddNodesRequest
-extension_object_typeids['AddNodesRequest'] = nid
+typeid_by_extension_objects[AddNodesRequest] = nid
 nid = FourByteNodeId(ObjectIds.AddNodesResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = AddNodesResponse
-extension_object_typeids['AddNodesResponse'] = nid
+typeid_by_extension_objects[AddNodesResponse] = nid
 nid = FourByteNodeId(ObjectIds.AddReferencesItem_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = AddReferencesItem
-extension_object_typeids['AddReferencesItem'] = nid
+typeid_by_extension_objects[AddReferencesItem] = nid
 nid = FourByteNodeId(ObjectIds.AddReferencesRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = AddReferencesRequest
-extension_object_typeids['AddReferencesRequest'] = nid
+typeid_by_extension_objects[AddReferencesRequest] = nid
 nid = FourByteNodeId(ObjectIds.AddReferencesResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = AddReferencesResponse
-extension_object_typeids['AddReferencesResponse'] = nid
+typeid_by_extension_objects[AddReferencesResponse] = nid
 nid = FourByteNodeId(ObjectIds.DeleteNodesItem_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DeleteNodesItem
-extension_object_typeids['DeleteNodesItem'] = nid
+typeid_by_extension_objects[DeleteNodesItem] = nid
 nid = FourByteNodeId(ObjectIds.DeleteNodesRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DeleteNodesRequest
-extension_object_typeids['DeleteNodesRequest'] = nid
+typeid_by_extension_objects[DeleteNodesRequest] = nid
 nid = FourByteNodeId(ObjectIds.DeleteNodesResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DeleteNodesResponse
-extension_object_typeids['DeleteNodesResponse'] = nid
+typeid_by_extension_objects[DeleteNodesResponse] = nid
 nid = FourByteNodeId(ObjectIds.DeleteReferencesItem_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DeleteReferencesItem
-extension_object_typeids['DeleteReferencesItem'] = nid
+typeid_by_extension_objects[DeleteReferencesItem] = nid
 nid = FourByteNodeId(ObjectIds.DeleteReferencesRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DeleteReferencesRequest
-extension_object_typeids['DeleteReferencesRequest'] = nid
+typeid_by_extension_objects[DeleteReferencesRequest] = nid
 nid = FourByteNodeId(ObjectIds.DeleteReferencesResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DeleteReferencesResponse
-extension_object_typeids['DeleteReferencesResponse'] = nid
+typeid_by_extension_objects[DeleteReferencesResponse] = nid
 nid = FourByteNodeId(ObjectIds.ViewDescription_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ViewDescription
-extension_object_typeids['ViewDescription'] = nid
+typeid_by_extension_objects[ViewDescription] = nid
 nid = FourByteNodeId(ObjectIds.BrowseDescription_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = BrowseDescription
-extension_object_typeids['BrowseDescription'] = nid
+typeid_by_extension_objects[BrowseDescription] = nid
 nid = FourByteNodeId(ObjectIds.ReferenceDescription_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ReferenceDescription
-extension_object_typeids['ReferenceDescription'] = nid
+typeid_by_extension_objects[ReferenceDescription] = nid
 nid = FourByteNodeId(ObjectIds.BrowseResult_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = BrowseResult
-extension_object_typeids['BrowseResult'] = nid
+typeid_by_extension_objects[BrowseResult] = nid
 nid = FourByteNodeId(ObjectIds.BrowseRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = BrowseRequest
-extension_object_typeids['BrowseRequest'] = nid
+typeid_by_extension_objects[BrowseRequest] = nid
 nid = FourByteNodeId(ObjectIds.BrowseResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = BrowseResponse
-extension_object_typeids['BrowseResponse'] = nid
+typeid_by_extension_objects[BrowseResponse] = nid
 nid = FourByteNodeId(ObjectIds.BrowseNextRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = BrowseNextRequest
-extension_object_typeids['BrowseNextRequest'] = nid
+typeid_by_extension_objects[BrowseNextRequest] = nid
 nid = FourByteNodeId(ObjectIds.BrowseNextResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = BrowseNextResponse
-extension_object_typeids['BrowseNextResponse'] = nid
+typeid_by_extension_objects[BrowseNextResponse] = nid
 nid = FourByteNodeId(ObjectIds.BrowsePath_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = BrowsePath
-extension_object_typeids['BrowsePath'] = nid
+typeid_by_extension_objects[BrowsePath] = nid
 nid = FourByteNodeId(ObjectIds.BrowsePathTarget_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = BrowsePathTarget
-extension_object_typeids['BrowsePathTarget'] = nid
+typeid_by_extension_objects[BrowsePathTarget] = nid
 nid = FourByteNodeId(ObjectIds.BrowsePathResult_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = BrowsePathResult
-extension_object_typeids['BrowsePathResult'] = nid
+typeid_by_extension_objects[BrowsePathResult] = nid
 nid = FourByteNodeId(ObjectIds.TranslateBrowsePathsToNodeIdsRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = TranslateBrowsePathsToNodeIdsRequest
-extension_object_typeids['TranslateBrowsePathsToNodeIdsRequest'] = nid
+typeid_by_extension_objects[TranslateBrowsePathsToNodeIdsRequest] = nid
 nid = FourByteNodeId(ObjectIds.TranslateBrowsePathsToNodeIdsResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = TranslateBrowsePathsToNodeIdsResponse
-extension_object_typeids['TranslateBrowsePathsToNodeIdsResponse'] = nid
+typeid_by_extension_objects[TranslateBrowsePathsToNodeIdsResponse] = nid
 nid = FourByteNodeId(ObjectIds.RegisterNodesRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = RegisterNodesRequest
-extension_object_typeids['RegisterNodesRequest'] = nid
+typeid_by_extension_objects[RegisterNodesRequest] = nid
 nid = FourByteNodeId(ObjectIds.RegisterNodesResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = RegisterNodesResponse
-extension_object_typeids['RegisterNodesResponse'] = nid
+typeid_by_extension_objects[RegisterNodesResponse] = nid
 nid = FourByteNodeId(ObjectIds.UnregisterNodesRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = UnregisterNodesRequest
-extension_object_typeids['UnregisterNodesRequest'] = nid
+typeid_by_extension_objects[UnregisterNodesRequest] = nid
 nid = FourByteNodeId(ObjectIds.UnregisterNodesResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = UnregisterNodesResponse
-extension_object_typeids['UnregisterNodesResponse'] = nid
+typeid_by_extension_objects[UnregisterNodesResponse] = nid
 nid = FourByteNodeId(ObjectIds.EndpointConfiguration_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = EndpointConfiguration
-extension_object_typeids['EndpointConfiguration'] = nid
+typeid_by_extension_objects[EndpointConfiguration] = nid
 nid = FourByteNodeId(ObjectIds.QueryDataDescription_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = QueryDataDescription
-extension_object_typeids['QueryDataDescription'] = nid
+typeid_by_extension_objects[QueryDataDescription] = nid
 nid = FourByteNodeId(ObjectIds.NodeTypeDescription_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = NodeTypeDescription
-extension_object_typeids['NodeTypeDescription'] = nid
+typeid_by_extension_objects[NodeTypeDescription] = nid
 nid = FourByteNodeId(ObjectIds.QueryDataSet_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = QueryDataSet
-extension_object_typeids['QueryDataSet'] = nid
+typeid_by_extension_objects[QueryDataSet] = nid
 nid = FourByteNodeId(ObjectIds.NodeReference_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = NodeReference
-extension_object_typeids['NodeReference'] = nid
+typeid_by_extension_objects[NodeReference] = nid
 nid = FourByteNodeId(ObjectIds.ContentFilterElement_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ContentFilterElement
-extension_object_typeids['ContentFilterElement'] = nid
+typeid_by_extension_objects[ContentFilterElement] = nid
 nid = FourByteNodeId(ObjectIds.ContentFilter_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ContentFilter
-extension_object_typeids['ContentFilter'] = nid
+typeid_by_extension_objects[ContentFilter] = nid
 nid = FourByteNodeId(ObjectIds.FilterOperand_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = FilterOperand
-extension_object_typeids['FilterOperand'] = nid
+typeid_by_extension_objects[FilterOperand] = nid
 nid = FourByteNodeId(ObjectIds.ElementOperand_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ElementOperand
-extension_object_typeids['ElementOperand'] = nid
+typeid_by_extension_objects[ElementOperand] = nid
 nid = FourByteNodeId(ObjectIds.LiteralOperand_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = LiteralOperand
-extension_object_typeids['LiteralOperand'] = nid
+typeid_by_extension_objects[LiteralOperand] = nid
 nid = FourByteNodeId(ObjectIds.AttributeOperand_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = AttributeOperand
-extension_object_typeids['AttributeOperand'] = nid
+typeid_by_extension_objects[AttributeOperand] = nid
 nid = FourByteNodeId(ObjectIds.SimpleAttributeOperand_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = SimpleAttributeOperand
-extension_object_typeids['SimpleAttributeOperand'] = nid
+typeid_by_extension_objects[SimpleAttributeOperand] = nid
 nid = FourByteNodeId(ObjectIds.PublishedEventsDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = PublishedEventsDataType
-extension_object_typeids['PublishedEventsDataType'] = nid
+typeid_by_extension_objects[PublishedEventsDataType] = nid
 nid = FourByteNodeId(ObjectIds.ContentFilterElementResult_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ContentFilterElementResult
-extension_object_typeids['ContentFilterElementResult'] = nid
+typeid_by_extension_objects[ContentFilterElementResult] = nid
 nid = FourByteNodeId(ObjectIds.ContentFilterResult_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ContentFilterResult
-extension_object_typeids['ContentFilterResult'] = nid
+typeid_by_extension_objects[ContentFilterResult] = nid
 nid = FourByteNodeId(ObjectIds.ParsingResult_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ParsingResult
-extension_object_typeids['ParsingResult'] = nid
+typeid_by_extension_objects[ParsingResult] = nid
 nid = FourByteNodeId(ObjectIds.QueryFirstRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = QueryFirstRequest
-extension_object_typeids['QueryFirstRequest'] = nid
+typeid_by_extension_objects[QueryFirstRequest] = nid
 nid = FourByteNodeId(ObjectIds.QueryFirstResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = QueryFirstResponse
-extension_object_typeids['QueryFirstResponse'] = nid
+typeid_by_extension_objects[QueryFirstResponse] = nid
 nid = FourByteNodeId(ObjectIds.QueryNextRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = QueryNextRequest
-extension_object_typeids['QueryNextRequest'] = nid
+typeid_by_extension_objects[QueryNextRequest] = nid
 nid = FourByteNodeId(ObjectIds.QueryNextResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = QueryNextResponse
-extension_object_typeids['QueryNextResponse'] = nid
+typeid_by_extension_objects[QueryNextResponse] = nid
 nid = FourByteNodeId(ObjectIds.ReadValueId_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ReadValueId
-extension_object_typeids['ReadValueId'] = nid
+typeid_by_extension_objects[ReadValueId] = nid
 nid = FourByteNodeId(ObjectIds.ReadRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ReadRequest
-extension_object_typeids['ReadRequest'] = nid
+typeid_by_extension_objects[ReadRequest] = nid
 nid = FourByteNodeId(ObjectIds.ReadResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ReadResponse
-extension_object_typeids['ReadResponse'] = nid
+typeid_by_extension_objects[ReadResponse] = nid
 nid = FourByteNodeId(ObjectIds.HistoryReadValueId_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = HistoryReadValueId
-extension_object_typeids['HistoryReadValueId'] = nid
+typeid_by_extension_objects[HistoryReadValueId] = nid
 nid = FourByteNodeId(ObjectIds.HistoryReadResult_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = HistoryReadResult
-extension_object_typeids['HistoryReadResult'] = nid
+typeid_by_extension_objects[HistoryReadResult] = nid
 nid = FourByteNodeId(ObjectIds.HistoryReadDetails_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = HistoryReadDetails
-extension_object_typeids['HistoryReadDetails'] = nid
+typeid_by_extension_objects[HistoryReadDetails] = nid
 nid = FourByteNodeId(ObjectIds.SortRuleElement_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = SortRuleElement
-extension_object_typeids['SortRuleElement'] = nid
+typeid_by_extension_objects[SortRuleElement] = nid
 nid = FourByteNodeId(ObjectIds.ReadRawModifiedDetails_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ReadRawModifiedDetails
-extension_object_typeids['ReadRawModifiedDetails'] = nid
+typeid_by_extension_objects[ReadRawModifiedDetails] = nid
 nid = FourByteNodeId(ObjectIds.ReadAtTimeDetails_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ReadAtTimeDetails
-extension_object_typeids['ReadAtTimeDetails'] = nid
+typeid_by_extension_objects[ReadAtTimeDetails] = nid
 nid = FourByteNodeId(ObjectIds.ReadAnnotationDataDetails_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ReadAnnotationDataDetails
-extension_object_typeids['ReadAnnotationDataDetails'] = nid
+typeid_by_extension_objects[ReadAnnotationDataDetails] = nid
 nid = FourByteNodeId(ObjectIds.HistoryData_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = HistoryData
-extension_object_typeids['HistoryData'] = nid
+typeid_by_extension_objects[HistoryData] = nid
 nid = FourByteNodeId(ObjectIds.ModificationInfo_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ModificationInfo
-extension_object_typeids['ModificationInfo'] = nid
+typeid_by_extension_objects[ModificationInfo] = nid
 nid = FourByteNodeId(ObjectIds.HistoryModifiedData_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = HistoryModifiedData
-extension_object_typeids['HistoryModifiedData'] = nid
+typeid_by_extension_objects[HistoryModifiedData] = nid
 nid = FourByteNodeId(ObjectIds.HistoryReadRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = HistoryReadRequest
-extension_object_typeids['HistoryReadRequest'] = nid
+typeid_by_extension_objects[HistoryReadRequest] = nid
 nid = FourByteNodeId(ObjectIds.HistoryReadResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = HistoryReadResponse
-extension_object_typeids['HistoryReadResponse'] = nid
+typeid_by_extension_objects[HistoryReadResponse] = nid
 nid = FourByteNodeId(ObjectIds.WriteValue_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = WriteValue
-extension_object_typeids['WriteValue'] = nid
+typeid_by_extension_objects[WriteValue] = nid
 nid = FourByteNodeId(ObjectIds.WriteRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = WriteRequest
-extension_object_typeids['WriteRequest'] = nid
+typeid_by_extension_objects[WriteRequest] = nid
 nid = FourByteNodeId(ObjectIds.WriteResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = WriteResponse
-extension_object_typeids['WriteResponse'] = nid
+typeid_by_extension_objects[WriteResponse] = nid
 nid = FourByteNodeId(ObjectIds.HistoryUpdateDetails_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = HistoryUpdateDetails
-extension_object_typeids['HistoryUpdateDetails'] = nid
+typeid_by_extension_objects[HistoryUpdateDetails] = nid
 nid = FourByteNodeId(ObjectIds.UpdateDataDetails_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = UpdateDataDetails
-extension_object_typeids['UpdateDataDetails'] = nid
+typeid_by_extension_objects[UpdateDataDetails] = nid
 nid = FourByteNodeId(ObjectIds.UpdateStructureDataDetails_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = UpdateStructureDataDetails
-extension_object_typeids['UpdateStructureDataDetails'] = nid
+typeid_by_extension_objects[UpdateStructureDataDetails] = nid
 nid = FourByteNodeId(ObjectIds.DeleteRawModifiedDetails_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DeleteRawModifiedDetails
-extension_object_typeids['DeleteRawModifiedDetails'] = nid
+typeid_by_extension_objects[DeleteRawModifiedDetails] = nid
 nid = FourByteNodeId(ObjectIds.DeleteAtTimeDetails_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DeleteAtTimeDetails
-extension_object_typeids['DeleteAtTimeDetails'] = nid
+typeid_by_extension_objects[DeleteAtTimeDetails] = nid
 nid = FourByteNodeId(ObjectIds.DeleteEventDetails_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DeleteEventDetails
-extension_object_typeids['DeleteEventDetails'] = nid
+typeid_by_extension_objects[DeleteEventDetails] = nid
 nid = FourByteNodeId(ObjectIds.HistoryUpdateResult_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = HistoryUpdateResult
-extension_object_typeids['HistoryUpdateResult'] = nid
+typeid_by_extension_objects[HistoryUpdateResult] = nid
 nid = FourByteNodeId(ObjectIds.HistoryUpdateRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = HistoryUpdateRequest
-extension_object_typeids['HistoryUpdateRequest'] = nid
+typeid_by_extension_objects[HistoryUpdateRequest] = nid
 nid = FourByteNodeId(ObjectIds.HistoryUpdateResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = HistoryUpdateResponse
-extension_object_typeids['HistoryUpdateResponse'] = nid
+typeid_by_extension_objects[HistoryUpdateResponse] = nid
 nid = FourByteNodeId(ObjectIds.CallMethodRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = CallMethodRequest
-extension_object_typeids['CallMethodRequest'] = nid
+typeid_by_extension_objects[CallMethodRequest] = nid
 nid = FourByteNodeId(ObjectIds.CallMethodResult_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = CallMethodResult
-extension_object_typeids['CallMethodResult'] = nid
+typeid_by_extension_objects[CallMethodResult] = nid
 nid = FourByteNodeId(ObjectIds.CallRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = CallRequest
-extension_object_typeids['CallRequest'] = nid
+typeid_by_extension_objects[CallRequest] = nid
 nid = FourByteNodeId(ObjectIds.CallResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = CallResponse
-extension_object_typeids['CallResponse'] = nid
+typeid_by_extension_objects[CallResponse] = nid
 nid = FourByteNodeId(ObjectIds.MonitoringFilter_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = MonitoringFilter
-extension_object_typeids['MonitoringFilter'] = nid
+typeid_by_extension_objects[MonitoringFilter] = nid
 nid = FourByteNodeId(ObjectIds.DataChangeFilter_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DataChangeFilter
-extension_object_typeids['DataChangeFilter'] = nid
+typeid_by_extension_objects[DataChangeFilter] = nid
 nid = FourByteNodeId(ObjectIds.EventFilter_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = EventFilter
-extension_object_typeids['EventFilter'] = nid
+typeid_by_extension_objects[EventFilter] = nid
 nid = FourByteNodeId(ObjectIds.ReadEventDetails_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ReadEventDetails
-extension_object_typeids['ReadEventDetails'] = nid
+typeid_by_extension_objects[ReadEventDetails] = nid
 nid = FourByteNodeId(ObjectIds.ReadEventDetails2_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ReadEventDetails2
-extension_object_typeids['ReadEventDetails2'] = nid
+typeid_by_extension_objects[ReadEventDetails2] = nid
 nid = FourByteNodeId(ObjectIds.ReadEventDetailsSorted_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ReadEventDetailsSorted
-extension_object_typeids['ReadEventDetailsSorted'] = nid
+typeid_by_extension_objects[ReadEventDetailsSorted] = nid
 nid = FourByteNodeId(ObjectIds.AggregateConfiguration_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = AggregateConfiguration
-extension_object_typeids['AggregateConfiguration'] = nid
+typeid_by_extension_objects[AggregateConfiguration] = nid
 nid = FourByteNodeId(ObjectIds.ReadProcessedDetails_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ReadProcessedDetails
-extension_object_typeids['ReadProcessedDetails'] = nid
+typeid_by_extension_objects[ReadProcessedDetails] = nid
 nid = FourByteNodeId(ObjectIds.AggregateFilter_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = AggregateFilter
-extension_object_typeids['AggregateFilter'] = nid
+typeid_by_extension_objects[AggregateFilter] = nid
 nid = FourByteNodeId(ObjectIds.MonitoringFilterResult_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = MonitoringFilterResult
-extension_object_typeids['MonitoringFilterResult'] = nid
+typeid_by_extension_objects[MonitoringFilterResult] = nid
 nid = FourByteNodeId(ObjectIds.EventFilterResult_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = EventFilterResult
-extension_object_typeids['EventFilterResult'] = nid
+typeid_by_extension_objects[EventFilterResult] = nid
 nid = FourByteNodeId(ObjectIds.AggregateFilterResult_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = AggregateFilterResult
-extension_object_typeids['AggregateFilterResult'] = nid
+typeid_by_extension_objects[AggregateFilterResult] = nid
 nid = FourByteNodeId(ObjectIds.MonitoringParameters_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = MonitoringParameters
-extension_object_typeids['MonitoringParameters'] = nid
+typeid_by_extension_objects[MonitoringParameters] = nid
 nid = FourByteNodeId(ObjectIds.MonitoredItemCreateRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = MonitoredItemCreateRequest
-extension_object_typeids['MonitoredItemCreateRequest'] = nid
+typeid_by_extension_objects[MonitoredItemCreateRequest] = nid
 nid = FourByteNodeId(ObjectIds.MonitoredItemCreateResult_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = MonitoredItemCreateResult
-extension_object_typeids['MonitoredItemCreateResult'] = nid
+typeid_by_extension_objects[MonitoredItemCreateResult] = nid
 nid = FourByteNodeId(ObjectIds.CreateMonitoredItemsRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = CreateMonitoredItemsRequest
-extension_object_typeids['CreateMonitoredItemsRequest'] = nid
+typeid_by_extension_objects[CreateMonitoredItemsRequest] = nid
 nid = FourByteNodeId(ObjectIds.CreateMonitoredItemsResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = CreateMonitoredItemsResponse
-extension_object_typeids['CreateMonitoredItemsResponse'] = nid
+typeid_by_extension_objects[CreateMonitoredItemsResponse] = nid
 nid = FourByteNodeId(ObjectIds.MonitoredItemModifyRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = MonitoredItemModifyRequest
-extension_object_typeids['MonitoredItemModifyRequest'] = nid
+typeid_by_extension_objects[MonitoredItemModifyRequest] = nid
 nid = FourByteNodeId(ObjectIds.MonitoredItemModifyResult_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = MonitoredItemModifyResult
-extension_object_typeids['MonitoredItemModifyResult'] = nid
+typeid_by_extension_objects[MonitoredItemModifyResult] = nid
 nid = FourByteNodeId(ObjectIds.ModifyMonitoredItemsRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ModifyMonitoredItemsRequest
-extension_object_typeids['ModifyMonitoredItemsRequest'] = nid
+typeid_by_extension_objects[ModifyMonitoredItemsRequest] = nid
 nid = FourByteNodeId(ObjectIds.ModifyMonitoredItemsResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ModifyMonitoredItemsResponse
-extension_object_typeids['ModifyMonitoredItemsResponse'] = nid
+typeid_by_extension_objects[ModifyMonitoredItemsResponse] = nid
 nid = FourByteNodeId(ObjectIds.SetMonitoringModeRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = SetMonitoringModeRequest
-extension_object_typeids['SetMonitoringModeRequest'] = nid
+typeid_by_extension_objects[SetMonitoringModeRequest] = nid
 nid = FourByteNodeId(ObjectIds.SetMonitoringModeResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = SetMonitoringModeResponse
-extension_object_typeids['SetMonitoringModeResponse'] = nid
+typeid_by_extension_objects[SetMonitoringModeResponse] = nid
 nid = FourByteNodeId(ObjectIds.SetTriggeringRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = SetTriggeringRequest
-extension_object_typeids['SetTriggeringRequest'] = nid
+typeid_by_extension_objects[SetTriggeringRequest] = nid
 nid = FourByteNodeId(ObjectIds.SetTriggeringResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = SetTriggeringResponse
-extension_object_typeids['SetTriggeringResponse'] = nid
+typeid_by_extension_objects[SetTriggeringResponse] = nid
 nid = FourByteNodeId(ObjectIds.DeleteMonitoredItemsRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DeleteMonitoredItemsRequest
-extension_object_typeids['DeleteMonitoredItemsRequest'] = nid
+typeid_by_extension_objects[DeleteMonitoredItemsRequest] = nid
 nid = FourByteNodeId(ObjectIds.DeleteMonitoredItemsResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DeleteMonitoredItemsResponse
-extension_object_typeids['DeleteMonitoredItemsResponse'] = nid
+typeid_by_extension_objects[DeleteMonitoredItemsResponse] = nid
 nid = FourByteNodeId(ObjectIds.CreateSubscriptionRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = CreateSubscriptionRequest
-extension_object_typeids['CreateSubscriptionRequest'] = nid
+typeid_by_extension_objects[CreateSubscriptionRequest] = nid
 nid = FourByteNodeId(ObjectIds.CreateSubscriptionResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = CreateSubscriptionResponse
-extension_object_typeids['CreateSubscriptionResponse'] = nid
+typeid_by_extension_objects[CreateSubscriptionResponse] = nid
 nid = FourByteNodeId(ObjectIds.ModifySubscriptionRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ModifySubscriptionRequest
-extension_object_typeids['ModifySubscriptionRequest'] = nid
+typeid_by_extension_objects[ModifySubscriptionRequest] = nid
 nid = FourByteNodeId(ObjectIds.ModifySubscriptionResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ModifySubscriptionResponse
-extension_object_typeids['ModifySubscriptionResponse'] = nid
+typeid_by_extension_objects[ModifySubscriptionResponse] = nid
 nid = FourByteNodeId(ObjectIds.SetPublishingModeRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = SetPublishingModeRequest
-extension_object_typeids['SetPublishingModeRequest'] = nid
+typeid_by_extension_objects[SetPublishingModeRequest] = nid
 nid = FourByteNodeId(ObjectIds.SetPublishingModeResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = SetPublishingModeResponse
-extension_object_typeids['SetPublishingModeResponse'] = nid
+typeid_by_extension_objects[SetPublishingModeResponse] = nid
 nid = FourByteNodeId(ObjectIds.NotificationMessage_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = NotificationMessage
-extension_object_typeids['NotificationMessage'] = nid
+typeid_by_extension_objects[NotificationMessage] = nid
 nid = FourByteNodeId(ObjectIds.NotificationData_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = NotificationData
-extension_object_typeids['NotificationData'] = nid
+typeid_by_extension_objects[NotificationData] = nid
 nid = FourByteNodeId(ObjectIds.MonitoredItemNotification_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = MonitoredItemNotification
-extension_object_typeids['MonitoredItemNotification'] = nid
+typeid_by_extension_objects[MonitoredItemNotification] = nid
 nid = FourByteNodeId(ObjectIds.DataChangeNotification_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DataChangeNotification
-extension_object_typeids['DataChangeNotification'] = nid
+typeid_by_extension_objects[DataChangeNotification] = nid
 nid = FourByteNodeId(ObjectIds.EventFieldList_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = EventFieldList
-extension_object_typeids['EventFieldList'] = nid
+typeid_by_extension_objects[EventFieldList] = nid
 nid = FourByteNodeId(ObjectIds.EventNotificationList_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = EventNotificationList
-extension_object_typeids['EventNotificationList'] = nid
+typeid_by_extension_objects[EventNotificationList] = nid
 nid = FourByteNodeId(ObjectIds.HistoryEventFieldList_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = HistoryEventFieldList
-extension_object_typeids['HistoryEventFieldList'] = nid
+typeid_by_extension_objects[HistoryEventFieldList] = nid
 nid = FourByteNodeId(ObjectIds.HistoryEvent_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = HistoryEvent
-extension_object_typeids['HistoryEvent'] = nid
+typeid_by_extension_objects[HistoryEvent] = nid
 nid = FourByteNodeId(ObjectIds.HistoryModifiedEvent_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = HistoryModifiedEvent
-extension_object_typeids['HistoryModifiedEvent'] = nid
+typeid_by_extension_objects[HistoryModifiedEvent] = nid
 nid = FourByteNodeId(ObjectIds.UpdateEventDetails_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = UpdateEventDetails
-extension_object_typeids['UpdateEventDetails'] = nid
+typeid_by_extension_objects[UpdateEventDetails] = nid
 nid = FourByteNodeId(ObjectIds.StatusChangeNotification_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = StatusChangeNotification
-extension_object_typeids['StatusChangeNotification'] = nid
+typeid_by_extension_objects[StatusChangeNotification] = nid
 nid = FourByteNodeId(ObjectIds.SubscriptionAcknowledgement_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = SubscriptionAcknowledgement
-extension_object_typeids['SubscriptionAcknowledgement'] = nid
+typeid_by_extension_objects[SubscriptionAcknowledgement] = nid
 nid = FourByteNodeId(ObjectIds.PublishRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = PublishRequest
-extension_object_typeids['PublishRequest'] = nid
+typeid_by_extension_objects[PublishRequest] = nid
 nid = FourByteNodeId(ObjectIds.PublishResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = PublishResponse
-extension_object_typeids['PublishResponse'] = nid
+typeid_by_extension_objects[PublishResponse] = nid
 nid = FourByteNodeId(ObjectIds.RepublishRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = RepublishRequest
-extension_object_typeids['RepublishRequest'] = nid
+typeid_by_extension_objects[RepublishRequest] = nid
 nid = FourByteNodeId(ObjectIds.RepublishResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = RepublishResponse
-extension_object_typeids['RepublishResponse'] = nid
+typeid_by_extension_objects[RepublishResponse] = nid
 nid = FourByteNodeId(ObjectIds.TransferResult_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = TransferResult
-extension_object_typeids['TransferResult'] = nid
+typeid_by_extension_objects[TransferResult] = nid
 nid = FourByteNodeId(ObjectIds.TransferSubscriptionsRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = TransferSubscriptionsRequest
-extension_object_typeids['TransferSubscriptionsRequest'] = nid
+typeid_by_extension_objects[TransferSubscriptionsRequest] = nid
 nid = FourByteNodeId(ObjectIds.TransferSubscriptionsResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = TransferSubscriptionsResponse
-extension_object_typeids['TransferSubscriptionsResponse'] = nid
+typeid_by_extension_objects[TransferSubscriptionsResponse] = nid
 nid = FourByteNodeId(ObjectIds.DeleteSubscriptionsRequest_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DeleteSubscriptionsRequest
-extension_object_typeids['DeleteSubscriptionsRequest'] = nid
+typeid_by_extension_objects[DeleteSubscriptionsRequest] = nid
 nid = FourByteNodeId(ObjectIds.DeleteSubscriptionsResponse_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DeleteSubscriptionsResponse
-extension_object_typeids['DeleteSubscriptionsResponse'] = nid
+typeid_by_extension_objects[DeleteSubscriptionsResponse] = nid
 nid = FourByteNodeId(ObjectIds.BuildInfo_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = BuildInfo
-extension_object_typeids['BuildInfo'] = nid
+typeid_by_extension_objects[BuildInfo] = nid
 nid = FourByteNodeId(ObjectIds.RedundantServerDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = RedundantServerDataType
-extension_object_typeids['RedundantServerDataType'] = nid
+typeid_by_extension_objects[RedundantServerDataType] = nid
 nid = FourByteNodeId(ObjectIds.EndpointUrlListDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = EndpointUrlListDataType
-extension_object_typeids['EndpointUrlListDataType'] = nid
+typeid_by_extension_objects[EndpointUrlListDataType] = nid
 nid = FourByteNodeId(ObjectIds.NetworkGroupDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = NetworkGroupDataType
-extension_object_typeids['NetworkGroupDataType'] = nid
+typeid_by_extension_objects[NetworkGroupDataType] = nid
 nid = FourByteNodeId(ObjectIds.SamplingIntervalDiagnosticsDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = SamplingIntervalDiagnosticsDataType
-extension_object_typeids['SamplingIntervalDiagnosticsDataType'] = nid
+typeid_by_extension_objects[SamplingIntervalDiagnosticsDataType] = nid
 nid = FourByteNodeId(ObjectIds.ServerDiagnosticsSummaryDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ServerDiagnosticsSummaryDataType
-extension_object_typeids['ServerDiagnosticsSummaryDataType'] = nid
+typeid_by_extension_objects[ServerDiagnosticsSummaryDataType] = nid
 nid = FourByteNodeId(ObjectIds.ServerStatusDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ServerStatusDataType
-extension_object_typeids['ServerStatusDataType'] = nid
+typeid_by_extension_objects[ServerStatusDataType] = nid
 nid = FourByteNodeId(ObjectIds.SessionSecurityDiagnosticsDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = SessionSecurityDiagnosticsDataType
-extension_object_typeids['SessionSecurityDiagnosticsDataType'] = nid
+typeid_by_extension_objects[SessionSecurityDiagnosticsDataType] = nid
 nid = FourByteNodeId(ObjectIds.ServiceCounterDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ServiceCounterDataType
-extension_object_typeids['ServiceCounterDataType'] = nid
+typeid_by_extension_objects[ServiceCounterDataType] = nid
 nid = FourByteNodeId(ObjectIds.SessionDiagnosticsDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = SessionDiagnosticsDataType
-extension_object_typeids['SessionDiagnosticsDataType'] = nid
+typeid_by_extension_objects[SessionDiagnosticsDataType] = nid
 nid = FourByteNodeId(ObjectIds.StatusResult_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = StatusResult
-extension_object_typeids['StatusResult'] = nid
+typeid_by_extension_objects[StatusResult] = nid
 nid = FourByteNodeId(ObjectIds.SubscriptionDiagnosticsDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = SubscriptionDiagnosticsDataType
-extension_object_typeids['SubscriptionDiagnosticsDataType'] = nid
+typeid_by_extension_objects[SubscriptionDiagnosticsDataType] = nid
 nid = FourByteNodeId(ObjectIds.ModelChangeStructureDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ModelChangeStructureDataType
-extension_object_typeids['ModelChangeStructureDataType'] = nid
+typeid_by_extension_objects[ModelChangeStructureDataType] = nid
 nid = FourByteNodeId(ObjectIds.SemanticChangeStructureDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = SemanticChangeStructureDataType
-extension_object_typeids['SemanticChangeStructureDataType'] = nid
+typeid_by_extension_objects[SemanticChangeStructureDataType] = nid
 nid = FourByteNodeId(ObjectIds.Range_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = Range
-extension_object_typeids['Range'] = nid
+typeid_by_extension_objects[Range] = nid
 nid = FourByteNodeId(ObjectIds.EUInformation_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = EUInformation
-extension_object_typeids['EUInformation'] = nid
+typeid_by_extension_objects[EUInformation] = nid
 nid = FourByteNodeId(ObjectIds.ComplexNumberType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ComplexNumberType
-extension_object_typeids['ComplexNumberType'] = nid
+typeid_by_extension_objects[ComplexNumberType] = nid
 nid = FourByteNodeId(ObjectIds.DoubleComplexNumberType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = DoubleComplexNumberType
-extension_object_typeids['DoubleComplexNumberType'] = nid
+typeid_by_extension_objects[DoubleComplexNumberType] = nid
 nid = FourByteNodeId(ObjectIds.AxisInformation_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = AxisInformation
-extension_object_typeids['AxisInformation'] = nid
+typeid_by_extension_objects[AxisInformation] = nid
 nid = FourByteNodeId(ObjectIds.XVType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = XVType
-extension_object_typeids['XVType'] = nid
+typeid_by_extension_objects[XVType] = nid
 nid = FourByteNodeId(ObjectIds.ProgramDiagnosticDataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ProgramDiagnosticDataType
-extension_object_typeids['ProgramDiagnosticDataType'] = nid
+typeid_by_extension_objects[ProgramDiagnosticDataType] = nid
 nid = FourByteNodeId(ObjectIds.ProgramDiagnostic2DataType_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = ProgramDiagnostic2DataType
-extension_object_typeids['ProgramDiagnostic2DataType'] = nid
+typeid_by_extension_objects[ProgramDiagnostic2DataType] = nid
 nid = FourByteNodeId(ObjectIds.Annotation_Encoding_DefaultBinary)
 extension_objects_by_typeid[nid] = Annotation
-extension_object_typeids['Annotation'] = nid
+typeid_by_extension_objects[Annotation] = nid

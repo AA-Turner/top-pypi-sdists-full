@@ -31,7 +31,7 @@ exclude = [
 # Same as Black.
 line-length = 127
 indent-width = 4
-target-version = "py310" # Minimum supported version of Python
+target-version = "py311" # Minimum supported version of Python
 output-format = "full"
 
 [lint]
@@ -138,23 +138,18 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 mccabe.max-complexity = 49
 
 [lint.per-file-ignores]
-# Do not call setattr with constant attribute value
-"cmd2/argparse_custom.py" = ["B010"]
-
 # Ignore various warnings in examples/ directory
 "examples/*.py" = [
     "ANN",     # Ignore all type annotation rules in examples folder
     "D",       # Ignore all pydocstyle rules in examples folder
     "INP001",  # Module is part of an implicit namespace
-    "PLW2901", # loop variable overwritten inside loop
-    "S",       # Ignore all Security rules in examples folder
 ]
 "examples/scripts/*.py" = ["F821"] # Undefined name `app`
 
 # Ignore starting a process with a partial executable path (i.e. git)
 "scripts/validate_tag.py" = ["S607"]
 
-# Ingore various rulesets in test directories
+# Ignore various rulesets in test directories
 "{tests}/*.py" = [
     "ANN",  # Ignore all type annotation rules in test folders
     "ARG",  # Ignore all unused argument warnings in test folders
@@ -168,7 +163,7 @@ mccabe.max-complexity = 49
 
 [format]
 # Like Black, use double quotes for strings.
-quote-style = "preserve"
+quote-style = "double"
 
 # Like Black, indent with spaces, rather than tabs.
 indent-style = "space"
@@ -184,7 +179,7 @@ line-ending = "auto"
 #
 # This is currently disabled by default, but it is planned for this
 # to be opt-out in the future.
-docstring-code-format = false
+docstring-code-format = true
 
 # Set the line length limit used when formatting code snippets in
 # docstrings.

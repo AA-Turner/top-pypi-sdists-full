@@ -1,10 +1,13 @@
+from __future__ import annotations
+
 import asyncio
 from contextvars import ContextVar, Token
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import structlog
 import temporalio.activity
 
+from mistralai.workflows.core._events.event_encoder import EventPayloadEncoder, maybe_encode_event
 from mistralai.workflows.core._events.event_route_publisher import EventRoutePublisher
 from mistralai.workflows.core.utils.contextvars import reset_contextvar
 from mistralai.workflows.protocol.v1.events import WorkflowEvent
@@ -12,6 +15,9 @@ from mistralai.workflows.worker_client.errors import SDKError
 from mistralai.workflows.worker_client.events import Events
 from mistralai.workflows.worker_client.models import WorkflowEventRequestEventTypedDict
 from mistralai.workflows.worker_client.sdk import PrivateWorkerClient
+
+if TYPE_CHECKING:
+    from mistralai.extra.workflows.encoding.payload_encoder import PayloadEncoder
 
 logger = structlog.get_logger(__name__)
 
@@ -50,12 +56,23 @@ class EventContext:
         events_client: Events,
         worker_client: PrivateWorkerClient | None = None,
         events_api_version: str = "v1",
+        payload_encoder: PayloadEncoder | None = None,
     ) -> None:
         self.events_client = events_client
         self._token: Optional[Token] = None
         self._batch_events_supported: bool = True
+        # Only create EventPayloadEncoder when encryption is configured
+        self._event_encoder: EventPayloadEncoder | None = (
+            EventPayloadEncoder(payload_encoder)
+            if payload_encoder is not None and payload_encoder.encryption_config is not None
+            else None
+        )
         self._event_route_publisher = (
-            EventRoutePublisher(worker_client, events_api_version=events_api_version)
+            EventRoutePublisher(
+                worker_client,
+                events_api_version=events_api_version,
+                event_encoder=self._event_encoder,
+            )
             if worker_client is not None
             else None
         )
@@ -106,16 +123,39 @@ class EventContext:
         Args:
             events: List of workflow events to publish.
         """
+        if not events:
+            return
+
+        await self._publish_events_batch_internal(events)
+
+    async def _publish_events_batch_internal(
+        self,
+        events: list[WorkflowEvent],
+        already_encoded: bool = False,
+    ) -> None:
+        """Internal method to publish events.
+
+        Args:
+            events: List of workflow events to publish.
+            already_encoded: If True, skip encoding (events are already encoded).
+                           If False (default), encode events before publishing.
+        """
         if self._token is None:
             raise RuntimeError("EventContext not entered")
 
         if not events:
             return
 
+        if not already_encoded:
+            events = list(await asyncio.gather(*[maybe_encode_event(event, self._event_encoder) for event in events]))
+
         try:
             # Try the v2 event-route publisher first when configured; fall back to
             # the legacy v1 events client when v2 is disabled or downgraded.
-            if self._event_route_publisher is not None and await self._event_route_publisher.publish_events(events):
+            # Events are already encoded at this point, skip re-encoding.
+            if self._event_route_publisher is not None and await self._event_route_publisher.publish_events(
+                events, already_encoded=True
+            ):
                 return
             # Use single event endpoint for one event, batch endpoint for multiple
             if len(events) == 1:
@@ -159,6 +199,7 @@ class BackgroundEventPublisher:
 
     def __init__(self, event_context: EventContext):
         self.event_context = event_context
+        self._event_encoder = event_context._event_encoder
         self._event_queue: asyncio.Queue[Optional[WorkflowEvent]] = asyncio.Queue()
         self._sender_task: Optional[asyncio.Task] = None
 
@@ -172,16 +213,26 @@ class BackgroundEventPublisher:
 
     async def _event_sender_loop(self) -> None:
         pending: Optional[WorkflowEvent] = None
+        pending_ack = 0  # task_done owed for pending event from previous iteration
         while True:
             if pending is not None:
                 first_event: WorkflowEvent = pending
                 pending = None
+                ack_count = pending_ack
+                pending_ack = 0
             else:
                 _queued = await self._event_queue.get()
                 if _queued is None:
                     self._event_queue.task_done()
                     break
-                first_event = _queued
+                try:
+                    # Encode before measuring size to account for base64 overhead
+                    first_event = await maybe_encode_event(_queued, self._event_encoder)
+                except Exception as e:
+                    logger.error("Failed to encode event", error=str(e))
+                    self._event_queue.task_done()
+                    continue
+                ack_count = 1
 
             batch = [first_event]
             payload_size = len(first_event.model_dump_json().encode())
@@ -197,17 +248,28 @@ class BackgroundEventPublisher:
                     self._event_queue.put_nowait(None)
                     break
 
-                event_size = len(event.model_dump_json().encode())
+                try:
+                    # Encode before measuring size to account for base64 overhead
+                    encoded_event = await maybe_encode_event(event, self._event_encoder)
+                except Exception as e:
+                    logger.error("Failed to encode event", error=str(e))
+                    self._event_queue.task_done()
+                    continue
+
+                event_size = len(encoded_event.model_dump_json().encode())
                 if payload_size + event_size > _MAX_BATCH_PAYLOAD_BYTES:
-                    assert event is not None
-                    pending = event
+                    # Too large for this batch - defer to next iteration
+                    pending = encoded_event
+                    pending_ack = 1
                     break
 
-                batch.append(event)
+                batch.append(encoded_event)
+                ack_count += 1
                 payload_size += event_size
 
             try:
-                await self.event_context.publish_events_batch(batch)
+                # Events are already encoded, skip re-encoding
+                await self.event_context._publish_events_batch_internal(batch, already_encoded=True)
             except Exception as e:
                 logger.error(
                     "Failed to send event batch from background queue",
@@ -215,7 +277,7 @@ class BackgroundEventPublisher:
                     error=str(e),
                 )
             finally:
-                for _ in batch:
+                for _ in range(ack_count):
                     self._event_queue.task_done()
 
     def publish_event_background(self, event: WorkflowEvent) -> None:

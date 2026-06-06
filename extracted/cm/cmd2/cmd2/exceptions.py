@@ -25,16 +25,12 @@ class CommandSetRegistrationError(Exception):
 
 
 class CompletionError(Exception):
-    """Raised during tab completion operations to report any sort of error you want printed.
-
-    This can also be used just to display a message, even if it's not an error. For instance, ArgparseCompleter raises
-    CompletionErrors to display tab completion hints and sets apply_style to False so hints aren't colored like error text.
+    """Raised during completion operations to report any sort of error you want printed.
 
     Example use cases:
 
-    - Reading a database to retrieve a tab completion data set failed
+    - Reading a database to retrieve a completion data set failed
     - A previous command line argument that determines the data set being completed is invalid
-    - Tab completion hints
     """
 
     def __init__(self, *args: Any, apply_style: bool = True) -> None:
@@ -79,6 +75,14 @@ class EmbeddedConsoleExit(SystemExit):
 
 class EmptyStatement(Exception):  # noqa: N818
     """Custom exception class for handling behavior when the user just presses <Enter>."""
+
+
+class IncompleteStatement(Exception):  # noqa: N818
+    """Raised when more input is required to complete a multiline statement."""
+
+
+class MacroError(Exception):
+    """Raised when a macro fails to resolve (e.g., insufficient arguments)."""
 
 
 class RedirectionError(Exception):

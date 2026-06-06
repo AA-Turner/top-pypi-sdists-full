@@ -124,9 +124,10 @@ class PromptNotSubmitted(WorkerReadinessTimeout):
 
 
 class ProcessNotAlive(WorkerReadinessTimeout):
-    """Raised by _verify_process_alive when the spawned shim process has already
-    exited before the process-alive stage timeout, or when cli-return mode is
-    active and agents/<id>/output.log never received a heartbeat byte (E018, #857)."""
+    """Raised by _verify_cmux_surface_alive when a cmux-native worker surface
+    never becomes live within the bounded timeout — cmux maps it to no pane
+    (E043, #978). (The legacy cli-return output.log heartbeat that also raised
+    this was removed with the shim in #979.)"""
 
 
 class DeprecatedMultiplexerModeError(ValueError):
@@ -192,65 +193,56 @@ def _verify_stage(
     )
 
 
-def _verify_process_alive(
-    proc: Any,
-    agent_id: str,
-    runtime_dir: Path,
-    transport: str,
+def _verify_cmux_surface_alive(
+    backend: Any,
+    surface_ref: str,
     *,
     timeout_s: float = 5.0,
     poll_interval_s: float = 0.1,
 ) -> None:
-    """Assert the shim process is still running after surface creation (E018, #857).
+    """Assert the cmux-native worker surface is live (#978 liveness, E043).
 
-    Two-part check:
-    1. proc.poll() must return None (process has not exited).
-    2. In cli-return mode only: agents/<id>/output.log must contain at least
-       1 byte within *timeout_s* — proof that the shim got past Popen and is
-       tee-ing the pty output. A crashed shim leaves surface artifacts intact
-       (rename, layout, tab title) but never writes output.log.
+    The sole post-surface liveness check (the legacy 5s ``output.log`` heartbeat
+    poll was removed with the shim in #979): there is no pty shim teeing
+    ``output.log``, so liveness derives from **cmux surface state**, not a
+    heartbeat byte. cmux
+    owns the worker process+pixels — a launch that returned a real surface_ref
+    that cmux still maps to a live pane is, by construction, alive. This removes
+    the cold-start heartbeat flake (the shim needed seconds to boot + tee before
+    the first byte; cmux knows the surface immediately).
 
-    Raises ProcessNotAlive on any failure so callers can escalate rather than
-    proceeding to agent_spawned with a dead worker.
+    The probe is ``backend.surface_to_pane`` (``cmux list-panes`` +
+    ``list-pane-surfaces``): a vanished surface is found in no pane and raises,
+    so a sustained failure across ``timeout_s`` means the worker never
+    materialised / already died. Raises ``ProcessNotAlive`` so callers escalate
+    rather than proceeding with a dead worker. Backends without
+    ``surface_to_pane`` degrade to the upstream surface_ref-truthiness guard
+    (the materialisation check already performed by the caller).
     """
-    if proc is not None:
-        rc = proc.poll()
-        if rc is not None:
-            raise ProcessNotAlive(
-                f"Shim process for {agent_id!r} exited with code {rc} before "
-                f"process-alive stage completed. ({SPAWN_RULE_ID})"
-            )
-
-    if transport != "cli-return":
+    probe = getattr(backend, "surface_to_pane", None)
+    if probe is None:
+        # No liveness primitive on this backend; the caller's `if not
+        # surface_ref` materialisation guard is the only available signal.
         return
 
-    output_log = runtime_dir / "output.log"
     start = time.monotonic()
+    last_exc: Optional[Exception] = None
     while time.monotonic() - start < timeout_s:
-        if output_log.exists() and output_log.stat().st_size > 0:
+        try:
+            pane = probe(surface_ref)
+        except Exception as exc:  # surface not (yet) known to cmux
+            last_exc = exc
+            time.sleep(poll_interval_s)
+            continue
+        if pane:
             return
-        if proc is not None and proc.poll() is not None:
-            rc = proc.poll()
-            raise ProcessNotAlive(
-                f"Shim process for {agent_id!r} exited with code {rc} while "
-                f"waiting for output.log heartbeat. ({SPAWN_RULE_ID})"
-            )
         time.sleep(poll_interval_s)
 
-    bleed_candidate = (
-        Path.cwd() / ".atdd" / "runtime" / "agents" / agent_id / "output.log"
-    )
-    if bleed_candidate.exists() and bleed_candidate.stat().st_size > 0:
-        raise ProcessNotAlive(
-            f"Shim process for {agent_id!r} path-mismatch: "
-            f"polled {output_log} but bleed candidate found at alternate path "
-            f"{bleed_candidate} — shim wrote output to CWD-relative path instead of "
-            f"the absolute runtime-dir. ({SPAWN_RULE_ID})"
-        )
     raise ProcessNotAlive(
-        f"Shim process for {agent_id!r} is alive but {output_log} never received "
-        f"a heartbeat byte within {timeout_s:.1f}s — no bleed candidate found at alternate path. "
-        f"({SPAWN_RULE_ID})"
+        f"cmux-native worker surface {surface_ref!r} did not become live within "
+        f"{timeout_s:.1f}s — cmux maps it to no pane"
+        + (f" (last error: {last_exc})" if last_exc is not None else "")
+        + f". ({SPAWN_RULE_ID})"
     )
 
 
@@ -812,15 +804,9 @@ def _inject_agent_env(
 ) -> tuple[dict[str, str], str]:
     """Return ``(env_overrides, command)`` for ATDD_AGENT_ID injection (#731 / #854).
 
-    Shape A fix (#854): previously returned a shell-prefixed string
-    ``ATDD_AGENT_ID=<id> <command>`` which broke ``subprocess.Popen`` when
-    passed through atdd-shim's argv without ``shell=True``.  Now returns a
-    typed ``(dict, str)`` tuple so callers choose the injection mechanism:
-
-    - cli-return path: pass env_overrides via ``--env`` flags to atdd-shim
-      (``_build_shim_command`` handles this).
-    - shell/multiplexer path: reconstruct the ``KEY=value`` prefix from the
-      dict and prepend it to command as before.
+    Returns a typed ``(dict, str)`` tuple so the dispatch path can reconstruct
+    the ``KEY=value`` shell prefix from the dict and prepend it to the surface
+    command (``_prepend_env_prefix``).
     """
     if not agent_id:
         return {}, command
@@ -828,17 +814,19 @@ def _inject_agent_env(
 
 
 # ---------------------------------------------------------------------------
-# E004 (#841): PersonaShim wiring helpers
+# Transport dispatch helpers (cmux-native + tui-scrape override)
 # ---------------------------------------------------------------------------
 
 
 def _resolve_transport(env: dict[str, str] | None = None) -> str:
-    """Resolve the dispatch transport (Child 6, docs/coach-decomposition.md §13.6).
+    """Resolve the dispatch transport (Child 6 §13.6; #978 E043).
 
-    cli-return is the DEFAULT control plane; ``ATDD_USE_LEGACY_SPAWN=1`` (the
-    §12.4 R-4 kill switch) routes back to the pre-extraction tui-scrape path.
-    Delegates to ``atdd.runtime.agent_control.resolve_transport`` so the policy
-    lives in one place.
+    ``cmux-native`` is the sole launch plane (the legacy shim / ``cli-return``
+    transport and its ``ATDD_USE_LEGACY_SPAWN`` kill switch were decommissioned
+    in #979). An explicit ``ATDD_CORRECTION_TRANSPORT=tui-scrape`` still reaches
+    the deprecated direct paste path. Delegates to
+    ``atdd.runtime.agent_control.resolve_transport`` so the policy lives in one
+    place.
     """
     from atdd.runtime.agent_control import resolve_transport
 
@@ -846,65 +834,60 @@ def _resolve_transport(env: dict[str, str] | None = None) -> str:
 
 
 def _correction_transport() -> str:
-    """DEPRECATED back-compat alias of the legacy opt-in transport read.
+    """Read the ``ATDD_CORRECTION_TRANSPORT`` override (lowercased).
 
-    Retained so any external caller keeps working; new dispatch logic uses
-    ``_resolve_transport`` (cli-return by default). Removal target: 3.87.0.
+    Distinct from launch-transport selection (``_resolve_transport``): the
+    deferred observer reads this same env var to choose how it delivers a
+    *mid-run correction* to a running worker.
     """
     return os.environ.get("ATDD_CORRECTION_TRANSPORT", "").strip().lower()
 
 
-def _build_shim_command(
-    adapter_command: str,
-    agent_id: str,
-    runtime_root: Path,
-    env_overrides: dict[str, str] | None = None,
-) -> str:
-    """Wrap adapter_command with the atdd-shim entry point.
+def _prepend_env_prefix(command: str, env_overrides: dict[str, str] | None) -> str:
+    """Prepend a shell ``KEY=value`` prefix so the shell that runs the surface
+    command exports ``env_overrides`` for the adapter process.
 
-    E017 fix (#857): uses module-invocation form (sys.executable -m atdd.coach.shim)
-    instead of a bare 'atdd-shim' token so PATH resolution is eliminated entirely.
-    On multi-install hosts (e.g. homebrew 3.81.1 + pipx 3.82.4) the bare token
-    resolves to whichever installation $PATH finds first, which may be stale.
-    The module form routes through the SAME Python that is running coach.
-
-    Shape A fix (#854): env_overrides are passed via ``--env KEY=VALUE`` flags
-    so atdd-shim can apply them via ``subprocess.Popen(env=...)`` rather than
-    relying on shell-style ``KEY=value`` argv[0] prefixes which fail without
-    ``shell=True``.
-
-    Produces:
-      <sys.executable> -m atdd.coach.shim --agent-id <id> --runtime-dir <path> [--env K=V ...] -- <adapter_command>
+    Used by the direct (cmux-native / tui-scrape) dispatch paths, where the
+    surface command is run by a shell.
     """
-    env_flags = ""
-    if env_overrides:
-        env_flags = "".join(
-            f" --env {shlex.quote(f'{k}={v}')}" for k, v in env_overrides.items()
-        )
-    return (
-        f"{shlex.quote(sys.executable)} -m atdd.coach.shim"
-        f" --agent-id {shlex.quote(agent_id)}"
-        f" --runtime-dir {shlex.quote(str(runtime_root.resolve()))}"
-        f"{env_flags}"
-        f" -- {adapter_command}"
+    if not env_overrides:
+        return command
+    prefix = " ".join(
+        f"{k}={shlex.quote(str(v))}" for k, v in env_overrides.items()
     )
+    return f"{prefix} {command}"
 
 
-def _prime_cli_return_inbox(agent_dir: Path, prompt_text: str) -> None:
-    """Write the launch prompt as the first cli-return.jsonl entry.
+def _build_cmux_native_command(adapter_command: str, prompt_text: str) -> str:
+    """Build the cmux-native surface command (#978, E043): the agent's POSITIONAL
+    prompt seeds AND auto-submits the first turn — no pty shim, no cli-return
+    inbox, no submit sentinel.
 
-    Called by cmd_spawn BEFORE the surface is created so PersonaShim can
-    deliver the prompt as the first agent turn via the pty — eliminating the
-    post-boot paste_text + send_key path (E004 / #841).
+    The launch prompt is inserted immediately after the agent binary so it
+    precedes every flag — critically the variadic ``--allowedTools``, which
+    would otherwise swallow a trailing positional (the empty-prompt failure
+    observed in the 2026-06-05 spike). This is the same prompt-first ordering
+    invariant pinned by ``atdd.runtime.agent_control.cmux_launch
+    .build_agent_seed_argv``; inserting into the rendered adapter command (rather
+    than rebuilding argv) preserves adapter-specific flags such as ``--model``.
 
-    The entry is a minimal correction record: only correction_text is required
-    by PersonaShim._process_cli_return_line().
+    The argv is run through ``assert_no_forbidden_launch_flags`` so no
+    permission-bypass flag reaches a cmux-native launch (E014, #969). cmux runs
+    this command as the surface foreground process; ``CMUX_SURFACE_ID`` is set
+    there so the cmux wrapper injects the Feed-publishing hooks — decisions ride
+    the Feed, not this layer.
     """
-    agent_dir.mkdir(parents=True, exist_ok=True)
-    cli_return_path = agent_dir / "cli-return.jsonl"
-    record = {"correction_text": prompt_text}
-    with cli_return_path.open("w", encoding="utf-8") as fh:
-        fh.write(json.dumps(record) + "\n")
+    from atdd.runtime.agent_control import assert_no_forbidden_launch_flags
+
+    tokens = shlex.split(adapter_command)
+    if not tokens:
+        raise ValueError(
+            f"cmux-native launch requires a non-empty adapter command; "
+            f"got {adapter_command!r}"
+        )
+    seed_argv = [tokens[0], prompt_text, *tokens[1:]]
+    assert_no_forbidden_launch_flags(seed_argv)
+    return shlex.join(seed_argv)
 
 
 # ---------------------------------------------------------------------------
@@ -997,34 +980,6 @@ def _render_agent_identity_block(agent_id: str) -> str:
         "`escalate`, …) resolves it automatically. If `ATDD_AGENT_ID` is "
         f"ever unset, pass `--agent-id {agent_id}` explicitly."
     )
-
-
-def _prime_inbox_with_launch_prompt(
-    *,
-    agent_id: str,
-    prompt_text: str,
-    agent_dir: Path,
-) -> Path:
-    """Write the launch prompt as the first cli-return.jsonl entry.
-
-    Called before the shim spawns the agent CLI when
-    ATDD_CORRECTION_TRANSPORT=cli-return. The shim drains this entry
-    and delivers it to the agent's pty stdin as the first user turn,
-    replacing the post-boot paste_text + send_key approach (#702/#824).
-    """
-    import json as _json
-    cli_return = agent_dir / "cli-return.jsonl"
-    cli_return.parent.mkdir(parents=True, exist_ok=True)
-    record = {
-        "rule_id": "BOOTSTRAP-001",
-        "correction_text": prompt_text,
-        "severity": 0,
-        "issued_at": None,
-        "prompt": prompt_text,
-    }
-    with cli_return.open("a", encoding="utf-8") as fh:
-        fh.write(_json.dumps(record, sort_keys=True) + "\n")
-    return cli_return
 
 
 def _render_launch_prompt(
@@ -1415,28 +1370,32 @@ def cmd_spawn(
     # (claude-code today; codex / gemini / glm later) inherits it for free.
     # Without this the spawned persona has no ATDD_AGENT_ID and every
     # `atdd agent` subcommand fails closed, stalling the coach.
-    # #731 / #854 Shape A: _inject_agent_env returns (env_overrides, command).
-    # - cli-return path: env_overrides passed via --env flags to atdd-shim
-    # - shell/multiplexer path: reconstruct KEY=value prefix for shell dispatch
+    # #731 / #854 Shape A: _inject_agent_env returns (env_overrides, command);
+    # the dispatch path reconstructs a KEY=value shell prefix for the surface
+    # command (_prepend_env_prefix).
     env_overrides, command = _inject_agent_env(command, agent_id)
 
-    # E004 (#841): when ATDD_CORRECTION_TRANSPORT=cli-return, wrap the adapter
-    # command in PersonaShim and prime the inbox with the launch prompt BEFORE
-    # the surface is created. The shim becomes the pane foreground process;
-    # the adapter runs in the shim-owned pty; the launch prompt is delivered
-    # via cli-return.jsonl instead of paste_text + send_key.
+    # Transport dispatch (#978, E043). Two launch shapes (the legacy cli-return
+    # shim path was decommissioned in #979):
+    #
+    #  - cmux-native (DEFAULT): cmux opens the surface running the agent with the
+    #    launch prompt as the agent's POSITIONAL seed — it auto-submits the first
+    #    turn. No pty shim, no cli-return.jsonl inbox, no submit sentinel, no
+    #    post-boot paste; decisions ride the cmux wrapper's Feed hooks.
+    #  - tui-scrape / other (explicit ATDD_CORRECTION_TRANSPORT override): the
+    #    legacy direct path — paste_text + send_key after a readiness probe.
     agent_dir = _agent_runtime_dir(runtime_root, agent_id)
-    using_cli_return = _resolve_transport() == "cli-return"
-    if using_cli_return:
-        _prime_cli_return_inbox(agent_dir, prompt_path.read_text())
-        command = _build_shim_command(command, agent_id, runtime_root, env_overrides=env_overrides)
-    elif env_overrides:
-        # Shell/multiplexer dispatch: reconstruct KEY=value prefix so the shell
-        # that runs the surface command sets the env var for the adapter process.
-        prefix = " ".join(
-            f"{k}={shlex.quote(str(v))}" for k, v in env_overrides.items()
-        )
-        command = f"{prefix} {command}"
+    transport = _resolve_transport()
+    using_cmux_native = transport == "cmux-native"
+    if using_cmux_native:
+        # Seed the first turn via the agent's positional prompt (prompt-first,
+        # before --allowedTools). No shim wrap, no inbox priming, no paste.
+        command = _build_cmux_native_command(command, prompt_path.read_text())
+        command = _prepend_env_prefix(command, env_overrides)
+    else:
+        # tui-scrape / other direct dispatch: the shell that runs the surface
+        # command sets env_overrides via a reconstructed KEY=value prefix.
+        command = _prepend_env_prefix(command, env_overrides)
 
     from atdd.coach.utils.config import load_atdd_config
 
@@ -1532,37 +1491,38 @@ def cmd_spawn(
                 file=sys.stderr,
             )
 
-    # E018 (#857): verify the spawned process is alive after surface creation.
-    # In cli-return mode, also wait for agents/<id>/output.log to receive at
-    # least one heartbeat byte — proof the shim got past Popen and is running.
-    # A shim that crashes silently leaves all surface artifacts intact (rename,
-    # layout, tab title) but never writes output.log, so this is the only
-    # reliable liveness signal available without a direct process object.
+    # Post-surface liveness (E043 #978). cmux-native liveness derives from cmux
+    # surface state (surface_to_pane), NOT a 5s output.log heartbeat — there is
+    # no shim teeing output.log, and cmux knows the surface immediately, which
+    # removes the cold-start flake. The legacy cli-return heartbeat poll
+    # (_verify_process_alive) was removed with the shim in #979; the tui-scrape
+    # direct-paste path has no separate process to probe (it pastes into the
+    # surface created above).
     process_alive_timeout = float(
         os.environ.get("ATDD_PROCESS_ALIVE_TIMEOUT", "5.0")
     )
-    try:
-        _verify_process_alive(
-            proc=None,
-            agent_id=agent_id,
-            runtime_dir=agent_dir,
-            transport=_resolve_transport(),
-            timeout_s=process_alive_timeout,
-        )
-    except ProcessNotAlive as exc:
-        print(
-            f"❌ spawned process for {agent_id!r} is not alive: {exc} "
-            f"({SPAWN_RULE_ID})",
-            file=sys.stderr,
-        )
-        _close_surface_on_failure(backend, surface_ref)
-        raise
+    if using_cmux_native:
+        try:
+            _verify_cmux_surface_alive(
+                backend,
+                surface_ref,
+                timeout_s=process_alive_timeout,
+            )
+        except ProcessNotAlive as exc:
+            print(
+                f"❌ spawned process for {agent_id!r} is not alive: {exc} "
+                f"({SPAWN_RULE_ID})",
+                file=sys.stderr,
+            )
+            _close_surface_on_failure(backend, surface_ref)
+            raise
 
     # E022 (#863): adapter-agnostic readiness probe → paste → assert processing.
-    # E004 (#841): skip the paste path entirely when ATDD_CORRECTION_TRANSPORT=
-    # cli-return — the shim delivers the launch prompt via cli-return.jsonl
-    # (already primed above); paste_text + send_key must not fire.
-    if not using_cli_return:
+    # E043 (#978): skip the paste path when cmux-native — the agent's positional
+    # prompt already seeded AND auto-submitted the first turn at launch; a paste
+    # here would inject the brief a second time. Only the legacy direct
+    # (tui-scrape) path pastes post-boot.
+    if not using_cmux_native:
         from atdd.coach.utils.session_naming_apply import _claude_project_key
 
         project_key = _claude_project_key(worktree)

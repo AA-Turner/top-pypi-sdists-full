@@ -22,17 +22,22 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
+from sentry_protos.billing.v1.common.v1 import flexible_price_pb2 as sentry__protos_dot_billing_dot_v1_dot_common_dot_v1_dot_flexible__price__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n5sentry_protos/billing/v1/common/v1/pricing_tier.proto\x12\"sentry_protos.billing.v1.common.v1\"D\n\x0bPricingTier\x12\r\n\x05start\x18\x01 \x01(\x03\x12\x0b\n\x03\x65nd\x18\x02 \x01(\x03\x12\x19\n\x11rate_per_unit_cpe\x18\x03 \x01(\x03\"S\n\x11TieredPricingRate\x12>\n\x05tiers\x18\x01 \x03(\x0b\x32/.sentry_protos.billing.v1.common.v1.PricingTierb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n5sentry_protos/billing/v1/common/v1/pricing_tier.proto\x12\"sentry_protos.billing.v1.common.v1\x1a\x37sentry_protos/billing/v1/common/v1/flexible_price.proto\"\x8e\x01\n\x0bPricingTier\x12\r\n\x05start\x18\x01 \x01(\x03\x12\x0f\n\x03\x65nd\x18\x02 \x01(\x03\x42\x02\x18\x01\x12\x1d\n\x11rate_per_unit_cpe\x18\x03 \x01(\x03\x42\x02\x18\x01\x12@\n\x05price\x18\x04 \x01(\x0b\x32\x31.sentry_protos.billing.v1.common.v1.FlexiblePrice\"S\n\x11TieredPricingRate\x12>\n\x05tiers\x18\x01 \x03(\x0b\x32/.sentry_protos.billing.v1.common.v1.PricingTierb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.common.v1.pricing_tier_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_PRICINGTIER']._serialized_start=93
-  _globals['_PRICINGTIER']._serialized_end=161
-  _globals['_TIEREDPRICINGRATE']._serialized_start=163
-  _globals['_TIEREDPRICINGRATE']._serialized_end=246
+  _globals['_PRICINGTIER'].fields_by_name['end']._loaded_options = None
+  _globals['_PRICINGTIER'].fields_by_name['end']._serialized_options = b'\030\001'
+  _globals['_PRICINGTIER'].fields_by_name['rate_per_unit_cpe']._loaded_options = None
+  _globals['_PRICINGTIER'].fields_by_name['rate_per_unit_cpe']._serialized_options = b'\030\001'
+  _globals['_PRICINGTIER']._serialized_start=151
+  _globals['_PRICINGTIER']._serialized_end=293
+  _globals['_TIEREDPRICINGRATE']._serialized_start=295
+  _globals['_TIEREDPRICINGRATE']._serialized_end=378
 # @@protoc_insertion_point(module_scope)

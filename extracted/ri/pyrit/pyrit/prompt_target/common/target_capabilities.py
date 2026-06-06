@@ -24,6 +24,7 @@ class CapabilityName(str, Enum):
     JSON_OUTPUT = "supports_json_output"
     EDITABLE_HISTORY = "supports_editable_history"
     SYSTEM_PROMPT = "supports_system_prompt"
+    STREAMING_AUDIO = "supports_streaming_audio"
 
 
 class UnsupportedCapabilityBehavior(str, Enum):
@@ -138,6 +139,13 @@ class TargetCapabilities:
     # Whether the target natively supports system prompts.
     supports_system_prompt: bool = False
 
+    # Whether the target supports the streaming audio API: opening a long-lived
+    # streaming session via ``open_streaming_session`` that pushes user audio chunks,
+    # delivers VAD-committed audio to the attack for converter work, swaps committed
+    # items in place, and drives manual ``response.create`` turns. Required by
+    # ``BargeInAttack``.
+    supports_streaming_audio: bool = False
+
     # The input modalities supported by the target (e.g., "text", "image").
     input_modalities: frozenset[frozenset[PromptDataType]] = frozenset({frozenset(["text"])})
 
@@ -190,6 +198,7 @@ _GPT_4O = TargetCapabilities(
     supports_multi_message_pieces=True,
     supports_system_prompt=True,
     supports_json_output=True,
+    supports_editable_history=True,
     input_modalities=_TEXT_IMAGE_INPUT,
     output_modalities=_TEXT_OUTPUT,
 )
@@ -200,6 +209,7 @@ _GPT_5 = TargetCapabilities(
     supports_system_prompt=True,
     supports_json_schema=True,
     supports_json_output=True,
+    supports_editable_history=True,
     input_modalities=_TEXT_IMAGE_INPUT,
     output_modalities=_TEXT_OUTPUT,
 )

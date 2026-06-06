@@ -12909,11 +12909,19 @@ function _installCloseListenerOnce(el) {
         // Read at fire time so morph attribute updates take effect.
         const eventName = el.getAttribute('dj-dialog-close-event');
         if (!eventName) return;
-        // handleEvent is defined globally by 11-event-handler.js. Pass
-        // the dialog element as the trigger for loading-state and
-        // activity-gate machinery.
-        if (typeof handleEvent === 'function') {
-            handleEvent(eventName, { _targetElement: el });
+        // #1706: read the published alias, NOT the bare `handleEvent` symbol.
+        // `handleEvent` is declared in 11-event-handler.js, inside the
+        // double-load-guard `else {}` block (block-scoped); this module runs
+        // at bundle top level, OUTSIDE that block, so the bare reference is
+        // out of scope even unminified (the `typeof` guard silently returns
+        // "undefined" and the close-event never fires) and throws
+        // ReferenceError under terser-minified bundles. Reading
+        // `globalThis.djust.handleEvent` is minification-independent. Same
+        // class as #1676 / #1688. Pass the dialog element as the trigger for
+        // loading-state and activity-gate machinery.
+        const _handleEvent = globalThis.djust && globalThis.djust.handleEvent;
+        if (typeof _handleEvent === 'function') {
+            _handleEvent(eventName, { _targetElement: el });
         }
     });
 }
@@ -14809,13 +14817,19 @@ globalThis.djust.djTransitionGroup = {
      * event without tripping an exception.
      */
     async function _applyScopedPatches(patches, rootEl) {
-        if (typeof applyPatches !== "function") {
+        // #1688: reference the published alias, NOT the bare `applyPatches`
+        // symbol. `applyPatches` lives in 12-vdom-patch.js's inner IIFE and is
+        // only exposed as `globalThis.djust.applyPatches`; a bare reference is
+        // out of scope here and throws under terser-minified bundles (the
+        // #1676 class). Reading the alias is minification-independent.
+        const _ap = globalThis.djust && globalThis.djust.applyPatches;
+        if (typeof _ap !== "function") {
             if (globalThis.djustDebug) {
                 console.warn("[djust] applyPatches is not in scope; skipping");
             }
             return false;
         }
-        return applyPatches(patches, rootEl);
+        return _ap(patches, rootEl);
     }
 
     /**
@@ -15026,8 +15040,13 @@ globalThis.djust.djTransitionGroup = {
     // Also expose the top-level applyPatches under a stable name so
     // other modules (and tests) can invoke the scoped variant without
     // reaching into 12-vdom-patch.js's internals.
-    if (typeof applyPatches === "function" && !djust._applyPatches) {
-        djust._applyPatches = applyPatches;
+    // #1688: read the published alias (`globalThis.djust.applyPatches`), not the
+    // bare `applyPatches` symbol — the latter is out of this IIFE's scope and
+    // throws in the terser-minified bundle (and silently no-ops unminified,
+    // leaving `_applyPatches` unwired so emitChildMountedEvents never runs).
+    const _topApplyPatches = globalThis.djust && globalThis.djust.applyPatches;
+    if (typeof _topApplyPatches === "function" && !djust._applyPatches) {
+        djust._applyPatches = _topApplyPatches;
     }
 
     if (document.readyState === "loading") {
@@ -15672,14 +15691,22 @@ globalThis.djust.djTransitionGroup = {
     }
 
     // Dispatch a server event by reading the event name off an element's
-    // `dj-click` attribute. handleEvent is defined globally by
-    // 11-event-handler.js (same usage as 35-dj-dialog.js).
+    // `dj-click` attribute.
+    //
+    // #1706: read the published alias `globalThis.djust.handleEvent`, NOT the
+    // bare `handleEvent` symbol. `handleEvent` is declared in
+    // 11-event-handler.js inside the double-load-guard `else {}` block
+    // (block-scoped); this module runs at bundle top level, OUTSIDE that
+    // block, so the bare reference is out of scope even unminified and throws
+    // ReferenceError under terser-minified bundles. Same class as #1676 /
+    // #1688.
     function _dispatchFrom(el) {
         if (!el) return false;
         const name = el.getAttribute('dj-click');
         if (!name) return false;
-        if (typeof handleEvent === 'function') {
-            handleEvent(name, { _targetElement: el });
+        const _handleEvent = globalThis.djust && globalThis.djust.handleEvent;
+        if (typeof _handleEvent === 'function') {
+            _handleEvent(name, { _targetElement: el });
             return true;
         }
         return false;

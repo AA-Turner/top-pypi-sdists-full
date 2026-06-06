@@ -19,6 +19,7 @@ pub(crate) mod eval;
 mod firth;
 pub(super) mod hyper;
 mod inner_strategy;
+pub(crate) mod jeffreys_subspace;
 pub(crate) mod penalty_logdet;
 pub(crate) mod rho_prior_eval;
 pub(crate) mod runtime;
@@ -1239,7 +1240,7 @@ mod tests {
         let beta = array![0.1, -0.2, 0.3, 0.05];
         let eta = x.dot(&beta);
         let op = super::RemlState::build_firth_dense_operator_for_link(
-            crate::types::StandardLink::Logit,
+            &crate::types::InverseLink::Standard(crate::types::StandardLink::Logit),
             &x,
             &eta,
             ndarray::Array1::ones(x.nrows()).view(),

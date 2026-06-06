@@ -179,6 +179,7 @@ class IdentityCenterConfigurationTypeDef(TypedDict):
 class ImageConfigurationTypeDef(TypedDict):
     imageUri: str
     resolvedImageDigest: NotRequired[str]
+    applicationLevelDigestResolution: NotRequired[bool]
 
 class InteractiveConfigurationTypeDef(TypedDict):
     studioEnabled: NotRequired[bool]
@@ -242,6 +243,7 @@ class IdentityCenterConfigurationInputTypeDef(TypedDict):
 
 class ImageConfigurationInputTypeDef(TypedDict):
     imageUri: NotRequired[str]
+    applicationLevelDigestResolution: NotRequired[bool]
 
 class DeleteApplicationRequestTypeDef(TypedDict):
     applicationId: str
@@ -713,6 +715,8 @@ class JobRunTypeDef(TypedDict):
     startedAt: NotRequired[datetime]
     endedAt: NotRequired[datetime]
     queuedDurationMilliseconds: NotRequired[int]
+    imageConfiguration: NotRequired[ImageConfigurationTypeDef]
+    workerTypeSpecifications: NotRequired[dict[str, WorkerTypeSpecificationTypeDef]]
 
 ConfigurationOverridesUnionTypeDef = Union[
     ConfigurationOverridesTypeDef, ConfigurationOverridesOutputTypeDef

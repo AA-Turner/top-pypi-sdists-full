@@ -4,36 +4,41 @@ We only support a subset of features but should be enough
 for custom structures
 """
 
-import uuid
+from __future__ import annotations
+
 import logging
+import typing
+import uuid
+from dataclasses import dataclass, field
 
 # The next two imports are for generated code
 from datetime import datetime, timezone
-from enum import IntEnum, EnumMeta
-from dataclasses import dataclass, field
-from typing import List, Optional
-
-
+from enum import EnumMeta, IntEnum
+from typing import TYPE_CHECKING, Any
 from xml.etree import ElementTree as ET
+
 from asyncua import ua
 
-from .structures104 import get_default_value, clean_name
+from .structures104 import clean_name, get_default_value
+
+if TYPE_CHECKING:
+    from asyncua.common.node import Node
 
 _logger = logging.getLogger(__name__)
 
 
 class EnumType:
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         self.name = clean_name(name)
-        self.fields = []
-        self.typeid = None
+        self.fields: list[EnumeratedValue] = []
+        self.typeid: str | None = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"EnumType({self.name, self.fields})"
 
     __repr__ = __str__
 
-    def get_code(self):
+    def get_code(self) -> str:
         code = """
 
 class {0}(IntEnum):
@@ -53,7 +58,7 @@ class {0}(IntEnum):
 
 
 class EnumeratedValue:
-    def __init__(self, name, value):
+    def __init__(self, name: str, value: Any) -> None:
         if name == "None":
             name = "None_"
         name = name.replace(" ", "")
@@ -62,21 +67,21 @@ class EnumeratedValue:
 
 
 class Struct:
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         self.name = clean_name(name)
-        self.fields = []
-        self.typeid = None
+        self.fields: list[Field] = []
+        self.typeid: str | None = None
         self.option_counter = 0
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Struct(name={self.name}, fields={self.fields}"
 
     __repr__ = __str__
 
-    def get_code(self):
+    def get_code(self) -> str:
         code = f"""
 
-@dataclass
+@dataclass(slots=True)
 class {self.name}:
 
     '''
@@ -87,7 +92,7 @@ class {self.name}:
         if self.option_counter > 0:
             field = Field("Encoding")
             field.uatype = "UInt32"
-            self.fields = [field] + self.fields
+            self.fields = [field, *self.fields]
         for sfield in self.fields:
             if sfield.name != "SwitchField":
                 """
@@ -95,10 +100,10 @@ class {self.name}:
                 compatible with 1.04 structs we added
                 the 'Encoding' Field before and skip the SwitchField Field
                 """
-                uatype = f"'ua.{sfield.uatype}'"
+                uatype = f"ua.{sfield.uatype}"
                 if sfield.array:
-                    uatype = f"List[{uatype}]"
-                if uatype == "List[ua.Char]":
+                    uatype = f"list[{uatype}]"
+                if uatype == "list[ua.Char]":
                     uatype = "String"
                 if sfield.is_optional:
                     code += f"    {sfield.name}: Optional[{uatype}] = None\n"
@@ -106,38 +111,38 @@ class {self.name}:
                     uavalue = sfield.value
                     if isinstance(uavalue, str) and uavalue.startswith("ua."):
                         uavalue = f"field(default_factory=lambda: {uavalue})"
-                    code += f"    {sfield.name}:{uatype} = {uavalue}\n"
+                    code += f"    {sfield.name}:'{uatype}' = {uavalue}\n"
         return code
 
 
 class Field:
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         self.name = name
-        self.uatype = None
-        self.value = None
+        self.uatype: str | None = None
+        self.value: Any = None
         self.array = False
         self.is_optional = False
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Field(name={self.name}, uatype={self.uatype})"
 
     __repr__ = __str__
 
 
 class StructGenerator:
-    def __init__(self):
-        self.model = []
+    def __init__(self) -> None:
+        self.model: list[EnumType | Struct] = []
 
-    def make_model_from_string(self, xml):
+    def make_model_from_string(self, xml: str | bytes) -> None:
         obj = ET.fromstring(xml)
         self._make_model(obj)
 
-    def make_model_from_file(self, path):
+    def make_model_from_file(self, path: str) -> None:
         obj = ET.parse(path)
         root = obj.getroot()
         self._make_model(root)
 
-    def _is_array_field(self, name):
+    def _is_array_field(self, name: str) -> bool:
         if name.startswith("NoOf"):
             return True
         if name.startswith("__") and name.endswith("Length"):
@@ -148,7 +153,7 @@ class StructGenerator:
             return True
         return False
 
-    def _make_model(self, root):
+    def _make_model(self, root: ET.Element) -> None:
         enums = {}
         for child in root:
             if child.tag.endswith("EnumeratedType"):
@@ -174,7 +179,7 @@ class StructGenerator:
                         if self._is_array_field(name):
                             array = True
                             continue
-                        _type = xmlfield.get("TypeName")
+                        _type = xmlfield.get("TypeName") or ""
                         if ":" in _type:
                             _type = _type.split(":")[1]
                         if _type == "Bit":
@@ -194,7 +199,7 @@ class StructGenerator:
                         struct.fields.append(field)
                 self.model.append(struct)
 
-    def save_to_file(self, path, register=False):
+    def save_to_file(self, path: str, register: bool = False) -> None:
         _file = open(path, "w+")
         self._make_header(_file)
         for struct in self.model:
@@ -203,7 +208,7 @@ class StructGenerator:
             _file.write(self._make_registration())
         _file.close()
 
-    def _make_registration(self):
+    def _make_registration(self) -> str:
         code = "\n\n"
         for struct in self.model:
             if isinstance(struct, EnumType):
@@ -214,32 +219,35 @@ class StructGenerator:
             )
         return code
 
-    def get_python_classes(self, env=None):
+    def get_python_classes(self, env: dict[str, Any] | None = None) -> dict[str, Any]:
         return _generate_python_class(self.model, env=env)
 
-    def _make_header(self, _file):
+    def _make_header(self, _file: Any) -> None:
         _file.write("""
 '''
 THIS FILE IS AUTOGENERATED, DO NOT EDIT!!!
 '''
+from __future__ import annotations
 
 from datetime import datetime, timezone
 import uuid
 from dataclasses import dataclass, field
-from typing import List, Union, Optional
+from typing import Union, Optional
 from enum import IntEnum
 
 from asyncua import ua
 """)
 
-    def set_typeid(self, name, typeid):
+    def set_typeid(self, name: str, typeid: str) -> None:
         for struct in self.model:
             if struct.name == name:
                 struct.typeid = typeid
                 return
 
 
-async def load_type_definitions(server, nodes=None):
+async def load_type_definitions(
+    server: Any, nodes: list[Node] | None = None
+) -> tuple[list[StructGenerator], dict[str, Any]]:
     """
     Download xml from given variable node defining custom structures.
     If no node is given, attempts to import variables from all nodes under
@@ -287,14 +295,16 @@ async def load_type_definitions(server, nodes=None):
                 # save the typeid if user want to create static file for type definition
                 generator.set_typeid(name, nodeid.to_string())
 
+        from asyncua.ua.uatypes import _set_ua_attribute
+
         for key, val in structs_dict.items():
             if isinstance(val, EnumMeta) and key != "IntEnum":
-                setattr(ua, key, val)
+                _set_ua_attribute(key, val, getattr(val, "data_type", None))
 
     return generators, structs_dict
 
 
-def _generate_python_class(model, env=None):
+def _generate_python_class(model: list[Any], env: dict[str, Any] | None = None) -> dict[str, Any]:
     """
     generate Python code and execute in a new environment
     return a dict of structures {name: class}
@@ -317,10 +327,8 @@ def _generate_python_class(model, env=None):
         env["dataclass"] = dataclass
     if "field" not in env:
         env["field"] = field
-    if "List" not in env:
-        env["List"] = List
     if "Optional" not in env:
-        env["Optional"] = Optional
+        env["Optional"] = typing.Optional
     # generate classes one by one and add them to dict
     for element in model:
         code = element.get_code()
@@ -332,7 +340,7 @@ def _generate_python_class(model, env=None):
     return env
 
 
-async def load_enums(server, env=None, force=False):
+async def load_enums(server: Any, env: dict[str, Any] | None = None, force: bool = False) -> dict[str, Any]:
     """
     Read enumeration data types on server and generate python Enums in ua scope for them
     """
@@ -358,14 +366,14 @@ async def load_enums(server, env=None, force=False):
     return _generate_python_class(model, env=env)
 
 
-async def _get_enum_values(name, node):
+async def _get_enum_values(name: str, node: Node) -> EnumType:
     val = await node.read_value()
     c = EnumType(name)
     c.fields = [EnumeratedValue(enumval.DisplayName.Text, enumval.Value) for enumval in val]
     return c
 
 
-async def _get_enum_strings(name, node):
+async def _get_enum_strings(name: str, node: Node) -> EnumType:
     val = await node.read_value()
     c = EnumType(name)
     c.fields = [EnumeratedValue(st.Text, idx) for idx, st in enumerate(val)]

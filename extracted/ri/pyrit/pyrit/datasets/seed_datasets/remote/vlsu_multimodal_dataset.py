@@ -6,11 +6,13 @@ import uuid
 from enum import Enum
 from typing import Literal, Optional
 
-from pyrit.common.net_utility import make_request_and_raise_if_error_async
+from pyrit.datasets.seed_datasets.remote._image_cache import (
+    fetch_and_cache_image_async,
+)
 from pyrit.datasets.seed_datasets.remote.remote_dataset_loader import (
     _RemoteDatasetLoader,
 )
-from pyrit.models import SeedDataset, SeedPrompt, data_serializer_factory
+from pyrit.models import Modality, SeedDataset, SeedPrompt
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +52,11 @@ class _VLSUMultimodalDataset(_RemoteDatasetLoader):
     Reference: [@palaskar2025vlsu]
     """
 
+    # Metadata
+    modalities: tuple[Modality, ...] = (Modality.TEXT, Modality.IMAGE)
+    size: str = "huge"  # 11074 image-text safety annotations
+    tags: frozenset[str] = frozenset({"default", "safety", "multimodal"})
+
     def __init__(
         self,
         *,
@@ -58,7 +65,7 @@ class _VLSUMultimodalDataset(_RemoteDatasetLoader):
         categories: Optional[list[VLSUCategory]] = None,
         unsafe_grades: Optional[list[str]] = None,
         max_examples: Optional[int] = None,
-    ):
+    ) -> None:
         """
         Initialize the ML-VLSU multimodal dataset loader.
 
@@ -93,7 +100,7 @@ class _VLSUMultimodalDataset(_RemoteDatasetLoader):
         """Return the dataset name."""
         return "ml_vlsu"
 
-    async def fetch_dataset(self, *, cache: bool = True) -> SeedDataset:
+    async def fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
         """
         Fetch ML-VLSU multimodal examples and return as SeedDataset.
 
@@ -193,12 +200,12 @@ class _VLSUMultimodalDataset(_RemoteDatasetLoader):
         Raises:
             Exception: If the image cannot be fetched.
         """
-        text = example.get("prompt")
-        image_url = example.get("web_path")
+        text = example.get("prompt", "")
+        image_url = example.get("web_path", "")
         text_grade = example.get("consensus_text_grade", "").lower()
         image_grade = example.get("image_grade", "").lower()
         combined_grade = example.get("consensus_combined_grade", "").lower()
-        combined_category = example.get("combined_category")
+        combined_category = example.get("combined_category", "")
 
         group_id = uuid.uuid4()
         local_image_path = await self._fetch_and_save_image_async(image_url, str(group_id))
@@ -232,7 +239,7 @@ class _VLSUMultimodalDataset(_RemoteDatasetLoader):
             description="Image component of ML-VLSU multimodal prompt.",
             source=self.source,
             prompt_group_id=group_id,
-            sequence=1,
+            sequence=0,
             metadata={**metadata, "original_image_url": image_url},
         )
 
@@ -248,19 +255,11 @@ class _VLSUMultimodalDataset(_RemoteDatasetLoader):
 
         Returns:
             Local path to the saved image.
+
+        Raises:
+            RuntimeError: If the serializer memory is not properly configured.
         """
-        filename = f"ml_vlsu_{group_id}.png"
-        serializer = data_serializer_factory(category="seed-prompt-entries", data_type="image_path", extension="png")
-
-        # Return existing path if image already exists
-        serializer.value = str(serializer._memory.results_path + serializer.data_sub_directory + f"/{filename}")
-        try:
-            if await serializer._memory.results_storage_io.path_exists(serializer.value):
-                return serializer.value
-        except Exception as e:
-            logger.warning(f"[ML-VLSU] Failed to check if image for {group_id} exists in cache: {e}")
-
-        # Add browser-like headers for better success rate
+        # Browser-like headers improve fetch success rate for the ML-VLSU hosting setup.
         headers = {
             "User-Agent": (
                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
@@ -275,13 +274,11 @@ class _VLSUMultimodalDataset(_RemoteDatasetLoader):
             "Upgrade-Insecure-Requests": "1",
         }
 
-        response = await make_request_and_raise_if_error_async(
-            endpoint_uri=image_url,
-            method="GET",
-            headers=headers,
-            timeout=2.0,
+        return await fetch_and_cache_image_async(
+            filename=f"ml_vlsu_{group_id}.png",
+            image_url=image_url,
+            log_prefix="ML-VLSU",
+            request_headers=headers,
+            request_timeout=2.0,
             follow_redirects=True,
         )
-        await serializer.save_data(data=response.content, output_filename=filename.replace(".png", ""))
-
-        return str(serializer.value)

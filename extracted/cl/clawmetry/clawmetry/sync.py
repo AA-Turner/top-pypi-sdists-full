@@ -1355,6 +1355,83 @@ def _is_running_in_container() -> bool:
     return False
 
 
+def _read_nemoclaw_sandbox_routing() -> list:
+    """Read ``~/.nemoclaw/sandboxes.json`` and derive per-sandbox model routing.
+
+    Gap #2684. The NemoClaw registry persists ``{sandboxes: {<name>: entry},
+    defaultSandbox}`` (harness/nemoclaw/src/lib/state/registry.ts); each entry
+    carries the raw ``provider`` + ``model``. This mirrors
+    ``getSandboxInferenceConfig()``
+    (harness/nemoclaw/src/lib/inference/config.ts) to derive the effective
+    providerKey / primaryModelRef / inferenceBaseUrl / inferenceApi for each
+    sandbox. Never raises — returns [] on missing/old/malformed registry files
+    so the daemon never crashes.
+    """
+    import json as _j
+
+    home = os.environ.get("HOME") or os.path.expanduser("~")
+    reg = os.path.join(home, ".nemoclaw", "sandboxes.json")
+    out: list = []
+    try:
+        with open(reg, "r", encoding="utf-8") as fh:
+            data = _j.load(fh)
+    except Exception:
+        return out
+    if not isinstance(data, dict):
+        return out
+    default_sb = data.get("defaultSandbox")
+    sandboxes = data.get("sandboxes")
+    if not isinstance(sandboxes, dict):
+        return out
+    MANAGED = "inference"
+    INFERENCE_ROUTE_URL = "https://inference.local/v1"
+    for name, entry in sandboxes.items():
+        try:
+            if not isinstance(entry, dict):
+                continue
+            provider = entry.get("provider") or ""
+            model = entry.get("model") or ""
+            # inferenceApi defaults to "openai-completions" unless the sandbox
+            # pins preferredInferenceApi (harness config.ts:188).
+            api = entry.get("preferredInferenceApi") or "openai-completions"
+            base_url = INFERENCE_ROUTE_URL
+            # Derive providerKey/primaryModelRef per the harness switch
+            # (getSandboxInferenceConfig, nemoclaw/src/lib/inference/config.ts).
+            # Default = managed "inference" provider for any unknown/cloud route.
+            if provider == "openai-api":
+                provider_key = "openai"
+                primary = f"openai/{model}" if model else ""
+            elif provider == "anthropic-prod" or (
+                provider == "compatible-anthropic-endpoint"
+                and api != "openai-completions"
+            ):
+                # Real anthropic route only when NOT the openai-completions
+                # default; a compatible-anthropic-endpoint with the default api
+                # is served by the MANAGED provider (config.ts:196-203).
+                provider_key = "anthropic"
+                primary = f"anthropic/{model}" if model else ""
+                base_url = "https://inference.local"
+                api = "anthropic-messages"
+            else:
+                # Includes compatible-anthropic-endpoint + openai-completions
+                # (the common default) → managed "inference" provider.
+                provider_key = MANAGED
+                primary = f"{MANAGED}/{model}" if model else ""
+            out.append({
+                "sandbox": name,
+                "isDefault": bool(default_sb and name == default_sb),
+                "provider": provider,
+                "model": model,
+                "providerKey": provider_key,
+                "primaryModelRef": primary,
+                "inferenceBaseUrl": base_url,
+                "inferenceApi": api,
+            })
+        except Exception:
+            continue
+    return out
+
+
 def _detect_nemoclaw() -> dict:
     """Detect NemoClaw (NVIDIA's OpenClaw wrapper) presence on the host.
 
@@ -1434,7 +1511,13 @@ def _detect_nemoclaw() -> dict:
         result["inference_provider"] = ""
         result["inference_model"] = ""
 
-    # 4. Try `openshell sandbox list` as alternative discovery
+    # 4. Capture tool-catalog mode (NEMOCLAW_TOOL_CATALOG env var).
+    # Harness logic: enabled = (env !== '0'). Absent means default-on.
+    _tc_env = os.environ.get("NEMOCLAW_TOOL_CATALOG")
+    result["tool_catalog_enabled"] = _tc_env != "0"
+    result["tool_catalog_env"] = _tc_env or ""
+
+    # 5. Try `openshell sandbox list` as alternative discovery
     openshell_bin = _find_openshell_bin()
     if openshell_bin and not result.get("sandbox_name"):
         try:
@@ -1456,6 +1539,26 @@ def _detect_nemoclaw() -> dict:
                     break
         except Exception:
             pass
+
+    # 5. Per-sandbox model routing from ~/.nemoclaw/sandboxes.json (gap #2684).
+    # Defensive: returns [] on any failure so detection never crashes.
+    try:
+        routing = _read_nemoclaw_sandbox_routing()
+    except Exception:
+        routing = []
+    if routing:
+        result["sandboxes"] = routing
+        # Backfill coarse fields from the default sandbox when `nemoclaw
+        # status --json` didn't yield them (env-only / status unavailable).
+        default_route = next(
+            (r for r in routing if r.get("isDefault")), routing[0]
+        )
+        if not result.get("inference_provider"):
+            result["inference_provider"] = default_route.get("provider") or ""
+        if not result.get("inference_model"):
+            result["inference_model"] = default_route.get("model") or ""
+        if not result.get("sandbox_name"):
+            result["sandbox_name"] = default_route.get("sandbox") or ""
 
     return result
 
@@ -2780,7 +2883,7 @@ def _parse_v3_event(
         "id": str(eid),
         "agent_type": "openclaw",
         "node_id": node_id,
-        "agent_id": "main",
+        "agent_id": obj.get("agent_id") or "main",
         "session_id": session_id,
         "workspace_id": None,
         "event_type": event_type,
@@ -2881,7 +2984,7 @@ def _local_ingest_session_batch(
         rows.append({
             "id": str(eid),
             "node_id": node_id,
-            "agent_id": "main",  # OpenClaw harness; Claude Code adapter will use 'claude-code'
+            "agent_id": obj.get("agent_id") or "main",
             "session_id": session_id,
             "workspace_id": obj.get("workspace") or obj.get("workspace_id"),
             "event_type": str(obj.get("type") or obj.get("event_type") or "unknown"),
@@ -4686,9 +4789,63 @@ def sync_logs(config: dict, state: dict, paths: dict) -> int:
                     if not raw:
                         continue
                     try:
-                        entries.append(json.loads(raw))
+                        obj = json.loads(raw)
                     except Exception:
-                        entries.append({"raw": raw})
+                        obj = {"raw": raw}
+                    entries.append(obj)
+                    # Gap #2680: project session-correlatable gateway LOG
+                    # records into the local DuckDB events table so the
+                    # structured log fields (hostname / agent_id / channel)
+                    # are queryable per-session. This is OPPORTUNISTIC and
+                    # MUST NOT change the cloud-stream path below (entries /
+                    # _flush_log_batch stay as-is) and MUST never raise — the
+                    # store may be read-only / _ProxyStore in some daemon
+                    # states, hence the broad try/except.
+                    try:
+                        sid = (
+                            obj.get("session_id")
+                            if isinstance(obj, dict)
+                            else None
+                        )
+                        if sid:
+                            from clawmetry import local_store as _ls
+                            store = _ls.get_store()
+                            ev_ts = (
+                                obj.get("time")
+                                or obj.get("ts")
+                                or datetime.now(timezone.utc).isoformat()
+                            )
+                            meta = obj.get("_meta")
+                            level = (
+                                meta.get("logLevelName")
+                                if isinstance(meta, dict)
+                                else None
+                            )
+                            eid = "openclaw-log:%s:%s:%s" % (
+                                fname, offset, len(entries),
+                            )
+                            store.ingest({
+                                "id": eid,
+                                "node_id": node_id,
+                                "agent_type": "openclaw",
+                                "agent_id": obj.get("agent_id") or "main",
+                                "session_id": str(sid),
+                                "event_type": "log",
+                                "ts": str(ev_ts),
+                                "data": {
+                                    "kind": "gateway_log",
+                                    "hostname": obj.get("hostname"),
+                                    "agent_id": obj.get("agent_id"),
+                                    "channel": obj.get("channel"),
+                                    "message": obj.get("message"),
+                                    "level": level,
+                                },
+                            })
+                    except Exception as _le:
+                        log.debug(
+                            "sync_logs local event ingest (non-fatal): %s",
+                            _le,
+                        )
                     if len(entries) >= BATCH_SIZE:
                         _flush_log_batch(entries, fname, api_key, enc_key, node_id)
                         total += len(entries)
@@ -4703,6 +4860,110 @@ def sync_logs(config: dict, state: dict, paths: dict) -> int:
             log.warning(f"Log sync error ({fname}): {e}")
 
     return total
+
+
+# ── Voice/realtime lifecycle event ingest from gateway logs ──────────────────
+#
+# OpenClaw emits structured JSONL lifecycle records for Talk, realtime voice,
+# and managed-room activity through the standard gateway log pipeline.  The
+# records carry event_type, mode, transport, provider, and size/timing fields.
+# sync_logs() already reads the same files for cloud-sync but never writes them
+# to local DuckDB.  This function runs without _sync_allowed() so voice events
+# land locally even when cloud sync is paused or the user is on the free tier.
+# Ref: docs/logging.md §"File logs (JSONL)" — Talk/realtime/managed-room records.
+
+_VOICE_EVENT_TYPE_PREFIXES = ("talk.", "realtime.", "voice.", "managed_room.")
+
+
+def _is_voice_lifecycle_record(obj: dict) -> bool:
+    et = obj.get("event_type") or obj.get("type")
+    return isinstance(et, str) and any(
+        et.startswith(p) for p in _VOICE_EVENT_TYPE_PREFIXES
+    )
+
+
+def sync_voice_log_events(config: dict, state: dict, paths: dict) -> int:
+    """Tail gateway log files for voice/realtime lifecycle records and ingest
+    them into the local DuckDB events table.
+
+    Uses 'last_voice_log_offsets' in state as its own byte-offset cursor,
+    independent of sync_logs.  Returns the count of rows ingested.
+    """
+    import hashlib as _hashlib
+
+    log_dir = paths.get("log_dir", "")
+    if not log_dir:
+        return 0
+    node_id = config.get("node_id", "")
+    if not node_id:
+        return 0
+    offsets: dict = state.setdefault("last_voice_log_offsets", {})
+
+    rows: list[dict] = []
+    log_files = sorted(glob.glob(os.path.join(log_dir, "openclaw-*.log")))[-5:]
+    for fpath in log_files:
+        fname = os.path.basename(fpath)
+        offset = offsets.get(fname, 0)
+        try:
+            with open(fpath, "r", errors="replace") as f:
+                f.seek(0, 2)
+                size = f.tell()
+                if offset > size:
+                    offset = 0
+                f.seek(offset)
+                for raw in f:
+                    stripped = raw.strip()
+                    if not stripped:
+                        continue
+                    try:
+                        obj = json.loads(stripped)
+                    except Exception:
+                        continue
+                    if not _is_voice_lifecycle_record(obj):
+                        continue
+                    et = obj.get("event_type") or obj.get("type") or "voice.unknown"
+                    ts = (
+                        obj.get("timestamp")
+                        or obj.get("ts")
+                        or obj.get("time")
+                        or ""
+                    )
+                    if not ts:
+                        continue
+                    session_id = obj.get("session_id") or obj.get("session") or None
+                    raw_id = ":".join(
+                        [node_id, fname, str(ts), str(et), str(session_id or "")]
+                    )
+                    row_id = _hashlib.sha256(raw_id.encode()).hexdigest()[:32]
+                    rows.append({
+                        "id":         row_id,
+                        "node_id":    node_id,
+                        "agent_type": "openclaw",
+                        "agent_id":   obj.get("agent_id") or "main",
+                        "session_id": session_id,
+                        "event_type": et,
+                        "ts":         ts,
+                        "data":       json.dumps({
+                            "mode":        obj.get("mode"),
+                            "transport":   obj.get("transport"),
+                            "provider":    obj.get("provider"),
+                            "duration_ms": obj.get("duration_ms"),
+                            "size_bytes":  obj.get("size_bytes") or obj.get("size"),
+                        }, separators=(",", ":")),
+                    })
+                offsets[fname] = f.tell()
+        except Exception as _e:
+            log.debug("sync_voice_log_events read error (%s): %s", fname, _e)
+
+    if not rows:
+        return 0
+    try:
+        from clawmetry import local_store as _ls
+        _ls.get_store().ingest_many(rows)
+    except Exception as _e:
+        log.debug("sync_voice_log_events local ingest failed (non-fatal): %s", _e)
+        return 0
+    return len(rows)
 
 
 def sync_intercepted_events(config: dict, state: dict, paths: dict) -> int:
@@ -5410,6 +5671,111 @@ _LITE_RT_LABELS = {
     "nanoclaw": "NanoClaw",
 }
 
+# Activity thresholds (seconds) for classifying a detected runtime. Detecting a
+# runtime by its on-disk data dir does NOT mean it is actively in use: a Cursor
+# IDE state.vscdb or an opencode.db can sit untouched for months. Reporting such
+# a runtime as "syncing" alongside a runtime you used five minutes ago is the
+# conflation founders flagged (a 10-month-old Cursor history shown like a live
+# node). We attach last_active + status so the Fleet can render honestly.
+_RT_ACTIVE_SECS = 7 * 86400     # used within a week -> active
+_RT_IDLE_SECS = 30 * 86400      # used within a month -> idle
+
+
+def _runtime_data_paths(rid: str) -> list:
+    """Native on-disk data location(s) for a runtime, used to compute recency.
+    Mirrors the per-adapter stores (the same dirs the lite/pro detectors read).
+    Returns file or dir paths; non-existent ones are ignored by the caller."""
+    home = os.path.expanduser("~")
+    if rid == "cursor":
+        import sys as _sys
+        roots = {
+            "darwin": os.path.join(home, "Library", "Application Support", "Cursor"),
+            "linux": os.path.join(home, ".config", "Cursor"),
+            "win32": os.path.join(home, "AppData", "Roaming", "Cursor"),
+        }
+        base = roots.get(_sys.platform, os.path.join(home, ".config", "Cursor"))
+        return [os.path.join(base, "User", "globalStorage", "state.vscdb")]
+    _M = {
+        "claude_code": [os.path.join(home, ".claude", "projects")],
+        "codex": [os.path.join(home, ".codex", "sessions")],
+        "qwen_code": [os.path.join(home, ".qwen")],
+        "opencode": [os.path.join(home, ".local", "share", "opencode", "opencode.db")],
+        "goose": [os.path.join(home, ".local", "share", "goose")],
+        "hermes": [os.path.join(home, ".hermes", "state.db")],
+        "aider": [os.path.join(home, ".aider")],
+        "picoclaw": [os.path.join(home, ".picoclaw")],
+        "nanoclaw": [os.path.join(home, ".nanoclaw")],
+    }
+    return _M.get(rid, [])
+
+
+def _newest_mtime(paths: list, cap: int = 4000):
+    """Newest mtime (epoch float) across the given files/dirs, or None. Bounded
+    walk (cap files) so a huge ~/.claude/projects tree can't make the heartbeat
+    expensive. Never raises."""
+    newest = 0.0
+    seen = 0
+    for p in (paths or []):
+        try:
+            if os.path.isfile(p):
+                m = os.path.getmtime(p)
+                if m > newest:
+                    newest = m
+            elif os.path.isdir(p):
+                for root, _dirs, files in os.walk(p):
+                    for f in files:
+                        seen += 1
+                        if seen > cap:
+                            return newest or None
+                        try:
+                            m = os.path.getmtime(os.path.join(root, f))
+                            if m > newest:
+                                newest = m
+                        except OSError:
+                            pass
+        except OSError:
+            pass
+    return newest or None
+
+
+def _openclaw_subagent_mtime(rid: str):
+    """Newest mtime of this runtime's sessions when run AS an OpenClaw sub-agent
+    (``~/.openclaw/agents/<alias>/sessions``). Used to classify a runtime whose
+    only activity is via OpenClaw (so we don't present it as a standalone tool).
+    None when there is no such sub-agent data. Never raises."""
+    home = os.path.expanduser("~")
+    aliases = {rid, rid.replace("_code", ""), rid.replace("_", "-"), rid.replace("_", "")}
+    if rid == "claude_code":
+        aliases |= {"claude", "claude-code"}
+    paths = [os.path.join(home, ".openclaw", "agents", a, "sessions") for a in aliases]
+    return _newest_mtime([p for p in paths if os.path.isdir(p)])
+
+
+def _classify_runtime(rid: str) -> dict:
+    """Return {last_active, status, source} for a detected runtime.
+
+    status: 'active' (used <7d), 'idle' (<30d), 'stale' (older), 'unknown'.
+    source: 'standalone' (its own native store has the most recent activity) or
+            'openclaw_subagent' (only/most-recent activity is via OpenClaw).
+    Never raises."""
+    try:
+        native = _newest_mtime(_runtime_data_paths(rid))
+        sub = _openclaw_subagent_mtime(rid)
+        last = max([t for t in (native, sub) if t], default=None)
+        source = "standalone"
+        if sub and (not native or sub >= native):
+            source = "openclaw_subagent"
+        if last:
+            age = time.time() - last
+            status = ("active" if age < _RT_ACTIVE_SECS
+                      else "idle" if age < _RT_IDLE_SECS else "stale")
+        else:
+            status = "unknown"
+        return {"last_active": int(last) if last else None,
+                "status": status, "source": source}
+    except Exception:
+        return {"last_active": None, "status": "unknown", "source": "standalone"}
+
 
 def _detect_runtimes_lite() -> list:
     """FREE, dependency-free detection of which paid runtimes have data on this
@@ -5488,8 +5854,21 @@ def _detect_runtimes_for_heartbeat() -> list:
                 merged[rid] = {"id": rid, "label": label, "sessions": n}
     except Exception:
         pass
-    # Drop 0-session phantoms (directory/config detected but no real data).
-    return [r for r in merged.values() if int(r.get("sessions") or 0) > 0]
+    # Drop 0-session phantoms (directory/config detected but no real data),
+    # then enrich each with activity classification (last_active + status +
+    # source) so the Fleet stops presenting a months-old Cursor history or an
+    # OpenClaw sub-agent as a live standalone runtime. Back-compat: consumers
+    # that don't read the new keys are unaffected.
+    out = []
+    for r in merged.values():
+        if int(r.get("sessions") or 0) <= 0:
+            continue
+        try:
+            r.update(_classify_runtime(r["id"]))
+        except Exception:
+            pass
+        out.append(r)
+    return out
 
 
 def send_heartbeat(config: dict) -> bool:
@@ -12340,6 +12719,8 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
             "inference.model": nemo.get("inference_model", ""),
             "security.sandbox_enabled": nemo.get("security_sandbox_enabled", True),
             "security.network_policy": nemo.get("security_network_policy", True),
+            "nemoclaw.tool_catalog_enabled": nemo.get("tool_catalog_enabled", True),
+            "nemoclaw.tool_catalog_env": nemo.get("tool_catalog_env", ""),
         }
         payload["sandbox"] = sandbox_meta
         log.info(
@@ -12697,6 +13078,15 @@ def run_daemon() -> None:
     # daemon's primary job) cannot be extended by clawmetry-pro. The
     # ``_loaded`` guard makes this safe even if the process somehow imports
     # dashboard later. Never raises.
+    # If clawmetry-pro was installed into the HOME-owned fallback dir (because
+    # the interpreter site-packages is read-only, e.g. a root-owned /opt
+    # install run by a --user daemon), put that dir on sys.path BEFORE plugin
+    # discovery so the paid adapters import on this start.
+    try:
+        from clawmetry.license import ensure_pro_on_path as _ensure_pro_path
+        _ensure_pro_path()
+    except Exception:
+        pass
     try:
         from clawmetry.extensions import load_plugins as _ext_load
         _ext_load()
@@ -12934,6 +13324,12 @@ def run_daemon() -> None:
     except Exception as e:
         log.warning(f"  Recent log sync error: {e}")
     try:
+        vl = sync_voice_log_events(config, state, paths)
+        if vl:
+            log.info(f"  Voice/realtime events: {vl} rows ingested")
+    except Exception as e:
+        log.warning(f"  Voice-event ingest error: {e}")
+    try:
         ie = sync_intercepted_events(config, state, paths)
         if ie:
             log.info(f"  External API calls: {ie} rows ingested")
@@ -12995,6 +13391,14 @@ def run_daemon() -> None:
                 log.info(f"Background backfill: {lg} log lines synced")
             except Exception as e:
                 log.warning(f"Background backfill log error: {e}")
+            try:
+                bf_state = load_state()
+                vl = sync_voice_log_events(config, bf_state, paths)
+                save_state(bf_state)
+                if vl:
+                    log.info(f"Background backfill: {vl} voice events ingested")
+            except Exception as e:
+                log.warning(f"Background backfill voice error: {e}")
             _backfill_done.set()
             log.info("Background backfill complete")
 
@@ -13385,6 +13789,10 @@ def run_daemon() -> None:
             if now_log - last_log_sync > log_sync_interval:
                 lg = sync_logs(config, state, paths)
                 last_log_sync = now_log
+            try:
+                sync_voice_log_events(config, state, paths)
+            except Exception as _ve:
+                log.debug("sync_voice_log_events tick error (non-fatal): %s", _ve)
 
             # ── External API call tracing (issue #883) ──────────────────
             try:
@@ -13414,6 +13822,15 @@ def run_daemon() -> None:
                 sync_connector_health_from_logs(config, state, paths)
             except Exception as _e_ch:
                 log.debug("connector-health tick error (non-fatal): %s", _e_ch)
+
+            # ── Talk / realtime voice lifecycle (gap #2604) ──
+            # Tail the file logs for subsystem="talk" lifecycle records and
+            # ingest them as talk.lifecycle events so the dashboard can
+            # surface per-session voice activity. Best-effort, never fatal.
+            try:
+                sync_talk_lifecycle_from_logs(config, state, paths)
+            except Exception as _e_tk:
+                log.debug("talk-lifecycle tick error (non-fatal): %s", _e_tk)
 
             state["last_sync"] = datetime.now(timezone.utc).isoformat()
             # Audit fix (2026-05-17): force a synchronous local-store flush
@@ -14011,6 +14428,202 @@ def sync_connector_health_from_logs(
         return total
     except Exception as e:
         log.warning("connector-health: cycle failed: %s", e)
+        return 0
+
+
+def parse_talk_lifecycle_line(raw_line: str) -> dict | None:
+    """Parse one structured JSONL log line and return a Talk/voice lifecycle
+    record dict, or None when the line is not a Talk record.
+
+    Gap #2604. OpenClaw's Talk subsystem
+    (harness/openclaw/src/talk/logging.ts ``recordTalkLogEvent``) logs an
+    attributes object ``{sessionId, talkEventType, talkMode, talkTransport,
+    talkBrain, talkProvider, talkFinal, talkDurationMs, talkByteLength}`` via a
+    child logger bound with ``subsystem:"talk"``. tslog does NOT flatten that
+    object to the top level of the file-log record — it lands as a *positional*
+    argument under a numeric string key (``o["1"]``; ``o["0"]`` is the binding
+    prefix), the same way ``buildStructuredFileLogFields`` reads ``args[0]``
+    (logger.ts). So we scan the numeric-keyed positional args (and decode any
+    that are JSON strings) for the dict carrying ``talkEventType`` — robust to
+    whichever position tslog uses. Detection also accepts ``subsystem == "talk"``
+    in ``_meta.name`` / a positional binding. Best-effort: returns None on any
+    malformed/non-Talk line, never raises.
+    """
+    try:
+        line = (raw_line or "").strip()
+        if not line or not line.startswith("{"):
+            return None
+        # Cheap pre-filter to avoid json.loads on every gateway log line.
+        if "talk" not in line:
+            return None
+        o = json.loads(line)
+        if not isinstance(o, dict):
+            return None
+
+        # Collect candidate attribute dicts: the record itself + every
+        # positional numeric-keyed value (dict, or a JSON-string that decodes
+        # to a dict). tslog nests the logged attributes object here.
+        candidates: list[dict] = [o]
+        for k, v in o.items():
+            if not (isinstance(k, str) and k.isdigit()):
+                continue
+            if isinstance(v, dict):
+                candidates.append(v)
+            elif isinstance(v, str) and v.startswith("{"):
+                try:
+                    dv = json.loads(v)
+                    if isinstance(dv, dict):
+                        candidates.append(dv)
+                except (ValueError, TypeError):
+                    pass
+
+        attrs = next((c for c in candidates if c.get("talkEventType")), None)
+        if attrs is None:
+            # No talk attrs found — only ingest if it's clearly a talk-subsystem
+            # record (avoids dropping a future shape), else skip.
+            sub = None
+            meta = o.get("_meta")
+            if isinstance(meta, dict) and isinstance(meta.get("name"), str):
+                nm = meta["name"]
+                if nm.startswith("{"):
+                    try:
+                        sub = json.loads(nm).get("subsystem")
+                    except (ValueError, TypeError):
+                        sub = None
+                elif nm == "talk":
+                    sub = "talk"
+            if not (isinstance(sub, str) and sub == "talk"):
+                sub = next((c.get("subsystem") for c in candidates
+                            if c.get("subsystem") == "talk"), None)
+            if not (isinstance(sub, str) and sub == "talk"):
+                return None
+            return None  # talk-subsystem but no parseable attrs → nothing to ingest
+
+        event_type = attrs.get("talkEventType") or ""
+        if not event_type:
+            return None
+        ts = (o.get("time") or o.get("ts")
+              or (o.get("_meta") or {}).get("date") if isinstance(o.get("_meta"), dict) else "") or ""
+        return {
+            "session_id": attrs.get("sessionId") or attrs.get("session_id")
+            or o.get("session_id") or o.get("sessionId") or "",
+            "event_type": str(event_type),
+            "mode": attrs.get("talkMode") or "",
+            "transport": attrs.get("talkTransport") or "",
+            "brain": attrs.get("talkBrain") or "",
+            "provider": attrs.get("talkProvider") or "",
+            "final": attrs.get("talkFinal"),
+            "duration_ms": attrs.get("talkDurationMs"),
+            "byte_length": attrs.get("talkByteLength"),
+            "ts": str(ts),
+        }
+    except Exception:
+        return None
+
+
+def _talk_lifecycle_offset_key(log_path: str) -> str:
+    return f"talk_lifecycle::{os.path.abspath(log_path)}"
+
+
+def sync_talk_lifecycle_from_logs(
+    config: dict | None,
+    state: dict,
+    paths: dict | None = None,
+) -> int:
+    """Tail the OpenClaw file logs for Talk/voice lifecycle records and ingest
+    them as talk.lifecycle events. Byte-offset resume per file (mirrors
+    sync_connector_health_from_logs); idempotent ingest. Best-effort — returns
+    the number of signals ingested this cycle, 0 on any failure (the daemon
+    must never crash on telemetry plumbing).
+
+    Gap #2604.
+    """
+    try:
+        # Talk records ride both the gateway logs and the structured
+        # ~/.openclaw/logs/openclaw-*.log file logs, so tail both candidate
+        # sets (same resolution the cloud log-stream already uses).
+        if paths and isinstance(paths, dict) and paths.get("logs_dir"):
+            logs_dir = str(paths["logs_dir"])
+        else:
+            logs_dir = os.path.join(_get_openclaw_dir(), "logs")
+        log_paths = [
+            os.path.join(logs_dir, "gateway.log"),
+            os.path.join(logs_dir, "gateway.err.log"),
+        ]
+        try:
+            log_paths += sorted(
+                glob.glob(os.path.join(logs_dir, "openclaw-*.log"))
+            )[-5:]
+        except Exception:
+            pass
+        try:
+            from clawmetry import local_store as _ls
+            store = _ls.get_store()
+        except Exception as e:
+            log.warning("talk-lifecycle: local_store unavailable: %s", e)
+            return 0
+        node_id = (
+            (config or {}).get("node_id")
+            or os.environ.get("CLAWMETRY_NODE_ID")
+            or "local"
+        )
+        offsets = state.setdefault("last_log_offsets", {})
+        total = 0
+        for log_path in log_paths:
+            if not os.path.exists(log_path):
+                continue
+            key = _talk_lifecycle_offset_key(log_path)
+            prev_offset = int(offsets.get(key, 0) or 0)
+            try:
+                size = os.path.getsize(log_path)
+            except OSError:
+                continue
+            if size < prev_offset:
+                prev_offset = 0  # rotated/truncated — rescan (idempotent)
+            if size == prev_offset:
+                continue
+            try:
+                with open(log_path, "rb") as fh:
+                    fh.seek(prev_offset)
+                    buf = fh.read()
+            except OSError as e:
+                log.warning("talk-lifecycle: read failed (%s): %s", log_path, e)
+                continue
+            text = buf.decode("utf-8", errors="ignore")
+            last_nl = text.rfind("\n")
+            if last_nl < 0:
+                continue
+            complete = text[: last_nl + 1]
+            new_offset = prev_offset + len(complete.encode("utf-8", errors="ignore"))
+            for raw_line in complete.splitlines():
+                rec = parse_talk_lifecycle_line(raw_line)
+                if not rec:
+                    continue
+                try:
+                    store.ingest_talk_lifecycle(
+                        node_id=node_id,
+                        session_id=rec.get("session_id") or "",
+                        event_type=rec["event_type"],
+                        mode=rec.get("mode") or "",
+                        transport=rec.get("transport") or "",
+                        brain=rec.get("brain") or "",
+                        provider=rec.get("provider") or "",
+                        final=rec.get("final"),
+                        duration_ms=rec.get("duration_ms"),
+                        byte_length=rec.get("byte_length"),
+                        ts_iso=rec.get("ts") or "",
+                        raw=raw_line.strip(),
+                    )
+                except Exception as e:
+                    log.debug("talk-lifecycle: ingest failed: %s", e)
+                    continue
+                total += 1
+            offsets[key] = new_offset
+        if total:
+            log.info("talk-lifecycle: ingested %d signal(s)", total)
+        return total
+    except Exception as e:
+        log.warning("talk-lifecycle: cycle failed: %s", e)
         return 0
 
 

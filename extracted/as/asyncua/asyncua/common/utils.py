@@ -7,8 +7,9 @@ import asyncio
 import logging
 import os
 import sys
+from collections.abc import Awaitable
 from dataclasses import Field, fields
-from typing import Any, Awaitable, Dict, get_type_hints, Optional, Tuple, TypeVar, Union
+from typing import Any, TypeVar, get_type_hints
 
 from ..ua.uaerrors import UaError
 
@@ -16,7 +17,7 @@ _logger = logging.getLogger(__name__)
 
 
 class ServiceError(UaError):
-    def __init__(self, code):
+    def __init__(self, code: int) -> None:
         super().__init__("UA Service Error")
         self.code = code
 
@@ -35,29 +36,29 @@ class Buffer:
     and added a few convenience methods.
     """
 
-    def __init__(self, data, start_pos=0, size=-1):
+    def __init__(self, data: bytes, start_pos: int = 0, size: int = -1) -> None:
         self._data = data
         self._cur_pos = start_pos
         if size == -1:
             size = len(data) - start_pos
         self._size = size
 
-    def __str__(self):
-        return f"Buffer(size:{self._size}, data:{self._data[self._cur_pos : self._cur_pos + self._size]})"
+    def __str__(self) -> str:
+        return f"Buffer(size:{self._size}, data:{self._data[self._cur_pos : self._cur_pos + self._size]!r})"
 
     __repr__ = __str__
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self._size
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return self._size > 0
 
-    def __bytes__(self):
+    def __bytes__(self) -> bytes:
         """Return remains of buffer as bytes."""
         return bytes(self._data[self._cur_pos :])
 
-    def read(self, size):
+    def read(self, size: int) -> bytes:
         """
         read and pop number of bytes for buffer
         """
@@ -68,7 +69,7 @@ class Buffer:
         self._cur_pos += size
         return self._data[pos : self._cur_pos]
 
-    def copy(self, size=-1):
+    def copy(self, size: int = -1) -> "Buffer":
         """
         return a shadow copy, optionally only copy 'size' bytes
         """
@@ -76,7 +77,7 @@ class Buffer:
             size = self._size
         return Buffer(self._data, self._cur_pos, size)
 
-    def skip(self, size):
+    def skip(self, size: int) -> None:
         """
         skip size bytes in buffer
         """
@@ -86,10 +87,10 @@ class Buffer:
         self._cur_pos += size
 
     @property
-    def cur_pos(self):
+    def cur_pos(self) -> int:
         return self._cur_pos
 
-    def rewind(self, cur_pos=0):
+    def rewind(self, cur_pos: int = 0) -> None:
         """
         rewind the buffer
         """
@@ -97,16 +98,16 @@ class Buffer:
         self._size = len(self._data) - cur_pos
 
 
-def create_nonce(size=32):
+def create_nonce(size: int = 32) -> bytes:
     return os.urandom(size)
 
 
 def fields_with_resolved_types(
     class_or_instance: Any,
-    globalns: Optional[Dict[str, Any]] = None,
-    localns: Optional[Dict[str, Any]] = None,
+    globalns: dict[str, Any] | None = None,
+    localns: dict[str, Any] | None = None,
     include_extras: bool = False,
-) -> Tuple[Field, ...]:
+) -> tuple[Field, ...]:
     """Return a tuple describing the fields of this dataclass.
 
     Accepts a dataclass or an instance of one. Tuple elements are of
@@ -114,18 +115,16 @@ def fields_with_resolved_types(
     """
 
     fields_ = fields(class_or_instance)
-    if sys.version_info.major == 3 and sys.version_info.minor <= 8:
-        resolved_fieldtypes = get_type_hints(class_or_instance, globalns=globalns, localns=localns)
-    else:
-        resolved_fieldtypes = get_type_hints(  # type: ignore[call-arg]
-            class_or_instance, globalns=globalns, localns=localns, include_extras=include_extras
-        )
+    cls = class_or_instance if isinstance(class_or_instance, type) else type(class_or_instance)
+    resolved_fieldtypes = get_type_hints(  # type: ignore[call-arg]
+        cls, globalns=globalns, localns=localns, include_extras=include_extras
+    )
+
     for field in fields_:
         try:
             field.type = resolved_fieldtypes[field.name]
         except KeyError:
             _logger.info("could not resolve fieldtype for field=%s of class_or_instance=%s", field, class_or_instance)
-            pass
 
     return fields_
 
@@ -133,7 +132,7 @@ def fields_with_resolved_types(
 _T = TypeVar("_T")
 
 
-async def wait_for(aw: Awaitable[_T], timeout: Union[int, float, None]) -> _T:
+async def wait_for(aw: Awaitable[_T], timeout: int | float | None) -> _T:
     """
     Wrapped version of asyncio.wait_for that does not swallow cancellations
 

@@ -26,6 +26,18 @@ def fts_safe(conn, query, params):
         return []
 
 
+def _normalize_relevance(results: list[dict]) -> None:
+    """Normalize raw 'score' values to 0-1 'relevance' in-place."""
+    if not results:
+        return
+    raw_scores = [abs(float(r.get("score", 0))) for r in results]
+    max_raw = max(raw_scores) if raw_scores else 1.0
+    if max_raw <= 0:
+        max_raw = 1.0
+    for i, r in enumerate(results):
+        r["relevance"] = round(raw_scores[i] / max_raw, 4)
+
+
 def search_fts(km, keyword: str, limit: int = 20, *, biz_context: str | None = None) -> list[dict]:
     """FTS5 keyword search with jieba segmentation and BM25 ranking."""
     from kanban_framework.domain.knowledge_lazy import (
@@ -89,6 +101,9 @@ def search_fts(km, keyword: str, limit: int = 20, *, biz_context: str | None = N
         ).fetchall()
         results = [row_to_dict(r) for r in like_rows]
 
+    # Final relevance normalization across all results
+    _normalize_relevance(results)
+
     for r in results:
         r["_stale_penalty"] = _stale_penalty(r.get("stale_at"))
 
@@ -139,6 +154,7 @@ def search_semantic(km, query: str, limit: int = 20, *, biz_context: str | None 
                     if entry:
                         if distances and idx < len(distances):
                             entry["score"] = round(1.0 - distances[idx], 4)
+                            entry["relevance"] = entry["score"]
                         entries.append(entry)
                 if biz_context is not None:
                     entries = _filter_by_biz(entries, biz_context)
@@ -165,6 +181,7 @@ def search_semantic(km, query: str, limit: int = 20, *, biz_context: str | None 
     results = []
     for s, e in scored[:limit]:
         e["score"] = round(s, 4)
+        e["relevance"] = e["score"]
         results.append(e)
     if biz_context is not None:
         results = _filter_by_biz(results, biz_context)
@@ -231,13 +248,14 @@ def search_by_intent(km, intent: str, query: str, limit: int = 20, *, biz_contex
         domain = context.get("domain")
         scored = []
         for r in results:
-            score = float(r.get("score", 0))
+            score = float(r.get("relevance", 0))
             if r.get("severity") == "high":
                 score *= 1.5
             if r.get("category") == "踩坑":
                 score *= 1.3
             if domain and r.get("domain") == domain:
                 score *= 1.2
+            r["relevance"] = min(round(score, 4), 1.0)
             scored.append((score, r))
         scored.sort(key=lambda x: x[0], reverse=True)
         return [e for _, e in scored[:limit]]
@@ -266,7 +284,7 @@ def search_by_intent(km, intent: str, query: str, limit: int = 20, *, biz_contex
         domain = context.get("domain")
         scored = []
         for r in results:
-            score = float(r.get("relevance") or r.get("score", 0))
+            score = float(r.get("relevance", 0))
             if domain and r.get("domain") == domain:
                 score *= 1.2
             if r.get("type") == "procedure":
@@ -274,6 +292,7 @@ def search_by_intent(km, intent: str, query: str, limit: int = 20, *, biz_contex
             rc = r.get("referenced_count", 0)
             if rc > 0:
                 score *= min(1.0 + rc * 0.05, 1.5)
+            r["relevance"] = min(round(score, 4), 1.0)
             scored.append((score, r))
         scored.sort(key=lambda x: x[0], reverse=True)
         return [e for _, e in scored[:limit]]

@@ -4,20 +4,26 @@
 import asyncio
 import copy
 import logging
+import os
+import tempfile
 import traceback
+import wave
+from pathlib import Path
 from typing import Any, Optional
 from uuid import uuid4
 
+from pyrit.common.deprecation import print_deprecation_message
 from pyrit.exceptions import (
     ComponentRole,
     EmptyResponseException,
     execution_context,
     get_execution_context,
 )
-from pyrit.identifiers import ComponentIdentifier
 from pyrit.memory import CentralMemory, MemoryInterface
 from pyrit.models import (
+    ComponentIdentifier,
     Message,
+    MessagePiece,
     construct_response_from_request,
 )
 from pyrit.prompt_normalizer import NormalizerRequest, PromptConverterConfiguration
@@ -32,7 +38,19 @@ class PromptNormalizer:
     Handles normalization and processing of prompts before they are sent to targets.
     """
 
-    _memory: MemoryInterface = None
+    _memory: MemoryInterface | None = None
+
+    @property
+    def memory(self) -> MemoryInterface:
+        """
+        Get the memory instance.
+
+        Raises:
+            RuntimeError: If memory is not initialized.
+        """
+        if self._memory is None:
+            raise RuntimeError("Memory is not initialized")
+        return self._memory
 
     def __init__(self, start_token: str = "⟪", end_token: str = "⟫") -> None:
         """
@@ -68,16 +86,23 @@ class PromptNormalizer:
             response_converter_configurations (list[PromptConverterConfiguration], optional): Configurations for
                 converting the response. Defaults to an empty list.
             labels (Optional[dict[str, str]], optional): Labels associated with the request. Defaults to None.
+                Deprecated: This parameter will be removed in a release 0.16.0.
             attack_identifier (Optional[ComponentIdentifier], optional): Identifier for the attack. Defaults to
                 None.
+
+        Returns:
+            Message: The response received from the target.
 
         Raises:
             Exception: If an error occurs during the request processing.
             ValueError: If the message pieces are not part of the same sequence.
-
-        Returns:
-            Message: The response received from the target.
         """
+        if labels is not None:
+            print_deprecation_message(
+                old_item="send_prompt_async(..., labels=...)",
+                new_item="send_prompt_async(...)",
+                removed_in="0.16.0",
+            )
         # Validates that the MessagePieces in the Message are part of the same sequence
         request_converter_configurations = request_converter_configurations or []
         response_converter_configurations = response_converter_configurations or []
@@ -91,24 +116,24 @@ class PromptNormalizer:
         for piece in request.message_pieces:
             piece.conversation_id = conversation_id
             if labels:
-                piece.labels = labels
+                piece.labels = labels  # deprecated
             piece.prompt_target_identifier = target.get_identifier()
             if attack_identifier:
                 piece.attack_identifier = attack_identifier
 
         # Apply request converters
-        await self.convert_values(converter_configurations=request_converter_configurations, message=request)
+        await self.convert_values_async(converter_configurations=request_converter_configurations, message=request)
 
-        await self._calc_hash(request=request)
+        await self._calc_hash_async(request=request)
 
         responses = None
 
         try:
             responses = await target.send_prompt_async(message=request)
-            self._memory.add_message_to_memory(request=request)
+            self.memory.add_message_to_memory(request=request)
         except EmptyResponseException:
             # Empty responses are retried, but we don't want them to stop execution
-            self._memory.add_message_to_memory(request=request)
+            self.memory.add_message_to_memory(request=request)
 
             responses = [
                 construct_response_from_request(
@@ -121,7 +146,7 @@ class PromptNormalizer:
 
         except Exception as ex:
             # Ensure request to memory before processing exception
-            self._memory.add_message_to_memory(request=request)
+            self.memory.add_message_to_memory(request=request)
 
             error_response = construct_response_from_request(
                 request=request.message_pieces[0],
@@ -130,14 +155,26 @@ class PromptNormalizer:
                 error="processing",
             )
 
-            await self._calc_hash(request=error_response)
-            self._memory.add_message_to_memory(request=error_response)
+            await self._calc_hash_async(request=error_response)
+            self.memory.add_message_to_memory(request=error_response)
             cid = request.message_pieces[0].conversation_id if request and request.message_pieces else None
             raise Exception(f"Error sending prompt with conversation ID: {cid}") from ex
 
         # handling empty responses message list and None responses
         if not responses or not any(responses):
-            return None
+            # An empty list is valid for write-only targets (e.g., TextTarget)
+            # that don't produce responses. Return the request as-is.
+            if responses is not None and len(responses) == 0:
+                return request
+            empty_response = construct_response_from_request(
+                request=request.message_pieces[0],
+                response_text_pieces=[""],
+                response_type="text",
+                error="empty",
+            )
+            await self._calc_hash_async(request=empty_response)
+            self.memory.add_message_to_memory(request=empty_response)
+            return empty_response
 
         # Process all response messages (targets return list[Message])
         # Only apply response converters to the last message (final response)
@@ -145,9 +182,11 @@ class PromptNormalizer:
         for i, resp in enumerate(responses):
             is_last = i == len(responses) - 1
             if is_last:
-                await self.convert_values(converter_configurations=response_converter_configurations, message=resp)
-            await self._calc_hash(request=resp)
-            self._memory.add_message_to_memory(request=resp)
+                await self.convert_values_async(
+                    converter_configurations=response_converter_configurations, message=resp
+                )
+            await self._calc_hash_async(request=resp)
+            self.memory.add_message_to_memory(request=resp)
 
         # Return the last response for backward compatibility
         return responses[-1]
@@ -191,7 +230,7 @@ class PromptNormalizer:
             "conversation_id",
         ]
 
-        responses = await batch_task_async(
+        return await batch_task_async(
             prompt_target=target,
             batch_size=batch_size,
             items_to_batch=batch_items,
@@ -202,10 +241,7 @@ class PromptNormalizer:
             attack_identifier=attack_identifier,
         )
 
-        # Filter out None responses (e.g., from empty responses)
-        return [response for response in responses if response is not None]
-
-    async def convert_values(
+    async def convert_values_async(
         self,
         converter_configurations: list[PromptConverterConfiguration],
         message: Message,
@@ -267,12 +303,97 @@ class PromptNormalizer:
                 piece.converted_value = converted_text
                 piece.converted_value_data_type = converted_text_data_type
 
-    async def _calc_hash(self, request: Message) -> None:
+    async def convert_audio_async(
+        self,
+        *,
+        raw_pcm: bytes,
+        converter_configurations: list[PromptConverterConfiguration],
+        sample_rate_hz: int,
+        num_channels: int,
+        sample_width_bytes: int,
+    ) -> bytes:
+        """
+        Apply converters to raw PCM audio and return the converted PCM.
+
+        Wraps the input PCM in a temporary WAV file, builds a single-piece
+        ``audio_path`` ``Message``, runs ``convert_values``, then reads the
+        converted file back as raw PCM. The caller's PCM format is preserved
+        end-to-end; converters that change the format trigger a ``ValueError``
+        on read-back.
+
+        Args:
+            raw_pcm (bytes): Raw PCM audio samples (no WAV header).
+            converter_configurations (list[PromptConverterConfiguration]):
+                Converters to apply. If empty, ``raw_pcm`` is returned unchanged
+                and no temp file is written.
+            sample_rate_hz (int): Sample rate of the PCM in Hz.
+            num_channels (int): Channel count (1 for mono, 2 for stereo).
+            sample_width_bytes (int): Bytes per sample (2 for PCM16).
+
+        Returns:
+            bytes: The converted raw PCM, matching the input format.
+
+        Raises:
+            ValueError: If the converted audio has a different sample rate,
+                channel count, or sample width than the input.
+        """
+        if not converter_configurations:
+            return raw_pcm
+
+        input_path = _write_pcm_to_temp_wav(
+            raw_pcm=raw_pcm,
+            sample_rate_hz=sample_rate_hz,
+            num_channels=num_channels,
+            sample_width_bytes=sample_width_bytes,
+        )
+        try:
+            piece = MessagePiece(
+                role="user",
+                original_value=input_path,
+                original_value_data_type="audio_path",
+                converted_value=input_path,
+                converted_value_data_type="audio_path",
+            )
+            message = Message(message_pieces=[piece])
+            await self.convert_values(
+                converter_configurations=converter_configurations,
+                message=message,
+            )
+            actual_rate, actual_channels, actual_width, converted_pcm = _read_pcm_from_wav(piece.converted_value)
+            if (actual_rate, actual_channels, actual_width) != (
+                sample_rate_hz,
+                num_channels,
+                sample_width_bytes,
+            ):
+                raise ValueError(
+                    "Converted audio format mismatch: expected "
+                    f"channels={num_channels} sampwidth={sample_width_bytes} "
+                    f"rate={sample_rate_hz}, got channels={actual_channels} "
+                    f"sampwidth={actual_width} rate={actual_rate}."
+                )
+            return converted_pcm
+        finally:
+            Path(input_path).unlink(missing_ok=True)
+
+    async def _calc_hash_async(self, request: Message) -> None:
         """Add a request to the memory."""
         tasks = [asyncio.create_task(piece.set_sha256_values_async()) for piece in request.message_pieces]
         await asyncio.gather(*tasks)
 
-    async def add_prepended_conversation_to_memory(
+    async def hash_and_persist_message_async(self, *, message: Message) -> None:
+        """
+        Hash and persist a Message to memory.
+
+        Use when a target assembles a Message outside the ``send_prompt_async`` flow
+        (e.g. streaming sessions that yield per-turn Messages directly).
+
+        Args:
+            message (Message): The message to hash and persist.
+        """
+        await self._calc_hash_async(request=message)
+        self.memory.add_message_to_memory(request=message)
+
+    async def add_prepended_conversation_to_memory_async(
         self,
         conversation_id: str,
         should_convert: bool = True,
@@ -302,7 +423,7 @@ class PromptNormalizer:
 
         for request in prepended_conversation:
             if should_convert and converter_configurations:
-                await self.convert_values(message=request, converter_configurations=converter_configurations)
+                await self.convert_values_async(message=request, converter_configurations=converter_configurations)
             for piece in request.message_pieces:
                 piece.conversation_id = conversation_id
                 if attack_identifier:
@@ -312,6 +433,75 @@ class PromptNormalizer:
                 # and if not, this won't hurt anything
                 piece.id = uuid4()
 
-            self._memory.add_message_to_memory(request=request)
+            self.memory.add_message_to_memory(request=request)
 
         return prepended_conversation
+
+    async def convert_values(  # pyrit-async-suffix-exempt
+        self,
+        converter_configurations: list[PromptConverterConfiguration],
+        message: Message,
+    ) -> None:
+        """Use ``convert_values_async`` instead; this is a deprecated alias."""
+        print_deprecation_message(
+            old_item="pyrit.prompt_normalizer.PromptNormalizer.convert_values",
+            new_item="pyrit.prompt_normalizer.PromptNormalizer.convert_values_async",
+            removed_in="0.16.0",
+        )
+        await self.convert_values_async(converter_configurations=converter_configurations, message=message)
+
+    async def add_prepended_conversation_to_memory(  # pyrit-async-suffix-exempt
+        self,
+        conversation_id: str,
+        should_convert: bool = True,
+        converter_configurations: Optional[list[PromptConverterConfiguration]] = None,
+        attack_identifier: Optional[ComponentIdentifier] = None,
+        prepended_conversation: Optional[list[Message]] = None,
+    ) -> Optional[list[Message]]:
+        """
+        Use ``add_prepended_conversation_to_memory_async`` instead; this is a deprecated alias.
+
+        Returns:
+            Optional[list[Message]]: Same as ``add_prepended_conversation_to_memory_async``.
+        """
+        print_deprecation_message(
+            old_item="pyrit.prompt_normalizer.PromptNormalizer.add_prepended_conversation_to_memory",
+            new_item="pyrit.prompt_normalizer.PromptNormalizer.add_prepended_conversation_to_memory_async",
+            removed_in="0.16.0",
+        )
+        return await self.add_prepended_conversation_to_memory_async(
+            conversation_id=conversation_id,
+            should_convert=should_convert,
+            converter_configurations=converter_configurations,
+            attack_identifier=attack_identifier,
+            prepended_conversation=prepended_conversation,
+        )
+
+
+def _write_pcm_to_temp_wav(
+    *,
+    raw_pcm: bytes,
+    sample_rate_hz: int,
+    num_channels: int,
+    sample_width_bytes: int,
+) -> str:
+    """Return the path of a new temp WAV file containing the given PCM."""
+    fd, path = tempfile.mkstemp(suffix=".wav")
+    os.close(fd)
+    with wave.open(path, "wb") as wav_out:
+        wav_out.setnchannels(num_channels)
+        wav_out.setsampwidth(sample_width_bytes)
+        wav_out.setframerate(sample_rate_hz)
+        wav_out.writeframes(raw_pcm)
+    return path
+
+
+def _read_pcm_from_wav(wav_path: str) -> tuple[int, int, int, bytes]:
+    """Return (sample_rate_hz, num_channels, sample_width_bytes, pcm_bytes) from a WAV file."""
+    with wave.open(wav_path, "rb") as wav_in:
+        return (
+            wav_in.getframerate(),
+            wav_in.getnchannels(),
+            wav_in.getsampwidth(),
+            wav_in.readframes(wav_in.getnframes()),
+        )

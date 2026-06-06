@@ -1,0 +1,602 @@
+"""
+@author: cunyue
+@file: test_settings.py
+@time: 2026/3/5 15:56
+@description: 测试 SwanLabSettings 基本方法
+"""
+
+from pathlib import Path
+
+import pytest
+from pydantic_settings import SettingsConfigDict
+
+from swanlab.sdk.internal.settings import Settings
+
+
+@pytest.fixture(autouse=True)
+def isolate_global_env(tmp_path, monkeypatch):
+    """
+    全局环境隔离固件：
+    将 SWANLAB_SAVE_DIR 强制指向 tmp_path，确保测试过程绝对不会读取开发者本机的 .netrc 文件。
+    同时清理相关的环境变量，防止本机环境变量污染测试用例。
+    """
+    monkeypatch.setenv("SWANLAB_SAVE_DIR", str(tmp_path))
+    monkeypatch.delenv("SWANLAB_API_KEY", raising=False)
+    monkeypatch.delenv("SWANLAB_API_HOST", raising=False)
+    monkeypatch.delenv("SWANLAB_WEB_HOST", raising=False)
+
+
+def test_path_validation(tmp_path):
+    """测试默认值加载，以及路径是否会自动创建"""
+    settings = Settings(log_dir=Path(tmp_path) / "log")
+    # log_dir 不会自动创建
+    assert not settings.log_dir.exists()
+
+
+def test_priority_yaml_over_env(tmp_path, monkeypatch):
+    """测试优先级：本地 YAML > 环境变量"""
+
+    # 设置低优先级的环境变量
+    monkeypatch.setenv("SWANLAB_API_KEY", "env_key")
+    monkeypatch.setenv("SWANLAB_PROBE_MONITOR", "false")
+
+    s1 = Settings()
+    assert s1.probe.monitor is False
+    assert s1.api_key == "env_key"
+
+    # 创建高优先级的 swanlab.yaml
+    yaml_content = "api_key: yaml_key\nlog_dir: ./custom_log\nprobe:\n  monitor: true"
+    (tmp_path / "swanlab.yaml").write_text(yaml_content)
+
+    s2 = Settings()
+    assert s2.api_key == "yaml_key"
+    assert s2.log_dir.name == "custom_log"
+    assert s2.probe.monitor is True
+
+
+class TestConfigSourcePriority:
+    """测试新增配置源的优先级：get_user_config_dir()/config.{yaml,yml} 和 pwd/.swanlab/config.{yaml,yml}"""
+
+    def test_root_config_yaml_priority(self, tmp_path, monkeypatch):
+        """测试 settings.get_user_config_dir()/config.yaml 优先级高于默认值但低于环境变量"""
+        # 设置环境变量指向 tmp_path 作为 root
+        monkeypatch.setenv("SWANLAB_SAVE_DIR", str(tmp_path))
+        # 创建 root/config.yaml
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("api_key: root_config_key\nmode: offline")
+
+        # 不设置环境变量时，root/config.yaml 生效
+        settings = Settings()
+        assert settings.api_key == "root_config_key"
+        assert settings.mode == "offline"
+
+        # 设置环境变量后，环境变量优先级更高
+        monkeypatch.setenv("SWANLAB_API_KEY", "env_key")
+        settings_env = Settings()
+        assert settings_env.api_key == "env_key"
+        assert settings_env.mode == "offline"  # mode 仍来自 root/config.yaml
+
+    def test_pwd_swanlab_config_yaml_priority(self, tmp_path, monkeypatch):
+        """测试 pwd/.swanlab/config.yaml 优先级高于环境变量但低于 .env"""
+        monkeypatch.chdir(tmp_path)
+        swanlab_dir = tmp_path / ".swanlab"
+        swanlab_dir.mkdir()
+        config_file = swanlab_dir / "config.yaml"
+        config_file.write_text("api_key: pwd_config_key\nmode: local")
+
+        # 不设置环境变量时，pwd/.swanlab/config.yaml 生效
+        settings = Settings()
+        assert settings.api_key == "pwd_config_key"
+        assert settings.mode == "local"
+
+        # 设置环境变量后，环境变量优先级更高
+        monkeypatch.setenv("SWANLAB_API_KEY", "env_key")
+        settings_env = Settings()
+        assert settings_env.api_key == "env_key"
+        assert settings_env.mode == "local"  # mode 仍来自 pwd/.swanlab/config.yaml
+
+    def test_pwd_config_over_root_config(self, tmp_path, monkeypatch):
+        """测试 pwd/.swanlab/config.yaml 优先级高于 root/config.yaml"""
+        monkeypatch.setenv("SWANLAB_SAVE_DIR", str(tmp_path))
+        monkeypatch.chdir(tmp_path)
+
+        # 创建 root/config.yaml
+        root_config = tmp_path / "config.yaml"
+        root_config.write_text("api_key: root_key\nmode: offline")
+
+        # 创建 pwd/.swanlab/config.yaml
+        swanlab_dir = tmp_path / ".swanlab"
+        swanlab_dir.mkdir()
+        pwd_config = swanlab_dir / "config.yaml"
+        pwd_config.write_text("api_key: pwd_key")
+
+        settings = Settings()
+        # pwd/.swanlab/config.yaml 优先级更高
+        assert settings.api_key == "pwd_key"
+        # mode 来自 root/config.yaml（pwd 配置未覆盖）
+        assert settings.mode == "offline"
+
+    def test_swanlab_yaml_over_pwd_config(self, tmp_path, monkeypatch):
+        """测试当前目录 swanlab.yaml 优先级高于 pwd/.swanlab/config.yaml"""
+        monkeypatch.chdir(tmp_path)
+
+        # 创建 pwd/.swanlab/config.yaml
+        swanlab_dir = tmp_path / ".swanlab"
+        swanlab_dir.mkdir()
+        pwd_config = swanlab_dir / "config.yaml"
+        pwd_config.write_text("api_key: pwd_key\nmode: local")
+
+        # 创建当前目录 swanlab.yaml
+        local_yaml = tmp_path / "swanlab.yaml"
+        local_yaml.write_text("api_key: local_yaml_key")
+
+        settings = Settings()
+        # swanlab.yaml 优先级更高
+        assert settings.api_key == "local_yaml_key"
+        # mode 来自 pwd/.swanlab/config.yaml（swanlab.yaml 未覆盖）
+        assert settings.mode == "local"
+
+    def test_root_config_yml_extension(self, tmp_path, monkeypatch):
+        """测试 root/config.yml 也能被正确加载"""
+        monkeypatch.setenv("SWANLAB_SAVE_DIR", str(tmp_path))
+        config_file = tmp_path / "config.yml"
+        config_file.write_text("api_key: yml_key")
+
+        settings = Settings()
+        assert settings.api_key == "yml_key"
+
+    def test_pwd_config_yml_extension(self, tmp_path, monkeypatch):
+        """测试 pwd/.swanlab/config.yml 也能被正确加载"""
+        monkeypatch.chdir(tmp_path)
+        swanlab_dir = tmp_path / ".swanlab"
+        swanlab_dir.mkdir()
+        config_file = swanlab_dir / "config.yml"
+        config_file.write_text("api_key: yml_key")
+
+        settings = Settings()
+        assert settings.api_key == "yml_key"
+
+    def test_root_config_not_exists(self, tmp_path, monkeypatch):
+        """测试 root 目录下没有 config.yaml 时不影响正常加载"""
+        monkeypatch.setenv("SWANLAB_SAVE_DIR", str(tmp_path))
+
+        settings = Settings()
+        # 应使用默认值
+        assert settings.api_key is None
+        assert settings.mode == "online"
+
+    def test_pwd_config_not_exists(self, tmp_path, monkeypatch):
+        """测试 pwd/.swanlab 目录不存在时不影响正常加载"""
+        monkeypatch.chdir(tmp_path)
+
+        settings = Settings()
+        # 应使用默认值
+        assert settings.api_key is None
+        assert settings.mode == "online"
+
+
+def test_merge_settings_dict_deep_update():
+    """测试字典合并，确保深层嵌套不会被覆盖"""
+    settings = Settings()
+
+    # 仅修改 collect 下的 metadata，log_dir 应该保留
+    settings.merge_settings({"probe": {"monitor": False}})
+
+    assert settings.probe.monitor is False
+    assert settings.probe.monitor_interval == 10
+    assert settings.log_dir.name == "swanlog"
+
+
+def test_merge_settings_object_exclude_unset(tmp_path, monkeypatch):
+    """测试对象合并，确保未设置的默认值不会覆盖已有配置"""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("SWANLAB_API_KEY", "env_key")
+    settings = Settings(api_key="current_key")
+    assert settings.api_key == "current_key"
+
+    # 用户只传入了 log_dir，没有设置 metadata 和 api_key
+    monkeypatch.delenv("SWANLAB_API_KEY")
+    new_settings = Settings(log_dir=Path("./new_log"))
+    settings.merge_settings(new_settings)
+
+    assert settings.log_dir.name == "new_log"  # 新配置生效
+    assert settings.probe.monitor is True  # 原配置未被默认值 False 覆盖
+    assert settings.api_key == "current_key"  # 原配置未被默认值 None 覆盖
+
+
+def test_secrets_loading(tmp_path):
+    """测试 K8s Secret 挂载文件读取"""
+    secrets_dir = tmp_path / "secrets"
+    secrets_dir.mkdir()
+    (secrets_dir / "api_key").write_text("secret_from_k8s")
+
+    # 通过继承临时覆写 secrets_dir 路径，避免修改全局环境变量
+    class TestSettings(Settings):
+        model_config = SettingsConfigDict(secrets_dir=str(secrets_dir))
+
+    settings = TestSettings()
+    assert settings.api_key == "secret_from_k8s"
+
+
+def test_mode_validation():
+    """测试 mode 字段的校验与转换"""
+    s_default = Settings()
+    assert s_default.mode == "online"
+
+    s_online = Settings(mode="online")
+    assert s_online.mode == "online"
+
+    s_cloud_compat = Settings(mode="cloud")  # type: ignore
+    assert s_cloud_compat.mode == "online"
+
+    with pytest.raises(ValueError, match="Invalid mode: invalid, allowed values are"):
+        Settings(mode="invalid")  # type: ignore
+
+
+def test_url_resolution_logic(monkeypatch):
+    """测试 api_host 和 web_host 的跨字段推导与路由/斜杠清理逻辑"""
+
+    # 1. 默认情况：保持最新的默认值（无 /api 后缀）
+    s_default = Settings()
+    assert s_default.api_host == "https://api.swanlab.cn"
+    assert s_default.web_host == "https://swanlab.cn"
+
+    # 2. 仅自定义 api_host (带复杂路由)：自动清除路由，并顺便推导 web_host
+    s_api = Settings(api_host="http://10.0.0.1:8080/api/v1/run/")
+    assert s_api.api_host == "http://10.0.0.1:8080"
+    assert s_api.web_host == "http://10.0.0.1:8080"
+
+    # 3. 仅自定义 api_host (未带协议头)：自动补全 https://，清除路由，并推导 web_host
+    s_api_no_scheme = Settings(api_host="custom-api.com/api/")
+    assert s_api_no_scheme.api_host == "https://custom-api.com"
+    assert s_api_no_scheme.web_host == "https://custom-api.com"
+
+    # 4. 两者都自定义：清理各自格式，互不覆盖
+    # api_host 会被清除路由，web_host 会被清理末尾斜杠
+    s_both = Settings(web_host="http://web.local/", api_host="http://api.local/v1/")
+    assert s_both.api_host == "http://api.local"
+    assert s_both.web_host == "http://web.local"
+
+    # 5. 仅自定义 web_host：清理斜杠，api_host 依然保持全局默认
+    s_web = Settings(web_host="http://192.168.1.10/")
+    assert s_web.web_host == "http://192.168.1.10"
+    assert s_web.api_host == "https://api.swanlab.cn"
+
+    # 6. web_host 被设置为 api_host 的默认值：自动回退为 web_host 默认值，且不进入 fields_set
+    s_invalid_web = Settings(web_host="api.swanlab.cn?test=1dsa")
+    assert s_invalid_web.web_host == "https://swanlab.cn"
+    assert "web_host" not in s_invalid_web.__pydantic_fields_set__
+
+
+def test_url_env_resolution(monkeypatch):
+    """测试环境变量注入时的 URL 路由清除与推导逻辑"""
+
+    # 1. 仅通过环境变量注入 api_host (带复杂路由和斜杠)
+    monkeypatch.delenv("SWANLAB_API_HOST", raising=False)
+    monkeypatch.delenv("SWANLAB_WEB_HOST", raising=False)
+    # 注意：如果你的 Settings 配置了 env_prefix="SWANLAB_"，这里应当是 SWANLAB_API_HOST
+    monkeypatch.setenv("SWANLAB_API_HOST", "http://10.0.0.1:8080/api/v1/run/")
+
+    s_env_api = Settings()
+    # 验证：环境变量被正确读取，并且我们的 validate_urls 成功拦截并清洗了它
+    assert s_env_api.api_host == "http://10.0.0.1:8080"
+    assert s_env_api.web_host == "http://10.0.0.1:8080"
+
+    # 清理环境变量，避免影响后续断言
+    monkeypatch.delenv("SWANLAB_API_HOST", raising=False)
+
+    # 2. 仅通过环境变量注入 web_host
+    monkeypatch.setenv("SWANLAB_WEB_HOST", "http://env-web.local/")
+
+    s_env_web = Settings()
+    assert s_env_web.web_host == "http://env-web.local"
+    assert s_env_web.api_host == "https://api.swanlab.cn"  # 保持默认不被推导
+
+    monkeypatch.delenv("SWANLAB_WEB_HOST", raising=False)
+
+    # 3. 测试优先级：代码显式传参 > 环境变量
+    monkeypatch.setenv("SWANLAB_API_HOST", "http://env-api.local/api/")
+    monkeypatch.setenv("SWANLAB_WEB_HOST", "http://env-web.local/")
+
+    # 用户在代码里硬编码传入了 api_host
+    s_mixed = Settings(api_host="http://code-api.local/api/v2/")
+
+    # 验证：代码传参覆盖了 API_HOST 环境变量，且由于 API_HOST 的存在，
+    # 我们配置的 WEB_HOST 环境变量被保留（清理了斜杠）
+    assert s_mixed.api_host == "http://code-api.local"
+    assert s_mixed.web_host == "http://env-web.local"
+
+
+def test_core_section_rule_env(monkeypatch):
+    """测试 core section rule 可通过新版 Settings 环境变量注入"""
+    monkeypatch.setenv("SWANLAB_CORE_SECTION_RULE", "-1")
+
+    settings = Settings()
+
+    assert settings.core.section_rule == -1
+
+
+def test_legacy_section_rule_idx_env(monkeypatch):
+    """测试旧版 section rule idx 环境变量兼容读取"""
+    monkeypatch.setenv("SWANLAB_SECTION_RULE_IDX", "1")
+
+    settings = Settings()
+
+    assert settings.core.section_rule == 1
+
+
+def test_core_section_rule_env_overrides_legacy(monkeypatch):
+    """测试新版 core section rule 环境变量优先于旧版环境变量"""
+    monkeypatch.setenv("SWANLAB_CORE_SECTION_RULE", "-1")
+    monkeypatch.setenv("SWANLAB_SECTION_RULE_IDX", "1")
+
+    settings = Settings()
+
+    assert settings.core.section_rule == -1
+
+
+@pytest.fixture
+def netrc_file(tmp_path, monkeypatch):
+    """
+    预先准备 .netrc 文件的测试固件。
+    将 SWANLAB_SAVE_DIR 环境变量指向 tmp_path，使得 Settings.root 解析到这里。
+    返回 .netrc 的 Path 对象以便测试用例写入内容。
+    """
+    monkeypatch.setenv("SWANLAB_SAVE_DIR", str(tmp_path))
+    nrc_path = tmp_path / ".netrc"
+    return nrc_path
+
+
+class TestNetrcFallback:
+    """测试 Settings 基于 .netrc 的兜底加载逻辑"""
+
+    def test_netrc_fallback_basic(self, netrc_file):
+        """测试正常情况下的兜底读取和格式推导"""
+        # machine -> api_host, login -> web_host, password -> api_key
+        netrc_file.write_text("machine api.custom.com login web.custom.com password secret_token\n")
+
+        settings = Settings()
+
+        # 验证读取与自动补全 scheme
+        assert settings.api_host == "https://api.custom.com"
+        assert settings.web_host == "https://web.custom.com"
+        assert settings.api_key == "secret_token"
+
+    def test_netrc_fallback_priority(self, netrc_file, monkeypatch):
+        """测试优先级：显式传参 > 环境变量 > .netrc 兜底"""
+        netrc_file.write_text("machine api.custom.com login web.custom.com password secret_token\n")
+
+        # 1. api_key 被显式传入时，整个 netrc 回填被跳过
+        settings_explicit_key = Settings(api_key="explicit_token")
+        assert settings_explicit_key.api_key == "explicit_token"
+        assert settings_explicit_key.api_host == "https://api.swanlab.cn"  # 默认值，netrc 未回填
+        assert settings_explicit_key.web_host == "https://swanlab.cn"  # 默认值，netrc 未回填
+
+        # 2. 环境变量设置 web_host，api_key 未设置，netrc 仍可回填 api_key 和 api_host
+        monkeypatch.setenv("SWANLAB_WEB_HOST", "http://env-web.local")
+        settings_env_web = Settings()
+        assert settings_env_web.api_key == "secret_token"  # netrc 兜底
+        assert settings_env_web.api_host == "https://api.custom.com"  # netrc 兜底
+        assert settings_env_web.web_host == "http://env-web.local"  # 环境变量优先
+
+    def test_netrc_api_host_mismatch_skips(self, netrc_file, monkeypatch):
+        """测试显式设置的 api_host 与 netrc 中不一致时，跳过整个 netrc 回填"""
+        netrc_file.write_text("machine api.custom.com login web.custom.com password secret_token\n")
+
+        # 用户显式指定了不同的 api_host，不应使用 netrc 中的凭证
+        settings = Settings(api_host="https://api.other.com")
+
+        assert settings.api_key is None  # netrc 凭证被跳过
+        assert settings.api_host == "https://api.other.com"  # 用户显式值
+        assert settings.web_host == "https://api.other.com"  # 由 validate_hosts 推导，非 netrc
+
+    def test_netrc_empty_or_corrupted(self, netrc_file):
+        """测试 netrc 文件为空或格式损坏时，不阻断流程且使用默认值"""
+        # 1. 损坏的文件格式
+        netrc_file.write_text("invalid garbage data...")
+        settings_corrupted = Settings()
+        assert settings_corrupted.api_host == "https://api.swanlab.cn"  # 保持默认
+        assert settings_corrupted.api_key is None
+
+        # 2. 文件存在但没有任何 host
+        netrc_file.write_text("")
+        settings_empty = Settings()
+        assert settings_empty.api_host == "https://api.swanlab.cn"
+        assert settings_empty.api_key is None
+
+    def test_netrc_merge_settings_sync(self, netrc_file):
+        """测试 netrc 兜底的字段是否被正确加入 fields_set，防止 merge_settings 时丢失"""
+        netrc_file.write_text("machine api.sync.com login web.sync.com password sync_token\n")
+
+        settings = Settings()
+        assert settings.api_key == "sync_token"
+        assert "api_key" in settings.__pydantic_fields_set__
+
+        # 执行 merge_settings 更新毫不相干的字段
+        settings.merge_settings({"debug": True})
+
+        # 验证 netrc 读取进来的属性没有因为 merge (exclude_unset=True) 而丢失
+        assert settings.api_key == "sync_token"
+        assert settings.api_host == "https://api.sync.com"
+        assert settings.mode == "online"
+
+
+def test_directory_validators(tmp_path, monkeypatch):
+    """测试 root 和 log_dir 的路径校验逻辑：如果存在，必须是文件夹"""
+
+    # 1. 正常情况：路径存在且是文件夹
+    valid_log = tmp_path / "valid_log"
+    valid_log.mkdir()
+
+    # 正常初始化，不抛异常
+    s_valid = Settings(log_dir=valid_log)
+    assert s_valid.log_dir == valid_log
+
+    # 2. 异常情况：root 存在但是个文件
+    invalid_root = tmp_path / "invalid_root.txt"
+    monkeypatch.setenv("SWANLAB_ROOT", str(invalid_root))
+    invalid_root.write_text("dummy file content")
+
+    with pytest.raises(ValueError, match="exists but is not a directory"):
+        Settings()
+
+    # 3. 异常情况：log_dir 存在但是个文件
+    invalid_log = tmp_path / "invalid_log.txt"
+    invalid_log.write_text("dummy file content")
+
+    with pytest.raises(ValueError, match="exists but is not a directory"):
+        Settings(log_dir=invalid_log)
+
+
+def test_directory_validators_with_merge(tmp_path):
+    """测试通过 merge_settings 传入异常路径时的表现"""
+    settings = Settings()
+
+    invalid_path = tmp_path / "invalid_merge.txt"
+    invalid_path.write_text("dummy")
+
+    # merge_settings 内部也应该触发一样的校验逻辑
+    with pytest.raises(ValueError, match="exists but is not a directory"):
+        settings.merge_settings({"log_dir": invalid_path})
+
+
+class TestToYaml:
+    """测试 Settings.to_yaml 方法"""
+
+    def test_to_yaml_all_fields(self):
+        """测试不传入参数时输出所有字段"""
+        settings = Settings()
+        yaml_str = settings.to_yaml()
+
+        assert "mode:" in yaml_str
+        assert "api_key:" in yaml_str
+        assert "probe:" in yaml_str
+        assert "core:" in yaml_str
+
+    def test_to_yaml_single_field(self):
+        """测试传入单个字段名"""
+        settings = Settings()
+        yaml_str = settings.to_yaml("mode")
+
+        assert yaml_str.strip() == "mode: online"
+
+    def test_to_yaml_multiple_fields(self):
+        """测试传入多个字段名"""
+        settings = Settings()
+        yaml_str = settings.to_yaml("mode", "api_key")
+
+        assert "mode: online" in yaml_str
+        assert "api_key:" in yaml_str
+        assert "root:" not in yaml_str
+
+    def test_to_yaml_nested_field(self):
+        """测试传入嵌套字段名"""
+        settings = Settings()
+        yaml_str = settings.to_yaml("core.record_batch")
+
+        assert "core:" in yaml_str
+        assert "record_batch:" in yaml_str
+        assert "mode:" not in yaml_str
+
+    def test_to_yaml_multiple_nested_fields(self):
+        """测试传入多个嵌套字段名，同一父节点应合并"""
+        settings = Settings()
+        yaml_str = settings.to_yaml("core.record_batch", "core.record_interval")
+
+        assert "core:" in yaml_str
+        assert "record_batch:" in yaml_str
+        assert "record_interval:" in yaml_str
+        assert "mode:" not in yaml_str
+
+    def test_to_yaml_nonexistent_field(self):
+        """测试传入不存在的字段名应被忽略"""
+        settings = Settings()
+        yaml_str = settings.to_yaml("nonexistent_field")
+
+        assert yaml_str.strip() == "{}"
+
+    def test_to_yaml_mixed_existence(self):
+        """测试同时传入存在和不存在的字段"""
+        settings = Settings()
+        yaml_str = settings.to_yaml("mode", "nonexistent_field")
+
+        assert "mode: online" in yaml_str
+        assert "nonexistent_field" not in yaml_str
+
+    def test_to_yaml_nested_parent_and_child(self):
+        """测试同时传入父节点和子节点"""
+        settings = Settings()
+        yaml_str = settings.to_yaml("core", "probe.monitor")
+
+        assert "core:" in yaml_str
+        assert "probe:" in yaml_str
+        assert "monitor:" in yaml_str
+
+
+class TestSaveToYaml:
+    """测试 Settings.save_to_yaml 方法"""
+
+    def test_save_to_yaml_new_file(self, tmp_path):
+        """测试保存到新文件"""
+        settings = Settings(mode="offline", api_key="test_key")
+        target_dir = tmp_path / "config_dir"
+
+        file_path = settings.save_to_yaml(target_dir, "mode", "api_key")
+
+        assert file_path.exists()
+        assert file_path.name == "config.yaml"
+        content = file_path.read_text()
+        assert "mode: offline" in content
+        assert "api_key: test_key" in content
+
+    def test_save_to_yaml_merge_existing(self, tmp_path):
+        """测试合并到已存在的 config.yaml"""
+        target_dir = tmp_path / "config_dir"
+        target_dir.mkdir()
+        existing_file = target_dir / "config.yaml"
+        existing_file.write_text("existing_field: old_value\nmode: online")
+
+        settings = Settings(api_key="new_key")
+        file_path = settings.save_to_yaml(target_dir, "api_key", "mode")
+
+        content = file_path.read_text()
+        assert "existing_field: old_value" in content
+        assert "api_key: new_key" in content
+        assert "mode: online" in content
+
+    def test_save_to_yaml_overwrite_existing(self, tmp_path):
+        """测试 merge=False 时覆盖已存在文件"""
+        target_dir = tmp_path / "config_dir"
+        target_dir.mkdir()
+        existing_file = target_dir / "config.yaml"
+        existing_file.write_text("existing_field: old_value\nmode: online")
+
+        settings = Settings(api_key="new_key")
+        file_path = settings.save_to_yaml(target_dir, "api_key", merge=False)
+
+        content = file_path.read_text()
+        assert "existing_field" not in content
+        assert "api_key: new_key" in content
+
+    def test_save_to_yaml_nested_fields(self, tmp_path):
+        """测试保存嵌套字段"""
+        settings = Settings()
+        target_dir = tmp_path / "config_dir"
+
+        file_path = settings.save_to_yaml(target_dir, "core.record_batch")
+
+        content = file_path.read_text()
+        assert "core:" in content
+        assert "record_batch:" in content
+        assert "mode:" not in content
+
+    def test_save_to_yaml_creates_directory(self, tmp_path):
+        """测试自动创建不存在的目录"""
+        settings = Settings()
+        target_dir = tmp_path / "nested" / "config_dir"
+
+        assert not target_dir.exists()
+        file_path = settings.save_to_yaml(target_dir, "mode")
+
+        assert target_dir.exists()
+        assert file_path.exists()

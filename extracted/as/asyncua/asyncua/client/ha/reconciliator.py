@@ -2,15 +2,16 @@ import asyncio
 import inspect
 import logging
 import time
-
 from collections import defaultdict
 from dataclasses import astuple
 from enum import Enum
 from functools import partial
-from typing import TYPE_CHECKING, Dict, Set, Union, List
-from sortedcontainers import SortedDict  # type: ignore
-from asyncua import ua, Client
 from pickle import PicklingError
+from typing import TYPE_CHECKING
+
+from sortedcontainers import SortedDict  # type: ignore
+
+from asyncua import Client, ua
 
 from .common import batch, event_wait, get_digest
 from .virtual_subscription import VirtualSubscription
@@ -21,7 +22,7 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger(__name__)
 
-SubMap = Dict[str, SortedDict]
+SubMap = dict[str, SortedDict]
 
 
 if TYPE_CHECKING:
@@ -61,9 +62,9 @@ class Reconciliator:
         # An event loop must be set in the current thread
         self.stop_event = asyncio.Event()
 
-        self.real_map: Dict[str, SortedDict] = {}
+        self.real_map: dict[str, SortedDict] = {}
         for url in self.ha_client.urls:
-            # full type: Dict[str, SortedDict[str, VirtualSubscription]]
+            # full type: dict[str, Sorteddict[str, VirtualSubscription]]
             self.real_map[url] = SortedDict()
 
         self.name_to_subscription = defaultdict(dict)
@@ -140,7 +141,7 @@ class Reconciliator:
         """
 
         ideal_map = self.ha_client.ideal_map
-        healthy, unhealthy = await self.ha_client.group_clients_by_health()
+        healthy, _unhealthy = await self.ha_client.group_clients_by_health()
         async with self.ha_client._client_lock:
             valid_urls = {self.ha_client.clients[h].url for h in healthy}
         real_map = self.real_map
@@ -165,7 +166,7 @@ class Reconciliator:
         # look for missing options (publish/monitoring) for existing subs
         await self.update_subscription_modes(real_map, ideal_map, targets)
 
-    async def update_subscriptions(self, real_map, ideal_map, targets: Set[str]) -> None:
+    async def update_subscriptions(self, real_map, ideal_map, targets: set[str]) -> None:
         _logger.debug("In update_subscriptions")
         tasks = []
         for url in targets:
@@ -173,8 +174,8 @@ class Reconciliator:
             tasks.extend(self._subs_to_add(url, real_map, ideal_map))
         await asyncio.gather(*tasks, return_exceptions=True)
 
-    def _subs_to_del(self, url: str, real_map: SubMap, ideal_map: SubMap) -> List[asyncio.Task]:
-        to_del: List[asyncio.Task] = []
+    def _subs_to_del(self, url: str, real_map: SubMap, ideal_map: SubMap) -> list[asyncio.Task]:
+        to_del: list[asyncio.Task] = []
         sub_to_del = set(real_map[url]) - set(ideal_map[url])
         if sub_to_del:
             _logger.info("Removing %d subscriptions", len(sub_to_del))
@@ -185,8 +186,8 @@ class Reconciliator:
             to_del.append(task)
         return to_del
 
-    def _subs_to_add(self, url: str, real_map: SubMap, ideal_map: SubMap) -> List[asyncio.Task]:
-        to_add: List[asyncio.Task] = []
+    def _subs_to_add(self, url: str, real_map: SubMap, ideal_map: SubMap) -> list[asyncio.Task]:
+        to_add: list[asyncio.Task] = []
         sub_to_add = set(ideal_map[url]) - set(real_map[url])
         if sub_to_add:
             _logger.info("Adding %d subscriptions", len(sub_to_add))
@@ -209,7 +210,7 @@ class Reconciliator:
             to_add.append(task)
         return to_add
 
-    async def update_nodes(self, real_map: SubMap, ideal_map: SubMap, targets: Set[str]) -> None:
+    async def update_nodes(self, real_map: SubMap, ideal_map: SubMap, targets: set[str]) -> None:
         _logger.debug("In update_nodes")
         tasks = []
         for url in targets:
@@ -235,8 +236,8 @@ class Reconciliator:
         client: Client,
         vs_real: VirtualSubscription,
         vs_ideal: VirtualSubscription,
-    ) -> List[asyncio.Task]:
-        tasks: List[asyncio.Task] = []
+    ) -> list[asyncio.Task]:
+        tasks: list[asyncio.Task] = []
         real_sub: Subscription = self.name_to_subscription[url].get(sub_name)
         monitoring = vs_real.monitoring
         node_to_add = set(vs_ideal.nodes) - set(vs_real.nodes)
@@ -280,8 +281,8 @@ class Reconciliator:
         sub_name: str,
         vs_real: VirtualSubscription,
         vs_ideal: VirtualSubscription,
-    ) -> List[asyncio.Task]:
-        to_del: List[asyncio.Task] = []
+    ) -> list[asyncio.Task]:
+        to_del: list[asyncio.Task] = []
         node_to_del = set(vs_real.nodes) - set(vs_ideal.nodes)
         real_sub: Subscription = self.name_to_subscription[url].get(sub_name)
         if node_to_del:
@@ -302,7 +303,7 @@ class Reconciliator:
                 self.hook_mi_request(url=url, sub_name=sub_name, nodes=node_to_del, action=Method.DEL_MI)
         return to_del
 
-    async def update_subscription_modes(self, real_map: SubMap, ideal_map: SubMap, targets: Set[str]) -> None:
+    async def update_subscription_modes(self, real_map: SubMap, ideal_map: SubMap, targets: set[str]) -> None:
         _logger.debug("In update_subscription_modes")
         modes = [Method.MONITORING, Method.PUBLISHING]
         methods = [n.value for n in modes]
@@ -342,7 +343,7 @@ class Reconciliator:
         self,
         url: str,
         action: Method,
-        val: Union[bool, ua.MonitoringMode],
+        val: bool | ua.MonitoringMode,
         fut: asyncio.Task,
         **kwargs,
     ) -> None:
@@ -410,7 +411,7 @@ class Reconciliator:
             if not a[0].startswith("__") and not inspect.ismethod(a[1]):
                 _logger.debug(a)
 
-    def hook_mi_request(self, url: str, sub_name: str, nodes: Set[SortedDict], action: Method):
+    def hook_mi_request(self, url: str, sub_name: str, nodes: set[SortedDict], action: Method):
         """placeholder for easily superclass the HaClient and implement custom logic"""
 
     def hook_add_to_map_error(self, url: str, action: Method, fut: asyncio.Task, **kwargs):

@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
+import asyncio
 import base64
 import logging
 from io import BytesIO
@@ -9,8 +10,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from pyrit.identifiers import ComponentIdentifier
-from pyrit.models import PromptDataType, data_serializer_factory
+from pyrit.models import ComponentIdentifier, PromptDataType, data_serializer_factory
 from pyrit.prompt_converter.prompt_converter import ConverterResult, PromptConverter
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ class _AdamOptimizer:
 
     def __init__(
         self, *, learning_rate: float = 0.001, beta_1: float = 0.9, beta_2: float = 0.999, epsilon: float = 1e-8
-    ):
+    ) -> None:
         """
         Initialize the Adam optimizer with specified hyperparameters.
 
@@ -44,11 +44,11 @@ class _AdamOptimizer:
         self.beta_1 = beta_1
         self.beta_2 = beta_2
         self.epsilon = epsilon
-        self.m: np.ndarray  # type: ignore[type-arg, unused-ignore]  # first moment vector
-        self.v: np.ndarray  # type: ignore[type-arg, unused-ignore]  # second moment vector
+        self.m: np.ndarray  # first moment vector
+        self.v: np.ndarray  # second moment vector
         self.t = 0  # initialize timestep
 
-    def update(self, *, params: np.ndarray, grads: np.ndarray) -> np.ndarray:  # type: ignore[type-arg, unused-ignore]
+    def update(self, *, params: np.ndarray, grads: np.ndarray) -> np.ndarray:
         """
         Perform a single update step using the Adam optimization algorithm.
 
@@ -133,7 +133,7 @@ class TransparencyAttackConverter(PromptConverter):
         learning_rate: float = 0.001,
         convergence_threshold: float = 1e-6,
         convergence_patience: int = 10,
-    ):
+    ) -> None:
         """
         Initialize the converter with the path to a benign image and parameters for blending.
 
@@ -200,7 +200,7 @@ class TransparencyAttackConverter(PromptConverter):
             }
         )
 
-    def _load_and_preprocess_image(self, path: str) -> np.ndarray:  # type: ignore[type-arg, unused-ignore]
+    def _load_and_preprocess_image(self, path: str) -> np.ndarray:
         """
         Load image, convert to grayscale, resize, and normalize for optimization.
 
@@ -221,7 +221,7 @@ class TransparencyAttackConverter(PromptConverter):
         except Exception as e:
             raise ValueError(f"Failed to load and preprocess image from {path}: {e}") from e
 
-    def _compute_mse_loss(self, blended_image: np.ndarray, target_tensor: np.ndarray) -> float:  # type: ignore[type-arg, unused-ignore]
+    def _compute_mse_loss(self, blended_image: np.ndarray, target_tensor: np.ndarray) -> float:
         """
         Compute Mean Squared Error (MSE) loss between blended and target images.
 
@@ -234,7 +234,7 @@ class TransparencyAttackConverter(PromptConverter):
         """
         return float(np.mean(np.square(blended_image - target_tensor)))
 
-    def _create_blended_image(self, attack_image: np.ndarray, alpha: np.ndarray) -> np.ndarray:  # type: ignore[type-arg, unused-ignore]
+    def _create_blended_image(self, attack_image: np.ndarray, alpha: np.ndarray) -> np.ndarray:
         """
         Create a blended image using the attack image and alpha transparency.
 
@@ -256,7 +256,7 @@ class TransparencyAttackConverter(PromptConverter):
 
         return la_image
 
-    async def _save_blended_image(self, attack_image: np.ndarray, alpha: np.ndarray) -> str:  # type: ignore[type-arg, unused-ignore]
+    async def _save_blended_image_async(self, attack_image: np.ndarray, alpha: np.ndarray) -> str:
         """
         Save the blended image with transparency as a PNG file.
 
@@ -281,7 +281,7 @@ class TransparencyAttackConverter(PromptConverter):
             la_pil.save(image_buffer, format="PNG")
             image_str = base64.b64encode(image_buffer.getvalue())
 
-            await img_serializer.save_b64_image(data=image_str.decode())
+            await img_serializer.save_b64_image_async(data=image_str.decode())
             return img_serializer.value
         except Exception as e:
             raise ValueError(f"Failed to save blended image: {e}") from e
@@ -306,7 +306,7 @@ class TransparencyAttackConverter(PromptConverter):
 
         self._validate_input_image(prompt)
 
-        background_image = self._load_and_preprocess_image(prompt)
+        background_image = await asyncio.to_thread(self._load_and_preprocess_image, prompt)
         background_tensor = background_image * 0.5  # darkening for better blending optimization
 
         alpha = np.ones_like(background_tensor)  # optimized to determine transparency pattern
@@ -342,5 +342,5 @@ class TransparencyAttackConverter(PromptConverter):
             alpha = optimizer.update(params=alpha, grads=grad_alpha)
             alpha = np.clip(alpha, 0.0, 1.0)
 
-        image_path = await self._save_blended_image(background_tensor, alpha)
+        image_path = await self._save_blended_image_async(background_tensor, alpha)
         return ConverterResult(output_text=image_path, output_type="image_path")

@@ -1532,8 +1532,9 @@ struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_6_gene
 struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_7_genexpr;
 struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_genexpr;
 struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr;
+struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr;
 
-/* "opscli/seller_sprite/export/xlsx.py":173
+/* "opscli/seller_sprite/export/xlsx.py":201
  * 
  * def _safe_sheet_title(value: str) -> str:
  *     title = "".join(char for char in value if char not in r"[]:*?/\\")             # <<<<<<<<<<<<<<
@@ -1547,7 +1548,7 @@ struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct__genex
 };
 
 
-/* "opscli/seller_sprite/export/xlsx.py":184
+/* "opscli/seller_sprite/export/xlsx.py":212
  * 
  * 
  * def _column_width(title: str) -> int:             # <<<<<<<<<<<<<<
@@ -1560,7 +1561,7 @@ struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_1__col
 };
 
 
-/* "opscli/seller_sprite/export/xlsx.py":185
+/* "opscli/seller_sprite/export/xlsx.py":213
  * 
  * def _column_width(title: str) -> int:
  *     if any(key in title for key in ["", "", ""]):             # <<<<<<<<<<<<<<
@@ -1574,7 +1575,7 @@ struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_2_gene
 };
 
 
-/* "opscli/seller_sprite/export/xlsx.py":187
+/* "opscli/seller_sprite/export/xlsx.py":215
  *     if any(key in title for key in ["", "", ""]):
  *         return 48
  *     if any(key in title for key in ["", "", "ASIN"]):             # <<<<<<<<<<<<<<
@@ -1588,7 +1589,7 @@ struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_3_gene
 };
 
 
-/* "opscli/seller_sprite/export/xlsx.py":189
+/* "opscli/seller_sprite/export/xlsx.py":217
  *     if any(key in title for key in ["", "", "ASIN"]):
  *         return 38
  *     if any(key in title for key in ["", ""]):             # <<<<<<<<<<<<<<
@@ -1602,7 +1603,7 @@ struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_4_gene
 };
 
 
-/* "opscli/seller_sprite/export/xlsx.py":191
+/* "opscli/seller_sprite/export/xlsx.py":219
  *     if any(key in title for key in ["", ""]):
  *         return 32
  *     if any(key in title for key in ["ASIN", "SKU", ""]):             # <<<<<<<<<<<<<<
@@ -1616,7 +1617,7 @@ struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_5_gene
 };
 
 
-/* "opscli/seller_sprite/export/xlsx.py":206
+/* "opscli/seller_sprite/export/xlsx.py":234
  *     if not isinstance(value, dict):
  *         return value
  *     return "\n".join(f"{key}:{item}" for key, item in value.items())             # <<<<<<<<<<<<<<
@@ -1631,7 +1632,7 @@ struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_6_gene
 };
 
 
-/* "opscli/seller_sprite/export/xlsx.py":247
+/* "opscli/seller_sprite/export/xlsx.py":275
  *     if not isinstance(value, list):
  *         return ""
  *     return "&".join(str(item.get("label")) for item in value if isinstance(item, dict) and item.get("label"))             # <<<<<<<<<<<<<<
@@ -1645,7 +1646,7 @@ struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_7_gene
 };
 
 
-/* "opscli/seller_sprite/export/xlsx.py":261
+/* "opscli/seller_sprite/export/xlsx.py":375
  *     if not isinstance(value, list):
  *         return ""
  *     return ",".join(str(item.get("asin")) for item in value if isinstance(item, dict) and item.get("asin"))             # <<<<<<<<<<<<<<
@@ -1659,7 +1660,7 @@ struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_gene
 };
 
 
-/* "opscli/seller_sprite/export/xlsx.py":275
+/* "opscli/seller_sprite/export/xlsx.py":389
  *         elif item is not None:
  *             parts.append(str(item))
  *     return "/".join(part for part in parts if part)             # <<<<<<<<<<<<<<
@@ -1667,6 +1668,20 @@ struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_gene
  * 
 */
 struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr {
+  PyObject_HEAD
+  PyObject *__pyx_genexpr_arg_0;
+  PyObject *__pyx_v_part;
+};
+
+
+/* "opscli/seller_sprite/export/xlsx.py":450
+ *         key = str(item)
+ *         parts.append(labels.get(key, key))
+ *     return "/".join(part for part in parts if part)             # <<<<<<<<<<<<<<
+ * 
+ * 
+*/
+struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr {
   PyObject_HEAD
   PyObject *__pyx_genexpr_arg_0;
   PyObject *__pyx_v_part;
@@ -2468,6 +2483,58 @@ static double __Pyx__PyObject_AsDouble(PyObject* obj);
      (value) == (error_value) :\
      (value) != (value))
 
+/* PyObjectFormatSimple.proto */
+#if CYTHON_COMPILING_IN_PYPY
+    #define __Pyx_PyObject_FormatSimple(s, f) (\
+        likely(PyUnicode_CheckExact(s)) ? (Py_INCREF(s), s) :\
+        PyObject_Format(s, f))
+#elif CYTHON_USE_TYPE_SLOTS
+    #define __Pyx_PyObject_FormatSimple(s, f) (\
+        likely(PyUnicode_CheckExact(s)) ? (Py_INCREF(s), s) :\
+        likely(PyLong_CheckExact(s)) ? PyLong_Type.tp_repr(s) :\
+        likely(PyFloat_CheckExact(s)) ? PyFloat_Type.tp_repr(s) :\
+        PyObject_Format(s, f))
+#else
+    #define __Pyx_PyObject_FormatSimple(s, f) (\
+        likely(PyUnicode_CheckExact(s)) ? (Py_INCREF(s), s) :\
+        PyObject_Format(s, f))
+#endif
+
+/* UnicodeConcatInPlace.proto */
+# if CYTHON_COMPILING_IN_CPYTHON
+    #if CYTHON_REFNANNY
+        #define __Pyx_PyUnicode_ConcatInPlace(left, right, unsafe_shared) __Pyx_PyUnicode_ConcatInPlaceImpl(&left, right, unsafe_shared, __pyx_refnanny)
+    #else
+        #define __Pyx_PyUnicode_ConcatInPlace(left, right, unsafe_shared) __Pyx_PyUnicode_ConcatInPlaceImpl(&left, right, unsafe_shared)
+    #endif
+    #define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_DefinitelyUniqueInPlace(left, right) __Pyx_PyUnicode_ConcatInPlace(left, right, __Pyx_ReferenceSharing_DefinitelyUnique)
+    #define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlace(left, right) __Pyx_PyUnicode_ConcatInPlace(left, right, __Pyx_ReferenceSharing_OwnStrongReference)
+    #define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_FunctionArgumentInPlace(left, right) __Pyx_PyUnicode_ConcatInPlace(left, right, __Pyx_ReferenceSharing_DefinitelyUnique)
+    #define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_SharedReferenceInPlace(left, right) __Pyx_PyUnicode_ConcatInPlace(left, right, __Pyx_ReferenceSharing_SharedReference)
+    static CYTHON_INLINE PyObject *__Pyx_PyUnicode_ConcatInPlaceImpl(PyObject **p_left, PyObject *right, int unsafe_shared
+        #if CYTHON_REFNANNY
+        , void* __pyx_refnanny
+        #endif
+    );
+#else
+#define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_DefinitelyUniqueInPlace __Pyx_PyUnicode_Concat
+#define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlace __Pyx_PyUnicode_Concat
+#define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_FunctionArgumentInPlace __Pyx_PyUnicode_Concat
+#define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_SharedReferenceInPlace __Pyx_PyUnicode_Concat
+#endif
+#define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_DefinitelyUniqueInPlaceSafe(left, right)\
+    ((unlikely((left) == Py_None) || unlikely((right) == Py_None)) ?\
+    PyNumber_InPlaceAdd(left, right) : __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_DefinitelyUniqueInPlace(left, right))
+#define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlaceSafe(left, right)\
+    ((unlikely((left) == Py_None) || unlikely((right) == Py_None)) ?\
+    PyNumber_InPlaceAdd(left, right) : __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlace(left, right))
+#define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_FunctionArgumentInPlaceSafe(left, right)\
+    ((unlikely((left) == Py_None) || unlikely((right) == Py_None)) ?\
+    PyNumber_InPlaceAdd(left, right) : __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_FunctionArgumentInPlace(left, right))
+#define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_SharedReferenceInPlaceSafe(left, right)\
+    ((unlikely((left) == Py_None) || unlikely((right) == Py_None)) ?\
+    PyNumber_InPlaceAdd(left, right) : __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_SharedReferenceInPlace(left, right))
+
 /* pynumber_float.proto */
 static CYTHON_INLINE PyObject* __Pyx__PyNumber_Float(PyObject* obj);
 #define __Pyx_PyNumber_Float(x) (PyFloat_CheckExact(x) ? __Pyx_NewRef(x) : __Pyx__PyNumber_Float(x))
@@ -2503,23 +2570,6 @@ static PyObject* __Pyx__CallUnboundCMethod1(__Pyx_CachedCFunction* cfunc, PyObje
 static CYTHON_INLINE PyObject* __Pyx_CallUnboundCMethod1(__Pyx_CachedCFunction* cfunc, PyObject* self, PyObject* arg);
 #else
 #define __Pyx_CallUnboundCMethod1(cfunc, self, arg)  __Pyx__CallUnboundCMethod1(cfunc, self, arg)
-#endif
-
-/* PyObjectFormatSimple.proto */
-#if CYTHON_COMPILING_IN_PYPY
-    #define __Pyx_PyObject_FormatSimple(s, f) (\
-        likely(PyUnicode_CheckExact(s)) ? (Py_INCREF(s), s) :\
-        PyObject_Format(s, f))
-#elif CYTHON_USE_TYPE_SLOTS
-    #define __Pyx_PyObject_FormatSimple(s, f) (\
-        likely(PyUnicode_CheckExact(s)) ? (Py_INCREF(s), s) :\
-        likely(PyLong_CheckExact(s)) ? PyLong_Type.tp_repr(s) :\
-        likely(PyFloat_CheckExact(s)) ? PyFloat_Type.tp_repr(s) :\
-        PyObject_Format(s, f))
-#else
-    #define __Pyx_PyObject_FormatSimple(s, f) (\
-        likely(PyUnicode_CheckExact(s)) ? (Py_INCREF(s), s) :\
-        PyObject_Format(s, f))
 #endif
 
 /* BuildPyUnicode.proto (used by COrdinalToPyUnicode) */
@@ -3032,8 +3082,8 @@ static const char __pyx_k_XLSX[] = "\345\215\226\345\256\266\347\262\276\347\201
 static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_xlsx(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_rows, PyObject *__pyx_v_output_path, PyObject *__pyx_v_scenario, PyObject *__pyx_v_site, PyObject *__pyx_v_period, PyObject *__pyx_v_params, PyObject *__pyx_v_high_frequency_rows); /* proto */
 static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_2_collect_fields(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_rows); /* proto */
 static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_4_get_value(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_row, PyObject *__pyx_v_field); /* proto */
-static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_6_column_value(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_row, PyObject *__pyx_v_column); /* proto */
-static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transform(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value, PyObject *__pyx_v_transform, PyObject *__pyx_v_row); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_6_column_value(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_row, PyObject *__pyx_v_column, PyObject *__pyx_v_site); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transform(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value, PyObject *__pyx_v_transform, PyObject *__pyx_v_row, PyObject *__pyx_v_site); /* proto */
 static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_10_cell_value(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
 static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_frequency_sheet(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_workbook, PyObject *__pyx_v_rows); /* proto */
 static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_14_main_sheet_title(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_scenario, PyObject *__pyx_v_site, PyObject *__pyx_v_period, PyObject *__pyx_v_params, PyObject *__pyx_v_rows); /* proto */
@@ -3052,13 +3102,22 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_26_amazon_seller
 static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_28_amazon_domain(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_row); /* proto */
 static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_17_departments_join_genexpr(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_genexpr_arg_0); /* proto */
 static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_30_departments_join(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
-static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_32_bid_range(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_row); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_32_percentage(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_34_date_millis(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_keyword_reverse_updated_time(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value, PyObject *__pyx_v_site); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_38_rank_page(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_40_rank_position(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_42_seller_nation(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_44_bid_range(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_row, PyObject *__pyx_v_site); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_46_timezone_for_site(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_site); /* proto */
 static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_10_asin_list_genexpr(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_genexpr_arg_0); /* proto */
-static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_34_asin_list(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_48_asin_list(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
 static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_10_list_join_genexpr(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_genexpr_arg_0); /* proto */
-static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
-static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_38_is_blank(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
-static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_40_is_number(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_50_list_join(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_15_enum_list_join_genexpr(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_genexpr_arg_0); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_52_enum_list_join(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value, PyObject *__pyx_v_labels); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_54_is_blank(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_56_is_number(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
 static PyObject *__pyx_tp_new_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct__genexpr(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_1__column_width(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_2_genexpr(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
@@ -3069,6 +3128,7 @@ static PyObject *__pyx_tp_new_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_
 static PyObject *__pyx_tp_new_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_7_genexpr(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_genexpr(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
+static PyObject *__pyx_tp_new_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 /* #### Code section: late_includes ### */
 /* #### Code section: module_state ### */
 /* SmallCodeConfig */
@@ -3099,6 +3159,7 @@ typedef struct {
   PyObject *__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_7_genexpr;
   PyObject *__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_genexpr;
   PyObject *__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr;
+  PyObject *__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr;
   PyTypeObject *__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct__genexpr;
   PyTypeObject *__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_1__column_width;
   PyTypeObject *__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_2_genexpr;
@@ -3109,15 +3170,16 @@ typedef struct {
   PyTypeObject *__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_7_genexpr;
   PyTypeObject *__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_genexpr;
   PyTypeObject *__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr;
+  PyTypeObject *__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_get;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_items;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_pop;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_values;
   __Pyx_CachedCFunction __pyx_umethod_PyUnicode_Type__upper;
-  PyObject *__pyx_tuple[4];
-  PyObject *__pyx_codeobj_tab[30];
-  PyObject *__pyx_string_tab[279];
-  PyObject *__pyx_number_tab[16];
+  PyObject *__pyx_tuple[5];
+  PyObject *__pyx_codeobj_tab[39];
+  PyObject *__pyx_string_tab[431];
+  PyObject *__pyx_number_tab[19];
 /* #### Code section: module_state_contents ### */
 
 #if CYTHON_USE_FREELISTS
@@ -3169,6 +3231,11 @@ int __pyx_freecount_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_g
 struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr *__pyx_freelist_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr[8];
 int __pyx_freecount_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr;
 #endif
+
+#if CYTHON_USE_FREELISTS
+struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr *__pyx_freelist_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr[8];
+int __pyx_freecount_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr;
+#endif
 /* CommonTypesMetaclass.module_state_decls */
 PyTypeObject *__pyx_CommonTypesMetaclassType;
 
@@ -3219,298 +3286,453 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_kp_u_ __pyx_string_tab[0]
 #define __pyx_kp_u_2f __pyx_string_tab[1]
 #define __pyx_kp_u_30d __pyx_string_tab[2]
-#define __pyx_kp_u_Amazon_s_Choice __pyx_string_tab[3]
-#define __pyx_kp_u_Competitor __pyx_string_tab[4]
-#define __pyx_kp_u_Keywords __pyx_string_tab[5]
-#define __pyx_kp_u_Last_30_days __pyx_string_tab[6]
-#define __pyx_kp_u_Note_that_Cython_is_deliberately __pyx_string_tab[7]
-#define __pyx_kp_u_Product __pyx_string_tab[8]
-#define __pyx_kp_u_Unique_Words __pyx_string_tab[9]
-#define __pyx_kp_u__10 __pyx_string_tab[10]
-#define __pyx_kp_u__11 __pyx_string_tab[11]
-#define __pyx_kp_u__2 __pyx_string_tab[12]
-#define __pyx_kp_u__20 __pyx_string_tab[13]
-#define __pyx_kp_u__21 __pyx_string_tab[14]
-#define __pyx_kp_u__22 __pyx_string_tab[15]
-#define __pyx_kp_u__23 __pyx_string_tab[16]
-#define __pyx_kp_u__24 __pyx_string_tab[17]
-#define __pyx_kp_u__25 __pyx_string_tab[18]
-#define __pyx_kp_u__26 __pyx_string_tab[19]
-#define __pyx_kp_u__9 __pyx_string_tab[20]
-#define __pyx_kp_u_add_note __pyx_string_tab[21]
-#define __pyx_kp_u_competitor_lookup __pyx_string_tab[22]
-#define __pyx_kp_u_dict_str_Any __pyx_string_tab[23]
-#define __pyx_kp_u_dict_str_Any_None __pyx_string_tab[24]
-#define __pyx_kp_u_disable __pyx_string_tab[25]
-#define __pyx_kp_u_dp __pyx_string_tab[26]
-#define __pyx_kp_u_enable __pyx_string_tab[27]
-#define __pyx_kp_u_gc __pyx_string_tab[28]
-#define __pyx_kp_u_gp_help_seller_at_a_glance_html __pyx_string_tab[29]
-#define __pyx_kp_u_https __pyx_string_tab[30]
-#define __pyx_kp_u_isenabled __pyx_string_tab[31]
-#define __pyx_kp_u_keyword_miner __pyx_string_tab[32]
-#define __pyx_kp_u_keyword_reverse __pyx_string_tab[33]
-#define __pyx_kp_u_list_dict_str_Any __pyx_string_tab[34]
-#define __pyx_kp_u_list_dict_str_Any_None __pyx_string_tab[35]
-#define __pyx_kp_u_list_str __pyx_string_tab[36]
-#define __pyx_kp_u_openpyxl_XLSX __pyx_string_tab[37]
-#define __pyx_kp_u_opscli_seller_sprite_export_xlsx_2 __pyx_string_tab[38]
-#define __pyx_kp_u_product_research __pyx_string_tab[39]
-#define __pyx_kp_u_seller_sprite __pyx_string_tab[40]
-#define __pyx_kp_u_str_None __pyx_string_tab[41]
-#define __pyx_kp_u_www_amazon_ca __pyx_string_tab[42]
-#define __pyx_kp_u_www_amazon_co_jp __pyx_string_tab[43]
-#define __pyx_kp_u_www_amazon_co_uk __pyx_string_tab[44]
-#define __pyx_kp_u_www_amazon_com __pyx_string_tab[45]
-#define __pyx_kp_u_www_amazon_de __pyx_string_tab[46]
-#define __pyx_kp_u_www_amazon_es __pyx_string_tab[47]
-#define __pyx_kp_u_www_amazon_fr __pyx_string_tab[48]
-#define __pyx_kp_u_www_amazon_in __pyx_string_tab[49]
-#define __pyx_kp_u_www_amazon_it __pyx_string_tab[50]
-#define __pyx_n_u_A __pyx_string_tab[51]
-#define __pyx_n_u_A2 __pyx_string_tab[52]
-#define __pyx_n_u_ASIN __pyx_string_tab[53]
-#define __pyx_n_u_ASIN_2 __pyx_string_tab[54]
-#define __pyx_n_u_Any __pyx_string_tab[55]
-#define __pyx_n_u_B __pyx_string_tab[56]
-#define __pyx_n_u_C __pyx_string_tab[57]
-#define __pyx_n_u_CANADA __pyx_string_tab[58]
-#define __pyx_n_u_EAF2F8 __pyx_string_tab[59]
-#define __pyx_n_u_ExportColumn __pyx_string_tab[60]
-#define __pyx_n_u_FRANCE __pyx_string_tab[61]
-#define __pyx_n_u_Font __pyx_string_tab[62]
-#define __pyx_n_u_GERMANY __pyx_string_tab[63]
-#define __pyx_n_u_INDIA __pyx_string_tab[64]
-#define __pyx_n_u_ITALY __pyx_string_tab[65]
-#define __pyx_n_u_JAPAN __pyx_string_tab[66]
-#define __pyx_n_u_JSONDecodeError __pyx_string_tab[67]
-#define __pyx_n_u_None __pyx_string_tab[68]
-#define __pyx_n_u_Path __pyx_string_tab[69]
-#define __pyx_n_u_PatternFill __pyx_string_tab[70]
-#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[71]
-#define __pyx_n_u_SKU __pyx_string_tab[72]
-#define __pyx_n_u_SPAIN __pyx_string_tab[73]
-#define __pyx_n_u_SellerSpriteConfigError __pyx_string_tab[74]
-#define __pyx_n_u_SellerSpriteExportResult __pyx_string_tab[75]
-#define __pyx_n_u_UNITED_KINGDOM __pyx_string_tab[76]
-#define __pyx_n_u_US __pyx_string_tab[77]
-#define __pyx_n_u_Workbook __pyx_string_tab[78]
-#define __pyx_n_u_Y __pyx_string_tab[79]
-#define __pyx_n_u__12 __pyx_string_tab[80]
-#define __pyx_n_u__13 __pyx_string_tab[81]
-#define __pyx_n_u__14 __pyx_string_tab[82]
-#define __pyx_n_u__15 __pyx_string_tab[83]
-#define __pyx_n_u__16 __pyx_string_tab[84]
-#define __pyx_n_u__17 __pyx_string_tab[85]
-#define __pyx_n_u__18 __pyx_string_tab[86]
-#define __pyx_n_u__19 __pyx_string_tab[87]
-#define __pyx_n_u__3 __pyx_string_tab[88]
-#define __pyx_n_u__4 __pyx_string_tab[89]
-#define __pyx_n_u__5 __pyx_string_tab[90]
-#define __pyx_n_u__6 __pyx_string_tab[91]
-#define __pyx_n_u__7 __pyx_string_tab[92]
-#define __pyx_n_u__8 __pyx_string_tab[93]
-#define __pyx_n_u_active __pyx_string_tab[94]
-#define __pyx_n_u_add_high_frequency_sheet __pyx_string_tab[95]
-#define __pyx_n_u_amazonChoiceKeyword __pyx_string_tab[96]
-#define __pyx_n_u_amazonProductUrl __pyx_string_tab[97]
-#define __pyx_n_u_amazonSellerUrl __pyx_string_tab[98]
-#define __pyx_n_u_amazon_domain __pyx_string_tab[99]
-#define __pyx_n_u_amazon_product_url __pyx_string_tab[100]
-#define __pyx_n_u_amazon_seller_url __pyx_string_tab[101]
-#define __pyx_n_u_apply_transform __pyx_string_tab[102]
-#define __pyx_n_u_as_uri __pyx_string_tab[103]
-#define __pyx_n_u_asin __pyx_string_tab[104]
-#define __pyx_n_u_asinList __pyx_string_tab[105]
-#define __pyx_n_u_asin_list __pyx_string_tab[106]
-#define __pyx_n_u_asin_list_locals_genexpr __pyx_string_tab[107]
-#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[108]
-#define __pyx_n_u_badgeFlag __pyx_string_tab[109]
-#define __pyx_n_u_bidMax __pyx_string_tab[110]
-#define __pyx_n_u_bidMin __pyx_string_tab[111]
-#define __pyx_n_u_bidRange __pyx_string_tab[112]
-#define __pyx_n_u_bid_max __pyx_string_tab[113]
-#define __pyx_n_u_bid_min __pyx_string_tab[114]
-#define __pyx_n_u_bid_range __pyx_string_tab[115]
-#define __pyx_n_u_bold __pyx_string_tab[116]
-#define __pyx_n_u_bool __pyx_string_tab[117]
-#define __pyx_n_u_booleanY __pyx_string_tab[118]
-#define __pyx_n_u_cell __pyx_string_tab[119]
-#define __pyx_n_u_cell_value __pyx_string_tab[120]
-#define __pyx_n_u_char __pyx_string_tab[121]
-#define __pyx_n_u_class_getitem __pyx_string_tab[122]
-#define __pyx_n_u_cline_in_traceback __pyx_string_tab[123]
-#define __pyx_n_u_close __pyx_string_tab[124]
-#define __pyx_n_u_code __pyx_string_tab[125]
-#define __pyx_n_u_collect_fields __pyx_string_tab[126]
-#define __pyx_n_u_column __pyx_string_tab[127]
-#define __pyx_n_u_column_dimensions __pyx_string_tab[128]
-#define __pyx_n_u_column_index __pyx_string_tab[129]
-#define __pyx_n_u_column_value __pyx_string_tab[130]
-#define __pyx_n_u_column_width __pyx_string_tab[131]
-#define __pyx_n_u_column_width_locals_genexpr __pyx_string_tab[132]
-#define __pyx_n_u_columns __pyx_string_tab[133]
-#define __pyx_n_u_columns_for_scenario __pyx_string_tab[134]
-#define __pyx_n_u_create_sheet __pyx_string_tab[135]
-#define __pyx_n_u_departmentsJoin __pyx_string_tab[136]
-#define __pyx_n_u_departments_join __pyx_string_tab[137]
-#define __pyx_n_u_departments_join_locals_genexpr __pyx_string_tab[138]
-#define __pyx_n_u_dictionary_title __pyx_string_tab[139]
-#define __pyx_n_u_dumps __pyx_string_tab[140]
-#define __pyx_n_u_emptyIfNegative __pyx_string_tab[141]
-#define __pyx_n_u_ensure_ascii __pyx_string_tab[142]
-#define __pyx_n_u_enumerate __pyx_string_tab[143]
-#define __pyx_n_u_exc __pyx_string_tab[144]
-#define __pyx_n_u_exist_ok __pyx_string_tab[145]
-#define __pyx_n_u_export_rows_to_xlsx __pyx_string_tab[146]
-#define __pyx_n_u_fallback __pyx_string_tab[147]
-#define __pyx_n_u_fgColor __pyx_string_tab[148]
-#define __pyx_n_u_field __pyx_string_tab[149]
-#define __pyx_n_u_fields __pyx_string_tab[150]
-#define __pyx_n_u_filename __pyx_string_tab[151]
-#define __pyx_n_u_fill __pyx_string_tab[152]
-#define __pyx_n_u_font __pyx_string_tab[153]
-#define __pyx_n_u_freeze_panes __pyx_string_tab[154]
-#define __pyx_n_u_frequency __pyx_string_tab[155]
-#define __pyx_n_u_func __pyx_string_tab[156]
-#define __pyx_n_u_genexpr __pyx_string_tab[157]
-#define __pyx_n_u_get __pyx_string_tab[158]
-#define __pyx_n_u_get_column_letter __pyx_string_tab[159]
-#define __pyx_n_u_get_value __pyx_string_tab[160]
-#define __pyx_n_u_header_fill __pyx_string_tab[161]
-#define __pyx_n_u_header_font __pyx_string_tab[162]
-#define __pyx_n_u_headers __pyx_string_tab[163]
-#define __pyx_n_u_high_frequency_rows __pyx_string_tab[164]
-#define __pyx_n_u_http __pyx_string_tab[165]
-#define __pyx_n_u_index __pyx_string_tab[166]
-#define __pyx_n_u_int __pyx_string_tab[167]
-#define __pyx_n_u_is_blank __pyx_string_tab[168]
-#define __pyx_n_u_is_coroutine __pyx_string_tab[169]
-#define __pyx_n_u_is_number __pyx_string_tab[170]
-#define __pyx_n_u_isdigit __pyx_string_tab[171]
-#define __pyx_n_u_item __pyx_string_tab[172]
-#define __pyx_n_u_items __pyx_string_tab[173]
-#define __pyx_n_u_json __pyx_string_tab[174]
-#define __pyx_n_u_jsonObjectLines __pyx_string_tab[175]
-#define __pyx_n_u_json_object_lines __pyx_string_tab[176]
-#define __pyx_n_u_json_object_lines_locals_genexp __pyx_string_tab[177]
-#define __pyx_n_u_key __pyx_string_tab[178]
-#define __pyx_n_u_keys __pyx_string_tab[179]
-#define __pyx_n_u_keyword __pyx_string_tab[180]
-#define __pyx_n_u_label __pyx_string_tab[181]
-#define __pyx_n_u_last30 __pyx_string_tab[182]
-#define __pyx_n_u_latest30 __pyx_string_tab[183]
-#define __pyx_n_u_listJoin __pyx_string_tab[184]
-#define __pyx_n_u_list_join __pyx_string_tab[185]
-#define __pyx_n_u_list_join_locals_genexpr __pyx_string_tab[186]
-#define __pyx_n_u_loads __pyx_string_tab[187]
-#define __pyx_n_u_main __pyx_string_tab[188]
-#define __pyx_n_u_main_sheet_title __pyx_string_tab[189]
-#define __pyx_n_u_marketId __pyx_string_tab[190]
-#define __pyx_n_u_market_id __pyx_string_tab[191]
-#define __pyx_n_u_mkdir __pyx_string_tab[192]
-#define __pyx_n_u_module __pyx_string_tab[193]
-#define __pyx_n_u_name __pyx_string_tab[194]
-#define __pyx_n_u_name_2 __pyx_string_tab[195]
-#define __pyx_n_u_nearly __pyx_string_tab[196]
-#define __pyx_n_u_next __pyx_string_tab[197]
-#define __pyx_n_u_openpyxl __pyx_string_tab[198]
-#define __pyx_n_u_openpyxl_styles __pyx_string_tab[199]
-#define __pyx_n_u_openpyxl_utils __pyx_string_tab[200]
-#define __pyx_n_u_opscli_seller_sprite_domain_exce __pyx_string_tab[201]
-#define __pyx_n_u_opscli_seller_sprite_domain_mode __pyx_string_tab[202]
-#define __pyx_n_u_opscli_seller_sprite_export_colu __pyx_string_tab[203]
-#define __pyx_n_u_opscli_seller_sprite_export_xlsx __pyx_string_tab[204]
-#define __pyx_n_u_output_path __pyx_string_tab[205]
-#define __pyx_n_u_params __pyx_string_tab[206]
-#define __pyx_n_u_parent __pyx_string_tab[207]
-#define __pyx_n_u_parents __pyx_string_tab[208]
-#define __pyx_n_u_part __pyx_string_tab[209]
-#define __pyx_n_u_parts __pyx_string_tab[210]
-#define __pyx_n_u_path __pyx_string_tab[211]
-#define __pyx_n_u_pathlib __pyx_string_tab[212]
-#define __pyx_n_u_percentage __pyx_string_tab[213]
-#define __pyx_n_u_period __pyx_string_tab[214]
-#define __pyx_n_u_period_label __pyx_string_tab[215]
-#define __pyx_n_u_pop __pyx_string_tab[216]
-#define __pyx_n_u_q __pyx_string_tab[217]
-#define __pyx_n_u_qualname __pyx_string_tab[218]
-#define __pyx_n_u_resolve __pyx_string_tab[219]
-#define __pyx_n_u_resolved_output __pyx_string_tab[220]
-#define __pyx_n_u_return __pyx_string_tab[221]
-#define __pyx_n_u_row __pyx_string_tab[222]
-#define __pyx_n_u_row_index __pyx_string_tab[223]
-#define __pyx_n_u_rows __pyx_string_tab[224]
-#define __pyx_n_u_safe_sheet_title __pyx_string_tab[225]
-#define __pyx_n_u_safe_sheet_title_locals_genexpr __pyx_string_tab[226]
-#define __pyx_n_u_save __pyx_string_tab[227]
-#define __pyx_n_u_scenario __pyx_string_tab[228]
-#define __pyx_n_u_seen __pyx_string_tab[229]
-#define __pyx_n_u_send __pyx_string_tab[230]
-#define __pyx_n_u_set_name __pyx_string_tab[231]
-#define __pyx_n_u_setdefault __pyx_string_tab[232]
-#define __pyx_n_u_sheet __pyx_string_tab[233]
-#define __pyx_n_u_site __pyx_string_tab[234]
-#define __pyx_n_u_solid __pyx_string_tab[235]
-#define __pyx_n_u_source __pyx_string_tab[236]
-#define __pyx_n_u_start __pyx_string_tab[237]
-#define __pyx_n_u_station __pyx_string_tab[238]
-#define __pyx_n_u_str __pyx_string_tab[239]
-#define __pyx_n_u_test __pyx_string_tab[240]
-#define __pyx_n_u_text __pyx_string_tab[241]
-#define __pyx_n_u_throw __pyx_string_tab[242]
-#define __pyx_n_u_title __pyx_string_tab[243]
-#define __pyx_n_u_transform __pyx_string_tab[244]
-#define __pyx_n_u_typing __pyx_string_tab[245]
-#define __pyx_n_u_upper __pyx_string_tab[246]
-#define __pyx_n_u_url __pyx_string_tab[247]
-#define __pyx_n_u_value __pyx_string_tab[248]
-#define __pyx_n_u_values __pyx_string_tab[249]
-#define __pyx_n_u_width __pyx_string_tab[250]
-#define __pyx_n_u_word __pyx_string_tab[251]
-#define __pyx_n_u_workbook __pyx_string_tab[252]
-#define __pyx_n_u_yen __pyx_string_tab[253]
-#define __pyx_kp_b_iso88591_1_c_T_S_6_4q_xs_Zs_q_xs_Cz_A_q __pyx_string_tab[254]
-#define __pyx_kp_b_iso88591_31_q_G3e1_t7_D_gQa_1 __pyx_string_tab[255]
-#define __pyx_kp_b_iso88591_3awc_uD_z_Zq_q_4xq_Q __pyx_string_tab[256]
-#define __pyx_kp_b_iso88591_81_V1A_QgQ_E_Qa_q_vT_XQ_Cq_E_F __pyx_string_tab[257]
-#define __pyx_kp_b_iso88591_A_2 __pyx_string_tab[258]
-#define __pyx_kp_b_iso88591_A_A_Q_F_1_Q_Gq_wfAXV9A_Q_t1_q_2 __pyx_string_tab[259]
-#define __pyx_kp_b_iso88591_Gq_HM_avXQ_iy_U_4s_vQ_U_4s_hd_5 __pyx_string_tab[260]
-#define __pyx_kp_b_iso88591_PPQ_t1_q_z_A_vZq_t5_z_A_z_A_7_z __pyx_string_tab[261]
-#define __pyx_kp_b_iso88591_Q __pyx_string_tab[262]
-#define __pyx_kp_b_iso88591_XQ_6_E_F_Q __pyx_string_tab[263]
-#define __pyx_kp_b_iso88591_XQ_Be1A_F_Rq __pyx_string_tab[264]
-#define __pyx_kp_b_iso88591_XQ_t_QgQ_q_3e4q __pyx_string_tab[265]
-#define __pyx_kp_b_iso88591_ha_Qa_q_q_1 __pyx_string_tab[266]
-#define __pyx_kp_b_iso88591_ha_t_QgQ_q_3e4q __pyx_string_tab[267]
-#define __pyx_kp_b_iso88591_ha_t_QgQ_vYa_3aq_A_QfA_q_a_AT_Q __pyx_string_tab[268]
-#define __pyx_kp_b_iso88591_ha_y_q_z_D_aq_1_1_t_QgQ_q_4uAQ __pyx_string_tab[269]
-#define __pyx_kp_b_iso88591_j_1_t1_q_QnA_RRSST __pyx_string_tab[270]
-#define __pyx_kp_b_iso88591_m_H_wwx_y_1_A_6_Qe3a_4vT_1Cq_Q __pyx_string_tab[271]
-#define __pyx_kp_b_iso88591_q_2 __pyx_string_tab[272]
-#define __pyx_kp_b_iso88591_q_3 __pyx_string_tab[273]
-#define __pyx_kp_b_iso88591_q_c_Qa_c_Qa_y_Yaq_q_3auAXWAU_81 __pyx_string_tab[274]
-#define __pyx_kp_b_iso88591_q_q_q_q_q_q_q_q_xt3as_82Rr __pyx_string_tab[275]
-#define __pyx_kp_b_iso88591_vXS_q_JauF_y_F_5_a_1G6_Q __pyx_string_tab[276]
-#define __pyx_kp_b_iso88591_xq_z_wk_z_t6_a_1 __pyx_string_tab[277]
-#define __pyx_kp_b_iso88591_z_A_s_6_C_1_s_1_6_Ct1A_QnAYaz_1 __pyx_string_tab[278]
+#define __pyx_kp_u_4 __pyx_string_tab[3]
+#define __pyx_kp_u_Amazon_s_Choice __pyx_string_tab[4]
+#define __pyx_kp_u_America_Los_Angeles __pyx_string_tab[5]
+#define __pyx_kp_u_America_Mexico_City __pyx_string_tab[6]
+#define __pyx_kp_u_Asia_Kolkata __pyx_string_tab[7]
+#define __pyx_kp_u_Asia_Shanghai __pyx_string_tab[8]
+#define __pyx_kp_u_Asia_Tokyo __pyx_string_tab[9]
+#define __pyx_kp_u_CN_HK __pyx_string_tab[10]
+#define __pyx_kp_u_Competitor __pyx_string_tab[11]
+#define __pyx_kp_u_Europe_Berlin __pyx_string_tab[12]
+#define __pyx_kp_u_Europe_London __pyx_string_tab[13]
+#define __pyx_kp_u_Europe_Madrid __pyx_string_tab[14]
+#define __pyx_kp_u_Europe_Paris __pyx_string_tab[15]
+#define __pyx_kp_u_Europe_Rome __pyx_string_tab[16]
+#define __pyx_kp_u_Keywords __pyx_string_tab[17]
+#define __pyx_kp_u_Last_30_days __pyx_string_tab[18]
+#define __pyx_kp_u_Market_research __pyx_string_tab[19]
+#define __pyx_kp_u_Note_that_Cython_is_deliberately __pyx_string_tab[20]
+#define __pyx_kp_u_Product __pyx_string_tab[21]
+#define __pyx_kp_u_Unique_Words __pyx_string_tab[22]
+#define __pyx_kp_u_Y_m_d __pyx_string_tab[23]
+#define __pyx_kp_u__10 __pyx_string_tab[24]
+#define __pyx_kp_u__11 __pyx_string_tab[25]
+#define __pyx_kp_u__2 __pyx_string_tab[26]
+#define __pyx_kp_u__20 __pyx_string_tab[27]
+#define __pyx_kp_u__21 __pyx_string_tab[28]
+#define __pyx_kp_u__22 __pyx_string_tab[29]
+#define __pyx_kp_u__26 __pyx_string_tab[30]
+#define __pyx_kp_u__27 __pyx_string_tab[31]
+#define __pyx_kp_u__28 __pyx_string_tab[32]
+#define __pyx_kp_u__3 __pyx_string_tab[33]
+#define __pyx_kp_u__50 __pyx_string_tab[34]
+#define __pyx_kp_u__9 __pyx_string_tab[35]
+#define __pyx_kp_u_add_note __pyx_string_tab[36]
+#define __pyx_kp_u_competitor_lookup __pyx_string_tab[37]
+#define __pyx_kp_u_dict_str_Any __pyx_string_tab[38]
+#define __pyx_kp_u_dict_str_Any_None __pyx_string_tab[39]
+#define __pyx_kp_u_dict_str_str __pyx_string_tab[40]
+#define __pyx_kp_u_disable __pyx_string_tab[41]
+#define __pyx_kp_u_dp __pyx_string_tab[42]
+#define __pyx_kp_u_enable __pyx_string_tab[43]
+#define __pyx_kp_u_gc __pyx_string_tab[44]
+#define __pyx_kp_u_gp_help_seller_at_a_glance_html __pyx_string_tab[45]
+#define __pyx_kp_u_https __pyx_string_tab[46]
+#define __pyx_kp_u_isenabled __pyx_string_tab[47]
+#define __pyx_kp_u_keyword_miner __pyx_string_tab[48]
+#define __pyx_kp_u_keyword_reverse __pyx_string_tab[49]
+#define __pyx_kp_u_list_dict_str_Any __pyx_string_tab[50]
+#define __pyx_kp_u_list_dict_str_Any_None __pyx_string_tab[51]
+#define __pyx_kp_u_list_str __pyx_string_tab[52]
+#define __pyx_kp_u_m_d_H_M __pyx_string_tab[53]
+#define __pyx_kp_u_market_research __pyx_string_tab[54]
+#define __pyx_kp_u_openpyxl_XLSX __pyx_string_tab[55]
+#define __pyx_kp_u_opscli_seller_sprite_export_xlsx_2 __pyx_string_tab[56]
+#define __pyx_kp_u_product_research __pyx_string_tab[57]
+#define __pyx_kp_u_seller_sprite __pyx_string_tab[58]
+#define __pyx_kp_u_str_None __pyx_string_tab[59]
+#define __pyx_kp_u_www_amazon_ca __pyx_string_tab[60]
+#define __pyx_kp_u_www_amazon_co_jp __pyx_string_tab[61]
+#define __pyx_kp_u_www_amazon_co_uk __pyx_string_tab[62]
+#define __pyx_kp_u_www_amazon_com __pyx_string_tab[63]
+#define __pyx_kp_u_www_amazon_de __pyx_string_tab[64]
+#define __pyx_kp_u_www_amazon_es __pyx_string_tab[65]
+#define __pyx_kp_u_www_amazon_fr __pyx_string_tab[66]
+#define __pyx_kp_u_www_amazon_in __pyx_string_tab[67]
+#define __pyx_kp_u_www_amazon_it __pyx_string_tab[68]
+#define __pyx_n_u_3 __pyx_string_tab[69]
+#define __pyx_n_u_A __pyx_string_tab[70]
+#define __pyx_n_u_A2 __pyx_string_tab[71]
+#define __pyx_n_u_AC __pyx_string_tab[72]
+#define __pyx_n_u_AD __pyx_string_tab[73]
+#define __pyx_n_u_ADS __pyx_string_tab[74]
+#define __pyx_n_u_AMAZON_CHOICE __pyx_string_tab[75]
+#define __pyx_n_u_AMAZON_CHOICH __pyx_string_tab[76]
+#define __pyx_n_u_ASIN __pyx_string_tab[77]
+#define __pyx_n_u_ASIN_2 __pyx_string_tab[78]
+#define __pyx_n_u_Any __pyx_string_tab[79]
+#define __pyx_n_u_B __pyx_string_tab[80]
+#define __pyx_n_u_BADGE_LABELS __pyx_string_tab[81]
+#define __pyx_n_u_C __pyx_string_tab[82]
+#define __pyx_n_u_CA __pyx_string_tab[83]
+#define __pyx_n_u_CANADA __pyx_string_tab[84]
+#define __pyx_n_u_CN __pyx_string_tab[85]
+#define __pyx_n_u_CONVERSION_KEYWORD_TYPE_LABELS __pyx_string_tab[86]
+#define __pyx_n_u_DE __pyx_string_tab[87]
+#define __pyx_n_u_EAF2F8 __pyx_string_tab[88]
+#define __pyx_n_u_EDITORIAL_RECOMMENDATIONS __pyx_string_tab[89]
+#define __pyx_n_u_ER __pyx_string_tab[90]
+#define __pyx_n_u_ES __pyx_string_tab[91]
+#define __pyx_n_u_EXCELLENT __pyx_string_tab[92]
+#define __pyx_n_u_ExportColumn __pyx_string_tab[93]
+#define __pyx_n_u_FOUR_STAR __pyx_string_tab[94]
+#define __pyx_n_u_FR __pyx_string_tab[95]
+#define __pyx_n_u_FRANCE __pyx_string_tab[96]
+#define __pyx_n_u_Font __pyx_string_tab[97]
+#define __pyx_n_u_GERMANY __pyx_string_tab[98]
+#define __pyx_n_u_HIGHLY_RATED __pyx_string_tab[99]
+#define __pyx_n_u_HK __pyx_string_tab[100]
+#define __pyx_n_u_HR __pyx_string_tab[101]
+#define __pyx_n_u_IN __pyx_string_tab[102]
+#define __pyx_n_u_INDIA __pyx_string_tab[103]
+#define __pyx_n_u_INVALID __pyx_string_tab[104]
+#define __pyx_n_u_IT __pyx_string_tab[105]
+#define __pyx_n_u_ITALY __pyx_string_tab[106]
+#define __pyx_n_u_JAPAN __pyx_string_tab[107]
+#define __pyx_n_u_JP __pyx_string_tab[108]
+#define __pyx_n_u_JSONDecodeError __pyx_string_tab[109]
+#define __pyx_n_u_LOST __pyx_string_tab[110]
+#define __pyx_n_u_MX __pyx_string_tab[111]
+#define __pyx_n_u_NATURAL_SEARCHING __pyx_string_tab[112]
+#define __pyx_n_u_None __pyx_string_tab[113]
+#define __pyx_n_u_OFFICIAL __pyx_string_tab[114]
+#define __pyx_n_u_PPC __pyx_string_tab[115]
+#define __pyx_n_u_PRECISE __pyx_string_tab[116]
+#define __pyx_n_u_PRECISE_LONG_TAIL __pyx_string_tab[117]
+#define __pyx_n_u_PRIMARY __pyx_string_tab[118]
+#define __pyx_n_u_Path __pyx_string_tab[119]
+#define __pyx_n_u_PatternFill __pyx_string_tab[120]
+#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[121]
+#define __pyx_n_u_SEARCH __pyx_string_tab[122]
+#define __pyx_n_u_SITE_TIMEZONES __pyx_string_tab[123]
+#define __pyx_n_u_SITE_TIME_LABELS __pyx_string_tab[124]
+#define __pyx_n_u_SKU __pyx_string_tab[125]
+#define __pyx_n_u_SP __pyx_string_tab[126]
+#define __pyx_n_u_SPAIN __pyx_string_tab[127]
+#define __pyx_n_u_SPONSOR_BRAND __pyx_string_tab[128]
+#define __pyx_n_u_SPONSOR_VIDEO __pyx_string_tab[129]
+#define __pyx_n_u_STABLE __pyx_string_tab[130]
+#define __pyx_n_u_SellerSpriteConfigError __pyx_string_tab[131]
+#define __pyx_n_u_SellerSpriteExportResult __pyx_string_tab[132]
+#define __pyx_n_u_TRAFFIC_KEYWORD_TYPE_LABELS __pyx_string_tab[133]
+#define __pyx_n_u_TRAFFIC_SOURCE_LABELS __pyx_string_tab[134]
+#define __pyx_n_u_UK __pyx_string_tab[135]
+#define __pyx_n_u_UNITED_KINGDOM __pyx_string_tab[136]
+#define __pyx_n_u_US __pyx_string_tab[137]
+#define __pyx_n_u_Workbook __pyx_string_tab[138]
+#define __pyx_n_u_Y __pyx_string_tab[139]
+#define __pyx_n_u_ZoneInfo __pyx_string_tab[140]
+#define __pyx_n_u_ZoneInfoNotFoundError __pyx_string_tab[141]
+#define __pyx_n_u__12 __pyx_string_tab[142]
+#define __pyx_n_u__13 __pyx_string_tab[143]
+#define __pyx_n_u__14 __pyx_string_tab[144]
+#define __pyx_n_u__15 __pyx_string_tab[145]
+#define __pyx_n_u__16 __pyx_string_tab[146]
+#define __pyx_n_u__17 __pyx_string_tab[147]
+#define __pyx_n_u__18 __pyx_string_tab[148]
+#define __pyx_n_u__19 __pyx_string_tab[149]
+#define __pyx_n_u__23 __pyx_string_tab[150]
+#define __pyx_n_u__24 __pyx_string_tab[151]
+#define __pyx_n_u__25 __pyx_string_tab[152]
+#define __pyx_n_u__29 __pyx_string_tab[153]
+#define __pyx_n_u__30 __pyx_string_tab[154]
+#define __pyx_n_u__31 __pyx_string_tab[155]
+#define __pyx_n_u__32 __pyx_string_tab[156]
+#define __pyx_n_u__33 __pyx_string_tab[157]
+#define __pyx_n_u__34 __pyx_string_tab[158]
+#define __pyx_n_u__35 __pyx_string_tab[159]
+#define __pyx_n_u__36 __pyx_string_tab[160]
+#define __pyx_n_u__37 __pyx_string_tab[161]
+#define __pyx_n_u__38 __pyx_string_tab[162]
+#define __pyx_n_u__39 __pyx_string_tab[163]
+#define __pyx_n_u__4 __pyx_string_tab[164]
+#define __pyx_n_u__40 __pyx_string_tab[165]
+#define __pyx_n_u__41 __pyx_string_tab[166]
+#define __pyx_n_u__42 __pyx_string_tab[167]
+#define __pyx_n_u__43 __pyx_string_tab[168]
+#define __pyx_n_u__44 __pyx_string_tab[169]
+#define __pyx_n_u__45 __pyx_string_tab[170]
+#define __pyx_n_u__46 __pyx_string_tab[171]
+#define __pyx_n_u__47 __pyx_string_tab[172]
+#define __pyx_n_u__48 __pyx_string_tab[173]
+#define __pyx_n_u__49 __pyx_string_tab[174]
+#define __pyx_n_u__5 __pyx_string_tab[175]
+#define __pyx_n_u__6 __pyx_string_tab[176]
+#define __pyx_n_u__7 __pyx_string_tab[177]
+#define __pyx_n_u__8 __pyx_string_tab[178]
+#define __pyx_n_u_active __pyx_string_tab[179]
+#define __pyx_n_u_ad __pyx_string_tab[180]
+#define __pyx_n_u_add_high_frequency_sheet __pyx_string_tab[181]
+#define __pyx_n_u_ads __pyx_string_tab[182]
+#define __pyx_n_u_amazonChoice __pyx_string_tab[183]
+#define __pyx_n_u_amazonChoiceKeyword __pyx_string_tab[184]
+#define __pyx_n_u_amazonProductUrl __pyx_string_tab[185]
+#define __pyx_n_u_amazonSellerUrl __pyx_string_tab[186]
+#define __pyx_n_u_amazon_domain __pyx_string_tab[187]
+#define __pyx_n_u_amazon_product_url __pyx_string_tab[188]
+#define __pyx_n_u_amazon_seller_url __pyx_string_tab[189]
+#define __pyx_n_u_apply_transform __pyx_string_tab[190]
+#define __pyx_n_u_as_uri __pyx_string_tab[191]
+#define __pyx_n_u_asin __pyx_string_tab[192]
+#define __pyx_n_u_asinList __pyx_string_tab[193]
+#define __pyx_n_u_asin_list __pyx_string_tab[194]
+#define __pyx_n_u_asin_list_locals_genexpr __pyx_string_tab[195]
+#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[196]
+#define __pyx_n_u_badgeFlag __pyx_string_tab[197]
+#define __pyx_n_u_badgeLabels __pyx_string_tab[198]
+#define __pyx_n_u_bidMax __pyx_string_tab[199]
+#define __pyx_n_u_bidMin __pyx_string_tab[200]
+#define __pyx_n_u_bidRange __pyx_string_tab[201]
+#define __pyx_n_u_bid_max __pyx_string_tab[202]
+#define __pyx_n_u_bid_min __pyx_string_tab[203]
+#define __pyx_n_u_bid_range __pyx_string_tab[204]
+#define __pyx_n_u_bold __pyx_string_tab[205]
+#define __pyx_n_u_bool __pyx_string_tab[206]
+#define __pyx_n_u_booleanY __pyx_string_tab[207]
+#define __pyx_n_u_cell __pyx_string_tab[208]
+#define __pyx_n_u_cell_value __pyx_string_tab[209]
+#define __pyx_n_u_char __pyx_string_tab[210]
+#define __pyx_n_u_china_time __pyx_string_tab[211]
+#define __pyx_n_u_class_getitem __pyx_string_tab[212]
+#define __pyx_n_u_cline_in_traceback __pyx_string_tab[213]
+#define __pyx_n_u_close __pyx_string_tab[214]
+#define __pyx_n_u_code __pyx_string_tab[215]
+#define __pyx_n_u_collect_fields __pyx_string_tab[216]
+#define __pyx_n_u_column __pyx_string_tab[217]
+#define __pyx_n_u_column_dimensions __pyx_string_tab[218]
+#define __pyx_n_u_column_index __pyx_string_tab[219]
+#define __pyx_n_u_column_value __pyx_string_tab[220]
+#define __pyx_n_u_column_width __pyx_string_tab[221]
+#define __pyx_n_u_column_width_locals_genexpr __pyx_string_tab[222]
+#define __pyx_n_u_columns __pyx_string_tab[223]
+#define __pyx_n_u_columns_for_scenario __pyx_string_tab[224]
+#define __pyx_n_u_conversionKeywordTypeLabels __pyx_string_tab[225]
+#define __pyx_n_u_create_sheet __pyx_string_tab[226]
+#define __pyx_n_u_currency __pyx_string_tab[227]
+#define __pyx_n_u_currency_label __pyx_string_tab[228]
+#define __pyx_n_u_dateMillis __pyx_string_tab[229]
+#define __pyx_n_u_date_millis __pyx_string_tab[230]
+#define __pyx_n_u_datetime __pyx_string_tab[231]
+#define __pyx_n_u_departmentsJoin __pyx_string_tab[232]
+#define __pyx_n_u_departments_join __pyx_string_tab[233]
+#define __pyx_n_u_departments_join_locals_genexpr __pyx_string_tab[234]
+#define __pyx_n_u_dictionary_title __pyx_string_tab[235]
+#define __pyx_n_u_divide10 __pyx_string_tab[236]
+#define __pyx_n_u_dumps __pyx_string_tab[237]
+#define __pyx_n_u_editorialRecommendations __pyx_string_tab[238]
+#define __pyx_n_u_emptyIfNegative __pyx_string_tab[239]
+#define __pyx_n_u_ensure_ascii __pyx_string_tab[240]
+#define __pyx_n_u_enum_list_join __pyx_string_tab[241]
+#define __pyx_n_u_enum_list_join_locals_genexpr __pyx_string_tab[242]
+#define __pyx_n_u_enumerate __pyx_string_tab[243]
+#define __pyx_n_u_exc __pyx_string_tab[244]
+#define __pyx_n_u_excellent __pyx_string_tab[245]
+#define __pyx_n_u_exist_ok __pyx_string_tab[246]
+#define __pyx_n_u_export_rows_to_xlsx __pyx_string_tab[247]
+#define __pyx_n_u_fallback __pyx_string_tab[248]
+#define __pyx_n_u_fgColor __pyx_string_tab[249]
+#define __pyx_n_u_field __pyx_string_tab[250]
+#define __pyx_n_u_fields __pyx_string_tab[251]
+#define __pyx_n_u_filename __pyx_string_tab[252]
+#define __pyx_n_u_fill __pyx_string_tab[253]
+#define __pyx_n_u_font __pyx_string_tab[254]
+#define __pyx_n_u_fourStar __pyx_string_tab[255]
+#define __pyx_n_u_freeze_panes __pyx_string_tab[256]
+#define __pyx_n_u_frequency __pyx_string_tab[257]
+#define __pyx_n_u_fromtimestamp __pyx_string_tab[258]
+#define __pyx_n_u_func __pyx_string_tab[259]
+#define __pyx_n_u_genexpr __pyx_string_tab[260]
+#define __pyx_n_u_get __pyx_string_tab[261]
+#define __pyx_n_u_get_column_letter __pyx_string_tab[262]
+#define __pyx_n_u_get_value __pyx_string_tab[263]
+#define __pyx_n_u_header_fill __pyx_string_tab[264]
+#define __pyx_n_u_header_font __pyx_string_tab[265]
+#define __pyx_n_u_headers __pyx_string_tab[266]
+#define __pyx_n_u_high_frequency_rows __pyx_string_tab[267]
+#define __pyx_n_u_highlyRated __pyx_string_tab[268]
+#define __pyx_n_u_hours __pyx_string_tab[269]
+#define __pyx_n_u_http __pyx_string_tab[270]
+#define __pyx_n_u_index __pyx_string_tab[271]
+#define __pyx_n_u_int __pyx_string_tab[272]
+#define __pyx_n_u_invalid __pyx_string_tab[273]
+#define __pyx_n_u_is_blank __pyx_string_tab[274]
+#define __pyx_n_u_is_coroutine __pyx_string_tab[275]
+#define __pyx_n_u_is_number __pyx_string_tab[276]
+#define __pyx_n_u_isdigit __pyx_string_tab[277]
+#define __pyx_n_u_item __pyx_string_tab[278]
+#define __pyx_n_u_items __pyx_string_tab[279]
+#define __pyx_n_u_json __pyx_string_tab[280]
+#define __pyx_n_u_jsonObjectLines __pyx_string_tab[281]
+#define __pyx_n_u_json_object_lines __pyx_string_tab[282]
+#define __pyx_n_u_json_object_lines_locals_genexp __pyx_string_tab[283]
+#define __pyx_n_u_key __pyx_string_tab[284]
+#define __pyx_n_u_keys __pyx_string_tab[285]
+#define __pyx_n_u_keyword __pyx_string_tab[286]
+#define __pyx_n_u_keywordReverseUpdatedTime __pyx_string_tab[287]
+#define __pyx_n_u_keyword_reverse_updated_time __pyx_string_tab[288]
+#define __pyx_n_u_label __pyx_string_tab[289]
+#define __pyx_n_u_labels __pyx_string_tab[290]
+#define __pyx_n_u_last30 __pyx_string_tab[291]
+#define __pyx_n_u_latest30 __pyx_string_tab[292]
+#define __pyx_n_u_listJoin __pyx_string_tab[293]
+#define __pyx_n_u_list_join __pyx_string_tab[294]
+#define __pyx_n_u_list_join_locals_genexpr __pyx_string_tab[295]
+#define __pyx_n_u_loads __pyx_string_tab[296]
+#define __pyx_n_u_lost __pyx_string_tab[297]
+#define __pyx_n_u_main __pyx_string_tab[298]
+#define __pyx_n_u_main_sheet_title __pyx_string_tab[299]
+#define __pyx_n_u_marketId __pyx_string_tab[300]
+#define __pyx_n_u_market_id __pyx_string_tab[301]
+#define __pyx_n_u_minutes __pyx_string_tab[302]
+#define __pyx_n_u_mkdir __pyx_string_tab[303]
+#define __pyx_n_u_module __pyx_string_tab[304]
+#define __pyx_n_u_name __pyx_string_tab[305]
+#define __pyx_n_u_name_2 __pyx_string_tab[306]
+#define __pyx_n_u_naturalSearching __pyx_string_tab[307]
+#define __pyx_n_u_nearly __pyx_string_tab[308]
+#define __pyx_n_u_next __pyx_string_tab[309]
+#define __pyx_n_u_official __pyx_string_tab[310]
+#define __pyx_n_u_openpyxl __pyx_string_tab[311]
+#define __pyx_n_u_openpyxl_styles __pyx_string_tab[312]
+#define __pyx_n_u_openpyxl_utils __pyx_string_tab[313]
+#define __pyx_n_u_opscli_seller_sprite_domain_exce __pyx_string_tab[314]
+#define __pyx_n_u_opscli_seller_sprite_domain_mode __pyx_string_tab[315]
+#define __pyx_n_u_opscli_seller_sprite_export_colu __pyx_string_tab[316]
+#define __pyx_n_u_opscli_seller_sprite_export_xlsx __pyx_string_tab[317]
+#define __pyx_n_u_output_path __pyx_string_tab[318]
+#define __pyx_n_u_page __pyx_string_tab[319]
+#define __pyx_n_u_pageSize __pyx_string_tab[320]
+#define __pyx_n_u_page_size __pyx_string_tab[321]
+#define __pyx_n_u_params __pyx_string_tab[322]
+#define __pyx_n_u_parent __pyx_string_tab[323]
+#define __pyx_n_u_parents __pyx_string_tab[324]
+#define __pyx_n_u_part __pyx_string_tab[325]
+#define __pyx_n_u_parts __pyx_string_tab[326]
+#define __pyx_n_u_path __pyx_string_tab[327]
+#define __pyx_n_u_pathlib __pyx_string_tab[328]
+#define __pyx_n_u_percentSuffix __pyx_string_tab[329]
+#define __pyx_n_u_percentage __pyx_string_tab[330]
+#define __pyx_n_u_percentage_2 __pyx_string_tab[331]
+#define __pyx_n_u_period __pyx_string_tab[332]
+#define __pyx_n_u_period_label __pyx_string_tab[333]
+#define __pyx_n_u_pop __pyx_string_tab[334]
+#define __pyx_n_u_position __pyx_string_tab[335]
+#define __pyx_n_u_precise __pyx_string_tab[336]
+#define __pyx_n_u_preciseLongTail __pyx_string_tab[337]
+#define __pyx_n_u_primary __pyx_string_tab[338]
+#define __pyx_n_u_q __pyx_string_tab[339]
+#define __pyx_n_u_qualname __pyx_string_tab[340]
+#define __pyx_n_u_rankPage __pyx_string_tab[341]
+#define __pyx_n_u_rankPosition __pyx_string_tab[342]
+#define __pyx_n_u_rank_page __pyx_string_tab[343]
+#define __pyx_n_u_rank_position __pyx_string_tab[344]
+#define __pyx_n_u_resolve __pyx_string_tab[345]
+#define __pyx_n_u_resolved_output __pyx_string_tab[346]
+#define __pyx_n_u_return __pyx_string_tab[347]
+#define __pyx_n_u_row __pyx_string_tab[348]
+#define __pyx_n_u_row_index __pyx_string_tab[349]
+#define __pyx_n_u_rows __pyx_string_tab[350]
+#define __pyx_n_u_safe_sheet_title __pyx_string_tab[351]
+#define __pyx_n_u_safe_sheet_title_locals_genexpr __pyx_string_tab[352]
+#define __pyx_n_u_save __pyx_string_tab[353]
+#define __pyx_n_u_scenario __pyx_string_tab[354]
+#define __pyx_n_u_search __pyx_string_tab[355]
+#define __pyx_n_u_seen __pyx_string_tab[356]
+#define __pyx_n_u_sellerNation __pyx_string_tab[357]
+#define __pyx_n_u_seller_nation __pyx_string_tab[358]
+#define __pyx_n_u_send __pyx_string_tab[359]
+#define __pyx_n_u_set_name __pyx_string_tab[360]
+#define __pyx_n_u_setdefault __pyx_string_tab[361]
+#define __pyx_n_u_sheet __pyx_string_tab[362]
+#define __pyx_n_u_site __pyx_string_tab[363]
+#define __pyx_n_u_site_label __pyx_string_tab[364]
+#define __pyx_n_u_site_time __pyx_string_tab[365]
+#define __pyx_n_u_solid __pyx_string_tab[366]
+#define __pyx_n_u_source __pyx_string_tab[367]
+#define __pyx_n_u_sponsorBrand __pyx_string_tab[368]
+#define __pyx_n_u_sponsorVideo __pyx_string_tab[369]
+#define __pyx_n_u_stable __pyx_string_tab[370]
+#define __pyx_n_u_start __pyx_string_tab[371]
+#define __pyx_n_u_station __pyx_string_tab[372]
+#define __pyx_n_u_str __pyx_string_tab[373]
+#define __pyx_n_u_strftime __pyx_string_tab[374]
+#define __pyx_n_u_test __pyx_string_tab[375]
+#define __pyx_n_u_text __pyx_string_tab[376]
+#define __pyx_n_u_throw __pyx_string_tab[377]
+#define __pyx_n_u_timedelta __pyx_string_tab[378]
+#define __pyx_n_u_timestamp __pyx_string_tab[379]
+#define __pyx_n_u_timezone __pyx_string_tab[380]
+#define __pyx_n_u_timezone_for_site __pyx_string_tab[381]
+#define __pyx_n_u_title __pyx_string_tab[382]
+#define __pyx_n_u_trafficKeywordTypeLabels __pyx_string_tab[383]
+#define __pyx_n_u_trafficSourceLabels __pyx_string_tab[384]
+#define __pyx_n_u_transform __pyx_string_tab[385]
+#define __pyx_n_u_typing __pyx_string_tab[386]
+#define __pyx_n_u_tz __pyx_string_tab[387]
+#define __pyx_n_u_upper __pyx_string_tab[388]
+#define __pyx_n_u_url __pyx_string_tab[389]
+#define __pyx_n_u_utc __pyx_string_tab[390]
+#define __pyx_n_u_value __pyx_string_tab[391]
+#define __pyx_n_u_values __pyx_string_tab[392]
+#define __pyx_n_u_width __pyx_string_tab[393]
+#define __pyx_n_u_word __pyx_string_tab[394]
+#define __pyx_n_u_workbook __pyx_string_tab[395]
+#define __pyx_n_u_yen __pyx_string_tab[396]
+#define __pyx_n_u_zoneinfo __pyx_string_tab[397]
+#define __pyx_kp_b_iso88591_1_c_T_S_6_4q_xs_Zs_q_xs_Cz_A_q __pyx_string_tab[398]
+#define __pyx_kp_b_iso88591_1_y_q_Yj_1A_A_c_WAV4q_Q_3e1A __pyx_string_tab[399]
+#define __pyx_kp_b_iso88591_31_q_G3e1_t7_D_gQa_1 __pyx_string_tab[400]
+#define __pyx_kp_b_iso88591_3awc_uD_z_Zq_q_4xq_Q __pyx_string_tab[401]
+#define __pyx_kp_b_iso88591_81_V1A_QgQ_E_Qa_q_vT_XQ_Cq_E_F __pyx_string_tab[402]
+#define __pyx_kp_b_iso88591_A_2 __pyx_string_tab[403]
+#define __pyx_kp_b_iso88591_A_A_Q_F_1_Q_Gq_wfAXV9A_Q_t1_q_2 __pyx_string_tab[404]
+#define __pyx_kp_b_iso88591_Fha_vXS_q_JauF_y_F_5_a_1G6_U_q __pyx_string_tab[405]
+#define __pyx_kp_b_iso88591_Gq_HM_avXQ_iy_U_4s_vQ_U_4s_hd_5 __pyx_string_tab[406]
+#define __pyx_kp_b_iso88591_Q __pyx_string_tab[407]
+#define __pyx_kp_b_iso88591_Q_4q_1E_t_xq_q __pyx_string_tab[408]
+#define __pyx_kp_b_iso88591_VV___t1_q_z_A_vZq_t5_z_A_z_A_7 __pyx_string_tab[409]
+#define __pyx_kp_b_iso88591_XQ_6_E_F_Q __pyx_string_tab[410]
+#define __pyx_kp_b_iso88591_XQ_Be1A_F_Rq __pyx_string_tab[411]
+#define __pyx_kp_b_iso88591_XQ_c_Qa_c_Qa_y_Yaq_q_Qa_2Qiq_Qh __pyx_string_tab[412]
+#define __pyx_kp_b_iso88591_XQ_t_QgQ_q_3e4q __pyx_string_tab[413]
+#define __pyx_kp_b_iso88591_ha_Qa_q_q_1 __pyx_string_tab[414]
+#define __pyx_kp_b_iso88591_ha_t_QgQ_q_3e4q __pyx_string_tab[415]
+#define __pyx_kp_b_iso88591_ha_t_QgQ_q_5_AQ_E_Qa_T_y_q_y_9A __pyx_string_tab[416]
+#define __pyx_kp_b_iso88591_ha_t_QgQ_vYa_3aq_A_QfA_q_a_AT_Q __pyx_string_tab[417]
+#define __pyx_kp_b_iso88591_ha_y_q_z_D_aq_1_1_t_QgQ_q_4uAQ __pyx_string_tab[418]
+#define __pyx_kp_b_iso88591_j_1_t1_q_QnA_RRSST __pyx_string_tab[419]
+#define __pyx_kp_b_iso88591_m_H_wwx_y_1_A_6_Qe3a_4vT_1Cq_Q __pyx_string_tab[420]
+#define __pyx_kp_b_iso88591_q_2 __pyx_string_tab[421]
+#define __pyx_kp_b_iso88591_q_3 __pyx_string_tab[422]
+#define __pyx_kp_b_iso88591_q_q_q_q_q_q_q_q_xt3as_82Rr __pyx_string_tab[423]
+#define __pyx_kp_b_iso88591_t_QgQ_9A_uD_y __pyx_string_tab[424]
+#define __pyx_kp_b_iso88591_xq_y_q_2Qe1G2S __pyx_string_tab[425]
+#define __pyx_kp_b_iso88591_xq_y_q_QgRq_q_36H_a_5Gq_Qc_vT_A __pyx_string_tab[426]
+#define __pyx_kp_b_iso88591_xq_z_wk_z_t6_a_1 __pyx_string_tab[427]
+#define __pyx_kp_b_iso88591_y_q_3aq_uCz __pyx_string_tab[428]
+#define __pyx_kp_b_iso88591_y_q_8_q_r_s_yPQQR __pyx_string_tab[429]
+#define __pyx_kp_b_iso88591_z_A_s_6_C_1_s_1_6_Ct1A_QnAYaz_1 __pyx_string_tab[430]
 #define __pyx_int_1 __pyx_number_tab[0]
 #define __pyx_int_2 __pyx_number_tab[1]
 #define __pyx_int_3 __pyx_number_tab[2]
 #define __pyx_int_4 __pyx_number_tab[3]
 #define __pyx_int_5 __pyx_number_tab[4]
-#define __pyx_int_6 __pyx_number_tab[5]
-#define __pyx_int_7 __pyx_number_tab[6]
-#define __pyx_int_8 __pyx_number_tab[7]
-#define __pyx_int_9 __pyx_number_tab[8]
-#define __pyx_int_10 __pyx_number_tab[9]
-#define __pyx_int_14 __pyx_number_tab[10]
-#define __pyx_int_18 __pyx_number_tab[11]
-#define __pyx_int_24 __pyx_number_tab[12]
-#define __pyx_int_32 __pyx_number_tab[13]
-#define __pyx_int_38 __pyx_number_tab[14]
-#define __pyx_int_48 __pyx_number_tab[15]
+#define __pyx_int_neg_6 __pyx_number_tab[5]
+#define __pyx_int_6 __pyx_number_tab[6]
+#define __pyx_int_neg_7 __pyx_number_tab[7]
+#define __pyx_int_7 __pyx_number_tab[8]
+#define __pyx_int_8 __pyx_number_tab[9]
+#define __pyx_int_9 __pyx_number_tab[10]
+#define __pyx_int_10 __pyx_number_tab[11]
+#define __pyx_int_14 __pyx_number_tab[12]
+#define __pyx_int_18 __pyx_number_tab[13]
+#define __pyx_int_24 __pyx_number_tab[14]
+#define __pyx_int_30 __pyx_number_tab[15]
+#define __pyx_int_32 __pyx_number_tab[16]
+#define __pyx_int_38 __pyx_number_tab[17]
+#define __pyx_int_48 __pyx_number_tab[18]
 /* #### Code section: module_state_clear ### */
 #if CYTHON_USE_MODULE_STATE
 static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
@@ -3545,10 +3767,12 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_genexpr);
   Py_CLEAR(clear_module_state->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr);
   Py_CLEAR(clear_module_state->__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr);
-  for (int i=0; i<4; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<30; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<279; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
-  for (int i=0; i<16; ++i) { Py_CLEAR(clear_module_state->__pyx_number_tab[i]); }
+  Py_CLEAR(clear_module_state->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr);
+  Py_CLEAR(clear_module_state->__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr);
+  for (int i=0; i<5; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
+  for (int i=0; i<39; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
+  for (int i=0; i<431; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<19; ++i) { Py_CLEAR(clear_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* CommonTypesMetaclass.module_state_clear */
 Py_CLEAR(clear_module_state->__pyx_CommonTypesMetaclassType);
@@ -3594,10 +3818,12 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_genexpr);
   Py_VISIT(traverse_module_state->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr);
   Py_VISIT(traverse_module_state->__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr);
-  for (int i=0; i<4; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<30; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<279; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
-  for (int i=0; i<16; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_number_tab[i]); }
+  Py_VISIT(traverse_module_state->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr);
+  Py_VISIT(traverse_module_state->__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr);
+  for (int i=0; i<5; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
+  for (int i=0; i<39; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
+  for (int i=0; i<431; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<19; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* CommonTypesMetaclass.module_state_traverse */
 Py_VISIT(traverse_module_state->__pyx_CommonTypesMetaclassType);
@@ -3614,8 +3840,8 @@ return 0;
 #endif
 /* #### Code section: module_code ### */
 
-/* "opscli/seller_sprite/export/xlsx.py":13
- * from opscli.seller_sprite.export.columns import ExportColumn, columns_for_scenario
+/* "opscli/seller_sprite/export/xlsx.py":15
+ * from opscli.seller_sprite.export.columns import ExportColumn, columns_for_scenario, currency_label
  * 
  * def export_rows_to_xlsx(             # <<<<<<<<<<<<<<
  *     *,
@@ -3668,17 +3894,17 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_rows,&__pyx_mstate_global->__pyx_n_u_output_path,&__pyx_mstate_global->__pyx_n_u_scenario,&__pyx_mstate_global->__pyx_n_u_site,&__pyx_mstate_global->__pyx_n_u_period,&__pyx_mstate_global->__pyx_n_u_params,&__pyx_mstate_global->__pyx_n_u_high_frequency_rows,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 13, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 15, __pyx_L3_error)
     if (likely(__pyx_kwds_len > 0)) {
       switch (__pyx_nargs) {
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, 0, __pyx_kwds_len, "export_rows_to_xlsx", 0) < (0)) __PYX_ERR(0, 13, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, 0, __pyx_kwds_len, "export_rows_to_xlsx", 0) < (0)) __PYX_ERR(0, 15, __pyx_L3_error)
       if (!values[3]) values[3] = __Pyx_NewRef(((PyObject*)((PyObject*)__pyx_mstate_global->__pyx_n_u_US)));
       if (!values[4]) values[4] = __Pyx_NewRef(((PyObject*)((PyObject*)__pyx_mstate_global->__pyx_kp_u_30d)));
 
-      /* "opscli/seller_sprite/export/xlsx.py":20
+      /* "opscli/seller_sprite/export/xlsx.py":22
  *     site: str = "US",
  *     period: str = "30d",
  *     params: dict[str, Any] | None = None,             # <<<<<<<<<<<<<<
@@ -3687,7 +3913,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[5]) values[5] = __Pyx_NewRef(((PyObject*)Py_None));
 
-      /* "opscli/seller_sprite/export/xlsx.py":21
+      /* "opscli/seller_sprite/export/xlsx.py":23
  *     period: str = "30d",
  *     params: dict[str, Any] | None = None,
  *     high_frequency_rows: list[dict[str, Any]] | None = None,             # <<<<<<<<<<<<<<
@@ -3696,12 +3922,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 */
       if (!values[6]) values[6] = __Pyx_NewRef(((PyObject*)Py_None));
       for (Py_ssize_t i = 0; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("export_rows_to_xlsx", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 13, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("export_rows_to_xlsx", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 15, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 0)) {
       goto __pyx_L5_argtuple_error;
     } else {
-      __Pyx_RaiseKeywordRequired("export_rows_to_xlsx", __pyx_mstate_global->__pyx_n_u_rows); __PYX_ERR(0, 13, __pyx_L3_error)
+      __Pyx_RaiseKeywordRequired("export_rows_to_xlsx", __pyx_mstate_global->__pyx_n_u_rows); __PYX_ERR(0, 15, __pyx_L3_error)
     }
     __pyx_v_rows = ((PyObject*)values[0]);
     __pyx_v_output_path = values[1];
@@ -3713,7 +3939,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("export_rows_to_xlsx", 1, 0, 0, __pyx_nargs); __PYX_ERR(0, 13, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("export_rows_to_xlsx", 1, 0, 0, __pyx_nargs); __PYX_ERR(0, 15, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3724,16 +3950,16 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_rows), (&PyList_Type), 0, "rows", 2))) __PYX_ERR(0, 15, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_scenario), (&PyUnicode_Type), 0, "scenario", 2))) __PYX_ERR(0, 17, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_site), (&PyUnicode_Type), 0, "site", 2))) __PYX_ERR(0, 18, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_period), (&PyUnicode_Type), 0, "period", 2))) __PYX_ERR(0, 19, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_params), (&PyDict_Type), 1, "params", 2))) __PYX_ERR(0, 20, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_high_frequency_rows), (&PyList_Type), 1, "high_frequency_rows", 2))) __PYX_ERR(0, 21, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_rows), (&PyList_Type), 0, "rows", 2))) __PYX_ERR(0, 17, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_scenario), (&PyUnicode_Type), 0, "scenario", 2))) __PYX_ERR(0, 19, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_site), (&PyUnicode_Type), 0, "site", 2))) __PYX_ERR(0, 20, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_period), (&PyUnicode_Type), 0, "period", 2))) __PYX_ERR(0, 21, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_params), (&PyDict_Type), 1, "params", 2))) __PYX_ERR(0, 22, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_high_frequency_rows), (&PyList_Type), 1, "high_frequency_rows", 2))) __PYX_ERR(0, 23, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_xlsx(__pyx_self, __pyx_v_rows, __pyx_v_output_path, __pyx_v_scenario, __pyx_v_site, __pyx_v_period, __pyx_v_params, __pyx_v_high_frequency_rows);
 
-  /* "opscli/seller_sprite/export/xlsx.py":13
- * from opscli.seller_sprite.export.columns import ExportColumn, columns_for_scenario
+  /* "opscli/seller_sprite/export/xlsx.py":15
+ * from opscli.seller_sprite.export.columns import ExportColumn, columns_for_scenario, currency_label
  * 
  * def export_rows_to_xlsx(             # <<<<<<<<<<<<<<
  *     *,
@@ -3808,12 +4034,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
   PyObject *__pyx_t_28 = NULL;
   PyObject *__pyx_t_29 = NULL;
   PyObject *__pyx_t_30 = NULL;
+  PyObject *__pyx_t_31 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("export_rows_to_xlsx", 0);
 
-  /* "opscli/seller_sprite/export/xlsx.py":24
+  /* "opscli/seller_sprite/export/xlsx.py":26
  * ) -> SellerSpriteExportResult:
  *     """ rows  XLSX"""
  *     try:             # <<<<<<<<<<<<<<
@@ -3829,7 +4056,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "opscli/seller_sprite/export/xlsx.py":25
+      /* "opscli/seller_sprite/export/xlsx.py":27
  *     """ rows  XLSX"""
  *     try:
  *         from openpyxl import Workbook             # <<<<<<<<<<<<<<
@@ -3838,14 +4065,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
 */
       {
         PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Workbook};
-        __pyx_t_5 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_openpyxl, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 25, __pyx_L3_error)
+        __pyx_t_5 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_openpyxl, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 27, __pyx_L3_error)
       }
       __pyx_t_4 = __pyx_t_5;
       __Pyx_GOTREF(__pyx_t_4);
       {
         PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Workbook};
         __pyx_t_6 = 0; {
-          __pyx_t_7 = __Pyx_ImportFrom(__pyx_t_4, __pyx_imported_names[__pyx_t_6]); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 25, __pyx_L3_error)
+          __pyx_t_7 = __Pyx_ImportFrom(__pyx_t_4, __pyx_imported_names[__pyx_t_6]); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 27, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_7);
           switch (__pyx_t_6) {
             case 0:
@@ -3859,7 +4086,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
       }
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "opscli/seller_sprite/export/xlsx.py":26
+      /* "opscli/seller_sprite/export/xlsx.py":28
  *     try:
  *         from openpyxl import Workbook
  *         from openpyxl.styles import Font, PatternFill             # <<<<<<<<<<<<<<
@@ -3868,14 +4095,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
 */
       {
         PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Font,__pyx_mstate_global->__pyx_n_u_PatternFill};
-        __pyx_t_5 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_openpyxl_styles, __pyx_imported_names, 2, NULL, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 26, __pyx_L3_error)
+        __pyx_t_5 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_openpyxl_styles, __pyx_imported_names, 2, NULL, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 28, __pyx_L3_error)
       }
       __pyx_t_4 = __pyx_t_5;
       __Pyx_GOTREF(__pyx_t_4);
       {
         PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Font,__pyx_mstate_global->__pyx_n_u_PatternFill};
         for (__pyx_t_6=0; __pyx_t_6 < 2; __pyx_t_6++) {
-          __pyx_t_7 = __Pyx_ImportFrom(__pyx_t_4, __pyx_imported_names[__pyx_t_6]); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 26, __pyx_L3_error)
+          __pyx_t_7 = __Pyx_ImportFrom(__pyx_t_4, __pyx_imported_names[__pyx_t_6]); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 28, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_7);
           switch (__pyx_t_6) {
             case 0:
@@ -3893,7 +4120,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
       }
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "opscli/seller_sprite/export/xlsx.py":27
+      /* "opscli/seller_sprite/export/xlsx.py":29
  *         from openpyxl import Workbook
  *         from openpyxl.styles import Font, PatternFill
  *         from openpyxl.utils import get_column_letter             # <<<<<<<<<<<<<<
@@ -3902,14 +4129,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
 */
       {
         PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_get_column_letter};
-        __pyx_t_5 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_openpyxl_utils, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 27, __pyx_L3_error)
+        __pyx_t_5 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_openpyxl_utils, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 29, __pyx_L3_error)
       }
       __pyx_t_4 = __pyx_t_5;
       __Pyx_GOTREF(__pyx_t_4);
       {
         PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_get_column_letter};
         __pyx_t_6 = 0; {
-          __pyx_t_7 = __Pyx_ImportFrom(__pyx_t_4, __pyx_imported_names[__pyx_t_6]); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 27, __pyx_L3_error)
+          __pyx_t_7 = __Pyx_ImportFrom(__pyx_t_4, __pyx_imported_names[__pyx_t_6]); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 29, __pyx_L3_error)
           __Pyx_GOTREF(__pyx_t_7);
           switch (__pyx_t_6) {
             case 0:
@@ -3923,7 +4150,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
       }
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "opscli/seller_sprite/export/xlsx.py":24
+      /* "opscli/seller_sprite/export/xlsx.py":26
  * ) -> SellerSpriteExportResult:
  *     """ rows  XLSX"""
  *     try:             # <<<<<<<<<<<<<<
@@ -3939,7 +4166,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":28
+    /* "opscli/seller_sprite/export/xlsx.py":30
  *         from openpyxl.styles import Font, PatternFill
  *         from openpyxl.utils import get_column_letter
  *     except ModuleNotFoundError as exc:             # <<<<<<<<<<<<<<
@@ -3949,7 +4176,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
     __pyx_t_8 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_ModuleNotFoundError))));
     if (__pyx_t_8) {
       __Pyx_AddTraceback("opscli.seller_sprite.export.xlsx.export_rows_to_xlsx", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_7, &__pyx_t_9) < 0) __PYX_ERR(0, 28, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_7, &__pyx_t_9) < 0) __PYX_ERR(0, 30, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_7);
       __Pyx_XGOTREF(__pyx_t_9);
@@ -3957,7 +4184,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
       __pyx_v_exc = __pyx_t_7;
       /*try:*/ {
 
-        /* "opscli/seller_sprite/export/xlsx.py":29
+        /* "opscli/seller_sprite/export/xlsx.py":31
  *         from openpyxl.utils import get_column_letter
  *     except ModuleNotFoundError as exc:
  *         raise SellerSpriteConfigError(" openpyxl  XLSX") from exc             # <<<<<<<<<<<<<<
@@ -3965,7 +4192,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
  *     output_path.parent.mkdir(parents=True, exist_ok=True)
 */
         __pyx_t_11 = NULL;
-        __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_SellerSpriteConfigError); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 29, __pyx_L14_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_SellerSpriteConfigError); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 31, __pyx_L14_error)
         __Pyx_GOTREF(__pyx_t_12);
         __pyx_t_13 = 1;
         #if CYTHON_UNPACK_METHODS
@@ -3984,15 +4211,15 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
           __pyx_t_10 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_12, __pyx_callargs+__pyx_t_13, (2-__pyx_t_13) | (__pyx_t_13*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
           __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 29, __pyx_L14_error)
+          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 31, __pyx_L14_error)
           __Pyx_GOTREF(__pyx_t_10);
         }
         __Pyx_Raise(__pyx_t_10, 0, 0, __pyx_v_exc);
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        __PYX_ERR(0, 29, __pyx_L14_error)
+        __PYX_ERR(0, 31, __pyx_L14_error)
       }
 
-      /* "opscli/seller_sprite/export/xlsx.py":28
+      /* "opscli/seller_sprite/export/xlsx.py":30
  *         from openpyxl.styles import Font, PatternFill
  *         from openpyxl.utils import get_column_letter
  *     except ModuleNotFoundError as exc:             # <<<<<<<<<<<<<<
@@ -4036,7 +4263,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
     }
     goto __pyx_L5_except_error;
 
-    /* "opscli/seller_sprite/export/xlsx.py":24
+    /* "opscli/seller_sprite/export/xlsx.py":26
  * ) -> SellerSpriteExportResult:
  *     """ rows  XLSX"""
  *     try:             # <<<<<<<<<<<<<<
@@ -4052,34 +4279,34 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
     __pyx_L8_try_end:;
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":31
+  /* "opscli/seller_sprite/export/xlsx.py":33
  *         raise SellerSpriteConfigError(" openpyxl  XLSX") from exc
  * 
  *     output_path.parent.mkdir(parents=True, exist_ok=True)             # <<<<<<<<<<<<<<
  *     columns = columns_for_scenario(scenario, site)
  *     if not columns:
 */
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_output_path, __pyx_mstate_global->__pyx_n_u_parent); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 31, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_output_path, __pyx_mstate_global->__pyx_n_u_parent); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 33, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_7 = __pyx_t_4;
   __Pyx_INCREF(__pyx_t_7);
   __pyx_t_13 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_7, NULL};
-    __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 31, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 33, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_parents, Py_True, __pyx_t_10, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_exist_ok, Py_True, __pyx_t_10, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_parents, Py_True, __pyx_t_10, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 33, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_exist_ok, Py_True, __pyx_t_10, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 33, __pyx_L1_error)
     __pyx_t_9 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_mkdir, __pyx_callargs+__pyx_t_13, (1-__pyx_t_13) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_10);
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 31, __pyx_L1_error)
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 33, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
   }
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":32
+  /* "opscli/seller_sprite/export/xlsx.py":34
  * 
  *     output_path.parent.mkdir(parents=True, exist_ok=True)
  *     columns = columns_for_scenario(scenario, site)             # <<<<<<<<<<<<<<
@@ -4087,7 +4314,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
  *         columns = [ExportColumn(dictionary_title, dictionary_title) for dictionary_title in _collect_fields(rows)]
 */
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_columns_for_scenario); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 32, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_columns_for_scenario); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 34, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __pyx_t_13 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -4106,24 +4333,24 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
     __pyx_t_9 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_10, __pyx_callargs+__pyx_t_13, (3-__pyx_t_13) | (__pyx_t_13*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 32, __pyx_L1_error)
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 34, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
   }
   __pyx_v_columns = __pyx_t_9;
   __pyx_t_9 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":33
+  /* "opscli/seller_sprite/export/xlsx.py":35
  *     output_path.parent.mkdir(parents=True, exist_ok=True)
  *     columns = columns_for_scenario(scenario, site)
  *     if not columns:             # <<<<<<<<<<<<<<
  *         columns = [ExportColumn(dictionary_title, dictionary_title) for dictionary_title in _collect_fields(rows)]
  * 
 */
-  __pyx_t_21 = __Pyx_PyObject_IsTrue(__pyx_v_columns); if (unlikely((__pyx_t_21 < 0))) __PYX_ERR(0, 33, __pyx_L1_error)
+  __pyx_t_21 = __Pyx_PyObject_IsTrue(__pyx_v_columns); if (unlikely((__pyx_t_21 < 0))) __PYX_ERR(0, 35, __pyx_L1_error)
   __pyx_t_22 = (!__pyx_t_21);
   if (__pyx_t_22) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":34
+    /* "opscli/seller_sprite/export/xlsx.py":36
  *     columns = columns_for_scenario(scenario, site)
  *     if not columns:
  *         columns = [ExportColumn(dictionary_title, dictionary_title) for dictionary_title in _collect_fields(rows)]             # <<<<<<<<<<<<<<
@@ -4131,10 +4358,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
  *     workbook = Workbook()
 */
     { /* enter inner scope */
-      __pyx_t_9 = PyList_New(0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 34, __pyx_L23_error)
+      __pyx_t_9 = PyList_New(0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 36, __pyx_L23_error)
       __Pyx_GOTREF(__pyx_t_9);
       __pyx_t_4 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_collect_fields); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 34, __pyx_L23_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_collect_fields); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 36, __pyx_L23_error)
       __Pyx_GOTREF(__pyx_t_7);
       __pyx_t_13 = 1;
       #if CYTHON_UNPACK_METHODS
@@ -4153,7 +4380,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
         __pyx_t_10 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_7, __pyx_callargs+__pyx_t_13, (2-__pyx_t_13) | (__pyx_t_13*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 34, __pyx_L23_error)
+        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 36, __pyx_L23_error)
         __Pyx_GOTREF(__pyx_t_10);
       }
       if (likely(PyList_CheckExact(__pyx_t_10)) || PyTuple_CheckExact(__pyx_t_10)) {
@@ -4161,9 +4388,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
         __pyx_t_6 = 0;
         __pyx_t_23 = NULL;
       } else {
-        __pyx_t_6 = -1; __pyx_t_7 = PyObject_GetIter(__pyx_t_10); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 34, __pyx_L23_error)
+        __pyx_t_6 = -1; __pyx_t_7 = PyObject_GetIter(__pyx_t_10); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 36, __pyx_L23_error)
         __Pyx_GOTREF(__pyx_t_7);
-        __pyx_t_23 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_7); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 34, __pyx_L23_error)
+        __pyx_t_23 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_7); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 36, __pyx_L23_error)
       }
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       for (;;) {
@@ -4172,7 +4399,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
             {
               Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_7);
               #if !CYTHON_ASSUME_SAFE_SIZE
-              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 34, __pyx_L23_error)
+              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 36, __pyx_L23_error)
               #endif
               if (__pyx_t_6 >= __pyx_temp) break;
             }
@@ -4182,7 +4409,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
             {
               Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_7);
               #if !CYTHON_ASSUME_SAFE_SIZE
-              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 34, __pyx_L23_error)
+              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 36, __pyx_L23_error)
               #endif
               if (__pyx_t_6 >= __pyx_temp) break;
             }
@@ -4193,13 +4420,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
             #endif
             ++__pyx_t_6;
           }
-          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 34, __pyx_L23_error)
+          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 36, __pyx_L23_error)
         } else {
           __pyx_t_10 = __pyx_t_23(__pyx_t_7);
           if (unlikely(!__pyx_t_10)) {
             PyObject* exc_type = PyErr_Occurred();
             if (exc_type) {
-              if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 34, __pyx_L23_error)
+              if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 36, __pyx_L23_error)
               PyErr_Clear();
             }
             break;
@@ -4209,7 +4436,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
         __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_dictionary_title, __pyx_t_10);
         __pyx_t_10 = 0;
         __pyx_t_4 = NULL;
-        __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 34, __pyx_L23_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 36, __pyx_L23_error)
         __Pyx_GOTREF(__pyx_t_12);
         __pyx_t_13 = 1;
         #if CYTHON_UNPACK_METHODS
@@ -4228,10 +4455,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
           __pyx_t_10 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_12, __pyx_callargs+__pyx_t_13, (3-__pyx_t_13) | (__pyx_t_13*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
           __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 34, __pyx_L23_error)
+          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 36, __pyx_L23_error)
           __Pyx_GOTREF(__pyx_t_10);
         }
-        if (unlikely(__Pyx_ListComp_Append(__pyx_t_9, (PyObject*)__pyx_t_10))) __PYX_ERR(0, 34, __pyx_L23_error)
+        if (unlikely(__Pyx_ListComp_Append(__pyx_t_9, (PyObject*)__pyx_t_10))) __PYX_ERR(0, 36, __pyx_L23_error)
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       }
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
@@ -4245,7 +4472,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
     __Pyx_DECREF_SET(__pyx_v_columns, __pyx_t_9);
     __pyx_t_9 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":33
+    /* "opscli/seller_sprite/export/xlsx.py":35
  *     output_path.parent.mkdir(parents=True, exist_ok=True)
  *     columns = columns_for_scenario(scenario, site)
  *     if not columns:             # <<<<<<<<<<<<<<
@@ -4254,7 +4481,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":36
+  /* "opscli/seller_sprite/export/xlsx.py":38
  *         columns = [ExportColumn(dictionary_title, dictionary_title) for dictionary_title in _collect_fields(rows)]
  * 
  *     workbook = Workbook()             # <<<<<<<<<<<<<<
@@ -4281,25 +4508,25 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
     __pyx_t_9 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_10, __pyx_callargs+__pyx_t_13, (1-__pyx_t_13) | (__pyx_t_13*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 36, __pyx_L1_error)
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 38, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
   }
   __pyx_v_workbook = __pyx_t_9;
   __pyx_t_9 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":37
+  /* "opscli/seller_sprite/export/xlsx.py":39
  * 
  *     workbook = Workbook()
  *     sheet = workbook.active             # <<<<<<<<<<<<<<
  *     sheet.title = _main_sheet_title(scenario=scenario, site=site, period=period, params=params or {}, rows=rows)
  * 
 */
-  __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_workbook, __pyx_mstate_global->__pyx_n_u_active); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 37, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_workbook, __pyx_mstate_global->__pyx_n_u_active); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 39, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __pyx_v_sheet = __pyx_t_9;
   __pyx_t_9 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":38
+  /* "opscli/seller_sprite/export/xlsx.py":40
  *     workbook = Workbook()
  *     sheet = workbook.active
  *     sheet.title = _main_sheet_title(scenario=scenario, site=site, period=period, params=params or {}, rows=rows)             # <<<<<<<<<<<<<<
@@ -4307,16 +4534,16 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
  *     header_fill = PatternFill("solid", fgColor="EAF2F8")
 */
   __pyx_t_10 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_main_sheet_title); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 38, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_main_sheet_title); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 40, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_22 = __Pyx_PyObject_IsTrue(__pyx_v_params); if (unlikely((__pyx_t_22 < 0))) __PYX_ERR(0, 38, __pyx_L1_error)
+  __pyx_t_22 = __Pyx_PyObject_IsTrue(__pyx_v_params); if (unlikely((__pyx_t_22 < 0))) __PYX_ERR(0, 40, __pyx_L1_error)
   if (!__pyx_t_22) {
   } else {
     __Pyx_INCREF(__pyx_v_params);
     __pyx_t_12 = __pyx_v_params;
     goto __pyx_L28_bool_binop_done;
   }
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 38, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 40, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_INCREF(__pyx_t_4);
   __pyx_t_12 = __pyx_t_4;
@@ -4336,25 +4563,25 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
   #endif
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 5 : 0)] = {__pyx_t_10, NULL};
-    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 38, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 40, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_scenario, __pyx_v_scenario, __pyx_t_4, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 38, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_site, __pyx_v_site, __pyx_t_4, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 38, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_period, __pyx_v_period, __pyx_t_4, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 38, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_params, __pyx_t_12, __pyx_t_4, __pyx_callargs+1, 3) < (0)) __PYX_ERR(0, 38, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_rows, __pyx_v_rows, __pyx_t_4, __pyx_callargs+1, 4) < (0)) __PYX_ERR(0, 38, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_scenario, __pyx_v_scenario, __pyx_t_4, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_site, __pyx_v_site, __pyx_t_4, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_period, __pyx_v_period, __pyx_t_4, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_params, __pyx_t_12, __pyx_t_4, __pyx_callargs+1, 3) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_rows, __pyx_v_rows, __pyx_t_4, __pyx_callargs+1, 4) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
     __pyx_t_9 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_7, __pyx_callargs+__pyx_t_13, (1-__pyx_t_13) | (__pyx_t_13*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_4);
     __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 38, __pyx_L1_error)
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 40, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
   }
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_sheet, __pyx_mstate_global->__pyx_n_u_title, __pyx_t_9) < (0)) __PYX_ERR(0, 38, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_sheet, __pyx_mstate_global->__pyx_n_u_title, __pyx_t_9) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":40
+  /* "opscli/seller_sprite/export/xlsx.py":42
  *     sheet.title = _main_sheet_title(scenario=scenario, site=site, period=period, params=params or {}, rows=rows)
  * 
  *     header_fill = PatternFill("solid", fgColor="EAF2F8")             # <<<<<<<<<<<<<<
@@ -4378,20 +4605,20 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
   #endif
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_7, __pyx_mstate_global->__pyx_n_u_solid};
-    __pyx_t_12 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 40, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 42, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_fgColor, __pyx_mstate_global->__pyx_n_u_EAF2F8, __pyx_t_12, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_fgColor, __pyx_mstate_global->__pyx_n_u_EAF2F8, __pyx_t_12, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 42, __pyx_L1_error)
     __pyx_t_9 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_13, (2-__pyx_t_13) | (__pyx_t_13*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_12);
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 40, __pyx_L1_error)
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 42, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
   }
   __pyx_v_header_fill = __pyx_t_9;
   __pyx_t_9 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":41
+  /* "opscli/seller_sprite/export/xlsx.py":43
  * 
  *     header_fill = PatternFill("solid", fgColor="EAF2F8")
  *     header_font = Font(bold=True)             # <<<<<<<<<<<<<<
@@ -4415,20 +4642,20 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
   #endif
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_4, NULL};
-    __pyx_t_7 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 41, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 43, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_bold, Py_True, __pyx_t_7, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 41, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_bold, Py_True, __pyx_t_7, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 43, __pyx_L1_error)
     __pyx_t_9 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_12, __pyx_callargs+__pyx_t_13, (1-__pyx_t_13) | (__pyx_t_13*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_7);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 41, __pyx_L1_error)
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 43, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
   }
   __pyx_v_header_font = __pyx_t_9;
   __pyx_t_9 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":42
+  /* "opscli/seller_sprite/export/xlsx.py":44
  *     header_fill = PatternFill("solid", fgColor="EAF2F8")
  *     header_font = Font(bold=True)
  *     for column_index, column in enumerate(columns, start=1):             # <<<<<<<<<<<<<<
@@ -4439,13 +4666,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
   __pyx_t_13 = 1;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_12, __pyx_v_columns};
-    __pyx_t_7 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 42, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 44, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_start, __pyx_mstate_global->__pyx_int_1, __pyx_t_7, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 42, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_start, __pyx_mstate_global->__pyx_int_1, __pyx_t_7, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 44, __pyx_L1_error)
     __pyx_t_9 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_builtin_enumerate, __pyx_callargs+__pyx_t_13, (2-__pyx_t_13) | (__pyx_t_13*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_7);
     __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 42, __pyx_L1_error)
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 44, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
   }
   if (likely(PyList_CheckExact(__pyx_t_9)) || PyTuple_CheckExact(__pyx_t_9)) {
@@ -4453,9 +4680,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
     __pyx_t_6 = 0;
     __pyx_t_23 = NULL;
   } else {
-    __pyx_t_6 = -1; __pyx_t_7 = PyObject_GetIter(__pyx_t_9); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 42, __pyx_L1_error)
+    __pyx_t_6 = -1; __pyx_t_7 = PyObject_GetIter(__pyx_t_9); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 44, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_23 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_7); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 42, __pyx_L1_error)
+    __pyx_t_23 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_7); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 44, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
   for (;;) {
@@ -4464,7 +4691,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_7);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 42, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 44, __pyx_L1_error)
           #endif
           if (__pyx_t_6 >= __pyx_temp) break;
         }
@@ -4474,7 +4701,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_7);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 42, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 44, __pyx_L1_error)
           #endif
           if (__pyx_t_6 >= __pyx_temp) break;
         }
@@ -4485,13 +4712,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
         #endif
         ++__pyx_t_6;
       }
-      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 42, __pyx_L1_error)
+      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 44, __pyx_L1_error)
     } else {
       __pyx_t_9 = __pyx_t_23(__pyx_t_7);
       if (unlikely(!__pyx_t_9)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 42, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 44, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -4504,7 +4731,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
       if (unlikely(size != 2)) {
         if (size > 2) __Pyx_RaiseTooManyValuesError(2);
         else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-        __PYX_ERR(0, 42, __pyx_L1_error)
+        __PYX_ERR(0, 44, __pyx_L1_error)
       }
       #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
       if (likely(PyTuple_CheckExact(sequence))) {
@@ -4514,22 +4741,22 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
         __Pyx_INCREF(__pyx_t_4);
       } else {
         __pyx_t_12 = __Pyx_PyList_GetItemRefFast(sequence, 0, __Pyx_ReferenceSharing_SharedReference);
-        if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 42, __pyx_L1_error)
+        if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 44, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_12);
         __pyx_t_4 = __Pyx_PyList_GetItemRefFast(sequence, 1, __Pyx_ReferenceSharing_SharedReference);
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 42, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 44, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_4);
       }
       #else
-      __pyx_t_12 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 42, __pyx_L1_error)
+      __pyx_t_12 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 44, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_12);
-      __pyx_t_4 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 42, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 44, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       #endif
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     } else {
       Py_ssize_t index = -1;
-      __pyx_t_10 = PyObject_GetIter(__pyx_t_9); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 42, __pyx_L1_error)
+      __pyx_t_10 = PyObject_GetIter(__pyx_t_9); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 44, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __pyx_t_24 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_10);
@@ -4537,7 +4764,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
       __Pyx_GOTREF(__pyx_t_12);
       index = 1; __pyx_t_4 = __pyx_t_24(__pyx_t_10); if (unlikely(!__pyx_t_4)) goto __pyx_L32_unpacking_failed;
       __Pyx_GOTREF(__pyx_t_4);
-      if (__Pyx_IternextUnpackEndCheck(__pyx_t_24(__pyx_t_10), 2) < (0)) __PYX_ERR(0, 42, __pyx_L1_error)
+      if (__Pyx_IternextUnpackEndCheck(__pyx_t_24(__pyx_t_10), 2) < (0)) __PYX_ERR(0, 44, __pyx_L1_error)
       __pyx_t_24 = NULL;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       goto __pyx_L33_unpacking_done;
@@ -4545,7 +4772,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __pyx_t_24 = NULL;
       if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-      __PYX_ERR(0, 42, __pyx_L1_error)
+      __PYX_ERR(0, 44, __pyx_L1_error)
       __pyx_L33_unpacking_done:;
     }
     __Pyx_XDECREF_SET(__pyx_v_column_index, __pyx_t_12);
@@ -4553,7 +4780,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
     __Pyx_XDECREF_SET(__pyx_v_column, __pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":43
+    /* "opscli/seller_sprite/export/xlsx.py":45
  *     header_font = Font(bold=True)
  *     for column_index, column in enumerate(columns, start=1):
  *         cell = sheet.cell(row=1, column=column_index, value=column.title)             # <<<<<<<<<<<<<<
@@ -4562,45 +4789,45 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
 */
     __pyx_t_4 = __pyx_v_sheet;
     __Pyx_INCREF(__pyx_t_4);
-    __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_title); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 43, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_title); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 45, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
     __pyx_t_13 = 0;
     {
       PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 3 : 0)] = {__pyx_t_4, NULL};
-      __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 43, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 45, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_row, __pyx_mstate_global->__pyx_int_1, __pyx_t_10, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 43, __pyx_L1_error)
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_column, __pyx_v_column_index, __pyx_t_10, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 43, __pyx_L1_error)
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_value, __pyx_t_12, __pyx_t_10, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 43, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_row, __pyx_mstate_global->__pyx_int_1, __pyx_t_10, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 45, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_column, __pyx_v_column_index, __pyx_t_10, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 45, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_value, __pyx_t_12, __pyx_t_10, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 45, __pyx_L1_error)
       __pyx_t_9 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_cell, __pyx_callargs+__pyx_t_13, (1-__pyx_t_13) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_10);
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 43, __pyx_L1_error)
+      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 45, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
     }
     __Pyx_XDECREF_SET(__pyx_v_cell, __pyx_t_9);
     __pyx_t_9 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":44
+    /* "opscli/seller_sprite/export/xlsx.py":46
  *     for column_index, column in enumerate(columns, start=1):
  *         cell = sheet.cell(row=1, column=column_index, value=column.title)
  *         cell.font = header_font             # <<<<<<<<<<<<<<
  *         cell.fill = header_fill
  * 
 */
-    if (__Pyx_PyObject_SetAttrStr(__pyx_v_cell, __pyx_mstate_global->__pyx_n_u_font, __pyx_v_header_font) < (0)) __PYX_ERR(0, 44, __pyx_L1_error)
+    if (__Pyx_PyObject_SetAttrStr(__pyx_v_cell, __pyx_mstate_global->__pyx_n_u_font, __pyx_v_header_font) < (0)) __PYX_ERR(0, 46, __pyx_L1_error)
 
-    /* "opscli/seller_sprite/export/xlsx.py":45
+    /* "opscli/seller_sprite/export/xlsx.py":47
  *         cell = sheet.cell(row=1, column=column_index, value=column.title)
  *         cell.font = header_font
  *         cell.fill = header_fill             # <<<<<<<<<<<<<<
  * 
  *     for row_index, row in enumerate(rows, start=2):
 */
-    if (__Pyx_PyObject_SetAttrStr(__pyx_v_cell, __pyx_mstate_global->__pyx_n_u_fill, __pyx_v_header_fill) < (0)) __PYX_ERR(0, 45, __pyx_L1_error)
+    if (__Pyx_PyObject_SetAttrStr(__pyx_v_cell, __pyx_mstate_global->__pyx_n_u_fill, __pyx_v_header_fill) < (0)) __PYX_ERR(0, 47, __pyx_L1_error)
 
-    /* "opscli/seller_sprite/export/xlsx.py":42
+    /* "opscli/seller_sprite/export/xlsx.py":44
  *     header_fill = PatternFill("solid", fgColor="EAF2F8")
  *     header_font = Font(bold=True)
  *     for column_index, column in enumerate(columns, start=1):             # <<<<<<<<<<<<<<
@@ -4610,24 +4837,24 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
   }
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":47
+  /* "opscli/seller_sprite/export/xlsx.py":49
  *         cell.fill = header_fill
  * 
  *     for row_index, row in enumerate(rows, start=2):             # <<<<<<<<<<<<<<
  *         for column_index, column in enumerate(columns, start=1):
- *             sheet.cell(row=row_index, column=column_index, value=_cell_value(_column_value(row, column)))
+ *             sheet.cell(row=row_index, column=column_index, value=_cell_value(_column_value(row, column, site=site)))
 */
   __pyx_t_9 = NULL;
   __pyx_t_13 = 1;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_9, __pyx_v_rows};
-    __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 47, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 49, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_start, __pyx_mstate_global->__pyx_int_2, __pyx_t_10, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 47, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_start, __pyx_mstate_global->__pyx_int_2, __pyx_t_10, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 49, __pyx_L1_error)
     __pyx_t_7 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_builtin_enumerate, __pyx_callargs+__pyx_t_13, (2-__pyx_t_13) | (__pyx_t_13*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_10);
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 47, __pyx_L1_error)
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 49, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
   }
   if (likely(PyList_CheckExact(__pyx_t_7)) || PyTuple_CheckExact(__pyx_t_7)) {
@@ -4635,9 +4862,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
     __pyx_t_6 = 0;
     __pyx_t_23 = NULL;
   } else {
-    __pyx_t_6 = -1; __pyx_t_10 = PyObject_GetIter(__pyx_t_7); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 47, __pyx_L1_error)
+    __pyx_t_6 = -1; __pyx_t_10 = PyObject_GetIter(__pyx_t_7); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 49, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    __pyx_t_23 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_10); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 47, __pyx_L1_error)
+    __pyx_t_23 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_10); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 49, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   for (;;) {
@@ -4646,7 +4873,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_10);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 47, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 49, __pyx_L1_error)
           #endif
           if (__pyx_t_6 >= __pyx_temp) break;
         }
@@ -4656,7 +4883,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_10);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 47, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 49, __pyx_L1_error)
           #endif
           if (__pyx_t_6 >= __pyx_temp) break;
         }
@@ -4667,13 +4894,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
         #endif
         ++__pyx_t_6;
       }
-      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 47, __pyx_L1_error)
+      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 49, __pyx_L1_error)
     } else {
       __pyx_t_7 = __pyx_t_23(__pyx_t_10);
       if (unlikely(!__pyx_t_7)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 47, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 49, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -4686,7 +4913,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
       if (unlikely(size != 2)) {
         if (size > 2) __Pyx_RaiseTooManyValuesError(2);
         else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-        __PYX_ERR(0, 47, __pyx_L1_error)
+        __PYX_ERR(0, 49, __pyx_L1_error)
       }
       #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
       if (likely(PyTuple_CheckExact(sequence))) {
@@ -4696,22 +4923,22 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
         __Pyx_INCREF(__pyx_t_12);
       } else {
         __pyx_t_9 = __Pyx_PyList_GetItemRefFast(sequence, 0, __Pyx_ReferenceSharing_SharedReference);
-        if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 47, __pyx_L1_error)
+        if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 49, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_9);
         __pyx_t_12 = __Pyx_PyList_GetItemRefFast(sequence, 1, __Pyx_ReferenceSharing_SharedReference);
-        if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 47, __pyx_L1_error)
+        if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 49, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_12);
       }
       #else
-      __pyx_t_9 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 47, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 49, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
-      __pyx_t_12 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 47, __pyx_L1_error)
+      __pyx_t_12 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 49, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_12);
       #endif
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     } else {
       Py_ssize_t index = -1;
-      __pyx_t_4 = PyObject_GetIter(__pyx_t_7); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 47, __pyx_L1_error)
+      __pyx_t_4 = PyObject_GetIter(__pyx_t_7); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 49, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __pyx_t_24 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_4);
@@ -4719,7 +4946,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
       __Pyx_GOTREF(__pyx_t_9);
       index = 1; __pyx_t_12 = __pyx_t_24(__pyx_t_4); if (unlikely(!__pyx_t_12)) goto __pyx_L37_unpacking_failed;
       __Pyx_GOTREF(__pyx_t_12);
-      if (__Pyx_IternextUnpackEndCheck(__pyx_t_24(__pyx_t_4), 2) < (0)) __PYX_ERR(0, 47, __pyx_L1_error)
+      if (__Pyx_IternextUnpackEndCheck(__pyx_t_24(__pyx_t_4), 2) < (0)) __PYX_ERR(0, 49, __pyx_L1_error)
       __pyx_t_24 = NULL;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       goto __pyx_L38_unpacking_done;
@@ -4727,7 +4954,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __pyx_t_24 = NULL;
       if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-      __PYX_ERR(0, 47, __pyx_L1_error)
+      __PYX_ERR(0, 49, __pyx_L1_error)
       __pyx_L38_unpacking_done:;
     }
     __Pyx_XDECREF_SET(__pyx_v_row_index, __pyx_t_9);
@@ -4735,24 +4962,24 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
     __Pyx_XDECREF_SET(__pyx_v_row, __pyx_t_12);
     __pyx_t_12 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":48
+    /* "opscli/seller_sprite/export/xlsx.py":50
  * 
  *     for row_index, row in enumerate(rows, start=2):
  *         for column_index, column in enumerate(columns, start=1):             # <<<<<<<<<<<<<<
- *             sheet.cell(row=row_index, column=column_index, value=_cell_value(_column_value(row, column)))
+ *             sheet.cell(row=row_index, column=column_index, value=_cell_value(_column_value(row, column, site=site)))
  * 
 */
     __pyx_t_12 = NULL;
     __pyx_t_13 = 1;
     {
       PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_12, __pyx_v_columns};
-      __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 48, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 50, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_start, __pyx_mstate_global->__pyx_int_1, __pyx_t_9, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 48, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_start, __pyx_mstate_global->__pyx_int_1, __pyx_t_9, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 50, __pyx_L1_error)
       __pyx_t_7 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_builtin_enumerate, __pyx_callargs+__pyx_t_13, (2-__pyx_t_13) | (__pyx_t_13*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_9);
       __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 48, __pyx_L1_error)
+      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 50, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
     }
     if (likely(PyList_CheckExact(__pyx_t_7)) || PyTuple_CheckExact(__pyx_t_7)) {
@@ -4760,9 +4987,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
       __pyx_t_25 = 0;
       __pyx_t_26 = NULL;
     } else {
-      __pyx_t_25 = -1; __pyx_t_9 = PyObject_GetIter(__pyx_t_7); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 48, __pyx_L1_error)
+      __pyx_t_25 = -1; __pyx_t_9 = PyObject_GetIter(__pyx_t_7); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 50, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
-      __pyx_t_26 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_9); if (unlikely(!__pyx_t_26)) __PYX_ERR(0, 48, __pyx_L1_error)
+      __pyx_t_26 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_9); if (unlikely(!__pyx_t_26)) __PYX_ERR(0, 50, __pyx_L1_error)
     }
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     for (;;) {
@@ -4771,7 +4998,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_9);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 48, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 50, __pyx_L1_error)
             #endif
             if (__pyx_t_25 >= __pyx_temp) break;
           }
@@ -4781,7 +5008,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
           {
             Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_9);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 48, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 50, __pyx_L1_error)
             #endif
             if (__pyx_t_25 >= __pyx_temp) break;
           }
@@ -4792,13 +5019,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
           #endif
           ++__pyx_t_25;
         }
-        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 48, __pyx_L1_error)
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 50, __pyx_L1_error)
       } else {
         __pyx_t_7 = __pyx_t_26(__pyx_t_9);
         if (unlikely(!__pyx_t_7)) {
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
-            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 48, __pyx_L1_error)
+            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 50, __pyx_L1_error)
             PyErr_Clear();
           }
           break;
@@ -4811,7 +5038,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
         if (unlikely(size != 2)) {
           if (size > 2) __Pyx_RaiseTooManyValuesError(2);
           else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-          __PYX_ERR(0, 48, __pyx_L1_error)
+          __PYX_ERR(0, 50, __pyx_L1_error)
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
         if (likely(PyTuple_CheckExact(sequence))) {
@@ -4821,22 +5048,22 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
           __Pyx_INCREF(__pyx_t_4);
         } else {
           __pyx_t_12 = __Pyx_PyList_GetItemRefFast(sequence, 0, __Pyx_ReferenceSharing_SharedReference);
-          if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 48, __pyx_L1_error)
+          if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 50, __pyx_L1_error)
           __Pyx_XGOTREF(__pyx_t_12);
           __pyx_t_4 = __Pyx_PyList_GetItemRefFast(sequence, 1, __Pyx_ReferenceSharing_SharedReference);
-          if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 48, __pyx_L1_error)
+          if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 50, __pyx_L1_error)
           __Pyx_XGOTREF(__pyx_t_4);
         }
         #else
-        __pyx_t_12 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 48, __pyx_L1_error)
+        __pyx_t_12 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 50, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_12);
-        __pyx_t_4 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 48, __pyx_L1_error)
+        __pyx_t_4 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 50, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
         #endif
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       } else {
         Py_ssize_t index = -1;
-        __pyx_t_11 = PyObject_GetIter(__pyx_t_7); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 48, __pyx_L1_error)
+        __pyx_t_11 = PyObject_GetIter(__pyx_t_7); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 50, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_11);
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         __pyx_t_24 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_11);
@@ -4844,7 +5071,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
         __Pyx_GOTREF(__pyx_t_12);
         index = 1; __pyx_t_4 = __pyx_t_24(__pyx_t_11); if (unlikely(!__pyx_t_4)) goto __pyx_L41_unpacking_failed;
         __Pyx_GOTREF(__pyx_t_4);
-        if (__Pyx_IternextUnpackEndCheck(__pyx_t_24(__pyx_t_11), 2) < (0)) __PYX_ERR(0, 48, __pyx_L1_error)
+        if (__Pyx_IternextUnpackEndCheck(__pyx_t_24(__pyx_t_11), 2) < (0)) __PYX_ERR(0, 50, __pyx_L1_error)
         __pyx_t_24 = NULL;
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
         goto __pyx_L42_unpacking_done;
@@ -4852,7 +5079,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
         __pyx_t_24 = NULL;
         if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-        __PYX_ERR(0, 48, __pyx_L1_error)
+        __PYX_ERR(0, 50, __pyx_L1_error)
         __pyx_L42_unpacking_done:;
       }
       __Pyx_XDECREF_SET(__pyx_v_column_index, __pyx_t_12);
@@ -4860,20 +5087,20 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
       __Pyx_XDECREF_SET(__pyx_v_column, __pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "opscli/seller_sprite/export/xlsx.py":49
+      /* "opscli/seller_sprite/export/xlsx.py":51
  *     for row_index, row in enumerate(rows, start=2):
  *         for column_index, column in enumerate(columns, start=1):
- *             sheet.cell(row=row_index, column=column_index, value=_cell_value(_column_value(row, column)))             # <<<<<<<<<<<<<<
+ *             sheet.cell(row=row_index, column=column_index, value=_cell_value(_column_value(row, column, site=site)))             # <<<<<<<<<<<<<<
  * 
  *     sheet.freeze_panes = "A2"
 */
       __pyx_t_4 = __pyx_v_sheet;
       __Pyx_INCREF(__pyx_t_4);
       __pyx_t_11 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_cell_value); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 49, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_cell_value); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 51, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_27);
       __pyx_t_29 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_30, __pyx_mstate_global->__pyx_n_u_column_value); if (unlikely(!__pyx_t_30)) __PYX_ERR(0, 49, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_30, __pyx_mstate_global->__pyx_n_u_column_value); if (unlikely(!__pyx_t_30)) __PYX_ERR(0, 51, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_30);
       __pyx_t_13 = 1;
       #if CYTHON_UNPACK_METHODS
@@ -4888,11 +5115,15 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
       }
       #endif
       {
-        PyObject *__pyx_callargs[3] = {__pyx_t_29, __pyx_v_row, __pyx_v_column};
-        __pyx_t_28 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_30, __pyx_callargs+__pyx_t_13, (3-__pyx_t_13) | (__pyx_t_13*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+        PyObject *__pyx_callargs[3 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_29, __pyx_v_row, __pyx_v_column};
+        __pyx_t_31 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_31)) __PYX_ERR(0, 51, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_31);
+        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_site, __pyx_v_site, __pyx_t_31, __pyx_callargs+3, 0) < (0)) __PYX_ERR(0, 51, __pyx_L1_error)
+        __pyx_t_28 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_30, __pyx_callargs+__pyx_t_13, (3-__pyx_t_13) | (__pyx_t_13*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_31);
         __Pyx_XDECREF(__pyx_t_29); __pyx_t_29 = 0;
+        __Pyx_DECREF(__pyx_t_31); __pyx_t_31 = 0;
         __Pyx_DECREF(__pyx_t_30); __pyx_t_30 = 0;
-        if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 49, __pyx_L1_error)
+        if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 51, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_28);
       }
       __pyx_t_13 = 1;
@@ -4913,56 +5144,56 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
         __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
         __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
         __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
-        if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 49, __pyx_L1_error)
+        if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 51, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_12);
       }
       __pyx_t_13 = 0;
       {
         PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 3 : 0)] = {__pyx_t_4, NULL};
-        __pyx_t_27 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 49, __pyx_L1_error)
+        __pyx_t_27 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 51, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_27);
-        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_row, __pyx_v_row_index, __pyx_t_27, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 49, __pyx_L1_error)
-        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_column, __pyx_v_column_index, __pyx_t_27, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 49, __pyx_L1_error)
-        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_value, __pyx_t_12, __pyx_t_27, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 49, __pyx_L1_error)
+        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_row, __pyx_v_row_index, __pyx_t_27, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 51, __pyx_L1_error)
+        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_column, __pyx_v_column_index, __pyx_t_27, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 51, __pyx_L1_error)
+        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_value, __pyx_t_12, __pyx_t_27, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 51, __pyx_L1_error)
         __pyx_t_7 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_cell, __pyx_callargs+__pyx_t_13, (1-__pyx_t_13) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_27);
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
         __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
-        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 49, __pyx_L1_error)
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 51, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
       }
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-      /* "opscli/seller_sprite/export/xlsx.py":48
+      /* "opscli/seller_sprite/export/xlsx.py":50
  * 
  *     for row_index, row in enumerate(rows, start=2):
  *         for column_index, column in enumerate(columns, start=1):             # <<<<<<<<<<<<<<
- *             sheet.cell(row=row_index, column=column_index, value=_cell_value(_column_value(row, column)))
+ *             sheet.cell(row=row_index, column=column_index, value=_cell_value(_column_value(row, column, site=site)))
  * 
 */
     }
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":47
+    /* "opscli/seller_sprite/export/xlsx.py":49
  *         cell.fill = header_fill
  * 
  *     for row_index, row in enumerate(rows, start=2):             # <<<<<<<<<<<<<<
  *         for column_index, column in enumerate(columns, start=1):
- *             sheet.cell(row=row_index, column=column_index, value=_cell_value(_column_value(row, column)))
+ *             sheet.cell(row=row_index, column=column_index, value=_cell_value(_column_value(row, column, site=site)))
 */
   }
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":51
- *             sheet.cell(row=row_index, column=column_index, value=_cell_value(_column_value(row, column)))
+  /* "opscli/seller_sprite/export/xlsx.py":53
+ *             sheet.cell(row=row_index, column=column_index, value=_cell_value(_column_value(row, column, site=site)))
  * 
  *     sheet.freeze_panes = "A2"             # <<<<<<<<<<<<<<
  *     for column_index, column in enumerate(columns, start=1):
  *         width = _column_width(column.title)
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_sheet, __pyx_mstate_global->__pyx_n_u_freeze_panes, __pyx_mstate_global->__pyx_n_u_A2) < (0)) __PYX_ERR(0, 51, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_sheet, __pyx_mstate_global->__pyx_n_u_freeze_panes, __pyx_mstate_global->__pyx_n_u_A2) < (0)) __PYX_ERR(0, 53, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/export/xlsx.py":52
+  /* "opscli/seller_sprite/export/xlsx.py":54
  * 
  *     sheet.freeze_panes = "A2"
  *     for column_index, column in enumerate(columns, start=1):             # <<<<<<<<<<<<<<
@@ -4973,13 +5204,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
   __pyx_t_13 = 1;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_9, __pyx_v_columns};
-    __pyx_t_7 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 52, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 54, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_start, __pyx_mstate_global->__pyx_int_1, __pyx_t_7, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 52, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_start, __pyx_mstate_global->__pyx_int_1, __pyx_t_7, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 54, __pyx_L1_error)
     __pyx_t_10 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_builtin_enumerate, __pyx_callargs+__pyx_t_13, (2-__pyx_t_13) | (__pyx_t_13*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_7);
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 52, __pyx_L1_error)
+    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 54, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
   }
   if (likely(PyList_CheckExact(__pyx_t_10)) || PyTuple_CheckExact(__pyx_t_10)) {
@@ -4987,9 +5218,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
     __pyx_t_6 = 0;
     __pyx_t_23 = NULL;
   } else {
-    __pyx_t_6 = -1; __pyx_t_7 = PyObject_GetIter(__pyx_t_10); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 52, __pyx_L1_error)
+    __pyx_t_6 = -1; __pyx_t_7 = PyObject_GetIter(__pyx_t_10); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 54, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_23 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_7); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 52, __pyx_L1_error)
+    __pyx_t_23 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_7); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 54, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
   for (;;) {
@@ -4998,7 +5229,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_7);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 52, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 54, __pyx_L1_error)
           #endif
           if (__pyx_t_6 >= __pyx_temp) break;
         }
@@ -5008,7 +5239,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_7);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 52, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 54, __pyx_L1_error)
           #endif
           if (__pyx_t_6 >= __pyx_temp) break;
         }
@@ -5019,13 +5250,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
         #endif
         ++__pyx_t_6;
       }
-      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 52, __pyx_L1_error)
+      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 54, __pyx_L1_error)
     } else {
       __pyx_t_10 = __pyx_t_23(__pyx_t_7);
       if (unlikely(!__pyx_t_10)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 52, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 54, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -5038,7 +5269,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
       if (unlikely(size != 2)) {
         if (size > 2) __Pyx_RaiseTooManyValuesError(2);
         else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-        __PYX_ERR(0, 52, __pyx_L1_error)
+        __PYX_ERR(0, 54, __pyx_L1_error)
       }
       #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
       if (likely(PyTuple_CheckExact(sequence))) {
@@ -5048,22 +5279,22 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
         __Pyx_INCREF(__pyx_t_27);
       } else {
         __pyx_t_9 = __Pyx_PyList_GetItemRefFast(sequence, 0, __Pyx_ReferenceSharing_SharedReference);
-        if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 52, __pyx_L1_error)
+        if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 54, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_9);
         __pyx_t_27 = __Pyx_PyList_GetItemRefFast(sequence, 1, __Pyx_ReferenceSharing_SharedReference);
-        if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 52, __pyx_L1_error)
+        if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 54, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_27);
       }
       #else
-      __pyx_t_9 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 52, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 54, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
-      __pyx_t_27 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 52, __pyx_L1_error)
+      __pyx_t_27 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 54, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_27);
       #endif
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     } else {
       Py_ssize_t index = -1;
-      __pyx_t_12 = PyObject_GetIter(__pyx_t_10); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 52, __pyx_L1_error)
+      __pyx_t_12 = PyObject_GetIter(__pyx_t_10); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 54, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_12);
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __pyx_t_24 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_12);
@@ -5071,7 +5302,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
       __Pyx_GOTREF(__pyx_t_9);
       index = 1; __pyx_t_27 = __pyx_t_24(__pyx_t_12); if (unlikely(!__pyx_t_27)) goto __pyx_L47_unpacking_failed;
       __Pyx_GOTREF(__pyx_t_27);
-      if (__Pyx_IternextUnpackEndCheck(__pyx_t_24(__pyx_t_12), 2) < (0)) __PYX_ERR(0, 52, __pyx_L1_error)
+      if (__Pyx_IternextUnpackEndCheck(__pyx_t_24(__pyx_t_12), 2) < (0)) __PYX_ERR(0, 54, __pyx_L1_error)
       __pyx_t_24 = NULL;
       __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
       goto __pyx_L48_unpacking_done;
@@ -5079,7 +5310,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
       __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
       __pyx_t_24 = NULL;
       if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-      __PYX_ERR(0, 52, __pyx_L1_error)
+      __PYX_ERR(0, 54, __pyx_L1_error)
       __pyx_L48_unpacking_done:;
     }
     __Pyx_XDECREF_SET(__pyx_v_column_index, __pyx_t_9);
@@ -5087,7 +5318,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
     __Pyx_XDECREF_SET(__pyx_v_column, __pyx_t_27);
     __pyx_t_27 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":53
+    /* "opscli/seller_sprite/export/xlsx.py":55
  *     sheet.freeze_panes = "A2"
  *     for column_index, column in enumerate(columns, start=1):
  *         width = _column_width(column.title)             # <<<<<<<<<<<<<<
@@ -5095,9 +5326,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
  * 
 */
     __pyx_t_27 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_column_width); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 53, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_column_width); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 55, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_title); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 53, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_title); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 55, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
     __pyx_t_13 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -5117,20 +5348,20 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
       __Pyx_XDECREF(__pyx_t_27); __pyx_t_27 = 0;
       __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 53, __pyx_L1_error)
+      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 55, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
     }
     __Pyx_XDECREF_SET(__pyx_v_width, __pyx_t_10);
     __pyx_t_10 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":54
+    /* "opscli/seller_sprite/export/xlsx.py":56
  *     for column_index, column in enumerate(columns, start=1):
  *         width = _column_width(column.title)
  *         sheet.column_dimensions[get_column_letter(column_index)].width = width             # <<<<<<<<<<<<<<
  * 
  *     if high_frequency_rows:
 */
-    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_v_sheet, __pyx_mstate_global->__pyx_n_u_column_dimensions); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 54, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_v_sheet, __pyx_mstate_global->__pyx_n_u_column_dimensions); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 56, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __pyx_t_12 = NULL;
     __Pyx_INCREF(__pyx_v_get_column_letter);
@@ -5152,17 +5383,17 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
       __pyx_t_9 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_27, __pyx_callargs+__pyx_t_13, (2-__pyx_t_13) | (__pyx_t_13*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
       __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
-      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 54, __pyx_L1_error)
+      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 56, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
     }
-    __pyx_t_27 = __Pyx_PyObject_GetItem(__pyx_t_10, __pyx_t_9); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 54, __pyx_L1_error)
+    __pyx_t_27 = __Pyx_PyObject_GetItem(__pyx_t_10, __pyx_t_9); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 56, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_27);
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (__Pyx_PyObject_SetAttrStr(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_width, __pyx_v_width) < (0)) __PYX_ERR(0, 54, __pyx_L1_error)
+    if (__Pyx_PyObject_SetAttrStr(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_width, __pyx_v_width) < (0)) __PYX_ERR(0, 56, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":52
+    /* "opscli/seller_sprite/export/xlsx.py":54
  * 
  *     sheet.freeze_panes = "A2"
  *     for column_index, column in enumerate(columns, start=1):             # <<<<<<<<<<<<<<
@@ -5172,7 +5403,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
   }
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":56
+  /* "opscli/seller_sprite/export/xlsx.py":58
  *         sheet.column_dimensions[get_column_letter(column_index)].width = width
  * 
  *     if high_frequency_rows:             # <<<<<<<<<<<<<<
@@ -5183,13 +5414,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
   else
   {
     Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_v_high_frequency_rows);
-    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 56, __pyx_L1_error)
+    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 58, __pyx_L1_error)
     __pyx_t_22 = (__pyx_temp != 0);
   }
 
   if (__pyx_t_22) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":57
+    /* "opscli/seller_sprite/export/xlsx.py":59
  * 
  *     if high_frequency_rows:
  *         _add_high_frequency_sheet(workbook, high_frequency_rows)             # <<<<<<<<<<<<<<
@@ -5197,7 +5428,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
  *     workbook.save(output_path)
 */
     __pyx_t_27 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_add_high_frequency_sheet); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 57, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_add_high_frequency_sheet); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 59, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __pyx_t_13 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -5216,12 +5447,12 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
       __pyx_t_7 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_9, __pyx_callargs+__pyx_t_13, (3-__pyx_t_13) | (__pyx_t_13*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_27); __pyx_t_27 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 57, __pyx_L1_error)
+      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 59, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
     }
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":56
+    /* "opscli/seller_sprite/export/xlsx.py":58
  *         sheet.column_dimensions[get_column_letter(column_index)].width = width
  * 
  *     if high_frequency_rows:             # <<<<<<<<<<<<<<
@@ -5230,7 +5461,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":59
+  /* "opscli/seller_sprite/export/xlsx.py":61
  *         _add_high_frequency_sheet(workbook, high_frequency_rows)
  * 
  *     workbook.save(output_path)             # <<<<<<<<<<<<<<
@@ -5244,12 +5475,12 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
     PyObject *__pyx_callargs[2] = {__pyx_t_9, __pyx_v_output_path};
     __pyx_t_7 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_save, __pyx_callargs+__pyx_t_13, (2-__pyx_t_13) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 59, __pyx_L1_error)
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 61, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
   }
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":60
+  /* "opscli/seller_sprite/export/xlsx.py":62
  * 
  *     workbook.save(output_path)
  *     resolved_output = output_path.resolve()             # <<<<<<<<<<<<<<
@@ -5263,13 +5494,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
     PyObject *__pyx_callargs[2] = {__pyx_t_9, NULL};
     __pyx_t_7 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_resolve, __pyx_callargs+__pyx_t_13, (1-__pyx_t_13) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 60, __pyx_L1_error)
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 62, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
   }
   __pyx_v_resolved_output = __pyx_t_7;
   __pyx_t_7 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":61
+  /* "opscli/seller_sprite/export/xlsx.py":63
  *     workbook.save(output_path)
  *     resolved_output = output_path.resolve()
  *     return SellerSpriteExportResult(             # <<<<<<<<<<<<<<
@@ -5278,30 +5509,30 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_9 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_SellerSpriteExportResult); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 61, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_27, __pyx_mstate_global->__pyx_n_u_SellerSpriteExportResult); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 63, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_27);
 
-  /* "opscli/seller_sprite/export/xlsx.py":62
+  /* "opscli/seller_sprite/export/xlsx.py":64
  *     resolved_output = output_path.resolve()
  *     return SellerSpriteExportResult(
  *         path=str(resolved_output),             # <<<<<<<<<<<<<<
  *         filename=resolved_output.name,
  *         url=resolved_output.as_uri(),
 */
-  __pyx_t_10 = __Pyx_PyObject_Unicode(__pyx_v_resolved_output); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 62, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_Unicode(__pyx_v_resolved_output); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 64, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
 
-  /* "opscli/seller_sprite/export/xlsx.py":63
+  /* "opscli/seller_sprite/export/xlsx.py":65
  *     return SellerSpriteExportResult(
  *         path=str(resolved_output),
  *         filename=resolved_output.name,             # <<<<<<<<<<<<<<
  *         url=resolved_output.as_uri(),
  *     )
 */
-  __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_v_resolved_output, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 63, __pyx_L1_error)
+  __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_v_resolved_output, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 65, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_12);
 
-  /* "opscli/seller_sprite/export/xlsx.py":64
+  /* "opscli/seller_sprite/export/xlsx.py":66
  *         path=str(resolved_output),
  *         filename=resolved_output.name,
  *         url=resolved_output.as_uri(),             # <<<<<<<<<<<<<<
@@ -5315,7 +5546,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
     PyObject *__pyx_callargs[2] = {__pyx_t_28, NULL};
     __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_as_uri, __pyx_callargs+__pyx_t_13, (1-__pyx_t_13) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_28); __pyx_t_28 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 64, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 66, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
   __pyx_t_13 = 1;
@@ -5332,11 +5563,11 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
   #endif
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 3 : 0)] = {__pyx_t_9, NULL};
-    __pyx_t_28 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 61, __pyx_L1_error)
+    __pyx_t_28 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 63, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_28);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_path, __pyx_t_10, __pyx_t_28, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 61, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_filename, __pyx_t_12, __pyx_t_28, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 61, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_url, __pyx_t_4, __pyx_t_28, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 61, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_path, __pyx_t_10, __pyx_t_28, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 63, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_filename, __pyx_t_12, __pyx_t_28, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 63, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_url, __pyx_t_4, __pyx_t_28, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 63, __pyx_L1_error)
     __pyx_t_7 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_27, __pyx_callargs+__pyx_t_13, (1-__pyx_t_13) | (__pyx_t_13*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_28);
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
@@ -5344,15 +5575,15 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
     __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
-    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 61, __pyx_L1_error)
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 63, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
   }
   __pyx_r = __pyx_t_7;
   __pyx_t_7 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":13
- * from opscli.seller_sprite.export.columns import ExportColumn, columns_for_scenario
+  /* "opscli/seller_sprite/export/xlsx.py":15
+ * from opscli.seller_sprite.export.columns import ExportColumn, columns_for_scenario, currency_label
  * 
  * def export_rows_to_xlsx(             # <<<<<<<<<<<<<<
  *     *,
@@ -5371,6 +5602,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
   __Pyx_XDECREF(__pyx_t_28);
   __Pyx_XDECREF(__pyx_t_29);
   __Pyx_XDECREF(__pyx_t_30);
+  __Pyx_XDECREF(__pyx_t_31);
   __Pyx_AddTraceback("opscli.seller_sprite.export.xlsx.export_rows_to_xlsx", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -5397,7 +5629,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_export_rows_to_x
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":68
+/* "opscli/seller_sprite/export/xlsx.py":70
  * 
  * 
  * def _collect_fields(rows: list[dict[str, Any]]) -> list[str]:             # <<<<<<<<<<<<<<
@@ -5444,32 +5676,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_rows,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 68, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 70, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 68, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 70, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_collect_fields", 0) < (0)) __PYX_ERR(0, 68, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_collect_fields", 0) < (0)) __PYX_ERR(0, 70, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_collect_fields", 1, 1, 1, i); __PYX_ERR(0, 68, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_collect_fields", 1, 1, 1, i); __PYX_ERR(0, 70, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 68, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 70, __pyx_L3_error)
     }
     __pyx_v_rows = ((PyObject*)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_collect_fields", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 68, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_collect_fields", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 70, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5480,7 +5712,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_rows), (&PyList_Type), 0, "rows", 2))) __PYX_ERR(0, 68, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_rows), (&PyList_Type), 0, "rows", 2))) __PYX_ERR(0, 70, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_2_collect_fields(__pyx_self, __pyx_v_rows);
 
   /* function exit code */
@@ -5522,31 +5754,31 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_2_collect_fields
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_collect_fields", 0);
 
-  /* "opscli/seller_sprite/export/xlsx.py":69
+  /* "opscli/seller_sprite/export/xlsx.py":71
  * 
  * def _collect_fields(rows: list[dict[str, Any]]) -> list[str]:
  *     fields: list[str] = []             # <<<<<<<<<<<<<<
  *     seen: set[str] = set()
  *     for row in rows:
 */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 69, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_fields = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":70
+  /* "opscli/seller_sprite/export/xlsx.py":72
  * def _collect_fields(rows: list[dict[str, Any]]) -> list[str]:
  *     fields: list[str] = []
  *     seen: set[str] = set()             # <<<<<<<<<<<<<<
  *     for row in rows:
  *         for key in row.keys():
 */
-  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 72, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_seen = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":71
+  /* "opscli/seller_sprite/export/xlsx.py":73
  *     fields: list[str] = []
  *     seen: set[str] = set()
  *     for row in rows:             # <<<<<<<<<<<<<<
@@ -5559,18 +5791,18 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_2_collect_fields
     {
       Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
       #if !CYTHON_ASSUME_SAFE_SIZE
-      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 71, __pyx_L1_error)
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 73, __pyx_L1_error)
       #endif
       if (__pyx_t_2 >= __pyx_temp) break;
     }
     __pyx_t_3 = __Pyx_PyList_GetItemRefFast(__pyx_t_1, __pyx_t_2, __Pyx_ReferenceSharing_OwnStrongReference);
     ++__pyx_t_2;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 71, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 73, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_XDECREF_SET(__pyx_v_row, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":72
+    /* "opscli/seller_sprite/export/xlsx.py":74
  *     seen: set[str] = set()
  *     for row in rows:
  *         for key in row.keys():             # <<<<<<<<<<<<<<
@@ -5580,9 +5812,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_2_collect_fields
     __pyx_t_4 = 0;
     if (unlikely(__pyx_v_row == Py_None)) {
       PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "keys");
-      __PYX_ERR(0, 72, __pyx_L1_error)
+      __PYX_ERR(0, 74, __pyx_L1_error)
     }
-    __pyx_t_7 = __Pyx_dict_iterator(__pyx_v_row, 0, __pyx_mstate_global->__pyx_n_u_keys, (&__pyx_t_5), (&__pyx_t_6)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 72, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_dict_iterator(__pyx_v_row, 0, __pyx_mstate_global->__pyx_n_u_keys, (&__pyx_t_5), (&__pyx_t_6)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 74, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_XDECREF(__pyx_t_3);
     __pyx_t_3 = __pyx_t_7;
@@ -5590,40 +5822,40 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_2_collect_fields
     while (1) {
       __pyx_t_8 = __Pyx_dict_iter_next(__pyx_t_3, __pyx_t_5, &__pyx_t_4, &__pyx_t_7, NULL, NULL, __pyx_t_6);
       if (unlikely(__pyx_t_8 == 0)) break;
-      if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 72, __pyx_L1_error)
+      if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 74, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_XDECREF_SET(__pyx_v_key, __pyx_t_7);
       __pyx_t_7 = 0;
 
-      /* "opscli/seller_sprite/export/xlsx.py":73
+      /* "opscli/seller_sprite/export/xlsx.py":75
  *     for row in rows:
  *         for key in row.keys():
  *             if key not in seen:             # <<<<<<<<<<<<<<
  *                 seen.add(key)
  *                 fields.append(key)
 */
-      __pyx_t_9 = (__Pyx_PySet_ContainsTF(__pyx_v_key, __pyx_v_seen, Py_NE)); if (unlikely((__pyx_t_9 < 0))) __PYX_ERR(0, 73, __pyx_L1_error)
+      __pyx_t_9 = (__Pyx_PySet_ContainsTF(__pyx_v_key, __pyx_v_seen, Py_NE)); if (unlikely((__pyx_t_9 < 0))) __PYX_ERR(0, 75, __pyx_L1_error)
       if (__pyx_t_9) {
 
-        /* "opscli/seller_sprite/export/xlsx.py":74
+        /* "opscli/seller_sprite/export/xlsx.py":76
  *         for key in row.keys():
  *             if key not in seen:
  *                 seen.add(key)             # <<<<<<<<<<<<<<
  *                 fields.append(key)
  *     return fields
 */
-        __pyx_t_10 = PySet_Add(__pyx_v_seen, __pyx_v_key); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 74, __pyx_L1_error)
+        __pyx_t_10 = PySet_Add(__pyx_v_seen, __pyx_v_key); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 76, __pyx_L1_error)
 
-        /* "opscli/seller_sprite/export/xlsx.py":75
+        /* "opscli/seller_sprite/export/xlsx.py":77
  *             if key not in seen:
  *                 seen.add(key)
  *                 fields.append(key)             # <<<<<<<<<<<<<<
  *     return fields
  * 
 */
-        __pyx_t_10 = __Pyx_PyList_Append(__pyx_v_fields, __pyx_v_key); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 75, __pyx_L1_error)
+        __pyx_t_10 = __Pyx_PyList_Append(__pyx_v_fields, __pyx_v_key); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 77, __pyx_L1_error)
 
-        /* "opscli/seller_sprite/export/xlsx.py":73
+        /* "opscli/seller_sprite/export/xlsx.py":75
  *     for row in rows:
  *         for key in row.keys():
  *             if key not in seen:             # <<<<<<<<<<<<<<
@@ -5634,7 +5866,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_2_collect_fields
     }
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":71
+    /* "opscli/seller_sprite/export/xlsx.py":73
  *     fields: list[str] = []
  *     seen: set[str] = set()
  *     for row in rows:             # <<<<<<<<<<<<<<
@@ -5644,7 +5876,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_2_collect_fields
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":76
+  /* "opscli/seller_sprite/export/xlsx.py":78
  *                 seen.add(key)
  *                 fields.append(key)
  *     return fields             # <<<<<<<<<<<<<<
@@ -5656,7 +5888,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_2_collect_fields
   __pyx_r = __pyx_v_fields;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":68
+  /* "opscli/seller_sprite/export/xlsx.py":70
  * 
  * 
  * def _collect_fields(rows: list[dict[str, Any]]) -> list[str]:             # <<<<<<<<<<<<<<
@@ -5681,7 +5913,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_2_collect_fields
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":79
+/* "opscli/seller_sprite/export/xlsx.py":81
  * 
  * 
  * def _get_value(row: dict[str, Any], field: str) -> Any:             # <<<<<<<<<<<<<<
@@ -5729,39 +5961,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_row,&__pyx_mstate_global->__pyx_n_u_field,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 79, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 81, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 79, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 81, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 79, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 81, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_get_value", 0) < (0)) __PYX_ERR(0, 79, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_get_value", 0) < (0)) __PYX_ERR(0, 81, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_get_value", 1, 2, 2, i); __PYX_ERR(0, 79, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_get_value", 1, 2, 2, i); __PYX_ERR(0, 81, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 79, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 81, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 79, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 81, __pyx_L3_error)
     }
     __pyx_v_row = ((PyObject*)values[0]);
     __pyx_v_field = ((PyObject*)values[1]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_get_value", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 79, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_get_value", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 81, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5772,8 +6004,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_row), (&PyDict_Type), 0, "row", 2))) __PYX_ERR(0, 79, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_field), (&PyUnicode_Type), 0, "field", 2))) __PYX_ERR(0, 79, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_row), (&PyDict_Type), 0, "row", 2))) __PYX_ERR(0, 81, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_field), (&PyUnicode_Type), 0, "field", 2))) __PYX_ERR(0, 81, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_4_get_value(__pyx_self, __pyx_v_row, __pyx_v_field);
 
   /* function exit code */
@@ -5813,7 +6045,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_4_get_value(CYTH
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_get_value", 0);
 
-  /* "opscli/seller_sprite/export/xlsx.py":80
+  /* "opscli/seller_sprite/export/xlsx.py":82
  * 
  * def _get_value(row: dict[str, Any], field: str) -> Any:
  *     value: Any = row             # <<<<<<<<<<<<<<
@@ -5823,14 +6055,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_4_get_value(CYTH
   __Pyx_INCREF(__pyx_v_row);
   __pyx_v_value = __pyx_v_row;
 
-  /* "opscli/seller_sprite/export/xlsx.py":81
+  /* "opscli/seller_sprite/export/xlsx.py":83
  * def _get_value(row: dict[str, Any], field: str) -> Any:
  *     value: Any = row
  *     for part in field.split("."):             # <<<<<<<<<<<<<<
  *         if isinstance(value, dict):
  *             value = value.get(part)
 */
-  __pyx_t_1 = PyUnicode_Split(__pyx_v_field, __pyx_mstate_global->__pyx_kp_u_, -1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 81, __pyx_L1_error)
+  __pyx_t_1 = PyUnicode_Split(__pyx_v_field, __pyx_mstate_global->__pyx_kp_u_, -1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 83, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_2 = __pyx_t_1; __Pyx_INCREF(__pyx_t_2);
   __pyx_t_3 = 0;
@@ -5839,18 +6071,18 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_4_get_value(CYTH
     {
       Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_2);
       #if !CYTHON_ASSUME_SAFE_SIZE
-      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 81, __pyx_L1_error)
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 83, __pyx_L1_error)
       #endif
       if (__pyx_t_3 >= __pyx_temp) break;
     }
     __pyx_t_1 = __Pyx_PyList_GetItemRefFast(__pyx_t_2, __pyx_t_3, __Pyx_ReferenceSharing_OwnStrongReference);
     ++__pyx_t_3;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 81, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 83, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_XDECREF_SET(__pyx_v_part, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":82
+    /* "opscli/seller_sprite/export/xlsx.py":84
  *     value: Any = row
  *     for part in field.split("."):
  *         if isinstance(value, dict):             # <<<<<<<<<<<<<<
@@ -5860,7 +6092,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_4_get_value(CYTH
     __pyx_t_4 = PyDict_Check(__pyx_v_value); 
     if (__pyx_t_4) {
 
-      /* "opscli/seller_sprite/export/xlsx.py":83
+      /* "opscli/seller_sprite/export/xlsx.py":85
  *     for part in field.split("."):
  *         if isinstance(value, dict):
  *             value = value.get(part)             # <<<<<<<<<<<<<<
@@ -5874,13 +6106,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_4_get_value(CYTH
         PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_part};
         __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 83, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 85, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __Pyx_DECREF_SET(__pyx_v_value, __pyx_t_1);
       __pyx_t_1 = 0;
 
-      /* "opscli/seller_sprite/export/xlsx.py":82
+      /* "opscli/seller_sprite/export/xlsx.py":84
  *     value: Any = row
  *     for part in field.split("."):
  *         if isinstance(value, dict):             # <<<<<<<<<<<<<<
@@ -5890,7 +6122,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_4_get_value(CYTH
       goto __pyx_L5;
     }
 
-    /* "opscli/seller_sprite/export/xlsx.py":84
+    /* "opscli/seller_sprite/export/xlsx.py":86
  *         if isinstance(value, dict):
  *             value = value.get(part)
  *         elif isinstance(value, list) and part.isdigit():             # <<<<<<<<<<<<<<
@@ -5910,43 +6142,43 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_4_get_value(CYTH
       PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_isdigit, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 84, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 86, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
-    __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 84, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 86, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_4 = __pyx_t_7;
     __pyx_L6_bool_binop_done:;
     if (__pyx_t_4) {
 
-      /* "opscli/seller_sprite/export/xlsx.py":85
+      /* "opscli/seller_sprite/export/xlsx.py":87
  *             value = value.get(part)
  *         elif isinstance(value, list) and part.isdigit():
  *             index = int(part)             # <<<<<<<<<<<<<<
  *             value = value[index] if index < len(value) else None
  *         else:
 */
-      __pyx_t_1 = __Pyx_PyNumber_Int(__pyx_v_part); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 85, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyNumber_Int(__pyx_v_part); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 87, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_XDECREF_SET(__pyx_v_index, ((PyObject*)__pyx_t_1));
       __pyx_t_1 = 0;
 
-      /* "opscli/seller_sprite/export/xlsx.py":86
+      /* "opscli/seller_sprite/export/xlsx.py":88
  *         elif isinstance(value, list) and part.isdigit():
  *             index = int(part)
  *             value = value[index] if index < len(value) else None             # <<<<<<<<<<<<<<
  *         else:
  *             return None
 */
-      __pyx_t_8 = PyObject_Length(__pyx_v_value); if (unlikely(__pyx_t_8 == ((Py_ssize_t)-1))) __PYX_ERR(0, 86, __pyx_L1_error)
-      __pyx_t_5 = PyLong_FromSsize_t(__pyx_t_8); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 86, __pyx_L1_error)
+      __pyx_t_8 = PyObject_Length(__pyx_v_value); if (unlikely(__pyx_t_8 == ((Py_ssize_t)-1))) __PYX_ERR(0, 88, __pyx_L1_error)
+      __pyx_t_5 = PyLong_FromSsize_t(__pyx_t_8); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 88, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_9 = PyObject_RichCompare(__pyx_v_index, __pyx_t_5, Py_LT); __Pyx_XGOTREF(__pyx_t_9); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 86, __pyx_L1_error)
+      __pyx_t_9 = PyObject_RichCompare(__pyx_v_index, __pyx_t_5, Py_LT); __Pyx_XGOTREF(__pyx_t_9); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 88, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_9); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 86, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_t_9); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 88, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       if (__pyx_t_4) {
-        __pyx_t_9 = __Pyx_PyObject_GetItem(__pyx_v_value, __pyx_v_index); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 86, __pyx_L1_error)
+        __pyx_t_9 = __Pyx_PyObject_GetItem(__pyx_v_value, __pyx_v_index); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 88, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_9);
         __pyx_t_1 = __pyx_t_9;
         __pyx_t_9 = 0;
@@ -5957,7 +6189,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_4_get_value(CYTH
       __Pyx_DECREF_SET(__pyx_v_value, __pyx_t_1);
       __pyx_t_1 = 0;
 
-      /* "opscli/seller_sprite/export/xlsx.py":84
+      /* "opscli/seller_sprite/export/xlsx.py":86
  *         if isinstance(value, dict):
  *             value = value.get(part)
  *         elif isinstance(value, list) and part.isdigit():             # <<<<<<<<<<<<<<
@@ -5967,7 +6199,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_4_get_value(CYTH
       goto __pyx_L5;
     }
 
-    /* "opscli/seller_sprite/export/xlsx.py":88
+    /* "opscli/seller_sprite/export/xlsx.py":90
  *             value = value[index] if index < len(value) else None
  *         else:
  *             return None             # <<<<<<<<<<<<<<
@@ -5982,7 +6214,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_4_get_value(CYTH
     }
     __pyx_L5:;
 
-    /* "opscli/seller_sprite/export/xlsx.py":81
+    /* "opscli/seller_sprite/export/xlsx.py":83
  * def _get_value(row: dict[str, Any], field: str) -> Any:
  *     value: Any = row
  *     for part in field.split("."):             # <<<<<<<<<<<<<<
@@ -5992,7 +6224,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_4_get_value(CYTH
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":89
+  /* "opscli/seller_sprite/export/xlsx.py":91
  *         else:
  *             return None
  *     return value             # <<<<<<<<<<<<<<
@@ -6004,7 +6236,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_4_get_value(CYTH
   __pyx_r = __pyx_v_value;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":79
+  /* "opscli/seller_sprite/export/xlsx.py":81
  * 
  * 
  * def _get_value(row: dict[str, Any], field: str) -> Any:             # <<<<<<<<<<<<<<
@@ -6029,10 +6261,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_4_get_value(CYTH
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":92
+/* "opscli/seller_sprite/export/xlsx.py":94
  * 
  * 
- * def _column_value(row: dict[str, Any], column: ExportColumn) -> Any:             # <<<<<<<<<<<<<<
+ * def _column_value(row: dict[str, Any], column: ExportColumn, *, site: str) -> Any:             # <<<<<<<<<<<<<<
  *     if column.source is None:
  *         return ""
 */
@@ -6055,11 +6287,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 ) {
   PyObject *__pyx_v_row = 0;
   PyObject *__pyx_v_column = 0;
+  PyObject *__pyx_v_site = 0;
   #if !CYTHON_METH_FASTCALL
   CYTHON_UNUSED Py_ssize_t __pyx_nargs;
   #endif
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  PyObject* values[2] = {0,0};
+  PyObject* values[3] = {0,0,0};
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -6075,41 +6308,42 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   #endif
   __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
   {
-    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_row,&__pyx_mstate_global->__pyx_n_u_column,0};
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_row,&__pyx_mstate_global->__pyx_n_u_column,&__pyx_mstate_global->__pyx_n_u_site,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 92, __pyx_L3_error)
-    if (__pyx_kwds_len > 0) {
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 94, __pyx_L3_error)
+    if (likely(__pyx_kwds_len > 0)) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 92, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 94, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 92, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 94, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_column_value", 0) < (0)) __PYX_ERR(0, 92, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_column_value", 0) < (0)) __PYX_ERR(0, 94, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_column_value", 1, 2, 2, i); __PYX_ERR(0, 92, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_column_value", 1, 2, 2, i); __PYX_ERR(0, 94, __pyx_L3_error) }
+      }
+      for (Py_ssize_t i = 2; i < 3; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("_column_value", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 94, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
-      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 92, __pyx_L3_error)
-      values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 92, __pyx_L3_error)
+      __Pyx_RaiseKeywordRequired("_column_value", __pyx_mstate_global->__pyx_n_u_site); __PYX_ERR(0, 94, __pyx_L3_error)
     }
     __pyx_v_row = ((PyObject*)values[0]);
     __pyx_v_column = values[1];
+    __pyx_v_site = ((PyObject*)values[2]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_column_value", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 92, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_column_value", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 94, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6120,8 +6354,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_row), (&PyDict_Type), 0, "row", 2))) __PYX_ERR(0, 92, __pyx_L1_error)
-  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_6_column_value(__pyx_self, __pyx_v_row, __pyx_v_column);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_row), (&PyDict_Type), 0, "row", 2))) __PYX_ERR(0, 94, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_site), (&PyUnicode_Type), 0, "site", 2))) __PYX_ERR(0, 94, __pyx_L1_error)
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_6_column_value(__pyx_self, __pyx_v_row, __pyx_v_column, __pyx_v_site);
 
   /* function exit code */
   goto __pyx_L0;
@@ -6140,7 +6375,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_6_column_value(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_row, PyObject *__pyx_v_column) {
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_6_column_value(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_row, PyObject *__pyx_v_column, PyObject *__pyx_v_site) {
   PyObject *__pyx_v_value = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -6151,26 +6386,27 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_6_column_value(C
   PyObject *__pyx_t_5 = NULL;
   size_t __pyx_t_6;
   int __pyx_t_7;
+  PyObject *__pyx_t_8 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_column_value", 0);
 
-  /* "opscli/seller_sprite/export/xlsx.py":93
+  /* "opscli/seller_sprite/export/xlsx.py":95
  * 
- * def _column_value(row: dict[str, Any], column: ExportColumn) -> Any:
+ * def _column_value(row: dict[str, Any], column: ExportColumn, *, site: str) -> Any:
  *     if column.source is None:             # <<<<<<<<<<<<<<
  *         return ""
  *     value = _get_value(row, column.source)
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_source); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 93, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_source); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 95, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_2 = (__pyx_t_1 == Py_None);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":94
- * def _column_value(row: dict[str, Any], column: ExportColumn) -> Any:
+    /* "opscli/seller_sprite/export/xlsx.py":96
+ * def _column_value(row: dict[str, Any], column: ExportColumn, *, site: str) -> Any:
  *     if column.source is None:
  *         return ""             # <<<<<<<<<<<<<<
  *     value = _get_value(row, column.source)
@@ -6181,16 +6417,16 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_6_column_value(C
     __pyx_r = __pyx_mstate_global->__pyx_kp_u__2;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":93
+    /* "opscli/seller_sprite/export/xlsx.py":95
  * 
- * def _column_value(row: dict[str, Any], column: ExportColumn) -> Any:
+ * def _column_value(row: dict[str, Any], column: ExportColumn, *, site: str) -> Any:
  *     if column.source is None:             # <<<<<<<<<<<<<<
  *         return ""
  *     value = _get_value(row, column.source)
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":95
+  /* "opscli/seller_sprite/export/xlsx.py":97
  *     if column.source is None:
  *         return ""
  *     value = _get_value(row, column.source)             # <<<<<<<<<<<<<<
@@ -6198,9 +6434,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_6_column_value(C
  *         value = _get_value(row, column.fallback)
 */
   __pyx_t_3 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_get_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 95, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_get_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 97, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_source); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 95, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_source); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 97, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_6 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -6220,21 +6456,21 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_6_column_value(C
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 95, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_value = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":96
+  /* "opscli/seller_sprite/export/xlsx.py":98
  *         return ""
  *     value = _get_value(row, column.source)
  *     if _is_blank(value) and column.fallback:             # <<<<<<<<<<<<<<
  *         value = _get_value(row, column.fallback)
- *     return _apply_transform(value, column.transform, row)
+ *     return _apply_transform(value, column.transform, row, site=site)
 */
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 96, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 98, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_6 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -6253,35 +6489,35 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_6_column_value(C
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 98, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 96, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 98, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_7) {
   } else {
     __pyx_t_2 = __pyx_t_7;
     goto __pyx_L5_bool_binop_done;
   }
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_fallback); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_fallback); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 98, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 96, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 98, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_2 = __pyx_t_7;
   __pyx_L5_bool_binop_done:;
   if (__pyx_t_2) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":97
+    /* "opscli/seller_sprite/export/xlsx.py":99
  *     value = _get_value(row, column.source)
  *     if _is_blank(value) and column.fallback:
  *         value = _get_value(row, column.fallback)             # <<<<<<<<<<<<<<
- *     return _apply_transform(value, column.transform, row)
+ *     return _apply_transform(value, column.transform, row, site=site)
  * 
 */
     __pyx_t_5 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_get_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 97, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_get_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 99, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_fallback); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 97, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_fallback); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 99, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_6 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -6301,33 +6537,33 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_6_column_value(C
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 99, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF_SET(__pyx_v_value, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":96
+    /* "opscli/seller_sprite/export/xlsx.py":98
  *         return ""
  *     value = _get_value(row, column.source)
  *     if _is_blank(value) and column.fallback:             # <<<<<<<<<<<<<<
  *         value = _get_value(row, column.fallback)
- *     return _apply_transform(value, column.transform, row)
+ *     return _apply_transform(value, column.transform, row, site=site)
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":98
+  /* "opscli/seller_sprite/export/xlsx.py":100
  *     if _is_blank(value) and column.fallback:
  *         value = _get_value(row, column.fallback)
- *     return _apply_transform(value, column.transform, row)             # <<<<<<<<<<<<<<
+ *     return _apply_transform(value, column.transform, row, site=site)             # <<<<<<<<<<<<<<
  * 
  * 
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_apply_transform); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 98, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_apply_transform); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_transform); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 98, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_transform); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_6 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -6342,22 +6578,26 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_6_column_value(C
   }
   #endif
   {
-    PyObject *__pyx_callargs[4] = {__pyx_t_4, __pyx_v_value, __pyx_t_5, __pyx_v_row};
-    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_6, (4-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    PyObject *__pyx_callargs[4 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_4, __pyx_v_value, __pyx_t_5, __pyx_v_row};
+    __pyx_t_8 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 100, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_8);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_site, __pyx_v_site, __pyx_t_8, __pyx_callargs+4, 0) < (0)) __PYX_ERR(0, 100, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_6, (4-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_8);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 98, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 100, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":92
+  /* "opscli/seller_sprite/export/xlsx.py":94
  * 
  * 
- * def _column_value(row: dict[str, Any], column: ExportColumn) -> Any:             # <<<<<<<<<<<<<<
+ * def _column_value(row: dict[str, Any], column: ExportColumn, *, site: str) -> Any:             # <<<<<<<<<<<<<<
  *     if column.source is None:
  *         return ""
 */
@@ -6368,6 +6608,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_6_column_value(C
   __Pyx_XDECREF(__pyx_t_3);
   __Pyx_XDECREF(__pyx_t_4);
   __Pyx_XDECREF(__pyx_t_5);
+  __Pyx_XDECREF(__pyx_t_8);
   __Pyx_AddTraceback("opscli.seller_sprite.export.xlsx._column_value", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -6377,10 +6618,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_6_column_value(C
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":101
+/* "opscli/seller_sprite/export/xlsx.py":103
  * 
  * 
- * def _apply_transform(value: Any, transform: str | None, row: dict[str, Any]) -> Any:             # <<<<<<<<<<<<<<
+ * def _apply_transform(value: Any, transform: str | None, row: dict[str, Any], *, site: str) -> Any:             # <<<<<<<<<<<<<<
  *     if not transform:
  *         return value
 */
@@ -6404,11 +6645,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   PyObject *__pyx_v_value = 0;
   PyObject *__pyx_v_transform = 0;
   PyObject *__pyx_v_row = 0;
+  PyObject *__pyx_v_site = 0;
   #if !CYTHON_METH_FASTCALL
   CYTHON_UNUSED Py_ssize_t __pyx_nargs;
   #endif
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  PyObject* values[3] = {0,0,0};
+  PyObject* values[4] = {0,0,0,0};
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -6424,48 +6666,47 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   #endif
   __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
   {
-    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_value,&__pyx_mstate_global->__pyx_n_u_transform,&__pyx_mstate_global->__pyx_n_u_row,0};
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_value,&__pyx_mstate_global->__pyx_n_u_transform,&__pyx_mstate_global->__pyx_n_u_row,&__pyx_mstate_global->__pyx_n_u_site,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 101, __pyx_L3_error)
-    if (__pyx_kwds_len > 0) {
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 103, __pyx_L3_error)
+    if (likely(__pyx_kwds_len > 0)) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 101, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 103, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 101, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 103, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 101, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 103, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_apply_transform", 0) < (0)) __PYX_ERR(0, 101, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_apply_transform", 0) < (0)) __PYX_ERR(0, 103, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_apply_transform", 1, 3, 3, i); __PYX_ERR(0, 101, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_apply_transform", 1, 3, 3, i); __PYX_ERR(0, 103, __pyx_L3_error) }
+      }
+      for (Py_ssize_t i = 3; i < 4; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("_apply_transform", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 103, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
-      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 101, __pyx_L3_error)
-      values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 101, __pyx_L3_error)
-      values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 101, __pyx_L3_error)
+      __Pyx_RaiseKeywordRequired("_apply_transform", __pyx_mstate_global->__pyx_n_u_site); __PYX_ERR(0, 103, __pyx_L3_error)
     }
     __pyx_v_value = values[0];
     __pyx_v_transform = ((PyObject*)values[1]);
     __pyx_v_row = ((PyObject*)values[2]);
+    __pyx_v_site = ((PyObject*)values[3]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_apply_transform", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 101, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_apply_transform", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 103, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6476,9 +6717,10 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_transform), (&PyUnicode_Type), 1, "transform", 2))) __PYX_ERR(0, 101, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_row), (&PyDict_Type), 0, "row", 2))) __PYX_ERR(0, 101, __pyx_L1_error)
-  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transform(__pyx_self, __pyx_v_value, __pyx_v_transform, __pyx_v_row);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_transform), (&PyUnicode_Type), 1, "transform", 2))) __PYX_ERR(0, 103, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_row), (&PyDict_Type), 0, "row", 2))) __PYX_ERR(0, 103, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_site), (&PyUnicode_Type), 0, "site", 2))) __PYX_ERR(0, 103, __pyx_L1_error)
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transform(__pyx_self, __pyx_v_value, __pyx_v_transform, __pyx_v_row, __pyx_v_site);
 
   /* function exit code */
   goto __pyx_L0;
@@ -6497,7 +6739,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transform(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value, PyObject *__pyx_v_transform, PyObject *__pyx_v_row) {
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transform(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value, PyObject *__pyx_v_transform, PyObject *__pyx_v_row, PyObject *__pyx_v_site) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   int __pyx_t_1;
@@ -6508,14 +6750,15 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
   PyObject *__pyx_t_6 = NULL;
   size_t __pyx_t_7;
   double __pyx_t_8;
+  PyObject *__pyx_t_9 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_apply_transform", 0);
 
-  /* "opscli/seller_sprite/export/xlsx.py":102
+  /* "opscli/seller_sprite/export/xlsx.py":104
  * 
- * def _apply_transform(value: Any, transform: str | None, row: dict[str, Any]) -> Any:
+ * def _apply_transform(value: Any, transform: str | None, row: dict[str, Any], *, site: str) -> Any:
  *     if not transform:             # <<<<<<<<<<<<<<
  *         return value
  *     if transform == "emptyIfNegative":
@@ -6524,15 +6767,15 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
   else
   {
     Py_ssize_t __pyx_temp = __Pyx_PyUnicode_IS_TRUE(__pyx_v_transform);
-    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 102, __pyx_L1_error)
+    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 104, __pyx_L1_error)
     __pyx_t_1 = (__pyx_temp != 0);
   }
 
   __pyx_t_2 = (!__pyx_t_1);
   if (__pyx_t_2) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":103
- * def _apply_transform(value: Any, transform: str | None, row: dict[str, Any]) -> Any:
+    /* "opscli/seller_sprite/export/xlsx.py":105
+ * def _apply_transform(value: Any, transform: str | None, row: dict[str, Any], *, site: str) -> Any:
  *     if not transform:
  *         return value             # <<<<<<<<<<<<<<
  *     if transform == "emptyIfNegative":
@@ -6543,26 +6786,26 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
     __pyx_r = __pyx_v_value;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":102
+    /* "opscli/seller_sprite/export/xlsx.py":104
  * 
- * def _apply_transform(value: Any, transform: str | None, row: dict[str, Any]) -> Any:
+ * def _apply_transform(value: Any, transform: str | None, row: dict[str, Any], *, site: str) -> Any:
  *     if not transform:             # <<<<<<<<<<<<<<
  *         return value
  *     if transform == "emptyIfNegative":
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":104
+  /* "opscli/seller_sprite/export/xlsx.py":106
  *     if not transform:
  *         return value
  *     if transform == "emptyIfNegative":             # <<<<<<<<<<<<<<
  *         return "" if _is_number(value) and float(value) < 0 else value
  *     if transform == "jsonObjectLines":
 */
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_emptyIfNegative, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 104, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_emptyIfNegative, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 106, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":105
+    /* "opscli/seller_sprite/export/xlsx.py":107
  *         return value
  *     if transform == "emptyIfNegative":
  *         return "" if _is_number(value) and float(value) < 0 else value             # <<<<<<<<<<<<<<
@@ -6571,7 +6814,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
 */
     __Pyx_XDECREF(__pyx_r);
     __pyx_t_5 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_is_number); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 105, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_is_number); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_7 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -6590,17 +6833,17 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
       __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 105, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 107, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
-    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 105, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     if (__pyx_t_1) {
     } else {
       __pyx_t_2 = __pyx_t_1;
       goto __pyx_L5_bool_binop_done;
     }
-    __pyx_t_8 = __Pyx_PyObject_AsDouble(__pyx_v_value); if (unlikely(__PYX_CHECK_FLOAT_EXCEPTION(__pyx_t_8, ((double)((double)-1))) && PyErr_Occurred())) __PYX_ERR(0, 105, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_AsDouble(__pyx_v_value); if (unlikely(__PYX_CHECK_FLOAT_EXCEPTION(__pyx_t_8, ((double)((double)-1))) && PyErr_Occurred())) __PYX_ERR(0, 107, __pyx_L1_error)
     __pyx_t_1 = (__pyx_t_8 < 0.0);
     __pyx_t_2 = __pyx_t_1;
     __pyx_L5_bool_binop_done:;
@@ -6615,7 +6858,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":104
+    /* "opscli/seller_sprite/export/xlsx.py":106
  *     if not transform:
  *         return value
  *     if transform == "emptyIfNegative":             # <<<<<<<<<<<<<<
@@ -6624,17 +6867,17 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":106
+  /* "opscli/seller_sprite/export/xlsx.py":108
  *     if transform == "emptyIfNegative":
  *         return "" if _is_number(value) and float(value) < 0 else value
  *     if transform == "jsonObjectLines":             # <<<<<<<<<<<<<<
  *         return _json_object_lines(value)
  *     if transform == "amazonProductUrl":
 */
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_jsonObjectLines, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 106, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_jsonObjectLines, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 108, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":107
+    /* "opscli/seller_sprite/export/xlsx.py":109
  *         return "" if _is_number(value) and float(value) < 0 else value
  *     if transform == "jsonObjectLines":
  *         return _json_object_lines(value)             # <<<<<<<<<<<<<<
@@ -6643,7 +6886,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
 */
     __Pyx_XDECREF(__pyx_r);
     __pyx_t_4 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_json_object_lines); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 107, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_json_object_lines); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 109, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_7 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -6662,14 +6905,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 107, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 109, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __pyx_r = __pyx_t_3;
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":106
+    /* "opscli/seller_sprite/export/xlsx.py":108
  *     if transform == "emptyIfNegative":
  *         return "" if _is_number(value) and float(value) < 0 else value
  *     if transform == "jsonObjectLines":             # <<<<<<<<<<<<<<
@@ -6678,17 +6921,17 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":108
+  /* "opscli/seller_sprite/export/xlsx.py":110
  *     if transform == "jsonObjectLines":
  *         return _json_object_lines(value)
  *     if transform == "amazonProductUrl":             # <<<<<<<<<<<<<<
  *         return _amazon_product_url(value, row)
  *     if transform == "amazonSellerUrl":
 */
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_amazonProductUrl, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 108, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_amazonProductUrl, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 110, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":109
+    /* "opscli/seller_sprite/export/xlsx.py":111
  *         return _json_object_lines(value)
  *     if transform == "amazonProductUrl":
  *         return _amazon_product_url(value, row)             # <<<<<<<<<<<<<<
@@ -6697,7 +6940,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
 */
     __Pyx_XDECREF(__pyx_r);
     __pyx_t_6 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_amazon_product_url); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 109, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_amazon_product_url); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 111, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_7 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -6716,14 +6959,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_7, (3-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 109, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 111, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __pyx_r = __pyx_t_3;
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":108
+    /* "opscli/seller_sprite/export/xlsx.py":110
  *     if transform == "jsonObjectLines":
  *         return _json_object_lines(value)
  *     if transform == "amazonProductUrl":             # <<<<<<<<<<<<<<
@@ -6732,17 +6975,17 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":110
+  /* "opscli/seller_sprite/export/xlsx.py":112
  *     if transform == "amazonProductUrl":
  *         return _amazon_product_url(value, row)
  *     if transform == "amazonSellerUrl":             # <<<<<<<<<<<<<<
  *         return _amazon_seller_url(value, row)
  *     if transform == "badgeFlag":
 */
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_amazonSellerUrl, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 110, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_amazonSellerUrl, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 112, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":111
+    /* "opscli/seller_sprite/export/xlsx.py":113
  *         return _amazon_product_url(value, row)
  *     if transform == "amazonSellerUrl":
  *         return _amazon_seller_url(value, row)             # <<<<<<<<<<<<<<
@@ -6751,7 +6994,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
 */
     __Pyx_XDECREF(__pyx_r);
     __pyx_t_4 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_amazon_seller_url); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 111, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_amazon_seller_url); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 113, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_7 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -6770,14 +7013,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_7, (3-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 111, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 113, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __pyx_r = __pyx_t_3;
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":110
+    /* "opscli/seller_sprite/export/xlsx.py":112
  *     if transform == "amazonProductUrl":
  *         return _amazon_product_url(value, row)
  *     if transform == "amazonSellerUrl":             # <<<<<<<<<<<<<<
@@ -6786,17 +7029,17 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":112
+  /* "opscli/seller_sprite/export/xlsx.py":114
  *     if transform == "amazonSellerUrl":
  *         return _amazon_seller_url(value, row)
  *     if transform == "badgeFlag":             # <<<<<<<<<<<<<<
  *         return "" if _is_blank(value) else "Y"
  *     if transform == "amazonChoiceKeyword":
 */
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_badgeFlag, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 112, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_badgeFlag, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 114, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":113
+    /* "opscli/seller_sprite/export/xlsx.py":115
  *         return _amazon_seller_url(value, row)
  *     if transform == "badgeFlag":
  *         return "" if _is_blank(value) else "Y"             # <<<<<<<<<<<<<<
@@ -6805,7 +7048,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
 */
     __Pyx_XDECREF(__pyx_r);
     __pyx_t_4 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 113, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 115, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_7 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -6824,10 +7067,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
       __pyx_t_6 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 113, __pyx_L1_error)
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 115, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
     }
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 113, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 115, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     if (__pyx_t_2) {
       __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__2);
@@ -6840,7 +7083,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":112
+    /* "opscli/seller_sprite/export/xlsx.py":114
  *     if transform == "amazonSellerUrl":
  *         return _amazon_seller_url(value, row)
  *     if transform == "badgeFlag":             # <<<<<<<<<<<<<<
@@ -6849,17 +7092,17 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":114
+  /* "opscli/seller_sprite/export/xlsx.py":116
  *     if transform == "badgeFlag":
  *         return "" if _is_blank(value) else "Y"
  *     if transform == "amazonChoiceKeyword":             # <<<<<<<<<<<<<<
  *         return "" if _is_blank(value) else "Amazon's Choice"
  *     if transform == "booleanY":
 */
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_amazonChoiceKeyword, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 114, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_amazonChoiceKeyword, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 116, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":115
+    /* "opscli/seller_sprite/export/xlsx.py":117
  *         return "" if _is_blank(value) else "Y"
  *     if transform == "amazonChoiceKeyword":
  *         return "" if _is_blank(value) else "Amazon's Choice"             # <<<<<<<<<<<<<<
@@ -6868,7 +7111,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
 */
     __Pyx_XDECREF(__pyx_r);
     __pyx_t_5 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 115, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 117, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_7 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -6887,10 +7130,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
       __pyx_t_6 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 115, __pyx_L1_error)
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 117, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
     }
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 115, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 117, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     if (__pyx_t_2) {
       __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__2);
@@ -6903,7 +7146,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":114
+    /* "opscli/seller_sprite/export/xlsx.py":116
  *     if transform == "badgeFlag":
  *         return "" if _is_blank(value) else "Y"
  *     if transform == "amazonChoiceKeyword":             # <<<<<<<<<<<<<<
@@ -6912,17 +7155,17 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":116
+  /* "opscli/seller_sprite/export/xlsx.py":118
  *     if transform == "amazonChoiceKeyword":
  *         return "" if _is_blank(value) else "Amazon's Choice"
  *     if transform == "booleanY":             # <<<<<<<<<<<<<<
  *         return "Y" if bool(value) else ""
  *     if transform == "departmentsJoin":
 */
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_booleanY, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 116, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_booleanY, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 118, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":117
+    /* "opscli/seller_sprite/export/xlsx.py":119
  *         return "" if _is_blank(value) else "Amazon's Choice"
  *     if transform == "booleanY":
  *         return "Y" if bool(value) else ""             # <<<<<<<<<<<<<<
@@ -6930,7 +7173,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
  *         return _departments_join(value)
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 117, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 119, __pyx_L1_error)
     if ((!(!__pyx_t_2))) {
       __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_Y);
       __pyx_t_3 = __pyx_mstate_global->__pyx_n_u_Y;
@@ -6942,7 +7185,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":116
+    /* "opscli/seller_sprite/export/xlsx.py":118
  *     if transform == "amazonChoiceKeyword":
  *         return "" if _is_blank(value) else "Amazon's Choice"
  *     if transform == "booleanY":             # <<<<<<<<<<<<<<
@@ -6951,26 +7194,26 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":118
+  /* "opscli/seller_sprite/export/xlsx.py":120
  *     if transform == "booleanY":
  *         return "Y" if bool(value) else ""
  *     if transform == "departmentsJoin":             # <<<<<<<<<<<<<<
  *         return _departments_join(value)
- *     if transform == "yen":
+ *     if transform == "percentage":
 */
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_departmentsJoin, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 118, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_departmentsJoin, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 120, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":119
+    /* "opscli/seller_sprite/export/xlsx.py":121
  *         return "Y" if bool(value) else ""
  *     if transform == "departmentsJoin":
  *         return _departments_join(value)             # <<<<<<<<<<<<<<
- *     if transform == "yen":
- *         return "" if _is_blank(value) else f"{float(value):.2f}"
+ *     if transform == "percentage":
+ *         return _percentage(value)
 */
     __Pyx_XDECREF(__pyx_r);
     __pyx_t_6 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_departments_join); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 119, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_departments_join); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 121, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_7 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -6989,113 +7232,96 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 119, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 121, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __pyx_r = __pyx_t_3;
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":118
+    /* "opscli/seller_sprite/export/xlsx.py":120
  *     if transform == "booleanY":
  *         return "Y" if bool(value) else ""
  *     if transform == "departmentsJoin":             # <<<<<<<<<<<<<<
  *         return _departments_join(value)
- *     if transform == "yen":
+ *     if transform == "percentage":
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":120
+  /* "opscli/seller_sprite/export/xlsx.py":122
  *     if transform == "departmentsJoin":
  *         return _departments_join(value)
- *     if transform == "yen":             # <<<<<<<<<<<<<<
- *         return "" if _is_blank(value) else f"{float(value):.2f}"
- *     if transform == "bidRange":
+ *     if transform == "percentage":             # <<<<<<<<<<<<<<
+ *         return _percentage(value)
+ *     if transform == "percentSuffix":
 */
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_yen, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 120, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_percentage, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 122, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":121
+    /* "opscli/seller_sprite/export/xlsx.py":123
  *         return _departments_join(value)
- *     if transform == "yen":
- *         return "" if _is_blank(value) else f"{float(value):.2f}"             # <<<<<<<<<<<<<<
- *     if transform == "bidRange":
- *         return _bid_range(row)
+ *     if transform == "percentage":
+ *         return _percentage(value)             # <<<<<<<<<<<<<<
+ *     if transform == "percentSuffix":
+ *         return "" if _is_blank(value) else f"{value}%"
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_6 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 121, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
+    __pyx_t_4 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_percentage_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 123, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_7 = 1;
     #if CYTHON_UNPACK_METHODS
-    if (unlikely(PyMethod_Check(__pyx_t_5))) {
-      __pyx_t_6 = PyMethod_GET_SELF(__pyx_t_5);
-      assert(__pyx_t_6);
-      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_5);
-      __Pyx_INCREF(__pyx_t_6);
+    if (unlikely(PyMethod_Check(__pyx_t_6))) {
+      __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_6);
+      assert(__pyx_t_4);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_6);
+      __Pyx_INCREF(__pyx_t_4);
       __Pyx_INCREF(__pyx__function);
-      __Pyx_DECREF_SET(__pyx_t_5, __pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_6, __pyx__function);
       __pyx_t_7 = 0;
     }
     #endif
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v_value};
-      __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 121, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_4);
-    }
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 121, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (__pyx_t_2) {
-      __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__2);
-      __pyx_t_3 = __pyx_mstate_global->__pyx_kp_u__2;
-    } else {
-      __pyx_t_4 = __Pyx_PyNumber_Float(__pyx_v_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 121, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_5 = __Pyx_PyObject_Format(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_2f); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 121, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_5);
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __pyx_t_4 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_n_u__3, __pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 121, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_4);
-      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_3 = __pyx_t_4;
-      __pyx_t_4 = 0;
+      PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_value};
+      __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 123, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_3);
     }
     __pyx_r = __pyx_t_3;
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":120
+    /* "opscli/seller_sprite/export/xlsx.py":122
  *     if transform == "departmentsJoin":
  *         return _departments_join(value)
- *     if transform == "yen":             # <<<<<<<<<<<<<<
- *         return "" if _is_blank(value) else f"{float(value):.2f}"
- *     if transform == "bidRange":
+ *     if transform == "percentage":             # <<<<<<<<<<<<<<
+ *         return _percentage(value)
+ *     if transform == "percentSuffix":
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":122
- *     if transform == "yen":
- *         return "" if _is_blank(value) else f"{float(value):.2f}"
- *     if transform == "bidRange":             # <<<<<<<<<<<<<<
- *         return _bid_range(row)
- *     if transform == "asinList":
+  /* "opscli/seller_sprite/export/xlsx.py":124
+ *     if transform == "percentage":
+ *         return _percentage(value)
+ *     if transform == "percentSuffix":             # <<<<<<<<<<<<<<
+ *         return "" if _is_blank(value) else f"{value}%"
+ *     if transform == "dateMillis":
 */
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_bidRange, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 122, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_percentSuffix, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 124, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":123
- *         return "" if _is_blank(value) else f"{float(value):.2f}"
- *     if transform == "bidRange":
- *         return _bid_range(row)             # <<<<<<<<<<<<<<
- *     if transform == "asinList":
- *         return _asin_list(value)
+    /* "opscli/seller_sprite/export/xlsx.py":125
+ *         return _percentage(value)
+ *     if transform == "percentSuffix":
+ *         return "" if _is_blank(value) else f"{value}%"             # <<<<<<<<<<<<<<
+ *     if transform == "dateMillis":
+ *         return _date_millis(value)
 */
     __Pyx_XDECREF(__pyx_r);
     __pyx_t_4 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_bid_range); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 123, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 125, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_7 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -7110,46 +7336,172 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
     }
     #endif
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_row};
-      __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_value};
+      __pyx_t_6 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 123, __pyx_L1_error)
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 125, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_6);
+    }
+    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 125, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    if (__pyx_t_2) {
+      __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__2);
+      __pyx_t_3 = __pyx_mstate_global->__pyx_kp_u__2;
+    } else {
+      __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_v_value, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 125, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_6);
+      __pyx_t_5 = __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlace(__pyx_t_6, __pyx_mstate_global->__pyx_kp_u__3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 125, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_5);
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __pyx_t_3 = __pyx_t_5;
+      __pyx_t_5 = 0;
+    }
+    __pyx_r = __pyx_t_3;
+    __pyx_t_3 = 0;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":124
+ *     if transform == "percentage":
+ *         return _percentage(value)
+ *     if transform == "percentSuffix":             # <<<<<<<<<<<<<<
+ *         return "" if _is_blank(value) else f"{value}%"
+ *     if transform == "dateMillis":
+*/
+  }
+
+  /* "opscli/seller_sprite/export/xlsx.py":126
+ *     if transform == "percentSuffix":
+ *         return "" if _is_blank(value) else f"{value}%"
+ *     if transform == "dateMillis":             # <<<<<<<<<<<<<<
+ *         return _date_millis(value)
+ *     if transform == "keywordReverseUpdatedTime":
+*/
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_dateMillis, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 126, __pyx_L1_error)
+  if (__pyx_t_2) {
+
+    /* "opscli/seller_sprite/export/xlsx.py":127
+ *         return "" if _is_blank(value) else f"{value}%"
+ *     if transform == "dateMillis":
+ *         return _date_millis(value)             # <<<<<<<<<<<<<<
+ *     if transform == "keywordReverseUpdatedTime":
+ *         return _keyword_reverse_updated_time(value, site=site)
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_5 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_date_millis); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 127, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __pyx_t_7 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_6))) {
+      __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_6);
+      assert(__pyx_t_5);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_6);
+      __Pyx_INCREF(__pyx_t_5);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_6, __pyx__function);
+      __pyx_t_7 = 0;
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_value};
+      __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 127, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __pyx_r = __pyx_t_3;
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":122
- *     if transform == "yen":
- *         return "" if _is_blank(value) else f"{float(value):.2f}"
- *     if transform == "bidRange":             # <<<<<<<<<<<<<<
- *         return _bid_range(row)
- *     if transform == "asinList":
+    /* "opscli/seller_sprite/export/xlsx.py":126
+ *     if transform == "percentSuffix":
+ *         return "" if _is_blank(value) else f"{value}%"
+ *     if transform == "dateMillis":             # <<<<<<<<<<<<<<
+ *         return _date_millis(value)
+ *     if transform == "keywordReverseUpdatedTime":
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":124
- *     if transform == "bidRange":
- *         return _bid_range(row)
- *     if transform == "asinList":             # <<<<<<<<<<<<<<
- *         return _asin_list(value)
- *     if transform == "listJoin":
+  /* "opscli/seller_sprite/export/xlsx.py":128
+ *     if transform == "dateMillis":
+ *         return _date_millis(value)
+ *     if transform == "keywordReverseUpdatedTime":             # <<<<<<<<<<<<<<
+ *         return _keyword_reverse_updated_time(value, site=site)
+ *     if transform == "rankPosition":
 */
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_asinList, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 124, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_keywordReverseUpdatedTime, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 128, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":125
- *         return _bid_range(row)
- *     if transform == "asinList":
- *         return _asin_list(value)             # <<<<<<<<<<<<<<
- *     if transform == "listJoin":
- *         return _list_join(value)
+    /* "opscli/seller_sprite/export/xlsx.py":129
+ *         return _date_millis(value)
+ *     if transform == "keywordReverseUpdatedTime":
+ *         return _keyword_reverse_updated_time(value, site=site)             # <<<<<<<<<<<<<<
+ *     if transform == "rankPosition":
+ *         return _rank_position(value)
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_6 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_keyword_reverse_updated_time); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 129, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+    __pyx_t_7 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_5))) {
+      __pyx_t_6 = PyMethod_GET_SELF(__pyx_t_5);
+      assert(__pyx_t_6);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_5);
+      __Pyx_INCREF(__pyx_t_6);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_5, __pyx__function);
+      __pyx_t_7 = 0;
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_6, __pyx_v_value};
+      __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 129, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_site, __pyx_v_site, __pyx_t_4, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 129, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_4);
+      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 129, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_3);
+    }
+    __pyx_r = __pyx_t_3;
+    __pyx_t_3 = 0;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":128
+ *     if transform == "dateMillis":
+ *         return _date_millis(value)
+ *     if transform == "keywordReverseUpdatedTime":             # <<<<<<<<<<<<<<
+ *         return _keyword_reverse_updated_time(value, site=site)
+ *     if transform == "rankPosition":
+*/
+  }
+
+  /* "opscli/seller_sprite/export/xlsx.py":130
+ *     if transform == "keywordReverseUpdatedTime":
+ *         return _keyword_reverse_updated_time(value, site=site)
+ *     if transform == "rankPosition":             # <<<<<<<<<<<<<<
+ *         return _rank_position(value)
+ *     if transform == "rankPage":
+*/
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_rankPosition, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 130, __pyx_L1_error)
+  if (__pyx_t_2) {
+
+    /* "opscli/seller_sprite/export/xlsx.py":131
+ *         return _keyword_reverse_updated_time(value, site=site)
+ *     if transform == "rankPosition":
+ *         return _rank_position(value)             # <<<<<<<<<<<<<<
+ *     if transform == "rankPage":
+ *         return _rank_page(value)
 */
     __Pyx_XDECREF(__pyx_r);
     __pyx_t_5 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_asin_list); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 125, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_rank_position); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 131, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_7 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -7168,42 +7520,42 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 125, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 131, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __pyx_r = __pyx_t_3;
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":124
- *     if transform == "bidRange":
- *         return _bid_range(row)
- *     if transform == "asinList":             # <<<<<<<<<<<<<<
- *         return _asin_list(value)
- *     if transform == "listJoin":
+    /* "opscli/seller_sprite/export/xlsx.py":130
+ *     if transform == "keywordReverseUpdatedTime":
+ *         return _keyword_reverse_updated_time(value, site=site)
+ *     if transform == "rankPosition":             # <<<<<<<<<<<<<<
+ *         return _rank_position(value)
+ *     if transform == "rankPage":
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":126
- *     if transform == "asinList":
- *         return _asin_list(value)
- *     if transform == "listJoin":             # <<<<<<<<<<<<<<
- *         return _list_join(value)
- *     return value
+  /* "opscli/seller_sprite/export/xlsx.py":132
+ *     if transform == "rankPosition":
+ *         return _rank_position(value)
+ *     if transform == "rankPage":             # <<<<<<<<<<<<<<
+ *         return _rank_page(value)
+ *     if transform == "divide10":
 */
-  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_listJoin, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 126, __pyx_L1_error)
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_rankPage, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 132, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":127
- *         return _asin_list(value)
- *     if transform == "listJoin":
- *         return _list_join(value)             # <<<<<<<<<<<<<<
- *     return value
- * 
+    /* "opscli/seller_sprite/export/xlsx.py":133
+ *         return _rank_position(value)
+ *     if transform == "rankPage":
+ *         return _rank_page(value)             # <<<<<<<<<<<<<<
+ *     if transform == "divide10":
+ *         return "" if _is_blank(value) else float(value) / 10
 */
     __Pyx_XDECREF(__pyx_r);
     __pyx_t_4 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_list_join); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 127, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_rank_page); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 133, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_7 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -7222,25 +7574,649 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
       __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 127, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 133, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __pyx_r = __pyx_t_3;
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":126
+    /* "opscli/seller_sprite/export/xlsx.py":132
+ *     if transform == "rankPosition":
+ *         return _rank_position(value)
+ *     if transform == "rankPage":             # <<<<<<<<<<<<<<
+ *         return _rank_page(value)
+ *     if transform == "divide10":
+*/
+  }
+
+  /* "opscli/seller_sprite/export/xlsx.py":134
+ *     if transform == "rankPage":
+ *         return _rank_page(value)
+ *     if transform == "divide10":             # <<<<<<<<<<<<<<
+ *         return "" if _is_blank(value) else float(value) / 10
+ *     if transform == "sellerNation":
+*/
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_divide10, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 134, __pyx_L1_error)
+  if (__pyx_t_2) {
+
+    /* "opscli/seller_sprite/export/xlsx.py":135
+ *         return _rank_page(value)
+ *     if transform == "divide10":
+ *         return "" if _is_blank(value) else float(value) / 10             # <<<<<<<<<<<<<<
+ *     if transform == "sellerNation":
+ *         return _seller_nation(value)
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_4 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 135, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __pyx_t_7 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_6))) {
+      __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_6);
+      assert(__pyx_t_4);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_6);
+      __Pyx_INCREF(__pyx_t_4);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_6, __pyx__function);
+      __pyx_t_7 = 0;
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_value};
+      __pyx_t_5 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 135, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_5);
+    }
+    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 135, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    if (__pyx_t_2) {
+      __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__2);
+      __pyx_t_3 = __pyx_mstate_global->__pyx_kp_u__2;
+    } else {
+      __pyx_t_8 = __Pyx_PyObject_AsDouble(__pyx_v_value); if (unlikely(__PYX_CHECK_FLOAT_EXCEPTION(__pyx_t_8, ((double)((double)-1))) && PyErr_Occurred())) __PYX_ERR(0, 135, __pyx_L1_error)
+      __pyx_t_5 = PyFloat_FromDouble((__pyx_t_8 / 10.0)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 135, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_5);
+      __pyx_t_3 = __pyx_t_5;
+      __pyx_t_5 = 0;
+    }
+    __pyx_r = __pyx_t_3;
+    __pyx_t_3 = 0;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":134
+ *     if transform == "rankPage":
+ *         return _rank_page(value)
+ *     if transform == "divide10":             # <<<<<<<<<<<<<<
+ *         return "" if _is_blank(value) else float(value) / 10
+ *     if transform == "sellerNation":
+*/
+  }
+
+  /* "opscli/seller_sprite/export/xlsx.py":136
+ *     if transform == "divide10":
+ *         return "" if _is_blank(value) else float(value) / 10
+ *     if transform == "sellerNation":             # <<<<<<<<<<<<<<
+ *         return _seller_nation(value)
+ *     if transform in {"currency", "yen"}:
+*/
+  __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_sellerNation, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 136, __pyx_L1_error)
+  if (__pyx_t_2) {
+
+    /* "opscli/seller_sprite/export/xlsx.py":137
+ *         return "" if _is_blank(value) else float(value) / 10
+ *     if transform == "sellerNation":
+ *         return _seller_nation(value)             # <<<<<<<<<<<<<<
+ *     if transform in {"currency", "yen"}:
+ *         return "" if _is_blank(value) else f"{currency_label(site)}{float(value):.2f}"
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_5 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_seller_nation); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 137, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __pyx_t_7 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_6))) {
+      __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_6);
+      assert(__pyx_t_5);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_6);
+      __Pyx_INCREF(__pyx_t_5);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_6, __pyx__function);
+      __pyx_t_7 = 0;
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_value};
+      __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 137, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_3);
+    }
+    __pyx_r = __pyx_t_3;
+    __pyx_t_3 = 0;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":136
+ *     if transform == "divide10":
+ *         return "" if _is_blank(value) else float(value) / 10
+ *     if transform == "sellerNation":             # <<<<<<<<<<<<<<
+ *         return _seller_nation(value)
+ *     if transform in {"currency", "yen"}:
+*/
+  }
+
+  /* "opscli/seller_sprite/export/xlsx.py":138
+ *     if transform == "sellerNation":
+ *         return _seller_nation(value)
+ *     if transform in {"currency", "yen"}:             # <<<<<<<<<<<<<<
+ *         return "" if _is_blank(value) else f"{currency_label(site)}{float(value):.2f}"
+ *     if transform == "bidRange":
+*/
+  __Pyx_INCREF(__pyx_v_transform);
+  __pyx_t_9 = __pyx_v_transform;
+  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_currency, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 138, __pyx_L1_error)
+  if (!__pyx_t_1) {
+  } else {
+    __pyx_t_2 = __pyx_t_1;
+    goto __pyx_L23_bool_binop_done;
+  }
+  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_yen, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 138, __pyx_L1_error)
+  __pyx_t_2 = __pyx_t_1;
+  __pyx_L23_bool_binop_done:;
+  __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+  __pyx_t_1 = __pyx_t_2;
+  if (__pyx_t_1) {
+
+    /* "opscli/seller_sprite/export/xlsx.py":139
+ *         return _seller_nation(value)
+ *     if transform in {"currency", "yen"}:
+ *         return "" if _is_blank(value) else f"{currency_label(site)}{float(value):.2f}"             # <<<<<<<<<<<<<<
+ *     if transform == "bidRange":
+ *         return _bid_range(row, site=site)
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_5 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 139, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __pyx_t_7 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_4))) {
+      __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_4);
+      assert(__pyx_t_5);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_4);
+      __Pyx_INCREF(__pyx_t_5);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_4, __pyx__function);
+      __pyx_t_7 = 0;
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_value};
+      __pyx_t_6 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 139, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_6);
+    }
+    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 139, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    if (__pyx_t_1) {
+      __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__2);
+      __pyx_t_3 = __pyx_mstate_global->__pyx_kp_u__2;
+    } else {
+      __pyx_t_4 = NULL;
+      __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_currency_label); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 139, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_5);
+      __pyx_t_7 = 1;
+      #if CYTHON_UNPACK_METHODS
+      if (unlikely(PyMethod_Check(__pyx_t_5))) {
+        __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_5);
+        assert(__pyx_t_4);
+        PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_5);
+        __Pyx_INCREF(__pyx_t_4);
+        __Pyx_INCREF(__pyx__function);
+        __Pyx_DECREF_SET(__pyx_t_5, __pyx__function);
+        __pyx_t_7 = 0;
+      }
+      #endif
+      {
+        PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_site};
+        __pyx_t_6 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+        __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+        __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 139, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_6);
+      }
+      __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_6, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 139, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_5);
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __pyx_t_6 = __Pyx_PyNumber_Float(__pyx_v_value); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 139, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_6);
+      __pyx_t_4 = __Pyx_PyObject_Format(__pyx_t_6, __pyx_mstate_global->__pyx_kp_u_2f); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 139, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __pyx_t_6 = __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlace(__pyx_t_5, __pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 139, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_6);
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __pyx_t_3 = __pyx_t_6;
+      __pyx_t_6 = 0;
+    }
+    __pyx_r = __pyx_t_3;
+    __pyx_t_3 = 0;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":138
+ *     if transform == "sellerNation":
+ *         return _seller_nation(value)
+ *     if transform in {"currency", "yen"}:             # <<<<<<<<<<<<<<
+ *         return "" if _is_blank(value) else f"{currency_label(site)}{float(value):.2f}"
+ *     if transform == "bidRange":
+*/
+  }
+
+  /* "opscli/seller_sprite/export/xlsx.py":140
+ *     if transform in {"currency", "yen"}:
+ *         return "" if _is_blank(value) else f"{currency_label(site)}{float(value):.2f}"
+ *     if transform == "bidRange":             # <<<<<<<<<<<<<<
+ *         return _bid_range(row, site=site)
+ *     if transform == "asinList":
+*/
+  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_bidRange, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 140, __pyx_L1_error)
+  if (__pyx_t_1) {
+
+    /* "opscli/seller_sprite/export/xlsx.py":141
+ *         return "" if _is_blank(value) else f"{currency_label(site)}{float(value):.2f}"
+ *     if transform == "bidRange":
+ *         return _bid_range(row, site=site)             # <<<<<<<<<<<<<<
+ *     if transform == "asinList":
+ *         return _asin_list(value)
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_6 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_bid_range); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 141, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __pyx_t_7 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_4))) {
+      __pyx_t_6 = PyMethod_GET_SELF(__pyx_t_4);
+      assert(__pyx_t_6);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_4);
+      __Pyx_INCREF(__pyx_t_6);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_4, __pyx__function);
+      __pyx_t_7 = 0;
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_6, __pyx_v_row};
+      __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 141, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_5);
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_site, __pyx_v_site, __pyx_t_5, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 141, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_5);
+      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 141, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_3);
+    }
+    __pyx_r = __pyx_t_3;
+    __pyx_t_3 = 0;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":140
+ *     if transform in {"currency", "yen"}:
+ *         return "" if _is_blank(value) else f"{currency_label(site)}{float(value):.2f}"
+ *     if transform == "bidRange":             # <<<<<<<<<<<<<<
+ *         return _bid_range(row, site=site)
+ *     if transform == "asinList":
+*/
+  }
+
+  /* "opscli/seller_sprite/export/xlsx.py":142
+ *     if transform == "bidRange":
+ *         return _bid_range(row, site=site)
+ *     if transform == "asinList":             # <<<<<<<<<<<<<<
+ *         return _asin_list(value)
+ *     if transform == "listJoin":
+*/
+  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_asinList, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 142, __pyx_L1_error)
+  if (__pyx_t_1) {
+
+    /* "opscli/seller_sprite/export/xlsx.py":143
+ *         return _bid_range(row, site=site)
+ *     if transform == "asinList":
+ *         return _asin_list(value)             # <<<<<<<<<<<<<<
+ *     if transform == "listJoin":
+ *         return _list_join(value)
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_4 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_asin_list); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 143, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+    __pyx_t_7 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_5))) {
+      __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_5);
+      assert(__pyx_t_4);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_5);
+      __Pyx_INCREF(__pyx_t_4);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_5, __pyx__function);
+      __pyx_t_7 = 0;
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_value};
+      __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 143, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_3);
+    }
+    __pyx_r = __pyx_t_3;
+    __pyx_t_3 = 0;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":142
+ *     if transform == "bidRange":
+ *         return _bid_range(row, site=site)
+ *     if transform == "asinList":             # <<<<<<<<<<<<<<
+ *         return _asin_list(value)
+ *     if transform == "listJoin":
+*/
+  }
+
+  /* "opscli/seller_sprite/export/xlsx.py":144
  *     if transform == "asinList":
  *         return _asin_list(value)
  *     if transform == "listJoin":             # <<<<<<<<<<<<<<
  *         return _list_join(value)
+ *     if transform == "badgeLabels":
+*/
+  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_listJoin, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 144, __pyx_L1_error)
+  if (__pyx_t_1) {
+
+    /* "opscli/seller_sprite/export/xlsx.py":145
+ *         return _asin_list(value)
+ *     if transform == "listJoin":
+ *         return _list_join(value)             # <<<<<<<<<<<<<<
+ *     if transform == "badgeLabels":
+ *         return _enum_list_join(value, BADGE_LABELS)
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_5 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_list_join); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 145, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __pyx_t_7 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_4))) {
+      __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_4);
+      assert(__pyx_t_5);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_4);
+      __Pyx_INCREF(__pyx_t_5);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_4, __pyx__function);
+      __pyx_t_7 = 0;
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_value};
+      __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 145, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_3);
+    }
+    __pyx_r = __pyx_t_3;
+    __pyx_t_3 = 0;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":144
+ *     if transform == "asinList":
+ *         return _asin_list(value)
+ *     if transform == "listJoin":             # <<<<<<<<<<<<<<
+ *         return _list_join(value)
+ *     if transform == "badgeLabels":
+*/
+  }
+
+  /* "opscli/seller_sprite/export/xlsx.py":146
+ *     if transform == "listJoin":
+ *         return _list_join(value)
+ *     if transform == "badgeLabels":             # <<<<<<<<<<<<<<
+ *         return _enum_list_join(value, BADGE_LABELS)
+ *     if transform == "trafficSourceLabels":
+*/
+  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_badgeLabels, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 146, __pyx_L1_error)
+  if (__pyx_t_1) {
+
+    /* "opscli/seller_sprite/export/xlsx.py":147
+ *         return _list_join(value)
+ *     if transform == "badgeLabels":
+ *         return _enum_list_join(value, BADGE_LABELS)             # <<<<<<<<<<<<<<
+ *     if transform == "trafficSourceLabels":
+ *         return _enum_list_join(value, TRAFFIC_SOURCE_LABELS)
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_4 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_enum_list_join); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 147, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_BADGE_LABELS); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 147, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __pyx_t_7 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_5))) {
+      __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_5);
+      assert(__pyx_t_4);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_5);
+      __Pyx_INCREF(__pyx_t_4);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_5, __pyx__function);
+      __pyx_t_7 = 0;
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[3] = {__pyx_t_4, __pyx_v_value, __pyx_t_6};
+      __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_7, (3-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 147, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_3);
+    }
+    __pyx_r = __pyx_t_3;
+    __pyx_t_3 = 0;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":146
+ *     if transform == "listJoin":
+ *         return _list_join(value)
+ *     if transform == "badgeLabels":             # <<<<<<<<<<<<<<
+ *         return _enum_list_join(value, BADGE_LABELS)
+ *     if transform == "trafficSourceLabels":
+*/
+  }
+
+  /* "opscli/seller_sprite/export/xlsx.py":148
+ *     if transform == "badgeLabels":
+ *         return _enum_list_join(value, BADGE_LABELS)
+ *     if transform == "trafficSourceLabels":             # <<<<<<<<<<<<<<
+ *         return _enum_list_join(value, TRAFFIC_SOURCE_LABELS)
+ *     if transform == "trafficKeywordTypeLabels":
+*/
+  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_trafficSourceLabels, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 148, __pyx_L1_error)
+  if (__pyx_t_1) {
+
+    /* "opscli/seller_sprite/export/xlsx.py":149
+ *         return _enum_list_join(value, BADGE_LABELS)
+ *     if transform == "trafficSourceLabels":
+ *         return _enum_list_join(value, TRAFFIC_SOURCE_LABELS)             # <<<<<<<<<<<<<<
+ *     if transform == "trafficKeywordTypeLabels":
+ *         return _enum_list_join(value, TRAFFIC_KEYWORD_TYPE_LABELS)
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_5 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_enum_list_join); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 149, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_TRAFFIC_SOURCE_LABELS); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 149, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __pyx_t_7 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_6))) {
+      __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_6);
+      assert(__pyx_t_5);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_6);
+      __Pyx_INCREF(__pyx_t_5);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_6, __pyx__function);
+      __pyx_t_7 = 0;
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[3] = {__pyx_t_5, __pyx_v_value, __pyx_t_4};
+      __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_7, (3-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 149, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_3);
+    }
+    __pyx_r = __pyx_t_3;
+    __pyx_t_3 = 0;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":148
+ *     if transform == "badgeLabels":
+ *         return _enum_list_join(value, BADGE_LABELS)
+ *     if transform == "trafficSourceLabels":             # <<<<<<<<<<<<<<
+ *         return _enum_list_join(value, TRAFFIC_SOURCE_LABELS)
+ *     if transform == "trafficKeywordTypeLabels":
+*/
+  }
+
+  /* "opscli/seller_sprite/export/xlsx.py":150
+ *     if transform == "trafficSourceLabels":
+ *         return _enum_list_join(value, TRAFFIC_SOURCE_LABELS)
+ *     if transform == "trafficKeywordTypeLabels":             # <<<<<<<<<<<<<<
+ *         return _enum_list_join(value, TRAFFIC_KEYWORD_TYPE_LABELS)
+ *     if transform == "conversionKeywordTypeLabels":
+*/
+  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_trafficKeywordTypeLabels, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 150, __pyx_L1_error)
+  if (__pyx_t_1) {
+
+    /* "opscli/seller_sprite/export/xlsx.py":151
+ *         return _enum_list_join(value, TRAFFIC_SOURCE_LABELS)
+ *     if transform == "trafficKeywordTypeLabels":
+ *         return _enum_list_join(value, TRAFFIC_KEYWORD_TYPE_LABELS)             # <<<<<<<<<<<<<<
+ *     if transform == "conversionKeywordTypeLabels":
+ *         return _enum_list_join(value, CONVERSION_KEYWORD_TYPE_LABELS)
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_6 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_enum_list_join); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 151, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_TRAFFIC_KEYWORD_TYPE_LABELS); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 151, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+    __pyx_t_7 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_4))) {
+      __pyx_t_6 = PyMethod_GET_SELF(__pyx_t_4);
+      assert(__pyx_t_6);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_4);
+      __Pyx_INCREF(__pyx_t_6);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_4, __pyx__function);
+      __pyx_t_7 = 0;
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[3] = {__pyx_t_6, __pyx_v_value, __pyx_t_5};
+      __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_7, (3-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 151, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_3);
+    }
+    __pyx_r = __pyx_t_3;
+    __pyx_t_3 = 0;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":150
+ *     if transform == "trafficSourceLabels":
+ *         return _enum_list_join(value, TRAFFIC_SOURCE_LABELS)
+ *     if transform == "trafficKeywordTypeLabels":             # <<<<<<<<<<<<<<
+ *         return _enum_list_join(value, TRAFFIC_KEYWORD_TYPE_LABELS)
+ *     if transform == "conversionKeywordTypeLabels":
+*/
+  }
+
+  /* "opscli/seller_sprite/export/xlsx.py":152
+ *     if transform == "trafficKeywordTypeLabels":
+ *         return _enum_list_join(value, TRAFFIC_KEYWORD_TYPE_LABELS)
+ *     if transform == "conversionKeywordTypeLabels":             # <<<<<<<<<<<<<<
+ *         return _enum_list_join(value, CONVERSION_KEYWORD_TYPE_LABELS)
+ *     return value
+*/
+  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_conversionKeywordTypeLabels, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 152, __pyx_L1_error)
+  if (__pyx_t_1) {
+
+    /* "opscli/seller_sprite/export/xlsx.py":153
+ *         return _enum_list_join(value, TRAFFIC_KEYWORD_TYPE_LABELS)
+ *     if transform == "conversionKeywordTypeLabels":
+ *         return _enum_list_join(value, CONVERSION_KEYWORD_TYPE_LABELS)             # <<<<<<<<<<<<<<
+ *     return value
+ * 
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_4 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_enum_list_join); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 153, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_CONVERSION_KEYWORD_TYPE_LABELS); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 153, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __pyx_t_7 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_5))) {
+      __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_5);
+      assert(__pyx_t_4);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_5);
+      __Pyx_INCREF(__pyx_t_4);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_5, __pyx__function);
+      __pyx_t_7 = 0;
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[3] = {__pyx_t_4, __pyx_v_value, __pyx_t_6};
+      __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_7, (3-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 153, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_3);
+    }
+    __pyx_r = __pyx_t_3;
+    __pyx_t_3 = 0;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":152
+ *     if transform == "trafficKeywordTypeLabels":
+ *         return _enum_list_join(value, TRAFFIC_KEYWORD_TYPE_LABELS)
+ *     if transform == "conversionKeywordTypeLabels":             # <<<<<<<<<<<<<<
+ *         return _enum_list_join(value, CONVERSION_KEYWORD_TYPE_LABELS)
  *     return value
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":128
- *     if transform == "listJoin":
- *         return _list_join(value)
+  /* "opscli/seller_sprite/export/xlsx.py":154
+ *     if transform == "conversionKeywordTypeLabels":
+ *         return _enum_list_join(value, CONVERSION_KEYWORD_TYPE_LABELS)
  *     return value             # <<<<<<<<<<<<<<
  * 
  * 
@@ -7250,10 +8226,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
   __pyx_r = __pyx_v_value;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":101
+  /* "opscli/seller_sprite/export/xlsx.py":103
  * 
  * 
- * def _apply_transform(value: Any, transform: str | None, row: dict[str, Any]) -> Any:             # <<<<<<<<<<<<<<
+ * def _apply_transform(value: Any, transform: str | None, row: dict[str, Any], *, site: str) -> Any:             # <<<<<<<<<<<<<<
  *     if not transform:
  *         return value
 */
@@ -7264,6 +8240,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
   __Pyx_XDECREF(__pyx_t_4);
   __Pyx_XDECREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_XDECREF(__pyx_t_9);
   __Pyx_AddTraceback("opscli.seller_sprite.export.xlsx._apply_transform", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -7272,7 +8249,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_8_apply_transfor
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":131
+/* "opscli/seller_sprite/export/xlsx.py":157
  * 
  * 
  * def _cell_value(value: Any) -> Any:             # <<<<<<<<<<<<<<
@@ -7319,32 +8296,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_value,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 131, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 157, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 131, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 157, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_cell_value", 0) < (0)) __PYX_ERR(0, 131, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_cell_value", 0) < (0)) __PYX_ERR(0, 157, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_cell_value", 1, 1, 1, i); __PYX_ERR(0, 131, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_cell_value", 1, 1, 1, i); __PYX_ERR(0, 157, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 131, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 157, __pyx_L3_error)
     }
     __pyx_v_value = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_cell_value", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 131, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_cell_value", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 157, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -7380,7 +8357,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_10_cell_value(CY
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_cell_value", 0);
 
-  /* "opscli/seller_sprite/export/xlsx.py":132
+  /* "opscli/seller_sprite/export/xlsx.py":158
  * 
  * def _cell_value(value: Any) -> Any:
  *     if isinstance(value, bool):             # <<<<<<<<<<<<<<
@@ -7390,7 +8367,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_10_cell_value(CY
   __pyx_t_1 = PyBool_Check(__pyx_v_value); 
   if (__pyx_t_1) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":133
+    /* "opscli/seller_sprite/export/xlsx.py":159
  * def _cell_value(value: Any) -> Any:
  *     if isinstance(value, bool):
  *         return "" if value else ""             # <<<<<<<<<<<<<<
@@ -7398,7 +8375,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_10_cell_value(CY
  *         return json.dumps(value, ensure_ascii=False)
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 133, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 159, __pyx_L1_error)
     if (__pyx_t_1) {
       __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u__4);
       __pyx_t_2 = __pyx_mstate_global->__pyx_n_u__4;
@@ -7410,7 +8387,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_10_cell_value(CY
     __pyx_t_2 = 0;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":132
+    /* "opscli/seller_sprite/export/xlsx.py":158
  * 
  * def _cell_value(value: Any) -> Any:
  *     if isinstance(value, bool):             # <<<<<<<<<<<<<<
@@ -7419,7 +8396,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_10_cell_value(CY
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":134
+  /* "opscli/seller_sprite/export/xlsx.py":160
  *     if isinstance(value, bool):
  *         return "" if value else ""
  *     if isinstance(value, (dict, list)):             # <<<<<<<<<<<<<<
@@ -7437,7 +8414,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_10_cell_value(CY
   __pyx_L5_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":135
+    /* "opscli/seller_sprite/export/xlsx.py":161
  *         return "" if value else ""
  *     if isinstance(value, (dict, list)):
  *         return json.dumps(value, ensure_ascii=False)             # <<<<<<<<<<<<<<
@@ -7446,9 +8423,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_10_cell_value(CY
 */
     __Pyx_XDECREF(__pyx_r);
     __pyx_t_4 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 135, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 161, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_dumps); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 135, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_dumps); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 161, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_t_7 = 1;
@@ -7465,21 +8442,21 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_10_cell_value(CY
     #endif
     {
       PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_4, __pyx_v_value};
-      __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 135, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 161, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_ensure_ascii, Py_False, __pyx_t_5, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 135, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_ensure_ascii, Py_False, __pyx_t_5, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 161, __pyx_L1_error)
       __pyx_t_2 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_5);
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 135, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 161, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __pyx_r = __pyx_t_2;
     __pyx_t_2 = 0;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":134
+    /* "opscli/seller_sprite/export/xlsx.py":160
  *     if isinstance(value, bool):
  *         return "" if value else ""
  *     if isinstance(value, (dict, list)):             # <<<<<<<<<<<<<<
@@ -7488,7 +8465,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_10_cell_value(CY
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":136
+  /* "opscli/seller_sprite/export/xlsx.py":162
  *     if isinstance(value, (dict, list)):
  *         return json.dumps(value, ensure_ascii=False)
  *     return value             # <<<<<<<<<<<<<<
@@ -7500,7 +8477,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_10_cell_value(CY
   __pyx_r = __pyx_v_value;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":131
+  /* "opscli/seller_sprite/export/xlsx.py":157
  * 
  * 
  * def _cell_value(value: Any) -> Any:             # <<<<<<<<<<<<<<
@@ -7522,7 +8499,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_10_cell_value(CY
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":139
+/* "opscli/seller_sprite/export/xlsx.py":165
  * 
  * 
  * def _add_high_frequency_sheet(workbook, rows: list[dict[str, Any]]) -> None:             # <<<<<<<<<<<<<<
@@ -7570,39 +8547,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_workbook,&__pyx_mstate_global->__pyx_n_u_rows,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 139, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 165, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 139, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 165, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 139, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 165, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_add_high_frequency_sheet", 0) < (0)) __PYX_ERR(0, 139, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_add_high_frequency_sheet", 0) < (0)) __PYX_ERR(0, 165, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_add_high_frequency_sheet", 1, 2, 2, i); __PYX_ERR(0, 139, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_add_high_frequency_sheet", 1, 2, 2, i); __PYX_ERR(0, 165, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 139, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 165, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 139, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 165, __pyx_L3_error)
     }
     __pyx_v_workbook = values[0];
     __pyx_v_rows = ((PyObject*)values[1]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_add_high_frequency_sheet", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 139, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_add_high_frequency_sheet", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 165, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -7613,7 +8590,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_rows), (&PyList_Type), 0, "rows", 2))) __PYX_ERR(0, 139, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_rows), (&PyList_Type), 0, "rows", 2))) __PYX_ERR(0, 165, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_frequency_sheet(__pyx_self, __pyx_v_workbook, __pyx_v_rows);
 
   /* function exit code */
@@ -7660,7 +8637,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_add_high_frequency_sheet", 0);
 
-  /* "opscli/seller_sprite/export/xlsx.py":140
+  /* "opscli/seller_sprite/export/xlsx.py":166
  * 
  * def _add_high_frequency_sheet(workbook, rows: list[dict[str, Any]]) -> None:
  *     from openpyxl.styles import Font             # <<<<<<<<<<<<<<
@@ -7669,14 +8646,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
 */
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Font};
-    __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_openpyxl_styles, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 140, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_openpyxl_styles, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 166, __pyx_L1_error)
   }
   __pyx_t_1 = __pyx_t_2;
   __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Font};
     __pyx_t_3 = 0; {
-      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_1, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 140, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_1, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 166, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       switch (__pyx_t_3) {
         case 0:
@@ -7690,7 +8667,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":142
+  /* "opscli/seller_sprite/export/xlsx.py":168
  *     from openpyxl.styles import Font
  * 
  *     sheet = workbook.create_sheet("Unique Words")             # <<<<<<<<<<<<<<
@@ -7704,34 +8681,34 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
     PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_Unique_Words};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_create_sheet, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 142, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 168, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_sheet = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":143
+  /* "opscli/seller_sprite/export/xlsx.py":169
  * 
  *     sheet = workbook.create_sheet("Unique Words")
  *     headers = ["", "", ""]             # <<<<<<<<<<<<<<
  *     for column_index, title in enumerate(headers, start=1):
  *         sheet.cell(row=1, column=column_index, value=title)
 */
-  __pyx_t_1 = PyList_New(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 143, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 169, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u__6);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u__6);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u__6) != (0)) __PYX_ERR(0, 143, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u__6) != (0)) __PYX_ERR(0, 169, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u__7);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u__7);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 1, __pyx_mstate_global->__pyx_n_u__7) != (0)) __PYX_ERR(0, 143, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 1, __pyx_mstate_global->__pyx_n_u__7) != (0)) __PYX_ERR(0, 169, __pyx_L1_error);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u__8);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u__8);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 2, __pyx_mstate_global->__pyx_n_u__8) != (0)) __PYX_ERR(0, 143, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 2, __pyx_mstate_global->__pyx_n_u__8) != (0)) __PYX_ERR(0, 169, __pyx_L1_error);
   __pyx_v_headers = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":144
+  /* "opscli/seller_sprite/export/xlsx.py":170
  *     sheet = workbook.create_sheet("Unique Words")
  *     headers = ["", "", ""]
  *     for column_index, title in enumerate(headers, start=1):             # <<<<<<<<<<<<<<
@@ -7742,13 +8719,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
   __pyx_t_5 = 1;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_4, __pyx_v_headers};
-    __pyx_t_6 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 144, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 170, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_start, __pyx_mstate_global->__pyx_int_1, __pyx_t_6, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 144, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_start, __pyx_mstate_global->__pyx_int_1, __pyx_t_6, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 170, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_builtin_enumerate, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_6);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 144, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 170, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   if (likely(PyList_CheckExact(__pyx_t_1)) || PyTuple_CheckExact(__pyx_t_1)) {
@@ -7756,9 +8733,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
     __pyx_t_3 = 0;
     __pyx_t_7 = NULL;
   } else {
-    __pyx_t_3 = -1; __pyx_t_6 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 144, __pyx_L1_error)
+    __pyx_t_3 = -1; __pyx_t_6 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 170, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_7 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 144, __pyx_L1_error)
+    __pyx_t_7 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 170, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   for (;;) {
@@ -7767,7 +8744,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_6);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 144, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 170, __pyx_L1_error)
           #endif
           if (__pyx_t_3 >= __pyx_temp) break;
         }
@@ -7777,7 +8754,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_6);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 144, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 170, __pyx_L1_error)
           #endif
           if (__pyx_t_3 >= __pyx_temp) break;
         }
@@ -7788,13 +8765,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
         #endif
         ++__pyx_t_3;
       }
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 144, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 170, __pyx_L1_error)
     } else {
       __pyx_t_1 = __pyx_t_7(__pyx_t_6);
       if (unlikely(!__pyx_t_1)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 144, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 170, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -7807,7 +8784,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
       if (unlikely(size != 2)) {
         if (size > 2) __Pyx_RaiseTooManyValuesError(2);
         else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-        __PYX_ERR(0, 144, __pyx_L1_error)
+        __PYX_ERR(0, 170, __pyx_L1_error)
       }
       #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
       if (likely(PyTuple_CheckExact(sequence))) {
@@ -7817,22 +8794,22 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
         __Pyx_INCREF(__pyx_t_8);
       } else {
         __pyx_t_4 = __Pyx_PyList_GetItemRefFast(sequence, 0, __Pyx_ReferenceSharing_SharedReference);
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 144, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 170, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_4);
         __pyx_t_8 = __Pyx_PyList_GetItemRefFast(sequence, 1, __Pyx_ReferenceSharing_SharedReference);
-        if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 144, __pyx_L1_error)
+        if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 170, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_8);
       }
       #else
-      __pyx_t_4 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 144, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 170, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_8 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 144, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 170, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
       #endif
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     } else {
       Py_ssize_t index = -1;
-      __pyx_t_9 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 144, __pyx_L1_error)
+      __pyx_t_9 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 170, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __pyx_t_10 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_9);
@@ -7840,7 +8817,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
       __Pyx_GOTREF(__pyx_t_4);
       index = 1; __pyx_t_8 = __pyx_t_10(__pyx_t_9); if (unlikely(!__pyx_t_8)) goto __pyx_L5_unpacking_failed;
       __Pyx_GOTREF(__pyx_t_8);
-      if (__Pyx_IternextUnpackEndCheck(__pyx_t_10(__pyx_t_9), 2) < (0)) __PYX_ERR(0, 144, __pyx_L1_error)
+      if (__Pyx_IternextUnpackEndCheck(__pyx_t_10(__pyx_t_9), 2) < (0)) __PYX_ERR(0, 170, __pyx_L1_error)
       __pyx_t_10 = NULL;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       goto __pyx_L6_unpacking_done;
@@ -7848,7 +8825,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __pyx_t_10 = NULL;
       if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-      __PYX_ERR(0, 144, __pyx_L1_error)
+      __PYX_ERR(0, 170, __pyx_L1_error)
       __pyx_L6_unpacking_done:;
     }
     __Pyx_XDECREF_SET(__pyx_v_column_index, __pyx_t_4);
@@ -7856,7 +8833,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
     __Pyx_XDECREF_SET(__pyx_v_title, __pyx_t_8);
     __pyx_t_8 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":145
+    /* "opscli/seller_sprite/export/xlsx.py":171
  *     headers = ["", "", ""]
  *     for column_index, title in enumerate(headers, start=1):
  *         sheet.cell(row=1, column=column_index, value=title)             # <<<<<<<<<<<<<<
@@ -7868,20 +8845,20 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
     __pyx_t_5 = 0;
     {
       PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 3 : 0)] = {__pyx_t_8, NULL};
-      __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 145, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 171, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_row, __pyx_mstate_global->__pyx_int_1, __pyx_t_4, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 145, __pyx_L1_error)
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_column, __pyx_v_column_index, __pyx_t_4, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 145, __pyx_L1_error)
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_value, __pyx_v_title, __pyx_t_4, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 145, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_row, __pyx_mstate_global->__pyx_int_1, __pyx_t_4, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 171, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_column, __pyx_v_column_index, __pyx_t_4, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 171, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_value, __pyx_v_title, __pyx_t_4, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 171, __pyx_L1_error)
       __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_cell, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_4);
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 145, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 171, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":146
+    /* "opscli/seller_sprite/export/xlsx.py":172
  *     for column_index, title in enumerate(headers, start=1):
  *         sheet.cell(row=1, column=column_index, value=title)
  *         sheet.cell(row=1, column=column_index).font = Font(bold=True)             # <<<<<<<<<<<<<<
@@ -7905,14 +8882,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
     #endif
     {
       PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_4, NULL};
-      __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 146, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 172, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_bold, Py_True, __pyx_t_9, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 146, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_bold, Py_True, __pyx_t_9, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 172, __pyx_L1_error)
       __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_8, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_9);
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 146, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 172, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __pyx_t_9 = __pyx_v_sheet;
@@ -7920,21 +8897,21 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
     __pyx_t_5 = 0;
     {
       PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_9, NULL};
-      __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 146, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 172, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_row, __pyx_mstate_global->__pyx_int_1, __pyx_t_4, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 146, __pyx_L1_error)
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_column, __pyx_v_column_index, __pyx_t_4, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 146, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_row, __pyx_mstate_global->__pyx_int_1, __pyx_t_4, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 172, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_column, __pyx_v_column_index, __pyx_t_4, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 172, __pyx_L1_error)
       __pyx_t_8 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_cell, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_4);
       __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 146, __pyx_L1_error)
+      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 172, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
     }
-    if (__Pyx_PyObject_SetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_font, __pyx_t_1) < (0)) __PYX_ERR(0, 146, __pyx_L1_error)
+    if (__Pyx_PyObject_SetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_font, __pyx_t_1) < (0)) __PYX_ERR(0, 172, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":144
+    /* "opscli/seller_sprite/export/xlsx.py":170
  *     sheet = workbook.create_sheet("Unique Words")
  *     headers = ["", "", ""]
  *     for column_index, title in enumerate(headers, start=1):             # <<<<<<<<<<<<<<
@@ -7944,7 +8921,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
   }
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":147
+  /* "opscli/seller_sprite/export/xlsx.py":173
  *         sheet.cell(row=1, column=column_index, value=title)
  *         sheet.cell(row=1, column=column_index).font = Font(bold=True)
  *     for row_index, row in enumerate(rows, start=2):             # <<<<<<<<<<<<<<
@@ -7955,13 +8932,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
   __pyx_t_5 = 1;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_8, __pyx_v_rows};
-    __pyx_t_1 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 147, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 173, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_start, __pyx_mstate_global->__pyx_int_2, __pyx_t_1, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 147, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_start, __pyx_mstate_global->__pyx_int_2, __pyx_t_1, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 173, __pyx_L1_error)
     __pyx_t_6 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_builtin_enumerate, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_1);
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 147, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 173, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
   }
   if (likely(PyList_CheckExact(__pyx_t_6)) || PyTuple_CheckExact(__pyx_t_6)) {
@@ -7969,9 +8946,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
     __pyx_t_3 = 0;
     __pyx_t_7 = NULL;
   } else {
-    __pyx_t_3 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 147, __pyx_L1_error)
+    __pyx_t_3 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 173, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_7 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 147, __pyx_L1_error)
+    __pyx_t_7 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 173, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   for (;;) {
@@ -7980,7 +8957,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 147, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 173, __pyx_L1_error)
           #endif
           if (__pyx_t_3 >= __pyx_temp) break;
         }
@@ -7990,7 +8967,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_1);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 147, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 173, __pyx_L1_error)
           #endif
           if (__pyx_t_3 >= __pyx_temp) break;
         }
@@ -8001,13 +8978,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
         #endif
         ++__pyx_t_3;
       }
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 147, __pyx_L1_error)
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 173, __pyx_L1_error)
     } else {
       __pyx_t_6 = __pyx_t_7(__pyx_t_1);
       if (unlikely(!__pyx_t_6)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 147, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 173, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -8020,7 +8997,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
       if (unlikely(size != 2)) {
         if (size > 2) __Pyx_RaiseTooManyValuesError(2);
         else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-        __PYX_ERR(0, 147, __pyx_L1_error)
+        __PYX_ERR(0, 173, __pyx_L1_error)
       }
       #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
       if (likely(PyTuple_CheckExact(sequence))) {
@@ -8030,22 +9007,22 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
         __Pyx_INCREF(__pyx_t_4);
       } else {
         __pyx_t_8 = __Pyx_PyList_GetItemRefFast(sequence, 0, __Pyx_ReferenceSharing_SharedReference);
-        if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 147, __pyx_L1_error)
+        if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 173, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_8);
         __pyx_t_4 = __Pyx_PyList_GetItemRefFast(sequence, 1, __Pyx_ReferenceSharing_SharedReference);
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 147, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 173, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_4);
       }
       #else
-      __pyx_t_8 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 147, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 173, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
-      __pyx_t_4 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 147, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 173, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       #endif
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     } else {
       Py_ssize_t index = -1;
-      __pyx_t_9 = PyObject_GetIter(__pyx_t_6); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 147, __pyx_L1_error)
+      __pyx_t_9 = PyObject_GetIter(__pyx_t_6); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 173, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __pyx_t_10 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_9);
@@ -8053,7 +9030,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
       __Pyx_GOTREF(__pyx_t_8);
       index = 1; __pyx_t_4 = __pyx_t_10(__pyx_t_9); if (unlikely(!__pyx_t_4)) goto __pyx_L10_unpacking_failed;
       __Pyx_GOTREF(__pyx_t_4);
-      if (__Pyx_IternextUnpackEndCheck(__pyx_t_10(__pyx_t_9), 2) < (0)) __PYX_ERR(0, 147, __pyx_L1_error)
+      if (__Pyx_IternextUnpackEndCheck(__pyx_t_10(__pyx_t_9), 2) < (0)) __PYX_ERR(0, 173, __pyx_L1_error)
       __pyx_t_10 = NULL;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       goto __pyx_L11_unpacking_done;
@@ -8061,7 +9038,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __pyx_t_10 = NULL;
       if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-      __PYX_ERR(0, 147, __pyx_L1_error)
+      __PYX_ERR(0, 173, __pyx_L1_error)
       __pyx_L11_unpacking_done:;
     }
     __Pyx_XDECREF_SET(__pyx_v_row_index, __pyx_t_8);
@@ -8069,7 +9046,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
     __Pyx_XDECREF_SET(__pyx_v_row, __pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":148
+    /* "opscli/seller_sprite/export/xlsx.py":174
  *         sheet.cell(row=1, column=column_index).font = Font(bold=True)
  *     for row_index, row in enumerate(rows, start=2):
  *         sheet.cell(row=row_index, column=1, value=row.get("keyword") or row.get("") or row.get("word"))             # <<<<<<<<<<<<<<
@@ -8085,10 +9062,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
       PyObject *__pyx_callargs[2] = {__pyx_t_11, __pyx_mstate_global->__pyx_n_u_keyword};
       __pyx_t_9 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
-      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 148, __pyx_L1_error)
+      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 174, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
     }
-    __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_9); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 148, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_9); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 174, __pyx_L1_error)
     if (!__pyx_t_12) {
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     } else {
@@ -8104,10 +9081,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
       PyObject *__pyx_callargs[2] = {__pyx_t_11, __pyx_mstate_global->__pyx_n_u__6};
       __pyx_t_9 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
-      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 148, __pyx_L1_error)
+      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 174, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
     }
-    __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_9); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 148, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_9); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 174, __pyx_L1_error)
     if (!__pyx_t_12) {
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     } else {
@@ -8123,7 +9100,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
       PyObject *__pyx_callargs[2] = {__pyx_t_11, __pyx_mstate_global->__pyx_n_u_word};
       __pyx_t_9 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
-      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 148, __pyx_L1_error)
+      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 174, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
     }
     __Pyx_INCREF(__pyx_t_9);
@@ -8133,21 +9110,21 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
     __pyx_t_5 = 0;
     {
       PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 3 : 0)] = {__pyx_t_4, NULL};
-      __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 148, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 174, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_row, __pyx_v_row_index, __pyx_t_9, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 148, __pyx_L1_error)
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_column, __pyx_mstate_global->__pyx_int_1, __pyx_t_9, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 148, __pyx_L1_error)
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_value, __pyx_t_8, __pyx_t_9, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 148, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_row, __pyx_v_row_index, __pyx_t_9, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 174, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_column, __pyx_mstate_global->__pyx_int_1, __pyx_t_9, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 174, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_value, __pyx_t_8, __pyx_t_9, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 174, __pyx_L1_error)
       __pyx_t_6 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_cell, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_9);
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 148, __pyx_L1_error)
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 174, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
     }
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":149
+    /* "opscli/seller_sprite/export/xlsx.py":175
  *     for row_index, row in enumerate(rows, start=2):
  *         sheet.cell(row=row_index, column=1, value=row.get("keyword") or row.get("") or row.get("word"))
  *         sheet.cell(row=row_index, column=2, value=row.get("frequency") or row.get(""))             # <<<<<<<<<<<<<<
@@ -8163,10 +9140,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
       PyObject *__pyx_callargs[2] = {__pyx_t_11, __pyx_mstate_global->__pyx_n_u_frequency};
       __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 149, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 175, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
-    __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 149, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 175, __pyx_L1_error)
     if (!__pyx_t_12) {
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     } else {
@@ -8182,7 +9159,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
       PyObject *__pyx_callargs[2] = {__pyx_t_11, __pyx_mstate_global->__pyx_n_u__7};
       __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 149, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 175, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __Pyx_INCREF(__pyx_t_4);
@@ -8192,21 +9169,21 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
     __pyx_t_5 = 0;
     {
       PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 3 : 0)] = {__pyx_t_9, NULL};
-      __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 149, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 175, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_row, __pyx_v_row_index, __pyx_t_4, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 149, __pyx_L1_error)
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_column, __pyx_mstate_global->__pyx_int_2, __pyx_t_4, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 149, __pyx_L1_error)
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_value, __pyx_t_8, __pyx_t_4, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 149, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_row, __pyx_v_row_index, __pyx_t_4, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 175, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_column, __pyx_mstate_global->__pyx_int_2, __pyx_t_4, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 175, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_value, __pyx_t_8, __pyx_t_4, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 175, __pyx_L1_error)
       __pyx_t_6 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_cell, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_4);
       __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 149, __pyx_L1_error)
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 175, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
     }
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":150
+    /* "opscli/seller_sprite/export/xlsx.py":176
  *         sheet.cell(row=row_index, column=1, value=row.get("keyword") or row.get("") or row.get("word"))
  *         sheet.cell(row=row_index, column=2, value=row.get("frequency") or row.get(""))
  *         sheet.cell(row=row_index, column=3, value=row.get("percentage") or row.get(""))             # <<<<<<<<<<<<<<
@@ -8222,10 +9199,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
       PyObject *__pyx_callargs[2] = {__pyx_t_11, __pyx_mstate_global->__pyx_n_u_percentage};
       __pyx_t_9 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
-      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 150, __pyx_L1_error)
+      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 176, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
     }
-    __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_9); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 150, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_9); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 176, __pyx_L1_error)
     if (!__pyx_t_12) {
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     } else {
@@ -8241,7 +9218,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
       PyObject *__pyx_callargs[2] = {__pyx_t_11, __pyx_mstate_global->__pyx_n_u__8};
       __pyx_t_9 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
-      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 150, __pyx_L1_error)
+      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 176, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
     }
     __Pyx_INCREF(__pyx_t_9);
@@ -8251,21 +9228,21 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
     __pyx_t_5 = 0;
     {
       PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 3 : 0)] = {__pyx_t_4, NULL};
-      __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 150, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 176, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_row, __pyx_v_row_index, __pyx_t_9, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 150, __pyx_L1_error)
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_column, __pyx_mstate_global->__pyx_int_3, __pyx_t_9, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 150, __pyx_L1_error)
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_value, __pyx_t_8, __pyx_t_9, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 150, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_row, __pyx_v_row_index, __pyx_t_9, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 176, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_column, __pyx_mstate_global->__pyx_int_3, __pyx_t_9, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 176, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_value, __pyx_t_8, __pyx_t_9, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 176, __pyx_L1_error)
       __pyx_t_6 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_cell, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_9);
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 150, __pyx_L1_error)
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 176, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
     }
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":147
+    /* "opscli/seller_sprite/export/xlsx.py":173
  *         sheet.cell(row=1, column=column_index, value=title)
  *         sheet.cell(row=1, column=column_index).font = Font(bold=True)
  *     for row_index, row in enumerate(rows, start=2):             # <<<<<<<<<<<<<<
@@ -8275,52 +9252,52 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":151
+  /* "opscli/seller_sprite/export/xlsx.py":177
  *         sheet.cell(row=row_index, column=2, value=row.get("frequency") or row.get(""))
  *         sheet.cell(row=row_index, column=3, value=row.get("percentage") or row.get(""))
  *     sheet.column_dimensions["A"].width = 24             # <<<<<<<<<<<<<<
  *     sheet.column_dimensions["B"].width = 14
  *     sheet.column_dimensions["C"].width = 14
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_sheet, __pyx_mstate_global->__pyx_n_u_column_dimensions); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 151, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_sheet, __pyx_mstate_global->__pyx_n_u_column_dimensions); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 177, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_6 = __Pyx_PyObject_Dict_GetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_A); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 151, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_Dict_GetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_A); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 177, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (__Pyx_PyObject_SetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_width, __pyx_mstate_global->__pyx_int_24) < (0)) __PYX_ERR(0, 151, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_width, __pyx_mstate_global->__pyx_int_24) < (0)) __PYX_ERR(0, 177, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":152
+  /* "opscli/seller_sprite/export/xlsx.py":178
  *         sheet.cell(row=row_index, column=3, value=row.get("percentage") or row.get(""))
  *     sheet.column_dimensions["A"].width = 24
  *     sheet.column_dimensions["B"].width = 14             # <<<<<<<<<<<<<<
  *     sheet.column_dimensions["C"].width = 14
  * 
 */
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_sheet, __pyx_mstate_global->__pyx_n_u_column_dimensions); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_sheet, __pyx_mstate_global->__pyx_n_u_column_dimensions); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 178, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_B); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_Dict_GetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_B); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 178, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (__Pyx_PyObject_SetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_width, __pyx_mstate_global->__pyx_int_14) < (0)) __PYX_ERR(0, 152, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_width, __pyx_mstate_global->__pyx_int_14) < (0)) __PYX_ERR(0, 178, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":153
+  /* "opscli/seller_sprite/export/xlsx.py":179
  *     sheet.column_dimensions["A"].width = 24
  *     sheet.column_dimensions["B"].width = 14
  *     sheet.column_dimensions["C"].width = 14             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_sheet, __pyx_mstate_global->__pyx_n_u_column_dimensions); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 153, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_sheet, __pyx_mstate_global->__pyx_n_u_column_dimensions); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 179, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_6 = __Pyx_PyObject_Dict_GetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_C); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 153, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_Dict_GetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_C); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 179, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (__Pyx_PyObject_SetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_width, __pyx_mstate_global->__pyx_int_14) < (0)) __PYX_ERR(0, 153, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_width, __pyx_mstate_global->__pyx_int_14) < (0)) __PYX_ERR(0, 179, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":139
+  /* "opscli/seller_sprite/export/xlsx.py":165
  * 
  * 
  * def _add_high_frequency_sheet(workbook, rows: list[dict[str, Any]]) -> None:             # <<<<<<<<<<<<<<
@@ -8353,7 +9330,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_12_add_high_freq
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":156
+/* "opscli/seller_sprite/export/xlsx.py":182
  * 
  * 
  * def _main_sheet_title(*, scenario: str, site: str, period: str, params: dict[str, Any], rows: list[dict[str, Any]]) -> str:             # <<<<<<<<<<<<<<
@@ -8404,20 +9381,20 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_scenario,&__pyx_mstate_global->__pyx_n_u_site,&__pyx_mstate_global->__pyx_n_u_period,&__pyx_mstate_global->__pyx_n_u_params,&__pyx_mstate_global->__pyx_n_u_rows,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 156, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 182, __pyx_L3_error)
     if (likely(__pyx_kwds_len > 0)) {
       switch (__pyx_nargs) {
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, 0, __pyx_kwds_len, "_main_sheet_title", 0) < (0)) __PYX_ERR(0, 156, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, 0, __pyx_kwds_len, "_main_sheet_title", 0) < (0)) __PYX_ERR(0, 182, __pyx_L3_error)
       for (Py_ssize_t i = 0; i < 5; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("_main_sheet_title", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 156, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("_main_sheet_title", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 182, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 0)) {
       goto __pyx_L5_argtuple_error;
     } else {
-      __Pyx_RaiseKeywordRequired("_main_sheet_title", __pyx_mstate_global->__pyx_n_u_scenario); __PYX_ERR(0, 156, __pyx_L3_error)
+      __Pyx_RaiseKeywordRequired("_main_sheet_title", __pyx_mstate_global->__pyx_n_u_scenario); __PYX_ERR(0, 182, __pyx_L3_error)
     }
     __pyx_v_scenario = ((PyObject*)values[0]);
     __pyx_v_site = ((PyObject*)values[1]);
@@ -8427,7 +9404,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_main_sheet_title", 1, 0, 0, __pyx_nargs); __PYX_ERR(0, 156, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_main_sheet_title", 1, 0, 0, __pyx_nargs); __PYX_ERR(0, 182, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8438,11 +9415,11 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_scenario), (&PyUnicode_Type), 0, "scenario", 2))) __PYX_ERR(0, 156, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_site), (&PyUnicode_Type), 0, "site", 2))) __PYX_ERR(0, 156, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_period), (&PyUnicode_Type), 0, "period", 2))) __PYX_ERR(0, 156, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_params), (&PyDict_Type), 0, "params", 2))) __PYX_ERR(0, 156, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_rows), (&PyList_Type), 0, "rows", 2))) __PYX_ERR(0, 156, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_scenario), (&PyUnicode_Type), 0, "scenario", 2))) __PYX_ERR(0, 182, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_site), (&PyUnicode_Type), 0, "site", 2))) __PYX_ERR(0, 182, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_period), (&PyUnicode_Type), 0, "period", 2))) __PYX_ERR(0, 182, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_params), (&PyDict_Type), 0, "params", 2))) __PYX_ERR(0, 182, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_rows), (&PyList_Type), 0, "rows", 2))) __PYX_ERR(0, 182, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_14_main_sheet_title(__pyx_self, __pyx_v_scenario, __pyx_v_site, __pyx_v_period, __pyx_v_params, __pyx_v_rows);
 
   /* function exit code */
@@ -8482,26 +9459,26 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_14_main_sheet_ti
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_main_sheet_title", 0);
 
-  /* "opscli/seller_sprite/export/xlsx.py":157
+  /* "opscli/seller_sprite/export/xlsx.py":183
  * 
  * def _main_sheet_title(*, scenario: str, site: str, period: str, params: dict[str, Any], rows: list[dict[str, Any]]) -> str:
  *     if scenario == "keyword-miner":             # <<<<<<<<<<<<<<
  *         keyword = params.get("keyword") or params.get("q") or "keyword"
  *         title = f"{site.upper()}-{keyword}({len(rows)})_"
 */
-  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_scenario, __pyx_mstate_global->__pyx_kp_u_keyword_miner, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 157, __pyx_L1_error)
+  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_scenario, __pyx_mstate_global->__pyx_kp_u_keyword_miner, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 183, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":158
+    /* "opscli/seller_sprite/export/xlsx.py":184
  * def _main_sheet_title(*, scenario: str, site: str, period: str, params: dict[str, Any], rows: list[dict[str, Any]]) -> str:
  *     if scenario == "keyword-miner":
  *         keyword = params.get("keyword") or params.get("q") or "keyword"             # <<<<<<<<<<<<<<
  *         title = f"{site.upper()}-{keyword}({len(rows)})_"
  *     elif scenario == "keyword-reverse":
 */
-    __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_keyword, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 158, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_keyword, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 184, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 158, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 184, __pyx_L1_error)
     if (!__pyx_t_1) {
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     } else {
@@ -8510,9 +9487,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_14_main_sheet_ti
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       goto __pyx_L4_bool_binop_done;
     }
-    __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_q, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 158, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_q, Py_None); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 184, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 158, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 184, __pyx_L1_error)
     if (!__pyx_t_1) {
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     } else {
@@ -8527,19 +9504,19 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_14_main_sheet_ti
     __pyx_v_keyword = __pyx_t_2;
     __pyx_t_2 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":159
+    /* "opscli/seller_sprite/export/xlsx.py":185
  *     if scenario == "keyword-miner":
  *         keyword = params.get("keyword") or params.get("q") or "keyword"
  *         title = f"{site.upper()}-{keyword}({len(rows)})_"             # <<<<<<<<<<<<<<
  *     elif scenario == "keyword-reverse":
  *         asin = params.get("asin") or params.get("q") or "ASIN"
 */
-    __pyx_t_2 = __Pyx_CallUnboundCMethod0(&__pyx_mstate_global->__pyx_umethod_PyUnicode_Type__upper, __pyx_v_site); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 159, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_CallUnboundCMethod0(&__pyx_mstate_global->__pyx_umethod_PyUnicode_Type__upper, __pyx_v_site); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 185, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_v_keyword, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 159, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_v_keyword, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 185, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyList_GET_SIZE(__pyx_v_rows); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 159, __pyx_L1_error)
-    __pyx_t_5 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_t_4, 0, ' ', 'd'); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 159, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyList_GET_SIZE(__pyx_v_rows); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 185, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_t_4, 0, ' ', 'd'); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 185, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_6[0] = __pyx_t_2;
     __pyx_t_6[1] = __pyx_mstate_global->__pyx_kp_u__9;
@@ -8548,7 +9525,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_14_main_sheet_ti
     __pyx_t_6[4] = __pyx_t_5;
     __pyx_t_6[5] = __pyx_mstate_global->__pyx_kp_u__11;
     __pyx_t_7 = __Pyx_PyUnicode_Join(__pyx_t_6, 6, __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2) + 1 * 2 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5) + 2, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3));
-    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 159, __pyx_L1_error)
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 185, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -8556,7 +9533,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_14_main_sheet_ti
     __pyx_v_title = ((PyObject*)__pyx_t_7);
     __pyx_t_7 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":157
+    /* "opscli/seller_sprite/export/xlsx.py":183
  * 
  * def _main_sheet_title(*, scenario: str, site: str, period: str, params: dict[str, Any], rows: list[dict[str, Any]]) -> str:
  *     if scenario == "keyword-miner":             # <<<<<<<<<<<<<<
@@ -8566,26 +9543,26 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_14_main_sheet_ti
     goto __pyx_L3;
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":160
+  /* "opscli/seller_sprite/export/xlsx.py":186
  *         keyword = params.get("keyword") or params.get("q") or "keyword"
  *         title = f"{site.upper()}-{keyword}({len(rows)})_"
  *     elif scenario == "keyword-reverse":             # <<<<<<<<<<<<<<
  *         asin = params.get("asin") or params.get("q") or "ASIN"
  *         title = f"{site.upper()}-{asin}-Keywords({len(rows)})_"
 */
-  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_scenario, __pyx_mstate_global->__pyx_kp_u_keyword_reverse, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 160, __pyx_L1_error)
+  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_scenario, __pyx_mstate_global->__pyx_kp_u_keyword_reverse, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 186, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":161
+    /* "opscli/seller_sprite/export/xlsx.py":187
  *         title = f"{site.upper()}-{keyword}({len(rows)})_"
  *     elif scenario == "keyword-reverse":
  *         asin = params.get("asin") or params.get("q") or "ASIN"             # <<<<<<<<<<<<<<
  *         title = f"{site.upper()}-{asin}-Keywords({len(rows)})_"
  *     elif scenario == "product-research":
 */
-    __pyx_t_5 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_asin, Py_None); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 161, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_asin, Py_None); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 187, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 161, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 187, __pyx_L1_error)
     if (!__pyx_t_1) {
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     } else {
@@ -8594,9 +9571,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_14_main_sheet_ti
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       goto __pyx_L7_bool_binop_done;
     }
-    __pyx_t_5 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_q, Py_None); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 161, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyDict_GetItemDefault(__pyx_v_params, __pyx_mstate_global->__pyx_n_u_q, Py_None); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 187, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 161, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 187, __pyx_L1_error)
     if (!__pyx_t_1) {
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     } else {
@@ -8611,19 +9588,19 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_14_main_sheet_ti
     __pyx_v_asin = __pyx_t_7;
     __pyx_t_7 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":162
+    /* "opscli/seller_sprite/export/xlsx.py":188
  *     elif scenario == "keyword-reverse":
  *         asin = params.get("asin") or params.get("q") or "ASIN"
  *         title = f"{site.upper()}-{asin}-Keywords({len(rows)})_"             # <<<<<<<<<<<<<<
  *     elif scenario == "product-research":
  *         title = f"Product-{site.upper()}-{_period_label(period)}"
 */
-    __pyx_t_7 = __Pyx_CallUnboundCMethod0(&__pyx_mstate_global->__pyx_umethod_PyUnicode_Type__upper, __pyx_v_site); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 162, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_CallUnboundCMethod0(&__pyx_mstate_global->__pyx_umethod_PyUnicode_Type__upper, __pyx_v_site); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 188, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_v_asin, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 162, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_v_asin, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 188, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_4 = __Pyx_PyList_GET_SIZE(__pyx_v_rows); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 162, __pyx_L1_error)
-    __pyx_t_3 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_t_4, 0, ' ', 'd'); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 162, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyList_GET_SIZE(__pyx_v_rows); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 188, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyUnicode_From_Py_ssize_t(__pyx_t_4, 0, ' ', 'd'); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 188, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_6[0] = __pyx_t_7;
     __pyx_t_6[1] = __pyx_mstate_global->__pyx_kp_u__9;
@@ -8632,7 +9609,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_14_main_sheet_ti
     __pyx_t_6[4] = __pyx_t_3;
     __pyx_t_6[5] = __pyx_mstate_global->__pyx_kp_u__11;
     __pyx_t_2 = __Pyx_PyUnicode_Join(__pyx_t_6, 6, __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7) + 1 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5) + 10 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + 2, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5));
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 162, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 188, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
@@ -8640,7 +9617,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_14_main_sheet_ti
     __pyx_v_title = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":160
+    /* "opscli/seller_sprite/export/xlsx.py":186
  *         keyword = params.get("keyword") or params.get("q") or "keyword"
  *         title = f"{site.upper()}-{keyword}({len(rows)})_"
  *     elif scenario == "keyword-reverse":             # <<<<<<<<<<<<<<
@@ -8650,31 +9627,31 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_14_main_sheet_ti
     goto __pyx_L3;
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":163
+  /* "opscli/seller_sprite/export/xlsx.py":189
  *         asin = params.get("asin") or params.get("q") or "ASIN"
  *         title = f"{site.upper()}-{asin}-Keywords({len(rows)})_"
  *     elif scenario == "product-research":             # <<<<<<<<<<<<<<
  *         title = f"Product-{site.upper()}-{_period_label(period)}"
  *     elif scenario == "competitor-lookup":
 */
-  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_scenario, __pyx_mstate_global->__pyx_kp_u_product_research, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 163, __pyx_L1_error)
+  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_scenario, __pyx_mstate_global->__pyx_kp_u_product_research, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 189, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":164
+    /* "opscli/seller_sprite/export/xlsx.py":190
  *         title = f"{site.upper()}-{asin}-Keywords({len(rows)})_"
  *     elif scenario == "product-research":
  *         title = f"Product-{site.upper()}-{_period_label(period)}"             # <<<<<<<<<<<<<<
  *     elif scenario == "competitor-lookup":
  *         title = f"Competitor-{site.upper()}-{_period_label(period)}"
 */
-    __pyx_t_2 = __Pyx_CallUnboundCMethod0(&__pyx_mstate_global->__pyx_umethod_PyUnicode_Type__upper, __pyx_v_site); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 164, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_CallUnboundCMethod0(&__pyx_mstate_global->__pyx_umethod_PyUnicode_Type__upper, __pyx_v_site); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 190, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_period_label); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 164, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_period_label); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 190, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_5 = __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_v_period); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 164, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_v_period); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 190, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 164, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 190, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_t_8[0] = __pyx_mstate_global->__pyx_kp_u_Product;
@@ -8682,14 +9659,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_14_main_sheet_ti
     __pyx_t_8[2] = __pyx_mstate_global->__pyx_kp_u__9;
     __pyx_t_8[3] = __pyx_t_3;
     __pyx_t_5 = __Pyx_PyUnicode_Join(__pyx_t_8, 4, 8 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2) + 1 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3));
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 164, __pyx_L1_error)
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 190, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_v_title = ((PyObject*)__pyx_t_5);
     __pyx_t_5 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":163
+    /* "opscli/seller_sprite/export/xlsx.py":189
  *         asin = params.get("asin") or params.get("q") or "ASIN"
  *         title = f"{site.upper()}-{asin}-Keywords({len(rows)})_"
  *     elif scenario == "product-research":             # <<<<<<<<<<<<<<
@@ -8699,31 +9676,31 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_14_main_sheet_ti
     goto __pyx_L3;
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":165
+  /* "opscli/seller_sprite/export/xlsx.py":191
  *     elif scenario == "product-research":
  *         title = f"Product-{site.upper()}-{_period_label(period)}"
  *     elif scenario == "competitor-lookup":             # <<<<<<<<<<<<<<
  *         title = f"Competitor-{site.upper()}-{_period_label(period)}"
- *     else:
+ *     elif scenario == "market-research":
 */
-  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_scenario, __pyx_mstate_global->__pyx_kp_u_competitor_lookup, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 165, __pyx_L1_error)
+  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_scenario, __pyx_mstate_global->__pyx_kp_u_competitor_lookup, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 191, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":166
+    /* "opscli/seller_sprite/export/xlsx.py":192
  *         title = f"Product-{site.upper()}-{_period_label(period)}"
  *     elif scenario == "competitor-lookup":
  *         title = f"Competitor-{site.upper()}-{_period_label(period)}"             # <<<<<<<<<<<<<<
- *     else:
- *         title = scenario
+ *     elif scenario == "market-research":
+ *         title = f"Market-research-{site.upper()}-{_period_label(period)}"
 */
-    __pyx_t_5 = __Pyx_CallUnboundCMethod0(&__pyx_mstate_global->__pyx_umethod_PyUnicode_Type__upper, __pyx_v_site); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 166, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_CallUnboundCMethod0(&__pyx_mstate_global->__pyx_umethod_PyUnicode_Type__upper, __pyx_v_site); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 192, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_period_label); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 166, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_period_label); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 192, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_v_period); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 166, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_v_period); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 192, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 166, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 192, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_t_8[0] = __pyx_mstate_global->__pyx_kp_u_Competitor;
@@ -8731,25 +9708,74 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_14_main_sheet_ti
     __pyx_t_8[2] = __pyx_mstate_global->__pyx_kp_u__9;
     __pyx_t_8[3] = __pyx_t_3;
     __pyx_t_2 = __Pyx_PyUnicode_Join(__pyx_t_8, 4, 11 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5) + 1 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3));
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 166, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 192, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_v_title = ((PyObject*)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":165
+    /* "opscli/seller_sprite/export/xlsx.py":191
  *     elif scenario == "product-research":
  *         title = f"Product-{site.upper()}-{_period_label(period)}"
  *     elif scenario == "competitor-lookup":             # <<<<<<<<<<<<<<
  *         title = f"Competitor-{site.upper()}-{_period_label(period)}"
+ *     elif scenario == "market-research":
+*/
+    goto __pyx_L3;
+  }
+
+  /* "opscli/seller_sprite/export/xlsx.py":193
+ *     elif scenario == "competitor-lookup":
+ *         title = f"Competitor-{site.upper()}-{_period_label(period)}"
+ *     elif scenario == "market-research":             # <<<<<<<<<<<<<<
+ *         title = f"Market-research-{site.upper()}-{_period_label(period)}"
+ *     else:
+*/
+  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_scenario, __pyx_mstate_global->__pyx_kp_u_market_research, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 193, __pyx_L1_error)
+  if (__pyx_t_1) {
+
+    /* "opscli/seller_sprite/export/xlsx.py":194
+ *         title = f"Competitor-{site.upper()}-{_period_label(period)}"
+ *     elif scenario == "market-research":
+ *         title = f"Market-research-{site.upper()}-{_period_label(period)}"             # <<<<<<<<<<<<<<
+ *     else:
+ *         title = scenario
+*/
+    __pyx_t_2 = __Pyx_CallUnboundCMethod0(&__pyx_mstate_global->__pyx_umethod_PyUnicode_Type__upper, __pyx_v_site); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 194, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_period_label); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 194, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_5 = __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_v_period); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 194, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 194, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    __pyx_t_8[0] = __pyx_mstate_global->__pyx_kp_u_Market_research;
+    __pyx_t_8[1] = __pyx_t_2;
+    __pyx_t_8[2] = __pyx_mstate_global->__pyx_kp_u__9;
+    __pyx_t_8[3] = __pyx_t_3;
+    __pyx_t_5 = __Pyx_PyUnicode_Join(__pyx_t_8, 4, 16 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2) + 1 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3));
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 194, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __pyx_v_title = ((PyObject*)__pyx_t_5);
+    __pyx_t_5 = 0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":193
+ *     elif scenario == "competitor-lookup":
+ *         title = f"Competitor-{site.upper()}-{_period_label(period)}"
+ *     elif scenario == "market-research":             # <<<<<<<<<<<<<<
+ *         title = f"Market-research-{site.upper()}-{_period_label(period)}"
  *     else:
 */
     goto __pyx_L3;
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":168
- *         title = f"Competitor-{site.upper()}-{_period_label(period)}"
+  /* "opscli/seller_sprite/export/xlsx.py":196
+ *         title = f"Market-research-{site.upper()}-{_period_label(period)}"
  *     else:
  *         title = scenario             # <<<<<<<<<<<<<<
  *     return _safe_sheet_title(title)
@@ -8761,7 +9787,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_14_main_sheet_ti
   }
   __pyx_L3:;
 
-  /* "opscli/seller_sprite/export/xlsx.py":169
+  /* "opscli/seller_sprite/export/xlsx.py":197
  *     else:
  *         title = scenario
  *     return _safe_sheet_title(title)             # <<<<<<<<<<<<<<
@@ -8770,34 +9796,34 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_14_main_sheet_ti
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_3 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_safe_sheet_title); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 169, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_safe_sheet_title); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 197, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_9 = 1;
   #if CYTHON_UNPACK_METHODS
-  if (unlikely(PyMethod_Check(__pyx_t_5))) {
-    __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_5);
+  if (unlikely(PyMethod_Check(__pyx_t_2))) {
+    __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_2);
     assert(__pyx_t_3);
-    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_5);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_2);
     __Pyx_INCREF(__pyx_t_3);
     __Pyx_INCREF(__pyx__function);
-    __Pyx_DECREF_SET(__pyx_t_5, __pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_2, __pyx__function);
     __pyx_t_9 = 0;
   }
   #endif
   {
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_title};
-    __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __pyx_t_5 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_2, __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 169, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 197, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
   }
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 169, __pyx_L1_error)
-  __pyx_r = ((PyObject*)__pyx_t_2);
-  __pyx_t_2 = 0;
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_5))||((__pyx_t_5) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_5))) __PYX_ERR(0, 197, __pyx_L1_error)
+  __pyx_r = ((PyObject*)__pyx_t_5);
+  __pyx_t_5 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":156
+  /* "opscli/seller_sprite/export/xlsx.py":182
  * 
  * 
  * def _main_sheet_title(*, scenario: str, site: str, period: str, params: dict[str, Any], rows: list[dict[str, Any]]) -> str:             # <<<<<<<<<<<<<<
@@ -8822,7 +9848,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_14_main_sheet_ti
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":172
+/* "opscli/seller_sprite/export/xlsx.py":200
  * 
  * 
  * def _safe_sheet_title(value: str) -> str:             # <<<<<<<<<<<<<<
@@ -8869,32 +9895,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_value,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 172, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 200, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 172, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 200, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_safe_sheet_title", 0) < (0)) __PYX_ERR(0, 172, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_safe_sheet_title", 0) < (0)) __PYX_ERR(0, 200, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_safe_sheet_title", 1, 1, 1, i); __PYX_ERR(0, 172, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_safe_sheet_title", 1, 1, 1, i); __PYX_ERR(0, 200, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 172, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 200, __pyx_L3_error)
     }
     __pyx_v_value = ((PyObject*)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_safe_sheet_title", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 172, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_safe_sheet_title", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 200, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8905,7 +9931,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyUnicode_Type), 0, "value", 2))) __PYX_ERR(0, 172, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyUnicode_Type), 0, "value", 2))) __PYX_ERR(0, 200, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_16_safe_sheet_title(__pyx_self, __pyx_v_value);
 
   /* function exit code */
@@ -8926,7 +9952,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 }
 static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_17_safe_sheet_title_2generator(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "opscli/seller_sprite/export/xlsx.py":173
+/* "opscli/seller_sprite/export/xlsx.py":201
  * 
  * def _safe_sheet_title(value: str) -> str:
  *     title = "".join(char for char in value if char not in r"[]:*?/\\")             # <<<<<<<<<<<<<<
@@ -8946,7 +9972,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_17_safe_sheet_ti
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct__genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 173, __pyx_L1_error)
+    __PYX_ERR(0, 201, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -8954,7 +9980,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_17_safe_sheet_ti
   __Pyx_INCREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_6export_4xlsx_17_safe_sheet_title_2generator, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_safe_sheet_title_locals_genexpr, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx); if (unlikely(!gen)) __PYX_ERR(0, 173, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_6export_4xlsx_17_safe_sheet_title_2generator, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_safe_sheet_title_locals_genexpr, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx); if (unlikely(!gen)) __PYX_ERR(0, 201, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -8996,13 +10022,13 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_17_safe_sheet_ti
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 173, __pyx_L1_error)
-  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 173, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 201, __pyx_L1_error)
+  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_r);
-  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 173, __pyx_L1_error) }
+  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 201, __pyx_L1_error) }
   __Pyx_INCREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   __pyx_t_1 = __pyx_cur_scope->__pyx_genexpr_arg_0;
-  __pyx_t_6 = __Pyx_init_unicode_iteration(__pyx_t_1, (&__pyx_t_3), (&__pyx_t_4), (&__pyx_t_5)); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 173, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_init_unicode_iteration(__pyx_t_1, (&__pyx_t_3), (&__pyx_t_4), (&__pyx_t_5)); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 201, __pyx_L1_error)
   for (__pyx_t_7 = 0; __pyx_t_7 < __pyx_t_3; __pyx_t_7++) {
     __pyx_t_2 = __pyx_t_7;
     __pyx_cur_scope->__pyx_v_char = __Pyx_PyUnicode_READ(__pyx_t_5, __pyx_t_4, __pyx_t_2);
@@ -9022,9 +10048,9 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_17_safe_sheet_ti
     }
     __pyx_t_9 = __pyx_t_8;
     if (__pyx_t_9) {
-      __pyx_t_10 = __Pyx_PyUnicode_FromOrdinal(__pyx_cur_scope->__pyx_v_char); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 173, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_PyUnicode_FromOrdinal(__pyx_cur_scope->__pyx_v_char); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 201, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
-      if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_10))) __PYX_ERR(0, 173, __pyx_L1_error)
+      if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_10))) __PYX_ERR(0, 201, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     }
   }
@@ -9052,7 +10078,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_17_safe_sheet_ti
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":172
+/* "opscli/seller_sprite/export/xlsx.py":200
  * 
  * 
  * def _safe_sheet_title(value: str) -> str:             # <<<<<<<<<<<<<<
@@ -9073,25 +10099,25 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_16_safe_sheet_ti
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_safe_sheet_title", 0);
 
-  /* "opscli/seller_sprite/export/xlsx.py":173
+  /* "opscli/seller_sprite/export/xlsx.py":201
  * 
  * def _safe_sheet_title(value: str) -> str:
  *     title = "".join(char for char in value if char not in r"[]:*?/\\")             # <<<<<<<<<<<<<<
  *     return (title or "seller-sprite")[:31]
  * 
 */
-  __pyx_t_1 = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_17_safe_sheet_title_genexpr(NULL, __pyx_v_value); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 173, __pyx_L1_error)
+  __pyx_t_1 = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_17_safe_sheet_title_genexpr(NULL, __pyx_v_value); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_Generator_GetInlinedResult(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 173, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_Generator_GetInlinedResult(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__2, __pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 173, __pyx_L1_error)
+  __pyx_t_1 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__2, __pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 201, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_v_title = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":174
+  /* "opscli/seller_sprite/export/xlsx.py":202
  * def _safe_sheet_title(value: str) -> str:
  *     title = "".join(char for char in value if char not in r"[]:*?/\\")
  *     return (title or "seller-sprite")[:31]             # <<<<<<<<<<<<<<
@@ -9099,7 +10125,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_16_safe_sheet_ti
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_title); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 174, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_v_title); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 202, __pyx_L1_error)
   if (!__pyx_t_3) {
   } else {
     __Pyx_INCREF(__pyx_v_title);
@@ -9111,16 +10137,16 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_16_safe_sheet_ti
   __pyx_L3_bool_binop_done:;
   if (unlikely(__pyx_t_1 == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-    __PYX_ERR(0, 174, __pyx_L1_error)
+    __PYX_ERR(0, 202, __pyx_L1_error)
   }
-  __pyx_t_2 = PySequence_GetSlice(__pyx_t_1, 0, 31); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 174, __pyx_L1_error)
+  __pyx_t_2 = PySequence_GetSlice(__pyx_t_1, 0, 31); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 202, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":172
+  /* "opscli/seller_sprite/export/xlsx.py":200
  * 
  * 
  * def _safe_sheet_title(value: str) -> str:             # <<<<<<<<<<<<<<
@@ -9142,7 +10168,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_16_safe_sheet_ti
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":177
+/* "opscli/seller_sprite/export/xlsx.py":205
  * 
  * 
  * def _period_label(period: str) -> str:             # <<<<<<<<<<<<<<
@@ -9189,32 +10215,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_period,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 177, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 205, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 177, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 205, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_period_label", 0) < (0)) __PYX_ERR(0, 177, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_period_label", 0) < (0)) __PYX_ERR(0, 205, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_period_label", 1, 1, 1, i); __PYX_ERR(0, 177, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_period_label", 1, 1, 1, i); __PYX_ERR(0, 205, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 177, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 205, __pyx_L3_error)
     }
     __pyx_v_period = ((PyObject*)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_period_label", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 177, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_period_label", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 205, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -9225,7 +10251,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_period), (&PyUnicode_Type), 0, "period", 2))) __PYX_ERR(0, 177, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_period), (&PyUnicode_Type), 0, "period", 2))) __PYX_ERR(0, 205, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_18_period_label(__pyx_self, __pyx_v_period);
 
   /* function exit code */
@@ -9259,14 +10285,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_18_period_label(
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_period_label", 0);
 
-  /* "opscli/seller_sprite/export/xlsx.py":178
+  /* "opscli/seller_sprite/export/xlsx.py":206
  * 
  * def _period_label(period: str) -> str:
  *     text = str(period or "")             # <<<<<<<<<<<<<<
  *     if text in {"30d", "nearly", "latest30", "last30", ""}:
  *         return "Last-30-days"
 */
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_period); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 178, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_period); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 206, __pyx_L1_error)
   if (!__pyx_t_2) {
   } else {
     __Pyx_INCREF(__pyx_v_period);
@@ -9276,13 +10302,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_18_period_label(
   __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__2);
   __pyx_t_1 = __pyx_mstate_global->__pyx_kp_u__2;
   __pyx_L3_bool_binop_done:;
-  __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 178, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 206, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_text = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":179
+  /* "opscli/seller_sprite/export/xlsx.py":207
  * def _period_label(period: str) -> str:
  *     text = str(period or "")
  *     if text in {"30d", "nearly", "latest30", "last30", ""}:             # <<<<<<<<<<<<<<
@@ -9291,38 +10317,38 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_18_period_label(
 */
   __Pyx_INCREF(__pyx_v_text);
   __pyx_t_4 = __pyx_v_text;
-  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_30d, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 179, __pyx_L1_error)
+  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_30d, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 207, __pyx_L1_error)
   if (!__pyx_t_5) {
   } else {
     __pyx_t_2 = __pyx_t_5;
     goto __pyx_L6_bool_binop_done;
   }
-  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_nearly, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 179, __pyx_L1_error)
+  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_nearly, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 207, __pyx_L1_error)
   if (!__pyx_t_5) {
   } else {
     __pyx_t_2 = __pyx_t_5;
     goto __pyx_L6_bool_binop_done;
   }
-  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_latest30, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 179, __pyx_L1_error)
+  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_latest30, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 207, __pyx_L1_error)
   if (!__pyx_t_5) {
   } else {
     __pyx_t_2 = __pyx_t_5;
     goto __pyx_L6_bool_binop_done;
   }
-  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_last30, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 179, __pyx_L1_error)
+  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_last30, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 207, __pyx_L1_error)
   if (!__pyx_t_5) {
   } else {
     __pyx_t_2 = __pyx_t_5;
     goto __pyx_L6_bool_binop_done;
   }
-  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u__2, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 179, __pyx_L1_error)
+  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u__2, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 207, __pyx_L1_error)
   __pyx_t_2 = __pyx_t_5;
   __pyx_L6_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_5 = __pyx_t_2;
   if (__pyx_t_5) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":180
+    /* "opscli/seller_sprite/export/xlsx.py":208
  *     text = str(period or "")
  *     if text in {"30d", "nearly", "latest30", "last30", ""}:
  *         return "Last-30-days"             # <<<<<<<<<<<<<<
@@ -9334,7 +10360,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_18_period_label(
     __pyx_r = __pyx_mstate_global->__pyx_kp_u_Last_30_days;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":179
+    /* "opscli/seller_sprite/export/xlsx.py":207
  * def _period_label(period: str) -> str:
  *     text = str(period or "")
  *     if text in {"30d", "nearly", "latest30", "last30", ""}:             # <<<<<<<<<<<<<<
@@ -9343,7 +10369,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_18_period_label(
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":181
+  /* "opscli/seller_sprite/export/xlsx.py":209
  *     if text in {"30d", "nearly", "latest30", "last30", ""}:
  *         return "Last-30-days"
  *     return text.replace("-", "")             # <<<<<<<<<<<<<<
@@ -9351,13 +10377,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_18_period_label(
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = PyUnicode_Replace(__pyx_v_text, __pyx_mstate_global->__pyx_kp_u__9, __pyx_mstate_global->__pyx_kp_u__2, -1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 181, __pyx_L1_error)
+  __pyx_t_3 = PyUnicode_Replace(__pyx_v_text, __pyx_mstate_global->__pyx_kp_u__9, __pyx_mstate_global->__pyx_kp_u__2, -1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 209, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_r = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":177
+  /* "opscli/seller_sprite/export/xlsx.py":205
  * 
  * 
  * def _period_label(period: str) -> str:             # <<<<<<<<<<<<<<
@@ -9379,7 +10405,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_18_period_label(
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":184
+/* "opscli/seller_sprite/export/xlsx.py":212
  * 
  * 
  * def _column_width(title: str) -> int:             # <<<<<<<<<<<<<<
@@ -9426,32 +10452,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_title,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 184, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 212, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 184, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 212, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_column_width", 0) < (0)) __PYX_ERR(0, 184, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_column_width", 0) < (0)) __PYX_ERR(0, 212, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_column_width", 1, 1, 1, i); __PYX_ERR(0, 184, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_column_width", 1, 1, 1, i); __PYX_ERR(0, 212, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 184, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 212, __pyx_L3_error)
     }
     __pyx_v_title = ((PyObject*)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_column_width", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 184, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_column_width", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 212, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -9462,7 +10488,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_title), (&PyUnicode_Type), 0, "title", 2))) __PYX_ERR(0, 184, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_title), (&PyUnicode_Type), 0, "title", 2))) __PYX_ERR(0, 212, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_20_column_width(__pyx_self, __pyx_v_title);
 
   /* function exit code */
@@ -9483,7 +10509,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 }
 static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_13_column_width_2generator1(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "opscli/seller_sprite/export/xlsx.py":185
+/* "opscli/seller_sprite/export/xlsx.py":213
  * 
  * def _column_width(title: str) -> int:
  *     if any(key in title for key in ["", "", ""]):             # <<<<<<<<<<<<<<
@@ -9503,7 +10529,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_13_column_width_
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_2_genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 185, __pyx_L1_error)
+    __PYX_ERR(0, 213, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -9511,7 +10537,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_13_column_width_
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_outer_scope);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_outer_scope);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_6export_4xlsx_13_column_width_2generator1, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_column_width_locals_genexpr, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx); if (unlikely(!gen)) __PYX_ERR(0, 185, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_6export_4xlsx_13_column_width_2generator1, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_column_width_locals_genexpr, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx); if (unlikely(!gen)) __PYX_ERR(0, 213, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -9547,7 +10573,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_13_column_width_
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 185, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 213, __pyx_L1_error)
   __pyx_t_1 = __pyx_mstate_global->__pyx_tuple[0]; __Pyx_INCREF(__pyx_t_1);
   __pyx_t_2 = 0;
   for (;;) {
@@ -9558,18 +10584,18 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_13_column_width_
     __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_2);
     #endif
     ++__pyx_t_2;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 185, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 213, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_key);
     __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_v_key, ((PyObject*)__pyx_t_3));
     __Pyx_GIVEREF(__pyx_t_3);
     __pyx_t_3 = 0;
-    if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_title)) { __Pyx_RaiseClosureNameError("title"); __PYX_ERR(0, 185, __pyx_L1_error) }
+    if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_title)) { __Pyx_RaiseClosureNameError("title"); __PYX_ERR(0, 213, __pyx_L1_error) }
     if (unlikely(__pyx_cur_scope->__pyx_outer_scope->__pyx_v_title == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-      __PYX_ERR(0, 185, __pyx_L1_error)
+      __PYX_ERR(0, 213, __pyx_L1_error)
     }
-    __pyx_t_4 = (__Pyx_PyUnicode_ContainsTF(__pyx_cur_scope->__pyx_v_key, __pyx_cur_scope->__pyx_outer_scope->__pyx_v_title, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 185, __pyx_L1_error)
+    __pyx_t_4 = (__Pyx_PyUnicode_ContainsTF(__pyx_cur_scope->__pyx_v_key, __pyx_cur_scope->__pyx_outer_scope->__pyx_v_title, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 213, __pyx_L1_error)
     if (__pyx_t_4) {
       __Pyx_XDECREF(__pyx_r);
       __Pyx_INCREF(Py_True);
@@ -9608,7 +10634,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_13_column_width_
 }
 static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_13_column_width_5generator2(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "opscli/seller_sprite/export/xlsx.py":187
+/* "opscli/seller_sprite/export/xlsx.py":215
  *     if any(key in title for key in ["", "", ""]):
  *         return 48
  *     if any(key in title for key in ["", "", "ASIN"]):             # <<<<<<<<<<<<<<
@@ -9628,7 +10654,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_13_column_width_
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_3_genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 187, __pyx_L1_error)
+    __PYX_ERR(0, 215, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -9636,7 +10662,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_13_column_width_
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_outer_scope);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_outer_scope);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_6export_4xlsx_13_column_width_5generator2, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_column_width_locals_genexpr, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx); if (unlikely(!gen)) __PYX_ERR(0, 187, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_6export_4xlsx_13_column_width_5generator2, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_column_width_locals_genexpr, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx); if (unlikely(!gen)) __PYX_ERR(0, 215, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -9672,7 +10698,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_13_column_width_
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 187, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 215, __pyx_L1_error)
   __pyx_t_1 = __pyx_mstate_global->__pyx_tuple[1]; __Pyx_INCREF(__pyx_t_1);
   __pyx_t_2 = 0;
   for (;;) {
@@ -9683,18 +10709,18 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_13_column_width_
     __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_2);
     #endif
     ++__pyx_t_2;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 187, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 215, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_key);
     __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_v_key, ((PyObject*)__pyx_t_3));
     __Pyx_GIVEREF(__pyx_t_3);
     __pyx_t_3 = 0;
-    if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_title)) { __Pyx_RaiseClosureNameError("title"); __PYX_ERR(0, 187, __pyx_L1_error) }
+    if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_title)) { __Pyx_RaiseClosureNameError("title"); __PYX_ERR(0, 215, __pyx_L1_error) }
     if (unlikely(__pyx_cur_scope->__pyx_outer_scope->__pyx_v_title == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-      __PYX_ERR(0, 187, __pyx_L1_error)
+      __PYX_ERR(0, 215, __pyx_L1_error)
     }
-    __pyx_t_4 = (__Pyx_PyUnicode_ContainsTF(__pyx_cur_scope->__pyx_v_key, __pyx_cur_scope->__pyx_outer_scope->__pyx_v_title, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 187, __pyx_L1_error)
+    __pyx_t_4 = (__Pyx_PyUnicode_ContainsTF(__pyx_cur_scope->__pyx_v_key, __pyx_cur_scope->__pyx_outer_scope->__pyx_v_title, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 215, __pyx_L1_error)
     if (__pyx_t_4) {
       __Pyx_XDECREF(__pyx_r);
       __Pyx_INCREF(Py_True);
@@ -9733,7 +10759,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_13_column_width_
 }
 static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_13_column_width_8generator3(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "opscli/seller_sprite/export/xlsx.py":189
+/* "opscli/seller_sprite/export/xlsx.py":217
  *     if any(key in title for key in ["", "", "ASIN"]):
  *         return 38
  *     if any(key in title for key in ["", ""]):             # <<<<<<<<<<<<<<
@@ -9753,7 +10779,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_13_column_width_
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_4_genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 189, __pyx_L1_error)
+    __PYX_ERR(0, 217, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -9761,7 +10787,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_13_column_width_
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_outer_scope);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_outer_scope);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_6export_4xlsx_13_column_width_8generator3, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_column_width_locals_genexpr, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx); if (unlikely(!gen)) __PYX_ERR(0, 189, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_6export_4xlsx_13_column_width_8generator3, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_column_width_locals_genexpr, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx); if (unlikely(!gen)) __PYX_ERR(0, 217, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -9797,7 +10823,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_13_column_width_
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 189, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 217, __pyx_L1_error)
   __pyx_t_1 = __pyx_mstate_global->__pyx_tuple[2]; __Pyx_INCREF(__pyx_t_1);
   __pyx_t_2 = 0;
   for (;;) {
@@ -9808,18 +10834,18 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_13_column_width_
     __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_2);
     #endif
     ++__pyx_t_2;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 189, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 217, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_key);
     __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_v_key, ((PyObject*)__pyx_t_3));
     __Pyx_GIVEREF(__pyx_t_3);
     __pyx_t_3 = 0;
-    if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_title)) { __Pyx_RaiseClosureNameError("title"); __PYX_ERR(0, 189, __pyx_L1_error) }
+    if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_title)) { __Pyx_RaiseClosureNameError("title"); __PYX_ERR(0, 217, __pyx_L1_error) }
     if (unlikely(__pyx_cur_scope->__pyx_outer_scope->__pyx_v_title == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-      __PYX_ERR(0, 189, __pyx_L1_error)
+      __PYX_ERR(0, 217, __pyx_L1_error)
     }
-    __pyx_t_4 = (__Pyx_PyUnicode_ContainsTF(__pyx_cur_scope->__pyx_v_key, __pyx_cur_scope->__pyx_outer_scope->__pyx_v_title, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 189, __pyx_L1_error)
+    __pyx_t_4 = (__Pyx_PyUnicode_ContainsTF(__pyx_cur_scope->__pyx_v_key, __pyx_cur_scope->__pyx_outer_scope->__pyx_v_title, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 217, __pyx_L1_error)
     if (__pyx_t_4) {
       __Pyx_XDECREF(__pyx_r);
       __Pyx_INCREF(Py_True);
@@ -9858,7 +10884,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_13_column_width_
 }
 static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_13_column_width_11generator4(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "opscli/seller_sprite/export/xlsx.py":191
+/* "opscli/seller_sprite/export/xlsx.py":219
  *     if any(key in title for key in ["", ""]):
  *         return 32
  *     if any(key in title for key in ["ASIN", "SKU", ""]):             # <<<<<<<<<<<<<<
@@ -9878,7 +10904,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_13_column_width_
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_5_genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 191, __pyx_L1_error)
+    __PYX_ERR(0, 219, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -9886,7 +10912,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_13_column_width_
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_outer_scope);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_outer_scope);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_6export_4xlsx_13_column_width_11generator4, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_column_width_locals_genexpr, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx); if (unlikely(!gen)) __PYX_ERR(0, 191, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_6export_4xlsx_13_column_width_11generator4, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_column_width_locals_genexpr, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx); if (unlikely(!gen)) __PYX_ERR(0, 219, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -9922,7 +10948,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_13_column_width_
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 191, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 219, __pyx_L1_error)
   __pyx_t_1 = __pyx_mstate_global->__pyx_tuple[3]; __Pyx_INCREF(__pyx_t_1);
   __pyx_t_2 = 0;
   for (;;) {
@@ -9933,18 +10959,18 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_13_column_width_
     __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_2);
     #endif
     ++__pyx_t_2;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 191, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 219, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_key);
     __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_v_key, ((PyObject*)__pyx_t_3));
     __Pyx_GIVEREF(__pyx_t_3);
     __pyx_t_3 = 0;
-    if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_title)) { __Pyx_RaiseClosureNameError("title"); __PYX_ERR(0, 191, __pyx_L1_error) }
+    if (unlikely(!__pyx_cur_scope->__pyx_outer_scope->__pyx_v_title)) { __Pyx_RaiseClosureNameError("title"); __PYX_ERR(0, 219, __pyx_L1_error) }
     if (unlikely(__pyx_cur_scope->__pyx_outer_scope->__pyx_v_title == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-      __PYX_ERR(0, 191, __pyx_L1_error)
+      __PYX_ERR(0, 219, __pyx_L1_error)
     }
-    __pyx_t_4 = (__Pyx_PyUnicode_ContainsTF(__pyx_cur_scope->__pyx_v_key, __pyx_cur_scope->__pyx_outer_scope->__pyx_v_title, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 191, __pyx_L1_error)
+    __pyx_t_4 = (__Pyx_PyUnicode_ContainsTF(__pyx_cur_scope->__pyx_v_key, __pyx_cur_scope->__pyx_outer_scope->__pyx_v_title, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 219, __pyx_L1_error)
     if (__pyx_t_4) {
       __Pyx_XDECREF(__pyx_r);
       __Pyx_INCREF(Py_True);
@@ -9982,7 +11008,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_13_column_width_
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":184
+/* "opscli/seller_sprite/export/xlsx.py":212
  * 
  * 
  * def _column_width(title: str) -> int:             # <<<<<<<<<<<<<<
@@ -10012,7 +11038,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_20_column_width(
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_1__column_width *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 184, __pyx_L1_error)
+    __PYX_ERR(0, 212, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -10020,23 +11046,23 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_20_column_width(
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_title);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_title);
 
-  /* "opscli/seller_sprite/export/xlsx.py":185
+  /* "opscli/seller_sprite/export/xlsx.py":213
  * 
  * def _column_width(title: str) -> int:
  *     if any(key in title for key in ["", "", ""]):             # <<<<<<<<<<<<<<
  *         return 48
  *     if any(key in title for key in ["", "", "ASIN"]):
 */
-  __pyx_t_1 = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_13_column_width_genexpr(((PyObject*)__pyx_cur_scope)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 185, __pyx_L1_error)
+  __pyx_t_1 = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_13_column_width_genexpr(((PyObject*)__pyx_cur_scope)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 213, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_Generator_GetInlinedResult(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 185, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_Generator_GetInlinedResult(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 213, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 185, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 213, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (__pyx_t_3) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":186
+    /* "opscli/seller_sprite/export/xlsx.py":214
  * def _column_width(title: str) -> int:
  *     if any(key in title for key in ["", "", ""]):
  *         return 48             # <<<<<<<<<<<<<<
@@ -10048,7 +11074,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_20_column_width(
     __pyx_r = __pyx_mstate_global->__pyx_int_48;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":185
+    /* "opscli/seller_sprite/export/xlsx.py":213
  * 
  * def _column_width(title: str) -> int:
  *     if any(key in title for key in ["", "", ""]):             # <<<<<<<<<<<<<<
@@ -10057,23 +11083,23 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_20_column_width(
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":187
+  /* "opscli/seller_sprite/export/xlsx.py":215
  *     if any(key in title for key in ["", "", ""]):
  *         return 48
  *     if any(key in title for key in ["", "", "ASIN"]):             # <<<<<<<<<<<<<<
  *         return 38
  *     if any(key in title for key in ["", ""]):
 */
-  __pyx_t_2 = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_13_column_width_3genexpr(((PyObject*)__pyx_cur_scope)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 187, __pyx_L1_error)
+  __pyx_t_2 = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_13_column_width_3genexpr(((PyObject*)__pyx_cur_scope)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 215, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_1 = __Pyx_Generator_GetInlinedResult(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 187, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_Generator_GetInlinedResult(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 215, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 187, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 215, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_3) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":188
+    /* "opscli/seller_sprite/export/xlsx.py":216
  *         return 48
  *     if any(key in title for key in ["", "", "ASIN"]):
  *         return 38             # <<<<<<<<<<<<<<
@@ -10085,7 +11111,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_20_column_width(
     __pyx_r = __pyx_mstate_global->__pyx_int_38;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":187
+    /* "opscli/seller_sprite/export/xlsx.py":215
  *     if any(key in title for key in ["", "", ""]):
  *         return 48
  *     if any(key in title for key in ["", "", "ASIN"]):             # <<<<<<<<<<<<<<
@@ -10094,23 +11120,23 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_20_column_width(
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":189
+  /* "opscli/seller_sprite/export/xlsx.py":217
  *     if any(key in title for key in ["", "", "ASIN"]):
  *         return 38
  *     if any(key in title for key in ["", ""]):             # <<<<<<<<<<<<<<
  *         return 32
  *     if any(key in title for key in ["ASIN", "SKU", ""]):
 */
-  __pyx_t_1 = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_13_column_width_6genexpr(((PyObject*)__pyx_cur_scope)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 189, __pyx_L1_error)
+  __pyx_t_1 = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_13_column_width_6genexpr(((PyObject*)__pyx_cur_scope)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 217, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_Generator_GetInlinedResult(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 189, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_Generator_GetInlinedResult(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 217, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 189, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 217, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (__pyx_t_3) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":190
+    /* "opscli/seller_sprite/export/xlsx.py":218
  *         return 38
  *     if any(key in title for key in ["", ""]):
  *         return 32             # <<<<<<<<<<<<<<
@@ -10122,7 +11148,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_20_column_width(
     __pyx_r = __pyx_mstate_global->__pyx_int_32;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":189
+    /* "opscli/seller_sprite/export/xlsx.py":217
  *     if any(key in title for key in ["", "", "ASIN"]):
  *         return 38
  *     if any(key in title for key in ["", ""]):             # <<<<<<<<<<<<<<
@@ -10131,23 +11157,23 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_20_column_width(
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":191
+  /* "opscli/seller_sprite/export/xlsx.py":219
  *     if any(key in title for key in ["", ""]):
  *         return 32
  *     if any(key in title for key in ["ASIN", "SKU", ""]):             # <<<<<<<<<<<<<<
  *         return 18
  *     return max(12, min(22, len(str(title)) * 2 + 4))
 */
-  __pyx_t_2 = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_13_column_width_9genexpr(((PyObject*)__pyx_cur_scope)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 191, __pyx_L1_error)
+  __pyx_t_2 = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_13_column_width_9genexpr(((PyObject*)__pyx_cur_scope)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 219, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_1 = __Pyx_Generator_GetInlinedResult(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 191, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_Generator_GetInlinedResult(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 219, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 191, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 219, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_3) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":192
+    /* "opscli/seller_sprite/export/xlsx.py":220
  *         return 32
  *     if any(key in title for key in ["ASIN", "SKU", ""]):
  *         return 18             # <<<<<<<<<<<<<<
@@ -10159,7 +11185,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_20_column_width(
     __pyx_r = __pyx_mstate_global->__pyx_int_18;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":191
+    /* "opscli/seller_sprite/export/xlsx.py":219
  *     if any(key in title for key in ["", ""]):
  *         return 32
  *     if any(key in title for key in ["ASIN", "SKU", ""]):             # <<<<<<<<<<<<<<
@@ -10168,7 +11194,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_20_column_width(
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":193
+  /* "opscli/seller_sprite/export/xlsx.py":221
  *     if any(key in title for key in ["ASIN", "SKU", ""]):
  *         return 18
  *     return max(12, min(22, len(str(title)) * 2 + 4))             # <<<<<<<<<<<<<<
@@ -10176,7 +11202,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_20_column_width(
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_4 = __Pyx_PyUnicode_GET_LENGTH(__pyx_cur_scope->__pyx_v_title); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 193, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyUnicode_GET_LENGTH(__pyx_cur_scope->__pyx_v_title); if (unlikely(__pyx_t_4 == ((Py_ssize_t)-1))) __PYX_ERR(0, 221, __pyx_L1_error)
   __pyx_t_5 = ((__pyx_t_4 * 2) + 4);
   __pyx_t_6 = 22;
   __pyx_t_3 = (__pyx_t_5 < __pyx_t_6);
@@ -10193,14 +11219,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_20_column_width(
   } else {
     __pyx_t_4 = __pyx_t_6;
   }
-  __pyx_t_1 = PyLong_FromSsize_t(__pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 193, __pyx_L1_error)
+  __pyx_t_1 = PyLong_FromSsize_t(__pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 221, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_PyInt_FromNumber(&__pyx_t_1, NULL, 0) < (0)) __PYX_ERR(0, 193, __pyx_L1_error)
+  if (__Pyx_PyInt_FromNumber(&__pyx_t_1, NULL, 0) < (0)) __PYX_ERR(0, 221, __pyx_L1_error)
   __pyx_r = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":184
+  /* "opscli/seller_sprite/export/xlsx.py":212
  * 
  * 
  * def _column_width(title: str) -> int:             # <<<<<<<<<<<<<<
@@ -10225,7 +11251,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_20_column_width(
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":196
+/* "opscli/seller_sprite/export/xlsx.py":224
  * 
  * 
  * def _json_object_lines(value: Any) -> Any:             # <<<<<<<<<<<<<<
@@ -10272,32 +11298,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_value,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 196, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 224, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 196, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 224, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_json_object_lines", 0) < (0)) __PYX_ERR(0, 196, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_json_object_lines", 0) < (0)) __PYX_ERR(0, 224, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_json_object_lines", 1, 1, 1, i); __PYX_ERR(0, 196, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_json_object_lines", 1, 1, 1, i); __PYX_ERR(0, 224, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 196, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 224, __pyx_L3_error)
     }
     __pyx_v_value = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_json_object_lines", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 196, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_json_object_lines", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 224, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -10319,7 +11345,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 }
 static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_18_json_object_lines_2generator5(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "opscli/seller_sprite/export/xlsx.py":206
+/* "opscli/seller_sprite/export/xlsx.py":234
  *     if not isinstance(value, dict):
  *         return value
  *     return "\n".join(f"{key}:{item}" for key, item in value.items())             # <<<<<<<<<<<<<<
@@ -10339,7 +11365,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_18_json_object_l
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_6_genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 206, __pyx_L1_error)
+    __PYX_ERR(0, 234, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -10347,7 +11373,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_18_json_object_l
   __Pyx_INCREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_6export_4xlsx_18_json_object_lines_2generator5, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_json_object_lines_locals_genexp, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx); if (unlikely(!gen)) __PYX_ERR(0, 206, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_6export_4xlsx_18_json_object_lines_2generator5, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_json_object_lines_locals_genexp, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx); if (unlikely(!gen)) __PYX_ERR(0, 234, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -10388,16 +11414,16 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_18_json_object_l
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 206, __pyx_L1_error)
-  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 206, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 234, __pyx_L1_error)
+  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 234, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_r);
   __pyx_t_2 = 0;
-  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 206, __pyx_L1_error) }
+  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 234, __pyx_L1_error) }
   if (unlikely(__pyx_cur_scope->__pyx_genexpr_arg_0 == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-    __PYX_ERR(0, 206, __pyx_L1_error)
+    __PYX_ERR(0, 234, __pyx_L1_error)
   }
-  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_genexpr_arg_0, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 206, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_genexpr_arg_0, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 234, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_1);
   __pyx_t_1 = __pyx_t_5;
@@ -10405,7 +11431,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_18_json_object_l
   while (1) {
     __pyx_t_7 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_3, &__pyx_t_2, &__pyx_t_5, &__pyx_t_6, NULL, __pyx_t_4);
     if (unlikely(__pyx_t_7 == 0)) break;
-    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 206, __pyx_L1_error)
+    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 234, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_key);
@@ -10416,19 +11442,19 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_18_json_object_l
     __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_v_item, __pyx_t_6);
     __Pyx_GIVEREF(__pyx_t_6);
     __pyx_t_6 = 0;
-    __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_key, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 206, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_key, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 234, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_item, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 206, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_item, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 234, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_8[0] = __pyx_t_6;
     __pyx_t_8[1] = __pyx_mstate_global->__pyx_kp_u__20;
     __pyx_t_8[2] = __pyx_t_5;
     __pyx_t_9 = __Pyx_PyUnicode_Join(__pyx_t_8, 3, __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6) + 1 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5));
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 206, __pyx_L1_error)
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 234, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_9))) __PYX_ERR(0, 206, __pyx_L1_error)
+    if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_9))) __PYX_ERR(0, 234, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -10457,7 +11483,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_18_json_object_l
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":196
+/* "opscli/seller_sprite/export/xlsx.py":224
  * 
  * 
  * def _json_object_lines(value: Any) -> Any:             # <<<<<<<<<<<<<<
@@ -10487,7 +11513,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_22_json_object_l
   __Pyx_RefNannySetupContext("_json_object_lines", 0);
   __Pyx_INCREF(__pyx_v_value);
 
-  /* "opscli/seller_sprite/export/xlsx.py":197
+  /* "opscli/seller_sprite/export/xlsx.py":225
  * 
  * def _json_object_lines(value: Any) -> Any:
  *     if _is_blank(value):             # <<<<<<<<<<<<<<
@@ -10495,7 +11521,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_22_json_object_l
  *     if isinstance(value, str):
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 197, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 225, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -10514,14 +11540,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_22_json_object_l
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 197, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 225, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 197, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 225, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_5) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":198
+    /* "opscli/seller_sprite/export/xlsx.py":226
  * def _json_object_lines(value: Any) -> Any:
  *     if _is_blank(value):
  *         return ""             # <<<<<<<<<<<<<<
@@ -10533,7 +11559,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_22_json_object_l
     __pyx_r = __pyx_mstate_global->__pyx_kp_u__2;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":197
+    /* "opscli/seller_sprite/export/xlsx.py":225
  * 
  * def _json_object_lines(value: Any) -> Any:
  *     if _is_blank(value):             # <<<<<<<<<<<<<<
@@ -10542,7 +11568,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_22_json_object_l
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":199
+  /* "opscli/seller_sprite/export/xlsx.py":227
  *     if _is_blank(value):
  *         return ""
  *     if isinstance(value, str):             # <<<<<<<<<<<<<<
@@ -10552,7 +11578,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_22_json_object_l
   __pyx_t_5 = PyUnicode_Check(__pyx_v_value); 
   if (__pyx_t_5) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":200
+    /* "opscli/seller_sprite/export/xlsx.py":228
  *         return ""
  *     if isinstance(value, str):
  *         try:             # <<<<<<<<<<<<<<
@@ -10568,7 +11594,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_22_json_object_l
       __Pyx_XGOTREF(__pyx_t_8);
       /*try:*/ {
 
-        /* "opscli/seller_sprite/export/xlsx.py":201
+        /* "opscli/seller_sprite/export/xlsx.py":229
  *     if isinstance(value, str):
  *         try:
  *             value = json.loads(value)             # <<<<<<<<<<<<<<
@@ -10576,9 +11602,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_22_json_object_l
  *             return value
 */
         __pyx_t_3 = NULL;
-        __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 201, __pyx_L5_error)
+        __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 229, __pyx_L5_error)
         __Pyx_GOTREF(__pyx_t_2);
-        __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_loads); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 201, __pyx_L5_error)
+        __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_loads); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 229, __pyx_L5_error)
         __Pyx_GOTREF(__pyx_t_9);
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         __pyx_t_4 = 1;
@@ -10598,13 +11624,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_22_json_object_l
           __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_9, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-          if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 201, __pyx_L5_error)
+          if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 229, __pyx_L5_error)
           __Pyx_GOTREF(__pyx_t_1);
         }
         __Pyx_DECREF_SET(__pyx_v_value, __pyx_t_1);
         __pyx_t_1 = 0;
 
-        /* "opscli/seller_sprite/export/xlsx.py":200
+        /* "opscli/seller_sprite/export/xlsx.py":228
  *         return ""
  *     if isinstance(value, str):
  *         try:             # <<<<<<<<<<<<<<
@@ -10622,7 +11648,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_22_json_object_l
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-      /* "opscli/seller_sprite/export/xlsx.py":202
+      /* "opscli/seller_sprite/export/xlsx.py":230
  *         try:
  *             value = json.loads(value)
  *         except json.JSONDecodeError:             # <<<<<<<<<<<<<<
@@ -10630,9 +11656,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_22_json_object_l
  *     if not isinstance(value, dict):
 */
       __Pyx_ErrFetch(&__pyx_t_1, &__pyx_t_9, &__pyx_t_3);
-      __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 202, __pyx_L7_except_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 230, __pyx_L7_except_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_JSONDecodeError); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 202, __pyx_L7_except_error)
+      __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_JSONDecodeError); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 230, __pyx_L7_except_error)
       __Pyx_GOTREF(__pyx_t_10);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __pyx_t_11 = __Pyx_PyErr_GivenExceptionMatches(__pyx_t_1, __pyx_t_10);
@@ -10642,7 +11668,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_22_json_object_l
       if (__pyx_t_11) {
         __Pyx_ErrRestore(0,0,0);
 
-        /* "opscli/seller_sprite/export/xlsx.py":203
+        /* "opscli/seller_sprite/export/xlsx.py":231
  *             value = json.loads(value)
  *         except json.JSONDecodeError:
  *             return value             # <<<<<<<<<<<<<<
@@ -10656,7 +11682,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_22_json_object_l
       }
       goto __pyx_L7_except_error;
 
-      /* "opscli/seller_sprite/export/xlsx.py":200
+      /* "opscli/seller_sprite/export/xlsx.py":228
  *         return ""
  *     if isinstance(value, str):
  *         try:             # <<<<<<<<<<<<<<
@@ -10678,7 +11704,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_22_json_object_l
       __pyx_L10_try_end:;
     }
 
-    /* "opscli/seller_sprite/export/xlsx.py":199
+    /* "opscli/seller_sprite/export/xlsx.py":227
  *     if _is_blank(value):
  *         return ""
  *     if isinstance(value, str):             # <<<<<<<<<<<<<<
@@ -10687,7 +11713,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_22_json_object_l
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":204
+  /* "opscli/seller_sprite/export/xlsx.py":232
  *         except json.JSONDecodeError:
  *             return value
  *     if not isinstance(value, dict):             # <<<<<<<<<<<<<<
@@ -10698,7 +11724,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_22_json_object_l
   __pyx_t_12 = (!__pyx_t_5);
   if (__pyx_t_12) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":205
+    /* "opscli/seller_sprite/export/xlsx.py":233
  *             return value
  *     if not isinstance(value, dict):
  *         return value             # <<<<<<<<<<<<<<
@@ -10710,7 +11736,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_22_json_object_l
     __pyx_r = __pyx_v_value;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":204
+    /* "opscli/seller_sprite/export/xlsx.py":232
  *         except json.JSONDecodeError:
  *             return value
  *     if not isinstance(value, dict):             # <<<<<<<<<<<<<<
@@ -10719,7 +11745,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_22_json_object_l
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":206
+  /* "opscli/seller_sprite/export/xlsx.py":234
  *     if not isinstance(value, dict):
  *         return value
  *     return "\n".join(f"{key}:{item}" for key, item in value.items())             # <<<<<<<<<<<<<<
@@ -10727,19 +11753,19 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_22_json_object_l
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_18_json_object_lines_genexpr(NULL, __pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 206, __pyx_L1_error)
+  __pyx_t_3 = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_18_json_object_lines_genexpr(NULL, __pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 234, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_9 = __Pyx_Generator_GetInlinedResult(__pyx_t_3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 206, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_Generator_GetInlinedResult(__pyx_t_3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 234, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__21, __pyx_t_9); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 206, __pyx_L1_error)
+  __pyx_t_3 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__21, __pyx_t_9); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 234, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
   __pyx_r = __pyx_t_3;
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":196
+  /* "opscli/seller_sprite/export/xlsx.py":224
  * 
  * 
  * def _json_object_lines(value: Any) -> Any:             # <<<<<<<<<<<<<<
@@ -10764,7 +11790,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_22_json_object_l
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":209
+/* "opscli/seller_sprite/export/xlsx.py":237
  * 
  * 
  * def _amazon_product_url(value: Any, row: dict[str, Any]) -> str:             # <<<<<<<<<<<<<<
@@ -10812,39 +11838,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_value,&__pyx_mstate_global->__pyx_n_u_row,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 209, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 237, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 209, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 237, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 209, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 237, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_amazon_product_url", 0) < (0)) __PYX_ERR(0, 209, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_amazon_product_url", 0) < (0)) __PYX_ERR(0, 237, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_amazon_product_url", 1, 2, 2, i); __PYX_ERR(0, 209, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_amazon_product_url", 1, 2, 2, i); __PYX_ERR(0, 237, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 209, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 237, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 209, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 237, __pyx_L3_error)
     }
     __pyx_v_value = values[0];
     __pyx_v_row = ((PyObject*)values[1]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_amazon_product_url", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 209, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_amazon_product_url", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 237, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -10855,7 +11881,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_row), (&PyDict_Type), 0, "row", 2))) __PYX_ERR(0, 209, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_row), (&PyDict_Type), 0, "row", 2))) __PYX_ERR(0, 237, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_24_amazon_product_url(__pyx_self, __pyx_v_value, __pyx_v_row);
 
   /* function exit code */
@@ -10890,14 +11916,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_24_amazon_produc
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_amazon_product_url", 0);
 
-  /* "opscli/seller_sprite/export/xlsx.py":210
+  /* "opscli/seller_sprite/export/xlsx.py":238
  * 
  * def _amazon_product_url(value: Any, row: dict[str, Any]) -> str:
  *     if str(value or "").startswith("http"):             # <<<<<<<<<<<<<<
  *         return str(value)
  *     asin = value or row.get("asin")
 */
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 210, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 238, __pyx_L1_error)
   if (!__pyx_t_2) {
   } else {
     __Pyx_INCREF(__pyx_v_value);
@@ -10907,14 +11933,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_24_amazon_produc
   __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__2);
   __pyx_t_1 = __pyx_mstate_global->__pyx_kp_u__2;
   __pyx_L4_bool_binop_done:;
-  __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 210, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 238, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_2 = __Pyx_PyUnicode_Tailmatch(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_http, 0, PY_SSIZE_T_MAX, -1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 210, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyUnicode_Tailmatch(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_http, 0, PY_SSIZE_T_MAX, -1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 238, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   if (__pyx_t_2) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":211
+    /* "opscli/seller_sprite/export/xlsx.py":239
  * def _amazon_product_url(value: Any, row: dict[str, Any]) -> str:
  *     if str(value or "").startswith("http"):
  *         return str(value)             # <<<<<<<<<<<<<<
@@ -10922,13 +11948,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_24_amazon_produc
  *     return f"https://{_amazon_domain(row)}/dp/{asin}" if asin else ""
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 211, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 239, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_r = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":210
+    /* "opscli/seller_sprite/export/xlsx.py":238
  * 
  * def _amazon_product_url(value: Any, row: dict[str, Any]) -> str:
  *     if str(value or "").startswith("http"):             # <<<<<<<<<<<<<<
@@ -10937,21 +11963,21 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_24_amazon_produc
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":212
+  /* "opscli/seller_sprite/export/xlsx.py":240
  *     if str(value or "").startswith("http"):
  *         return str(value)
  *     asin = value or row.get("asin")             # <<<<<<<<<<<<<<
  *     return f"https://{_amazon_domain(row)}/dp/{asin}" if asin else ""
  * 
 */
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 212, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 240, __pyx_L1_error)
   if (!__pyx_t_2) {
   } else {
     __Pyx_INCREF(__pyx_v_value);
     __pyx_t_3 = __pyx_v_value;
     goto __pyx_L6_bool_binop_done;
   }
-  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_row, __pyx_mstate_global->__pyx_n_u_asin, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 212, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_row, __pyx_mstate_global->__pyx_n_u_asin, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 240, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_t_1);
   __pyx_t_3 = __pyx_t_1;
@@ -10960,7 +11986,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_24_amazon_produc
   __pyx_v_asin = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":213
+  /* "opscli/seller_sprite/export/xlsx.py":241
  *         return str(value)
  *     asin = value or row.get("asin")
  *     return f"https://{_amazon_domain(row)}/dp/{asin}" if asin else ""             # <<<<<<<<<<<<<<
@@ -10968,24 +11994,24 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_24_amazon_produc
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_asin); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 213, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_asin); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 241, __pyx_L1_error)
   if (__pyx_t_2) {
-    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_amazon_domain); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 213, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_amazon_domain); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 241, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = __Pyx_PyObject_CallOneArg(__pyx_t_1, __pyx_v_row); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 213, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_CallOneArg(__pyx_t_1, __pyx_v_row); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 241, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 213, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 241, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_v_asin, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 213, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_v_asin, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 241, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5[0] = __pyx_mstate_global->__pyx_kp_u_https;
     __pyx_t_5[1] = __pyx_t_1;
     __pyx_t_5[2] = __pyx_mstate_global->__pyx_kp_u_dp;
     __pyx_t_5[3] = __pyx_t_4;
     __pyx_t_6 = __Pyx_PyUnicode_Join(__pyx_t_5, 4, 8 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1) + 4 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4));
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 213, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 241, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -10999,7 +12025,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_24_amazon_produc
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":209
+  /* "opscli/seller_sprite/export/xlsx.py":237
  * 
  * 
  * def _amazon_product_url(value: Any, row: dict[str, Any]) -> str:             # <<<<<<<<<<<<<<
@@ -11022,7 +12048,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_24_amazon_produc
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":216
+/* "opscli/seller_sprite/export/xlsx.py":244
  * 
  * 
  * def _amazon_seller_url(value: Any, row: dict[str, Any]) -> str:             # <<<<<<<<<<<<<<
@@ -11070,39 +12096,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_value,&__pyx_mstate_global->__pyx_n_u_row,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 216, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 244, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 216, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 244, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 216, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 244, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_amazon_seller_url", 0) < (0)) __PYX_ERR(0, 216, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_amazon_seller_url", 0) < (0)) __PYX_ERR(0, 244, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_amazon_seller_url", 1, 2, 2, i); __PYX_ERR(0, 216, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_amazon_seller_url", 1, 2, 2, i); __PYX_ERR(0, 244, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 216, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 244, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 216, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 244, __pyx_L3_error)
     }
     __pyx_v_value = values[0];
     __pyx_v_row = ((PyObject*)values[1]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_amazon_seller_url", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 216, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_amazon_seller_url", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 244, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -11113,7 +12139,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_row), (&PyDict_Type), 0, "row", 2))) __PYX_ERR(0, 216, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_row), (&PyDict_Type), 0, "row", 2))) __PYX_ERR(0, 244, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_26_amazon_seller_url(__pyx_self, __pyx_v_value, __pyx_v_row);
 
   /* function exit code */
@@ -11147,18 +12173,18 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_26_amazon_seller
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_amazon_seller_url", 0);
 
-  /* "opscli/seller_sprite/export/xlsx.py":217
+  /* "opscli/seller_sprite/export/xlsx.py":245
  * 
  * def _amazon_seller_url(value: Any, row: dict[str, Any]) -> str:
  *     if not value:             # <<<<<<<<<<<<<<
  *         return ""
  *     return f"https://{_amazon_domain(row)}/gp/help/seller/at-a-glance.html?seller={value}"
 */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 217, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 245, __pyx_L1_error)
   __pyx_t_2 = (!__pyx_t_1);
   if (__pyx_t_2) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":218
+    /* "opscli/seller_sprite/export/xlsx.py":246
  * def _amazon_seller_url(value: Any, row: dict[str, Any]) -> str:
  *     if not value:
  *         return ""             # <<<<<<<<<<<<<<
@@ -11170,7 +12196,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_26_amazon_seller
     __pyx_r = __pyx_mstate_global->__pyx_kp_u__2;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":217
+    /* "opscli/seller_sprite/export/xlsx.py":245
  * 
  * def _amazon_seller_url(value: Any, row: dict[str, Any]) -> str:
  *     if not value:             # <<<<<<<<<<<<<<
@@ -11179,7 +12205,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_26_amazon_seller
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":219
+  /* "opscli/seller_sprite/export/xlsx.py":247
  *     if not value:
  *         return ""
  *     return f"https://{_amazon_domain(row)}/gp/help/seller/at-a-glance.html?seller={value}"             # <<<<<<<<<<<<<<
@@ -11187,22 +12213,22 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_26_amazon_seller
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_amazon_domain); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 219, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_amazon_domain); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 247, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_v_row); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 219, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_v_row); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 247, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 219, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 247, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_v_value, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 219, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_v_value, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 247, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_5[0] = __pyx_mstate_global->__pyx_kp_u_https;
   __pyx_t_5[1] = __pyx_t_3;
   __pyx_t_5[2] = __pyx_mstate_global->__pyx_kp_u_gp_help_seller_at_a_glance_html;
   __pyx_t_5[3] = __pyx_t_4;
   __pyx_t_6 = __Pyx_PyUnicode_Join(__pyx_t_5, 4, 8 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + 40 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4));
-  if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 219, __pyx_L1_error)
+  if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 247, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -11210,7 +12236,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_26_amazon_seller
   __pyx_t_6 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":216
+  /* "opscli/seller_sprite/export/xlsx.py":244
  * 
  * 
  * def _amazon_seller_url(value: Any, row: dict[str, Any]) -> str:             # <<<<<<<<<<<<<<
@@ -11231,7 +12257,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_26_amazon_seller
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":222
+/* "opscli/seller_sprite/export/xlsx.py":250
  * 
  * 
  * def _amazon_domain(row: dict[str, Any]) -> str:             # <<<<<<<<<<<<<<
@@ -11278,32 +12304,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_row,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 222, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 250, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 222, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 250, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_amazon_domain", 0) < (0)) __PYX_ERR(0, 222, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_amazon_domain", 0) < (0)) __PYX_ERR(0, 250, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_amazon_domain", 1, 1, 1, i); __PYX_ERR(0, 222, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_amazon_domain", 1, 1, 1, i); __PYX_ERR(0, 250, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 222, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 250, __pyx_L3_error)
     }
     __pyx_v_row = ((PyObject*)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_amazon_domain", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 222, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_amazon_domain", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 250, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -11314,7 +12340,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_row), (&PyDict_Type), 0, "row", 2))) __PYX_ERR(0, 222, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_row), (&PyDict_Type), 0, "row", 2))) __PYX_ERR(0, 250, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_28_amazon_domain(__pyx_self, __pyx_v_row);
 
   /* function exit code */
@@ -11351,16 +12377,16 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_28_amazon_domain
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_amazon_domain", 0);
 
-  /* "opscli/seller_sprite/export/xlsx.py":223
+  /* "opscli/seller_sprite/export/xlsx.py":251
  * 
  * def _amazon_domain(row: dict[str, Any]) -> str:
  *     station = str(row.get("station") or "").upper()             # <<<<<<<<<<<<<<
  *     market_id = row.get("marketId")
  *     if station == "JAPAN" or market_id == 6:
 */
-  __pyx_t_4 = __Pyx_PyDict_GetItemDefault(__pyx_v_row, __pyx_mstate_global->__pyx_n_u_station, Py_None); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 223, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_GetItemDefault(__pyx_v_row, __pyx_mstate_global->__pyx_n_u_station, Py_None); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 251, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 223, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 251, __pyx_L1_error)
   if (!__pyx_t_5) {
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   } else {
@@ -11372,7 +12398,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_28_amazon_domain
   __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__2);
   __pyx_t_3 = __pyx_mstate_global->__pyx_kp_u__2;
   __pyx_L3_bool_binop_done:;
-  __pyx_t_4 = __Pyx_PyObject_Unicode(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 223, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Unicode(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 251, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_2 = __pyx_t_4;
@@ -11383,43 +12409,43 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_28_amazon_domain
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_upper, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 223, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 251, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_station = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":224
+  /* "opscli/seller_sprite/export/xlsx.py":252
  * def _amazon_domain(row: dict[str, Any]) -> str:
  *     station = str(row.get("station") or "").upper()
  *     market_id = row.get("marketId")             # <<<<<<<<<<<<<<
  *     if station == "JAPAN" or market_id == 6:
  *         return "www.amazon.co.jp"
 */
-  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_row, __pyx_mstate_global->__pyx_n_u_marketId, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 224, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_row, __pyx_mstate_global->__pyx_n_u_marketId, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 252, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_market_id = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":225
+  /* "opscli/seller_sprite/export/xlsx.py":253
  *     station = str(row.get("station") or "").upper()
  *     market_id = row.get("marketId")
  *     if station == "JAPAN" or market_id == 6:             # <<<<<<<<<<<<<<
  *         return "www.amazon.co.jp"
  *     if station == "GERMANY" or market_id == 4:
 */
-  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_station, __pyx_mstate_global->__pyx_n_u_JAPAN, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 225, __pyx_L1_error)
+  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_station, __pyx_mstate_global->__pyx_n_u_JAPAN, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 253, __pyx_L1_error)
   if (!__pyx_t_7) {
   } else {
     __pyx_t_5 = __pyx_t_7;
     goto __pyx_L6_bool_binop_done;
   }
-  __pyx_t_7 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_market_id, __pyx_mstate_global->__pyx_int_6, 6, 0)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 225, __pyx_L1_error)
+  __pyx_t_7 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_market_id, __pyx_mstate_global->__pyx_int_6, 6, 0)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 253, __pyx_L1_error)
   __pyx_t_5 = __pyx_t_7;
   __pyx_L6_bool_binop_done:;
   if (__pyx_t_5) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":226
+    /* "opscli/seller_sprite/export/xlsx.py":254
  *     market_id = row.get("marketId")
  *     if station == "JAPAN" or market_id == 6:
  *         return "www.amazon.co.jp"             # <<<<<<<<<<<<<<
@@ -11431,7 +12457,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_28_amazon_domain
     __pyx_r = __pyx_mstate_global->__pyx_kp_u_www_amazon_co_jp;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":225
+    /* "opscli/seller_sprite/export/xlsx.py":253
  *     station = str(row.get("station") or "").upper()
  *     market_id = row.get("marketId")
  *     if station == "JAPAN" or market_id == 6:             # <<<<<<<<<<<<<<
@@ -11440,25 +12466,25 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_28_amazon_domain
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":227
+  /* "opscli/seller_sprite/export/xlsx.py":255
  *     if station == "JAPAN" or market_id == 6:
  *         return "www.amazon.co.jp"
  *     if station == "GERMANY" or market_id == 4:             # <<<<<<<<<<<<<<
  *         return "www.amazon.de"
  *     if station == "UNITED_KINGDOM" or market_id == 3:
 */
-  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_station, __pyx_mstate_global->__pyx_n_u_GERMANY, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 227, __pyx_L1_error)
+  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_station, __pyx_mstate_global->__pyx_n_u_GERMANY, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 255, __pyx_L1_error)
   if (!__pyx_t_7) {
   } else {
     __pyx_t_5 = __pyx_t_7;
     goto __pyx_L9_bool_binop_done;
   }
-  __pyx_t_7 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_market_id, __pyx_mstate_global->__pyx_int_4, 4, 0)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 227, __pyx_L1_error)
+  __pyx_t_7 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_market_id, __pyx_mstate_global->__pyx_int_4, 4, 0)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 255, __pyx_L1_error)
   __pyx_t_5 = __pyx_t_7;
   __pyx_L9_bool_binop_done:;
   if (__pyx_t_5) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":228
+    /* "opscli/seller_sprite/export/xlsx.py":256
  *         return "www.amazon.co.jp"
  *     if station == "GERMANY" or market_id == 4:
  *         return "www.amazon.de"             # <<<<<<<<<<<<<<
@@ -11470,7 +12496,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_28_amazon_domain
     __pyx_r = __pyx_mstate_global->__pyx_kp_u_www_amazon_de;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":227
+    /* "opscli/seller_sprite/export/xlsx.py":255
  *     if station == "JAPAN" or market_id == 6:
  *         return "www.amazon.co.jp"
  *     if station == "GERMANY" or market_id == 4:             # <<<<<<<<<<<<<<
@@ -11479,25 +12505,25 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_28_amazon_domain
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":229
+  /* "opscli/seller_sprite/export/xlsx.py":257
  *     if station == "GERMANY" or market_id == 4:
  *         return "www.amazon.de"
  *     if station == "UNITED_KINGDOM" or market_id == 3:             # <<<<<<<<<<<<<<
  *         return "www.amazon.co.uk"
  *     if station == "CANADA" or market_id == 7:
 */
-  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_station, __pyx_mstate_global->__pyx_n_u_UNITED_KINGDOM, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 229, __pyx_L1_error)
+  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_station, __pyx_mstate_global->__pyx_n_u_UNITED_KINGDOM, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 257, __pyx_L1_error)
   if (!__pyx_t_7) {
   } else {
     __pyx_t_5 = __pyx_t_7;
     goto __pyx_L12_bool_binop_done;
   }
-  __pyx_t_7 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_market_id, __pyx_mstate_global->__pyx_int_3, 3, 0)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 229, __pyx_L1_error)
+  __pyx_t_7 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_market_id, __pyx_mstate_global->__pyx_int_3, 3, 0)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 257, __pyx_L1_error)
   __pyx_t_5 = __pyx_t_7;
   __pyx_L12_bool_binop_done:;
   if (__pyx_t_5) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":230
+    /* "opscli/seller_sprite/export/xlsx.py":258
  *         return "www.amazon.de"
  *     if station == "UNITED_KINGDOM" or market_id == 3:
  *         return "www.amazon.co.uk"             # <<<<<<<<<<<<<<
@@ -11509,7 +12535,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_28_amazon_domain
     __pyx_r = __pyx_mstate_global->__pyx_kp_u_www_amazon_co_uk;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":229
+    /* "opscli/seller_sprite/export/xlsx.py":257
  *     if station == "GERMANY" or market_id == 4:
  *         return "www.amazon.de"
  *     if station == "UNITED_KINGDOM" or market_id == 3:             # <<<<<<<<<<<<<<
@@ -11518,25 +12544,25 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_28_amazon_domain
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":231
+  /* "opscli/seller_sprite/export/xlsx.py":259
  *     if station == "UNITED_KINGDOM" or market_id == 3:
  *         return "www.amazon.co.uk"
  *     if station == "CANADA" or market_id == 7:             # <<<<<<<<<<<<<<
  *         return "www.amazon.ca"
  *     if station == "FRANCE" or market_id == 5:
 */
-  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_station, __pyx_mstate_global->__pyx_n_u_CANADA, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 231, __pyx_L1_error)
+  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_station, __pyx_mstate_global->__pyx_n_u_CANADA, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 259, __pyx_L1_error)
   if (!__pyx_t_7) {
   } else {
     __pyx_t_5 = __pyx_t_7;
     goto __pyx_L15_bool_binop_done;
   }
-  __pyx_t_7 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_market_id, __pyx_mstate_global->__pyx_int_7, 7, 0)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 231, __pyx_L1_error)
+  __pyx_t_7 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_market_id, __pyx_mstate_global->__pyx_int_7, 7, 0)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 259, __pyx_L1_error)
   __pyx_t_5 = __pyx_t_7;
   __pyx_L15_bool_binop_done:;
   if (__pyx_t_5) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":232
+    /* "opscli/seller_sprite/export/xlsx.py":260
  *         return "www.amazon.co.uk"
  *     if station == "CANADA" or market_id == 7:
  *         return "www.amazon.ca"             # <<<<<<<<<<<<<<
@@ -11548,7 +12574,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_28_amazon_domain
     __pyx_r = __pyx_mstate_global->__pyx_kp_u_www_amazon_ca;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":231
+    /* "opscli/seller_sprite/export/xlsx.py":259
  *     if station == "UNITED_KINGDOM" or market_id == 3:
  *         return "www.amazon.co.uk"
  *     if station == "CANADA" or market_id == 7:             # <<<<<<<<<<<<<<
@@ -11557,25 +12583,25 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_28_amazon_domain
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":233
+  /* "opscli/seller_sprite/export/xlsx.py":261
  *     if station == "CANADA" or market_id == 7:
  *         return "www.amazon.ca"
  *     if station == "FRANCE" or market_id == 5:             # <<<<<<<<<<<<<<
  *         return "www.amazon.fr"
  *     if station == "ITALY" or market_id == 8:
 */
-  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_station, __pyx_mstate_global->__pyx_n_u_FRANCE, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 233, __pyx_L1_error)
+  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_station, __pyx_mstate_global->__pyx_n_u_FRANCE, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 261, __pyx_L1_error)
   if (!__pyx_t_7) {
   } else {
     __pyx_t_5 = __pyx_t_7;
     goto __pyx_L18_bool_binop_done;
   }
-  __pyx_t_7 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_market_id, __pyx_mstate_global->__pyx_int_5, 5, 0)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 233, __pyx_L1_error)
+  __pyx_t_7 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_market_id, __pyx_mstate_global->__pyx_int_5, 5, 0)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 261, __pyx_L1_error)
   __pyx_t_5 = __pyx_t_7;
   __pyx_L18_bool_binop_done:;
   if (__pyx_t_5) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":234
+    /* "opscli/seller_sprite/export/xlsx.py":262
  *         return "www.amazon.ca"
  *     if station == "FRANCE" or market_id == 5:
  *         return "www.amazon.fr"             # <<<<<<<<<<<<<<
@@ -11587,7 +12613,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_28_amazon_domain
     __pyx_r = __pyx_mstate_global->__pyx_kp_u_www_amazon_fr;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":233
+    /* "opscli/seller_sprite/export/xlsx.py":261
  *     if station == "CANADA" or market_id == 7:
  *         return "www.amazon.ca"
  *     if station == "FRANCE" or market_id == 5:             # <<<<<<<<<<<<<<
@@ -11596,25 +12622,25 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_28_amazon_domain
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":235
+  /* "opscli/seller_sprite/export/xlsx.py":263
  *     if station == "FRANCE" or market_id == 5:
  *         return "www.amazon.fr"
  *     if station == "ITALY" or market_id == 8:             # <<<<<<<<<<<<<<
  *         return "www.amazon.it"
  *     if station == "SPAIN" or market_id == 9:
 */
-  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_station, __pyx_mstate_global->__pyx_n_u_ITALY, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 235, __pyx_L1_error)
+  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_station, __pyx_mstate_global->__pyx_n_u_ITALY, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 263, __pyx_L1_error)
   if (!__pyx_t_7) {
   } else {
     __pyx_t_5 = __pyx_t_7;
     goto __pyx_L21_bool_binop_done;
   }
-  __pyx_t_7 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_market_id, __pyx_mstate_global->__pyx_int_8, 8, 0)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 235, __pyx_L1_error)
+  __pyx_t_7 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_market_id, __pyx_mstate_global->__pyx_int_8, 8, 0)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 263, __pyx_L1_error)
   __pyx_t_5 = __pyx_t_7;
   __pyx_L21_bool_binop_done:;
   if (__pyx_t_5) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":236
+    /* "opscli/seller_sprite/export/xlsx.py":264
  *         return "www.amazon.fr"
  *     if station == "ITALY" or market_id == 8:
  *         return "www.amazon.it"             # <<<<<<<<<<<<<<
@@ -11626,7 +12652,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_28_amazon_domain
     __pyx_r = __pyx_mstate_global->__pyx_kp_u_www_amazon_it;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":235
+    /* "opscli/seller_sprite/export/xlsx.py":263
  *     if station == "FRANCE" or market_id == 5:
  *         return "www.amazon.fr"
  *     if station == "ITALY" or market_id == 8:             # <<<<<<<<<<<<<<
@@ -11635,25 +12661,25 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_28_amazon_domain
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":237
+  /* "opscli/seller_sprite/export/xlsx.py":265
  *     if station == "ITALY" or market_id == 8:
  *         return "www.amazon.it"
  *     if station == "SPAIN" or market_id == 9:             # <<<<<<<<<<<<<<
  *         return "www.amazon.es"
  *     if station == "INDIA" or market_id == 10:
 */
-  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_station, __pyx_mstate_global->__pyx_n_u_SPAIN, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 237, __pyx_L1_error)
+  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_station, __pyx_mstate_global->__pyx_n_u_SPAIN, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 265, __pyx_L1_error)
   if (!__pyx_t_7) {
   } else {
     __pyx_t_5 = __pyx_t_7;
     goto __pyx_L24_bool_binop_done;
   }
-  __pyx_t_7 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_market_id, __pyx_mstate_global->__pyx_int_9, 9, 0)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 237, __pyx_L1_error)
+  __pyx_t_7 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_market_id, __pyx_mstate_global->__pyx_int_9, 9, 0)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 265, __pyx_L1_error)
   __pyx_t_5 = __pyx_t_7;
   __pyx_L24_bool_binop_done:;
   if (__pyx_t_5) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":238
+    /* "opscli/seller_sprite/export/xlsx.py":266
  *         return "www.amazon.it"
  *     if station == "SPAIN" or market_id == 9:
  *         return "www.amazon.es"             # <<<<<<<<<<<<<<
@@ -11665,7 +12691,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_28_amazon_domain
     __pyx_r = __pyx_mstate_global->__pyx_kp_u_www_amazon_es;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":237
+    /* "opscli/seller_sprite/export/xlsx.py":265
  *     if station == "ITALY" or market_id == 8:
  *         return "www.amazon.it"
  *     if station == "SPAIN" or market_id == 9:             # <<<<<<<<<<<<<<
@@ -11674,25 +12700,25 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_28_amazon_domain
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":239
+  /* "opscli/seller_sprite/export/xlsx.py":267
  *     if station == "SPAIN" or market_id == 9:
  *         return "www.amazon.es"
  *     if station == "INDIA" or market_id == 10:             # <<<<<<<<<<<<<<
  *         return "www.amazon.in"
  *     return "www.amazon.com"
 */
-  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_station, __pyx_mstate_global->__pyx_n_u_INDIA, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 239, __pyx_L1_error)
+  __pyx_t_7 = (__Pyx_PyUnicode_Equals(__pyx_v_station, __pyx_mstate_global->__pyx_n_u_INDIA, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 267, __pyx_L1_error)
   if (!__pyx_t_7) {
   } else {
     __pyx_t_5 = __pyx_t_7;
     goto __pyx_L27_bool_binop_done;
   }
-  __pyx_t_7 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_market_id, __pyx_mstate_global->__pyx_int_10, 10, 0)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 239, __pyx_L1_error)
+  __pyx_t_7 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_market_id, __pyx_mstate_global->__pyx_int_10, 10, 0)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 267, __pyx_L1_error)
   __pyx_t_5 = __pyx_t_7;
   __pyx_L27_bool_binop_done:;
   if (__pyx_t_5) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":240
+    /* "opscli/seller_sprite/export/xlsx.py":268
  *         return "www.amazon.es"
  *     if station == "INDIA" or market_id == 10:
  *         return "www.amazon.in"             # <<<<<<<<<<<<<<
@@ -11704,7 +12730,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_28_amazon_domain
     __pyx_r = __pyx_mstate_global->__pyx_kp_u_www_amazon_in;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":239
+    /* "opscli/seller_sprite/export/xlsx.py":267
  *     if station == "SPAIN" or market_id == 9:
  *         return "www.amazon.es"
  *     if station == "INDIA" or market_id == 10:             # <<<<<<<<<<<<<<
@@ -11713,7 +12739,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_28_amazon_domain
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":241
+  /* "opscli/seller_sprite/export/xlsx.py":269
  *     if station == "INDIA" or market_id == 10:
  *         return "www.amazon.in"
  *     return "www.amazon.com"             # <<<<<<<<<<<<<<
@@ -11725,7 +12751,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_28_amazon_domain
   __pyx_r = __pyx_mstate_global->__pyx_kp_u_www_amazon_com;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":222
+  /* "opscli/seller_sprite/export/xlsx.py":250
  * 
  * 
  * def _amazon_domain(row: dict[str, Any]) -> str:             # <<<<<<<<<<<<<<
@@ -11749,7 +12775,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_28_amazon_domain
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":244
+/* "opscli/seller_sprite/export/xlsx.py":272
  * 
  * 
  * def _departments_join(value: Any) -> str:             # <<<<<<<<<<<<<<
@@ -11796,32 +12822,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_value,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 244, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 272, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 244, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 272, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_departments_join", 0) < (0)) __PYX_ERR(0, 244, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_departments_join", 0) < (0)) __PYX_ERR(0, 272, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_departments_join", 1, 1, 1, i); __PYX_ERR(0, 244, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_departments_join", 1, 1, 1, i); __PYX_ERR(0, 272, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 244, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 272, __pyx_L3_error)
     }
     __pyx_v_value = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_departments_join", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 244, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_departments_join", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 272, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -11843,7 +12869,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 }
 static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_17_departments_join_2generator6(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "opscli/seller_sprite/export/xlsx.py":247
+/* "opscli/seller_sprite/export/xlsx.py":275
  *     if not isinstance(value, list):
  *         return ""
  *     return "&".join(str(item.get("label")) for item in value if isinstance(item, dict) and item.get("label"))             # <<<<<<<<<<<<<<
@@ -11863,7 +12889,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_17_departments_j
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_7_genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 247, __pyx_L1_error)
+    __PYX_ERR(0, 275, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -11871,7 +12897,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_17_departments_j
   __Pyx_INCREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_6export_4xlsx_17_departments_join_2generator6, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_departments_join_locals_genexpr, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx); if (unlikely(!gen)) __PYX_ERR(0, 247, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_6export_4xlsx_17_departments_join_2generator6, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_departments_join_locals_genexpr, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx); if (unlikely(!gen)) __PYX_ERR(0, 275, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -11911,18 +12937,18 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_17_departments_j
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 247, __pyx_L1_error)
-  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 247, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 275, __pyx_L1_error)
+  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 275, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_r);
-  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 247, __pyx_L1_error) }
+  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 275, __pyx_L1_error) }
   if (likely(PyList_CheckExact(__pyx_cur_scope->__pyx_genexpr_arg_0)) || PyTuple_CheckExact(__pyx_cur_scope->__pyx_genexpr_arg_0)) {
     __pyx_t_1 = __pyx_cur_scope->__pyx_genexpr_arg_0; __Pyx_INCREF(__pyx_t_1);
     __pyx_t_2 = 0;
     __pyx_t_3 = NULL;
   } else {
-    __pyx_t_2 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_cur_scope->__pyx_genexpr_arg_0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 247, __pyx_L1_error)
+    __pyx_t_2 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_cur_scope->__pyx_genexpr_arg_0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 275, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_3 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 247, __pyx_L1_error)
+    __pyx_t_3 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 275, __pyx_L1_error)
   }
   for (;;) {
     if (likely(!__pyx_t_3)) {
@@ -11930,7 +12956,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_17_departments_j
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 247, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 275, __pyx_L1_error)
           #endif
           if (__pyx_t_2 >= __pyx_temp) break;
         }
@@ -11940,7 +12966,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_17_departments_j
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_1);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 247, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 275, __pyx_L1_error)
           #endif
           if (__pyx_t_2 >= __pyx_temp) break;
         }
@@ -11951,13 +12977,13 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_17_departments_j
         #endif
         ++__pyx_t_2;
       }
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 247, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 275, __pyx_L1_error)
     } else {
       __pyx_t_4 = __pyx_t_3(__pyx_t_1);
       if (unlikely(!__pyx_t_4)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 247, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 275, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -11981,10 +13007,10 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_17_departments_j
       PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_mstate_global->__pyx_n_u_label};
       __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 247, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 275, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
-    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 247, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 275, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_5 = __pyx_t_6;
     __pyx_L7_bool_binop_done:;
@@ -11996,13 +13022,13 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_17_departments_j
         PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_mstate_global->__pyx_n_u_label};
         __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 247, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 275, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
-      __pyx_t_7 = __Pyx_PyObject_Unicode(__pyx_t_4); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 247, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyObject_Unicode(__pyx_t_4); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 275, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_7))) __PYX_ERR(0, 247, __pyx_L1_error)
+      if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_7))) __PYX_ERR(0, 275, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     }
   }
@@ -12031,7 +13057,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_17_departments_j
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":244
+/* "opscli/seller_sprite/export/xlsx.py":272
  * 
  * 
  * def _departments_join(value: Any) -> str:             # <<<<<<<<<<<<<<
@@ -12052,7 +13078,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_30_departments_j
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_departments_join", 0);
 
-  /* "opscli/seller_sprite/export/xlsx.py":245
+  /* "opscli/seller_sprite/export/xlsx.py":273
  * 
  * def _departments_join(value: Any) -> str:
  *     if not isinstance(value, list):             # <<<<<<<<<<<<<<
@@ -12063,7 +13089,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_30_departments_j
   __pyx_t_2 = (!__pyx_t_1);
   if (__pyx_t_2) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":246
+    /* "opscli/seller_sprite/export/xlsx.py":274
  * def _departments_join(value: Any) -> str:
  *     if not isinstance(value, list):
  *         return ""             # <<<<<<<<<<<<<<
@@ -12075,7 +13101,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_30_departments_j
     __pyx_r = __pyx_mstate_global->__pyx_kp_u__2;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":245
+    /* "opscli/seller_sprite/export/xlsx.py":273
  * 
  * def _departments_join(value: Any) -> str:
  *     if not isinstance(value, list):             # <<<<<<<<<<<<<<
@@ -12084,7 +13110,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_30_departments_j
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":247
+  /* "opscli/seller_sprite/export/xlsx.py":275
  *     if not isinstance(value, list):
  *         return ""
  *     return "&".join(str(item.get("label")) for item in value if isinstance(item, dict) and item.get("label"))             # <<<<<<<<<<<<<<
@@ -12092,19 +13118,19 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_30_departments_j
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_17_departments_join_genexpr(NULL, __pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 247, __pyx_L1_error)
+  __pyx_t_3 = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_17_departments_join_genexpr(NULL, __pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 275, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_Generator_GetInlinedResult(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 247, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_Generator_GetInlinedResult(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 275, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__22, __pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 247, __pyx_L1_error)
+  __pyx_t_3 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__22, __pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 275, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_r = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":244
+  /* "opscli/seller_sprite/export/xlsx.py":272
  * 
  * 
  * def _departments_join(value: Any) -> str:             # <<<<<<<<<<<<<<
@@ -12125,31 +13151,31 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_30_departments_j
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":250
+/* "opscli/seller_sprite/export/xlsx.py":278
  * 
  * 
- * def _bid_range(row: dict[str, Any]) -> str:             # <<<<<<<<<<<<<<
- *     bid_min = row.get("bidMin")
- *     bid_max = row.get("bidMax")
+ * def _percentage(value: Any) -> str:             # <<<<<<<<<<<<<<
+ *     if _is_blank(value):
+ *         return ""
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_33_bid_range(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_33_percentage(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_33_bid_range = {"_bid_range", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_33_bid_range, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_33_bid_range(PyObject *__pyx_self, 
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_33_percentage = {"_percentage", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_33_percentage, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_33_percentage(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ) {
-  PyObject *__pyx_v_row = 0;
+  PyObject *__pyx_v_value = 0;
   #if !CYTHON_METH_FASTCALL
   CYTHON_UNUSED Py_ssize_t __pyx_nargs;
   #endif
@@ -12160,7 +13186,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   int __pyx_clineno = 0;
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
-  __Pyx_RefNannySetupContext("_bid_range (wrapper)", 0);
+  __Pyx_RefNannySetupContext("_percentage (wrapper)", 0);
   #if !CYTHON_METH_FASTCALL
   #if CYTHON_ASSUME_SAFE_SIZE
   __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
@@ -12170,46 +13196,511 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   #endif
   __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
   {
-    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_row,0};
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_value,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 250, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 278, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 250, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 278, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_bid_range", 0) < (0)) __PYX_ERR(0, 250, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_percentage", 0) < (0)) __PYX_ERR(0, 278, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_bid_range", 1, 1, 1, i); __PYX_ERR(0, 250, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_percentage", 1, 1, 1, i); __PYX_ERR(0, 278, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 250, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 278, __pyx_L3_error)
     }
-    __pyx_v_row = ((PyObject*)values[0]);
+    __pyx_v_value = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_bid_range", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 250, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_percentage", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 278, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
     Py_XDECREF(values[__pyx_temp]);
   }
-  __Pyx_AddTraceback("opscli.seller_sprite.export.xlsx._bid_range", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("opscli.seller_sprite.export.xlsx._percentage", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_row), (&PyDict_Type), 0, "row", 2))) __PYX_ERR(0, 250, __pyx_L1_error)
-  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_32_bid_range(__pyx_self, __pyx_v_row);
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_32_percentage(__pyx_self, __pyx_v_value);
+
+  /* function exit code */
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_32_percentage(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  size_t __pyx_t_4;
+  int __pyx_t_5;
+  double __pyx_t_6;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("_percentage", 0);
+
+  /* "opscli/seller_sprite/export/xlsx.py":279
+ * 
+ * def _percentage(value: Any) -> str:
+ *     if _is_blank(value):             # <<<<<<<<<<<<<<
+ *         return ""
+ *     return f"{float(value) * 100:.2f}%"
+*/
+  __pyx_t_2 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 279, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_4 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_3))) {
+    __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_3);
+    assert(__pyx_t_2);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_3);
+    __Pyx_INCREF(__pyx_t_2);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_3, __pyx__function);
+    __pyx_t_4 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_value};
+    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 279, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 279, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (__pyx_t_5) {
+
+    /* "opscli/seller_sprite/export/xlsx.py":280
+ * def _percentage(value: Any) -> str:
+ *     if _is_blank(value):
+ *         return ""             # <<<<<<<<<<<<<<
+ *     return f"{float(value) * 100:.2f}%"
+ * 
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__2);
+    __pyx_r = __pyx_mstate_global->__pyx_kp_u__2;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":279
+ * 
+ * def _percentage(value: Any) -> str:
+ *     if _is_blank(value):             # <<<<<<<<<<<<<<
+ *         return ""
+ *     return f"{float(value) * 100:.2f}%"
+*/
+  }
+
+  /* "opscli/seller_sprite/export/xlsx.py":281
+ *     if _is_blank(value):
+ *         return ""
+ *     return f"{float(value) * 100:.2f}%"             # <<<<<<<<<<<<<<
+ * 
+ * 
+*/
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_6 = __Pyx_PyObject_AsDouble(__pyx_v_value); if (unlikely(__PYX_CHECK_FLOAT_EXCEPTION(__pyx_t_6, ((double)((double)-1))) && PyErr_Occurred())) __PYX_ERR(0, 281, __pyx_L1_error)
+  __pyx_t_1 = PyFloat_FromDouble((__pyx_t_6 * 100.0)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 281, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_3 = __Pyx_PyObject_Format(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_2f); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 281, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlace(__pyx_t_3, __pyx_mstate_global->__pyx_kp_u__3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 281, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_r = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":278
+ * 
+ * 
+ * def _percentage(value: Any) -> str:             # <<<<<<<<<<<<<<
+ *     if _is_blank(value):
+ *         return ""
+*/
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_AddTraceback("opscli.seller_sprite.export.xlsx._percentage", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "opscli/seller_sprite/export/xlsx.py":284
+ * 
+ * 
+ * def _date_millis(value: Any) -> str:             # <<<<<<<<<<<<<<
+ *     if _is_blank(value):
+ *         return ""
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_35_date_millis(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_35_date_millis = {"_date_millis", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_35_date_millis, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_35_date_millis(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  PyObject *__pyx_v_value = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[1] = {0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("_date_millis (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_value,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 284, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 284, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_date_millis", 0) < (0)) __PYX_ERR(0, 284, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_date_millis", 1, 1, 1, i); __PYX_ERR(0, 284, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 1)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 284, __pyx_L3_error)
+    }
+    __pyx_v_value = values[0];
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("_date_millis", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 284, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_AddTraceback("opscli.seller_sprite.export.xlsx._date_millis", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_34_date_millis(__pyx_self, __pyx_v_value);
+
+  /* function exit code */
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_34_date_millis(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  size_t __pyx_t_4;
+  int __pyx_t_5;
+  PyObject *__pyx_t_6 = NULL;
+  PyObject *__pyx_t_7 = NULL;
+  PyObject *__pyx_t_8 = NULL;
+  double __pyx_t_9;
+  PyObject *__pyx_t_10 = NULL;
+  PyObject *__pyx_t_11 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("_date_millis", 0);
+
+  /* "opscli/seller_sprite/export/xlsx.py":285
+ * 
+ * def _date_millis(value: Any) -> str:
+ *     if _is_blank(value):             # <<<<<<<<<<<<<<
+ *         return ""
+ *     return datetime.fromtimestamp(float(value) / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+*/
+  __pyx_t_2 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 285, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_4 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_3))) {
+    __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_3);
+    assert(__pyx_t_2);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_3);
+    __Pyx_INCREF(__pyx_t_2);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_3, __pyx__function);
+    __pyx_t_4 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_value};
+    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 285, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 285, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (__pyx_t_5) {
+
+    /* "opscli/seller_sprite/export/xlsx.py":286
+ * def _date_millis(value: Any) -> str:
+ *     if _is_blank(value):
+ *         return ""             # <<<<<<<<<<<<<<
+ *     return datetime.fromtimestamp(float(value) / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+ * 
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__2);
+    __pyx_r = __pyx_mstate_global->__pyx_kp_u__2;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":285
+ * 
+ * def _date_millis(value: Any) -> str:
+ *     if _is_blank(value):             # <<<<<<<<<<<<<<
+ *         return ""
+ *     return datetime.fromtimestamp(float(value) / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+*/
+  }
+
+  /* "opscli/seller_sprite/export/xlsx.py":287
+ *     if _is_blank(value):
+ *         return ""
+ *     return datetime.fromtimestamp(float(value) / 1000, tz=timezone.utc).strftime("%Y-%m-%d")             # <<<<<<<<<<<<<<
+ * 
+ * 
+*/
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_6 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_datetime); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 287, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_fromtimestamp); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 287, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_8);
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  __pyx_t_9 = __Pyx_PyObject_AsDouble(__pyx_v_value); if (unlikely(__PYX_CHECK_FLOAT_EXCEPTION(__pyx_t_9, ((double)((double)-1))) && PyErr_Occurred())) __PYX_ERR(0, 287, __pyx_L1_error)
+  __pyx_t_7 = PyFloat_FromDouble((__pyx_t_9 / 1000.0)); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 287, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_timezone); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 287, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_10);
+  __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_utc); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 287, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_11);
+  __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+  __pyx_t_4 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_8))) {
+    __pyx_t_6 = PyMethod_GET_SELF(__pyx_t_8);
+    assert(__pyx_t_6);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_8);
+    __Pyx_INCREF(__pyx_t_6);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_8, __pyx__function);
+    __pyx_t_4 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_6, __pyx_t_7};
+    __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 287, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_10);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_tz, __pyx_t_11, __pyx_t_10, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 287, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_8, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_10);
+    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+    __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 287, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+  }
+  __pyx_t_3 = __pyx_t_2;
+  __Pyx_INCREF(__pyx_t_3);
+  __pyx_t_4 = 0;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_Y_m_d};
+    __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_strftime, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 287, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_1))) __PYX_ERR(0, 287, __pyx_L1_error)
+  __pyx_r = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":284
+ * 
+ * 
+ * def _date_millis(value: Any) -> str:             # <<<<<<<<<<<<<<
+ *     if _is_blank(value):
+ *         return ""
+*/
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_XDECREF(__pyx_t_7);
+  __Pyx_XDECREF(__pyx_t_8);
+  __Pyx_XDECREF(__pyx_t_10);
+  __Pyx_XDECREF(__pyx_t_11);
+  __Pyx_AddTraceback("opscli.seller_sprite.export.xlsx._date_millis", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "opscli/seller_sprite/export/xlsx.py":290
+ * 
+ * 
+ * def _keyword_reverse_updated_time(value: Any, *, site: str) -> str:             # <<<<<<<<<<<<<<
+ *     if _is_blank(value):
+ *         return ""
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_37_keyword_reverse_updated_time(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_37_keyword_reverse_updated_time = {"_keyword_reverse_updated_time", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_37_keyword_reverse_updated_time, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_37_keyword_reverse_updated_time(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  PyObject *__pyx_v_value = 0;
+  PyObject *__pyx_v_site = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[2] = {0,0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("_keyword_reverse_updated_time (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_value,&__pyx_mstate_global->__pyx_n_u_site,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 290, __pyx_L3_error)
+    if (likely(__pyx_kwds_len > 0)) {
+      switch (__pyx_nargs) {
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 290, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_keyword_reverse_updated_time", 0) < (0)) __PYX_ERR(0, 290, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_keyword_reverse_updated_time", 1, 1, 1, i); __PYX_ERR(0, 290, __pyx_L3_error) }
+      }
+      for (Py_ssize_t i = 1; i < 2; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("_keyword_reverse_updated_time", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 290, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 1)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      __Pyx_RaiseKeywordRequired("_keyword_reverse_updated_time", __pyx_mstate_global->__pyx_n_u_site); __PYX_ERR(0, 290, __pyx_L3_error)
+    }
+    __pyx_v_value = values[0];
+    __pyx_v_site = ((PyObject*)values[1]);
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("_keyword_reverse_updated_time", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 290, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_AddTraceback("opscli.seller_sprite.export.xlsx._keyword_reverse_updated_time", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_site), (&PyUnicode_Type), 0, "site", 2))) __PYX_ERR(0, 290, __pyx_L1_error)
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_keyword_reverse_updated_time(__pyx_self, __pyx_v_value, __pyx_v_site);
 
   /* function exit code */
   goto __pyx_L0;
@@ -12228,9 +13719,1338 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_32_bid_range(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_row) {
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_keyword_reverse_updated_time(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value, PyObject *__pyx_v_site) {
+  double __pyx_v_timestamp;
+  PyObject *__pyx_v_china_time = NULL;
+  PyObject *__pyx_v_site_time = NULL;
+  PyObject *__pyx_v_site_label = NULL;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  size_t __pyx_t_4;
+  int __pyx_t_5;
+  double __pyx_t_6;
+  PyObject *__pyx_t_7 = NULL;
+  PyObject *__pyx_t_8 = NULL;
+  PyObject *__pyx_t_9 = NULL;
+  PyObject *__pyx_t_10 = NULL;
+  PyObject *__pyx_t_11[5];
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("_keyword_reverse_updated_time", 0);
+
+  /* "opscli/seller_sprite/export/xlsx.py":291
+ * 
+ * def _keyword_reverse_updated_time(value: Any, *, site: str) -> str:
+ *     if _is_blank(value):             # <<<<<<<<<<<<<<
+ *         return ""
+ *     timestamp = float(value) / 1000
+*/
+  __pyx_t_2 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 291, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_4 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_3))) {
+    __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_3);
+    assert(__pyx_t_2);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_3);
+    __Pyx_INCREF(__pyx_t_2);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_3, __pyx__function);
+    __pyx_t_4 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_value};
+    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 291, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 291, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (__pyx_t_5) {
+
+    /* "opscli/seller_sprite/export/xlsx.py":292
+ * def _keyword_reverse_updated_time(value: Any, *, site: str) -> str:
+ *     if _is_blank(value):
+ *         return ""             # <<<<<<<<<<<<<<
+ *     timestamp = float(value) / 1000
+ *     china_time = datetime.fromtimestamp(timestamp, tz=_timezone_for_site("CN"))
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__2);
+    __pyx_r = __pyx_mstate_global->__pyx_kp_u__2;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":291
+ * 
+ * def _keyword_reverse_updated_time(value: Any, *, site: str) -> str:
+ *     if _is_blank(value):             # <<<<<<<<<<<<<<
+ *         return ""
+ *     timestamp = float(value) / 1000
+*/
+  }
+
+  /* "opscli/seller_sprite/export/xlsx.py":293
+ *     if _is_blank(value):
+ *         return ""
+ *     timestamp = float(value) / 1000             # <<<<<<<<<<<<<<
+ *     china_time = datetime.fromtimestamp(timestamp, tz=_timezone_for_site("CN"))
+ *     site_time = datetime.fromtimestamp(timestamp, tz=_timezone_for_site(site))
+*/
+  __pyx_t_6 = __Pyx_PyObject_AsDouble(__pyx_v_value); if (unlikely(__PYX_CHECK_FLOAT_EXCEPTION(__pyx_t_6, ((double)((double)-1))) && PyErr_Occurred())) __PYX_ERR(0, 293, __pyx_L1_error)
+  __pyx_v_timestamp = (__pyx_t_6 / 1000.0);
+
+  /* "opscli/seller_sprite/export/xlsx.py":294
+ *         return ""
+ *     timestamp = float(value) / 1000
+ *     china_time = datetime.fromtimestamp(timestamp, tz=_timezone_for_site("CN"))             # <<<<<<<<<<<<<<
+ *     site_time = datetime.fromtimestamp(timestamp, tz=_timezone_for_site(site))
+ *     site_label = SITE_TIME_LABELS.get(str(site).upper(), str(site).upper())
+*/
+  __pyx_t_3 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_datetime); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 294, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_fromtimestamp); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 294, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = PyFloat_FromDouble(__pyx_v_timestamp); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 294, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_9 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_timezone_for_site); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 294, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_10);
+  __pyx_t_4 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_10))) {
+    __pyx_t_9 = PyMethod_GET_SELF(__pyx_t_10);
+    assert(__pyx_t_9);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_10);
+    __Pyx_INCREF(__pyx_t_9);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_10, __pyx__function);
+    __pyx_t_4 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_9, __pyx_mstate_global->__pyx_n_u_CN};
+    __pyx_t_8 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_10, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
+    __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+    if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 294, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_8);
+  }
+  __pyx_t_4 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_7))) {
+    __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_7);
+    assert(__pyx_t_3);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_7);
+    __Pyx_INCREF(__pyx_t_3);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_7, __pyx__function);
+    __pyx_t_4 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_3, __pyx_t_2};
+    __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 294, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_10);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_tz, __pyx_t_8, __pyx_t_10, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 294, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_7, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_10);
+    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+    __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 294, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __pyx_v_china_time = __pyx_t_1;
+  __pyx_t_1 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":295
+ *     timestamp = float(value) / 1000
+ *     china_time = datetime.fromtimestamp(timestamp, tz=_timezone_for_site("CN"))
+ *     site_time = datetime.fromtimestamp(timestamp, tz=_timezone_for_site(site))             # <<<<<<<<<<<<<<
+ *     site_label = SITE_TIME_LABELS.get(str(site).upper(), str(site).upper())
+ *     return f"{china_time.strftime('%m.%d %H:%M')}\n{site_label}{site_time.strftime('%m.%d %H:%M')}"
+*/
+  __pyx_t_7 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_datetime); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 295, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_10);
+  __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_fromtimestamp); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 295, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_8);
+  __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+  __pyx_t_10 = PyFloat_FromDouble(__pyx_v_timestamp); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 295, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_10);
+  __pyx_t_3 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_timezone_for_site); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 295, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_9);
+  __pyx_t_4 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_9))) {
+    __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_9);
+    assert(__pyx_t_3);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_9);
+    __Pyx_INCREF(__pyx_t_3);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_9, __pyx__function);
+    __pyx_t_4 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_site};
+    __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_9, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 295, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+  }
+  __pyx_t_4 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_8))) {
+    __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_8);
+    assert(__pyx_t_7);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_8);
+    __Pyx_INCREF(__pyx_t_7);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_8, __pyx__function);
+    __pyx_t_4 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_7, __pyx_t_10};
+    __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 295, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_tz, __pyx_t_2, __pyx_t_9, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 295, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_8, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_9);
+    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 295, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __pyx_v_site_time = __pyx_t_1;
+  __pyx_t_1 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":296
+ *     china_time = datetime.fromtimestamp(timestamp, tz=_timezone_for_site("CN"))
+ *     site_time = datetime.fromtimestamp(timestamp, tz=_timezone_for_site(site))
+ *     site_label = SITE_TIME_LABELS.get(str(site).upper(), str(site).upper())             # <<<<<<<<<<<<<<
+ *     return f"{china_time.strftime('%m.%d %H:%M')}\n{site_label}{site_time.strftime('%m.%d %H:%M')}"
+ * 
+*/
+  __pyx_t_8 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_SITE_TIME_LABELS); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 296, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_9);
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 296, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+  __pyx_t_9 = __Pyx_CallUnboundCMethod0(&__pyx_mstate_global->__pyx_umethod_PyUnicode_Type__upper, __pyx_v_site); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 296, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_9);
+  __pyx_t_10 = __Pyx_CallUnboundCMethod0(&__pyx_mstate_global->__pyx_umethod_PyUnicode_Type__upper, __pyx_v_site); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 296, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_10);
+  __pyx_t_4 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_2))) {
+    __pyx_t_8 = PyMethod_GET_SELF(__pyx_t_2);
+    assert(__pyx_t_8);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_2);
+    __Pyx_INCREF(__pyx_t_8);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_2, __pyx__function);
+    __pyx_t_4 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[3] = {__pyx_t_8, __pyx_t_9, __pyx_t_10};
+    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_2, __pyx_callargs+__pyx_t_4, (3-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 296, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __pyx_v_site_label = __pyx_t_1;
+  __pyx_t_1 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":297
+ *     site_time = datetime.fromtimestamp(timestamp, tz=_timezone_for_site(site))
+ *     site_label = SITE_TIME_LABELS.get(str(site).upper(), str(site).upper())
+ *     return f"{china_time.strftime('%m.%d %H:%M')}\n{site_label}{site_time.strftime('%m.%d %H:%M')}"             # <<<<<<<<<<<<<<
+ * 
+ * 
+*/
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_china_time, __pyx_mstate_global->__pyx_n_u_strftime); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 297, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_mstate_global->__pyx_tuple[4], NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 297, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 297, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_v_site_label, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 297, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_v_site_time, __pyx_mstate_global->__pyx_n_u_strftime); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 297, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_10);
+  __pyx_t_9 = __Pyx_PyObject_Call(__pyx_t_10, __pyx_mstate_global->__pyx_tuple[4], NULL); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 297, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_9);
+  __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+  __pyx_t_10 = __Pyx_PyObject_FormatSimple(__pyx_t_9, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 297, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_10);
+  __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+  __pyx_t_11[0] = __pyx_mstate_global->__pyx_n_u__23;
+  __pyx_t_11[1] = __pyx_t_1;
+  __pyx_t_11[2] = __pyx_mstate_global->__pyx_kp_u__21;
+  __pyx_t_11[3] = __pyx_t_2;
+  __pyx_t_11[4] = __pyx_t_10;
+  __pyx_t_9 = __Pyx_PyUnicode_Join(__pyx_t_11, 5, 1 * 2 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1) + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2) + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_10), 65535 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_10));
+  if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 297, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_9);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+  __pyx_r = ((PyObject*)__pyx_t_9);
+  __pyx_t_9 = 0;
+  goto __pyx_L0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":290
+ * 
+ * 
+ * def _keyword_reverse_updated_time(value: Any, *, site: str) -> str:             # <<<<<<<<<<<<<<
+ *     if _is_blank(value):
+ *         return ""
+*/
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_7);
+  __Pyx_XDECREF(__pyx_t_8);
+  __Pyx_XDECREF(__pyx_t_9);
+  __Pyx_XDECREF(__pyx_t_10);
+  __Pyx_AddTraceback("opscli.seller_sprite.export.xlsx._keyword_reverse_updated_time", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_china_time);
+  __Pyx_XDECREF(__pyx_v_site_time);
+  __Pyx_XDECREF(__pyx_v_site_label);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "opscli/seller_sprite/export/xlsx.py":300
+ * 
+ * 
+ * def _rank_page(value: Any) -> str:             # <<<<<<<<<<<<<<
+ *     if not isinstance(value, dict):
+ *         return ""
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_39_rank_page(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_39_rank_page = {"_rank_page", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_39_rank_page, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_39_rank_page(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  PyObject *__pyx_v_value = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[1] = {0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("_rank_page (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_value,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 300, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 300, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_rank_page", 0) < (0)) __PYX_ERR(0, 300, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_rank_page", 1, 1, 1, i); __PYX_ERR(0, 300, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 1)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 300, __pyx_L3_error)
+    }
+    __pyx_v_value = values[0];
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("_rank_page", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 300, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_AddTraceback("opscli.seller_sprite.export.xlsx._rank_page", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_38_rank_page(__pyx_self, __pyx_v_value);
+
+  /* function exit code */
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_38_rank_page(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
+  PyObject *__pyx_v_page = NULL;
+  PyObject *__pyx_v_index = NULL;
+  PyObject *__pyx_v_page_size = NULL;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  int __pyx_t_1;
+  int __pyx_t_2;
+  PyObject *__pyx_t_3 = NULL;
+  PyObject *__pyx_t_4 = NULL;
+  size_t __pyx_t_5;
+  PyObject *__pyx_t_6 = NULL;
+  PyObject *__pyx_t_7[3];
+  PyObject *__pyx_t_8[6];
+  PyObject *__pyx_t_9 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("_rank_page", 0);
+
+  /* "opscli/seller_sprite/export/xlsx.py":301
+ * 
+ * def _rank_page(value: Any) -> str:
+ *     if not isinstance(value, dict):             # <<<<<<<<<<<<<<
+ *         return ""
+ *     page = value.get("page")
+*/
+  __pyx_t_1 = PyDict_Check(__pyx_v_value); 
+  __pyx_t_2 = (!__pyx_t_1);
+  if (__pyx_t_2) {
+
+    /* "opscli/seller_sprite/export/xlsx.py":302
+ * def _rank_page(value: Any) -> str:
+ *     if not isinstance(value, dict):
+ *         return ""             # <<<<<<<<<<<<<<
+ *     page = value.get("page")
+ *     index = value.get("index")
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__2);
+    __pyx_r = __pyx_mstate_global->__pyx_kp_u__2;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":301
+ * 
+ * def _rank_page(value: Any) -> str:
+ *     if not isinstance(value, dict):             # <<<<<<<<<<<<<<
+ *         return ""
+ *     page = value.get("page")
+*/
+  }
+
+  /* "opscli/seller_sprite/export/xlsx.py":303
+ *     if not isinstance(value, dict):
+ *         return ""
+ *     page = value.get("page")             # <<<<<<<<<<<<<<
+ *     index = value.get("index")
+ *     page_size = value.get("pageSize")
+*/
+  __pyx_t_4 = __pyx_v_value;
+  __Pyx_INCREF(__pyx_t_4);
+  __pyx_t_5 = 0;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_n_u_page};
+    __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 303, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+  }
+  __pyx_v_page = __pyx_t_3;
+  __pyx_t_3 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":304
+ *         return ""
+ *     page = value.get("page")
+ *     index = value.get("index")             # <<<<<<<<<<<<<<
+ *     page_size = value.get("pageSize")
+ *     if _is_blank(page):
+*/
+  __pyx_t_4 = __pyx_v_value;
+  __Pyx_INCREF(__pyx_t_4);
+  __pyx_t_5 = 0;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_n_u_index};
+    __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 304, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+  }
+  __pyx_v_index = __pyx_t_3;
+  __pyx_t_3 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":305
+ *     page = value.get("page")
+ *     index = value.get("index")
+ *     page_size = value.get("pageSize")             # <<<<<<<<<<<<<<
+ *     if _is_blank(page):
+ *         return ""
+*/
+  __pyx_t_4 = __pyx_v_value;
+  __Pyx_INCREF(__pyx_t_4);
+  __pyx_t_5 = 0;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_n_u_pageSize};
+    __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 305, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+  }
+  __pyx_v_page_size = __pyx_t_3;
+  __pyx_t_3 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":306
+ *     index = value.get("index")
+ *     page_size = value.get("pageSize")
+ *     if _is_blank(page):             # <<<<<<<<<<<<<<
+ *         return ""
+ *     if _is_blank(index) or _is_blank(page_size):
+*/
+  __pyx_t_4 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 306, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __pyx_t_5 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_6))) {
+    __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_6);
+    assert(__pyx_t_4);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_6);
+    __Pyx_INCREF(__pyx_t_4);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_6, __pyx__function);
+    __pyx_t_5 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_page};
+    __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 306, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+  }
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 306, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  if (__pyx_t_2) {
+
+    /* "opscli/seller_sprite/export/xlsx.py":307
+ *     page_size = value.get("pageSize")
+ *     if _is_blank(page):
+ *         return ""             # <<<<<<<<<<<<<<
+ *     if _is_blank(index) or _is_blank(page_size):
+ *         return f"{page}"
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__2);
+    __pyx_r = __pyx_mstate_global->__pyx_kp_u__2;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":306
+ *     index = value.get("index")
+ *     page_size = value.get("pageSize")
+ *     if _is_blank(page):             # <<<<<<<<<<<<<<
+ *         return ""
+ *     if _is_blank(index) or _is_blank(page_size):
+*/
+  }
+
+  /* "opscli/seller_sprite/export/xlsx.py":308
+ *     if _is_blank(page):
+ *         return ""
+ *     if _is_blank(index) or _is_blank(page_size):             # <<<<<<<<<<<<<<
+ *         return f"{page}"
+ *     return f"{page},{index}/{page_size}"
+*/
+  __pyx_t_6 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 308, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_5 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_4))) {
+    __pyx_t_6 = PyMethod_GET_SELF(__pyx_t_4);
+    assert(__pyx_t_6);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_4);
+    __Pyx_INCREF(__pyx_t_6);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_4, __pyx__function);
+    __pyx_t_5 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v_index};
+    __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 308, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+  }
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 308, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  if (!__pyx_t_1) {
+  } else {
+    __pyx_t_2 = __pyx_t_1;
+    goto __pyx_L6_bool_binop_done;
+  }
+  __pyx_t_4 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 308, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __pyx_t_5 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_6))) {
+    __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_6);
+    assert(__pyx_t_4);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_6);
+    __Pyx_INCREF(__pyx_t_4);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_6, __pyx__function);
+    __pyx_t_5 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_page_size};
+    __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 308, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+  }
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 308, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_2 = __pyx_t_1;
+  __pyx_L6_bool_binop_done:;
+  if (__pyx_t_2) {
+
+    /* "opscli/seller_sprite/export/xlsx.py":309
+ *         return ""
+ *     if _is_blank(index) or _is_blank(page_size):
+ *         return f"{page}"             # <<<<<<<<<<<<<<
+ *     return f"{page},{index}/{page_size}"
+ * 
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_v_page, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 309, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_7[0] = __pyx_mstate_global->__pyx_n_u__24;
+    __pyx_t_7[1] = __pyx_t_3;
+    __pyx_t_7[2] = __pyx_mstate_global->__pyx_n_u__25;
+    __pyx_t_6 = __Pyx_PyUnicode_Join(__pyx_t_7, 3, 1 * 2 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3), 65535 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3));
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 309, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __pyx_r = ((PyObject*)__pyx_t_6);
+    __pyx_t_6 = 0;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":308
+ *     if _is_blank(page):
+ *         return ""
+ *     if _is_blank(index) or _is_blank(page_size):             # <<<<<<<<<<<<<<
+ *         return f"{page}"
+ *     return f"{page},{index}/{page_size}"
+*/
+  }
+
+  /* "opscli/seller_sprite/export/xlsx.py":310
+ *     if _is_blank(index) or _is_blank(page_size):
+ *         return f"{page}"
+ *     return f"{page},{index}/{page_size}"             # <<<<<<<<<<<<<<
+ * 
+ * 
+*/
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_v_page, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 310, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_v_index, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 310, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_v_page_size, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 310, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_8[0] = __pyx_mstate_global->__pyx_n_u__24;
+  __pyx_t_8[1] = __pyx_t_6;
+  __pyx_t_8[2] = __pyx_mstate_global->__pyx_kp_u__26;
+  __pyx_t_8[3] = __pyx_t_3;
+  __pyx_t_8[4] = __pyx_mstate_global->__pyx_kp_u__27;
+  __pyx_t_8[5] = __pyx_t_4;
+  __pyx_t_9 = __Pyx_PyUnicode_Join(__pyx_t_8, 6, 1 * 2 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6) + 2 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4), 65535 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4));
+  if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 310, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_9);
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_r = ((PyObject*)__pyx_t_9);
+  __pyx_t_9 = 0;
+  goto __pyx_L0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":300
+ * 
+ * 
+ * def _rank_page(value: Any) -> str:             # <<<<<<<<<<<<<<
+ *     if not isinstance(value, dict):
+ *         return ""
+*/
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_XDECREF(__pyx_t_9);
+  __Pyx_AddTraceback("opscli.seller_sprite.export.xlsx._rank_page", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_page);
+  __Pyx_XDECREF(__pyx_v_index);
+  __Pyx_XDECREF(__pyx_v_page_size);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "opscli/seller_sprite/export/xlsx.py":313
+ * 
+ * 
+ * def _rank_position(value: Any) -> Any:             # <<<<<<<<<<<<<<
+ *     if not isinstance(value, dict):
+ *         return "3" if _is_blank(value) else value
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_41_rank_position(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_41_rank_position = {"_rank_position", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_41_rank_position, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_41_rank_position(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  PyObject *__pyx_v_value = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[1] = {0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("_rank_position (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_value,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 313, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 313, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_rank_position", 0) < (0)) __PYX_ERR(0, 313, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_rank_position", 1, 1, 1, i); __PYX_ERR(0, 313, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 1)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 313, __pyx_L3_error)
+    }
+    __pyx_v_value = values[0];
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("_rank_position", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 313, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_AddTraceback("opscli.seller_sprite.export.xlsx._rank_position", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_40_rank_position(__pyx_self, __pyx_v_value);
+
+  /* function exit code */
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_40_rank_position(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
+  PyObject *__pyx_v_position = NULL;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  int __pyx_t_1;
+  int __pyx_t_2;
+  PyObject *__pyx_t_3 = NULL;
+  PyObject *__pyx_t_4 = NULL;
+  PyObject *__pyx_t_5 = NULL;
+  PyObject *__pyx_t_6 = NULL;
+  size_t __pyx_t_7;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("_rank_position", 0);
+
+  /* "opscli/seller_sprite/export/xlsx.py":314
+ * 
+ * def _rank_position(value: Any) -> Any:
+ *     if not isinstance(value, dict):             # <<<<<<<<<<<<<<
+ *         return "3" if _is_blank(value) else value
+ *     position = value.get("position")
+*/
+  __pyx_t_1 = PyDict_Check(__pyx_v_value); 
+  __pyx_t_2 = (!__pyx_t_1);
+  if (__pyx_t_2) {
+
+    /* "opscli/seller_sprite/export/xlsx.py":315
+ * def _rank_position(value: Any) -> Any:
+ *     if not isinstance(value, dict):
+ *         return "3" if _is_blank(value) else value             # <<<<<<<<<<<<<<
+ *     position = value.get("position")
+ *     return "3" if _is_blank(position) else position
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_5 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 315, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __pyx_t_7 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_6))) {
+      __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_6);
+      assert(__pyx_t_5);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_6);
+      __Pyx_INCREF(__pyx_t_5);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_6, __pyx__function);
+      __pyx_t_7 = 0;
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_value};
+      __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 315, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+    }
+    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 315, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    if (__pyx_t_2) {
+      __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_3);
+      __pyx_t_3 = __pyx_mstate_global->__pyx_n_u_3;
+    } else {
+      __Pyx_INCREF(__pyx_v_value);
+      __pyx_t_3 = __pyx_v_value;
+    }
+    __pyx_r = __pyx_t_3;
+    __pyx_t_3 = 0;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":314
+ * 
+ * def _rank_position(value: Any) -> Any:
+ *     if not isinstance(value, dict):             # <<<<<<<<<<<<<<
+ *         return "3" if _is_blank(value) else value
+ *     position = value.get("position")
+*/
+  }
+
+  /* "opscli/seller_sprite/export/xlsx.py":316
+ *     if not isinstance(value, dict):
+ *         return "3" if _is_blank(value) else value
+ *     position = value.get("position")             # <<<<<<<<<<<<<<
+ *     return "3" if _is_blank(position) else position
+ * 
+*/
+  __pyx_t_4 = __pyx_v_value;
+  __Pyx_INCREF(__pyx_t_4);
+  __pyx_t_7 = 0;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_n_u_position};
+    __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 316, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+  }
+  __pyx_v_position = __pyx_t_3;
+  __pyx_t_3 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":317
+ *         return "3" if _is_blank(value) else value
+ *     position = value.get("position")
+ *     return "3" if _is_blank(position) else position             # <<<<<<<<<<<<<<
+ * 
+ * 
+*/
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_6 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 317, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __pyx_t_7 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_5))) {
+    __pyx_t_6 = PyMethod_GET_SELF(__pyx_t_5);
+    assert(__pyx_t_6);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_5);
+    __Pyx_INCREF(__pyx_t_6);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_5, __pyx__function);
+    __pyx_t_7 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v_position};
+    __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 317, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+  }
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 317, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (__pyx_t_2) {
+    __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_3);
+    __pyx_t_3 = __pyx_mstate_global->__pyx_n_u_3;
+  } else {
+    __Pyx_INCREF(__pyx_v_position);
+    __pyx_t_3 = __pyx_v_position;
+  }
+  __pyx_r = __pyx_t_3;
+  __pyx_t_3 = 0;
+  goto __pyx_L0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":313
+ * 
+ * 
+ * def _rank_position(value: Any) -> Any:             # <<<<<<<<<<<<<<
+ *     if not isinstance(value, dict):
+ *         return "3" if _is_blank(value) else value
+*/
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_XDECREF(__pyx_t_5);
+  __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_AddTraceback("opscli.seller_sprite.export.xlsx._rank_position", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_position);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "opscli/seller_sprite/export/xlsx.py":320
+ * 
+ * 
+ * def _seller_nation(value: Any) -> str:             # <<<<<<<<<<<<<<
+ *     if _is_blank(value):
+ *         return ""
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_43_seller_nation(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_43_seller_nation = {"_seller_nation", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_43_seller_nation, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_43_seller_nation(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  PyObject *__pyx_v_value = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[1] = {0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("_seller_nation (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_value,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 320, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 320, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_seller_nation", 0) < (0)) __PYX_ERR(0, 320, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_seller_nation", 1, 1, 1, i); __PYX_ERR(0, 320, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 1)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 320, __pyx_L3_error)
+    }
+    __pyx_v_value = values[0];
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("_seller_nation", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 320, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_AddTraceback("opscli.seller_sprite.export.xlsx._seller_nation", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_42_seller_nation(__pyx_self, __pyx_v_value);
+
+  /* function exit code */
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_42_seller_nation(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
+  PyObject *__pyx_v_text = NULL;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  size_t __pyx_t_4;
+  int __pyx_t_5;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("_seller_nation", 0);
+
+  /* "opscli/seller_sprite/export/xlsx.py":321
+ * 
+ * def _seller_nation(value: Any) -> str:
+ *     if _is_blank(value):             # <<<<<<<<<<<<<<
+ *         return ""
+ *     text = str(value)
+*/
+  __pyx_t_2 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 321, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_4 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_3))) {
+    __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_3);
+    assert(__pyx_t_2);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_3);
+    __Pyx_INCREF(__pyx_t_2);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_3, __pyx__function);
+    __pyx_t_4 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_value};
+    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 321, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 321, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (__pyx_t_5) {
+
+    /* "opscli/seller_sprite/export/xlsx.py":322
+ * def _seller_nation(value: Any) -> str:
+ *     if _is_blank(value):
+ *         return ""             # <<<<<<<<<<<<<<
+ *     text = str(value)
+ *     return "CN(HK)" if text == "HK" else text
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__2);
+    __pyx_r = __pyx_mstate_global->__pyx_kp_u__2;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":321
+ * 
+ * def _seller_nation(value: Any) -> str:
+ *     if _is_blank(value):             # <<<<<<<<<<<<<<
+ *         return ""
+ *     text = str(value)
+*/
+  }
+
+  /* "opscli/seller_sprite/export/xlsx.py":323
+ *     if _is_blank(value):
+ *         return ""
+ *     text = str(value)             # <<<<<<<<<<<<<<
+ *     return "CN(HK)" if text == "HK" else text
+ * 
+*/
+  __pyx_t_1 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 323, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_v_text = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":324
+ *         return ""
+ *     text = str(value)
+ *     return "CN(HK)" if text == "HK" else text             # <<<<<<<<<<<<<<
+ * 
+ * 
+*/
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_v_text, __pyx_mstate_global->__pyx_n_u_HK, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 324, __pyx_L1_error)
+  if (__pyx_t_5) {
+    __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_CN_HK);
+    __pyx_t_1 = __pyx_mstate_global->__pyx_kp_u_CN_HK;
+  } else {
+    __Pyx_INCREF(__pyx_v_text);
+    __pyx_t_1 = __pyx_v_text;
+  }
+  __pyx_r = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":320
+ * 
+ * 
+ * def _seller_nation(value: Any) -> str:             # <<<<<<<<<<<<<<
+ *     if _is_blank(value):
+ *         return ""
+*/
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_AddTraceback("opscli.seller_sprite.export.xlsx._seller_nation", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_text);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "opscli/seller_sprite/export/xlsx.py":327
+ * 
+ * 
+ * def _bid_range(row: dict[str, Any], *, site: str) -> str:             # <<<<<<<<<<<<<<
+ *     bid_min = row.get("bidMin")
+ *     bid_max = row.get("bidMax")
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_45_bid_range(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_45_bid_range = {"_bid_range", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_45_bid_range, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_45_bid_range(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  PyObject *__pyx_v_row = 0;
+  PyObject *__pyx_v_site = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[2] = {0,0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("_bid_range (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_row,&__pyx_mstate_global->__pyx_n_u_site,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 327, __pyx_L3_error)
+    if (likely(__pyx_kwds_len > 0)) {
+      switch (__pyx_nargs) {
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 327, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_bid_range", 0) < (0)) __PYX_ERR(0, 327, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_bid_range", 1, 1, 1, i); __PYX_ERR(0, 327, __pyx_L3_error) }
+      }
+      for (Py_ssize_t i = 1; i < 2; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("_bid_range", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 327, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 1)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      __Pyx_RaiseKeywordRequired("_bid_range", __pyx_mstate_global->__pyx_n_u_site); __PYX_ERR(0, 327, __pyx_L3_error)
+    }
+    __pyx_v_row = ((PyObject*)values[0]);
+    __pyx_v_site = ((PyObject*)values[1]);
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("_bid_range", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 327, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_AddTraceback("opscli.seller_sprite.export.xlsx._bid_range", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_row), (&PyDict_Type), 0, "row", 2))) __PYX_ERR(0, 327, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_site), (&PyUnicode_Type), 0, "site", 2))) __PYX_ERR(0, 327, __pyx_L1_error)
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_44_bid_range(__pyx_self, __pyx_v_row, __pyx_v_site);
+
+  /* function exit code */
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __pyx_r = NULL;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  goto __pyx_L7_cleaned_up;
+  __pyx_L0:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __pyx_L7_cleaned_up:;
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_44_bid_range(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_row, PyObject *__pyx_v_site) {
   PyObject *__pyx_v_bid_min = NULL;
   PyObject *__pyx_v_bid_max = NULL;
+  PyObject *__pyx_v_currency = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -12239,45 +15059,47 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_32_bid_range(CYT
   PyObject *__pyx_t_4 = NULL;
   size_t __pyx_t_5;
   int __pyx_t_6;
-  PyObject *__pyx_t_7[4];
+  PyObject *__pyx_t_7 = NULL;
+  PyObject *__pyx_t_8 = NULL;
+  PyObject *__pyx_t_9[5];
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_bid_range", 0);
 
-  /* "opscli/seller_sprite/export/xlsx.py":251
+  /* "opscli/seller_sprite/export/xlsx.py":328
  * 
- * def _bid_range(row: dict[str, Any]) -> str:
+ * def _bid_range(row: dict[str, Any], *, site: str) -> str:
  *     bid_min = row.get("bidMin")             # <<<<<<<<<<<<<<
  *     bid_max = row.get("bidMax")
  *     if _is_blank(bid_min) or _is_blank(bid_max):
 */
-  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_row, __pyx_mstate_global->__pyx_n_u_bidMin, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 251, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_row, __pyx_mstate_global->__pyx_n_u_bidMin, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 328, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_bid_min = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":252
- * def _bid_range(row: dict[str, Any]) -> str:
+  /* "opscli/seller_sprite/export/xlsx.py":329
+ * def _bid_range(row: dict[str, Any], *, site: str) -> str:
  *     bid_min = row.get("bidMin")
  *     bid_max = row.get("bidMax")             # <<<<<<<<<<<<<<
  *     if _is_blank(bid_min) or _is_blank(bid_max):
  *         return "-"
 */
-  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_row, __pyx_mstate_global->__pyx_n_u_bidMax, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 252, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_row, __pyx_mstate_global->__pyx_n_u_bidMax, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 329, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_bid_max = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":253
+  /* "opscli/seller_sprite/export/xlsx.py":330
  *     bid_min = row.get("bidMin")
  *     bid_max = row.get("bidMax")
  *     if _is_blank(bid_min) or _is_blank(bid_max):             # <<<<<<<<<<<<<<
  *         return "-"
- *     return f"{float(bid_min):.2f}-{float(bid_max):.2f}"
+ *     currency = currency_label(site)
 */
   __pyx_t_3 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 253, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 330, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_5 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -12296,10 +15118,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_32_bid_range(CYT
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 253, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 330, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 253, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 330, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (!__pyx_t_6) {
   } else {
@@ -12307,7 +15129,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_32_bid_range(CYT
     goto __pyx_L4_bool_binop_done;
   }
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 253, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 330, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_5 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -12326,71 +15148,111 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_32_bid_range(CYT
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 253, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 330, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 253, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 330, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_2 = __pyx_t_6;
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_2) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":254
+    /* "opscli/seller_sprite/export/xlsx.py":331
  *     bid_max = row.get("bidMax")
  *     if _is_blank(bid_min) or _is_blank(bid_max):
  *         return "-"             # <<<<<<<<<<<<<<
- *     return f"{float(bid_min):.2f}-{float(bid_max):.2f}"
- * 
+ *     currency = currency_label(site)
+ *     return f"{currency}{float(bid_min):.2f}-{currency}{float(bid_max):.2f}"
 */
     __Pyx_XDECREF(__pyx_r);
     __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__9);
     __pyx_r = __pyx_mstate_global->__pyx_kp_u__9;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":253
+    /* "opscli/seller_sprite/export/xlsx.py":330
  *     bid_min = row.get("bidMin")
  *     bid_max = row.get("bidMax")
  *     if _is_blank(bid_min) or _is_blank(bid_max):             # <<<<<<<<<<<<<<
  *         return "-"
- *     return f"{float(bid_min):.2f}-{float(bid_max):.2f}"
+ *     currency = currency_label(site)
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":255
+  /* "opscli/seller_sprite/export/xlsx.py":332
  *     if _is_blank(bid_min) or _is_blank(bid_max):
  *         return "-"
- *     return f"{float(bid_min):.2f}-{float(bid_max):.2f}"             # <<<<<<<<<<<<<<
+ *     currency = currency_label(site)             # <<<<<<<<<<<<<<
+ *     return f"{currency}{float(bid_min):.2f}-{currency}{float(bid_max):.2f}"
+ * 
+*/
+  __pyx_t_3 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_currency_label); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 332, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_5 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_4))) {
+    __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_4);
+    assert(__pyx_t_3);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_4);
+    __Pyx_INCREF(__pyx_t_3);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_4, __pyx__function);
+    __pyx_t_5 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_site};
+    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 332, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __pyx_v_currency = __pyx_t_1;
+  __pyx_t_1 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":333
+ *         return "-"
+ *     currency = currency_label(site)
+ *     return f"{currency}{float(bid_min):.2f}-{currency}{float(bid_max):.2f}"             # <<<<<<<<<<<<<<
  * 
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyNumber_Float(__pyx_v_bid_min); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 255, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_currency, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 333, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyObject_Format(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_2f); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 255, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyNumber_Float(__pyx_v_bid_max); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 255, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = __Pyx_PyObject_Format(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_2f); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 255, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyNumber_Float(__pyx_v_bid_min); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 333, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_3 = __Pyx_PyObject_Format(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_2f); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 333, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_v_currency, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 333, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_7 = __Pyx_PyNumber_Float(__pyx_v_bid_max); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 333, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  __pyx_t_8 = __Pyx_PyObject_Format(__pyx_t_7, __pyx_mstate_global->__pyx_kp_u_2f); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 333, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_8);
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  __pyx_t_9[0] = __pyx_t_1;
+  __pyx_t_9[1] = __pyx_t_3;
+  __pyx_t_9[2] = __pyx_mstate_global->__pyx_kp_u__9;
+  __pyx_t_9[3] = __pyx_t_4;
+  __pyx_t_9[4] = __pyx_t_8;
+  __pyx_t_7 = __Pyx_PyUnicode_Join(__pyx_t_9, 5, __Pyx_PyUnicode_GET_LENGTH(__pyx_t_1) + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + 1 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4) + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_1) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8));
+  if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 333, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_7[0] = __pyx_mstate_global->__pyx_n_u__3;
-  __pyx_t_7[1] = __pyx_t_3;
-  __pyx_t_7[2] = __pyx_mstate_global->__pyx_kp_u__23;
-  __pyx_t_7[3] = __pyx_t_4;
-  __pyx_t_1 = __Pyx_PyUnicode_Join(__pyx_t_7, 4, 1 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_3) + 2 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4), 65535 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_3) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4));
-  if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 255, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_r = ((PyObject*)__pyx_t_1);
-  __pyx_t_1 = 0;
+  __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+  __pyx_r = ((PyObject*)__pyx_t_7);
+  __pyx_t_7 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":250
+  /* "opscli/seller_sprite/export/xlsx.py":327
  * 
  * 
- * def _bid_range(row: dict[str, Any]) -> str:             # <<<<<<<<<<<<<<
+ * def _bid_range(row: dict[str, Any], *, site: str) -> str:             # <<<<<<<<<<<<<<
  *     bid_min = row.get("bidMin")
  *     bid_max = row.get("bidMax")
 */
@@ -12400,17 +15262,393 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_32_bid_range(CYT
   __Pyx_XDECREF(__pyx_t_1);
   __Pyx_XDECREF(__pyx_t_3);
   __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_XDECREF(__pyx_t_7);
+  __Pyx_XDECREF(__pyx_t_8);
   __Pyx_AddTraceback("opscli.seller_sprite.export.xlsx._bid_range", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
   __Pyx_XDECREF(__pyx_v_bid_min);
   __Pyx_XDECREF(__pyx_v_bid_max);
+  __Pyx_XDECREF(__pyx_v_currency);
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":258
+/* "opscli/seller_sprite/export/xlsx.py":364
+ * 
+ * 
+ * def _timezone_for_site(site: str):             # <<<<<<<<<<<<<<
+ *     name, fallback = SITE_TIMEZONES.get(str(site).upper(), SITE_TIMEZONES["CN"])
+ *     try:
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_47_timezone_for_site(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_47_timezone_for_site = {"_timezone_for_site", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_47_timezone_for_site, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_47_timezone_for_site(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  PyObject *__pyx_v_site = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[1] = {0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("_timezone_for_site (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_site,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 364, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 364, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_timezone_for_site", 0) < (0)) __PYX_ERR(0, 364, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_timezone_for_site", 1, 1, 1, i); __PYX_ERR(0, 364, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 1)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 364, __pyx_L3_error)
+    }
+    __pyx_v_site = ((PyObject*)values[0]);
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("_timezone_for_site", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 364, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_AddTraceback("opscli.seller_sprite.export.xlsx._timezone_for_site", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_site), (&PyUnicode_Type), 0, "site", 2))) __PYX_ERR(0, 364, __pyx_L1_error)
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_46_timezone_for_site(__pyx_self, __pyx_v_site);
+
+  /* function exit code */
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __pyx_r = NULL;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  goto __pyx_L7_cleaned_up;
+  __pyx_L0:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __pyx_L7_cleaned_up:;
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_46_timezone_for_site(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_site) {
+  PyObject *__pyx_v_name = NULL;
+  PyObject *__pyx_v_fallback = NULL;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  PyObject *__pyx_t_4 = NULL;
+  PyObject *__pyx_t_5 = NULL;
+  PyObject *__pyx_t_6 = NULL;
+  size_t __pyx_t_7;
+  PyObject *(*__pyx_t_8)(PyObject *);
+  PyObject *__pyx_t_9 = NULL;
+  PyObject *__pyx_t_10 = NULL;
+  PyObject *__pyx_t_11 = NULL;
+  int __pyx_t_12;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("_timezone_for_site", 0);
+
+  /* "opscli/seller_sprite/export/xlsx.py":365
+ * 
+ * def _timezone_for_site(site: str):
+ *     name, fallback = SITE_TIMEZONES.get(str(site).upper(), SITE_TIMEZONES["CN"])             # <<<<<<<<<<<<<<
+ *     try:
+ *         return ZoneInfo(name)
+*/
+  __pyx_t_2 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_SITE_TIMEZONES); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 365, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 365, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_3 = __Pyx_CallUnboundCMethod0(&__pyx_mstate_global->__pyx_umethod_PyUnicode_Type__upper, __pyx_v_site); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 365, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_SITE_TIMEZONES); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 365, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __pyx_t_6 = __Pyx_PyObject_Dict_GetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_CN); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 365, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_7 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_4))) {
+    __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_4);
+    assert(__pyx_t_2);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_4);
+    __Pyx_INCREF(__pyx_t_2);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_4, __pyx__function);
+    __pyx_t_7 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[3] = {__pyx_t_2, __pyx_t_3, __pyx_t_6};
+    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_7, (3-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 365, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  if ((likely(PyTuple_CheckExact(__pyx_t_1))) || (PyList_CheckExact(__pyx_t_1))) {
+    PyObject* sequence = __pyx_t_1;
+    Py_ssize_t size = __Pyx_PySequence_SIZE(sequence);
+    if (unlikely(size != 2)) {
+      if (size > 2) __Pyx_RaiseTooManyValuesError(2);
+      else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
+      __PYX_ERR(0, 365, __pyx_L1_error)
+    }
+    #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
+    if (likely(PyTuple_CheckExact(sequence))) {
+      __pyx_t_4 = PyTuple_GET_ITEM(sequence, 0);
+      __Pyx_INCREF(__pyx_t_4);
+      __pyx_t_6 = PyTuple_GET_ITEM(sequence, 1);
+      __Pyx_INCREF(__pyx_t_6);
+    } else {
+      __pyx_t_4 = __Pyx_PyList_GetItemRefFast(sequence, 0, __Pyx_ReferenceSharing_SharedReference);
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 365, __pyx_L1_error)
+      __Pyx_XGOTREF(__pyx_t_4);
+      __pyx_t_6 = __Pyx_PyList_GetItemRefFast(sequence, 1, __Pyx_ReferenceSharing_SharedReference);
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 365, __pyx_L1_error)
+      __Pyx_XGOTREF(__pyx_t_6);
+    }
+    #else
+    __pyx_t_4 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 365, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __pyx_t_6 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 365, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    #endif
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  } else {
+    Py_ssize_t index = -1;
+    __pyx_t_3 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 365, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __pyx_t_8 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3);
+    index = 0; __pyx_t_4 = __pyx_t_8(__pyx_t_3); if (unlikely(!__pyx_t_4)) goto __pyx_L3_unpacking_failed;
+    __Pyx_GOTREF(__pyx_t_4);
+    index = 1; __pyx_t_6 = __pyx_t_8(__pyx_t_3); if (unlikely(!__pyx_t_6)) goto __pyx_L3_unpacking_failed;
+    __Pyx_GOTREF(__pyx_t_6);
+    if (__Pyx_IternextUnpackEndCheck(__pyx_t_8(__pyx_t_3), 2) < (0)) __PYX_ERR(0, 365, __pyx_L1_error)
+    __pyx_t_8 = NULL;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    goto __pyx_L4_unpacking_done;
+    __pyx_L3_unpacking_failed:;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __pyx_t_8 = NULL;
+    if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
+    __PYX_ERR(0, 365, __pyx_L1_error)
+    __pyx_L4_unpacking_done:;
+  }
+  __pyx_v_name = __pyx_t_4;
+  __pyx_t_4 = 0;
+  __pyx_v_fallback = __pyx_t_6;
+  __pyx_t_6 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":366
+ * def _timezone_for_site(site: str):
+ *     name, fallback = SITE_TIMEZONES.get(str(site).upper(), SITE_TIMEZONES["CN"])
+ *     try:             # <<<<<<<<<<<<<<
+ *         return ZoneInfo(name)
+ *     except ZoneInfoNotFoundError:
+*/
+  {
+    __Pyx_PyThreadState_declare
+    __Pyx_PyThreadState_assign
+    __Pyx_ExceptionSave(&__pyx_t_9, &__pyx_t_10, &__pyx_t_11);
+    __Pyx_XGOTREF(__pyx_t_9);
+    __Pyx_XGOTREF(__pyx_t_10);
+    __Pyx_XGOTREF(__pyx_t_11);
+    /*try:*/ {
+
+      /* "opscli/seller_sprite/export/xlsx.py":367
+ *     name, fallback = SITE_TIMEZONES.get(str(site).upper(), SITE_TIMEZONES["CN"])
+ *     try:
+ *         return ZoneInfo(name)             # <<<<<<<<<<<<<<
+ *     except ZoneInfoNotFoundError:
+ *         return fallback
+*/
+      __Pyx_XDECREF(__pyx_r);
+      __pyx_t_6 = NULL;
+      __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_ZoneInfo); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 367, __pyx_L5_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      __pyx_t_7 = 1;
+      #if CYTHON_UNPACK_METHODS
+      if (unlikely(PyMethod_Check(__pyx_t_4))) {
+        __pyx_t_6 = PyMethod_GET_SELF(__pyx_t_4);
+        assert(__pyx_t_6);
+        PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_4);
+        __Pyx_INCREF(__pyx_t_6);
+        __Pyx_INCREF(__pyx__function);
+        __Pyx_DECREF_SET(__pyx_t_4, __pyx__function);
+        __pyx_t_7 = 0;
+      }
+      #endif
+      {
+        PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v_name};
+        __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+        __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+        __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 367, __pyx_L5_error)
+        __Pyx_GOTREF(__pyx_t_1);
+      }
+      __pyx_r = __pyx_t_1;
+      __pyx_t_1 = 0;
+      goto __pyx_L9_try_return;
+
+      /* "opscli/seller_sprite/export/xlsx.py":366
+ * def _timezone_for_site(site: str):
+ *     name, fallback = SITE_TIMEZONES.get(str(site).upper(), SITE_TIMEZONES["CN"])
+ *     try:             # <<<<<<<<<<<<<<
+ *         return ZoneInfo(name)
+ *     except ZoneInfoNotFoundError:
+*/
+    }
+    __pyx_L5_error:;
+    __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":368
+ *     try:
+ *         return ZoneInfo(name)
+ *     except ZoneInfoNotFoundError:             # <<<<<<<<<<<<<<
+ *         return fallback
+ * 
+*/
+    __Pyx_ErrFetch(&__pyx_t_1, &__pyx_t_4, &__pyx_t_6);
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_ZoneInfoNotFoundError); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 368, __pyx_L7_except_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_12 = __Pyx_PyErr_GivenExceptionMatches(__pyx_t_1, __pyx_t_3);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __Pyx_ErrRestore(__pyx_t_1, __pyx_t_4, __pyx_t_6);
+    __pyx_t_1 = 0; __pyx_t_4 = 0; __pyx_t_6 = 0;
+    if (__pyx_t_12) {
+      __Pyx_ErrRestore(0,0,0);
+
+      /* "opscli/seller_sprite/export/xlsx.py":369
+ *         return ZoneInfo(name)
+ *     except ZoneInfoNotFoundError:
+ *         return fallback             # <<<<<<<<<<<<<<
+ * 
+ * 
+*/
+      __Pyx_XDECREF(__pyx_r);
+      __Pyx_INCREF(__pyx_v_fallback);
+      __pyx_r = __pyx_v_fallback;
+      goto __pyx_L8_except_return;
+    }
+    goto __pyx_L7_except_error;
+
+    /* "opscli/seller_sprite/export/xlsx.py":366
+ * def _timezone_for_site(site: str):
+ *     name, fallback = SITE_TIMEZONES.get(str(site).upper(), SITE_TIMEZONES["CN"])
+ *     try:             # <<<<<<<<<<<<<<
+ *         return ZoneInfo(name)
+ *     except ZoneInfoNotFoundError:
+*/
+    __pyx_L7_except_error:;
+    __Pyx_XGIVEREF(__pyx_t_9);
+    __Pyx_XGIVEREF(__pyx_t_10);
+    __Pyx_XGIVEREF(__pyx_t_11);
+    __Pyx_ExceptionReset(__pyx_t_9, __pyx_t_10, __pyx_t_11);
+    goto __pyx_L1_error;
+    __pyx_L9_try_return:;
+    __Pyx_XGIVEREF(__pyx_t_9);
+    __Pyx_XGIVEREF(__pyx_t_10);
+    __Pyx_XGIVEREF(__pyx_t_11);
+    __Pyx_ExceptionReset(__pyx_t_9, __pyx_t_10, __pyx_t_11);
+    goto __pyx_L0;
+    __pyx_L8_except_return:;
+    __Pyx_XGIVEREF(__pyx_t_9);
+    __Pyx_XGIVEREF(__pyx_t_10);
+    __Pyx_XGIVEREF(__pyx_t_11);
+    __Pyx_ExceptionReset(__pyx_t_9, __pyx_t_10, __pyx_t_11);
+    goto __pyx_L0;
+  }
+
+  /* "opscli/seller_sprite/export/xlsx.py":364
+ * 
+ * 
+ * def _timezone_for_site(site: str):             # <<<<<<<<<<<<<<
+ *     name, fallback = SITE_TIMEZONES.get(str(site).upper(), SITE_TIMEZONES["CN"])
+ *     try:
+*/
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_XDECREF(__pyx_t_5);
+  __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_AddTraceback("opscli.seller_sprite.export.xlsx._timezone_for_site", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_name);
+  __Pyx_XDECREF(__pyx_v_fallback);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "opscli/seller_sprite/export/xlsx.py":372
  * 
  * 
  * def _asin_list(value: Any) -> str:             # <<<<<<<<<<<<<<
@@ -12419,15 +15657,15 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_32_bid_range(CYT
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_35_asin_list(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_49_asin_list(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_35_asin_list = {"_asin_list", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_35_asin_list, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_35_asin_list(PyObject *__pyx_self, 
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_49_asin_list = {"_asin_list", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_49_asin_list, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_49_asin_list(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -12457,32 +15695,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_value,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 258, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 372, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 258, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 372, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_asin_list", 0) < (0)) __PYX_ERR(0, 258, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_asin_list", 0) < (0)) __PYX_ERR(0, 372, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_asin_list", 1, 1, 1, i); __PYX_ERR(0, 258, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_asin_list", 1, 1, 1, i); __PYX_ERR(0, 372, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 258, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 372, __pyx_L3_error)
     }
     __pyx_v_value = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_asin_list", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 258, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_asin_list", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 372, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -12493,7 +15731,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_34_asin_list(__pyx_self, __pyx_v_value);
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_48_asin_list(__pyx_self, __pyx_v_value);
 
   /* function exit code */
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
@@ -12504,7 +15742,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 }
 static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_10_asin_list_2generator7(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "opscli/seller_sprite/export/xlsx.py":261
+/* "opscli/seller_sprite/export/xlsx.py":375
  *     if not isinstance(value, list):
  *         return ""
  *     return ",".join(str(item.get("asin")) for item in value if isinstance(item, dict) and item.get("asin"))             # <<<<<<<<<<<<<<
@@ -12524,7 +15762,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_10_asin_list_gen
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 261, __pyx_L1_error)
+    __PYX_ERR(0, 375, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -12532,7 +15770,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_10_asin_list_gen
   __Pyx_INCREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_6export_4xlsx_10_asin_list_2generator7, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_asin_list_locals_genexpr, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx); if (unlikely(!gen)) __PYX_ERR(0, 261, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_6export_4xlsx_10_asin_list_2generator7, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_asin_list_locals_genexpr, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx); if (unlikely(!gen)) __PYX_ERR(0, 375, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -12572,18 +15810,18 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_10_asin_list_2ge
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 261, __pyx_L1_error)
-  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 261, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 375, __pyx_L1_error)
+  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 375, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_r);
-  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 261, __pyx_L1_error) }
+  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 375, __pyx_L1_error) }
   if (likely(PyList_CheckExact(__pyx_cur_scope->__pyx_genexpr_arg_0)) || PyTuple_CheckExact(__pyx_cur_scope->__pyx_genexpr_arg_0)) {
     __pyx_t_1 = __pyx_cur_scope->__pyx_genexpr_arg_0; __Pyx_INCREF(__pyx_t_1);
     __pyx_t_2 = 0;
     __pyx_t_3 = NULL;
   } else {
-    __pyx_t_2 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_cur_scope->__pyx_genexpr_arg_0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 261, __pyx_L1_error)
+    __pyx_t_2 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_cur_scope->__pyx_genexpr_arg_0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 375, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_3 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 261, __pyx_L1_error)
+    __pyx_t_3 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 375, __pyx_L1_error)
   }
   for (;;) {
     if (likely(!__pyx_t_3)) {
@@ -12591,7 +15829,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_10_asin_list_2ge
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 261, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 375, __pyx_L1_error)
           #endif
           if (__pyx_t_2 >= __pyx_temp) break;
         }
@@ -12601,7 +15839,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_10_asin_list_2ge
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_1);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 261, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 375, __pyx_L1_error)
           #endif
           if (__pyx_t_2 >= __pyx_temp) break;
         }
@@ -12612,13 +15850,13 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_10_asin_list_2ge
         #endif
         ++__pyx_t_2;
       }
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 261, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 375, __pyx_L1_error)
     } else {
       __pyx_t_4 = __pyx_t_3(__pyx_t_1);
       if (unlikely(!__pyx_t_4)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 261, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 375, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -12642,10 +15880,10 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_10_asin_list_2ge
       PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_mstate_global->__pyx_n_u_asin};
       __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 261, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 375, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
-    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 261, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 375, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_5 = __pyx_t_6;
     __pyx_L7_bool_binop_done:;
@@ -12657,13 +15895,13 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_10_asin_list_2ge
         PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_mstate_global->__pyx_n_u_asin};
         __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 261, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 375, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
-      __pyx_t_7 = __Pyx_PyObject_Unicode(__pyx_t_4); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 261, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyObject_Unicode(__pyx_t_4); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 375, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_7))) __PYX_ERR(0, 261, __pyx_L1_error)
+      if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_t_7))) __PYX_ERR(0, 375, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     }
   }
@@ -12692,7 +15930,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_10_asin_list_2ge
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":258
+/* "opscli/seller_sprite/export/xlsx.py":372
  * 
  * 
  * def _asin_list(value: Any) -> str:             # <<<<<<<<<<<<<<
@@ -12700,7 +15938,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_10_asin_list_2ge
  *         return ""
 */
 
-static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_34_asin_list(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_48_asin_list(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
   PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_10_asin_list_2generator7 = 0;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -12713,7 +15951,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_34_asin_list(CYT
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_asin_list", 0);
 
-  /* "opscli/seller_sprite/export/xlsx.py":259
+  /* "opscli/seller_sprite/export/xlsx.py":373
  * 
  * def _asin_list(value: Any) -> str:
  *     if not isinstance(value, list):             # <<<<<<<<<<<<<<
@@ -12724,7 +15962,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_34_asin_list(CYT
   __pyx_t_2 = (!__pyx_t_1);
   if (__pyx_t_2) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":260
+    /* "opscli/seller_sprite/export/xlsx.py":374
  * def _asin_list(value: Any) -> str:
  *     if not isinstance(value, list):
  *         return ""             # <<<<<<<<<<<<<<
@@ -12736,7 +15974,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_34_asin_list(CYT
     __pyx_r = __pyx_mstate_global->__pyx_kp_u__2;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":259
+    /* "opscli/seller_sprite/export/xlsx.py":373
  * 
  * def _asin_list(value: Any) -> str:
  *     if not isinstance(value, list):             # <<<<<<<<<<<<<<
@@ -12745,7 +15983,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_34_asin_list(CYT
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":261
+  /* "opscli/seller_sprite/export/xlsx.py":375
  *     if not isinstance(value, list):
  *         return ""
  *     return ",".join(str(item.get("asin")) for item in value if isinstance(item, dict) and item.get("asin"))             # <<<<<<<<<<<<<<
@@ -12753,19 +15991,19 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_34_asin_list(CYT
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_10_asin_list_genexpr(NULL, __pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 261, __pyx_L1_error)
+  __pyx_t_3 = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_10_asin_list_genexpr(NULL, __pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 375, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_Generator_GetInlinedResult(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 261, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_Generator_GetInlinedResult(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 375, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__24, __pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 261, __pyx_L1_error)
+  __pyx_t_3 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__28, __pyx_t_4); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 375, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_r = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":258
+  /* "opscli/seller_sprite/export/xlsx.py":372
  * 
  * 
  * def _asin_list(value: Any) -> str:             # <<<<<<<<<<<<<<
@@ -12786,7 +16024,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_34_asin_list(CYT
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":264
+/* "opscli/seller_sprite/export/xlsx.py":378
  * 
  * 
  * def _list_join(value: Any) -> str:             # <<<<<<<<<<<<<<
@@ -12795,15 +16033,15 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_34_asin_list(CYT
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_37_list_join(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_51_list_join(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_37_list_join = {"_list_join", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_37_list_join, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_37_list_join(PyObject *__pyx_self, 
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_51_list_join = {"_list_join", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_51_list_join, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_51_list_join(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -12833,32 +16071,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_value,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 264, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 378, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 264, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 378, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_list_join", 0) < (0)) __PYX_ERR(0, 264, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_list_join", 0) < (0)) __PYX_ERR(0, 378, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_list_join", 1, 1, 1, i); __PYX_ERR(0, 264, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_list_join", 1, 1, 1, i); __PYX_ERR(0, 378, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 264, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 378, __pyx_L3_error)
     }
     __pyx_v_value = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_list_join", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 264, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_list_join", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 378, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -12869,7 +16107,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(__pyx_self, __pyx_v_value);
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_50_list_join(__pyx_self, __pyx_v_value);
 
   /* function exit code */
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
@@ -12880,7 +16118,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 }
 static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_10_list_join_2generator8(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "opscli/seller_sprite/export/xlsx.py":275
+/* "opscli/seller_sprite/export/xlsx.py":389
  *         elif item is not None:
  *             parts.append(str(item))
  *     return "/".join(part for part in parts if part)             # <<<<<<<<<<<<<<
@@ -12900,7 +16138,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_10_list_join_gen
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 275, __pyx_L1_error)
+    __PYX_ERR(0, 389, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -12908,7 +16146,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_10_list_join_gen
   __Pyx_INCREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_6export_4xlsx_10_list_join_2generator8, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[8]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_list_join_locals_genexpr, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx); if (unlikely(!gen)) __PYX_ERR(0, 275, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_6export_4xlsx_10_list_join_2generator8, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[8]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_list_join_locals_genexpr, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx); if (unlikely(!gen)) __PYX_ERR(0, 389, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -12944,31 +16182,31 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_10_list_join_2ge
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 275, __pyx_L1_error)
-  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 275, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 389, __pyx_L1_error)
+  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 389, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_r);
-  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 275, __pyx_L1_error) }
+  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 389, __pyx_L1_error) }
   __pyx_t_1 = __pyx_cur_scope->__pyx_genexpr_arg_0; __Pyx_INCREF(__pyx_t_1);
   __pyx_t_2 = 0;
   for (;;) {
     {
       Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
       #if !CYTHON_ASSUME_SAFE_SIZE
-      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 275, __pyx_L1_error)
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 389, __pyx_L1_error)
       #endif
       if (__pyx_t_2 >= __pyx_temp) break;
     }
     __pyx_t_3 = __Pyx_PyList_GetItemRefFast(__pyx_t_1, __pyx_t_2, __Pyx_ReferenceSharing_OwnStrongReference);
     ++__pyx_t_2;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 275, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 389, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_part);
     __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_v_part, __pyx_t_3);
     __Pyx_GIVEREF(__pyx_t_3);
     __pyx_t_3 = 0;
-    __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_part); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 275, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_part); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 389, __pyx_L1_error)
     if (__pyx_t_4) {
-      if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_cur_scope->__pyx_v_part))) __PYX_ERR(0, 275, __pyx_L1_error)
+      if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_cur_scope->__pyx_v_part))) __PYX_ERR(0, 389, __pyx_L1_error)
     }
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -12995,7 +16233,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_10_list_join_2ge
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":264
+/* "opscli/seller_sprite/export/xlsx.py":378
  * 
  * 
  * def _list_join(value: Any) -> str:             # <<<<<<<<<<<<<<
@@ -13003,7 +16241,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_10_list_join_2ge
  *         return "" if _is_blank(value) else str(value)
 */
 
-static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_50_list_join(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
   PyObject *__pyx_v_parts = NULL;
   PyObject *__pyx_v_item = NULL;
   PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_10_list_join_2generator8 = 0;
@@ -13026,7 +16264,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_list_join", 0);
 
-  /* "opscli/seller_sprite/export/xlsx.py":265
+  /* "opscli/seller_sprite/export/xlsx.py":379
  * 
  * def _list_join(value: Any) -> str:
  *     if not isinstance(value, list):             # <<<<<<<<<<<<<<
@@ -13037,7 +16275,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
   __pyx_t_2 = (!__pyx_t_1);
   if (__pyx_t_2) {
 
-    /* "opscli/seller_sprite/export/xlsx.py":266
+    /* "opscli/seller_sprite/export/xlsx.py":380
  * def _list_join(value: Any) -> str:
  *     if not isinstance(value, list):
  *         return "" if _is_blank(value) else str(value)             # <<<<<<<<<<<<<<
@@ -13046,7 +16284,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
 */
     __Pyx_XDECREF(__pyx_r);
     __pyx_t_5 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 266, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 380, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_7 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -13065,16 +16303,16 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
       __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 266, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 380, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 266, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 380, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     if (__pyx_t_2) {
       __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__2);
       __pyx_t_3 = __pyx_mstate_global->__pyx_kp_u__2;
     } else {
-      __pyx_t_4 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 266, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyObject_Unicode(__pyx_v_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 380, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __pyx_t_3 = __pyx_t_4;
       __pyx_t_4 = 0;
@@ -13083,7 +16321,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
     __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":265
+    /* "opscli/seller_sprite/export/xlsx.py":379
  * 
  * def _list_join(value: Any) -> str:
  *     if not isinstance(value, list):             # <<<<<<<<<<<<<<
@@ -13092,19 +16330,19 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
 */
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":267
+  /* "opscli/seller_sprite/export/xlsx.py":381
  *     if not isinstance(value, list):
  *         return "" if _is_blank(value) else str(value)
  *     parts = []             # <<<<<<<<<<<<<<
  *     for item in value:
  *         if isinstance(item, str):
 */
-  __pyx_t_3 = PyList_New(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 267, __pyx_L1_error)
+  __pyx_t_3 = PyList_New(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 381, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_v_parts = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":268
+  /* "opscli/seller_sprite/export/xlsx.py":382
  *         return "" if _is_blank(value) else str(value)
  *     parts = []
  *     for item in value:             # <<<<<<<<<<<<<<
@@ -13116,9 +16354,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
     __pyx_t_8 = 0;
     __pyx_t_9 = NULL;
   } else {
-    __pyx_t_8 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 268, __pyx_L1_error)
+    __pyx_t_8 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 382, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_9 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 268, __pyx_L1_error)
+    __pyx_t_9 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 382, __pyx_L1_error)
   }
   for (;;) {
     if (likely(!__pyx_t_9)) {
@@ -13126,7 +16364,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_3);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 268, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 382, __pyx_L1_error)
           #endif
           if (__pyx_t_8 >= __pyx_temp) break;
         }
@@ -13136,7 +16374,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_3);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 268, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 382, __pyx_L1_error)
           #endif
           if (__pyx_t_8 >= __pyx_temp) break;
         }
@@ -13147,13 +16385,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
         #endif
         ++__pyx_t_8;
       }
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 268, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 382, __pyx_L1_error)
     } else {
       __pyx_t_4 = __pyx_t_9(__pyx_t_3);
       if (unlikely(!__pyx_t_4)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 268, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 382, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -13163,7 +16401,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
     __Pyx_XDECREF_SET(__pyx_v_item, __pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "opscli/seller_sprite/export/xlsx.py":269
+    /* "opscli/seller_sprite/export/xlsx.py":383
  *     parts = []
  *     for item in value:
  *         if isinstance(item, str):             # <<<<<<<<<<<<<<
@@ -13173,16 +16411,16 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
     __pyx_t_2 = PyUnicode_Check(__pyx_v_item); 
     if (__pyx_t_2) {
 
-      /* "opscli/seller_sprite/export/xlsx.py":270
+      /* "opscli/seller_sprite/export/xlsx.py":384
  *     for item in value:
  *         if isinstance(item, str):
  *             parts.append(item)             # <<<<<<<<<<<<<<
  *         elif isinstance(item, dict):
  *             parts.append(str(item.get("label") or item.get("name") or item.get("code") or item.get("value") or json.dumps(item, ensure_ascii=False)))
 */
-      __pyx_t_10 = __Pyx_PyList_Append(__pyx_v_parts, __pyx_v_item); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 270, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_PyList_Append(__pyx_v_parts, __pyx_v_item); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 384, __pyx_L1_error)
 
-      /* "opscli/seller_sprite/export/xlsx.py":269
+      /* "opscli/seller_sprite/export/xlsx.py":383
  *     parts = []
  *     for item in value:
  *         if isinstance(item, str):             # <<<<<<<<<<<<<<
@@ -13192,7 +16430,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
       goto __pyx_L6;
     }
 
-    /* "opscli/seller_sprite/export/xlsx.py":271
+    /* "opscli/seller_sprite/export/xlsx.py":385
  *         if isinstance(item, str):
  *             parts.append(item)
  *         elif isinstance(item, dict):             # <<<<<<<<<<<<<<
@@ -13202,7 +16440,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
     __pyx_t_2 = PyDict_Check(__pyx_v_item); 
     if (__pyx_t_2) {
 
-      /* "opscli/seller_sprite/export/xlsx.py":272
+      /* "opscli/seller_sprite/export/xlsx.py":386
  *             parts.append(item)
  *         elif isinstance(item, dict):
  *             parts.append(str(item.get("label") or item.get("name") or item.get("code") or item.get("value") or json.dumps(item, ensure_ascii=False)))             # <<<<<<<<<<<<<<
@@ -13216,10 +16454,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
         PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_mstate_global->__pyx_n_u_label};
         __pyx_t_6 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 272, __pyx_L1_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 386, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
       }
-      __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 272, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 386, __pyx_L1_error)
       if (!__pyx_t_2) {
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       } else {
@@ -13235,10 +16473,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
         PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_mstate_global->__pyx_n_u_name};
         __pyx_t_6 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 272, __pyx_L1_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 386, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
       }
-      __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 272, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 386, __pyx_L1_error)
       if (!__pyx_t_2) {
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       } else {
@@ -13254,10 +16492,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
         PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_mstate_global->__pyx_n_u_code};
         __pyx_t_6 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 272, __pyx_L1_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 386, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
       }
-      __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 272, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 386, __pyx_L1_error)
       if (!__pyx_t_2) {
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       } else {
@@ -13273,10 +16511,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
         PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_mstate_global->__pyx_n_u_value};
         __pyx_t_6 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 272, __pyx_L1_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 386, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
       }
-      __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 272, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 386, __pyx_L1_error)
       if (!__pyx_t_2) {
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       } else {
@@ -13286,9 +16524,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
         goto __pyx_L7_bool_binop_done;
       }
       __pyx_t_5 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 272, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 386, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
-      __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_dumps); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 272, __pyx_L1_error)
+      __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_dumps); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 386, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_12);
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       __pyx_t_7 = 1;
@@ -13305,27 +16543,27 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
       #endif
       {
         PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_5, __pyx_v_item};
-        __pyx_t_11 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 272, __pyx_L1_error)
+        __pyx_t_11 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 386, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_11);
-        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_ensure_ascii, Py_False, __pyx_t_11, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 272, __pyx_L1_error)
+        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_ensure_ascii, Py_False, __pyx_t_11, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 386, __pyx_L1_error)
         __pyx_t_6 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_12, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_11);
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
         __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 272, __pyx_L1_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 386, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
       }
       __Pyx_INCREF(__pyx_t_6);
       __pyx_t_4 = __pyx_t_6;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __pyx_L7_bool_binop_done:;
-      __pyx_t_6 = __Pyx_PyObject_Unicode(__pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 272, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyObject_Unicode(__pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 386, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __pyx_t_10 = __Pyx_PyList_Append(__pyx_v_parts, __pyx_t_6); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 272, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_PyList_Append(__pyx_v_parts, __pyx_t_6); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 386, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-      /* "opscli/seller_sprite/export/xlsx.py":271
+      /* "opscli/seller_sprite/export/xlsx.py":385
  *         if isinstance(item, str):
  *             parts.append(item)
  *         elif isinstance(item, dict):             # <<<<<<<<<<<<<<
@@ -13335,7 +16573,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
       goto __pyx_L6;
     }
 
-    /* "opscli/seller_sprite/export/xlsx.py":273
+    /* "opscli/seller_sprite/export/xlsx.py":387
  *         elif isinstance(item, dict):
  *             parts.append(str(item.get("label") or item.get("name") or item.get("code") or item.get("value") or json.dumps(item, ensure_ascii=False)))
  *         elif item is not None:             # <<<<<<<<<<<<<<
@@ -13345,19 +16583,19 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
     __pyx_t_2 = (__pyx_v_item != Py_None);
     if (__pyx_t_2) {
 
-      /* "opscli/seller_sprite/export/xlsx.py":274
+      /* "opscli/seller_sprite/export/xlsx.py":388
  *             parts.append(str(item.get("label") or item.get("name") or item.get("code") or item.get("value") or json.dumps(item, ensure_ascii=False)))
  *         elif item is not None:
  *             parts.append(str(item))             # <<<<<<<<<<<<<<
  *     return "/".join(part for part in parts if part)
  * 
 */
-      __pyx_t_6 = __Pyx_PyObject_Unicode(__pyx_v_item); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 274, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyObject_Unicode(__pyx_v_item); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 388, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_10 = __Pyx_PyList_Append(__pyx_v_parts, __pyx_t_6); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 274, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_PyList_Append(__pyx_v_parts, __pyx_t_6); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 388, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-      /* "opscli/seller_sprite/export/xlsx.py":273
+      /* "opscli/seller_sprite/export/xlsx.py":387
  *         elif isinstance(item, dict):
  *             parts.append(str(item.get("label") or item.get("name") or item.get("code") or item.get("value") or json.dumps(item, ensure_ascii=False)))
  *         elif item is not None:             # <<<<<<<<<<<<<<
@@ -13367,7 +16605,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
     }
     __pyx_L6:;
 
-    /* "opscli/seller_sprite/export/xlsx.py":268
+    /* "opscli/seller_sprite/export/xlsx.py":382
  *         return "" if _is_blank(value) else str(value)
  *     parts = []
  *     for item in value:             # <<<<<<<<<<<<<<
@@ -13377,7 +16615,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
   }
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":275
+  /* "opscli/seller_sprite/export/xlsx.py":389
  *         elif item is not None:
  *             parts.append(str(item))
  *     return "/".join(part for part in parts if part)             # <<<<<<<<<<<<<<
@@ -13385,19 +16623,19 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_10_list_join_genexpr(NULL, __pyx_v_parts); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 275, __pyx_L1_error)
+  __pyx_t_3 = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_10_list_join_genexpr(NULL, __pyx_v_parts); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 389, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_6 = __Pyx_Generator_GetInlinedResult(__pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 275, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_Generator_GetInlinedResult(__pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 389, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__25, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 275, __pyx_L1_error)
+  __pyx_t_3 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__27, __pyx_t_6); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 389, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __pyx_r = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":264
+  /* "opscli/seller_sprite/export/xlsx.py":378
  * 
  * 
  * def _list_join(value: Any) -> str:             # <<<<<<<<<<<<<<
@@ -13424,7 +16662,492 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":278
+/* "opscli/seller_sprite/export/xlsx.py":442
+ * 
+ * 
+ * def _enum_list_join(value: Any, labels: dict[str, str]) -> str:             # <<<<<<<<<<<<<<
+ *     if _is_blank(value):
+ *         return ""
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_53_enum_list_join(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_53_enum_list_join = {"_enum_list_join", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_53_enum_list_join, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_53_enum_list_join(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  PyObject *__pyx_v_value = 0;
+  PyObject *__pyx_v_labels = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[2] = {0,0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("_enum_list_join (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_value,&__pyx_mstate_global->__pyx_n_u_labels,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 442, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  2:
+        values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 442, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 442, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_enum_list_join", 0) < (0)) __PYX_ERR(0, 442, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_enum_list_join", 1, 2, 2, i); __PYX_ERR(0, 442, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 2)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 442, __pyx_L3_error)
+      values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 442, __pyx_L3_error)
+    }
+    __pyx_v_value = values[0];
+    __pyx_v_labels = ((PyObject*)values[1]);
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("_enum_list_join", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 442, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_AddTraceback("opscli.seller_sprite.export.xlsx._enum_list_join", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_labels), (&PyDict_Type), 0, "labels", 2))) __PYX_ERR(0, 442, __pyx_L1_error)
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_52_enum_list_join(__pyx_self, __pyx_v_value, __pyx_v_labels);
+
+  /* function exit code */
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __pyx_r = NULL;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  goto __pyx_L7_cleaned_up;
+  __pyx_L0:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __pyx_L7_cleaned_up:;
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_15_enum_list_join_2generator9(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+
+/* "opscli/seller_sprite/export/xlsx.py":450
+ *         key = str(item)
+ *         parts.append(labels.get(key, key))
+ *     return "/".join(part for part in parts if part)             # <<<<<<<<<<<<<<
+ * 
+ * 
+*/
+
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_15_enum_list_join_genexpr(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_genexpr_arg_0) {
+  struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr *__pyx_cur_scope;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("genexpr", 0);
+  __pyx_cur_scope = (struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr *)__pyx_tp_new_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr(__pyx_mstate_global->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr, __pyx_mstate_global->__pyx_empty_tuple, NULL);
+  if (unlikely(!__pyx_cur_scope)) {
+    __pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr *)Py_None);
+    __Pyx_INCREF(Py_None);
+    __PYX_ERR(0, 450, __pyx_L1_error)
+  } else {
+    __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
+  }
+  __pyx_cur_scope->__pyx_genexpr_arg_0 = __pyx_genexpr_arg_0;
+  __Pyx_INCREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
+  __Pyx_GIVEREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
+  {
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_6export_4xlsx_15_enum_list_join_2generator9, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[9]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_enum_list_join_locals_genexpr, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx); if (unlikely(!gen)) __PYX_ERR(0, 450, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_cur_scope);
+    __Pyx_RefNannyFinishContext();
+    return (PyObject *) gen;
+  }
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_AddTraceback("opscli.seller_sprite.export.xlsx._enum_list_join.genexpr", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __Pyx_DECREF((PyObject *)__pyx_cur_scope);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_15_enum_list_join_2generator9(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+{
+  struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr *__pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr *)__pyx_generator->closure);
+  PyObject *__pyx_r = NULL;
+  PyObject *__pyx_t_1 = NULL;
+  Py_ssize_t __pyx_t_2;
+  PyObject *__pyx_t_3 = NULL;
+  int __pyx_t_4;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("genexpr", 0);
+  switch (__pyx_generator->resume_label) {
+    case 0: goto __pyx_L3_first_run;
+    default: /* CPython raises the right error here */
+    __Pyx_RefNannyFinishContext();
+    return NULL;
+  }
+  __pyx_L3_first_run:;
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 450, __pyx_L1_error)
+  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 450, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_r);
+  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 450, __pyx_L1_error) }
+  __pyx_t_1 = __pyx_cur_scope->__pyx_genexpr_arg_0; __Pyx_INCREF(__pyx_t_1);
+  __pyx_t_2 = 0;
+  for (;;) {
+    {
+      Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
+      #if !CYTHON_ASSUME_SAFE_SIZE
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 450, __pyx_L1_error)
+      #endif
+      if (__pyx_t_2 >= __pyx_temp) break;
+    }
+    __pyx_t_3 = __Pyx_PyList_GetItemRefFast(__pyx_t_1, __pyx_t_2, __Pyx_ReferenceSharing_OwnStrongReference);
+    ++__pyx_t_2;
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 450, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_part);
+    __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_v_part, __pyx_t_3);
+    __Pyx_GIVEREF(__pyx_t_3);
+    __pyx_t_3 = 0;
+    __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_part); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 450, __pyx_L1_error)
+    if (__pyx_t_4) {
+      if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_cur_scope->__pyx_v_part))) __PYX_ERR(0, 450, __pyx_L1_error)
+    }
+  }
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
+
+  /* function exit code */
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_r); __pyx_r = 0;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_3);
+  if (__Pyx_PyErr_Occurred()) {
+    __Pyx_Generator_Replace_StopIteration(0);
+    __Pyx_AddTraceback("genexpr", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  }
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  #if !CYTHON_USE_EXC_INFO_STACK
+  __Pyx_Coroutine_ResetAndClearException(__pyx_generator);
+  #endif
+  __pyx_generator->resume_label = -1;
+  __Pyx_Coroutine_clear((PyObject*)__pyx_generator);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "opscli/seller_sprite/export/xlsx.py":442
+ * 
+ * 
+ * def _enum_list_join(value: Any, labels: dict[str, str]) -> str:             # <<<<<<<<<<<<<<
+ *     if _is_blank(value):
+ *         return ""
+*/
+
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_52_enum_list_join(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value, PyObject *__pyx_v_labels) {
+  PyObject *__pyx_v_values = NULL;
+  PyObject *__pyx_v_parts = NULL;
+  PyObject *__pyx_v_item = NULL;
+  PyObject *__pyx_v_key = NULL;
+  PyObject *__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_15_enum_list_join_2generator9 = 0;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  size_t __pyx_t_4;
+  int __pyx_t_5;
+  Py_ssize_t __pyx_t_6;
+  PyObject *(*__pyx_t_7)(PyObject *);
+  int __pyx_t_8;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("_enum_list_join", 0);
+
+  /* "opscli/seller_sprite/export/xlsx.py":443
+ * 
+ * def _enum_list_join(value: Any, labels: dict[str, str]) -> str:
+ *     if _is_blank(value):             # <<<<<<<<<<<<<<
+ *         return ""
+ *     values = value if isinstance(value, list) else [value]
+*/
+  __pyx_t_2 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_is_blank); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 443, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_4 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_3))) {
+    __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_3);
+    assert(__pyx_t_2);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_3);
+    __Pyx_INCREF(__pyx_t_2);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_3, __pyx__function);
+    __pyx_t_4 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_value};
+    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 443, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 443, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (__pyx_t_5) {
+
+    /* "opscli/seller_sprite/export/xlsx.py":444
+ * def _enum_list_join(value: Any, labels: dict[str, str]) -> str:
+ *     if _is_blank(value):
+ *         return ""             # <<<<<<<<<<<<<<
+ *     values = value if isinstance(value, list) else [value]
+ *     parts = []
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__2);
+    __pyx_r = __pyx_mstate_global->__pyx_kp_u__2;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":443
+ * 
+ * def _enum_list_join(value: Any, labels: dict[str, str]) -> str:
+ *     if _is_blank(value):             # <<<<<<<<<<<<<<
+ *         return ""
+ *     values = value if isinstance(value, list) else [value]
+*/
+  }
+
+  /* "opscli/seller_sprite/export/xlsx.py":445
+ *     if _is_blank(value):
+ *         return ""
+ *     values = value if isinstance(value, list) else [value]             # <<<<<<<<<<<<<<
+ *     parts = []
+ *     for item in values:
+*/
+  __pyx_t_5 = PyList_Check(__pyx_v_value); 
+  if (__pyx_t_5) {
+    __Pyx_INCREF(__pyx_v_value);
+    __pyx_t_1 = __pyx_v_value;
+  } else {
+    __pyx_t_3 = PyList_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 445, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_INCREF(__pyx_v_value);
+    __Pyx_GIVEREF(__pyx_v_value);
+    if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 0, __pyx_v_value) != (0)) __PYX_ERR(0, 445, __pyx_L1_error);
+    __pyx_t_1 = __pyx_t_3;
+    __pyx_t_3 = 0;
+  }
+  __pyx_v_values = __pyx_t_1;
+  __pyx_t_1 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":446
+ *         return ""
+ *     values = value if isinstance(value, list) else [value]
+ *     parts = []             # <<<<<<<<<<<<<<
+ *     for item in values:
+ *         key = str(item)
+*/
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 446, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_v_parts = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":447
+ *     values = value if isinstance(value, list) else [value]
+ *     parts = []
+ *     for item in values:             # <<<<<<<<<<<<<<
+ *         key = str(item)
+ *         parts.append(labels.get(key, key))
+*/
+  if (likely(PyList_CheckExact(__pyx_v_values)) || PyTuple_CheckExact(__pyx_v_values)) {
+    __pyx_t_1 = __pyx_v_values; __Pyx_INCREF(__pyx_t_1);
+    __pyx_t_6 = 0;
+    __pyx_t_7 = NULL;
+  } else {
+    __pyx_t_6 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_v_values); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 447, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_7 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 447, __pyx_L1_error)
+  }
+  for (;;) {
+    if (likely(!__pyx_t_7)) {
+      if (likely(PyList_CheckExact(__pyx_t_1))) {
+        {
+          Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
+          #if !CYTHON_ASSUME_SAFE_SIZE
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 447, __pyx_L1_error)
+          #endif
+          if (__pyx_t_6 >= __pyx_temp) break;
+        }
+        __pyx_t_3 = __Pyx_PyList_GetItemRefFast(__pyx_t_1, __pyx_t_6, __Pyx_ReferenceSharing_OwnStrongReference);
+        ++__pyx_t_6;
+      } else {
+        {
+          Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_1);
+          #if !CYTHON_ASSUME_SAFE_SIZE
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 447, __pyx_L1_error)
+          #endif
+          if (__pyx_t_6 >= __pyx_temp) break;
+        }
+        #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
+        __pyx_t_3 = __Pyx_NewRef(PyTuple_GET_ITEM(__pyx_t_1, __pyx_t_6));
+        #else
+        __pyx_t_3 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_6);
+        #endif
+        ++__pyx_t_6;
+      }
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 447, __pyx_L1_error)
+    } else {
+      __pyx_t_3 = __pyx_t_7(__pyx_t_1);
+      if (unlikely(!__pyx_t_3)) {
+        PyObject* exc_type = PyErr_Occurred();
+        if (exc_type) {
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 447, __pyx_L1_error)
+          PyErr_Clear();
+        }
+        break;
+      }
+    }
+    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_XDECREF_SET(__pyx_v_item, __pyx_t_3);
+    __pyx_t_3 = 0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":448
+ *     parts = []
+ *     for item in values:
+ *         key = str(item)             # <<<<<<<<<<<<<<
+ *         parts.append(labels.get(key, key))
+ *     return "/".join(part for part in parts if part)
+*/
+    __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_v_item); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 448, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_XDECREF_SET(__pyx_v_key, ((PyObject*)__pyx_t_3));
+    __pyx_t_3 = 0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":449
+ *     for item in values:
+ *         key = str(item)
+ *         parts.append(labels.get(key, key))             # <<<<<<<<<<<<<<
+ *     return "/".join(part for part in parts if part)
+ * 
+*/
+    __pyx_t_3 = __Pyx_PyDict_GetItemDefault(__pyx_v_labels, __pyx_v_key, __pyx_v_key); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 449, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_parts, __pyx_t_3); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 449, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+
+    /* "opscli/seller_sprite/export/xlsx.py":447
+ *     values = value if isinstance(value, list) else [value]
+ *     parts = []
+ *     for item in values:             # <<<<<<<<<<<<<<
+ *         key = str(item)
+ *         parts.append(labels.get(key, key))
+*/
+  }
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":450
+ *         key = str(item)
+ *         parts.append(labels.get(key, key))
+ *     return "/".join(part for part in parts if part)             # <<<<<<<<<<<<<<
+ * 
+ * 
+*/
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_1 = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_15_enum_list_join_genexpr(NULL, __pyx_v_parts); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 450, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_3 = __Pyx_Generator_GetInlinedResult(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 450, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__27, __pyx_t_3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 450, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_r = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":442
+ * 
+ * 
+ * def _enum_list_join(value: Any, labels: dict[str, str]) -> str:             # <<<<<<<<<<<<<<
+ *     if _is_blank(value):
+ *         return ""
+*/
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_AddTraceback("opscli.seller_sprite.export.xlsx._enum_list_join", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_values);
+  __Pyx_XDECREF(__pyx_v_parts);
+  __Pyx_XDECREF(__pyx_v_item);
+  __Pyx_XDECREF(__pyx_v_key);
+  __Pyx_XDECREF(__pyx_gb_6opscli_13seller_sprite_6export_4xlsx_15_enum_list_join_2generator9);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "opscli/seller_sprite/export/xlsx.py":453
  * 
  * 
  * def _is_blank(value: Any) -> bool:             # <<<<<<<<<<<<<<
@@ -13433,15 +17156,15 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_36_list_join(CYT
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_39_is_blank(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_55_is_blank(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_39_is_blank = {"_is_blank", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_39_is_blank, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_39_is_blank(PyObject *__pyx_self, 
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_55_is_blank = {"_is_blank", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_55_is_blank, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_55_is_blank(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -13471,32 +17194,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_value,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 278, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 453, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 278, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 453, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_is_blank", 0) < (0)) __PYX_ERR(0, 278, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_is_blank", 0) < (0)) __PYX_ERR(0, 453, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_is_blank", 1, 1, 1, i); __PYX_ERR(0, 278, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_is_blank", 1, 1, 1, i); __PYX_ERR(0, 453, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 278, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 453, __pyx_L3_error)
     }
     __pyx_v_value = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_is_blank", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 278, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_is_blank", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 453, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -13507,7 +17230,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_38_is_blank(__pyx_self, __pyx_v_value);
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_54_is_blank(__pyx_self, __pyx_v_value);
 
   /* function exit code */
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
@@ -13517,7 +17240,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_38_is_blank(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_54_is_blank(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -13528,7 +17251,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_38_is_blank(CYTH
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_is_blank", 0);
 
-  /* "opscli/seller_sprite/export/xlsx.py":279
+  /* "opscli/seller_sprite/export/xlsx.py":454
  * 
  * def _is_blank(value: Any) -> bool:
  *     return value is None or value == ""             # <<<<<<<<<<<<<<
@@ -13539,13 +17262,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_38_is_blank(CYTH
   __pyx_t_2 = (__pyx_v_value == Py_None);
   if (!__pyx_t_2) {
   } else {
-    __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 279, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 454, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_1 = __pyx_t_3;
     __pyx_t_3 = 0;
     goto __pyx_L3_bool_binop_done;
   }
-  __pyx_t_3 = PyObject_RichCompare(__pyx_v_value, __pyx_mstate_global->__pyx_kp_u__2, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 279, __pyx_L1_error)
+  __pyx_t_3 = PyObject_RichCompare(__pyx_v_value, __pyx_mstate_global->__pyx_kp_u__2, Py_EQ); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 454, __pyx_L1_error)
   __Pyx_INCREF(__pyx_t_3);
   __pyx_t_1 = __pyx_t_3;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -13554,7 +17277,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_38_is_blank(CYTH
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":278
+  /* "opscli/seller_sprite/export/xlsx.py":453
  * 
  * 
  * def _is_blank(value: Any) -> bool:             # <<<<<<<<<<<<<<
@@ -13574,7 +17297,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_38_is_blank(CYTH
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/xlsx.py":282
+/* "opscli/seller_sprite/export/xlsx.py":457
  * 
  * 
  * def _is_number(value: Any) -> bool:             # <<<<<<<<<<<<<<
@@ -13583,15 +17306,15 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_38_is_blank(CYTH
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_41_is_number(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_57_is_number(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_41_is_number = {"_is_number", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_41_is_number, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
-static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_41_is_number(PyObject *__pyx_self, 
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_57_is_number = {"_is_number", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_57_is_number, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_4xlsx_57_is_number(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -13621,32 +17344,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_value,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 282, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 457, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 282, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 457, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_is_number", 0) < (0)) __PYX_ERR(0, 282, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_is_number", 0) < (0)) __PYX_ERR(0, 457, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_is_number", 1, 1, 1, i); __PYX_ERR(0, 282, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_is_number", 1, 1, 1, i); __PYX_ERR(0, 457, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 282, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 457, __pyx_L3_error)
     }
     __pyx_v_value = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_is_number", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 282, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_is_number", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 457, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -13657,7 +17380,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_40_is_number(__pyx_self, __pyx_v_value);
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_4xlsx_56_is_number(__pyx_self, __pyx_v_value);
 
   /* function exit code */
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
@@ -13667,7 +17390,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_40_is_number(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_56_is_number(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -13680,7 +17403,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_40_is_number(CYT
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_is_number", 0);
 
-  /* "opscli/seller_sprite/export/xlsx.py":283
+  /* "opscli/seller_sprite/export/xlsx.py":458
  * 
  * def _is_number(value: Any) -> bool:
  *     try:             # <<<<<<<<<<<<<<
@@ -13696,16 +17419,16 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_40_is_number(CYT
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "opscli/seller_sprite/export/xlsx.py":284
+      /* "opscli/seller_sprite/export/xlsx.py":459
  * def _is_number(value: Any) -> bool:
  *     try:
  *         float(value)             # <<<<<<<<<<<<<<
  *     except (TypeError, ValueError):
  *         return False
 */
-      __pyx_t_4 = __Pyx_PyObject_AsDouble(__pyx_v_value); if (unlikely(__PYX_CHECK_FLOAT_EXCEPTION(__pyx_t_4, ((double)((double)-1))) && PyErr_Occurred())) __PYX_ERR(0, 284, __pyx_L3_error)
+      __pyx_t_4 = __Pyx_PyObject_AsDouble(__pyx_v_value); if (unlikely(__PYX_CHECK_FLOAT_EXCEPTION(__pyx_t_4, ((double)((double)-1))) && PyErr_Occurred())) __PYX_ERR(0, 459, __pyx_L3_error)
 
-      /* "opscli/seller_sprite/export/xlsx.py":283
+      /* "opscli/seller_sprite/export/xlsx.py":458
  * 
  * def _is_number(value: Any) -> bool:
  *     try:             # <<<<<<<<<<<<<<
@@ -13719,7 +17442,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_40_is_number(CYT
     goto __pyx_L8_try_end;
     __pyx_L3_error:;
 
-    /* "opscli/seller_sprite/export/xlsx.py":285
+    /* "opscli/seller_sprite/export/xlsx.py":460
  *     try:
  *         float(value)
  *     except (TypeError, ValueError):             # <<<<<<<<<<<<<<
@@ -13730,7 +17453,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_40_is_number(CYT
     if (__pyx_t_5) {
       __Pyx_ErrRestore(0,0,0);
 
-      /* "opscli/seller_sprite/export/xlsx.py":286
+      /* "opscli/seller_sprite/export/xlsx.py":461
  *         float(value)
  *     except (TypeError, ValueError):
  *         return False             # <<<<<<<<<<<<<<
@@ -13743,7 +17466,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_40_is_number(CYT
     }
     goto __pyx_L5_except_error;
 
-    /* "opscli/seller_sprite/export/xlsx.py":283
+    /* "opscli/seller_sprite/export/xlsx.py":458
  * 
  * def _is_number(value: Any) -> bool:
  *     try:             # <<<<<<<<<<<<<<
@@ -13765,7 +17488,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_40_is_number(CYT
     __pyx_L8_try_end:;
   }
 
-  /* "opscli/seller_sprite/export/xlsx.py":287
+  /* "opscli/seller_sprite/export/xlsx.py":462
  *     except (TypeError, ValueError):
  *         return False
  *     return True             # <<<<<<<<<<<<<<
@@ -13775,7 +17498,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_4xlsx_40_is_number(CYT
   __pyx_r = Py_True;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":282
+  /* "opscli/seller_sprite/export/xlsx.py":457
  * 
  * 
  * def _is_number(value: Any) -> bool:             # <<<<<<<<<<<<<<
@@ -15376,6 +19099,169 @@ static PyTypeObject __pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope
 };
 #endif
 
+static PyObject *__pyx_tp_new_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr(PyTypeObject *t, CYTHON_UNUSED PyObject *a, CYTHON_UNUSED PyObject *k) {
+  PyObject *o;
+  #if CYTHON_USE_FREELISTS
+  if (likely((int)(__pyx_mstate_global->__pyx_freecount_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr > 0) & __PYX_CHECK_FINAL_TYPE_FOR_FREELISTS(t, __pyx_mstate_global->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr, sizeof(struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr))))
+  {
+    o = (PyObject*)__pyx_mstate_global->__pyx_freelist_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr[--__pyx_mstate_global->__pyx_freecount_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr];
+    #if CYTHON_USE_TYPE_SPECS
+    Py_DECREF(Py_TYPE(o));
+    #endif
+    memset(o, 0, sizeof(struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr));
+    #if CYTHON_COMPILING_IN_LIMITED_API
+    (void) PyObject_Init(o, t);
+    #else
+    (void) PyObject_INIT(o, t);
+    #endif
+    PyObject_GC_Track(o);
+  } else
+  #endif
+  {
+    o = __Pyx_AllocateExtensionType(t, 1);
+    if (unlikely(!o)) return 0;
+  }
+  return o;
+}
+
+static void __pyx_tp_dealloc_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr(PyObject *o) {
+  struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr *p = (struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr *)o;
+  #if CYTHON_USE_TP_FINALIZE
+  if (unlikely(__Pyx_PyObject_GetSlot(o, tp_finalize, destructor)) && !__Pyx_PyObject_GC_IsFinalized(o)) {
+    if (__Pyx_PyObject_GetSlot(o, tp_dealloc, destructor) == __pyx_tp_dealloc_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr) {
+      if (PyObject_CallFinalizerFromDealloc(o)) return;
+    }
+  }
+  #endif
+  PyObject_GC_UnTrack(o);
+  Py_CLEAR(p->__pyx_genexpr_arg_0);
+  Py_CLEAR(p->__pyx_v_part);
+  #if CYTHON_USE_FREELISTS
+  if (likely((int)(__pyx_mstate_global->__pyx_freecount_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr < 8) & __PYX_CHECK_FINAL_TYPE_FOR_FREELISTS(Py_TYPE(o), __pyx_mstate_global->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr, sizeof(struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr))))
+  {
+    __pyx_mstate_global->__pyx_freelist_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr[__pyx_mstate_global->__pyx_freecount_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr++] = ((struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr *)o);
+  } else
+  #endif
+  {
+    PyTypeObject *tp = Py_TYPE(o);
+    #if CYTHON_USE_TYPE_SLOTS
+    (*tp->tp_free)(o);
+    #else
+    {
+      freefunc tp_free = (freefunc)PyType_GetSlot(tp, Py_tp_free);
+      if (tp_free) tp_free(o);
+    }
+    #endif
+    #if CYTHON_USE_TYPE_SPECS
+    Py_DECREF(tp);
+    #endif
+  }
+}
+
+static int __pyx_tp_traverse_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr(PyObject *o, visitproc v, void *a) {
+  int e;
+  struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr *p = (struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr *)o;
+  {
+    e = __Pyx_call_type_traverse(o, 1, v, a);
+    if (e) return e;
+  }
+  if (p->__pyx_genexpr_arg_0) {
+    e = (*v)(p->__pyx_genexpr_arg_0, a); if (e) return e;
+  }
+  if (p->__pyx_v_part) {
+    e = (*v)(p->__pyx_v_part, a); if (e) return e;
+  }
+  return 0;
+}
+#if CYTHON_USE_TYPE_SPECS
+static PyType_Slot __pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr_slots[] = {
+  {Py_tp_dealloc, (void *)__pyx_tp_dealloc_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr},
+  {Py_tp_traverse, (void *)__pyx_tp_traverse_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr},
+  {Py_tp_new, (void *)__pyx_tp_new_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr},
+  {0, 0},
+};
+static PyType_Spec __pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr_spec = {
+  "opscli.seller_sprite.export.xlsx.__pyx_scope_struct_10_genexpr",
+  sizeof(struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr),
+  0,
+  Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_HAVE_GC,
+  __pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr_slots,
+};
+#else
+
+static PyTypeObject __pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr = {
+  PyVarObject_HEAD_INIT(0, 0)
+  "opscli.seller_sprite.export.xlsx.""__pyx_scope_struct_10_genexpr", /*tp_name*/
+  sizeof(struct __pyx_obj_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr), /*tp_basicsize*/
+  0, /*tp_itemsize*/
+  __pyx_tp_dealloc_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr, /*tp_dealloc*/
+  0, /*tp_vectorcall_offset*/
+  0, /*tp_getattr*/
+  0, /*tp_setattr*/
+  0, /*tp_as_async*/
+  0, /*tp_repr*/
+  0, /*tp_as_number*/
+  0, /*tp_as_sequence*/
+  0, /*tp_as_mapping*/
+  0, /*tp_hash*/
+  0, /*tp_call*/
+  0, /*tp_str*/
+  0, /*tp_getattro*/
+  0, /*tp_setattro*/
+  0, /*tp_as_buffer*/
+  Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_HAVE_GC, /*tp_flags*/
+  0, /*tp_doc*/
+  __pyx_tp_traverse_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr, /*tp_traverse*/
+  0, /*tp_clear*/
+  0, /*tp_richcompare*/
+  0, /*tp_weaklistoffset*/
+  0, /*tp_iter*/
+  0, /*tp_iternext*/
+  0, /*tp_methods*/
+  0, /*tp_members*/
+  0, /*tp_getset*/
+  0, /*tp_base*/
+  0, /*tp_dict*/
+  0, /*tp_descr_get*/
+  0, /*tp_descr_set*/
+  #if !CYTHON_USE_TYPE_SPECS
+  0, /*tp_dictoffset*/
+  #endif
+  0, /*tp_init*/
+  0, /*tp_alloc*/
+  __pyx_tp_new_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr, /*tp_new*/
+  0, /*tp_free*/
+  0, /*tp_is_gc*/
+  0, /*tp_bases*/
+  0, /*tp_mro*/
+  0, /*tp_cache*/
+  0, /*tp_subclasses*/
+  0, /*tp_weaklist*/
+  0, /*tp_del*/
+  0, /*tp_version_tag*/
+  #if CYTHON_USE_TP_FINALIZE
+  0, /*tp_finalize*/
+  #else
+  NULL, /*tp_finalize*/
+  #endif
+  #if !CYTHON_COMPILING_IN_PYPY || PYPY_VERSION_NUM >= 0x07030800
+  0, /*tp_vectorcall*/
+  #endif
+  #if __PYX_NEED_TP_PRINT_SLOT == 1
+  0, /*tp_print*/
+  #endif
+  #if PY_VERSION_HEX >= 0x030C0000
+  0, /*tp_watched*/
+  #endif
+  #if PY_VERSION_HEX >= 0x030d00A4
+  0, /*tp_versions_used*/
+  #endif
+  #if CYTHON_COMPILING_IN_PYPY && PY_VERSION_HEX >= 0x03090000 && PY_VERSION_HEX < 0x030a0000
+  0, /*tp_pypy_flags*/
+  #endif
+};
+#endif
+
 static PyMethodDef __pyx_methods[] = {
   {0, 0, 0, 0}
 };
@@ -15430,15 +19316,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_RefNannySetupContext("__Pyx_modinit_type_init_code", 0);
   /*--- Type init code ---*/
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct__genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct__genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct__genexpr)) __PYX_ERR(0, 173, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct__genexpr_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct__genexpr) < (0)) __PYX_ERR(0, 173, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct__genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct__genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct__genexpr)) __PYX_ERR(0, 201, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct__genexpr_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct__genexpr) < (0)) __PYX_ERR(0, 201, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct__genexpr = &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct__genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct__genexpr) < (0)) __PYX_ERR(0, 173, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct__genexpr) < (0)) __PYX_ERR(0, 201, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct__genexpr);
@@ -15449,15 +19335,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_1__column_width = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_1__column_width_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_1__column_width)) __PYX_ERR(0, 184, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_1__column_width_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_1__column_width) < (0)) __PYX_ERR(0, 184, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_1__column_width = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_1__column_width_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_1__column_width)) __PYX_ERR(0, 212, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_1__column_width_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_1__column_width) < (0)) __PYX_ERR(0, 212, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_1__column_width = &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_1__column_width;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_1__column_width) < (0)) __PYX_ERR(0, 184, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_1__column_width) < (0)) __PYX_ERR(0, 212, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_1__column_width);
@@ -15468,15 +19354,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_2_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_2_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_2_genexpr)) __PYX_ERR(0, 185, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_2_genexpr_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_2_genexpr) < (0)) __PYX_ERR(0, 185, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_2_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_2_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_2_genexpr)) __PYX_ERR(0, 213, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_2_genexpr_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_2_genexpr) < (0)) __PYX_ERR(0, 213, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_2_genexpr = &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_2_genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_2_genexpr) < (0)) __PYX_ERR(0, 185, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_2_genexpr) < (0)) __PYX_ERR(0, 213, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_2_genexpr);
@@ -15487,15 +19373,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_3_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_3_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_3_genexpr)) __PYX_ERR(0, 187, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_3_genexpr_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_3_genexpr) < (0)) __PYX_ERR(0, 187, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_3_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_3_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_3_genexpr)) __PYX_ERR(0, 215, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_3_genexpr_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_3_genexpr) < (0)) __PYX_ERR(0, 215, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_3_genexpr = &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_3_genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_3_genexpr) < (0)) __PYX_ERR(0, 187, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_3_genexpr) < (0)) __PYX_ERR(0, 215, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_3_genexpr);
@@ -15506,15 +19392,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_4_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_4_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_4_genexpr)) __PYX_ERR(0, 189, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_4_genexpr_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_4_genexpr) < (0)) __PYX_ERR(0, 189, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_4_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_4_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_4_genexpr)) __PYX_ERR(0, 217, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_4_genexpr_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_4_genexpr) < (0)) __PYX_ERR(0, 217, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_4_genexpr = &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_4_genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_4_genexpr) < (0)) __PYX_ERR(0, 189, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_4_genexpr) < (0)) __PYX_ERR(0, 217, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_4_genexpr);
@@ -15525,15 +19411,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_5_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_5_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_5_genexpr)) __PYX_ERR(0, 191, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_5_genexpr_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_5_genexpr) < (0)) __PYX_ERR(0, 191, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_5_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_5_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_5_genexpr)) __PYX_ERR(0, 219, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_5_genexpr_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_5_genexpr) < (0)) __PYX_ERR(0, 219, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_5_genexpr = &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_5_genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_5_genexpr) < (0)) __PYX_ERR(0, 191, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_5_genexpr) < (0)) __PYX_ERR(0, 219, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_5_genexpr);
@@ -15544,15 +19430,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_6_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_6_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_6_genexpr)) __PYX_ERR(0, 206, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_6_genexpr_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_6_genexpr) < (0)) __PYX_ERR(0, 206, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_6_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_6_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_6_genexpr)) __PYX_ERR(0, 234, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_6_genexpr_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_6_genexpr) < (0)) __PYX_ERR(0, 234, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_6_genexpr = &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_6_genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_6_genexpr) < (0)) __PYX_ERR(0, 206, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_6_genexpr) < (0)) __PYX_ERR(0, 234, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_6_genexpr);
@@ -15563,15 +19449,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_7_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_7_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_7_genexpr)) __PYX_ERR(0, 247, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_7_genexpr_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_7_genexpr) < (0)) __PYX_ERR(0, 247, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_7_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_7_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_7_genexpr)) __PYX_ERR(0, 275, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_7_genexpr_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_7_genexpr) < (0)) __PYX_ERR(0, 275, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_7_genexpr = &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_7_genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_7_genexpr) < (0)) __PYX_ERR(0, 247, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_7_genexpr) < (0)) __PYX_ERR(0, 275, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_7_genexpr);
@@ -15582,15 +19468,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_genexpr)) __PYX_ERR(0, 261, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_genexpr_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_genexpr) < (0)) __PYX_ERR(0, 261, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_genexpr)) __PYX_ERR(0, 375, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_genexpr_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_genexpr) < (0)) __PYX_ERR(0, 375, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_genexpr = &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_genexpr) < (0)) __PYX_ERR(0, 261, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_genexpr) < (0)) __PYX_ERR(0, 375, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_8_genexpr);
@@ -15601,15 +19487,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr)) __PYX_ERR(0, 275, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr) < (0)) __PYX_ERR(0, 275, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr)) __PYX_ERR(0, 389, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr) < (0)) __PYX_ERR(0, 389, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr = &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr) < (0)) __PYX_ERR(0, 275, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr) < (0)) __PYX_ERR(0, 389, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr);
@@ -15617,6 +19503,25 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   #if !CYTHON_COMPILING_IN_LIMITED_API
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr->tp_dictoffset && __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr->tp_getattro == PyObject_GenericGetAttr)) {
     __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_9_genexpr->tp_getattro = PyObject_GenericGetAttr;
+  }
+  #endif
+  #if CYTHON_USE_TYPE_SPECS
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr)) __PYX_ERR(0, 450, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr) < (0)) __PYX_ERR(0, 450, __pyx_L1_error)
+  #else
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr = &__pyx_type_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr;
+  #endif
+  #if !CYTHON_COMPILING_IN_LIMITED_API
+  #endif
+  #if !CYTHON_USE_TYPE_SPECS
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr) < (0)) __PYX_ERR(0, 450, __pyx_L1_error)
+  #endif
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr);
+  #endif
+  #if !CYTHON_COMPILING_IN_LIMITED_API
+  if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr->tp_dictoffset && __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr->tp_getattro == PyObject_GenericGetAttr)) {
+    __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_6export_4xlsx___pyx_scope_struct_10_genexpr->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
   __Pyx_RefNannyFinishContext();
@@ -15836,6 +19741,12 @@ static CYTHON_SMALL_CODE int __pyx_pymod_exec_xlsx(PyObject *__pyx_pyinit_module
   Py_ssize_t __pyx_t_3;
   PyObject *__pyx_t_4 = NULL;
   PyObject *__pyx_t_5 = NULL;
+  PyObject *__pyx_t_6 = NULL;
+  PyObject *__pyx_t_7 = NULL;
+  PyObject *__pyx_t_8 = NULL;
+  PyObject *__pyx_t_9 = NULL;
+  size_t __pyx_t_10;
+  PyObject *__pyx_t_11 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -15926,8 +19837,8 @@ __Pyx_RefNannySetupContext("PyInit_xlsx", 0);
  * from __future__ import annotations
  * 
  * import json             # <<<<<<<<<<<<<<
+ * from datetime import datetime, timedelta, timezone
  * from pathlib import Path
- * from typing import Any
 */
   __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_json, 0, 0, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 5, __pyx_L1_error)
   __pyx_t_2 = __pyx_t_1;
@@ -15938,19 +19849,19 @@ __Pyx_RefNannySetupContext("PyInit_xlsx", 0);
   /* "opscli/seller_sprite/export/xlsx.py":6
  * 
  * import json
- * from pathlib import Path             # <<<<<<<<<<<<<<
+ * from datetime import datetime, timedelta, timezone             # <<<<<<<<<<<<<<
+ * from pathlib import Path
  * from typing import Any
- * 
 */
   {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Path};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_pathlib, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 6, __pyx_L1_error)
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_datetime,__pyx_mstate_global->__pyx_n_u_timedelta,__pyx_mstate_global->__pyx_n_u_timezone};
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_datetime, __pyx_imported_names, 3, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 6, __pyx_L1_error)
   }
   __pyx_t_2 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_2);
   {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Path};
-    __pyx_t_3 = 0; {
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_datetime,__pyx_mstate_global->__pyx_n_u_timedelta,__pyx_mstate_global->__pyx_n_u_timezone};
+    for (__pyx_t_3=0; __pyx_t_3 < 3; __pyx_t_3++) {
       __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 6, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 6, __pyx_L1_error)
@@ -15961,19 +19872,19 @@ __Pyx_RefNannySetupContext("PyInit_xlsx", 0);
 
   /* "opscli/seller_sprite/export/xlsx.py":7
  * import json
- * from pathlib import Path
- * from typing import Any             # <<<<<<<<<<<<<<
- * 
- * from opscli.seller_sprite.domain.exceptions import SellerSpriteConfigError
+ * from datetime import datetime, timedelta, timezone
+ * from pathlib import Path             # <<<<<<<<<<<<<<
+ * from typing import Any
+ * from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 */
   {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Any};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_typing, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 7, __pyx_L1_error)
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Path};
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_pathlib, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 7, __pyx_L1_error)
   }
   __pyx_t_2 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_2);
   {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Any};
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Path};
     __pyx_t_3 = 0; {
       __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 7, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
@@ -15983,22 +19894,46 @@ __Pyx_RefNannySetupContext("PyInit_xlsx", 0);
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":9
- * from typing import Any
+  /* "opscli/seller_sprite/export/xlsx.py":8
+ * from datetime import datetime, timedelta, timezone
+ * from pathlib import Path
+ * from typing import Any             # <<<<<<<<<<<<<<
+ * from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
  * 
- * from opscli.seller_sprite.domain.exceptions import SellerSpriteConfigError             # <<<<<<<<<<<<<<
- * from opscli.seller_sprite.domain.models import SellerSpriteExportResult
- * from opscli.seller_sprite.export.columns import ExportColumn, columns_for_scenario
 */
   {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_SellerSpriteConfigError};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_domain_exce, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 9, __pyx_L1_error)
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Any};
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_typing, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 8, __pyx_L1_error)
   }
   __pyx_t_2 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_2);
   {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_SellerSpriteConfigError};
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Any};
     __pyx_t_3 = 0; {
+      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 8, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 8, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    }
+  }
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":9
+ * from pathlib import Path
+ * from typing import Any
+ * from zoneinfo import ZoneInfo, ZoneInfoNotFoundError             # <<<<<<<<<<<<<<
+ * 
+ * from opscli.seller_sprite.domain.exceptions import SellerSpriteConfigError
+*/
+  {
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_ZoneInfo,__pyx_mstate_global->__pyx_n_u_ZoneInfoNotFoundError};
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_zoneinfo, __pyx_imported_names, 2, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 9, __pyx_L1_error)
+  }
+  __pyx_t_2 = __pyx_t_1;
+  __Pyx_GOTREF(__pyx_t_2);
+  {
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_ZoneInfo,__pyx_mstate_global->__pyx_n_u_ZoneInfoNotFoundError};
+    for (__pyx_t_3=0; __pyx_t_3 < 2; __pyx_t_3++) {
       __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 9, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 9, __pyx_L1_error)
@@ -16007,46 +19942,22 @@ __Pyx_RefNannySetupContext("PyInit_xlsx", 0);
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":10
- * 
- * from opscli.seller_sprite.domain.exceptions import SellerSpriteConfigError
- * from opscli.seller_sprite.domain.models import SellerSpriteExportResult             # <<<<<<<<<<<<<<
- * from opscli.seller_sprite.export.columns import ExportColumn, columns_for_scenario
- * 
-*/
-  {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_SellerSpriteExportResult};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_domain_mode, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 10, __pyx_L1_error)
-  }
-  __pyx_t_2 = __pyx_t_1;
-  __Pyx_GOTREF(__pyx_t_2);
-  {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_SellerSpriteExportResult};
-    __pyx_t_3 = 0; {
-      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 10, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_4);
-      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 10, __pyx_L1_error)
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    }
-  }
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-
   /* "opscli/seller_sprite/export/xlsx.py":11
- * from opscli.seller_sprite.domain.exceptions import SellerSpriteConfigError
- * from opscli.seller_sprite.domain.models import SellerSpriteExportResult
- * from opscli.seller_sprite.export.columns import ExportColumn, columns_for_scenario             # <<<<<<<<<<<<<<
+ * from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
  * 
- * def export_rows_to_xlsx(
+ * from opscli.seller_sprite.domain.exceptions import SellerSpriteConfigError             # <<<<<<<<<<<<<<
+ * from opscli.seller_sprite.domain.models import SellerSpriteExportResult
+ * from opscli.seller_sprite.export.columns import ExportColumn, columns_for_scenario, currency_label
 */
   {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_ExportColumn,__pyx_mstate_global->__pyx_n_u_columns_for_scenario};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_colu, __pyx_imported_names, 2, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 11, __pyx_L1_error)
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_SellerSpriteConfigError};
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_domain_exce, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 11, __pyx_L1_error)
   }
   __pyx_t_2 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_2);
   {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_ExportColumn,__pyx_mstate_global->__pyx_n_u_columns_for_scenario};
-    for (__pyx_t_3=0; __pyx_t_3 < 2; __pyx_t_3++) {
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_SellerSpriteConfigError};
+    __pyx_t_3 = 0; {
       __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 11, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 11, __pyx_L1_error)
@@ -16055,54 +19966,102 @@ __Pyx_RefNannySetupContext("PyInit_xlsx", 0);
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
+  /* "opscli/seller_sprite/export/xlsx.py":12
+ * 
+ * from opscli.seller_sprite.domain.exceptions import SellerSpriteConfigError
+ * from opscli.seller_sprite.domain.models import SellerSpriteExportResult             # <<<<<<<<<<<<<<
+ * from opscli.seller_sprite.export.columns import ExportColumn, columns_for_scenario, currency_label
+ * 
+*/
+  {
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_SellerSpriteExportResult};
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_domain_mode, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 12, __pyx_L1_error)
+  }
+  __pyx_t_2 = __pyx_t_1;
+  __Pyx_GOTREF(__pyx_t_2);
+  {
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_SellerSpriteExportResult};
+    __pyx_t_3 = 0; {
+      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 12, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 12, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    }
+  }
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
   /* "opscli/seller_sprite/export/xlsx.py":13
- * from opscli.seller_sprite.export.columns import ExportColumn, columns_for_scenario
+ * from opscli.seller_sprite.domain.exceptions import SellerSpriteConfigError
+ * from opscli.seller_sprite.domain.models import SellerSpriteExportResult
+ * from opscli.seller_sprite.export.columns import ExportColumn, columns_for_scenario, currency_label             # <<<<<<<<<<<<<<
+ * 
+ * def export_rows_to_xlsx(
+*/
+  {
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_ExportColumn,__pyx_mstate_global->__pyx_n_u_columns_for_scenario,__pyx_mstate_global->__pyx_n_u_currency_label};
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_colu, __pyx_imported_names, 3, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 13, __pyx_L1_error)
+  }
+  __pyx_t_2 = __pyx_t_1;
+  __Pyx_GOTREF(__pyx_t_2);
+  {
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_ExportColumn,__pyx_mstate_global->__pyx_n_u_columns_for_scenario,__pyx_mstate_global->__pyx_n_u_currency_label};
+    for (__pyx_t_3=0; __pyx_t_3 < 3; __pyx_t_3++) {
+      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 13, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    }
+  }
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":15
+ * from opscli.seller_sprite.export.columns import ExportColumn, columns_for_scenario, currency_label
  * 
  * def export_rows_to_xlsx(             # <<<<<<<<<<<<<<
  *     *,
  *     rows: list[dict[str, Any]],
 */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 13, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_site, ((PyObject*)__pyx_mstate_global->__pyx_n_u_US)) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_period, ((PyObject*)__pyx_mstate_global->__pyx_kp_u_30d)) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_site, ((PyObject*)__pyx_mstate_global->__pyx_n_u_US)) < (0)) __PYX_ERR(0, 15, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_period, ((PyObject*)__pyx_mstate_global->__pyx_kp_u_30d)) < (0)) __PYX_ERR(0, 15, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/export/xlsx.py":20
+  /* "opscli/seller_sprite/export/xlsx.py":22
  *     site: str = "US",
  *     period: str = "30d",
  *     params: dict[str, Any] | None = None,             # <<<<<<<<<<<<<<
  *     high_frequency_rows: list[dict[str, Any]] | None = None,
  * ) -> SellerSpriteExportResult:
 */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_params, Py_None) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_params, Py_None) < (0)) __PYX_ERR(0, 15, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/export/xlsx.py":21
+  /* "opscli/seller_sprite/export/xlsx.py":23
  *     period: str = "30d",
  *     params: dict[str, Any] | None = None,
  *     high_frequency_rows: list[dict[str, Any]] | None = None,             # <<<<<<<<<<<<<<
  * ) -> SellerSpriteExportResult:
  *     """ rows  XLSX"""
 */
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_high_frequency_rows, Py_None) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_high_frequency_rows, Py_None) < (0)) __PYX_ERR(0, 15, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/export/xlsx.py":13
- * from opscli.seller_sprite.export.columns import ExportColumn, columns_for_scenario
+  /* "opscli/seller_sprite/export/xlsx.py":15
+ * from opscli.seller_sprite.export.columns import ExportColumn, columns_for_scenario, currency_label
  * 
  * def export_rows_to_xlsx(             # <<<<<<<<<<<<<<
  *     *,
  *     rows: list[dict[str, Any]],
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(8); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 13, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(8); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_rows, __pyx_mstate_global->__pyx_kp_u_list_dict_str_Any) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_output_path, __pyx_mstate_global->__pyx_n_u_Path) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_scenario, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_site, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_period, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_params, __pyx_mstate_global->__pyx_kp_u_dict_str_Any_None) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_high_frequency_rows, __pyx_mstate_global->__pyx_kp_u_list_dict_str_Any_None) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_SellerSpriteExportResult) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_1export_rows_to_xlsx, 0, __pyx_mstate_global->__pyx_n_u_export_rows_to_xlsx, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[9])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 13, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_rows, __pyx_mstate_global->__pyx_kp_u_list_dict_str_Any) < (0)) __PYX_ERR(0, 15, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_output_path, __pyx_mstate_global->__pyx_n_u_Path) < (0)) __PYX_ERR(0, 15, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_scenario, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 15, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_site, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 15, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_period, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 15, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_params, __pyx_mstate_global->__pyx_kp_u_dict_str_Any_None) < (0)) __PYX_ERR(0, 15, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_high_frequency_rows, __pyx_mstate_global->__pyx_kp_u_list_dict_str_Any_None) < (0)) __PYX_ERR(0, 15, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_SellerSpriteExportResult) < (0)) __PYX_ERR(0, 15, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_1export_rows_to_xlsx, 0, __pyx_mstate_global->__pyx_n_u_export_rows_to_xlsx, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[10])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
@@ -16111,437 +20070,1159 @@ __Pyx_RefNannySetupContext("PyInit_xlsx", 0);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_export_rows_to_xlsx, __pyx_t_5) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_export_rows_to_xlsx, __pyx_t_5) < (0)) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":68
+  /* "opscli/seller_sprite/export/xlsx.py":70
  * 
  * 
  * def _collect_fields(rows: list[dict[str, Any]]) -> list[str]:             # <<<<<<<<<<<<<<
  *     fields: list[str] = []
  *     seen: set[str] = set()
 */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 70, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_rows, __pyx_mstate_global->__pyx_kp_u_list_dict_str_Any) < (0)) __PYX_ERR(0, 68, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_str) < (0)) __PYX_ERR(0, 68, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_3_collect_fields, 0, __pyx_mstate_global->__pyx_n_u_collect_fields, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[10])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 68, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_rows, __pyx_mstate_global->__pyx_kp_u_list_dict_str_Any) < (0)) __PYX_ERR(0, 70, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_str) < (0)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_3_collect_fields, 0, __pyx_mstate_global->__pyx_n_u_collect_fields, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[11])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 70, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_collect_fields, __pyx_t_4) < (0)) __PYX_ERR(0, 68, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_collect_fields, __pyx_t_4) < (0)) __PYX_ERR(0, 70, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":79
+  /* "opscli/seller_sprite/export/xlsx.py":81
  * 
  * 
  * def _get_value(row: dict[str, Any], field: str) -> Any:             # <<<<<<<<<<<<<<
  *     value: Any = row
  *     for part in field.split("."):
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 79, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 81, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_row, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 79, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_field, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 79, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 79, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_5_get_value, 0, __pyx_mstate_global->__pyx_n_u_get_value, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[11])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 79, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_row, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 81, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_field, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 81, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 81, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_5_get_value, 0, __pyx_mstate_global->__pyx_n_u_get_value, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[12])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 81, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_get_value, __pyx_t_5) < (0)) __PYX_ERR(0, 79, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_get_value, __pyx_t_5) < (0)) __PYX_ERR(0, 81, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":92
+  /* "opscli/seller_sprite/export/xlsx.py":94
  * 
  * 
- * def _column_value(row: dict[str, Any], column: ExportColumn) -> Any:             # <<<<<<<<<<<<<<
+ * def _column_value(row: dict[str, Any], column: ExportColumn, *, site: str) -> Any:             # <<<<<<<<<<<<<<
  *     if column.source is None:
  *         return ""
 */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 92, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 94, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_row, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 92, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_column, __pyx_mstate_global->__pyx_n_u_ExportColumn) < (0)) __PYX_ERR(0, 92, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 92, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_7_column_value, 0, __pyx_mstate_global->__pyx_n_u_column_value, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[12])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 92, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_row, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 94, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_column, __pyx_mstate_global->__pyx_n_u_ExportColumn) < (0)) __PYX_ERR(0, 94, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_site, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 94, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 94, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_7_column_value, 0, __pyx_mstate_global->__pyx_n_u_column_value, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[13])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 94, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_column_value, __pyx_t_4) < (0)) __PYX_ERR(0, 92, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_column_value, __pyx_t_4) < (0)) __PYX_ERR(0, 94, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":101
+  /* "opscli/seller_sprite/export/xlsx.py":103
  * 
  * 
- * def _apply_transform(value: Any, transform: str | None, row: dict[str, Any]) -> Any:             # <<<<<<<<<<<<<<
+ * def _apply_transform(value: Any, transform: str | None, row: dict[str, Any], *, site: str) -> Any:             # <<<<<<<<<<<<<<
  *     if not transform:
  *         return value
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 101, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 103, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 101, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 101, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_row, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 101, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 101, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_9_apply_transform, 0, __pyx_mstate_global->__pyx_n_u_apply_transform, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[13])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 103, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 103, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_row, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 103, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_site, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 103, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 103, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_9_apply_transform, 0, __pyx_mstate_global->__pyx_n_u_apply_transform, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[14])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 103, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_apply_transform, __pyx_t_5) < (0)) __PYX_ERR(0, 101, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_apply_transform, __pyx_t_5) < (0)) __PYX_ERR(0, 103, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":131
+  /* "opscli/seller_sprite/export/xlsx.py":157
  * 
  * 
  * def _cell_value(value: Any) -> Any:             # <<<<<<<<<<<<<<
  *     if isinstance(value, bool):
  *         return "" if value else ""
 */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 157, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 131, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 131, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_11_cell_value, 0, __pyx_mstate_global->__pyx_n_u_cell_value, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[14])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 131, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 157, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 157, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_11_cell_value, 0, __pyx_mstate_global->__pyx_n_u_cell_value, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[15])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 157, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_cell_value, __pyx_t_4) < (0)) __PYX_ERR(0, 131, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_cell_value, __pyx_t_4) < (0)) __PYX_ERR(0, 157, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":139
+  /* "opscli/seller_sprite/export/xlsx.py":165
  * 
  * 
  * def _add_high_frequency_sheet(workbook, rows: list[dict[str, Any]]) -> None:             # <<<<<<<<<<<<<<
  *     from openpyxl.styles import Font
  * 
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 139, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 165, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_rows, __pyx_mstate_global->__pyx_kp_u_list_dict_str_Any) < (0)) __PYX_ERR(0, 139, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < (0)) __PYX_ERR(0, 139, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_13_add_high_frequency_sheet, 0, __pyx_mstate_global->__pyx_n_u_add_high_frequency_sheet, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[15])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 139, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_rows, __pyx_mstate_global->__pyx_kp_u_list_dict_str_Any) < (0)) __PYX_ERR(0, 165, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < (0)) __PYX_ERR(0, 165, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_13_add_high_frequency_sheet, 0, __pyx_mstate_global->__pyx_n_u_add_high_frequency_sheet, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[16])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 165, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_add_high_frequency_sheet, __pyx_t_5) < (0)) __PYX_ERR(0, 139, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_add_high_frequency_sheet, __pyx_t_5) < (0)) __PYX_ERR(0, 165, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":156
+  /* "opscli/seller_sprite/export/xlsx.py":182
  * 
  * 
  * def _main_sheet_title(*, scenario: str, site: str, period: str, params: dict[str, Any], rows: list[dict[str, Any]]) -> str:             # <<<<<<<<<<<<<<
  *     if scenario == "keyword-miner":
  *         keyword = params.get("keyword") or params.get("q") or "keyword"
 */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(6); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 156, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(6); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 182, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_scenario, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 156, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_site, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 156, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_period, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 156, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_params, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 156, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_rows, __pyx_mstate_global->__pyx_kp_u_list_dict_str_Any) < (0)) __PYX_ERR(0, 156, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 156, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_15_main_sheet_title, 0, __pyx_mstate_global->__pyx_n_u_main_sheet_title, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[16])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 156, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_scenario, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 182, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_site, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 182, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_period, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 182, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_params, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 182, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_rows, __pyx_mstate_global->__pyx_kp_u_list_dict_str_Any) < (0)) __PYX_ERR(0, 182, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 182, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_15_main_sheet_title, 0, __pyx_mstate_global->__pyx_n_u_main_sheet_title, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[17])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 182, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_main_sheet_title, __pyx_t_4) < (0)) __PYX_ERR(0, 156, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_main_sheet_title, __pyx_t_4) < (0)) __PYX_ERR(0, 182, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":172
+  /* "opscli/seller_sprite/export/xlsx.py":200
  * 
  * 
  * def _safe_sheet_title(value: str) -> str:             # <<<<<<<<<<<<<<
  *     title = "".join(char for char in value if char not in r"[]:*?/\\")
  *     return (title or "seller-sprite")[:31]
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 172, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 200, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 172, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 172, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_17_safe_sheet_title, 0, __pyx_mstate_global->__pyx_n_u_safe_sheet_title, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[17])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 172, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 200, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 200, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_17_safe_sheet_title, 0, __pyx_mstate_global->__pyx_n_u_safe_sheet_title, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[18])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 200, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_safe_sheet_title, __pyx_t_5) < (0)) __PYX_ERR(0, 172, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_safe_sheet_title, __pyx_t_5) < (0)) __PYX_ERR(0, 200, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":177
+  /* "opscli/seller_sprite/export/xlsx.py":205
  * 
  * 
  * def _period_label(period: str) -> str:             # <<<<<<<<<<<<<<
  *     text = str(period or "")
  *     if text in {"30d", "nearly", "latest30", "last30", ""}:
 */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 177, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 205, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_period, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 177, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 177, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_19_period_label, 0, __pyx_mstate_global->__pyx_n_u_period_label, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[18])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 177, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_period, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 205, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 205, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_19_period_label, 0, __pyx_mstate_global->__pyx_n_u_period_label, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[19])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 205, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_period_label, __pyx_t_4) < (0)) __PYX_ERR(0, 177, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_period_label, __pyx_t_4) < (0)) __PYX_ERR(0, 205, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":184
+  /* "opscli/seller_sprite/export/xlsx.py":212
  * 
  * 
  * def _column_width(title: str) -> int:             # <<<<<<<<<<<<<<
  *     if any(key in title for key in ["", "", ""]):
  *         return 48
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 184, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 212, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_title, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 184, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_int) < (0)) __PYX_ERR(0, 184, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_21_column_width, 0, __pyx_mstate_global->__pyx_n_u_column_width, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[19])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 184, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_title, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 212, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_int) < (0)) __PYX_ERR(0, 212, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_21_column_width, 0, __pyx_mstate_global->__pyx_n_u_column_width, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[20])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 212, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_column_width, __pyx_t_5) < (0)) __PYX_ERR(0, 184, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_column_width, __pyx_t_5) < (0)) __PYX_ERR(0, 212, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":196
+  /* "opscli/seller_sprite/export/xlsx.py":224
  * 
  * 
  * def _json_object_lines(value: Any) -> Any:             # <<<<<<<<<<<<<<
  *     if _is_blank(value):
  *         return ""
 */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 196, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 224, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 196, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 196, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_23_json_object_lines, 0, __pyx_mstate_global->__pyx_n_u_json_object_lines, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[20])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 224, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 224, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_23_json_object_lines, 0, __pyx_mstate_global->__pyx_n_u_json_object_lines, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[21])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 224, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_json_object_lines, __pyx_t_4) < (0)) __PYX_ERR(0, 196, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_json_object_lines, __pyx_t_4) < (0)) __PYX_ERR(0, 224, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":209
+  /* "opscli/seller_sprite/export/xlsx.py":237
  * 
  * 
  * def _amazon_product_url(value: Any, row: dict[str, Any]) -> str:             # <<<<<<<<<<<<<<
  *     if str(value or "").startswith("http"):
  *         return str(value)
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 209, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 237, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 209, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_row, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 209, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 209, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_25_amazon_product_url, 0, __pyx_mstate_global->__pyx_n_u_amazon_product_url, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[21])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 209, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 237, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_row, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 237, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 237, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_25_amazon_product_url, 0, __pyx_mstate_global->__pyx_n_u_amazon_product_url, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[22])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 237, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_amazon_product_url, __pyx_t_5) < (0)) __PYX_ERR(0, 209, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_amazon_product_url, __pyx_t_5) < (0)) __PYX_ERR(0, 237, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":216
+  /* "opscli/seller_sprite/export/xlsx.py":244
  * 
  * 
  * def _amazon_seller_url(value: Any, row: dict[str, Any]) -> str:             # <<<<<<<<<<<<<<
  *     if not value:
  *         return ""
 */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 216, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 244, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 216, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_row, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 216, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 216, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_27_amazon_seller_url, 0, __pyx_mstate_global->__pyx_n_u_amazon_seller_url, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[22])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 216, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 244, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_row, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 244, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 244, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_27_amazon_seller_url, 0, __pyx_mstate_global->__pyx_n_u_amazon_seller_url, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[23])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 244, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_amazon_seller_url, __pyx_t_4) < (0)) __PYX_ERR(0, 216, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_amazon_seller_url, __pyx_t_4) < (0)) __PYX_ERR(0, 244, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":222
+  /* "opscli/seller_sprite/export/xlsx.py":250
  * 
  * 
  * def _amazon_domain(row: dict[str, Any]) -> str:             # <<<<<<<<<<<<<<
  *     station = str(row.get("station") or "").upper()
  *     market_id = row.get("marketId")
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 222, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 250, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_row, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 222, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 222, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_29_amazon_domain, 0, __pyx_mstate_global->__pyx_n_u_amazon_domain, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[23])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 222, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_row, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 250, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 250, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_29_amazon_domain, 0, __pyx_mstate_global->__pyx_n_u_amazon_domain, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[24])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 250, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_amazon_domain, __pyx_t_5) < (0)) __PYX_ERR(0, 222, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_amazon_domain, __pyx_t_5) < (0)) __PYX_ERR(0, 250, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":244
+  /* "opscli/seller_sprite/export/xlsx.py":272
  * 
  * 
  * def _departments_join(value: Any) -> str:             # <<<<<<<<<<<<<<
  *     if not isinstance(value, list):
  *         return ""
 */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 244, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 272, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 244, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 244, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_31_departments_join, 0, __pyx_mstate_global->__pyx_n_u_departments_join, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[24])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 244, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 272, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 272, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_31_departments_join, 0, __pyx_mstate_global->__pyx_n_u_departments_join, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[25])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 272, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_departments_join, __pyx_t_4) < (0)) __PYX_ERR(0, 244, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_departments_join, __pyx_t_4) < (0)) __PYX_ERR(0, 272, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":250
+  /* "opscli/seller_sprite/export/xlsx.py":278
  * 
  * 
- * def _bid_range(row: dict[str, Any]) -> str:             # <<<<<<<<<<<<<<
- *     bid_min = row.get("bidMin")
- *     bid_max = row.get("bidMax")
+ * def _percentage(value: Any) -> str:             # <<<<<<<<<<<<<<
+ *     if _is_blank(value):
+ *         return ""
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 250, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 278, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_row, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 250, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 250, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_33_bid_range, 0, __pyx_mstate_global->__pyx_n_u_bid_range, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[25])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 250, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 278, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 278, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_33_percentage, 0, __pyx_mstate_global->__pyx_n_u_percentage_2, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[26])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 278, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_bid_range, __pyx_t_5) < (0)) __PYX_ERR(0, 250, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_percentage_2, __pyx_t_5) < (0)) __PYX_ERR(0, 278, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":258
+  /* "opscli/seller_sprite/export/xlsx.py":284
+ * 
+ * 
+ * def _date_millis(value: Any) -> str:             # <<<<<<<<<<<<<<
+ *     if _is_blank(value):
+ *         return ""
+*/
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 284, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 284, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 284, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_35_date_millis, 0, __pyx_mstate_global->__pyx_n_u_date_millis, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[27])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 284, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
+  #endif
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_date_millis, __pyx_t_4) < (0)) __PYX_ERR(0, 284, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":290
+ * 
+ * 
+ * def _keyword_reverse_updated_time(value: Any, *, site: str) -> str:             # <<<<<<<<<<<<<<
+ *     if _is_blank(value):
+ *         return ""
+*/
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 290, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 290, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_site, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 290, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 290, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_37_keyword_reverse_updated_time, 0, __pyx_mstate_global->__pyx_n_u_keyword_reverse_updated_time, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[28])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 290, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
+  #endif
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_keyword_reverse_updated_time, __pyx_t_5) < (0)) __PYX_ERR(0, 290, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":300
+ * 
+ * 
+ * def _rank_page(value: Any) -> str:             # <<<<<<<<<<<<<<
+ *     if not isinstance(value, dict):
+ *         return ""
+*/
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 300, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 300, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 300, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_39_rank_page, 0, __pyx_mstate_global->__pyx_n_u_rank_page, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[29])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 300, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
+  #endif
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_rank_page, __pyx_t_4) < (0)) __PYX_ERR(0, 300, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":313
+ * 
+ * 
+ * def _rank_position(value: Any) -> Any:             # <<<<<<<<<<<<<<
+ *     if not isinstance(value, dict):
+ *         return "3" if _is_blank(value) else value
+*/
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 313, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 313, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 313, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_41_rank_position, 0, __pyx_mstate_global->__pyx_n_u_rank_position, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[30])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 313, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
+  #endif
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_rank_position, __pyx_t_5) < (0)) __PYX_ERR(0, 313, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":320
+ * 
+ * 
+ * def _seller_nation(value: Any) -> str:             # <<<<<<<<<<<<<<
+ *     if _is_blank(value):
+ *         return ""
+*/
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 320, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 320, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 320, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_43_seller_nation, 0, __pyx_mstate_global->__pyx_n_u_seller_nation, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[31])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 320, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
+  #endif
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_seller_nation, __pyx_t_4) < (0)) __PYX_ERR(0, 320, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":327
+ * 
+ * 
+ * def _bid_range(row: dict[str, Any], *, site: str) -> str:             # <<<<<<<<<<<<<<
+ *     bid_min = row.get("bidMin")
+ *     bid_max = row.get("bidMax")
+*/
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 327, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_row, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 327, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_site, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 327, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 327, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_45_bid_range, 0, __pyx_mstate_global->__pyx_n_u_bid_range, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[32])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 327, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
+  #endif
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_bid_range, __pyx_t_5) < (0)) __PYX_ERR(0, 327, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":337
+ * 
+ * SITE_TIME_LABELS = {
+ *     "US": "",             # <<<<<<<<<<<<<<
+ *     "JP": "",
+ *     "DE": "",
+*/
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(10); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 337, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_US, __pyx_mstate_global->__pyx_n_u__29) < (0)) __PYX_ERR(0, 337, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_JP, __pyx_mstate_global->__pyx_n_u__30) < (0)) __PYX_ERR(0, 337, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_DE, __pyx_mstate_global->__pyx_n_u__31) < (0)) __PYX_ERR(0, 337, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_UK, __pyx_mstate_global->__pyx_n_u__32) < (0)) __PYX_ERR(0, 337, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_FR, __pyx_mstate_global->__pyx_n_u__33) < (0)) __PYX_ERR(0, 337, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_IT, __pyx_mstate_global->__pyx_n_u__34) < (0)) __PYX_ERR(0, 337, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ES, __pyx_mstate_global->__pyx_n_u__35) < (0)) __PYX_ERR(0, 337, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_CA, __pyx_mstate_global->__pyx_n_u__36) < (0)) __PYX_ERR(0, 337, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_IN, __pyx_mstate_global->__pyx_n_u__37) < (0)) __PYX_ERR(0, 337, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_MX, __pyx_mstate_global->__pyx_n_u__38) < (0)) __PYX_ERR(0, 337, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_SITE_TIME_LABELS, __pyx_t_5) < (0)) __PYX_ERR(0, 336, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":350
+ * 
+ * SITE_TIMEZONES = {
+ *     "CN": ("Asia/Shanghai", timezone(timedelta(hours=8))),             # <<<<<<<<<<<<<<
+ *     "US": ("America/Los_Angeles", timezone(timedelta(hours=-7))),
+ *     "JP": ("Asia/Tokyo", timezone(timedelta(hours=9))),
+*/
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(11); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 350, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __pyx_t_2 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_timezone); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 350, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __pyx_t_8 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_timedelta); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 350, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_9);
+  __pyx_t_10 = 1;
+  {
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_8, NULL};
+    __pyx_t_11 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 350, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_11);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_hours, __pyx_mstate_global->__pyx_int_8, __pyx_t_11, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 350, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_9, __pyx_callargs+__pyx_t_10, (1-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_11);
+    __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+    __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 350, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+  }
+  __pyx_t_10 = 1;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_t_7};
+    __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 350, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+  }
+  __pyx_t_6 = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u_Asia_Shanghai, __pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 350, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_CN, __pyx_t_6) < (0)) __PYX_ERR(0, 350, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":351
+ * SITE_TIMEZONES = {
+ *     "CN": ("Asia/Shanghai", timezone(timedelta(hours=8))),
+ *     "US": ("America/Los_Angeles", timezone(timedelta(hours=-7))),             # <<<<<<<<<<<<<<
+ *     "JP": ("Asia/Tokyo", timezone(timedelta(hours=9))),
+ *     "DE": ("Europe/Berlin", timezone(timedelta(hours=1))),
+*/
+  __pyx_t_4 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_timezone); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 351, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  __pyx_t_9 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_timedelta); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 351, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_11);
+  __pyx_t_10 = 1;
+  {
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_9, NULL};
+    __pyx_t_8 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 351, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_8);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_hours, __pyx_mstate_global->__pyx_int_neg_7, __pyx_t_8, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 351, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_11, __pyx_callargs+__pyx_t_10, (1-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_8);
+    __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
+    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+    __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 351, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+  }
+  __pyx_t_10 = 1;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_t_2};
+    __pyx_t_6 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_7, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 351, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+  }
+  __pyx_t_7 = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u_America_Los_Angeles, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 351, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_US, __pyx_t_7) < (0)) __PYX_ERR(0, 350, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":352
+ *     "CN": ("Asia/Shanghai", timezone(timedelta(hours=8))),
+ *     "US": ("America/Los_Angeles", timezone(timedelta(hours=-7))),
+ *     "JP": ("Asia/Tokyo", timezone(timedelta(hours=9))),             # <<<<<<<<<<<<<<
+ *     "DE": ("Europe/Berlin", timezone(timedelta(hours=1))),
+ *     "UK": ("Europe/London", timezone.utc),
+*/
+  __pyx_t_6 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_timezone); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 352, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_11 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_timedelta); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 352, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_8);
+  __pyx_t_10 = 1;
+  {
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_11, NULL};
+    __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 352, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_hours, __pyx_mstate_global->__pyx_int_9, __pyx_t_9, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 352, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_8, __pyx_callargs+__pyx_t_10, (1-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_9);
+    __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 352, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+  }
+  __pyx_t_10 = 1;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_t_4};
+    __pyx_t_7 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_2, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 352, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+  }
+  __pyx_t_2 = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u_Asia_Tokyo, __pyx_t_7); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 352, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_JP, __pyx_t_2) < (0)) __PYX_ERR(0, 350, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":353
+ *     "US": ("America/Los_Angeles", timezone(timedelta(hours=-7))),
+ *     "JP": ("Asia/Tokyo", timezone(timedelta(hours=9))),
+ *     "DE": ("Europe/Berlin", timezone(timedelta(hours=1))),             # <<<<<<<<<<<<<<
+ *     "UK": ("Europe/London", timezone.utc),
+ *     "FR": ("Europe/Paris", timezone(timedelta(hours=1))),
+*/
+  __pyx_t_7 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_timezone); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 353, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_8 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_timedelta); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 353, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_9);
+  __pyx_t_10 = 1;
+  {
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_8, NULL};
+    __pyx_t_11 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 353, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_11);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_hours, __pyx_mstate_global->__pyx_int_1, __pyx_t_11, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 353, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_9, __pyx_callargs+__pyx_t_10, (1-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_11);
+    __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+    __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 353, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+  }
+  __pyx_t_10 = 1;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_t_6};
+    __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 353, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+  }
+  __pyx_t_4 = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u_Europe_Berlin, __pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 353, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_DE, __pyx_t_4) < (0)) __PYX_ERR(0, 350, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":354
+ *     "JP": ("Asia/Tokyo", timezone(timedelta(hours=9))),
+ *     "DE": ("Europe/Berlin", timezone(timedelta(hours=1))),
+ *     "UK": ("Europe/London", timezone.utc),             # <<<<<<<<<<<<<<
+ *     "FR": ("Europe/Paris", timezone(timedelta(hours=1))),
+ *     "IT": ("Europe/Rome", timezone(timedelta(hours=1))),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_timezone); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 354, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_utc); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 354, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_4 = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u_Europe_London, __pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 354, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_UK, __pyx_t_4) < (0)) __PYX_ERR(0, 350, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":355
+ *     "DE": ("Europe/Berlin", timezone(timedelta(hours=1))),
+ *     "UK": ("Europe/London", timezone.utc),
+ *     "FR": ("Europe/Paris", timezone(timedelta(hours=1))),             # <<<<<<<<<<<<<<
+ *     "IT": ("Europe/Rome", timezone(timedelta(hours=1))),
+ *     "ES": ("Europe/Madrid", timezone(timedelta(hours=1))),
+*/
+  __pyx_t_2 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_timezone); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 355, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __pyx_t_9 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_timedelta); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 355, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_11);
+  __pyx_t_10 = 1;
+  {
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_9, NULL};
+    __pyx_t_8 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 355, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_8);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_hours, __pyx_mstate_global->__pyx_int_1, __pyx_t_8, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 355, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_11, __pyx_callargs+__pyx_t_10, (1-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_8);
+    __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
+    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+    __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 355, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+  }
+  __pyx_t_10 = 1;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_t_7};
+    __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 355, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+  }
+  __pyx_t_6 = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u_Europe_Paris, __pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 355, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_FR, __pyx_t_6) < (0)) __PYX_ERR(0, 350, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":356
+ *     "UK": ("Europe/London", timezone.utc),
+ *     "FR": ("Europe/Paris", timezone(timedelta(hours=1))),
+ *     "IT": ("Europe/Rome", timezone(timedelta(hours=1))),             # <<<<<<<<<<<<<<
+ *     "ES": ("Europe/Madrid", timezone(timedelta(hours=1))),
+ *     "CA": ("America/Los_Angeles", timezone(timedelta(hours=-7))),
+*/
+  __pyx_t_4 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_timezone); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 356, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  __pyx_t_11 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_timedelta); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 356, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_8);
+  __pyx_t_10 = 1;
+  {
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_11, NULL};
+    __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 356, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_hours, __pyx_mstate_global->__pyx_int_1, __pyx_t_9, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 356, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_8, __pyx_callargs+__pyx_t_10, (1-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_9);
+    __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 356, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+  }
+  __pyx_t_10 = 1;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_t_2};
+    __pyx_t_6 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_7, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 356, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+  }
+  __pyx_t_7 = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u_Europe_Rome, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 356, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_IT, __pyx_t_7) < (0)) __PYX_ERR(0, 350, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":357
+ *     "FR": ("Europe/Paris", timezone(timedelta(hours=1))),
+ *     "IT": ("Europe/Rome", timezone(timedelta(hours=1))),
+ *     "ES": ("Europe/Madrid", timezone(timedelta(hours=1))),             # <<<<<<<<<<<<<<
+ *     "CA": ("America/Los_Angeles", timezone(timedelta(hours=-7))),
+ *     "IN": ("Asia/Kolkata", timezone(timedelta(hours=5, minutes=30))),
+*/
+  __pyx_t_6 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_timezone); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 357, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_8 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_timedelta); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 357, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_9);
+  __pyx_t_10 = 1;
+  {
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_8, NULL};
+    __pyx_t_11 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 357, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_11);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_hours, __pyx_mstate_global->__pyx_int_1, __pyx_t_11, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 357, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_9, __pyx_callargs+__pyx_t_10, (1-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_11);
+    __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+    __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 357, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+  }
+  __pyx_t_10 = 1;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_t_4};
+    __pyx_t_7 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_2, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 357, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+  }
+  __pyx_t_2 = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u_Europe_Madrid, __pyx_t_7); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 357, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ES, __pyx_t_2) < (0)) __PYX_ERR(0, 350, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":358
+ *     "IT": ("Europe/Rome", timezone(timedelta(hours=1))),
+ *     "ES": ("Europe/Madrid", timezone(timedelta(hours=1))),
+ *     "CA": ("America/Los_Angeles", timezone(timedelta(hours=-7))),             # <<<<<<<<<<<<<<
+ *     "IN": ("Asia/Kolkata", timezone(timedelta(hours=5, minutes=30))),
+ *     "MX": ("America/Mexico_City", timezone(timedelta(hours=-6))),
+*/
+  __pyx_t_7 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_timezone); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 358, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_9 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_timedelta); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 358, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_11);
+  __pyx_t_10 = 1;
+  {
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_9, NULL};
+    __pyx_t_8 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 358, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_8);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_hours, __pyx_mstate_global->__pyx_int_neg_7, __pyx_t_8, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 358, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_11, __pyx_callargs+__pyx_t_10, (1-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_8);
+    __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
+    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+    __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 358, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+  }
+  __pyx_t_10 = 1;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_t_6};
+    __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 358, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+  }
+  __pyx_t_4 = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u_America_Los_Angeles, __pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 358, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_CA, __pyx_t_4) < (0)) __PYX_ERR(0, 350, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":359
+ *     "ES": ("Europe/Madrid", timezone(timedelta(hours=1))),
+ *     "CA": ("America/Los_Angeles", timezone(timedelta(hours=-7))),
+ *     "IN": ("Asia/Kolkata", timezone(timedelta(hours=5, minutes=30))),             # <<<<<<<<<<<<<<
+ *     "MX": ("America/Mexico_City", timezone(timedelta(hours=-6))),
+ * }
+*/
+  __pyx_t_2 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_timezone); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 359, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __pyx_t_11 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_timedelta); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 359, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_8);
+  __pyx_t_10 = 1;
+  {
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_11, NULL};
+    __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 359, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_hours, __pyx_mstate_global->__pyx_int_5, __pyx_t_9, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 359, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_minutes, __pyx_mstate_global->__pyx_int_30, __pyx_t_9, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 359, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_8, __pyx_callargs+__pyx_t_10, (1-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_9);
+    __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 359, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+  }
+  __pyx_t_10 = 1;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_t_7};
+    __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 359, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+  }
+  __pyx_t_6 = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u_Asia_Kolkata, __pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 359, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_IN, __pyx_t_6) < (0)) __PYX_ERR(0, 350, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":360
+ *     "CA": ("America/Los_Angeles", timezone(timedelta(hours=-7))),
+ *     "IN": ("Asia/Kolkata", timezone(timedelta(hours=5, minutes=30))),
+ *     "MX": ("America/Mexico_City", timezone(timedelta(hours=-6))),             # <<<<<<<<<<<<<<
+ * }
+ * 
+*/
+  __pyx_t_4 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_timezone); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 360, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  __pyx_t_8 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_timedelta); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 360, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_9);
+  __pyx_t_10 = 1;
+  {
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_8, NULL};
+    __pyx_t_11 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 360, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_11);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_hours, __pyx_mstate_global->__pyx_int_neg_6, __pyx_t_11, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 360, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_9, __pyx_callargs+__pyx_t_10, (1-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_11);
+    __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+    __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 360, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+  }
+  __pyx_t_10 = 1;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_t_2};
+    __pyx_t_6 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_7, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 360, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+  }
+  __pyx_t_7 = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u_America_Mexico_City, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 360, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_MX, __pyx_t_7) < (0)) __PYX_ERR(0, 350, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_SITE_TIMEZONES, __pyx_t_5) < (0)) __PYX_ERR(0, 349, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":364
+ * 
+ * 
+ * def _timezone_for_site(site: str):             # <<<<<<<<<<<<<<
+ *     name, fallback = SITE_TIMEZONES.get(str(site).upper(), SITE_TIMEZONES["CN"])
+ *     try:
+*/
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 364, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_site, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 364, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_47_timezone_for_site, 0, __pyx_mstate_global->__pyx_n_u_timezone_for_site, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[33])); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 364, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_7);
+  #endif
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_7, __pyx_t_5);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_timezone_for_site, __pyx_t_7) < (0)) __PYX_ERR(0, 364, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":372
  * 
  * 
  * def _asin_list(value: Any) -> str:             # <<<<<<<<<<<<<<
  *     if not isinstance(value, list):
  *         return ""
 */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 258, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 372, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 372, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 372, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_49_asin_list, 0, __pyx_mstate_global->__pyx_n_u_asin_list, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[34])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 372, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 258, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 258, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_35_asin_list, 0, __pyx_mstate_global->__pyx_n_u_asin_list, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[26])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 258, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
-  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
-  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_7);
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_asin_list, __pyx_t_5) < (0)) __PYX_ERR(0, 372, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_asin_list, __pyx_t_4) < (0)) __PYX_ERR(0, 258, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":264
+  /* "opscli/seller_sprite/export/xlsx.py":378
  * 
  * 
  * def _list_join(value: Any) -> str:             # <<<<<<<<<<<<<<
  *     if not isinstance(value, list):
  *         return "" if _is_blank(value) else str(value)
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 264, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 264, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 264, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_37_list_join, 0, __pyx_mstate_global->__pyx_n_u_list_join, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[27])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 264, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 378, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 378, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 378, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_51_list_join, 0, __pyx_mstate_global->__pyx_n_u_list_join, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[35])); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 378, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_7);
+  #endif
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_7, __pyx_t_5);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_list_join, __pyx_t_7) < (0)) __PYX_ERR(0, 378, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":393
+ * 
+ * BADGE_LABELS = {
+ *     "NATURAL_SEARCHING": "",             # <<<<<<<<<<<<<<
+ *     "naturalSearching": "",
+ *     "AMAZON_CHOICE": "AC",
+*/
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(17); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 393, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_NATURAL_SEARCHING, __pyx_mstate_global->__pyx_n_u__39) < (0)) __PYX_ERR(0, 393, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_naturalSearching, __pyx_mstate_global->__pyx_n_u__39) < (0)) __PYX_ERR(0, 393, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_AMAZON_CHOICE, __pyx_mstate_global->__pyx_n_u_AC) < (0)) __PYX_ERR(0, 393, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_AMAZON_CHOICH, __pyx_mstate_global->__pyx_n_u_AC) < (0)) __PYX_ERR(0, 393, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_amazonChoice, __pyx_mstate_global->__pyx_n_u_AC) < (0)) __PYX_ERR(0, 393, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_EDITORIAL_RECOMMENDATIONS, __pyx_mstate_global->__pyx_n_u_ER) < (0)) __PYX_ERR(0, 393, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_editorialRecommendations, __pyx_mstate_global->__pyx_n_u_ER) < (0)) __PYX_ERR(0, 393, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_FOUR_STAR, __pyx_mstate_global->__pyx_kp_u_4) < (0)) __PYX_ERR(0, 393, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_fourStar, __pyx_mstate_global->__pyx_kp_u_4) < (0)) __PYX_ERR(0, 393, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_HIGHLY_RATED, __pyx_mstate_global->__pyx_n_u_HR) < (0)) __PYX_ERR(0, 393, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_highlyRated, __pyx_mstate_global->__pyx_n_u_HR) < (0)) __PYX_ERR(0, 393, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_SPONSOR_BRAND, __pyx_mstate_global->__pyx_n_u__40) < (0)) __PYX_ERR(0, 393, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_sponsorBrand, __pyx_mstate_global->__pyx_n_u__40) < (0)) __PYX_ERR(0, 393, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_SPONSOR_VIDEO, __pyx_mstate_global->__pyx_n_u__41) < (0)) __PYX_ERR(0, 393, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_sponsorVideo, __pyx_mstate_global->__pyx_n_u__41) < (0)) __PYX_ERR(0, 393, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_ADS, __pyx_mstate_global->__pyx_n_u_SP) < (0)) __PYX_ERR(0, 393, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_ads, __pyx_mstate_global->__pyx_n_u_SP) < (0)) __PYX_ERR(0, 393, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_BADGE_LABELS, __pyx_t_7) < (0)) __PYX_ERR(0, 392, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":413
+ * 
+ * TRAFFIC_SOURCE_LABELS = {
+ *     "SEARCH": "",             # <<<<<<<<<<<<<<
+ *     "search": "",
+ *     "OFFICIAL": "",
+*/
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 413, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_SEARCH, __pyx_mstate_global->__pyx_n_u__42) < (0)) __PYX_ERR(0, 413, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_search, __pyx_mstate_global->__pyx_n_u__42) < (0)) __PYX_ERR(0, 413, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_OFFICIAL, __pyx_mstate_global->__pyx_n_u__43) < (0)) __PYX_ERR(0, 413, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_official, __pyx_mstate_global->__pyx_n_u__43) < (0)) __PYX_ERR(0, 413, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_AD, __pyx_mstate_global->__pyx_n_u_PPC) < (0)) __PYX_ERR(0, 413, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_ad, __pyx_mstate_global->__pyx_n_u_PPC) < (0)) __PYX_ERR(0, 413, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_TRAFFIC_SOURCE_LABELS, __pyx_t_7) < (0)) __PYX_ERR(0, 412, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":422
+ * 
+ * TRAFFIC_KEYWORD_TYPE_LABELS = {
+ *     "PRIMARY": "",             # <<<<<<<<<<<<<<
+ *     "primary": "",
+ *     "PRECISE": "",
+*/
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 422, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_PRIMARY, __pyx_mstate_global->__pyx_n_u__44) < (0)) __PYX_ERR(0, 422, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_primary, __pyx_mstate_global->__pyx_n_u__44) < (0)) __PYX_ERR(0, 422, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_PRECISE, __pyx_mstate_global->__pyx_n_u__45) < (0)) __PYX_ERR(0, 422, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_precise, __pyx_mstate_global->__pyx_n_u__45) < (0)) __PYX_ERR(0, 422, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_PRECISE_LONG_TAIL, __pyx_mstate_global->__pyx_n_u__46) < (0)) __PYX_ERR(0, 422, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_preciseLongTail, __pyx_mstate_global->__pyx_n_u__46) < (0)) __PYX_ERR(0, 422, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_TRAFFIC_KEYWORD_TYPE_LABELS, __pyx_t_7) < (0)) __PYX_ERR(0, 421, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":431
+ * 
+ * CONVERSION_KEYWORD_TYPE_LABELS = {
+ *     "EXCELLENT": "",             # <<<<<<<<<<<<<<
+ *     "excellent": "",
+ *     "STABLE": "",
+*/
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(8); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 431, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_EXCELLENT, __pyx_mstate_global->__pyx_n_u__47) < (0)) __PYX_ERR(0, 431, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_excellent, __pyx_mstate_global->__pyx_n_u__47) < (0)) __PYX_ERR(0, 431, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_STABLE, __pyx_mstate_global->__pyx_n_u__48) < (0)) __PYX_ERR(0, 431, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_stable, __pyx_mstate_global->__pyx_n_u__48) < (0)) __PYX_ERR(0, 431, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_LOST, __pyx_mstate_global->__pyx_n_u__46) < (0)) __PYX_ERR(0, 431, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_lost, __pyx_mstate_global->__pyx_n_u__46) < (0)) __PYX_ERR(0, 431, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_INVALID, __pyx_mstate_global->__pyx_n_u__49) < (0)) __PYX_ERR(0, 431, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_invalid, __pyx_mstate_global->__pyx_n_u__49) < (0)) __PYX_ERR(0, 431, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_CONVERSION_KEYWORD_TYPE_LABELS, __pyx_t_7) < (0)) __PYX_ERR(0, 430, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+
+  /* "opscli/seller_sprite/export/xlsx.py":442
+ * 
+ * 
+ * def _enum_list_join(value: Any, labels: dict[str, str]) -> str:             # <<<<<<<<<<<<<<
+ *     if _is_blank(value):
+ *         return ""
+*/
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 442, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 442, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_labels, __pyx_mstate_global->__pyx_kp_u_dict_str_str) < (0)) __PYX_ERR(0, 442, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 442, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_53_enum_list_join, 0, __pyx_mstate_global->__pyx_n_u_enum_list_join, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[36])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 442, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
-  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_list_join, __pyx_t_5) < (0)) __PYX_ERR(0, 264, __pyx_L1_error)
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_7);
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_enum_list_join, __pyx_t_5) < (0)) __PYX_ERR(0, 442, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":278
+  /* "opscli/seller_sprite/export/xlsx.py":453
  * 
  * 
  * def _is_blank(value: Any) -> bool:             # <<<<<<<<<<<<<<
  *     return value is None or value == ""
  * 
 */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 278, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 453, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 278, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_bool) < (0)) __PYX_ERR(0, 278, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_39_is_blank, 0, __pyx_mstate_global->__pyx_n_u_is_blank, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[28])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 278, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 453, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_bool) < (0)) __PYX_ERR(0, 453, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_55_is_blank, 0, __pyx_mstate_global->__pyx_n_u_is_blank, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[37])); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 453, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
-  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_7);
   #endif
-  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_7, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_is_blank, __pyx_t_4) < (0)) __PYX_ERR(0, 278, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_is_blank, __pyx_t_7) < (0)) __PYX_ERR(0, 453, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "opscli/seller_sprite/export/xlsx.py":282
+  /* "opscli/seller_sprite/export/xlsx.py":457
  * 
  * 
  * def _is_number(value: Any) -> bool:             # <<<<<<<<<<<<<<
  *     try:
  *         float(value)
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 282, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 282, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_bool) < (0)) __PYX_ERR(0, 282, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_41_is_number, 0, __pyx_mstate_global->__pyx_n_u_is_number, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[29])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 282, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 457, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 457, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_bool) < (0)) __PYX_ERR(0, 457, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_4xlsx_57_is_number, 0, __pyx_mstate_global->__pyx_n_u_is_number, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_xlsx, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[38])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 457, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
-  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_is_number, __pyx_t_5) < (0)) __PYX_ERR(0, 282, __pyx_L1_error)
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_7);
+  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_is_number, __pyx_t_5) < (0)) __PYX_ERR(0, 457, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
   /* "opscli/seller_sprite/export/xlsx.py":1
@@ -16561,6 +21242,11 @@ __Pyx_RefNannySetupContext("PyInit_xlsx", 0);
   __Pyx_XDECREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_4);
   __Pyx_XDECREF(__pyx_t_5);
+  __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_XDECREF(__pyx_t_7);
+  __Pyx_XDECREF(__pyx_t_8);
+  __Pyx_XDECREF(__pyx_t_9);
+  __Pyx_XDECREF(__pyx_t_11);
   if (__pyx_m) {
     if (__pyx_mstate->__pyx_d && stringtab_initialized) {
       __Pyx_AddTraceback("init opscli.seller_sprite.export.xlsx", __pyx_clineno, __pyx_lineno, __pyx_filename);
@@ -16592,7 +21278,7 @@ __Pyx_RefNannySetupContext("PyInit_xlsx", 0);
 
 static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
-  __pyx_builtin_enumerate = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_enumerate); if (!__pyx_builtin_enumerate) __PYX_ERR(0, 42, __pyx_L1_error)
+  __pyx_builtin_enumerate = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_enumerate); if (!__pyx_builtin_enumerate) __PYX_ERR(0, 44, __pyx_L1_error)
 
   /* Cached unbound methods */
   __pyx_mstate->__pyx_umethod_PyDict_Type_get.type = (PyObject*)&PyDict_Type;
@@ -16616,53 +21302,64 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "opscli/seller_sprite/export/xlsx.py":185
+  /* "opscli/seller_sprite/export/xlsx.py":213
  * 
  * def _column_width(title: str) -> int:
  *     if any(key in title for key in ["", "", ""]):             # <<<<<<<<<<<<<<
  *         return 48
  *     if any(key in title for key in ["", "", "ASIN"]):
 */
-  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_n_u__12, __pyx_mstate_global->__pyx_n_u__13, __pyx_mstate_global->__pyx_n_u__14); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 185, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_n_u__12, __pyx_mstate_global->__pyx_n_u__13, __pyx_mstate_global->__pyx_n_u__14); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 213, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[0]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[0]);
 
-  /* "opscli/seller_sprite/export/xlsx.py":187
+  /* "opscli/seller_sprite/export/xlsx.py":215
  *     if any(key in title for key in ["", "", ""]):
  *         return 48
  *     if any(key in title for key in ["", "", "ASIN"]):             # <<<<<<<<<<<<<<
  *         return 38
  *     if any(key in title for key in ["", ""]):
 */
-  __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_n_u__15, __pyx_mstate_global->__pyx_n_u__16, __pyx_mstate_global->__pyx_n_u_ASIN_2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 187, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_n_u__15, __pyx_mstate_global->__pyx_n_u__16, __pyx_mstate_global->__pyx_n_u_ASIN_2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 215, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[1]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[1]);
 
-  /* "opscli/seller_sprite/export/xlsx.py":189
+  /* "opscli/seller_sprite/export/xlsx.py":217
  *     if any(key in title for key in ["", "", "ASIN"]):
  *         return 38
  *     if any(key in title for key in ["", ""]):             # <<<<<<<<<<<<<<
  *         return 32
  *     if any(key in title for key in ["ASIN", "SKU", ""]):
 */
-  __pyx_mstate_global->__pyx_tuple[2] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__17, __pyx_mstate_global->__pyx_n_u__18); if (unlikely(!__pyx_mstate_global->__pyx_tuple[2])) __PYX_ERR(0, 189, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[2] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__17, __pyx_mstate_global->__pyx_n_u__18); if (unlikely(!__pyx_mstate_global->__pyx_tuple[2])) __PYX_ERR(0, 217, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[2]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[2]);
 
-  /* "opscli/seller_sprite/export/xlsx.py":191
+  /* "opscli/seller_sprite/export/xlsx.py":219
  *     if any(key in title for key in ["", ""]):
  *         return 32
  *     if any(key in title for key in ["ASIN", "SKU", ""]):             # <<<<<<<<<<<<<<
  *         return 18
  *     return max(12, min(22, len(str(title)) * 2 + 4))
 */
-  __pyx_mstate_global->__pyx_tuple[3] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_n_u_ASIN, __pyx_mstate_global->__pyx_n_u_SKU, __pyx_mstate_global->__pyx_n_u__19); if (unlikely(!__pyx_mstate_global->__pyx_tuple[3])) __PYX_ERR(0, 191, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[3] = PyTuple_Pack(3, __pyx_mstate_global->__pyx_n_u_ASIN, __pyx_mstate_global->__pyx_n_u_SKU, __pyx_mstate_global->__pyx_n_u__19); if (unlikely(!__pyx_mstate_global->__pyx_tuple[3])) __PYX_ERR(0, 219, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[3]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[3]);
+
+  /* "opscli/seller_sprite/export/xlsx.py":297
+ *     site_time = datetime.fromtimestamp(timestamp, tz=_timezone_for_site(site))
+ *     site_label = SITE_TIME_LABELS.get(str(site).upper(), str(site).upper())
+ *     return f"{china_time.strftime('%m.%d %H:%M')}\n{site_label}{site_time.strftime('%m.%d %H:%M')}"             # <<<<<<<<<<<<<<
+ * 
+ * 
+*/
+  __pyx_mstate_global->__pyx_tuple[4] = PyTuple_Pack(1, __pyx_mstate_global->__pyx_kp_u_m_d_H_M); if (unlikely(!__pyx_mstate_global->__pyx_tuple[4])) __PYX_ERR(0, 297, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[4]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[4]);
   #if CYTHON_IMMORTAL_CONSTANTS
   {
     PyObject **table = __pyx_mstate->__pyx_tuple;
-    for (Py_ssize_t i=0; i<4; ++i) {
+    for (Py_ssize_t i=0; i<5; ++i) {
       #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
       #if PY_VERSION_HEX < 0x030E0000
       if (_Py_IsOwnedByCurrentThread(table[i]) && Py_REFCNT(table[i]) == 1)
@@ -16689,34 +21386,34 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 9; } index[] = {{1},{3},{3},{15},{11},{10},{12},{179},{8},{12},{1},{2},{0},{1},{1},{1},{4},{1},{1},{1},{1},{8},{17},{14},{21},{7},{4},{6},{2},{40},{8},{9},{13},{15},{20},{27},{9},{42},{35},{16},{13},{10},{13},{16},{16},{14},{13},{13},{13},{13},{13},{1},{2},{4},{10},{3},{1},{1},{6},{6},{12},{6},{4},{7},{5},{5},{5},{15},{4},{4},{11},{20},{3},{5},{23},{24},{14},{2},{8},{1},{6},{12},{12},{6},{6},{12},{6},{6},{3},{3},{3},{6},{12},{9},{6},{25},{19},{16},{15},{14},{19},{18},{16},{6},{4},{8},{10},{27},{18},{9},{6},{6},{8},{7},{7},{10},{4},{4},{8},{4},{11},{4},{17},{18},{5},{4},{15},{6},{17},{12},{13},{13},{30},{7},{20},{12},{15},{17},{34},{16},{5},{15},{12},{9},{3},{8},{19},{8},{7},{5},{6},{8},{4},{4},{12},{9},{8},{7},{3},{17},{10},{11},{11},{7},{19},{4},{5},{3},{9},{13},{10},{7},{4},{5},{4},{15},{18},{35},{3},{4},{7},{5},{6},{8},{8},{10},{27},{5},{8},{17},{8},{9},{5},{10},{4},{8},{6},{4},{8},{15},{14},{38},{34},{35},{32},{11},{6},{6},{7},{4},{5},{4},{7},{10},{6},{13},{3},{1},{12},{7},{15},{6},{3},{9},{4},{17},{34},{4},{8},{4},{4},{12},{10},{5},{4},{5},{6},{5},{7},{3},{8},{4},{5},{5},{9},{6},{5},{3},{5},{6},{5},{4},{8},{3},{224},{68},{55},{107},{2},{467},{283},{298},{2},{24},{32},{36},{32},{36},{196},{85},{42},{197},{2},{2},{77},{72},{84},{60},{74}};
-    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (3116 bytes) */
-const char* const cstring = "BZh91AY&SY\021\346\236)\000\001\256\177\377\377\377\377\377\377\377\377\377\377\377\377\377\377\377\377\374u\347\357\352sG\353\335\300@@@G\340\300\000`\n\275\356\311\355\256\306\354\322 \000\010B\232h\034\036\000\034x54%54h\036\246\200\003#\320h\324\303\006(\323\0014O\"d\3325\036D\321\351\003M\032h\320\r4\017Pz\217P\321\351\014\324\323F\201\241\240hd\tD\t\241\24144\020\311\246\21554mS\322f\247\251\2114y5\007\250\321\241\240\000\032\000\006\200\007\2442h\0321\000\000\000\000\000\021L\247\240\321\250\323\"h2\230\032@f\2024\364\214CL\324\320\323\020b=\r\000&\004\304zM\243I\200F\010\320\006\232h\006A\221\223\324\365\037\2504\323S$\"\021\251\341#\323\r\023Dz\206\201\352\003@\000i\246\200\000\000\000\001\240\r\036\240\036\243\324\000h\000\000\000\000%4\211(\321\240\r\000h\001\240zCF\200h\000\032\001\240\000\001\220\001\345\r\032h\323@4\000\017P\000\000=F\200\203F\214\231\006\232\032i\240d4\r\006!\246\023A\246\214\010\000h\r\032i\240\310\031\014FF\214F\214F\206A\204\323&\200\311\246M\007\374\337\250\014\035\267z\300{`o>?\243\364\2400\345G\336\364I\024\275\035\307O\035BV\001p\024\037s\361<@0\223\t\014\314\220\220\302\020$\024$\217*\022\250\207*\304\321\020<\270=\363\002\"N\242\020\002\003\023\002\rz\026\261\r\251\275\013h\230\035\231\240\021h\243\201\227pk\013\004\032I\004\021\204\232\300\0235H\t\010\002\306\21453 8f\010\0023H\001\311\005\233\004\007D3\275\000Ub\300,\022t\244\271\025\216s\026\364\034\344s\332:\014V1/\324O\272\222f\3638+7\350DJ\022\260\240\177\002\243\307\331\0133\021XE\211K\244P\350\004\361l&({\254\261\354\2223r\221a\"s\266\307\215D\220T@\310\004\002\030\323\202\210s\20033r\237i\035\226\226\345L2\276C\302\313y{w\032\3205o\342'\231\275\343\n\350ez\031\231,\330\004\r\236\304\014\274\346q\001;\232\232\347BPW\307\235\274\371\201\350u4\275\232g5\006\250\221\213\235\301Oy\306\330\306z\211\374_=\2652L\234u\200c\343f_5aP\267(!\\ \220N\374\225\327l@\366n\345\326\207}\3218\354z]I\332B{\205\rU\317]Mi\261\273\310\261\027\025d\301\006\224\251TD!n\306w \272\375 \227\025h""\300^\342\353\365\253\272\257!~\233=\232\327-^\017\204\034\\\274B\361\t\004\335\350:\345K\246x\306\020k\3060c\306\253\246Xv\260xz(\247_Z\322HS$\252'\251\256\367/\271\225\005\002\024O\0062/G\320\342\370\367$\037\330\265\223\020_\243\303@\017\212\364\360\211K\274,[\272*\244L\373\353\277\340\346\333\360<?\205\313\272\362|\037\"\236?\213\353\367\234]\375 2\233)\206`\301\262\321\212eg\326\205\336](\253\200\310\274\356'\027\020\306\344\322Hr\000\2069\2330tXN\206\252\251\002GF<+\245\334\231U\236\014\306\000*\215\227\022\013\"\251\330\203\002b0\335\010qw\274C\203O\211\343v\3605i\246\376\345\342/\347\302\236J0\364\274j\273\230\344\342\366Z\314\333=\254\373\025`\277=\254^\245\274\271R\353\246\243o\025\257\322\331O\230\311\331\321=\207n\005:q\010(n\354\266\241Q\350\347J\036\030\303\201\004\215\232\\V\365se\346\213n\335jd\014\275<\333\201\324\332`\330\023\025\325\341\351jM#\314i\002\t\243\225qq\363t+uhO\202L)\316\356\tV\306\2661G\246\336\325\330\243\212`\232\257\027\310\200\367\205\007\320u\250\216\361\332t|~\227\261TY\366\362L63v;\211w\374}\214{\332\330\233}:\307\014\336\251\332\225}\357^!\320Vb\305\242g\013MV\300\"\320\240T%tV\274\352\312\244\242H\231@\201`@\262/J\n(wP\345bD\333Y\024\017\017F\024\022(fQu\n\372q\271\333b\r]]+\005\326\t\273X|\030vb50\255\024W\215\016_q\224N\257\224\207z\20169\354L\010_\332\265\374\236\233\232\016\367L'\214\"\244\345\361\255BNt\030\247\247}\t\310\264Q\350\351h\356\352d\221\347\333\217&>\245\267(\0072t\223\271\023\227\221:>K\221\317c\332\336\373\254\370\254\327a\263I\257\326\033\227\233\213\223v\206n\371\335c(G\362\031,\253W\223\030\325U\"kdG\365&\300o\332\253y\215\214\304:\003\220e\270$N:0`);\336\256Z\256\034\265\240\304c\006IgL\211\267\226\307>G\256\235\035\216M\031\006\266\0332T<\325\225\214\2769/\311&oW\242s\245\212|\225^\037\327\266\262n{\312\253 \026\241;\361\343\322v5\361\346\311\321\252\346\207A\254b\356.\373w\037\302\021\275\032 ysl)\251\033T'\225E\035XO\345\316\244V\353)x\2636BF=;\326\365\350\256\031R\024\312\323\205\251\337\"\211[aYJ""\275^\314\316\211$v\024M\360\301j\302\363Qou\253H\301\351\\\204x\306\t\033)\302\243/\301\323>\261^\016\235\220a;\n\027\r\355\3528,V_F\253\025\205E\rZb\262\254\242\014\251\246\tA\021\370\231c\203\262\253?<7\264i\325\340,6/\tE\375w\254\3113\266c`\342\372\260\271m9\327\363S\253z\253V\307\224\245*\217\251\267\226)\307\265\033\004\351\3057E\314\245xY\204I\330\3113\322\212\023^\177~\351&.jP\276\246b\340\347\271\231\004\262\036i2\246E\342&\276\3370\245\355Oef\341\205N&\215\024mm\352\263\234\267\243\026\035\343^pm^\271\036R\2434Xt\252F;=BT\244\244\364J\n\344\335\016\020\315\233{>d\336\264%\201\204\247''\\\220\250\272\306\016]\2272\210j!\266\262<\316lI,t\242\222\267;\262b\261&\346Z\314i\226\026\261\317sUw\232\tsjiB\023\357N\327\245<\320\032\22414\314\300F\230\335{\312\023\235\2122\232r(\226\274\266*4aVaq\023\240\264\2564\201\204K\344\312\333\332\314\327\026\027\261\231F%\266\3043\014\023x)\026\336\246~E\024_r\010bX\234\252\244\320\354(\210p\034\002\013\264\013EK\265 []\205\222\310\303I\025}\022\230C\3035^\224\007\232Hg\331P/\335%H)\0276;\202\302J\305a\200-x\2468}uA\rFq= \266n\035\322z\005Z\350T\335^\n6\n \303*5\244\375\332 \365E\024\254\345\0109\251\253\204\246\372\245\346C\006\206\007e\245\304{\200\355)\0261\245\244\342>\255Y\255]\332\344j\310\301'\307\304\307d\232\376dc.s\335\247l2:8,\316R\301\262\274%\033\324\264$\207TV\021\223(\202\024\311Zh\325pY>H\2476\372\0335\247+S\221\307Z\0001V\331\300\025\227\241\001\024\252\200\361+[u\3141C\261\005\237'\t\323P\206za\271c\223#\333\004U\006\351\216\376y\206&\311\351\245\264SK\2430\252\340\0364cv@V\261\317\036\336\313\325x\007\232\362\346\250\337\364Di\"$\204e\346m\371\314/\277\245\232\305(\324!\356\317D\026H\360H\010\270\030k\003c\306\"\030\340*bD\3105\002\256\366\315\330\000\331\2315\032\203\223\312\334T\324-\252\333B\016\341\301\024\341\005\303\005Za1J\031\250B\305\235\200\252\202\275{\010Of\005\034\325$\221\343\337\340\003Y\253Xg\341~y\351\332\341j\263m\024\302\313\320s\364#^\250\010\004\226\2072\202\t\364e5\014\030\270\270{Y""\256r\035\247 ;r1c6\323\327\0229[\270\244_Uj:\234\354\242R\014\355 =\350^M\352\310\337yz\026\025\027\321&$\326\312d\261\354\210\312\251\250m\223\327,\373H\227\033I\227\037js\0302\372*)\320\316\347\337\302A\020v\256\353e1\2651\355]T\001\2300&\003w\241Bd\2670\252\254\303<\350\223\233\305\024n\240U\"\335\010f\306\364 \201]v\342\334u\030\262\351\300\036m\366MH\243Thk\267+\336\234\361A2\001Bd\321\263\016\335\274y\330\032\222\347\343\252\026;\201\251\227\024:j\204\234\031p\006\212a\020\007\"&\024\303\r\013\265\351\034\026#\203\273\355\210\201\367\177\324\351\323\352\354\311\357o\201~\230\004\333\257\n`\324l\200\262C\202nXd\020\304\326j\255\374\325\265vz\264C\2203\027\204\306X\004p0N$\302L\351\212/\332\362\376\234\177\265\366H\341*Q\316\275;\263\353\33424\372\226\260\342\216\r\341h\221\010\212\377\250b\276\t\226\261\307\024A\323=9\3260}W\230\361\"8\232\220\244\036\273\n.\nT\000\312\275\304E:\202+\200\223\037\335m\246%\372\217\317\221\330~\366\342YRb\223\366\023\t\251\232\017\002\227A\214\2606I\010A\302P\330\310\tn\242\rU\300\371\237E\273\177\325\216z(\033\020\325K\n\237\264\223\250A\271\2348\224rs4`\031`\024\010\201\303X\331I\356\000\202*\341,\352\002\346\022\322\274\340:D\240\351\327e'\231`0q\236\330\004N9\220\225\021_\204\372\337\324\365\374\361d00~\022\224\203\3000,\207\335\3400\314\365%c\004\371$\300\036d\356\304(B\014.\235\223\005\000y\n0\262\223\306`\374\371O\272\342\001\232wI\371\0279\365\232 \246\025\211\247e?'\322\037A$\240\"\022X\030\214\364U\033VQ\316c\312\351\007\225O\035\002'L<\253\002u\\\027QC\256\272\371k\257\344[p\331p\025U\316o\367\363\034f\310\350\337\270\021\345\327\310\302\016J\204\202\256\020d\255w~\253\225\200#73|\261S~2P$FHZy77.\\\274A\246\362q\353\243\245X\315\202\321\203\225n\"\222\2675\312\242\350\226m\027;E$\0201t=wN\005\322\344&Q\313j\033U\326\032\267\220\212\321EV\324I\370\332TTZ\332\311P\315\031\357m\317&m\260g\272\031\321/\251\351\377\205I\022\222\034#2\026~\233\301\355de\340\302\300)\245\217\036W\005\235+M\027_n\244\243\355\3634?\310`\312""\177?\032\n>\357\347^Q\274\035gxr5\370!\276\225\244\232\010,\340\014Gn\3544\361m\234<\005\014\216\327\005&:S>IV\261\211\206 \035P \t\200Zk\241\212\027|z8\214C\026;\347\331\264W\027\277\nb\235\246\331jd2*Q\006\356-\354;\214\017x\2062\376B\2470b\304\305\036\301\231M\343\350O\262eZA\007&\267\331\240\226\013L\357\210@\222\356 :q6'\261\"Ft\360vX\256$\275\216\005\036\305\026\305\264\254\324\240\242\252\222\340\032<UD\004\361\016\207_6!\215\233\023Y5 \202\255V\320\303\025k\200\357\024\220K9f\272\225\210&EbJ\204P<\204\236@d~\200\374\305L\217|\0032\"M\027\361\315\010|\\\346)bv\230\321\324\362\300\330\177\003\337\027v\374QP\377\233\374\325I\370\203\372BP\255\023b\204P\333\261\005g\027\3168\301Q\276.\344\212p\241 #\315<R";
-    PyObject *data = __Pyx_DecompressString(cstring, 3116, 2);
+    const struct { const unsigned int length: 10; } index[] = {{1},{3},{3},{13},{15},{19},{19},{12},{13},{10},{6},{11},{13},{13},{13},{12},{11},{10},{12},{16},{179},{8},{12},{8},{1},{2},{0},{1},{1},{1},{4},{1},{1},{1},{1},{1},{8},{17},{14},{21},{14},{7},{4},{6},{2},{40},{8},{9},{13},{15},{20},{27},{9},{11},{15},{42},{35},{16},{13},{10},{13},{16},{16},{14},{13},{13},{13},{13},{13},{16},{1},{2},{11},{2},{3},{13},{13},{4},{10},{3},{1},{12},{1},{2},{6},{2},{30},{2},{6},{25},{11},{2},{9},{12},{9},{2},{6},{4},{7},{12},{2},{11},{2},{5},{7},{2},{5},{5},{2},{15},{4},{2},{17},{4},{8},{9},{7},{17},{7},{4},{11},{20},{6},{14},{16},{3},{11},{5},{13},{13},{6},{23},{24},{27},{21},{2},{14},{2},{8},{1},{8},{21},{6},{12},{12},{6},{6},{12},{6},{6},{3},{3},{3},{3},{3},{3},{3},{3},{3},{3},{3},{3},{3},{15},{3},{15},{15},{12},{15},{15},{15},{15},{15},{15},{15},{3},{6},{12},{9},{6},{2},{25},{3},{12},{19},{16},{15},{14},{19},{18},{16},{6},{4},{8},{10},{27},{18},{9},{11},{6},{6},{8},{7},{7},{10},{4},{4},{8},{4},{11},{4},{10},{17},{18},{5},{4},{15},{6},{17},{12},{13},{13},{30},{7},{20},{27},{12},{8},{14},{10},{12},{8},{15},{17},{34},{16},{8},{5},{24},{15},{12},{15},{32},{9},{3},{9},{8},{19},{8},{7},{5},{6},{8},{4},{4},{8},{12},{9},{13},{8},{7},{3},{17},{10},{11},{11},{7},{19},{11},{5},{4},{5},{3},{7},{9},{13},{10},{7},{4},{5},{4},{15},{18},{35},{3},{4},{7},{25},{29},{5},{6},{6},{8},{8},{10},{27},{5},{4},{8},{17},{8},{9},{7},{5},{10},{4},{8},{16},{6},{4},{8},{8},{15},{14},{38},{34},{35},{32},{11},{4},{8},{9},{6},{6},{7},{4},{5},{4},{7},{13},{10},{11},{6},{13},{3},{8},{7},{15},{7},{1},{12},{8},{12},{10},{14},{7},{15},{6},{3},{9},{4},{17},{34},{4},{8},{6},{4},{12},{14},{4},{12},{10},{5},{4},{10},{9},{5},{6},{12},{12},{6},{5},{7},{3},{8},{8},{4},{5},{9},{9},{8},{18},{5},{24},{19},{9},{6},{2},{5},{3},{3},{5},{6},{5},{4},{8},{3},{8},{224},{90},{68},{55},{107},{2},{473},{90},{283},{2},{52},{565},{24},{32},{96},{36},{32},{36},{115},{196},{85},{42},{224},{2},{2},{72},{57},{40},{138},{60},{43},{54},{74}};
+    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (4347 bytes) */
+const char* const cstring = "BZh91AY&SYC\272\333a\000\002>\377\377\377\377\377\377\377\377\377\377\277\377\377\377\377\377\377\375\367\377\377\376\367\367\377\377\300@@@G\340\300\000`\017[\244\272\354]\235\335\300(\034\201E\000\000\260\306\325\205\000\357\234\251\200\007\321\337\016\340\321\010\202\r$\364\301OL\247\251\264j<\241\344\324z\217jO\032d\306\223\020&\233L\204OL\233M\002\236Q\246\305<\214\230\246\310\3224xI\243jyM<(\30420\217Hhd\362j\r\010\0024C!\240#L\010#\0221\222d\310i0&\214\200\000\320\320\000\000\000\032\006\232\000\000\000\000\000\000\000\003 \022&\222\236M4\214 \323@\321\220\006@\323@4\000\000\000\003@\001\220\032\000\000\032\000\000\000\000\000\r\000\002SD$\t\221\252=C\365'\250\375S\321\203T\365\036\223\312\r=O$\000h\006\200\000\000\000\000\001\240\032b\000\000\000\000\000\000\000\001J2\201\352\000\320\003@\0004b\000\000\000\000\001\351\032\030\232\000z@\001\240h\000\000\000\032\000\000\000\000\3656\202SP\245\032\r\006A\240\000\320h\006@\031\007\2504\032\001\211\220z\215\031\000\000h\032i\352\000\320hh\320h4\000h4\0004\000\037\361\330\000J\235w\222H\364\010\365\317\275\362\217\327`\257\010\216\362\214\261\037z\263\273\2720i\360\270\256Z\207/\021\\+Yb\305\223\366\375\322C32L$\300\302L\2202\020B \023\"Y\213\014u\230X6q\211\004\371S\021k\020A\027!\"\210\024j\234\014\262\"\304e)\031\353\270\246\027Z\3000$H@/\021\2100\033-\003]1\000T\220\204[\334d\326\002@N\273\204\244J\023Xi\333\263)\325S\01634\002k\356\343\t\010L\t0c\314\234I\t\223\021\0210O`j\300\214\222T\014\016p\345\206kL\272Nj\321\001\022(Y\304\023P\312\310K\230Gl\t\2232h\240g\210 Q*\000\236`\335\006M\001\264\007S\224<\332\364\003\010\021\214_\002\210\270Hi\240\261|\266NL\264\316\031Y\273\344\354Iq\314Y\206\302\320\033\030H0\325\nR\243\225\314\370\232\007@e\346t\030\317,\246\177\315~;F\027\315N\244se\244z\213\216\224\204\222Q\316\237\331\207g\307\341\355X\000\306L\032\265b\0031\030\316m0aG\266\241\003\206\341\255F\001\262;3\2633\2104\207&\206\246\3153\r`Z\202\034 \245\345\361\234\311e\331\337\214sU\324\246\273/\315q\355h\266""\333|>\356\346h\224J O\r\311\016uo \360\034\317M\343\330\0300\315p[c\002\366\224\227n\243\347\210Ym\266\341?\316\306\241\370ZQ|\212\021\255\262\327\232X\215\033\351y\3319\246\334\231\366\262<\020\271\311J\037P\201\rE\254R\020\205\3233;\220\274=\210k$\252\303\303\310\317\317\263ont\222\021\266\276\315|\024\334:e\257\310\370C\t\216lw\267\200\336\"ym\216\033\357q\013\3576\274\324OG\004@\215\n5\265\251\335\335\365\273\216\r\211O\321\352\324\032\000\231\305'\371Z-q\333\372>\232\211\304\340\204\342q?\203\035&n\325#!\334\335t\014b\\\324p\331\226kT\205\360;\035%\002*Sy\031\322\\a\032\266\334$\372\2221\304L\221wAA\023\323\340c\020\311\303\304\301\252_\021X\271\001\235N>Q\244\325\320^=!\226NJ\301\232|\215MV\256L\271\241\250\310\236\200r\272[\335\360\307c1\2606\351\252l\352\023\205L\002\222\244C\274B\334\204D\024h\334\263f\005OKd\331Y\265\267_\276\304\243\2104\332\035\233\321\313\026u\203\373\356^\034\255\276V\013\006\252\nW(U+R{\265\255W\002Yzr\234\267y_d\204Kg)\353`\312C_\002\353\205\\\t\273[\225\343\204\034\3649\2318\303\223\223\245\230'\003[\204a\003.\356\034\270\374$\034\245,\203q'\332\321Fb\337\002\222\337\033\373N\334\324\241\013\261\366\274\276\317\223o\276>\234\372T5\037LH\017l\325\341\3101\226\376\367Gm\272\006\355\224\267\201\301\2159\3029BC\026~\034\343pX\376\r\327\337\265\306\014\375\355\033;\211su\270\206\016;\373\353\350+yd:\n\244\304\300i\271L\226{Qp\354\020g\031[\177\234\220M\234\316\247\250\321*\244\212\255J\240 3\306\245\022\226h\243+\335{84\227.\\\321\246\274\202\326\275\317\017q\372\003V\025\341\214\256\027\236\234\315\312X\273'\253`\3530G\210|\370)^.\207\367\352\347\323\220L\362\264]\035 \210\3007cE\264\310\226\234\335b\321\336c\241J\2041\020\342m)E\3433Q\241r6\363\001h-\253Z\360\013d\265\270\371\234\376\337\260\n\307MU\374\0163\243f\314\302\276n\276\213\222\261\317\206\330\326\341\016D\236\311\245c\2150\021\260\354o;E\234\336E\226=Zrd\321\253\001Y^$\304\205b\302\224\263\235\025y\203\253\232\243\024\225%H\315h\t\273S.\313f@\235.~\034\025\340!6\374l\027o""\007\324.\007n\374\016 \356ut^\314\272\332\326\316,'\211\367\267\356i\254f\244qP\3154P\n\213\264\365#\234Dr^\204\000x\347\267 \001y:\013\016\2248x\374\346\332\021\244\265@\240\253\223C\257\331\340\304+>\227:\300W\274\rwr\007G\250\361\000\256\303k{\311x\034\372h\306\322\370\247\3160\304\214L-aWq\262\001\255\257\263S\203\310p\363\200x\221`\357\212f\334\243\350\336d\"\004\013\242\205\250\0103H\211x\210E1z\265\244C]L\214\317,\212\355\0275ZE\007\013\n\350\2048\342l\342\302Q\357Q\255Kz\351R\014}\177\022\241\342x\234\227l\006#\031\213h\0301B\202\343G\212>\265\273\262BX\350\276\251\204\004\2620\310\372X\373\034d*\177\307\355\375R\357\221w\014!\335\020\025Z\332\267x\260\020\270(\266\366\366k\257R4\303\014z\263\021k\332` \204E\353/\023ZA\255Xz\030\255\223\226C\236~\333M\301#\026\332\034\253Q*y\246\272S\256\325b\275\206\355\330\031\000:\204:\000vD\013\2449\007e\322\370\314\001\030\3255D\206\210\021C\264r\336v^\246\255\003{\210\200\333\266\246\363\257\3057;}\340\221\001\231\205\224\313W\023\337m\202F&\"\330\245\014\346\336W\332\266\032Hfv\214\203\226\365\213\n\322\210!r\262\360\027XE\324\240 \276`&8X\314\020\226\005J\250\\\023v\320&!\200\014xr\\\355\033\004\266<\025\310\0050\302\245\211\225\030F\251MQ\342\257`\256<l\230B\"\254\211:\316`\322\277\022\202\203:\335\210\241T\323\034T=\244\336\342\212\003\350\346\320\340t\203s\014\255\020\255\2700h\035\316\316-\274\035\206\313X\026\0073\021\005\253*\321\017]ah\320\216c\030\247\275\010\312\273\025\027\260\327\334-\271\007d\233\361\344\034v}R\031\310\213\2066\032\211\335\360\327\342A)\264.\203\266\016PxDe \231\010\334\207>4L\346l\310V\341C\256\006\232\200\250\214\212\225\220i\203\244H\330lM\245\274J\200f\312$\000\276\005J7\023\336\262=\260{\364C\000BI\240\322\246$M\010\204M\215\251\025\345\004\n\253\276{J\006\331\301\266&K\230\221\302*\014\235aaI~\346y\265\225\243J\311F\021\034g@\203\016xE\004\251\024I\374\365\314\261z\227\200\031\205\032\262\035\34033\205\301\315\005\243>\255\236L\335\306{\3002\364\372\212\366j\256c\212\333\306\301""\211d\321upX^\346\005\256\261\275\307{<h\326\226\256\235\300\200(\244\004\346J+J\240\336\032c\2112\235\242\002\235\270\026r=\212AM\344\274\n(\2226\205>\377\\\225Q\223\005N\357WH\026\016N\036XZ!e\371\212\306\033\006\000\203h\223n\331\016\026!\344'\031o\367X\027\333\024@\342(I]S\034\315\372\260l\264\203\254e\023\005Y4Qu\004\026J\006\025j\225\316\256#| \203\252\255\r\201\330\346m\327l\244\260F`&\273c\221T\212Mh\247\3525\002\264`I\204S\t\204\221F\006\245\221GM*%Y\255\334:\265n\353\316Xo\002\225\210#\002\200\201\260d2\273P\277u\000a\360T\207<\356\336\016\314b\201\332\336\302R\314)\240\214J\263\t\235x\357\332+|\216\265\0232\306\353\210\266\"\301\356\250\210\233y\214\241\202b\r\317j4\261\301\300\345\313\000\242\016\222\212\nB\"P\027\327\037\220E\303yo\225O\210\213H\220\031\2042qT\212E\220y\020\230\303-j_\034\347\323\r\200x\264g\272\274\262\213;\332\000\002\020j\2000\014\361\235\204\306\205\020p\2563V\371\240D+\317\t01\036\rT\036\213\270X\266\322\206F\010\314\214\301\246U\225\220\302\220\354\252\020\005\005\002)X\027\212E0\354\022\372\320Z\210grmT\2208\267\005\271\242\030\223\314\n\317\274\023\036f*\203\214\224\r\223\205\025\301\\\266\352\034\240\357\t\235 Egf\242r\025v#$\273V)Lb\346@\362\332\355\t\232\215\"\253`\256\325\212\332a\257B\304\262\215Z\312X\3328Y\302\030\202\373iD\226\032\302\326\203R\355hd'\0223\370\263[!$X\225(6\001g^-b^Mq\205\212\201\301\000\356p\004h8\016\200\003\2760\366\251K\023\010\002}\024C\270`L\333\325i3\315\\\27270\3228\266\320\023e\217y4Zq\301\0226!\"ac\027\273\2763\220\270\014\014\266\334&\276\331\t T\302\207\202S\346\336\235\2055\344\017\201\013\240\324&\212O\002\022\0215\r|\030\001u\332\013\035>\340N\230i\316\224\352uZ\227\221)P\303\202bU\224*D\250\006\324\240'\017\025\234)\334\322\253\030\203mC\262\022E\344\360[\200\201\r\r+\334\036!4\0203\354%\nH-D\242\000\3326\027h\264;P\260\207:c~w\014o\216\317f\307bY3\244\204'\002\204\003\306\252\241<D\246J0M+P\306\023P\315\267\217p\324\341\336\224g\001Gj \250\004\251 \310\027\335\335k\264\245`\304\332\310""\221\255\317\005\025\31004.\241$\270'\255\263\255\033\"\0238\332\360f\360\351\314\033\252Y\365\275\014'\324\002\321Q3\2641,P\301%\020\267=\263\345+\200#\235q\317\270G\273['p\033\240\032\240fKl\003\024\362\031g!l\330\200N\210D\210N>\344\025\271\305)*\3205F\030Q\342\323\254\201\200\313\314\013\3700R\355\213X\331\221\016\242\353!O\016R\236U'\211)\211\204\220Q\323\200\201\023KTK81\034\020p\033\342\214\201\252\302'\231\203D \205\013\0025xT\2072\215\370\230v\022\315YLA\220~\254\321P\332zi\266\361*\032)@\201\247\005<\004&\005\254\205E\246\330u\326\024[lN+\000:tCQ\224\356*\032\217\t)\244\021S\321\032%O7)\001`\312Y1\315\207\306\3160\200\227H\310\306>\035\3066\273\000q\020^H\325\325\350\253)\210\260\261\257\200\206P\334S\312\225\200\273,+\013E\201\364\026I\360\t\031\250\231ysL@L&\030t\tn\020\026\251\027s\220\031\2610\203H\013v\253\303\266\270\341\273\246\262\025\326\007x\353p\2202Q\222\200\337\253\02304\261\203 X@\022\002C\016\016u\374yn\360\242\224\006\321X\244\302t6\333\031\253\246\030Y!\202\034\246@I\200d\272D+\311\277i\370\004\304\000AU\020\"\005.A\253Q:sp\226X\t\231BH\\\021\221q2\310\201\027\236\026\346\007{\\ }\312\335\036m\337,\217o\331\t\023\3728\223\216\301\302\273\357\210\343]Y\014\325i\2342c\220\304T\314G\242\0234eK\0356\275\300\343:\367\010\247\031\214\n\002\362\206\314\200\212T\320L\310@\350gC\033g\301|s\332\330\276\255\333\032\033\334?\245\235\371\261)\260\211@\306[5\214\271\373\271F\2036\2756\313(wn\335\021\325;\032\356\020\343\233i\260\001\331\230\356\032D\342a1%\202#1\312x\201Q8p\240\016L\350\241Va\216\223\267\256\201\001\302i\202`~\363\301\336|~\236\r\202V\231\230[G(\342N\245'm\230\036R.\353\215\220u\263\323\207\223\352S4\205k\373[\270\323L\214zwU\000\203%\304D\037\003!\221\322\320:\244\201\263{\336D~P\247P\024A\371k\024F\306L\212}\212G\007\264\256q\240\213c>\307\226\310\212\030\004\325\251\"O\351\025H\t\3204\005\214,\352\361\301T\233\244\244\335kU\037<\220\002\301,\232}\226\230t\200m2\323\001 \315\201\327$,\0170\365\036\374\375\220\030\177\001n\260^\002""\372u\215Y)\256\243\361\227[\006\260\302Q\264\222B\226M_hf\233\373\272\310']\260\315\010f\000\274\257\013(\035\201\003\201\261]\333\002\274\027H\n\340\026;\03626\2143\010\203\241a\367\361\254F\222\207]\225\222@\205\0104H(\"\312\3726\302\221g~;\367\334\374\215+\370|y(k\302\2778m\001\212\177\257e\021\014\363\341\302\325YeZ\257\022\324\225i\332\2638Q\"\014\030h5\222\022\233SfFVa\301o\217D\342$\221\333\351\231\330X\270\261\260\006u\341\237\026\262\264\337\246\272\260.\262\301\373\347\360@\201\001=\304AbF\r\\\006 \201\001\224\0051\263\372\025\361n\377H(\036Py\030L\221\205\\\210/^\210:\260\025\200g\234\360\303\327\217\022\037%$\247\276\375C\327l\000n\214\031*,QJ\200\201\214w\247\031Ae~.\256\356\352\252\253M%\313\331<cyU\331|\213\346H\274\251a\325\3407gv\340\352#;t\351\343\325\356\2438 \345\326Pa}\322\3620\363e\365\353\004D\320\302E\346\347v0\275|\037@1\256\356\217Z3\300\214v\003\267\205t\304e\014G\336\323\324\325\2129._G\225Q\312rw\n$\271\251qO\357\\\242\345\345\276X\246C\207\024C\253\224\342\233\303\344E(\335\325H\342\377k\022\020<\337@N;x\255\356\203r\366\351B.;\274\321\340\3206\364\245d9\271\247\212}\313\273|\\\\>\304d\373\217\241\2128x\372\200\317\033\010\007\02310\217\024$\226)XU\207p\214 \245\324}p\037T%\370\000\271\2437\325n9\301\323=#K\026\333>$,n\033<\342\236\236\3549\337\357\334\347\271\225\312\227\246\247p\213\233\221\243\310\244\264\265\227\270\211m)6fc\320\235w%\372\254\205\304\201\245\231$\360\353\032\255,B(\032 [\215r\032\322\023\0231D\307\0376\212+a-))\203\267\017\243?\360e6\340\262\244>\235\013i\017JNr\200\350p\215f\342\271\276\007&\375\3170r\013\277\266=\237\010\371mit\207\200\\\267\241\323\277g76\346\216\344M\321=\007\324\232)\211C\274N\010\2264\024&N\036u\345Z\222P)\226a\017e\016\262\314\2106j\336\"\353:\004\010\213u\320\034\207U\271\005\3252\317\024\224\021\213EDL\224@\210\353\rIJ\323\001\226!Xkf\3146=\rM,\312\363\326P\201\"\360\327\273\n,\212\364\256B;\2734\225U+e\005\220\221\212,\362\201(Z%\031\022*a\337|\225}\\\257\267u\357\250\363W\016\2151V{>""\300]\311\314\374O\275R\211ITQr7\265\361\302\224\216\217\337\341U@\004\204v\253\344\230O\204Y(\232^\235&VL\340\214a\2218\336x\"l/\271\371K\310\374\321S\342\353I\315\265\314\226\364U\274\020&e\246\273\3349\206\333\303\307\002UZ\032\206C\307\034\256 \023\236)\0326J\021\362\255U\254\324\350\364\322TR\302~\336\345\\\n\036\256\364\343\301}\377\213\271\"\234(H!\335m\260\200";
+    PyObject *data = __Pyx_DecompressString(cstring, 4347, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (2972 bytes) */
-const char* const cstring = "x\332\215V\335s\033E\022\267\023\2078\211\363\241\304\340\004\002\254p\210\023\022\31386!\027\302q\213?\202C\242\330\226\023\354\204\260\214wG\322\332\253]igdK\206\007\270\272\n\242\212pKqp{E]\325B\325Q\373p\207\367\352\352\356T@\345\374\350\307y\324\243\037\220\023\236\356\376\204\353\231\225\034)\016\220*igzv\246{\372\327\335\277\336X\354Tr\340yM\316\240%\313\354!\322P\332\322U<de\262\230\352\324\262{{_\307\305E\313\326\310\261\213\210\320\336\201\347{5T$q\213b\211\246\021\225\206\2124m\231\222N$\r\033\372,\266\021\305FQ\"\324\326U\212m\276\311\224\306G\306{\007\317\014J\310\324$\033\317a\225\022\211\344gU\003\021\202\211d%\245\331\274nP\335\224h1\213IL\032KJE+/\231\030k\022\265\244,\354k<@\323\330\224\010\246|\"\365 \323\264(\242\272e*p\\7S=\222\246\333`D_\300\374\364(2\010\216\215\333\226\226Wi\357\025S\317\345\261\364\206\360\351\270rv\347\321\336\352\315\233'\373^\351E\232\246\200&\254\336\363\336\260\254\371|V\003W\256\203G'%\331,\336h\226\244w\245\270ebM'h\326\300}Z\266\017\233|\226R\373R\331\27646\262}\004\033\006\266\373\020\355E\275)\003\231*\216\245i\306x%\\\1779Mi\226\234\355\353\323IxR\233\017\021\357\315\350&\266\353\202\215\027\260\r'tB\2577\337\340\306\203\326j\327\022\257`\365\306\235\357\277\255\006\237HV\026\233\331b\301\220~\270\375\347\273\377\374\374\277\337\177\264\376Go\375\037\237U\227\277\257~\360\2554}11me\211j\350\265K+$k\353\024\367\341B\326\262i_\301 \205X\266\230\255Aic\202\221\255\246\303\275\275\341^\260V3\276\270\270\030C\"\261b*j\024\254\330\\\266Y\316\3177\311\231\006Ik\324\203I\203\220\264\033\004\335l\024\250,\237\222\023c\361\352\207\267\252\267\336\3473@\345\325\241!9.\017\313#\362\350\251\3213#\302\245!\313\310g\314\321I9>42j\231\364\374\310\344%9>3\026\037\036\223\307\246\344\2133\027\344q9~!q9>\014y\241\341\021\333\266l\356\3348\242i\370C\212\233\243\272a(\312x\261\000\377a\010\203\022\307\005:\211\223\211\327\257$\306\345\261xB\300\223\020\350\014YfRO\t-\215\313\341e&1\311\033\364J|ljdXy},~~\370\362\245+\t\310\324\371Y""\310\303\231u\357\203\037\277r\357.\177}\347\273\233\325\337\377v\375\263\240z\353\363\3527\377\372\341?_\256\277\277\374\343\247\267\327?\376\313\017\345\357\252_\334\276\363\367\357\356|\361\315\335\177/Wo\377\256\032|[].W?}\377\316\207\037A\242\257\273\313U\347\353\273\313\267\356.\377\rB~\347\343\340\307\257>Y\377\353\227w\376t\273Z\272\271\276\374\007$\352F\341\305\220\326Si%ic\250\027S-*$\2151\r\021\016i\242F\r\341R\255\276\256\330F(\207\356\201\250\204\262\242Y\031\244\233u\251\226CJ\376\336\206Z\312\211\225l\326(*\324F&IZv\006\021X\325\021\321M\376\277\010I\255\360\211b4\315b\347\014K\205Z\377u,\205M\310X\033\221\242\251\352\026$\224m\345\201]0\231EZ\n\217\032(5\253k\227P\201?u\023\236\223\310La\030\225\214XT\240\364\024>\332b\33524\010\200\301\377\030\2313*\334S\021\217\005d\344\261\232F\266\242\010jRR\2347p\206\213`N\001-\340\203\212g\221:\257\032\026\021)\244\250\026\370\t\256'ulhD\025\031\030>\025M\317`\223\000\223\325\226A\203\206\013JM\020\346\352\302\242\256\321t\223\260\311\377\360eM\025Q\000I\205\250@2\266n\2516\006\242\016C\252\341,\262)\030\246\344\202\005Wn\220\225\271\007-l2\304\311\007.\215l\210\231N\201\302\362\231,\301\231,-\216%\3438\205xF\201_y\033\362\212\250\272\216\315|Ft\n\\Pq\201\007\321\232\017)F\261\255E\242PK\341T\223D\206\301\241K\246\240L-[\340\025\202\226\324\r\360#\203a4\222P\266\220\244x\t+Y\0041\276\227\260J2o\252\212R\273$\304\006~u\304\014\314k\227\007,\2045\215\221\0062WX\237\202\336pJ\356+\004~G\316\332\"8\272I\025\235(\263@\354\363|\262\221l\\\000?\241%\352D\323S\272\310\014\376's\3042\371\377\362,o\205\027yb*\\V,\261\240\030\017^\331\004;\364\006\370\221Z\2130\320,\344$4\351\201\347\r\304y\030F\200V\204T\024\312\\\323l\2236\303B\032Q\024Q\244\265A\244G\030\322\014\002stL\013GE\3272\363\320da\037\224\261\201\025\205Gc\343\t]\301(\202RZ\3577\3651Fh\321\300dC\004\240\014\022v\234XS\307\211\205l\021\343\t\222\345\271\365\263\273\340\022\370'\364\204i\025\253\325\300\317m\341\031\007\221\313\346)\344\021MC\312\243\014\201'""\244}\370\344\002\237\362\t\177O\323\360\301\223\3056\224\024E)\0143\335\322\224\332 \242\221\265\2629E\311\345\221\021\002\003\r\3232\240\217\207\203\246\204\346lL\363\266\tI\005\277\260\340E\021\020\224\304\215\021\330\264\260)\202\004-\340z\201\023^p\330\324\024\240UZ\213\013\341\265\236D\320c\204\026\302\273\265e\350\032\261\362\340\004\241\334\265\360C\n\232\270\242\360\034\342\317\002\245i\270\221\260\271A\311\341\227V>\013\356\002a\213\022\022\017\"\250\210\347\343b\255o\025\261\311Z\016\262\203'\374\376J\333\236\222\352D\234ng\312\215\270'\274\204\277\325?\035D*m\373\234\255\316\240\223s[+m\333\337+\224\210s\314\355v\257y\304\217V\332\367\226r\365\325\347\334!w\311?\340\313\215\253l\177\2677\340\315\005[\203\376\246\315\307\335\001w\016\014<\314\352\203\315=\334\352\256R?ky\234=>\000\366\333\016r\027\304\243\275\264\035\336\266w\224\316;\003\016v\373+\035{K\324y\321\215V\366u:\303n\253\033\251\354{\314I\271\023.\252\353p\217yQ>\037(\241\322\242\243\302\0160\231/\r;\333\235%\357\260\177-\310m\230\034,\025\000\256m\356\004k\351d\235'\3743\334x\304\211p\273\355\3166\347\252\333\357\002J\273Jg\235\tn\244\322\321\351\214\270\235\302\332\356.8\272\335]\360\246\374N\177:\020\357\206\004\370bS\304}\316\033\365\237\361\207\374\\\320Q\226\327:\0168\375\342\206\216\374^\353\332\316]\225\310\376\312\236\275\225\266\235%\270lGI\256=\016\301u\267=\262\326\266\255\322\276\233\355~\022L\362\361\010\250\212\212Y\267\307\265\260]\317\200\217\355{\330\236g\275\tv\364\374Jn\255m/8\233tew\332\273\352\377*\000U\360\026vyg\375\t\016\000-A\254\366;Q\347\234\233c\322)vjxe\230\275\366&{s\236\315\033\314\310p\005\000\006\277\306k\016\234\336Q:\304S\242\337\033\003\304\362\345\321\225\236\325\203lb\232M+L\231e\263I\226\344\007\327\332\366;'\000\016\335+\370pv\277s\304AN\0360\003\000\3678s\336\016?\342\037\017N\227#\034\362\274\200\345\210\253z]\376\236 \t:\243<\262\334\\8\254\301\251]\020\334\343`v\324?\032\264\362\3658\0009\346O\370z\260P\006\220#\316\243`\202\272/y)\377\255\362\351""\225'V\345\325\033\354\332uv\375m\3666Zk\333\301vp\0147\333\337\347\354\206\213&=Y\340\3704G\241?\210\004\261\225\035\253\2215\000\010\262\"\352E\274\347|\270FGi\004\352\013\002\363\2303\357\035\364#\002r\016}\373\356R\302i\205\004i\2178O{\342~\227\335\027\275(k\211\261\030\204\241\302\355K^\353\232\200\361\022\350\213\362jE\245\005g\032b)n\245\273E\277\325?\024\034-\267r}W &\203\016q{\274\247\374\205`\242y\351I?\035h\345h\371\205\025Q\013\367\201S\337\371\216\327\003\345<\032t\007S\345H\371\304Jbu\353\352\340j\216\215_eWg\330\014\004\231c\303\320\354O\035\351]!\253\335\253Slb\222M&~jS\014\264\016\254j\260\203%\246\204\243O@y\014s\214\177Nb-\207\331\341\223\354\344\313\354\345q6~/\027k\\\260\344\034p\004\021-8\327\334\234\267\335\243\376\013Ak\320U\336R\356Y\2114\356`{\243!\236\215K<\303_\364\243\233\367\365\370\221\373\324\317\270\310}\227\263\347/\256.:\232\033u\317y\271f\265\020W\357\301J\007|\344\347\0039\270ZnV\264\004\371\036}\270\025\316\014@C\217\206y\262\253t\032\336\217\270\007\334Q\257\033J\274\345I\250\353\t^\234\257\226\260\323\357\010\272\030u\272\331\243\317z\223^n\343=\307\266\316Uu\222\033\200\023\320\025X\313cN\232\263$\247\226\322D\tU:\200\301\032\331\267\366\376at\334\267\247\021\207\\\215\3118\203\266\326\271\023\210\211\227n\227 l\301\234\217\200\232\332\312\001`\255)\257\323\233\360t\237\004GD\302\237Y\031X\321V\217\254\242\325\002{\343\032\273\366\026{\013XGe*p\225\305,\302H\221\025\227\376\327\322\362N\253\274\005\006yK\234\017\361-\227\267Tv\357wz\300L\203\366\211\272\017\200\034ky\312M{\302\207bX\312\033\231\030\021\347\332wp\006\037\3467ts\225\275\234\267C\362~\0200\203\300j2\017\334S\356\034;\366R\271\2779\277C\357MOf\317N\206\205\303Z\272\275\227\374L\371e\366\032\370\264\310\026\013\341M\266:\202\237\217\272mp\337\353\242\243w\006\023\001.\017\224\021'/\336\331\027\000\246\210w\334\357\027]\245\265\262c?|\003\324\002\300?\005\216A\256\\\365\007\341\335\266 \301\331\245\361X\037\220]7hD\033\307\3669\273\334A\321\300\"~o\220+\2676\274""\331\343j\336Q\277\315\227\375\033\020\215\3765Xj\025,x\230\303Y\312\361\\\200\226\331\303k\204\177\215t\202\233\250i\032\302{\010\332\374\214\207\274\\C*!\201\331\264\373\206'{W\374(\357\272\254\345\220{\220\027\027\337\024\356\374\245Y\001\232\300\000\204\210\000\003\234\361O\371\223\276\035\000\331t\261\256>\326\367\233\025\361\r\264P\232v\022\320\221\3033\035\245\013\242;\215\206$\302\257\327\005ps\021\334\333\t%\377\202\367\010\317\014p\223\323\327y\357\264\1778\200\330v9\005\2679E8G\314\327\311 \002\0373G=a\205:\247!\016\234\267\353\237#O\273K\354\370\271\262\314\267\222RT\324\365\0200k\324\0239B\200h\373\353\365>\004.\361\017\216{i\343\315@E-\225\037_\351\377?\022\242<?";
-    PyObject *data = __Pyx_DecompressString(cstring, 2972, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (4264 bytes) */
+const char* const cstring = "x\332\245W\335w\023G\226\267\300\004\023\233\017\201\303G\302$\362\030\363\021\260\034cC\030\002\231\323H2\026\330\262-\311\306\206$=euIj\334\352\226\272[\266\344\344\354\206=\331\240d\003\351\354L2=\233\235\263\235\234M\266w\0173t6\223\031M\222%z\324c?\372\221\007d\233\247\335?aoU\267l\tC6\347\354\261\325U\367v\325\255[\367\376\356G\373\375'\223\003/q\203\313\372\277,\3376Woi\253wo1\031\264(\211G\024_ -\361\t\314d\260\314'P\337\210\244\260\214\230\302\002V\352\254Q\\\340\023\022\033\340\325\"\243\360\250\357\262$\314!\025\321y,\215\304T\032\361\224\210KsE)\0209:|\371X@\312d\261\312\253\222\334\033\312\313R\026\367]\300\262\300\213.1\"\211\234T'F\021'\363\234K\214#\231W\334yT\312\340\336\313\270\270 \311\234rt\004)j\357\300K\275\034**\243H\236\303j\257\214\025\214\344D\2727\"\251\330\247\246\221\352\013\024\325\264$\372x\305\307a\201\237\3052R\261P\364)*\\E\3052Y$\372\306C\343\275\203g\006}H\344|2\276\216\023\252\342S\362\263\t\001)\nV|R\3227\233\347\005\225\027}j1\213\025\277/\234\364\025\245\274O\304\230\363\251\222/\013\353\0327\250i,\372\024\254\222\211\357\010\022EIE*/\211,l\347\305\324\021\037\307\313p\010?\217\311\356!$(\330?.K\\>\241\366N\212|.\217}W\310\035{fz{2\275=\334\321c\354\331\247\017?\374\354\233\023}'z~\331\2138\216\005\2218\261nTA\222\346\362Y\016\356t\r\256v\302\307\210\305\327\233)\337[\276\210$\342u&<`\211\202f\005\334\307e\373\260Hf\251D_*\333\227\306B\266O\301\202\200\345>\244\366\242\336\224\200\304\004\366\247\325\214\360K\207\177>\255\252Y\345l_\037\2578;\2719\3071\275\031^\304r\235\220\361<\226a\007\257\250\327\232\365y\375q<WI\372\212\350\327\223\361\367p\276\236\341\263=\243\231f\027\257|\377m\315\372\310\007\260\020\263\305\202\340{p\357\367\253\337|\362\337\337\177\260\374[c\371\353\217kw\277\257\335\374\3267=\022\233\226\262JB\340\335\353\260JV\346U\334\207\013YIV\373\n\202R\360g\213Y\327\366u\341\316\332^g-\350\341\252\265\260\260\340G4L\374\t\324HH\376\353\331f:?\327Dg\032(\256Q\016V\032\210\244\334@\360b#\241\326\336\2735\000\000 ""\267\273\375\2175\355\026\303\234d\002\353\301\033d\2021f\224\271:\026a\003\303c\341@\250\221\030fb\341\010\010\250\335\272Af`\351\013\027\230\340\305\020;\302\\\010\215\304\002\001&\300D@D \022\030\213L\205\242\2610\354\274\034\232\2712\026\r\262\361\231\361\372\302`(\304\014\235\034:\023\n\206\343c\32103\302FC\201\261\321\321P$\310\304aO,\024]\323(\024\013M\007B##\241H<Dm\035\220\204|F\034\032\233\214\262\2618\023\035\202?&\022\010\rI\242z1\024\035e\"3\303\341\213\303#3l\224\211\207\202\303\227\207\327e\205#\341H0\314\204#S\314H\030\316\016\307\231\221\231K\3148\023\2714~)6\026\tB$p8$\313\222<2\026\213\217NG\230\370d\024\324\213\205\230h`8\034\271H\274764\024\016\200\322\343\343\201\332_\177\250}\364\3768h\037\216\205\334\201\035\031\213\\d\343Lxd<\032\036e\2423\343HM\303\017\222\2048\304\013\002\313\216\027\013\360\013\002b\331\010.\250Q\234t\344\307\302\361\020\033\017\217\206\300\340\241\330\032\345\032-vy26\356\034\010W\211\215\3035b\343`\253\261({\001,\020\254\023S\341`\010\224g.\214\204b\024~1\212\276\200$&\371\024\275[#\333\261i\024+yA\215G\031r\265\307y\254\376*\006f\017\324\231\223\227'#\240d\220\275\014\226\t\216\215N\306 \331\314\315B\006\231\271\nv\n\213I\251>B\036\035\222\362\"G\317_6n>\374\\_\275\373\345\312w\357\326>\374\273\345\217\255\332\255Oj\177\374\363\203\037>[\276q\367\341\257\357-\337\376\342A\371\273\332\247\367V\276\372n\345\323?\256\376\345n\355\336;5\353\333\332\335r\355\3277V\336\373\340A\371\017+w\356\000\214W\356\335^\376\355\027\265{\177Y\375\207\257 Z\227\337\371p\365\213\037j\357\033\265[V\355ss\365\346\177\254\274\363\347e\355\237W\376\3649\330lY\277\353l_\263\342\352\277\275\373\360\363\217\326\311\206\365\017\276\375\247\207\377~\347\341\333\357;\350\001}V\277\274\261\374\315\215\2077?\204\225+\377y\257v\363\3355r\365\277\356\324>\370\004\310\332\277~\265F>\370^_\375\223\271F\326\376\372\365\212\3715Q\003B\357\343\322\362\247\277\257\375\375{@\326\264/\311\232\273\177\200<\263r\333\002}\226\357|\266\362\273{\265\322\273\313w""\177\203hvG\034Kru\232O\245\331\244\214!\257\213\211\"\253\2441V\021\2478\261\355\224\333\306\271[\341\034\226[\026&e\301\241\035\020\000\311:4\313I\031\304\213u\312\315dl~}\201\233\370('\233\025\212\254*#QIJr\006)\300\345\221\302\213\3447\002I\227%\023Vh\232\371\317\tR\002J\324\253\376\024\026!o\312H)\212\t^\202\264&Ky(\212X\231E\\\n\017\t(E'#h\026\013\312,\317\215\242\002y\362\"<\243\320\027`\030\331\014e\262P%X2\312\224/\t\034\340O ?\214\304\231\004\250\314\322\307<\022\3628\221&I\031\264dU>\203Y\226\226Y6EJ\037\316\020\022t`A\036\\,\201gQb.!H\n\315\tlB\202\313\203=\222<\0268%As\220\363d9\220%*P\225]6H\340p\201u\tzp\235X\34095\335Dl0\212\363\322\025\245\260`^VI@e\224y)!\211\244\010\302I\256g\343\320D8FJ\310\030\372\021\007\021\211\274,\023|\324GV K8x?\n\351\207WX2\005\273\2219\231\022[p8\213d\025\356\241*\227$\260@\003\315^\177\034c\203\336\244\000\203fH\006\\\360*\224q~\236\347p\377K\\>\223U\200\202\346\202GB\224\364\032 \205\243m\214\2023Y\265\030NFp\n\021\230\203\031\3632\006\304$x\236\305b>\343 \210*\320Ln8\236\274\246=\031.$\310?xKT\241\277\204\365\322\234S\244YYZPXUbI\261N\"A \036N\246\240\236H2u\253\343\333$\017[Q\006\303($\241\250$\245\274\034S\221\014q\207\0271\233E\200\323\265\030L\312R\206\330OQQ&\313\262\311\274\230`YW%\300\025\374\327\275-`R\001\010\330\034H\244!\250\201&\247\324\247p\2303U\036\tt\2428a\t\305(\334\220K\203F\ni\233(\320x\021B\007DB\014\200og\241\301\232#\223\265\240\"\004\030\007:Vp7\237\342)\330\311O\271\256H\"\371\215\315\222Nu\204\004 KhV\242\014Vx<g\203\355\241G\203\177\305m\325\334!\3524l\223Y\0021.N\342\315}\303\272\275\034\233w\336\321`\244\030\245\017\005\202R\035xI@\244c\202\021\\H!\271\016\205'\243@\220 \035B\314\252,K\223\231;\320\260p`\351t\177a\316\031Y\236\203\374\221\207\2232s\320J\303r\310z\002d\006\002\200\365\247\232\227\221\020\303N\362H\2110\021\212p\236*%\223|\002P]o\036\353\243_Q\213\360\235\263F\202\037\004\305i\037\375M\355\243\337I\272~\202\330,\215\210\037[\005\312\341'\310q\020\356w\263\306\217-!\340\007`d""\363*@YMgQ\n\223_\214_\244#\253\320\211\2142\n<!\206\234'!\310\224L\310&5\r\337@Y,CfRcy0C\301%\210\210\365)\314x\211c\335\201\2727+e\263\222\302\223\313B\324&\240\353w\007\370tK\305\021/\200\266\340\234b\216esy$8.\200\344>7\016\362\350\350\356\246L\226\352\354\314\\>\364\336\222\000\000s\006\216u.+cp\242\010\201\004\377N\202\246\331@AI\334\010\217\r\214\r\020S\320<\256'\344z\223\017y\213\232:\342|\234\271v\027\335\034'r,\260T\027M0\343p\022A\273EOQ\310\207\001\374\034\343\320\031\315'\022\304\263\002q\236\300J\226\300B\276\000\227\344\334\371\024dV\0009\371Z\202'8\305\371*\204\017\014\370O:\265\215D\017y\026T5\rWu\222\274@\026\272\331\212L\240\254;\347\321\t\2555<)\010pq\250\201\004\335\033*\215\313\217Q\335\326XN\037\340|\225\252\213\371,x\034\372\204\274\232\240\271\216>\024Z\357\210\260\005\267K,b\221\234\313C\177h\267\354\267\367\0377\373\227Zw\224\022\232W\353\326\342\272W?n\304\314\315\346i\313\273\324\272K\333\254\rj9\335\263\324\272\365\355BI\321\216\352\335\372UC1\273\226\332v\226ru\356\213z@_4\367\230L#\327\336\335m\014\030\327\255\315V\177\323\342c\372\200~\035\016\370)\334\307\037\367\323\270\355\245~\273\3459\375\274}\364\225r?YT\324<\232\327}\271\2754\243]7<\306>\263\335\352\267\230\245\326\216\022<\332Jm\232g\251\3151\006\310\331^\272\2421\332\224>\250\347\214-\306\004\2219P\302Z\277\306\330-\317\332\317\016\300\315Z\367\023\343\320G[i+\210n\353(]\324\0064\254\367/u\354,\251\332\313z\327\322\256N-\250{t\357\322\256\275ZJ\237\320\221\253\335\263\372Q\243\313\221\212J\013Z\002V\200\236\371RP\333\252-\032\007\315\253Vn\3552\203\245\0028b\213>a\267t\332\235\307\3153\344p/\\\210j\275\005\264\354\327\301\376\355\245\263\332\0049d\251\243S\013\351\235\364\264\355\373`\353V}\336\210\233\235\346\264E\337\005\250[\351\"\257\376\2421d\376\334\014\2309\253\243\314\334\357\330\243\365S\r5\346m\317\375\247\333\227\274\273\227v\354\\j}\272\324\345\032\212>\016\200\272[\236\272\337\272\005\014eo\377\031\034I\306C \252\213\316\272\r\"\305n\3779\334\261m\207\275\243""\307\230\260\017_\254\344\356\267\356\204\313&uF\2376\246\314_\020\353\303[Xe\2345'\210\001\324\022\240`\267\326\245\235\323s\266\357\244}2X\t\332\303\257\331\257\315\331s\202-d\210\0000\006QcX\203\335\333J\007\010\330\372\2150X,_\036\252\034\251\356\267'\246\355i\326fg\355\331\244\235$\033\357\267\356\326\216\2039x\243`\302\336\335\332!\riy\235\272}\007\200a\233\3515\217Y\247\313\024\"yj\226Cz\002\020\262\303J\202\314.\342Yr\2343\334\207]\355\340\334cp\354\220y\330\362\020~\004\014\0316'L\336\232/\203\221\275\3323p\204\252\277b\244\3147\312\247+\317U\231\352\353\366\325k\366\265_\331\277J\333\351\214\235\021\357\267n\263\267\021Kn\324b\227\266\035\324M\032\014\265\346\013\304\026\375\226\327\362W\266U\275\367\301L\200\215.\303k\274h\2022\035\245\020\205l\353^m\316\330oz\251\341\211\003\000\3031\007\367^\355\005\203j9\246\277lt\331-\373\354}}v\337P%]E\304\350\363\245i-\006\210p\360\326Q\272D\2553D\360\351\204\316>\275\225\222\240\327\323z\227~\312x\312@\364\230\347\000y\027\215\323\346Ak\262\334S\316\331-~\333\017n^\"7\363\031\236\373\324M\243\240i\027\3113\2504\257M\003V\350}y\275hz\314\003\326\341\262\207h:\t>\037\324\024\375\210\361\2749oM4\263~f\246-\256\334U>U\241\261\366\210\361\353+\3374\216@\"\032\262\272\255x\331[>^\211U7W\007\2539{|\312\236\232\261g\000D`{d\243\331'm\351\255(\325\356j\334\236\210\332\321\330\223\026\371A\352@\225\203\025v,N/J\214\020$\336\3731J\203\340%q\002\221t\\{\303\0304r$\343\231!k\257\245\226_\255z\253`\241-\304\003\005\032\234\355\035\324\033v\313A\373\340\t\373\304y\373<\\\342\r\373\rv-H\334\364\267\250\355\321h\356\235\327\256B\252\332j\250\346)\313c\355+o*\037\251x\033W\330;\273\034G4\262H\350\275lvm\\w\304\364>\"~FG\372[f\377O\340.h\034\240\344\234\221k\026\013\2000\232\205\276\t\313\036/\360$\204\022jz\363\026MrM\002O\230\214y\305\n\225\233\205\376\215\223e\0338\213\020\317]\217=\246n\252\256'I\350\324^3\274\217*&\226\231\362T\245\277\022\002\267\035\266\307'6\034\326\243\347\r\346\377Pa#\347o\341\200\005\003\375\377x\264\270<""\343\204Y{\3514\274\017\351{ x\273\r\n\300iR\312:J\027\234RF\246CZ\267\375L\217\0215r\264\272\364\322\"A\233\202N\250&\250i\352d\203\003Pmg\014d\324\013\324\232\301\332K'K\023%\336\251Uz\332H\202\177f,\004y\231)OW\326\317'\010\256\227\252z\215#\305\025\332\r\273e\257\226&\262He\001ah\251\003\nXcYw\337\377\024\031\217[sJk\205\272N\215\020\252_k\027\324\320x\335\035\215\255B=\373m\326\177a0\006\025\242@J\350_\257\333H[\000\313?\361\310:j\006Ld\346\232;\r\247ZC)$\305b\037m\021h\255~\n\304\270\234=P'\343F\2471a\360\246b\035\242)\360Le\240\302U\017UQ\265`_\271j_\205\234\000u.a'\240:J\266\244\330J\321..\376OK\313\233\036f\023\014\314\246\010\031\"\233\3066-m\337\255\035\201c\032\2447\3675\317\203\317\320F\033,By!\373\332\266\221\236!H4\324sK;I\247\340\264\013\217\263\363 \324Q\206$\275\347\365\353km\330z\342rn/\032\214\335\023uR\251\335\322m\274bf\312\347\355a\270\323\202\275Pp4\331\254\321\216\3400\224 F\277F\273\323Nk\302\302\345\2012\"\005\211t\251\363`&\257q\014\362)\351c<K\333vC?\353:\2008\366(\300\177\312\034\204w[\254\030\2517\215\333\372\240\260v\203D\264\266m\227\326\016}\037i\231\274f\257\225+{\032\336\354\3209\343\260\331\n\310~\035\274\321\277\376\306\336\325\rY}\336\214\203\270\336r\256\342\271\017\253=\264J\036$\226.\345\0102\017\350\373I\016$6\250\007\317\217\317\n\320D\014\200\301\025H\324g \373DM\331\362\256\265\217\217X\376-\212\323\327,zB\336m<\301\326\347\264\"\344\336\027,\017\224~\255\240\347\036\365\261\023\270\004\005\027\365\223z\314\200u\307\314\347\255By\303J\022*\344\270(\021\342\325\366\353\317C!k\267\006\354\323\303UO\225~6\264\351; 9\274iu\333\247\240\025\250\202\t\274\266\267\213\3028\001\006\355\201\362\036/\357\201\2240Y9L\336:\241\264\250\037\200\316\244{\320b\254k\025O\345@\365\030\301D|\262A\3435\034\222\n3W/%^\350\376\017\033\264yQ\265\323\340l\322.<\322e?z[r`\3161L\236~\277\200E\367\353m\206g\343\3223\332\253\200\221\036\270\345V\260\374^K)\037\255\364T\212\220\365I\233\320\362\202\276h\037;W\246\311^)u\321\204\033\200\216\241\313""\350o\312\026\016_uj\330\032\370\215\031\310\013\213\345g+\375\377\013\221s5V";
+    PyObject *data = __Pyx_DecompressString(cstring, 4264, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (5219 bytes) */
-const char* const bytes = "..2f30dAmazon's ChoiceCompetitor--Keywords(Last-30-daysNote that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Product-Unique Words()_:\n&-\345\206\206,/?-add_notecompetitor-lookupdict[str, Any]dict[str, Any] | Nonedisable/dp/enablegc/gp/help/seller/at-a-glance.html?seller=https://isenabledkeyword-minerkeyword-reverselist[dict[str, Any]]list[dict[str, Any]] | Nonelist[str]\347\274\272\345\260\221 openpyxl \344\276\235\350\265\226\357\274\214\346\227\240\346\263\225\345\257\274\345\207\272 XLSXopscli/seller_sprite/export/xlsx.pyproduct-researchseller-spritestr | Nonewww.amazon.cawww.amazon.co.jpwww.amazon.co.ukwww.amazon.comwww.amazon.dewww.amazon.eswww.amazon.frwww.amazon.inwww.amazon.itAA2ASIN\345\211\215\345\215\201ASINAnyBCCANADAEAF2F8ExportColumnFRANCEFontGERMANYINDIAITALYJAPANJSONDecodeErrorNonePathPatternFill__Pyx_PyDict_NextRefSKUSPAINSellerSpriteConfigErrorSellerSpriteExportResultUNITED_KINGDOMUSWorkbookY\346\240\207\351\242\230\350\257\246\347\273\206\345\217\202\346\225\260\345\215\226\345\256\266\344\277\241\346\201\257\351\223\276\346\216\245\344\270\273\345\233\276\347\261\273\347\233\256\350\267\257\345\276\204\345\260\272\345\257\270\345\223\201\347\211\214\345\206\206\346\230\257\345\220\246\350\257\215\350\257\255\345\207\272\347\216\260\351\242\221\346\254\241\347\231\276\345\210\206\346\257\224active_add_high_frequency_sheetamazonChoiceKeywordamazonProductUrlamazonSellerUrl_amazon_domain_amazon_product_url_amazon_seller_url_apply_transformas_uriasinasinList_asin_list_asin_list.<locals>.genexprasyncio.coroutinesbadgeFlagbidMaxbidMinbidRangebid_maxbid_min_bid_rangeboldboolbooleanYcell_cell_valuechar__class_getitem__cline_in_tracebackclosecode_collect_fieldscolumncolumn_dimensionscolumn_index_column_value_column_width_column_width.<locals>.genexprcolumnscolumns_for_scenariocreate_sheetdepartmentsJoin_departments_join_departments_""join.<locals>.genexprdictionary_titledumpsemptyIfNegativeensure_asciienumerateexcexist_okexport_rows_to_xlsxfallbackfgColorfieldfieldsfilenamefillfontfreeze_panesfrequency__func__genexprgetget_column_letter_get_valueheader_fillheader_fontheadershigh_frequency_rowshttpindexint_is_blank_is_coroutine_is_numberisdigititemitemsjsonjsonObjectLines_json_object_lines_json_object_lines.<locals>.genexprkeykeyskeywordlabellast30latest30listJoin_list_join_list_join.<locals>.genexprloads__main___main_sheet_titlemarketIdmarket_idmkdir__module__name__name__nearlynextopenpyxlopenpyxl.stylesopenpyxl.utilsopscli.seller_sprite.domain.exceptionsopscli.seller_sprite.domain.modelsopscli.seller_sprite.export.columnsopscli.seller_sprite.export.xlsxoutput_pathparamsparentparentspartpartspathpathlibpercentageperiod_period_labelpopq__qualname__resolveresolved_outputreturnrowrow_indexrows_safe_sheet_title_safe_sheet_title.<locals>.genexprsavescenarioseensend__set_name__setdefaultsheetsitesolidsourcestartstationstr__test__textthrowtitletransformtypingupperurlvaluevalueswidthwordworkbookyen\320\000\030\320\030+\2501\330\004\016\210c\220\021\220#\220T\230\021\230+\240S\250\003\2506\260\021\330\004\020\220\003\2204\220q\230\001\330\004\007\200x\210s\220(\230#\230Z\240s\250!\330\010\017\210q\330\004\007\200x\210s\220*\230C\230z\250\023\250A\330\010\017\210q\330\004\007\200x\210s\320\022#\2403\240j\260\003\2601\330\010\017\210q\330\004\007\200x\210s\220)\2303\230j\250\003\2501\330\010\017\210q\330\004\007\200x\210s\220)\2303\230j\250\003\2501\330\010\017\210q\330\004\007\200x\210s\220(\230#\230Z\240s\250!\330\010\017\210q\330\004\007\200x\210s\220(\230#\230Z\240s\250!\330\010\017\210q\330\004\007\200x\210s\220(\230#\230Z\240s\250!\330\010\017\210q\330\004\013\2101\320\000\032\320\0323\2601\330\004\030\230\001\330\004\030\230\001\330\004\010\210\007\210q\330\010\014\210G\2203\220e\2301\330\014\017\210t\2207\230!\330\020\024\220D\230\001\230\021\330\020\026\220g\230Q\230a\330\004\013\2101\320\000\032""\230(\240!\330\004\013\2103\210a\210w\220c\230\021\330\004\007\200u\210D\220\007\220z\240\034\250Z\260q\330\010\017\210q\330\004\013\2104\210x\220q\230\005\230Q\320\000\024\320\024+\2508\2601\330\004\021\220\021\330\004\010\210\010\220\005\220V\2301\230A\330\010\013\210:\220Q\220g\230Q\330\014\024\220E\230\024\230Q\230a\330\r\027\220q\230\007\230v\240T\250\024\250X\260Q\330\014\024\220C\220q\230\001\330\014\024\220E\230\021\230*\240F\250\"\250C\250q\260\014\270A\340\014\023\2201\330\004\013\2101\220A\200\001\340\n\013\330\021\022\330\016\017\330\004\n\210!\330\004\014\210A\330\004\014\210A\330\004\031\230\021\330\005\006\340\004\005\330\010\r\320\r\035\230Q\330\010\r\320\r$\240F\250!\330\010\r\320\r#\2401\330\004\013\320\013\"\240!\330\010\016\320\016%\240Q\320&G\300q\340\004\017\210w\220f\230A\230X\240V\2509\260A\330\004\016\320\016\"\240!\240:\250Q\330\004\007\200t\2101\330\010\022\220!\220<\230q\320 2\3202D\300D\320H\\\320\\k\320kl\320lm\340\004\017\210x\220q\330\004\014\210H\220A\330\004\t\210\031\320\022#\2401\240I\250Z\260u\270F\300'\310\030\320QX\320X_\320_b\320bf\320fk\320kl\340\004\022\220+\230Q\230i\240x\250q\330\004\022\220$\220a\220u\230A\330\004\010\210\016\220j\240\t\250\021\250)\2606\270\021\330\010\017\210u\220E\230\021\230$\230c\240\027\250\016\260f\270F\300!\330\010\014\210H\220A\330\010\014\210H\220A\340\004\010\210\013\2207\230)\2401\240F\250&\260\001\330\010\014\210N\230*\240I\250Q\250i\260v\270Q\330\014\021\220\025\220a\220t\230;\240g\250^\2706\300\033\310A\310]\320Z[\320[`\320`a\340\004\t\320\t\031\230\021\330\004\010\210\016\220j\240\t\250\021\250)\2606\270\021\330\010\020\220\r\230Q\230f\240A\330\010\r\320\r\037\230q\320 1\260\021\260.\300\t\310\021\340\004\007\200q\330\010!\240\021\240*\250A\340\004\014\210E\220\021\220!\330\004\026\220k\240\030\250\021\330\004\013\320\013#\2401\330\010\r\210S\220\001\220\021\330\010\021\220\037\240\001\330\010\014\210O\2307\240!\320\000.\320.G\300q\330\004\t\320\t \240\001\340\004\014\210H\220M\240\021""\240!\330\004\016\210a\210v\220X\230Q\330\004\010\210\016\220i\230y\250\001\250\031\260&\270\001\330\010\r\210U\220!\2204\220s\230'\240\036\250v\260Q\330\010\r\210U\220!\2204\220s\230'\240\035\250h\260d\270!\2705\300\001\330\004\010\210\013\2207\230)\2401\240F\250&\260\001\330\010\r\210U\220!\2204\220{\240'\250\023\250F\260#\260T\270\021\270+\300S\310\003\3104\310q\320PV\320VY\320Y\\\320\\`\320`a\320ab\330\010\r\210U\220!\2204\220{\240'\250\023\250F\260#\260T\270\021\270-\300s\310#\310T\320QR\320RS\330\010\r\210U\220!\2204\220{\240'\250\023\250F\260#\260T\270\021\270.\310\003\3103\310d\320RS\320ST\330\004\t\320\t\033\2301\230D\240\t\250\021\330\004\t\320\t\033\2301\230D\240\t\250\021\330\004\t\320\t\033\2301\230D\240\t\250\021\320\000\034\320\034,\320,=\320=P\320PQ\330\004\007\200t\2101\330\010\017\210q\330\004\007\200z\220\023\220A\330\010\017\210v\220Z\230q\240\007\240t\2505\260\001\260\027\270\002\270'\300\021\330\004\007\200z\220\023\220A\330\010\017\320\017!\240\021\240!\330\004\007\200z\220\023\220A\330\010\017\320\017\"\240!\2407\250!\330\004\007\200z\220\023\220A\330\010\017\320\017!\240\021\240'\250\021\330\004\007\200z\220\023\220A\330\010\017\210v\220Y\230a\230|\2501\330\004\007\200z\220\023\220A\330\010\017\210v\220Y\230a\230|\2501\330\004\007\200z\220\023\220A\330\010\017\210w\220d\230!\230<\240q\330\004\007\200z\220\023\220A\330\010\017\320\017 \240\001\240\021\330\004\007\200z\220\023\220A\330\010\017\210v\220Y\230a\230|\2503\250a\250u\260A\260V\2701\330\004\007\200z\220\023\220A\330\010\017\210z\230\021\230!\330\004\007\200z\220\023\220A\330\010\017\210z\230\021\230!\330\004\007\200z\220\023\220A\330\010\017\210z\230\021\230!\330\004\013\2101\220Q\320\000\025\220X\230Q\330\004\013\2106\220\023\220E\230\023\230F\240#\240Q\320\000\035\230X\240Q\330\004\014\210B\210e\2201\220A\330\004\014\210F\220#\320\025%\240R\240q\320\000\035\230X\240Q\330\004\007\200t\210:\220Q\220g\230Q\330\010\017\210q\330\004\013\2103\210e\2204\220q\320\000\026\220h\230a\330\004""\005\330\010\r\210Q\210a\330\014\027\220q\330\010\017\210q\330\004\013\2101\320\000\026\220h\230a\330\004\007\200t\210:\220Q\220g\230Q\330\010\017\210q\330\004\013\2103\210e\2204\220q\320\000\026\220h\230a\330\004\007\200t\210:\220Q\220g\230Q\330\010\017\210v\220Y\230a\230|\2503\250a\250q\330\004\014\210A\330\004\010\210\010\220\001\330\010\013\210:\220Q\220f\230A\330\014\021\220\027\230\001\230\021\330\r\027\220q\230\006\230a\330\014\021\220\027\230\001\230\023\230A\230T\240\024\240Q\240i\250s\260$\260d\270!\2708\3003\300d\310$\310a\310x\320WZ\320Z^\320^b\320bc\320cl\320lo\320os\320sy\320yz\360\000\000{\001A\002\360\000\000A\002N\002\360\000\000N\002O\002\330\r\022\220'\230\021\330\014\021\220\027\230\001\230\023\230A\230Q\330\004\013\2103\210e\2201\220A\320\000\036\230h\240a\330\004\007\200y\220\001\220\021\330\010\017\210q\330\004\007\200z\220\021\220'\230\021\330\010\t\330\014\024\220D\230\006\230a\230q\330\017\023\2201\330\014\023\2201\330\004\007\200t\210:\220Q\220g\230Q\330\010\017\210q\330\004\013\2104\210u\220A\220Q\320\000\036\230j\320(;\2701\330\004\007\200t\2101\330\010\017\210q\330\004\013\210:\220Q\220n\240A\320%R\320RS\320ST\320\000#\240;\250m\270=\320H^\320^w\320wx\330\004\007\200y\220\003\2201\330\010\022\220&\230\004\230A\230[\250\003\2506\260\024\260Q\260e\2703\270a\330\010\020\220\003\2204\220v\230T\240\021\240)\2501\250C\250q\260\001\330\t\022\220#\220Q\330\010\017\210v\220T\230\021\230(\240#\240V\2504\250q\260\005\260S\270\001\330\010\020\220\003\2204\220v\230T\240\021\240/\260\021\260#\260Q\260a\330\t\022\220#\220Q\330\010\020\220\013\2304\230v\240T\250\021\250-\260q\270\001\330\t\022\220#\220Q\330\010\020\220\016\230d\240&\250\004\250A\250]\270!\2701\340\010\020\220\001\330\004\013\320\013\034\230A\230Q\210q\220q\320\000\024\320\024'\240q\330\004\016\210c\220\024\220Q\220a\330\004\016\210c\220\024\220Q\220a\330\004\007\200y\220\001\220\031\230#\230Y\240a\240q\330\010\017\210q\330\004\013\2103\210a\210u\220A\220X\230W\240A\240U\250!\2508\2601""\320\000\031\230\030\240\021\330\004\017\210q\330\010\017\210q\330\004\017\210q\330\010\017\210q\330\004\017\210q\330\010\017\210q\330\004\017\210q\330\010\017\210q\330\004\017\210x\220t\2303\230a\230s\240!\2408\2502\250R\250r\260\021\320\000\027\320\027/\320/@\300\001\330\004\007\200v\210X\220S\230\001\330\010\017\210q\330\004\014\210J\220a\220u\230F\240!\330\004\007\200y\220\001\220\027\230\004\230F\240!\330\010\020\220\n\230!\2305\240\006\240a\330\004\013\320\013\033\2301\230G\2406\250\034\260Q\320\000\027\220x\230q\330\004\007\200z\220\021\220'\230\021\330\010\017\210w\220k\240\021\330\004\007\200z\220\021\220(\230&\240\001\330\010\017\210t\2206\230\021\230'\240\035\250a\330\004\013\2101\320\000\037\230z\320)<\270A\330\004\007\200s\210!\2106\220\023\220C\220{\240!\2401\330\010\017\210s\220!\2201\330\004\013\2106\220\023\220C\220t\2301\230A\330\004\013\210:\220Q\220n\240A\240Y\250a\250z\270\032\3001";
+    #else /* compression: none (7640 bytes) */
+const char* const bytes = "..2f30d4\346\230\237\346\216\250\350\215\220\350\257\215Amazon's ChoiceAmerica/Los_AngelesAmerica/Mexico_CityAsia/KolkataAsia/ShanghaiAsia/TokyoCN(HK)Competitor-Europe/BerlinEurope/LondonEurope/MadridEurope/ParisEurope/Rome-Keywords(Last-30-daysMarket-research-Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Product-Unique Words%Y-%m-%d()_:\n&\351\241\265,/,%?-add_notecompetitor-lookupdict[str, Any]dict[str, Any] | Nonedict[str, str]disable/dp/enablegc/gp/help/seller/at-a-glance.html?seller=https://isenabledkeyword-minerkeyword-reverselist[dict[str, Any]]list[dict[str, Any]] | Nonelist[str]%m.%d %H:%Mmarket-research\347\274\272\345\260\221 openpyxl \344\276\235\350\265\226\357\274\214\346\227\240\346\263\225\345\257\274\345\207\272 XLSXopscli/seller_sprite/export/xlsx.pyproduct-researchseller-spritestr | Nonewww.amazon.cawww.amazon.co.jpwww.amazon.co.ukwww.amazon.comwww.amazon.dewww.amazon.eswww.amazon.frwww.amazon.inwww.amazon.it\345\211\2153\351\241\265\346\227\240\346\216\222\345\220\215AA2AC\346\216\250\350\215\220\350\257\215ADADSAMAZON_CHOICEAMAZON_CHOICHASIN\345\211\215\345\215\201ASINAnyBBADGE_LABELSCCACANADACNCONVERSION_KEYWORD_TYPE_LABELSDEEAF2F8EDITORIAL_RECOMMENDATIONSER\346\216\250\350\215\220\350\257\215ESEXCELLENTExportColumnFOUR_STARFRFRANCEFontGERMANYHIGHLY_RATEDHKHR\346\216\250\350\215\220\350\257\215ININDIAINVALIDITITALYJAPANJPJSONDecodeErrorLOSTMXNATURAL_SEARCHINGNoneOFFICIALPPC\345\271\277\345\221\212PRECISEPRECISE_LONG_TAILPRIMARYPathPatternFill__Pyx_PyDict_NextRefSEARCHSITE_TIMEZONESSITE_TIME_LABELSSKUSP\345\271\277\345\221\212\350\257\215SPAINSPONSOR_BRANDSPONSOR_VIDEOSTABLESellerSpriteConfigErrorSellerSpriteExportResultTRAFFIC_KEYWORD_TYPE_LABELSTRAFFIC_SOURCE_LABELSUKUNITED_KINGDOMUSWorkbookYZoneInfoZoneInfoNotFoundError\346\240\207\351\242\230\350\257\246\347\273\206\345\217\202\346\225\260\345\215\226\345\256""\266\344\277\241\346\201\257\351\223\276\346\216\245\344\270\273\345\233\276\347\261\273\347\233\256\350\267\257\345\276\204\345\260\272\345\257\270\345\223\201\347\211\214\344\270\255\347\254\254\351\241\265\347\276\216\346\227\245\345\276\267\350\213\261\346\263\225\346\204\217\350\245\277\345\212\240\345\215\260\345\242\250\350\207\252\347\204\266\346\220\234\347\264\242\350\257\215\346\230\257\345\223\201\347\211\214\345\271\277\345\221\212\350\257\215\350\247\206\351\242\221\345\271\277\345\221\212\350\257\215\350\207\252\347\204\266\346\220\234\347\264\242\344\272\232\351\251\254\351\200\212\346\216\250\350\215\220\344\270\273\350\246\201\346\265\201\351\207\217\350\257\215\347\262\276\345\207\206\346\265\201\351\207\217\350\257\215\350\275\254\345\214\226\346\265\201\345\244\261\350\257\215\350\275\254\345\214\226\344\274\230\350\264\250\350\257\215\350\275\254\345\214\226\345\271\263\347\250\263\350\257\215\346\227\240\346\225\210\346\233\235\345\205\211\350\257\215\345\220\246\350\257\215\350\257\255\345\207\272\347\216\260\351\242\221\346\254\241\347\231\276\345\210\206\346\257\224activead_add_high_frequency_sheetadsamazonChoiceamazonChoiceKeywordamazonProductUrlamazonSellerUrl_amazon_domain_amazon_product_url_amazon_seller_url_apply_transformas_uriasinasinList_asin_list_asin_list.<locals>.genexprasyncio.coroutinesbadgeFlagbadgeLabelsbidMaxbidMinbidRangebid_maxbid_min_bid_rangeboldboolbooleanYcell_cell_valuecharchina_time__class_getitem__cline_in_tracebackclosecode_collect_fieldscolumncolumn_dimensionscolumn_index_column_value_column_width_column_width.<locals>.genexprcolumnscolumns_for_scenarioconversionKeywordTypeLabelscreate_sheetcurrencycurrency_labeldateMillis_date_millisdatetimedepartmentsJoin_departments_join_departments_join.<locals>.genexprdictionary_titledivide10dumpseditorialRecommendationsemptyIfNegativeensure_ascii_enum_list_join_enum_list_join.<locals>.genexprenumerateexcexcellentexist_okexport_rows_to_xlsxfallbackfgColorfieldfieldsfilenamefi""llfontfourStarfreeze_panesfrequencyfromtimestamp__func__genexprgetget_column_letter_get_valueheader_fillheader_fontheadershigh_frequency_rowshighlyRatedhourshttpindexintinvalid_is_blank_is_coroutine_is_numberisdigititemitemsjsonjsonObjectLines_json_object_lines_json_object_lines.<locals>.genexprkeykeyskeywordkeywordReverseUpdatedTime_keyword_reverse_updated_timelabellabelslast30latest30listJoin_list_join_list_join.<locals>.genexprloadslost__main___main_sheet_titlemarketIdmarket_idminutesmkdir__module__name__name__naturalSearchingnearlynextofficialopenpyxlopenpyxl.stylesopenpyxl.utilsopscli.seller_sprite.domain.exceptionsopscli.seller_sprite.domain.modelsopscli.seller_sprite.export.columnsopscli.seller_sprite.export.xlsxoutput_pathpagepageSizepage_sizeparamsparentparentspartpartspathpathlibpercentSuffixpercentage_percentageperiod_period_labelpoppositionprecisepreciseLongTailprimaryq__qualname__rankPagerankPosition_rank_page_rank_positionresolveresolved_outputreturnrowrow_indexrows_safe_sheet_title_safe_sheet_title.<locals>.genexprsavescenariosearchseensellerNation_seller_nationsend__set_name__setdefaultsheetsitesite_labelsite_timesolidsourcesponsorBrandsponsorVideostablestartstationstrstrftime__test__textthrowtimedeltatimestamptimezone_timezone_for_sitetitletrafficKeywordTypeLabelstrafficSourceLabelstransformtypingtzupperurlutcvaluevalueswidthwordworkbookyenzoneinfo\320\000\030\320\030+\2501\330\004\016\210c\220\021\220#\220T\230\021\230+\240S\250\003\2506\260\021\330\004\020\220\003\2204\220q\230\001\330\004\007\200x\210s\220(\230#\230Z\240s\250!\330\010\017\210q\330\004\007\200x\210s\220*\230C\230z\250\023\250A\330\010\017\210q\330\004\007\200x\210s\320\022#\2403\240j\260\003\2601\330\010\017\210q\330\004\007\200x\210s\220)\2303\230j\250\003\2501\330\010\017\210q\330\004\007\200x\210s\220)\2303\230j\250\003\2501\330\010\017\210q\330\004\007\200x\210s\220(\230#\230Z\240s\250!\330\010\017\210q\330\004\007\200x\210s\220(\230#\230Z\240s\250!\330\010\017\210q\330\004""\007\200x\210s\220(\230#\230Z\240s\250!\330\010\017\210q\330\004\013\2101\320\000\033\230=\320(;\2701\330\004\007\200y\220\001\220\021\330\010\017\210q\330\004\r\210Y\220j\240\001\240\027\250\013\2601\260A\330\004\014\210A\330\004\010\210\010\220\001\330\010\016\210c\220\021\220!\330\010\r\210W\220A\220V\2304\230q\240\005\240Q\330\004\013\2103\210e\2201\220A\320\000\032\320\0323\2601\330\004\030\230\001\330\004\030\230\001\330\004\010\210\007\210q\330\010\014\210G\2203\220e\2301\330\014\017\210t\2207\230!\330\020\024\220D\230\001\230\021\330\020\026\220g\230Q\230a\330\004\013\2101\320\000\032\230(\240!\330\004\013\2103\210a\210w\220c\230\021\330\004\007\200u\210D\220\007\220z\240\034\250Z\260q\330\010\017\210q\330\004\013\2104\210x\220q\230\005\230Q\320\000\024\320\024+\2508\2601\330\004\021\220\021\330\004\010\210\010\220\005\220V\2301\230A\330\010\013\210:\220Q\220g\230Q\330\014\024\220E\230\024\230Q\230a\330\r\027\220q\230\007\230v\240T\250\024\250X\260Q\330\014\024\220C\220q\230\001\330\014\024\220E\230\021\230*\240F\250\"\250C\250q\260\014\270A\340\014\023\2201\330\004\013\2101\220A\200\001\340\n\013\330\021\022\330\016\017\330\004\n\210!\330\004\014\210A\330\004\014\210A\330\004\031\230\021\330\005\006\340\004\005\330\010\r\320\r\035\230Q\330\010\r\320\r$\240F\250!\330\010\r\320\r#\2401\330\004\013\320\013\"\240!\330\010\016\320\016%\240Q\320&G\300q\340\004\017\210w\220f\230A\230X\240V\2509\260A\330\004\016\320\016\"\240!\240:\250Q\330\004\007\200t\2101\330\010\022\220!\220<\230q\320 2\3202D\300D\320H\\\320\\k\320kl\320lm\340\004\017\210x\220q\330\004\014\210H\220A\330\004\t\210\031\320\022#\2401\240I\250Z\260u\270F\300'\310\030\320QX\320X_\320_b\320bf\320fk\320kl\340\004\022\220+\230Q\230i\240x\250q\330\004\022\220$\220a\220u\230A\330\004\010\210\016\220j\240\t\250\021\250)\2606\270\021\330\010\017\210u\220E\230\021\230$\230c\240\027\250\016\260f\270F\300!\330\010\014\210H\220A\330\010\014\210H\220A\340\004\010\210\013\2207\230)\2401\240F\250&\260\001\330""\010\014\210N\230*\240I\250Q\250i\260v\270Q\330\014\021\220\025\220a\220t\230;\240g\250^\2706\300\033\310A\310]\320Z[\320[`\320`h\320hm\320mn\340\004\t\320\t\031\230\021\330\004\010\210\016\220j\240\t\250\021\250)\2606\270\021\330\010\020\220\r\230Q\230f\240A\330\010\r\320\r\037\230q\320 1\260\021\260.\300\t\310\021\340\004\007\200q\330\010!\240\021\240*\250A\340\004\014\210E\220\021\220!\330\004\026\220k\240\030\250\021\330\004\013\320\013#\2401\330\010\r\210S\220\001\220\021\330\010\021\220\037\240\001\330\010\014\210O\2307\240!\320\000\027\320\027/\320/F\300h\310a\330\004\007\200v\210X\220S\230\001\330\010\017\210q\330\004\014\210J\220a\220u\230F\240!\330\004\007\200y\220\001\220\027\230\004\230F\240!\330\010\020\220\n\230!\2305\240\006\240a\330\004\013\320\013\033\2301\230G\2406\250\034\260U\270%\270q\320\000.\320.G\300q\330\004\t\320\t \240\001\340\004\014\210H\220M\240\021\240!\330\004\016\210a\210v\220X\230Q\330\004\010\210\016\220i\230y\250\001\250\031\260&\270\001\330\010\r\210U\220!\2204\220s\230'\240\036\250v\260Q\330\010\r\210U\220!\2204\220s\230'\240\035\250h\260d\270!\2705\300\001\330\004\010\210\013\2207\230)\2401\240F\250&\260\001\330\010\r\210U\220!\2204\220{\240'\250\023\250F\260#\260T\270\021\270+\300S\310\003\3104\310q\320PV\320VY\320Y\\\320\\`\320`a\320ab\330\010\r\210U\220!\2204\220{\240'\250\023\250F\260#\260T\270\021\270-\300s\310#\310T\320QR\320RS\330\010\r\210U\220!\2204\220{\240'\250\023\250F\260#\260T\270\021\270.\310\003\3103\310d\320RS\320ST\330\004\t\320\t\033\2301\230D\240\t\250\021\330\004\t\320\t\033\2301\230D\240\t\250\021\330\004\t\320\t\033\2301\230D\240\t\250\021\220Q\320\000\035\230Q\330\004\n\210+\220^\2404\240q\250\003\2501\250E\260\026\260t\270>\310\021\310!\330\004\005\330\010\017\210x\220q\230\001\330\013\014\330\010\017\210q\320\000\034\320\034,\320,=\320=V\320V^\320^_\330\004\007\200t\2101\330\010\017\210q\330\004\007\200z\220\023\220A\330\010\017\210v\220Z\230q\240\007\240t\2505\260\001\260\027\270\002\270'\300\021\330""\004\007\200z\220\023\220A\330\010\017\320\017!\240\021\240!\330\004\007\200z\220\023\220A\330\010\017\320\017\"\240!\2407\250!\330\004\007\200z\220\023\220A\330\010\017\320\017!\240\021\240'\250\021\330\004\007\200z\220\023\220A\330\010\017\210v\220Y\230a\230|\2501\330\004\007\200z\220\023\220A\330\010\017\210v\220Y\230a\230|\2501\330\004\007\200z\220\023\220A\330\010\017\210w\220d\230!\230<\240q\330\004\007\200z\220\023\220A\330\010\017\320\017 \240\001\240\021\330\004\007\200z\220\023\220A\330\010\017\210{\230!\2301\330\004\007\200z\220\023\220A\330\010\017\210v\220Y\230a\230|\2502\250Q\250a\330\004\007\200z\220\023\220A\330\010\017\210|\2301\230A\330\004\007\200z\220\023\220A\330\010\017\320\017,\250A\250W\260E\270\021\330\004\007\200z\220\023\220A\330\010\017\210~\230Q\230a\330\004\007\200z\220\023\220A\330\010\017\210z\230\021\230!\330\004\007\200z\220\023\220A\330\010\017\210v\220Y\230a\230|\2505\260\001\260\027\270\002\270!\330\004\007\200z\220\023\220A\330\010\017\210~\230Q\230a\330\004\007\200z\220\024\220\\\240\021\330\010\017\210v\220Y\230a\230|\2502\250Q\250n\270A\270V\3001\300E\310\021\310&\320PQ\330\004\007\200z\220\023\220A\330\010\017\210z\230\021\230%\230u\240A\330\004\007\200z\220\023\220A\330\010\017\210z\230\021\230!\330\004\007\200z\220\023\220A\330\010\017\210z\230\021\230!\330\004\007\200z\220\023\220A\330\010\017\210\177\230a\230w\240a\330\004\007\200z\220\023\220A\330\010\017\210\177\230a\230w\240a\330\004\007\200z\220\023\220A\330\010\017\210\177\230a\230w\240a\330\004\007\200z\220\023\220A\330\010\017\210\177\230a\230w\240a\330\004\013\2101\320\000\025\220X\230Q\330\004\013\2106\220\023\220E\230\023\230F\240#\240Q\320\000\035\230X\240Q\330\004\014\210B\210e\2201\220A\330\004\014\210F\220#\320\025%\240R\240q\320\000\024\320\024-\250X\260Q\330\004\016\210c\220\024\220Q\220a\330\004\016\210c\220\024\220Q\220a\330\004\007\200y\220\001\220\031\230#\230Y\240a\240q\330\010\017\210q\330\004\017\210~\230Q\230a\330\004\013\2102\210Q\210i\220q\230""\005\230Q\230h\240f\250A\250Y\260a\260u\270A\270X\300Q\320\000\035\230X\240Q\330\004\007\200t\210:\220Q\220g\230Q\330\010\017\210q\330\004\013\2103\210e\2204\220q\320\000\026\220h\230a\330\004\005\330\010\r\210Q\210a\330\014\027\220q\330\010\017\210q\330\004\013\2101\320\000\026\220h\230a\330\004\007\200t\210:\220Q\220g\230Q\330\010\017\210q\330\004\013\2103\210e\2204\220q\320\000\026\220h\230a\330\004\007\200t\210:\220Q\220g\230Q\330\010\017\210q\330\004\013\2105\220\004\220A\220Q\330\004\014\210E\220\024\220Q\220a\330\004\020\220\005\220T\230\021\230!\330\004\007\200y\220\001\220\021\330\010\017\210q\330\004\007\200y\220\001\220\027\230\003\2309\240A\240Q\330\010\017\210s\220!\2201\330\004\013\2103\210a\210w\220a\220w\230a\230q\320\000\026\220h\230a\330\004\007\200t\210:\220Q\220g\230Q\330\010\017\210v\220Y\230a\230|\2503\250a\250q\330\004\014\210A\330\004\010\210\010\220\001\330\010\013\210:\220Q\220f\230A\330\014\021\220\027\230\001\230\021\330\r\027\220q\230\006\230a\330\014\021\220\027\230\001\230\023\230A\230T\240\024\240Q\240i\250s\260$\260d\270!\2708\3003\300d\310$\310a\310x\320WZ\320Z^\320^b\320bc\320cl\320lo\320os\320sy\320yz\360\000\000{\001A\002\360\000\000A\002N\002\360\000\000N\002O\002\330\r\022\220'\230\021\330\014\021\220\027\230\001\230\023\230A\230Q\330\004\013\2103\210e\2201\220A\320\000\036\230h\240a\330\004\007\200y\220\001\220\021\330\010\017\210q\330\004\007\200z\220\021\220'\230\021\330\010\t\330\014\024\220D\230\006\230a\230q\330\017\023\2201\330\014\023\2201\330\004\007\200t\210:\220Q\220g\230Q\330\010\017\210q\330\004\013\2104\210u\220A\220Q\320\000\036\230j\320(;\2701\330\004\007\200t\2101\330\010\017\210q\330\004\013\210:\220Q\220n\240A\320%R\320RS\320ST\320\000#\240;\250m\270=\320H^\320^w\320wx\330\004\007\200y\220\003\2201\330\010\022\220&\230\004\230A\230[\250\003\2506\260\024\260Q\260e\2703\270a\330\010\020\220\003\2204\220v\230T\240\021\240)\2501\250C\250q\260\001\330\t\022\220#\220Q\330\010\017\210v\220T\230\021\230(\240#\240V""\2504\250q\260\005\260S\270\001\330\010\020\220\003\2204\220v\230T\240\021\240/\260\021\260#\260Q\260a\330\t\022\220#\220Q\330\010\020\220\013\2304\230v\240T\250\021\250-\260q\270\001\330\t\022\220#\220Q\330\010\020\220\016\230d\240&\250\004\250A\250]\270!\2701\330\t\022\220#\220Q\330\010\020\320\020#\2404\240v\250T\260\021\260-\270q\300\001\340\010\020\220\001\330\004\013\320\013\034\230A\230Q\210q\220q\320\000\031\230\030\240\021\330\004\017\210q\330\010\017\210q\330\004\017\210q\330\010\017\210q\330\004\017\210q\330\010\017\210q\330\004\017\210q\330\010\017\210q\330\004\017\210x\220t\2303\230a\230s\240!\2408\2502\250R\250r\260\021\320\000\032\230(\240!\330\004\007\200t\210:\220Q\220g\230Q\330\010\017\210|\2309\240A\240\\\260\021\330\004\017\210u\220D\230\001\230\021\330\004\013\210<\220y\240\001\240\037\260\001\320\000\027\220x\230q\330\004\007\200y\220\001\220\021\330\010\017\210q\330\004\013\2102\210Q\210e\2201\220G\2302\230S\240\001\320\000)\250\036\260x\270q\330\004\007\200y\220\001\220\021\330\010\017\210q\330\004\020\220\005\220Q\220g\230R\230q\330\004\021\220\030\230\036\240q\250\013\2603\3206H\310\001\310\021\330\004\020\220\010\230\016\240a\240{\260#\3205G\300q\310\001\330\004\021\320\021!\240\024\240Q\240c\250\021\250%\250v\260T\270\023\270A\270U\300&\310\001\330\004\013\2103\210a\210z\230\031\240!\320#4\260A\260[\300\001\300\031\310)\320ST\320TU\320\000\027\220x\230q\330\004\007\200z\220\021\220'\230\021\330\010\017\210w\220k\240\021\330\004\007\200z\220\021\220(\230&\240\001\330\010\017\210t\2206\230\021\230'\240\035\250a\330\004\013\2101\320\000\032\230(\240!\330\004\007\200y\220\001\220\021\330\010\017\210q\330\004\013\2103\210a\210q\330\004\013\210<\220u\230C\230z\250\021\320\000\030\230\010\240\001\330\004\007\200y\220\001\220\021\330\010\017\210q\330\004\013\2108\220>\240\021\240%\240q\250\007\250r\260\026\260s\270(\300%\300y\320PQ\320QR\320\000\037\230z\320)<\270A\330\004\007\200s\210!\2106\220\023\220C\220{\240!\2401\330\010\017\210s\220!\2201""\330\004\013\2106\220\023\220C\220t\2301\230A\330\004\013\210:\220Q\220n\240A\240Y\250a\250z\270\032\3001";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif
     PyObject **stringtab = __pyx_mstate->__pyx_string_tab;
     Py_ssize_t pos = 0;
-    for (int i = 0; i < 254; i++) {
+    for (int i = 0; i < 398; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyUnicode_DecodeUTF8(bytes + pos, bytes_length, NULL);
-      if (likely(string) && i >= 51) PyUnicode_InternInPlace(&string);
+      if (likely(string) && i >= 69) PyUnicode_InternInPlace(&string);
       if (unlikely(!string)) {
         Py_XDECREF(data);
         __PYX_ERR(0, 1, __pyx_L1_error)
@@ -16724,7 +21421,7 @@ const char* const bytes = "..2f30dAmazon's ChoiceCompetitor--Keywords(Last-30-da
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 254; i < 279; i++) {
+    for (int i = 398; i < 431; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
@@ -16735,15 +21432,15 @@ const char* const bytes = "..2f30dAmazon's ChoiceCompetitor--Keywords(Last-30-da
       }
     }
     Py_XDECREF(data);
-    for (Py_ssize_t i = 0; i < 279; i++) {
+    for (Py_ssize_t i = 0; i < 431; i++) {
       if (unlikely(PyObject_Hash(stringtab[i]) == -1)) {
         __PYX_ERR(0, 1, __pyx_L1_error)
       }
     }
     #if CYTHON_IMMORTAL_CONSTANTS
     {
-      PyObject **table = stringtab + 254;
-      for (Py_ssize_t i=0; i<25; ++i) {
+      PyObject **table = stringtab + 398;
+      for (Py_ssize_t i=0; i<33; ++i) {
         #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
         #if PY_VERSION_HEX < 0x030E0000
         if (_Py_IsOwnedByCurrentThread(table[i]) && Py_REFCNT(table[i]) == 1)
@@ -16762,8 +21459,8 @@ const char* const bytes = "..2f30dAmazon's ChoiceCompetitor--Keywords(Last-30-da
   }
   {
     PyObject **numbertab = __pyx_mstate->__pyx_number_tab + 0;
-    int8_t const cint_constants_1[] = {1,2,3,4,5,6,7,8,9,10,14,18,24,32,38,48};
-    for (int i = 0; i < 16; i++) {
+    int8_t const cint_constants_1[] = {1,2,3,4,5,-6,6,-7,7,8,9,10,14,18,24,30,32,38,48};
+    for (int i = 0; i < 19; i++) {
       numbertab[i] = PyLong_FromLong(cint_constants_1[i - 0]);
       if (unlikely(!numbertab[i])) __PYX_ERR(0, 1, __pyx_L1_error)
     }
@@ -16771,7 +21468,7 @@ const char* const bytes = "..2f30dAmazon's ChoiceCompetitor--Keywords(Last-30-da
   #if CYTHON_IMMORTAL_CONSTANTS
   {
     PyObject **table = __pyx_mstate->__pyx_number_tab;
-    for (Py_ssize_t i=0; i<16; ++i) {
+    for (Py_ssize_t i=0; i<19; ++i) {
       #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
       #if PY_VERSION_HEX < 0x030E0000
       if (_Py_IsOwnedByCurrentThread(table[i]) && Py_REFCNT(table[i]) == 1)
@@ -16815,154 +21512,199 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   PyObject* tuple_dedup_map = PyDict_New();
   if (unlikely(!tuple_dedup_map)) return -1;
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 173};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 201};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_char};
     __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_kp_b_iso88591_A_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 185};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 213};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_key};
     __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_kp_b_iso88591_q_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 187};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 215};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_key};
     __pyx_mstate_global->__pyx_codeobj_tab[2] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_kp_b_iso88591_q_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[2])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 189};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 217};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_key};
     __pyx_mstate_global->__pyx_codeobj_tab[3] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_kp_b_iso88591_q_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[3])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 191};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 219};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_key};
     __pyx_mstate_global->__pyx_codeobj_tab[4] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_kp_b_iso88591_q_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[4])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 206};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 234};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_key, __pyx_mstate->__pyx_n_u_item};
     __pyx_mstate_global->__pyx_codeobj_tab[5] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_kp_b_iso88591_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[5])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 247};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 275};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_item};
     __pyx_mstate_global->__pyx_codeobj_tab[6] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_kp_b_iso88591_q_3, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[6])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 261};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 375};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_item};
     __pyx_mstate_global->__pyx_codeobj_tab[7] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_kp_b_iso88591_q_3, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[7])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 275};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 389};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_part};
     __pyx_mstate_global->__pyx_codeobj_tab[8] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_kp_b_iso88591_A_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[8])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 7, 25, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 13};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 450};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_part};
+    __pyx_mstate_global->__pyx_codeobj_tab[9] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_kp_b_iso88591_A_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[9])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 7, 25, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 15};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_rows, __pyx_mstate->__pyx_n_u_output_path, __pyx_mstate->__pyx_n_u_scenario, __pyx_mstate->__pyx_n_u_site, __pyx_mstate->__pyx_n_u_period, __pyx_mstate->__pyx_n_u_params, __pyx_mstate->__pyx_n_u_high_frequency_rows, __pyx_mstate->__pyx_n_u_Workbook, __pyx_mstate->__pyx_n_u_Font, __pyx_mstate->__pyx_n_u_PatternFill, __pyx_mstate->__pyx_n_u_get_column_letter, __pyx_mstate->__pyx_n_u_exc, __pyx_mstate->__pyx_n_u_columns, __pyx_mstate->__pyx_n_u_workbook, __pyx_mstate->__pyx_n_u_sheet, __pyx_mstate->__pyx_n_u_header_fill, __pyx_mstate->__pyx_n_u_header_font, __pyx_mstate->__pyx_n_u_column_index, __pyx_mstate->__pyx_n_u_column, __pyx_mstate->__pyx_n_u_cell, __pyx_mstate->__pyx_n_u_row_index, __pyx_mstate->__pyx_n_u_row, __pyx_mstate->__pyx_n_u_width, __pyx_mstate->__pyx_n_u_resolved_output, __pyx_mstate->__pyx_n_u_dictionary_title};
-    __pyx_mstate_global->__pyx_codeobj_tab[9] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_export_rows_to_xlsx, __pyx_mstate->__pyx_kp_b_iso88591_A_A_Q_F_1_Q_Gq_wfAXV9A_Q_t1_q_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[9])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[10] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_export_rows_to_xlsx, __pyx_mstate->__pyx_kp_b_iso88591_A_A_Q_F_1_Q_Gq_wfAXV9A_Q_t1_q_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[10])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 68};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 70};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_rows, __pyx_mstate->__pyx_n_u_fields, __pyx_mstate->__pyx_n_u_seen, __pyx_mstate->__pyx_n_u_row, __pyx_mstate->__pyx_n_u_key};
-    __pyx_mstate_global->__pyx_codeobj_tab[10] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_collect_fields, __pyx_mstate->__pyx_kp_b_iso88591_31_q_G3e1_t7_D_gQa_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[10])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[11] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_collect_fields, __pyx_mstate->__pyx_kp_b_iso88591_31_q_G3e1_t7_D_gQa_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[11])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 79};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 81};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_row, __pyx_mstate->__pyx_n_u_field, __pyx_mstate->__pyx_n_u_value, __pyx_mstate->__pyx_n_u_part, __pyx_mstate->__pyx_n_u_index};
-    __pyx_mstate_global->__pyx_codeobj_tab[11] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_get_value, __pyx_mstate->__pyx_kp_b_iso88591_81_V1A_QgQ_E_Qa_q_vT_XQ_Cq_E_F, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[11])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[12] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_get_value, __pyx_mstate->__pyx_kp_b_iso88591_81_V1A_QgQ_E_Qa_q_vT_XQ_Cq_E_F, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[12])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 92};
-    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_row, __pyx_mstate->__pyx_n_u_column, __pyx_mstate->__pyx_n_u_value};
-    __pyx_mstate_global->__pyx_codeobj_tab[12] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_column_value, __pyx_mstate->__pyx_kp_b_iso88591_vXS_q_JauF_y_F_5_a_1G6_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[12])) goto bad;
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 94};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_row, __pyx_mstate->__pyx_n_u_column, __pyx_mstate->__pyx_n_u_site, __pyx_mstate->__pyx_n_u_value};
+    __pyx_mstate_global->__pyx_codeobj_tab[13] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_column_value, __pyx_mstate->__pyx_kp_b_iso88591_Fha_vXS_q_JauF_y_F_5_a_1G6_U_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[13])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 101};
-    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_value, __pyx_mstate->__pyx_n_u_transform, __pyx_mstate->__pyx_n_u_row};
-    __pyx_mstate_global->__pyx_codeobj_tab[13] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_apply_transform, __pyx_mstate->__pyx_kp_b_iso88591_PPQ_t1_q_z_A_vZq_t5_z_A_z_A_7_z, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[13])) goto bad;
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 1, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 103};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_value, __pyx_mstate->__pyx_n_u_transform, __pyx_mstate->__pyx_n_u_row, __pyx_mstate->__pyx_n_u_site};
+    __pyx_mstate_global->__pyx_codeobj_tab[14] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_apply_transform, __pyx_mstate->__pyx_kp_b_iso88591_VV___t1_q_z_A_vZq_t5_z_A_z_A_7, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[14])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 131};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 157};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_value};
-    __pyx_mstate_global->__pyx_codeobj_tab[14] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_cell_value, __pyx_mstate->__pyx_kp_b_iso88591_xq_z_wk_z_t6_a_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[14])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[15] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_cell_value, __pyx_mstate->__pyx_kp_b_iso88591_xq_z_wk_z_t6_a_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[15])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 9, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 139};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 9, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 165};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_workbook, __pyx_mstate->__pyx_n_u_rows, __pyx_mstate->__pyx_n_u_Font, __pyx_mstate->__pyx_n_u_sheet, __pyx_mstate->__pyx_n_u_headers, __pyx_mstate->__pyx_n_u_column_index, __pyx_mstate->__pyx_n_u_title, __pyx_mstate->__pyx_n_u_row_index, __pyx_mstate->__pyx_n_u_row};
-    __pyx_mstate_global->__pyx_codeobj_tab[15] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_add_high_frequency_sheet, __pyx_mstate->__pyx_kp_b_iso88591_Gq_HM_avXQ_iy_U_4s_vQ_U_4s_hd_5, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[15])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[16] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_add_high_frequency_sheet, __pyx_mstate->__pyx_kp_b_iso88591_Gq_HM_avXQ_iy_U_4s_vQ_U_4s_hd_5, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[16])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 5, 8, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 156};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 5, 8, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 182};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_scenario, __pyx_mstate->__pyx_n_u_site, __pyx_mstate->__pyx_n_u_period, __pyx_mstate->__pyx_n_u_params, __pyx_mstate->__pyx_n_u_rows, __pyx_mstate->__pyx_n_u_keyword, __pyx_mstate->__pyx_n_u_title, __pyx_mstate->__pyx_n_u_asin};
-    __pyx_mstate_global->__pyx_codeobj_tab[16] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_main_sheet_title, __pyx_mstate->__pyx_kp_b_iso88591_m_H_wwx_y_1_A_6_Qe3a_4vT_1Cq_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[16])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[17] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_main_sheet_title, __pyx_mstate->__pyx_kp_b_iso88591_m_H_wwx_y_1_A_6_Qe3a_4vT_1Cq_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[17])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 172};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 200};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_value, __pyx_mstate->__pyx_n_u_title, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_n_u_genexpr};
-    __pyx_mstate_global->__pyx_codeobj_tab[17] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_safe_sheet_title, __pyx_mstate->__pyx_kp_b_iso88591_XQ_Be1A_F_Rq, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[17])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[18] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_safe_sheet_title, __pyx_mstate->__pyx_kp_b_iso88591_XQ_Be1A_F_Rq, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[18])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 177};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 205};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_period, __pyx_mstate->__pyx_n_u_text};
-    __pyx_mstate_global->__pyx_codeobj_tab[18] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_period_label, __pyx_mstate->__pyx_kp_b_iso88591_3awc_uD_z_Zq_q_4xq_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[18])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[19] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_period_label, __pyx_mstate->__pyx_kp_b_iso88591_3awc_uD_z_Zq_q_4xq_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[19])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 184};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 212};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_title, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_n_u_genexpr};
-    __pyx_mstate_global->__pyx_codeobj_tab[19] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_column_width, __pyx_mstate->__pyx_kp_b_iso88591_q_q_q_q_q_q_q_q_xt3as_82Rr, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[19])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[20] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_column_width, __pyx_mstate->__pyx_kp_b_iso88591_q_q_q_q_q_q_q_q_xt3as_82Rr, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[20])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 196};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 224};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_value, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_n_u_genexpr};
-    __pyx_mstate_global->__pyx_codeobj_tab[20] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_json_object_lines, __pyx_mstate->__pyx_kp_b_iso88591_ha_y_q_z_D_aq_1_1_t_QgQ_q_4uAQ, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[20])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[21] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_json_object_lines, __pyx_mstate->__pyx_kp_b_iso88591_ha_y_q_z_D_aq_1_1_t_QgQ_q_4uAQ, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[21])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 209};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 237};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_value, __pyx_mstate->__pyx_n_u_row, __pyx_mstate->__pyx_n_u_asin};
-    __pyx_mstate_global->__pyx_codeobj_tab[21] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_amazon_product_url, __pyx_mstate->__pyx_kp_b_iso88591_z_A_s_6_C_1_s_1_6_Ct1A_QnAYaz_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[21])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[22] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_amazon_product_url, __pyx_mstate->__pyx_kp_b_iso88591_z_A_s_6_C_1_s_1_6_Ct1A_QnAYaz_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[22])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 216};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 244};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_value, __pyx_mstate->__pyx_n_u_row};
-    __pyx_mstate_global->__pyx_codeobj_tab[22] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_amazon_seller_url, __pyx_mstate->__pyx_kp_b_iso88591_j_1_t1_q_QnA_RRSST, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[22])) goto bad;
-  }
-  {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 222};
-    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_row, __pyx_mstate->__pyx_n_u_station, __pyx_mstate->__pyx_n_u_market_id};
-    __pyx_mstate_global->__pyx_codeobj_tab[23] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_amazon_domain, __pyx_mstate->__pyx_kp_b_iso88591_1_c_T_S_6_4q_xs_Zs_q_xs_Cz_A_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[23])) goto bad;
-  }
-  {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 244};
-    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_value, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_n_u_genexpr};
-    __pyx_mstate_global->__pyx_codeobj_tab[24] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_departments_join, __pyx_mstate->__pyx_kp_b_iso88591_XQ_t_QgQ_q_3e4q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[24])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[23] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_amazon_seller_url, __pyx_mstate->__pyx_kp_b_iso88591_j_1_t1_q_QnA_RRSST, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[23])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 250};
-    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_row, __pyx_mstate->__pyx_n_u_bid_min, __pyx_mstate->__pyx_n_u_bid_max};
-    __pyx_mstate_global->__pyx_codeobj_tab[25] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_bid_range, __pyx_mstate->__pyx_kp_b_iso88591_q_c_Qa_c_Qa_y_Yaq_q_3auAXWAU_81, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[25])) goto bad;
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_row, __pyx_mstate->__pyx_n_u_station, __pyx_mstate->__pyx_n_u_market_id};
+    __pyx_mstate_global->__pyx_codeobj_tab[24] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_amazon_domain, __pyx_mstate->__pyx_kp_b_iso88591_1_c_T_S_6_4q_xs_Zs_q_xs_Cz_A_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[24])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 258};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 272};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_value, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_n_u_genexpr};
-    __pyx_mstate_global->__pyx_codeobj_tab[26] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_asin_list, __pyx_mstate->__pyx_kp_b_iso88591_ha_t_QgQ_q_3e4q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[26])) goto bad;
-  }
-  {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 264};
-    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_value, __pyx_mstate->__pyx_n_u_parts, __pyx_mstate->__pyx_n_u_item, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_n_u_genexpr};
-    __pyx_mstate_global->__pyx_codeobj_tab[27] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_list_join, __pyx_mstate->__pyx_kp_b_iso88591_ha_t_QgQ_vYa_3aq_A_QfA_q_a_AT_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[27])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[25] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_departments_join, __pyx_mstate->__pyx_kp_b_iso88591_XQ_t_QgQ_q_3e4q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[25])) goto bad;
   }
   {
     const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 278};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_value};
-    __pyx_mstate_global->__pyx_codeobj_tab[28] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_is_blank, __pyx_mstate->__pyx_kp_b_iso88591_XQ_6_E_F_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[28])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[26] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_percentage_2, __pyx_mstate->__pyx_kp_b_iso88591_xq_y_q_2Qe1G2S, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[26])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 282};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 284};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_value};
-    __pyx_mstate_global->__pyx_codeobj_tab[29] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_is_number, __pyx_mstate->__pyx_kp_b_iso88591_ha_Qa_q_q_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[29])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[27] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_date_millis, __pyx_mstate->__pyx_kp_b_iso88591_y_q_8_q_r_s_yPQQR, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[27])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 290};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_value, __pyx_mstate->__pyx_n_u_site, __pyx_mstate->__pyx_n_u_timestamp, __pyx_mstate->__pyx_n_u_china_time, __pyx_mstate->__pyx_n_u_site_time, __pyx_mstate->__pyx_n_u_site_label};
+    __pyx_mstate_global->__pyx_codeobj_tab[28] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_keyword_reverse_updated_time, __pyx_mstate->__pyx_kp_b_iso88591_xq_y_q_QgRq_q_36H_a_5Gq_Qc_vT_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[28])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 300};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_value, __pyx_mstate->__pyx_n_u_page, __pyx_mstate->__pyx_n_u_index, __pyx_mstate->__pyx_n_u_page_size};
+    __pyx_mstate_global->__pyx_codeobj_tab[29] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_rank_page, __pyx_mstate->__pyx_kp_b_iso88591_ha_t_QgQ_q_5_AQ_E_Qa_T_y_q_y_9A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[29])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 313};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_value, __pyx_mstate->__pyx_n_u_position};
+    __pyx_mstate_global->__pyx_codeobj_tab[30] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_rank_position, __pyx_mstate->__pyx_kp_b_iso88591_t_QgQ_9A_uD_y, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[30])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 320};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_value, __pyx_mstate->__pyx_n_u_text};
+    __pyx_mstate_global->__pyx_codeobj_tab[31] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_seller_nation, __pyx_mstate->__pyx_kp_b_iso88591_y_q_3aq_uCz, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[31])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 327};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_row, __pyx_mstate->__pyx_n_u_site, __pyx_mstate->__pyx_n_u_bid_min, __pyx_mstate->__pyx_n_u_bid_max, __pyx_mstate->__pyx_n_u_currency};
+    __pyx_mstate_global->__pyx_codeobj_tab[32] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_bid_range, __pyx_mstate->__pyx_kp_b_iso88591_XQ_c_Qa_c_Qa_y_Yaq_q_Qa_2Qiq_Qh, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[32])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 364};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_site, __pyx_mstate->__pyx_n_u_name, __pyx_mstate->__pyx_n_u_fallback};
+    __pyx_mstate_global->__pyx_codeobj_tab[33] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_timezone_for_site, __pyx_mstate->__pyx_kp_b_iso88591_Q_4q_1E_t_xq_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[33])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 372};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_value, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_n_u_genexpr};
+    __pyx_mstate_global->__pyx_codeobj_tab[34] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_asin_list, __pyx_mstate->__pyx_kp_b_iso88591_ha_t_QgQ_q_3e4q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[34])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 378};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_value, __pyx_mstate->__pyx_n_u_parts, __pyx_mstate->__pyx_n_u_item, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_n_u_genexpr};
+    __pyx_mstate_global->__pyx_codeobj_tab[35] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_list_join, __pyx_mstate->__pyx_kp_b_iso88591_ha_t_QgQ_vYa_3aq_A_QfA_q_a_AT_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[35])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 8, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 442};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_value, __pyx_mstate->__pyx_n_u_labels, __pyx_mstate->__pyx_n_u_values, __pyx_mstate->__pyx_n_u_parts, __pyx_mstate->__pyx_n_u_item, __pyx_mstate->__pyx_n_u_key, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_n_u_genexpr};
+    __pyx_mstate_global->__pyx_codeobj_tab[36] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_enum_list_join, __pyx_mstate->__pyx_kp_b_iso88591_1_y_q_Yj_1A_A_c_WAV4q_Q_3e1A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[36])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 453};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_value};
+    __pyx_mstate_global->__pyx_codeobj_tab[37] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_is_blank, __pyx_mstate->__pyx_kp_b_iso88591_XQ_6_E_F_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[37])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 457};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_value};
+    __pyx_mstate_global->__pyx_codeobj_tab[38] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_xlsx_2, __pyx_mstate->__pyx_n_u_is_number, __pyx_mstate->__pyx_kp_b_iso88591_ha_Qa_q_q_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[38])) goto bad;
   }
   Py_DECREF(tuple_dedup_map);
   return 0;
@@ -19707,6 +24449,74 @@ static double __Pyx__PyObject_AsDouble(PyObject* obj) {
 bad:
     return (double)-1;
 }
+
+/* UnicodeConcatInPlace */
+# if CYTHON_COMPILING_IN_CPYTHON
+static int
+__Pyx_unicode_modifiable(PyObject *unicode, int unsafe_shared)
+{
+    if (!__Pyx_IS_UNIQUELY_REFERENCED(unicode, unsafe_shared))
+        return 0;
+#if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX > 0x030F0000
+    if (PyUnstable_Unicode_GET_CACHED_HASH(unicode) != -1)
+        return 0;
+#endif
+    if (!PyUnicode_CheckExact(unicode))
+        return 0;
+    if (PyUnicode_CHECK_INTERNED(unicode))
+        return 0;
+    return 1;
+}
+static CYTHON_INLINE PyObject *__Pyx_PyUnicode_ConcatInPlaceImpl(PyObject **p_left, PyObject *right, int unsafe_shared
+        #if CYTHON_REFNANNY
+        , void* __pyx_refnanny
+        #endif
+    ) {
+    PyObject *left = *p_left;
+    Py_ssize_t left_len, right_len, new_len;
+    if (unlikely(__Pyx_PyUnicode_READY(left) == -1))
+        return NULL;
+    if (unlikely(__Pyx_PyUnicode_READY(right) == -1))
+        return NULL;
+    left_len = PyUnicode_GET_LENGTH(left);
+    if (left_len == 0) {
+        Py_INCREF(right);
+        return right;
+    }
+    right_len = PyUnicode_GET_LENGTH(right);
+    if (right_len == 0) {
+        Py_INCREF(left);
+        return left;
+    }
+    if (unlikely(left_len > PY_SSIZE_T_MAX - right_len)) {
+        PyErr_SetString(PyExc_OverflowError,
+                        "strings are too large to concat");
+        return NULL;
+    }
+    new_len = left_len + right_len;
+    if (__Pyx_unicode_modifiable(left, unsafe_shared)
+            && PyUnicode_CheckExact(right)
+            && PyUnicode_KIND(right) <= PyUnicode_KIND(left)
+            && !(PyUnicode_IS_ASCII(left) && !PyUnicode_IS_ASCII(right))) {
+        int ret;
+        __Pyx_GIVEREF(*p_left);
+        ret = PyUnicode_Resize(p_left, new_len);
+        __Pyx_GOTREF(*p_left);
+        if (unlikely(ret != 0))
+            return NULL;
+        #if PY_VERSION_HEX >= 0x030d0000
+        if (unlikely(PyUnicode_CopyCharacters(*p_left, left_len, right, 0, right_len) < 0)) return NULL;
+        #else
+        _PyUnicode_FastCopyCharacters(*p_left, left_len, right, 0, right_len);
+        #endif
+        __Pyx_INCREF(*p_left);
+        __Pyx_GIVEREF(*p_left);
+        return *p_left;
+    } else {
+        return __Pyx_PyUnicode_Concat(left, right);
+    }
+  }
+#endif
 
 /* pynumber_float */
 static CYTHON_INLINE PyObject* __Pyx__PyNumber_Float(PyObject* obj) {
@@ -22582,7 +27392,7 @@ __Pyx_PyType_GetFullyQualifiedName(PyTypeObject* tp)
         result = name;
         name = NULL;
     } else {
-        result = __Pyx_NewRef(__pyx_mstate_global->__pyx_kp_u__26);
+        result = __Pyx_NewRef(__pyx_mstate_global->__pyx_kp_u__50);
     }
     goto done;
 }

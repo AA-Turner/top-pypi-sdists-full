@@ -28,6 +28,7 @@ class _AnthropicFormatterBase(FormatterBase, ABC):
     """Mixin for formatting Anthropic formatters to avoid duplication between
     AnthropicChatFormatter and AnthropicMultiAgentFormatter."""
 
+    # pylint: disable=too-many-branches
     async def _format_messages(
         self,
         msgs: list[Msg],
@@ -76,17 +77,25 @@ class _AnthropicFormatterBase(FormatterBase, ABC):
                     )
 
                 elif isinstance(block, ThinkingBlock):
-                    # Anthropic requires the signature to be passed back in
-                    # subsequent requests so the API can verify the thinking
-                    # block.  signature is stored as an extra field and may be
-                    # absent on blocks from other providers.
-                    content_blocks.append(
-                        {
-                            "type": "thinking",
-                            "thinking": block.thinking,
-                            "signature": getattr(block, "signature", "") or "",
-                        },
-                    )
+                    # Anthropic rejects thinking blocks without a valid
+                    # signature ("Invalid `signature` in `thinking` block").
+                    # ThinkingBlocks from other providers (OpenAI, DeepSeek,
+                    # ...) carry no signature, so drop them instead of
+                    # forwarding an empty one.
+                    signature = getattr(block, "signature", None)
+                    if signature:
+                        content_blocks.append(
+                            {
+                                "type": "thinking",
+                                "thinking": block.thinking,
+                                "signature": signature,
+                            },
+                        )
+                    else:
+                        logger.debug(
+                            "Dropping ThinkingBlock without signature; "
+                            "Anthropic requires a valid signature.",
+                        )
 
                 elif isinstance(block, HintBlock):
                     if content_blocks:
@@ -97,14 +106,32 @@ class _AnthropicFormatterBase(FormatterBase, ABC):
                         content_blocks = []
                         has_tool_result = False
 
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": block.hint},
-                            ],
-                        },
-                    )
+                    if isinstance(block.hint, str):
+                        messages.append(
+                            {
+                                "role": "user",
+                                "content": [
+                                    {"type": "text", "text": block.hint},
+                                ],
+                            },
+                        )
+                    else:
+                        hint_parts: list[dict] = []
+                        for sub in block.hint:
+                            if isinstance(sub, TextBlock):
+                                hint_parts.append(
+                                    {"type": "text", "text": sub.text},
+                                )
+                            elif isinstance(sub, DataBlock):
+                                formatted_sub = (
+                                    self._format_anthropic_data_block(sub)
+                                )
+                                if formatted_sub:
+                                    hint_parts.append(formatted_sub)
+                        if hint_parts:
+                            messages.append(
+                                {"role": "user", "content": hint_parts},
+                            )
 
                 elif isinstance(block, DataBlock):
                     formatted_block = self._format_anthropic_data_block(block)

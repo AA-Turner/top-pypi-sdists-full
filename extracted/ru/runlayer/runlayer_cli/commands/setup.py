@@ -21,6 +21,21 @@ from runlayer_cli.config import (
     resolve_credentials,
     set_credentials_in_context,
 )
+
+# Canonical "is this command ours?" check lives in the MDM bundle module.
+# setup.py is not in the frozen bundle, so importing from it is one-directional
+# and safe (the reverse — clients.py importing setup.py — would break the
+# bundle excludes). One home for the matcher + legacy name list.
+from runlayer_cli.hook_install.clients import _is_runlayer_command
+from runlayer_cli.hook_install.console_user import reown_to_console_user
+from runlayer_cli.hook_install.paths import enterprise_claude_code_dir
+from runlayer_cli.hook_install.safe_fs import (
+    console_home_anchor,
+    maybe_safe_read_bytes,
+    maybe_safe_read_text,
+    maybe_safe_write_bytes,
+    maybe_safe_write_text,
+)
 from runlayer_cli.scan.clients import get_client_by_name
 from runlayer_cli.symbols import OK, FAIL, WARN
 
@@ -123,24 +138,32 @@ ENTERPRISE_CONFIG_DIRS: dict[Client, Path] = {
 
 def _get_config_dir(client: Client, mdm: bool) -> Path:
     """Get the configuration directory for a client based on install mode."""
+    # Claude Code's MDM dir resolves via hook_install.paths (the ENG-3204
+    # source of truth) so prompts/install/uninstall all name the dir we write.
+    if client == Client.CLAUDE_CODE and mdm:
+        return enterprise_claude_code_dir()
     if mdm:
         return ENTERPRISE_CONFIG_DIRS[client]
     return CLIENT_CONFIG_DIRS[client]
 
 
-def _backup_file(file_path: Path) -> Path | None:
+def _backup_file(file_path: Path, *, home: Path | None = None) -> Path | None:
     """Create a timestamped backup of a file if it exists.
 
-    Returns the backup path if a backup was created, None otherwise.
+    With *home* set the read/write are link-safe (root MDM writes into the
+    user-controlled home can't be redirected by a planted symlink, nor leak a
+    root-only file into a user-readable backup — ENG-3217); otherwise plain path
+    ops are used. Returns the backup path, or ``None`` when there is no real file
+    to back up.
     """
-    if not file_path.exists():
+    data = maybe_safe_read_bytes(file_path, home=home)
+    if data is None:
         return None
-
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    stem = file_path.stem
-    suffix = file_path.suffix
-    backup_path = file_path.with_name(f"{stem}.backup_{timestamp}{suffix}")
-    backup_path.write_bytes(file_path.read_bytes())
+    backup_path = file_path.with_name(
+        f"{file_path.stem}.backup_{timestamp}{file_path.suffix}"
+    )
+    maybe_safe_write_bytes(backup_path, data, home=home)
     return backup_path
 
 
@@ -308,19 +331,6 @@ def _generate_hermes_hooks(
     hook_command = f'"{path_str}"' if " " in path_str else path_str
     hooks_list = _HERMES_ALL_HOOKS if include_pipeline else _HERMES_ENFORCEMENT_HOOKS
     return {name: [{"command": hook_command}] for name in hooks_list}
-
-
-_RUNLAYER_SCRIPT_NAMES = [
-    _HOOK_SCRIPT_NAME,
-    "aiwatch-enforce",
-    "runlayer-hook",
-    _OLD_CURSOR_HOOK_NAME,
-    _OLD_CLAUDE_HOOK_NAME,
-]
-
-
-def _is_runlayer_command(cmd: str) -> bool:
-    return any(name in cmd for name in _RUNLAYER_SCRIPT_NAMES)
 
 
 def _filter_runlayer_cursor_hooks(hooks: dict) -> dict:
@@ -692,7 +702,11 @@ def _install_hooks(
 
 
 def _migrate_claude_code_user_to_enterprise() -> None:
-    """Remove user-level Claude Code hooks when migrating to enterprise location."""
+    """Remove user-level Claude Code hooks when migrating to enterprise location.
+
+    Dormant under ENG-3204 (MDM writes user hooks in place — see
+    hook_install.paths); re-wire into the install path when reverting.
+    """
     user_dir = CLIENT_CONFIG_DIRS[Client.CLAUDE_CODE]
     user_settings = user_dir / "settings.json"
     user_hook_config = user_dir / "hooks" / "runlayer-config.json"
@@ -745,24 +759,32 @@ def _install_claude_code_hooks(
     enforcement: bool = True,
 ) -> None:
     """Install Runlayer hooks for Claude Code."""
-    if mdm:
-        _migrate_claude_code_user_to_enterprise()
-
+    # MDM dir resolves via enterprise_claude_code_dir (hook_install.paths — the
+    # ENG-3204 source of truth). No user->enterprise migration: it writes user
+    # hooks in place, and migrating would strip the hooks we rely on.
     config_dir = _get_config_dir(Client.CLAUDE_CODE, mdm)
     hooks_dir = config_dir / "hooks"
     hook_script_path = hooks_dir / _HOOK_SCRIPT_NAME
-
-    # Clean up old script name if present
-    old_script = hooks_dir / _OLD_CLAUDE_HOOK_NAME
-    if old_script.exists():
-        old_script.unlink()
-    settings_file = "managed-settings.json" if mdm else "settings.json"
+    settings_file = "settings.json"
     settings_path = config_dir / settings_file
+    config_path = hooks_dir / "runlayer-config.json"
 
-    hooks_dir.mkdir(parents=True, exist_ok=True)
+    # ENG-3217: MDM runs as root inside the user-controlled home, so every
+    # read/write must refuse to follow a planted symlink (CWE-59/61). ``home``
+    # is the trusted anchor (the console user's home, whose parent is
+    # root-owned) that the link-safe ``maybe_safe_*`` helpers walk from with
+    # O_NOFOLLOW. ``None`` off the MDM branch (non-MDM writes the running user's
+    # own home, no privilege boundary) and on Windows (POSIX-only helpers).
+    home = console_home_anchor(config_dir, mdm=mdm)
 
-    settings_backup = _backup_file(settings_path)
-    hook_script_backup = _backup_file(hook_script_path)
+    # Clean up old script name if present (plain unlink is safe — it removes a
+    # link, never its target — and only ever names a known legacy file).
+    old_script = hooks_dir / _OLD_CLAUDE_HOOK_NAME
+    if not mdm and old_script.exists():
+        old_script.unlink()
+
+    settings_backup = _backup_file(settings_path, home=home)
+    hook_script_backup = _backup_file(hook_script_path, home=home)
 
     if settings_backup:
         typer.echo(f"{OK} Backed up existing {settings_file} to {settings_backup.name}")
@@ -770,18 +792,19 @@ def _install_claude_code_hooks(
         typer.echo(f"{OK} Backed up existing hook script to {hook_script_backup.name}")
 
     hook_template = _read_hook_template()
-    hook_script_path.write_text(hook_template)
+    maybe_safe_write_bytes(
+        hook_script_path, hook_template.encode("utf-8"), home=home, mode=0o755
+    )
 
-    current_mode = hook_script_path.stat().st_mode
-    hook_script_path.chmod(current_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-
-    config_path = hooks_dir / "runlayer-config.json"
-    config_path.write_text(json.dumps({"enforcement": enforcement}) + "\n")
+    maybe_safe_write_text(
+        config_path, json.dumps({"enforcement": enforcement}) + "\n", home=home
+    )
 
     existing_settings: dict = {}
-    if settings_path.exists():
+    settings_text = maybe_safe_read_text(settings_path, home=home)
+    if settings_text:
         try:
-            existing_settings = json5.loads(settings_path.read_text())
+            existing_settings = json5.loads(settings_text)
         except (ValueError, OSError):
             existing_settings = {}
 
@@ -796,7 +819,9 @@ def _install_claude_code_hooks(
         existing_hooks = existing_settings.get("hooks", {})
         existing_settings["hooks"] = _merge_claude_hooks(existing_hooks, hooks_config)
         existing_settings["showThinkingSummaries"] = True
-        settings_path.write_text(json.dumps(existing_settings, indent=2) + "\n")
+        maybe_safe_write_text(
+            settings_path, json.dumps(existing_settings, indent=2) + "\n", home=home
+        )
         if not enforcement:
             mode = "monitoring only (no enforcement)"
         elif include_pipeline:
@@ -816,11 +841,23 @@ def _install_claude_code_hooks(
                 fg=typer.colors.YELLOW,
             )
     else:
-        settings_path.write_text(json.dumps(existing_settings, indent=2) + "\n")
+        maybe_safe_write_text(
+            settings_path, json.dumps(existing_settings, indent=2) + "\n", home=home
+        )
         typer.echo(
             f"{WARN} No enforcement hooks available for Claude Code. "
             "Use --event-hooks to enable event hooks."
         )
+
+    # ENG-3204: MDM scope writes the console user's ~/.claude as root; hand the
+    # written files (+ created parent dirs) back to the user so the client's own
+    # writes (Claude Code's /config rewrites settings.json) don't fail. The
+    # writes above are link-safe (ENG-3217) and reown_to_console_user is a no-op
+    # off-root / on Windows, so call freely.
+    if mdm:
+        reown_to_console_user(settings_path)
+        reown_to_console_user(hook_script_path)
+        reown_to_console_user(config_path)
 
 
 def _migrate_codex_user_to_enterprise() -> None:
@@ -1071,13 +1108,25 @@ def _uninstall_hooks(client: Client) -> None:
 
 
 def _uninstall_claude_code_hooks() -> None:
-    """Remove Runlayer hooks from Claude Code (checks user, enterprise, and managed-settings)."""
+    """Remove Runlayer hooks from Claude Code (checks user, enterprise, console-user, and managed-settings)."""
     removed_anything = False
 
     user_dir = CLIENT_CONFIG_DIRS[Client.CLAUDE_CODE]
     enterprise_dir = ENTERPRISE_CONFIG_DIRS[Client.CLAUDE_CODE]
 
-    for config_dir in [user_dir, enterprise_dir]:
+    # Current MDM destination per the canonical resolver (hook_install.paths) —
+    # today the console user's ~/.claude (ENG-3204). Sweep it alongside the
+    # legacy dirs so a root/SYSTEM uninstall doesn't orphan it. Dedup when it
+    # resolves to user_dir (uninstall ran as the console user).
+    mdm_dir = enterprise_claude_code_dir()
+    if mdm_dir == user_dir:
+        mdm_dir = None
+
+    hook_dirs = [user_dir, enterprise_dir]
+    if mdm_dir is not None:
+        hook_dirs.append(mdm_dir)
+
+    for config_dir in hook_dirs:
         hooks_dir = config_dir / "hooks"
         hook_config_path = hooks_dir / "runlayer-config.json"
 
@@ -1100,10 +1149,14 @@ def _uninstall_claude_code_hooks() -> None:
                         err=True,
                     )
 
-    for settings_path in [
+    settings_paths = [
         user_dir / "settings.json",
         enterprise_dir / "managed-settings.json",
-    ]:
+    ]
+    if mdm_dir is not None:
+        settings_paths.append(mdm_dir / "settings.json")
+
+    for settings_path in settings_paths:
         if settings_path.exists():
             try:
                 existing = json5.loads(settings_path.read_text())
@@ -1459,29 +1512,47 @@ LOCAL_ONLY_CLIENTS = {InstallClient.CLAUDE_DESKTOP}
 
 def _get_install_client_config_path(client: InstallClient) -> Path | None:
     """Get the config file path for an install client."""
+    paths = _get_install_client_config_paths(client)
+    for path in paths:
+        if path.exists():
+            return path
+    return paths[0] if paths else None
+
+
+def _get_install_client_config_paths(client: InstallClient) -> list[Path]:
+    """Get possible config file paths for an install client."""
     # Claude Desktop uses claude_desktop_config.json for MCP servers,
     # not extensions-installations.json (which is for the extension marketplace)
     if client == InstallClient.CLAUDE_DESKTOP:
         import platform as plat
 
         if plat.system() == "Darwin":
-            return (
+            return [
                 Path.home()
                 / "Library/Application Support/Claude/claude_desktop_config.json"
-            )
-        elif plat.system() == "Windows":
+            ]
+        if plat.system() == "Windows":
             import os
 
             appdata = os.environ.get("APPDATA", "")
             if appdata:
-                return Path(appdata) / "Claude/claude_desktop_config.json"
-        return None
+                return [Path(appdata) / "Claude/claude_desktop_config.json"]
+        return []
 
     client_def = get_client_by_name(client.value)
     if not client_def:
-        return None
-    paths = client_def.get_config_paths()
-    return paths[0] if paths else None
+        return []
+    return client_def.get_config_paths()
+
+
+def _is_install_client_detected(client: InstallClient) -> bool:
+    """Return whether a client should be included in setup sync auto-detection."""
+    config_paths = _get_install_client_config_paths(client)
+    has_config = any(path.exists() for path in config_paths)
+    has_opencode_config_dir = client == InstallClient.OPENCODE and any(
+        path.parent.exists() for path in config_paths
+    )
+    return has_config or has_opencode_config_dir
 
 
 class ConfigParseError(Exception):
@@ -2276,11 +2347,10 @@ def _run_non_interactive_install(
 
 
 def _detect_installed_clients() -> list[InstallClient]:
-    """Detect which MCP clients are installed by checking config file existence."""
+    """Detect which MCP clients are installed for setup sync."""
     detected: list[InstallClient] = []
     for install_client in InstallClient:
-        config_path = _get_install_client_config_path(install_client)
-        if config_path and config_path.exists():
+        if _is_install_client_detected(install_client):
             detected.append(install_client)
     return detected
 

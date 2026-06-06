@@ -164,7 +164,7 @@ except ImportError:
     trace_service_pb2 = None
     logs_service_pb2 = None
 
-__version__ = "0.12.439"
+__version__ = "0.12.445"
 
 # Extensions (Phase 2): import the plugin host now, but defer the actual
 # load_plugins() call until after the Flask app is created below so we can
@@ -11985,6 +11985,25 @@ def _detect_nemoclaw():
             result["presets"] = [p.stem for p in presets_dir.glob("*.yaml")]
         except Exception:
             pass
+    # Load skill catalog metadata
+    for _cat_path in [
+        home / ".nemoclaw" / "source" / "nemoclaw-blueprint" / "skills" / "catalog-metadata.json",
+        home / ".nemoclaw" / "skills" / "catalog-metadata.json",
+    ]:
+        if _cat_path.exists():
+            try:
+                _cat = json.loads(_cat_path.read_text())
+                _meta = _cat.get("metadata", {})
+                result["skill_catalog"] = {
+                    "min_version": _meta.get("minNemoClawVersion", ""),
+                    "tested_version": _meta.get("testedNemoClawVersion", ""),
+                    "export_sha256": _cat.get("exportContentSha256", ""),
+                    "source_commit": _cat.get("sourceCommit", _meta.get("sourceCommit", "")),
+                    "source_sha256": _cat.get("sourceContentSha256", _meta.get("sourceContentSha256", "")),
+                }
+            except Exception:
+                pass
+            break
     # Get sandbox list
     try:
         import subprocess as _sp

@@ -36,6 +36,7 @@ from kanban_framework.domain.step_progress import (  # noqa: F401
 )
 from kanban_framework.domain.context import (  # noqa: F401
     _is_knowledge_available,
+    _is_share_enabled,
     _load_knowledge_summary,
     _auto_knowledge_retrieval,
     _build_codegraph_context,
@@ -211,6 +212,7 @@ def _build_step_result(fs, config, task, step, i, phase_steps, phase_value):
     # Auto-inject knowledge preamble into spawn_prompt for agent steps
     from kanban_framework.domain.steps import (
         _KNOWLEDGE_PREAMBLE_FIRST, _KNOWLEDGE_PREAMBLE_REUSE, _KNOWLEDGE_SKIP_PREFIXES,
+        _TEAM_KB_INSTRUCTION,
     )
     if prompt and not step.id.startswith(_KNOWLEDGE_SKIP_PREFIXES) and not step.user_action:
         knowledge_file = fs.task_dir(task.id) / "plan" / "knowledge_used.json"
@@ -222,10 +224,16 @@ def _build_step_result(fs, config, task, step, i, phase_steps, phase_value):
         if knowledge_ctx:
             ctx_text = "\n## 框架自动检索结果（机器匹配，供参考）\n"
             for k in knowledge_ctx[:3]:
-                ctx_text += f"- [{k.get('id', '?')}] {k.get('title', '?')}: {k.get('summary', k.get('description', ''))[:200]}\n"
+                src_tag = " [团队]" if k.get("source") == "share" else ""
+                ctx_text += f"- [{k.get('id', '?')}] {k.get('title', '?')}{src_tag}: {k.get('summary', k.get('description', ''))[:200]}\n"
             preamble += ctx_text
 
         prompt = preamble + prompt
+
+    # Inject team KB collaboration guidance when share is enabled (#525)
+    if prompt and _is_share_enabled(fs) and not step.user_action:
+        prompt += _TEAM_KB_INSTRUCTION
+
     codegraph_ctx = _build_codegraph_context(fs, task, step.id)
     if codegraph_ctx and prompt:
         prompt = prompt + "\n\n" + codegraph_ctx

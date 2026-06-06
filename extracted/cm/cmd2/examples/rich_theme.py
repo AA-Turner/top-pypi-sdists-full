@@ -4,14 +4,13 @@
 from rich.style import Style
 
 import cmd2
-import cmd2.rich_utils as ru
-from cmd2 import Cmd2Style, Color
+from cmd2 import Cmd2Style, Color, update_theme
 
 
 class ThemedApp(cmd2.Cmd):
     """A simple cmd2 application with a custom theme."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         """Initialize the application."""
         super().__init__(*args, **kwargs)
         self.intro = "This is a themed application. Try the 'theme_show' command."
@@ -29,13 +28,23 @@ class ThemedApp(cmd2.Cmd):
             Cmd2Style.HELP_HEADER: Style(color=Color.CYAN, bgcolor="#44475a"),
             Cmd2Style.HELP_LEADER: Style(color="#f8f8f2", bgcolor="#282a36"),  # use RGB hex colors
             Cmd2Style.TABLE_BORDER: Style(color="turquoise2"),  # use a rich standard color
+            Cmd2Style.LEXER_COMMAND: Style(color=Color.LIGHT_GREEN),
+            Cmd2Style.LEXER_ALIAS: Style(color=Color.LIGHT_CYAN1),
+            Cmd2Style.LEXER_MACRO: Style(color=Color.LIGHT_CORAL),
+            Cmd2Style.LEXER_FLAG: Style(color=Color.LIGHT_PINK3),
+            Cmd2Style.LEXER_ARGUMENT: Style(color=Color.LIGHT_GOLDENROD1),
+            Cmd2Style.COMPLETION_MENU: Style(color="#000000", bgcolor=Color.SKY_BLUE1),
+            Cmd2Style.COMPLETION_MENU_COMPLETION: Style(color=Color.MAGENTA),
+            Cmd2Style.COMPLETION_MENU_CURRENT: Style(color=Color.WHITE, bgcolor=Color.NAVY_BLUE),
+            Cmd2Style.COMPLETION_MENU_META: Style(color="#000000", bgcolor=Color.CYAN),
+            Cmd2Style.COMPLETION_MENU_META_CURRENT: Style(color=Color.WHITE, bgcolor=Color.DARK_SLATE_GRAY2),
             "traceback.exc_type": Style(color=Color.RED, bgcolor=Color.LIGHT_YELLOW3, bold=True),
             "argparse.args": Style(color=Color.AQUAMARINE3, underline=True),
         }
-        ru.set_theme(custom_theme)
+        update_theme(custom_theme)
 
     @cmd2.with_category("Theme Commands")
-    def do_theme_show(self, _: cmd2.Statement):
+    def do_theme_show(self, _: cmd2.Statement) -> None:
         """Showcases the custom theme by printing messages with different styles."""
         self.poutput("This is a basic output message.")
         self.psuccess("This is a success message.")

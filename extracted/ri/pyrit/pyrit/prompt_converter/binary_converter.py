@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Optional
 from pyrit.prompt_converter.word_level_converter import WordLevelConverter
 
 if TYPE_CHECKING:
-    from pyrit.identifiers import ComponentIdentifier
+    from pyrit.models import ComponentIdentifier
     from pyrit.prompt_converter.text_selection_strategy import WordSelectionStrategy
 
 
@@ -30,7 +30,7 @@ class BinaryConverter(WordLevelConverter):
         *,
         bits_per_char: BinaryConverter.BitsPerChar = BitsPerChar.BITS_16,
         word_selection_strategy: Optional[WordSelectionStrategy] = None,
-    ):
+    ) -> None:
         """
         Initialize the converter with the specified bits per character and selection strategy.
 

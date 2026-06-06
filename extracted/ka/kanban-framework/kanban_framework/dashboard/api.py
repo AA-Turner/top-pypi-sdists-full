@@ -447,67 +447,47 @@ def create_app(kanban_dir: str | Path | None = None) -> FastAPI:
         tmp.replace(wf_file)
         return {"success": True}
 
-    # ── Knowledge endpoints ──────────────────────────────────────────
+    # ── Knowledge endpoints (direct domain calls, no subprocess) ────
+
+    def _get_km():
+        from kanban_framework.domain.knowledge import KnowledgeManager
+        return KnowledgeManager(fs)
 
     @app.get("/api/knowledge/health")
     def knowledge_health():
-        import subprocess, sys
-        result = subprocess.run(
-            [sys.executable, "-m", "kanban_framework", "--json", "knowledge", "health"],
-            capture_output=True, text=True, cwd=str(kanban.parent),
-        )
-        if result.returncode != 0:
-            return {"healthy": False, "error": result.stderr.strip()}
+        from kanban_framework.cli.knowledge import _handle_health
         try:
-            data = json.loads(result.stdout)
-            if isinstance(data, dict) and "data" in data:
-                return {"healthy": data.get("success", False), **data["data"]}
-            return data
-        except ValueError:
-            return {"healthy": False, "raw": result.stdout}
+            km = _get_km()
+            data = _handle_health(km)
+            return {"healthy": True, **data}
+        except Exception as exc:
+            return {"healthy": False, "error": str(exc)}
 
     @app.get("/api/knowledge/entries")
     def knowledge_entries(q: str | None = None, domain: str | None = None, status: str | None = None):
-        import subprocess, sys
-        cmd = [sys.executable, "-m", "kanban_framework", "--json", "knowledge", "list"]
-        if q:
-            cmd.extend(["--query", q])
-        result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(kanban.parent))
-        if result.returncode != 0:
-            return {"entries": []}
         try:
-            data = json.loads(result.stdout)
-            # CLI returns {"success": true, "data": {"results": [...]}}
-            inner = data.get("data", data)
-            entries = inner.get("results", inner.get("entries", []))
-            if domain:
-                entries = [e for e in entries if e.get("domain") == domain]
-            if status:
-                entries = [e for e in entries if e.get("status") == status]
+            km = _get_km()
+            entries = km.list_entries(domain=domain, status=status or "active", limit=500)
+            if q:
+                results = km.search_hybrid(q, limit=50)
+                matched_ids = {r["id"] for r in results}
+                entries = [e for e in entries if e.get("id") in matched_ids] if matched_ids else entries
             return {"entries": entries}
-        except ValueError:
+        except Exception:
             return {"entries": []}
 
     @app.get("/api/knowledge/entries/{entry_id}")
     def knowledge_entry(entry_id: str):
-        import subprocess, sys
-        result = subprocess.run(
-            [sys.executable, "-m", "kanban_framework", "--json", "knowledge", "get", entry_id],
-            capture_output=True, text=True, cwd=str(kanban.parent),
-        )
-        if result.returncode != 0:
-            raise HTTPException(404, f"Entry {entry_id} not found")
         try:
-            data = json.loads(result.stdout)
-            if isinstance(data, dict) and "data" in data:
-                inner = data["data"]
-                # CLI wraps single entry in {"entry": {...}}
-                if isinstance(inner, dict) and "entry" in inner:
-                    return inner["entry"]
-                return inner
-            return data
-        except ValueError:
-            raise HTTPException(500, "Invalid response from knowledge CLI")
+            km = _get_km()
+            entry = km.get_entry(entry_id)
+            if not entry:
+                raise HTTPException(404, f"Entry {entry_id} not found")
+            return entry
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(500, str(exc))
 
     @app.get("/api/knowledge/pending")
     def knowledge_pending():
@@ -517,28 +497,34 @@ def create_app(kanban_dir: str | Path | None = None) -> FastAPI:
     async def knowledge_approve(request: Request):
         body = await request.json()
         ids = body.get("ids", [])
-        import subprocess, sys
         results = []
-        for eid in ids:
-            r = subprocess.run(
-                [sys.executable, "-m", "kanban_framework", "--json", "knowledge", "approve", eid],
-                capture_output=True, text=True, cwd=str(kanban.parent),
-            )
-            results.append({"id": eid, "success": r.returncode == 0})
+        try:
+            km = _get_km()
+            for eid in ids:
+                try:
+                    km.update_entry(eid, status="active")
+                    results.append({"id": eid, "success": True})
+                except Exception:
+                    results.append({"id": eid, "success": False})
+        except Exception:
+            pass
         return {"results": results}
 
     @app.post("/api/knowledge/reject")
     async def knowledge_reject(request: Request):
         body = await request.json()
         ids = body.get("ids", [])
-        import subprocess, sys
         results = []
-        for eid in ids:
-            r = subprocess.run(
-                [sys.executable, "-m", "kanban_framework", "--json", "knowledge", "reject", eid],
-                capture_output=True, text=True, cwd=str(kanban.parent),
-            )
-            results.append({"id": eid, "success": r.returncode == 0})
+        try:
+            km = _get_km()
+            for eid in ids:
+                try:
+                    km.delete_entry(eid)
+                    results.append({"id": eid, "success": True})
+                except Exception:
+                    results.append({"id": eid, "success": False})
+        except Exception:
+            pass
         return {"results": results}
 
     # ── SSE endpoint ─────────────────────────────────────────────────

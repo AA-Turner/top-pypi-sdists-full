@@ -4,8 +4,12 @@ from typing import Annotated, Any, Literal, TypedDict
 
 import temporalio.workflow
 from mistralai.extra.workflows.encoding.models import EncodedPayloadOptions
-from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag
+from pydantic import BaseModel, ConfigDict, Discriminator, Field, PrivateAttr, Tag
 from typing_extensions import TypeAliasType
+
+# Payload type constants
+JSON_PAYLOAD_TYPE = "json"
+JSON_PATCH_PAYLOAD_TYPE = "json_patch"
 
 
 class WorkflowEventType(StrEnum):
@@ -147,6 +151,10 @@ class JSONPatchPayload(BaseModel):
         description="The list of JSON Patch operations. When encrypted, contains base64-encoded data."
     )
     encoding_options: list[EncodedPayloadOptions] | None = _ENCODING_OPTIONS_FIELD
+
+    # Internal: set of JSON Pointer paths that should be encrypted (e.g., {"/secret/data", "/nested/key/data"})
+    # Used by EventPayloadEncoder to selectively encrypt patches without relying on per-patch attributes.
+    _encrypted_paths: set[str] = PrivateAttr(default_factory=set)
 
     model_config = _PAYLOAD_MODEL_CONFIG
 

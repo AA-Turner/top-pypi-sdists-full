@@ -181,7 +181,7 @@ class KnowledgeManager:
                   tags=None, severity="medium", source=None, code_example="",
                   status="active", upsert=False, ttl_days=None,
                   entry_type="knowledge", steps=None, benchmark=None,
-                  biz_context=None, entry_id=None):
+                  biz_context=None, entry_id=None, evidence=None):
         if not title.strip() and not content.strip():
             raise ValueError("at least title or content is required")
         if len(content) > self.MAX_CONTENT_LENGTH:
@@ -213,17 +213,19 @@ class KnowledgeManager:
         if existing:
             if not upsert:
                 return {"id": existing[0], "skipped": True, "reason": "duplicate", "existing_id": existing[0]}
+            # Snapshot old version before overwriting (#482)
+            self._snapshot_version(existing[0], now, "upsert")
             self._conn.execute(
                 """UPDATE entries SET category=?, content=?, content_segmented=?,
                    embedding=?, code_example=?, tags=?, source=?, severity=?,
                    status=?, updated_at=?, stale_at=?, type=?, steps=?, benchmark=?,
-                   biz_context=?
+                   biz_context=?, evidence=?
                    WHERE id=?""",
                 (category, content, segmented, None, code_example,
                  json.dumps(tags), json.dumps(source), severity, status, now,
                  stale_at, entry_type, json.dumps(steps) if steps else None,
                  json.dumps(benchmark) if benchmark else None,
-                 biz_context, existing[0]),
+                 biz_context, evidence, existing[0]),
             )
             self._conn.commit()
             entry = self.get_entry(existing[0])
@@ -234,12 +236,13 @@ class KnowledgeManager:
         self._conn.execute(
             """INSERT INTO entries(id, domain, category, title, content, content_segmented,
                embedding, code_example, tags, source, severity, status,
-               created_at, updated_at, stale_at, type, steps, benchmark, biz_context)
-               VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+               created_at, updated_at, stale_at, type, steps, benchmark, biz_context,
+               evidence)
+               VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (eid, domain, category, title, content, segmented, None, code_example,
              json.dumps(tags), json.dumps(source), severity, status, now, now, stale_at,
              entry_type, json.dumps(steps) if steps else None,
-             json.dumps(benchmark) if benchmark else None, biz_context),
+             json.dumps(benchmark) if benchmark else None, biz_context, evidence),
         )
         self._conn.commit()
         entry = self.get_entry(eid)
@@ -249,6 +252,83 @@ class KnowledgeManager:
     def get_entry(self, entry_id):
         row = self._conn.execute("SELECT * FROM entries WHERE id=?", (entry_id,)).fetchone()
         return self._row_to_dict(row) if row else None
+
+    def _snapshot_version(self, entry_id: str, snapshot_at: str, reason: str = "upsert") -> None:
+        """Save current entry state to entry_versions before overwriting. (#482)"""
+        row = self._conn.execute("SELECT * FROM entries WHERE id=?", (entry_id,)).fetchone()
+        if not row:
+            return
+        d = self._row_to_dict(row)
+        self._conn.execute(
+            """INSERT INTO entry_versions(entry_id, content, code_example, tags, source,
+               severity, snapshot_at, snapshot_reason, evidence)
+               VALUES(?,?,?,?,?,?,?,?,?)""",
+            (entry_id, d.get("content", ""), d.get("code_example", ""),
+             json.dumps(d.get("tags", [])), json.dumps(d.get("source", {})),
+             d.get("severity", "medium"), snapshot_at, reason,
+             d.get("evidence")),
+        )
+
+    def list_versions(self, entry_id: str, limit: int = 20) -> list[dict]:
+        """List version history for an entry. (#482)"""
+        rows = self._conn.execute(
+            """SELECT version_id, content, code_example, tags, severity,
+               snapshot_at, snapshot_reason
+               FROM entry_versions WHERE entry_id=?
+               ORDER BY version_id DESC LIMIT ?""",
+            (entry_id, limit),
+        ).fetchall()
+        results = []
+        for r in rows:
+            tags = r[3]
+            try:
+                tags = json.loads(tags) if isinstance(tags, str) else tags
+            except (json.JSONDecodeError, TypeError):
+                tags = []
+            results.append({
+                "version_id": r[0],
+                "content": r[1],
+                "code_example": r[2],
+                "tags": tags,
+                "severity": r[4],
+                "snapshot_at": r[5],
+                "snapshot_reason": r[6],
+            })
+        return results
+
+    def restore_version(self, entry_id: str, version_id: int) -> dict:
+        """Restore an entry to a specific version. (#482)"""
+        entry = self.get_entry(entry_id)
+        if not entry:
+            raise ValueError(f"entry {entry_id} not found")
+        ver = self._conn.execute(
+            "SELECT * FROM entry_versions WHERE version_id=? AND entry_id=?",
+            (version_id, entry_id),
+        ).fetchone()
+        if not ver:
+            raise ValueError(f"version {version_id} not found for entry {entry_id}")
+        now = datetime.now(timezone.utc).isoformat()
+        # Snapshot current before restoring
+        self._snapshot_version(entry_id, now, "restore")
+        ver_dict = self._row_to_dict(ver) if not isinstance(ver, dict) else ver
+        content = ver_dict.get("content", "")
+        segmented = _segment(entry.get("title", "")) + " " + _segment(content)
+        self._conn.execute(
+            """UPDATE entries SET content=?, content_segmented=?, code_example=?,
+               tags=?, severity=?, updated_at=?
+               WHERE id=?""",
+            (content, segmented,
+             ver_dict.get("code_example", ""),
+             json.dumps(ver_dict.get("tags", [])),
+             ver_dict.get("severity", "medium"),
+             now, entry_id),
+        )
+        self._conn.commit()
+        _defer_embed_and_chroma_impl(self, entry_id, entry.get("title", ""),
+                                     content, entry.get("domain", ""),
+                                     entry.get("category", ""), entry.get("status", "active"),
+                                     biz_context=entry.get("biz_context"))
+        return self.get_entry(entry_id)
 
     def delete_entry(self, entry_id):
         self._conn.execute("DELETE FROM entries WHERE id=?", (entry_id,))
@@ -317,8 +397,8 @@ class KnowledgeManager:
             conditions.append("status = ?")
             params.append(status)
         if biz_context:
-            conditions.append("(biz_context IS NULL OR biz_context LIKE ?)")
-            params.append(f"%{biz_context}%")
+            conditions.append("(biz_context IS NULL OR biz_context = ?)")
+            params.append(biz_context)
         where = " AND ".join(conditions) if conditions else "1=1"
         query = f"SELECT * FROM entries WHERE {where} ORDER BY id LIMIT ? OFFSET ?"
         params.extend([limit, offset])
@@ -366,17 +446,19 @@ class KnowledgeManager:
         return results
 
     def search_hybrid(self, keyword: str, limit: int = 20,
+                      relevance_threshold: float | None = None,
                       score_threshold: float | None = None,
                       biz_context: str | None = None) -> list[dict]:
-        if score_threshold is None:
-            score_threshold = DEFAULT_SCORE_THRESHOLD
+        threshold = relevance_threshold if relevance_threshold is not None else score_threshold
+        if threshold is None:
+            threshold = DEFAULT_SCORE_THRESHOLD
         if self._backend is not None:
             results = self._backend.search_hybrid(keyword, limit=limit * 2, biz_context=biz_context)
         else:
             results = self._search_hybrid(keyword, limit=limit * 2, biz_context=biz_context)
-        if score_threshold > 0:
+        if threshold > 0:
             results = [r for r in results
-                       if r.get("relevance", 0) >= score_threshold]
+                       if r.get("relevance", 0) >= threshold]
         _tag_source(results)
         return results[:limit]
 

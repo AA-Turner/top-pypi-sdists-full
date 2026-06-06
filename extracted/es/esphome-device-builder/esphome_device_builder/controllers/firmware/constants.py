@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import re
 
-from ...models import JobStatus, JobType
+from ...models import JobType
 
 # Metadata key under which the firmware queue persists itself in
 # ``.device-builder.json``.
@@ -120,11 +120,6 @@ _PRIMARY_JOB_TYPES: frozenset[JobType] = frozenset(
     {JobType.COMPILE, JobType.UPLOAD, JobType.INSTALL}
 )
 
-# Statuses considered "active" — queued for execution or
-# currently running. Re-queued on dashboard restart by
-# ``persistence.load_jobs``; exempt from history pruning.
-_ACTIVE_JOB_STATUSES: frozenset[JobStatus] = frozenset({JobStatus.QUEUED, JobStatus.RUNNING})
-
 # Job types eligible for ``--mdns/--dns-address-cache`` forwarding.
 _OTA_ADDRESS_CACHE_JOB_TYPES: frozenset[JobType] = frozenset(
     {JobType.UPLOAD, JobType.INSTALL, JobType.RENAME}
@@ -163,3 +158,9 @@ _MAX_OUTPUT_LINES_RETAINED = 2000
 _MAX_OUTPUT_LINES_INFLIGHT = _MAX_OUTPUT_LINES_RETAINED * 2
 _INFLIGHT_TRIM_KEEP = _MAX_OUTPUT_LINES_RETAINED
 _OUTPUT_TRIM_NOTICE_PREFIX = "... [output trimmed:"
+
+# Error stamped on a dependent (an install's UPLOAD) when its prerequisite
+# COMPILE didn't complete successfully — set at release time (cascade-cancel)
+# and at restore time (prerequisite pruned/gone). Shared so the two sites
+# stay in lockstep.
+_PREREQUISITE_FAILED_ERROR = "prerequisite job did not complete successfully"

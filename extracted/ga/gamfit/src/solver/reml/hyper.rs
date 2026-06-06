@@ -1392,7 +1392,7 @@ impl<'a> RemlState<'a> {
                     Some(cached.as_ref().clone())
                 } else {
                     Some(Self::build_firth_dense_operator_for_link(
-                        jeffreys_link,
+                        &jeffreys_link,
                         x_dense,
                         &pirls_result.final_eta,
                         self.weights,
@@ -1400,7 +1400,7 @@ impl<'a> RemlState<'a> {
                 }
             } else {
                 Some(Self::build_firth_dense_operator_for_link(
-                    jeffreys_link,
+                    &jeffreys_link,
                     x_dense,
                     &pirls_result.final_eta,
                     self.weights,
@@ -1807,7 +1807,7 @@ impl<'a> RemlState<'a> {
                     cached.as_ref().clone()
                 } else {
                     Self::build_firth_dense_operator_for_link(
-                        jeffreys_link,
+                        &jeffreys_link,
                         x_dense,
                         &pirls_result.final_eta,
                         self.weights,
@@ -1815,7 +1815,7 @@ impl<'a> RemlState<'a> {
                 }
             } else {
                 Self::build_firth_dense_operator_for_link(
-                    jeffreys_link,
+                    &jeffreys_link,
                     x_dense,
                     &pirls_result.final_eta,
                     self.weights,
@@ -1908,7 +1908,7 @@ impl<'a> RemlState<'a> {
                     )
                     .map_err(EstimationError::InvalidInput)?;
                 Some(Self::build_firth_dense_operator_for_link(
-                    jeffreys_link,
+                    &jeffreys_link,
                     x_dense_arc.as_ref(),
                     &pirls_result.final_eta,
                     self.weights,
@@ -2046,7 +2046,7 @@ impl<'a> RemlState<'a> {
                     )
                     .map_err(EstimationError::InvalidInput)?;
                 Self::build_firth_dense_operator_for_link(
-                    jeffreys_link,
+                    &jeffreys_link,
                     x_dense_arc.as_ref(),
                     &pirls_result.final_eta,
                     self.weights,
@@ -2188,12 +2188,14 @@ impl<'a> RemlState<'a> {
                         "original-basis tau pair callbacks require dense design for Firth operator",
                     )
                     .map_err(EstimationError::InvalidInput)?;
-                    Some(std::sync::Arc::new(Self::build_firth_dense_operator_for_link(
-                        jeffreys_link,
-                        x_dense_arc.as_ref(),
-                        &pirls_result.final_eta,
-                        self.weights,
-                    )?))
+                    Some(std::sync::Arc::new(
+                        Self::build_firth_dense_operator_for_link(
+                            &jeffreys_link,
+                            x_dense_arc.as_ref(),
+                            &pirls_result.final_eta,
+                            self.weights,
+                        )?,
+                    ))
                 };
             let dense_list: Vec<Option<Array2<f64>>> = x_tau_terms
                 .iter()
@@ -2417,8 +2419,7 @@ impl<'a> RemlState<'a> {
         let ds_k_dtau_j_mats = Arc::new(ds_k_dtau_j_mats);
 
         //  Firth-pair wiring — mirrors the original-basis builder.
-        let firth_logit_active =
-            super::runtime::reml_robust_jeffreys_link(&self.config).is_some();
+        let firth_logit_active = super::runtime::reml_robust_jeffreys_link(&self.config).is_some();
         let (firth_op_arc, x_tau_dense_list, x_tau_tau_dense) = if firth_logit_active {
             let op_opt: Option<std::sync::Arc<super::FirthDenseOperator>> = bundle
                 .firth_dense_operator
@@ -2908,7 +2909,7 @@ mod tests {
 
         let firth_op = Arc::new(
             super::super::RemlState::build_firth_dense_operator_for_link(
-                crate::types::StandardLink::Logit,
+                &crate::types::InverseLink::Standard(crate::types::StandardLink::Logit),
                 &x,
                 &eta,
                 ndarray::Array1::ones(x.nrows()).view(),
@@ -2994,7 +2995,7 @@ mod tests {
         let eta = x.dot(&beta);
         let firth_op = Arc::new(
             super::super::RemlState::build_firth_dense_operator_for_link(
-                crate::types::StandardLink::Logit,
+                &crate::types::InverseLink::Standard(crate::types::StandardLink::Logit),
                 &x,
                 &eta,
                 ndarray::Array1::ones(x.nrows()).view(),

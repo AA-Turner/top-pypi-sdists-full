@@ -9,6 +9,9 @@ from runlayer_cli.scan.clients import (
     ExtensionsPath,
     MCPClientDefinition,
     PluginPath,
+    _is_windows_with_wsl,
+    _resolve_wsl_linux_paths,
+    _wsl_homes,
     get_all_clients,
     get_client_by_name,
     get_clients_with_project_configs,
@@ -209,8 +212,8 @@ class TestGetAllClients:
         assert "goose" in names
         assert "zed" in names
         assert "opencode" in names
+        assert "warp" in names
         # Descoped from v0
-        assert "warp" not in names
         assert "raycast" not in names
 
 
@@ -330,7 +333,7 @@ class TestClientServersKey:
         client = get_client_by_name("zed")
         assert client is not None
         assert client.extensions_paths is not None
-        assert len(client.extensions_paths) == 2
+        assert len(client.extensions_paths) == 3
         # Check macOS path
         macos_path = next(
             (p for p in client.extensions_paths if p.platform == "macos"), None
@@ -338,6 +341,13 @@ class TestClientServersKey:
         assert macos_path is not None
         assert "extensions/installed" in macos_path.path
         assert macos_path.prefix == "mcp-server-"
+        # Check Linux path
+        linux_path = next(
+            (p for p in client.extensions_paths if p.platform == "linux"), None
+        )
+        assert linux_path is not None
+        assert ".local/share/zed/extensions/installed" in linux_path.path
+        assert linux_path.prefix == "mcp-server-"
         # Check Windows path
         windows_path = next(
             (p for p in client.extensions_paths if p.platform == "windows"), None
@@ -528,9 +538,11 @@ class TestCursorClientDefinition:
         client = get_client_by_name("cursor")
         assert client is not None
         assert client.plugin_paths is not None
-        assert len(client.plugin_paths) == 2
+        assert len(client.plugin_paths) == 3
         macos = next(p for p in client.plugin_paths if p.platform == "macos")
         assert "plugins/cache/cursor-public" in macos.path
+        linux = next(p for p in client.plugin_paths if p.platform == "linux")
+        assert "plugins/cache/cursor-public" in linux.path
 
     def test_cursor_has_project_config(self):
         client = get_client_by_name("cursor")
@@ -594,3 +606,194 @@ class TestCodexClientDefinition:
         assert len(servers) == 2
         assert "my-server" in servers
         assert "remote" in servers
+
+
+class TestWarpClientDefinition:
+    """Tests for Warp client definition."""
+
+    def test_warp_in_all_clients(self):
+        clients = get_all_clients()
+        names = [c.name for c in clients]
+        assert "warp" in names
+
+    def test_warp_uses_mcpservers_key(self):
+        client = get_client_by_name("warp")
+        assert client is not None
+        assert client.servers_key == "mcpServers"
+
+    def test_warp_has_project_config(self):
+        client = get_client_by_name("warp")
+        assert client is not None
+        assert client.project_config is not None
+        assert client.project_config.relative_path == ".warp/.mcp.json"
+        assert client.project_config.servers_key == "mcpServers"
+
+    def test_warp_in_clients_with_project_configs(self):
+        clients = get_clients_with_project_configs()
+        names = [c.name for c in clients]
+        assert "warp" in names
+
+    def test_warp_extract_servers(self):
+        client = get_client_by_name("warp")
+        assert client is not None
+        config_data = {
+            "mcpServers": {
+                "my-server": {"command": "npx", "args": ["pkg"]},
+                "remote": {"url": "https://example.com/mcp"},
+            }
+        }
+        servers = client.extract_servers(config_data)
+        assert len(servers) == 2
+        assert "my-server" in servers
+        assert "remote" in servers
+
+
+class TestLinuxPlatformPaths:
+    """Verify every client has at least one Linux-resolvable config path."""
+
+    CLIENTS_WITH_LINUX_PATHS = [
+        "cursor",
+        "claude_desktop",
+        "claude_code",
+        "vscode",
+        "windsurf",
+        "goose",
+        "zed",
+        "opencode",
+        "codex",
+        "warp",
+    ]
+
+    @mock.patch("platform.system", return_value="Linux")
+    def test_all_clients_resolve_on_linux(self, _mock_system):
+        for name in self.CLIENTS_WITH_LINUX_PATHS:
+            client = get_client_by_name(name)
+            assert client is not None, f"Client {name} not found"
+            paths = client.get_config_paths()
+            assert len(paths) > 0, f"Client {name} has no paths on Linux"
+
+    @mock.patch("platform.system", return_value="Linux")
+    def test_cursor_linux_path(self, _mock_system):
+        config = ConfigPath("~/.cursor/mcp.json", platform="linux")
+        result = config.resolve()
+        assert result is not None
+        assert str(result).endswith(".cursor/mcp.json")
+
+    @mock.patch("platform.system", return_value="Linux")
+    def test_claude_desktop_linux_path(self, _mock_system):
+        config = ConfigPath(
+            "~/.config/Claude/claude_desktop_config.json", platform="linux"
+        )
+        result = config.resolve()
+        assert result is not None
+        assert ".config/Claude" in str(result)
+
+    @mock.patch("platform.system", return_value="Linux")
+    def test_vscode_linux_path(self, _mock_system):
+        config = ConfigPath("~/.config/Code/User/mcp.json", platform="linux")
+        result = config.resolve()
+        assert result is not None
+        assert ".config/Code/User" in str(result)
+
+    @mock.patch("platform.system", return_value="Linux")
+    def test_zed_linux_extensions_path(self, _mock_system):
+        client = get_client_by_name("zed")
+        assert client is not None
+        linux_ext = next(
+            (p for p in client.extensions_paths if p.platform == "linux"), None
+        )
+        assert linux_ext is not None
+        result = linux_ext.resolve()
+        assert result is not None
+        assert ".local/share/zed/extensions/installed" in str(result)
+
+
+class TestWindowsWSLCrossScan:
+    """Test Windows-host -> WSL-distro config path resolution."""
+
+    def setup_method(self):
+        _is_windows_with_wsl.cache_clear()
+        _wsl_homes.cache_clear()
+
+    def teardown_method(self):
+        _is_windows_with_wsl.cache_clear()
+        _wsl_homes.cache_clear()
+
+    def test_resolve_wsl_linux_paths_expands_per_home(self):
+        homes = [
+            Path(R"\\wsl.localhost\Ubuntu\home\alex"),
+            Path(R"\\wsl.localhost\Debian\home\sam"),
+        ]
+        with (
+            mock.patch(
+                "runlayer_cli.scan.clients._is_windows_with_wsl", return_value=True
+            ),
+            mock.patch("runlayer_cli.scan.clients._wsl_homes", return_value=homes),
+        ):
+            results = _resolve_wsl_linux_paths("~/.cursor/mcp.json")
+            assert results == [home / ".cursor/mcp.json" for home in homes]
+
+    def test_resolve_wsl_linux_paths_non_tilde_returns_empty(self):
+        with (
+            mock.patch(
+                "runlayer_cli.scan.clients._is_windows_with_wsl", return_value=True
+            ),
+            mock.patch(
+                "runlayer_cli.scan.clients._wsl_homes",
+                return_value=[Path(R"\\wsl.localhost\Ubuntu\home\alex")],
+            ),
+        ):
+            assert _resolve_wsl_linux_paths("%APPDATA%/Code/mcp.json") == []
+
+    def test_resolve_wsl_linux_paths_no_wsl_returns_empty(self):
+        with mock.patch(
+            "runlayer_cli.scan.clients._is_windows_with_wsl", return_value=False
+        ):
+            assert _resolve_wsl_linux_paths("~/.cursor/mcp.json") == []
+
+    @mock.patch("platform.system", return_value="Windows")
+    def test_get_config_paths_includes_wsl_linux_paths(self, _system):
+        homes = [
+            Path(R"\\wsl.localhost\Ubuntu\home\alex"),
+            Path(R"\\wsl.localhost\Ubuntu\home\sam"),
+        ]
+        with (
+            mock.patch(
+                "runlayer_cli.scan.clients._is_windows_with_wsl", return_value=True
+            ),
+            mock.patch("runlayer_cli.scan.clients._wsl_homes", return_value=homes),
+        ):
+            client = MCPClientDefinition(
+                name="test",
+                display_name="Test",
+                paths=[
+                    ConfigPath("~/.test/config.json", platform="linux"),
+                    ConfigPath("%USERPROFILE%/.test/config.json", platform="windows"),
+                ],
+            )
+            paths = client.get_config_paths()
+            # One native Windows path + one per WSL home.
+            assert len(paths) == 3
+            assert any("USERPROFILE" in str(p) or ".test" in str(p) for p in paths)
+            assert sum("wsl.localhost" in str(p) for p in paths) == 2
+
+    @mock.patch("platform.system", return_value="Windows")
+    def test_get_config_paths_no_wsl_only_native(self, _system):
+        with mock.patch(
+            "runlayer_cli.scan.clients._is_windows_with_wsl", return_value=False
+        ):
+            client = MCPClientDefinition(
+                name="test",
+                display_name="Test",
+                paths=[
+                    ConfigPath("~/.test/config.json", platform="linux"),
+                    ConfigPath("%USERPROFILE%/.test/config.json", platform="windows"),
+                ],
+            )
+            paths = client.get_config_paths()
+            assert len(paths) == 1
+            assert not any("wsl.localhost" in str(p) for p in paths)
+
+    @mock.patch("platform.system", return_value="Darwin")
+    def test_is_windows_with_wsl_false_on_macos(self, _system):
+        assert _is_windows_with_wsl() is False

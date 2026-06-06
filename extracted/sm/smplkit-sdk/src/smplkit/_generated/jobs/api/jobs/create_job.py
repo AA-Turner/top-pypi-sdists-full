@@ -60,7 +60,7 @@ def sync_detailed(
 
      Create a job for this account.
 
-    The caller supplies the job's id (a slug) as `data.id`. Slugs are unique
+    The caller supplies the job's id as `data.id`. Ids are unique
     within an account and immutable. An enabled job begins scheduling
     immediately.
 
@@ -96,7 +96,7 @@ def sync(
 
      Create a job for this account.
 
-    The caller supplies the job's id (a slug) as `data.id`. Slugs are unique
+    The caller supplies the job's id as `data.id`. Ids are unique
     within an account and immutable. An enabled job begins scheduling
     immediately.
 
@@ -127,7 +127,7 @@ async def asyncio_detailed(
 
      Create a job for this account.
 
-    The caller supplies the job's id (a slug) as `data.id`. Slugs are unique
+    The caller supplies the job's id as `data.id`. Ids are unique
     within an account and immutable. An enabled job begins scheduling
     immediately.
 
@@ -161,7 +161,7 @@ async def asyncio(
 
      Create a job for this account.
 
-    The caller supplies the job's id (a slug) as `data.id`. Slugs are unique
+    The caller supplies the job's id as `data.id`. Ids are unique
     within an account and immutable. An enabled job begins scheduling
     immediately.
 

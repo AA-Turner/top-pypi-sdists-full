@@ -6,7 +6,7 @@ import logging
 from pyrit.datasets.seed_datasets.remote.remote_dataset_loader import (
     _RemoteDatasetLoader,
 )
-from pyrit.models import SeedDataset, SeedPrompt
+from pyrit.models import Modality, SeedDataset, SeedPrompt
 
 logger = logging.getLogger(__name__)
 
@@ -21,11 +21,16 @@ class _LLMLatentAdversarialTrainingDataset(_RemoteDatasetLoader):
     Reference: [@sheshadri2024lat]
     """
 
+    # Metadata
+    modalities: tuple[Modality, ...] = (Modality.TEXT,)
+    size: str = "large"  # 4948 harmful prompts
+    tags: frozenset[str] = frozenset({"default", "safety", "jailbreak"})
+
     def __init__(
         self,
         *,
         source: str = "LLM-LAT/harmful-dataset",
-    ):
+    ) -> None:
         """
         Initialize the LLM-LAT harmful dataset loader.
 
@@ -39,7 +44,7 @@ class _LLMLatentAdversarialTrainingDataset(_RemoteDatasetLoader):
         """Return the dataset name."""
         return "llm_lat_harmful"
 
-    async def fetch_dataset(self, *, cache: bool = True) -> SeedDataset:
+    async def fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
         """
         Fetch LLM-LAT harmful dataset and return as SeedDataset.
 
@@ -51,7 +56,7 @@ class _LLMLatentAdversarialTrainingDataset(_RemoteDatasetLoader):
         """
         logger.info(f"Loading LLM-LAT harmful dataset from {self.source}")
 
-        data = await self._fetch_from_huggingface(
+        data = await self._fetch_from_huggingface_async(
             dataset_name=self.source,
             config="default",
             split="train",

@@ -4,9 +4,9 @@
 from __future__ import annotations
 
 import abc
+import asyncio
 import base64
 import hashlib
-import os
 import time
 import wave
 from mimetypes import guess_type
@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 
 import aiofiles
 
+from pyrit.common.deprecation import print_deprecation_message
 from pyrit.common.path import DB_DATA_PATH
 from pyrit.models.storage_io import DiskStorageIO, StorageIO
 
@@ -25,6 +26,22 @@ if TYPE_CHECKING:
 
 # Define allowed categories for validation
 AllowedCategories = Literal["seed-prompt-entries", "prompt-memory-entries"]
+
+
+def _write_wav_sync(
+    path: str,
+    *,
+    num_channels: int,
+    sample_width: int,
+    sample_rate: int,
+    data: bytes,
+) -> None:
+    """Write PCM audio bytes to a WAV file synchronously."""
+    with wave.open(path, "wb") as wav_file:
+        wav_file.setnchannels(num_channels)
+        wav_file.setsampwidth(sample_width)
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(data)
 
 
 def data_serializer_factory(
@@ -96,7 +113,7 @@ class DataTypeSerializer(abc.ABC):
     data_sub_directory: str
     file_extension: str
 
-    _file_path: Union[Path, str] = None
+    _file_path: Union[Path, str] | None = None
 
     @property
     def _memory(self) -> MemoryInterface:
@@ -113,11 +130,14 @@ class DataTypeSerializer(abc.ABC):
 
         Raises:
             ValueError: If the Azure Storage URL is detected but the datasets storage handle is not set.
+            RuntimeError: If results_storage_io is not configured but Azure storage URL was detected.
 
         """
         if self._is_azure_storage_url(self.value):
             # Scenarios where a user utilizes an in-memory DuckDB but also needs to interact
             # with an Azure Storage Account, ex., XPIAWorkflow.
+            if self._memory.results_storage_io is None:
+                raise RuntimeError("results_storage_io is not configured but Azure storage URL was detected")
             return self._memory.results_storage_io
         return DiskStorageIO()
 
@@ -131,7 +151,7 @@ class DataTypeSerializer(abc.ABC):
 
         """
 
-    async def save_data(self, data: bytes, output_filename: Optional[str] = None) -> None:
+    async def save_data_async(self, data: bytes, output_filename: Optional[str] = None) -> None:
         """
         Save data to storage.
 
@@ -139,12 +159,16 @@ class DataTypeSerializer(abc.ABC):
             data: bytes: The data to be saved.
             output_filename (optional, str): filename to store data as. Defaults to UUID if not provided
 
+        Raises:
+            RuntimeError: If storage IO is not initialized.
         """
-        file_path = await self.get_data_filename(file_name=output_filename)
-        await self._memory.results_storage_io.write_file(file_path, data)
+        file_path = await self.get_data_filename_async(file_name=output_filename)
+        if self._memory.results_storage_io is None:
+            raise RuntimeError("Storage IO not initialized")
+        await self._memory.results_storage_io.write_file_async(file_path, data)
         self.value = str(file_path)
 
-    async def save_b64_image(self, data: str | bytes, output_filename: str = None) -> None:
+    async def save_b64_image_async(self, data: str | bytes, output_filename: str | None = None) -> None:
         """
         Save a base64-encoded image to storage.
 
@@ -152,13 +176,17 @@ class DataTypeSerializer(abc.ABC):
             data: string or bytes with base64 data
             output_filename (optional, str): filename to store image as. Defaults to UUID if not provided
 
+        Raises:
+            RuntimeError: If storage IO is not initialized.
         """
-        file_path = await self.get_data_filename(file_name=output_filename)
+        file_path = await self.get_data_filename_async(file_name=output_filename)
         image_bytes = base64.b64decode(data)
-        await self._memory.results_storage_io.write_file(file_path, image_bytes)
+        if self._memory.results_storage_io is None:
+            raise RuntimeError("Storage IO not initialized")
+        await self._memory.results_storage_io.write_file_async(file_path, image_bytes)
         self.value = str(file_path)
 
-    async def save_formatted_audio(
+    async def save_formatted_audio_async(
         self,
         data: bytes,
         num_channels: int = 1,
@@ -176,34 +204,44 @@ class DataTypeSerializer(abc.ABC):
             sample_width (optional, int): sample width in bytes. Defaults to 2
             sample_rate (optional, int): sample rate in Hz. Defaults to 16000
 
+        Raises:
+            RuntimeError: If storage IO is not initialized.
         """
-        file_path = await self.get_data_filename(file_name=output_filename)
+        file_path = await self.get_data_filename_async(file_name=output_filename)
 
         # save audio file locally first if in AzureStorageBlob so we can use wave.open to set audio parameters
         if self._is_azure_storage_url(str(file_path)):
             local_temp_path = Path(DB_DATA_PATH, "temp_audio.wav")
-            with wave.open(str(local_temp_path), "wb") as wav_file:
-                wav_file.setnchannels(num_channels)
-                wav_file.setsampwidth(sample_width)
-                wav_file.setframerate(sample_rate)
-                wav_file.writeframes(data)
+            await asyncio.to_thread(
+                _write_wav_sync,
+                str(local_temp_path),
+                num_channels=num_channels,
+                sample_width=sample_width,
+                sample_rate=sample_rate,
+                data=data,
+            )
 
             async with aiofiles.open(local_temp_path, "rb") as f:
                 audio_data = await f.read()
-                await self._memory.results_storage_io.write_file(file_path, audio_data)
-            os.remove(local_temp_path)
+                if self._memory.results_storage_io is None:
+                    raise RuntimeError("self._memory.results_storage_io is not initialized")
+                await self._memory.results_storage_io.write_file_async(file_path, audio_data)
+            local_temp_path.unlink()
 
         # If local, we can just save straight to disk and do not need to delete temp file after
         else:
-            with wave.open(str(file_path), "wb") as wav_file:
-                wav_file.setnchannels(num_channels)
-                wav_file.setsampwidth(sample_width)
-                wav_file.setframerate(sample_rate)
-                wav_file.writeframes(data)
+            await asyncio.to_thread(
+                _write_wav_sync,
+                str(file_path),
+                num_channels=num_channels,
+                sample_width=sample_width,
+                sample_rate=sample_rate,
+                data=data,
+            )
 
         self.value = str(file_path)
 
-    async def read_data(self) -> bytes:
+    async def read_data_async(self) -> bytes:
         """
         Read data from storage.
 
@@ -224,13 +262,13 @@ class DataTypeSerializer(abc.ABC):
 
         storage_io = self._get_storage_io()
         # Check if path exists
-        file_exists = await storage_io.path_exists(path=self.value)
+        file_exists = await storage_io.path_exists_async(path=self.value)
         if not file_exists:
             raise FileNotFoundError(f"File not found: {self.value}")
         # Read the contents from the path
-        return await storage_io.read_file(self.value)
+        return await storage_io.read_file_async(self.value)
 
-    async def read_data_base64(self) -> str:
+    async def read_data_base64_async(self) -> str:
         """
         Read data from storage and return it as a base64 string.
 
@@ -238,10 +276,10 @@ class DataTypeSerializer(abc.ABC):
             str: Base64-encoded data.
 
         """
-        byte_array = await self.read_data()
+        byte_array = await self.read_data_async()
         return base64.b64encode(byte_array).decode("utf-8")
 
-    async def get_sha256(self) -> str:
+    async def get_sha256_async(self) -> str:
         """
         Compute SHA256 hash for this serializer's current value.
 
@@ -253,16 +291,16 @@ class DataTypeSerializer(abc.ABC):
             ValueError: If in-memory data cannot be converted to bytes.
 
         """
-        input_bytes: bytes = None
+        input_bytes: bytes | None = None
 
         if self.data_on_disk():
             storage_io = self._get_storage_io()
-            file_exists = await storage_io.path_exists(self.value)
+            file_exists = await storage_io.path_exists_async(self.value)
             if not file_exists:
                 raise FileNotFoundError(f"File not found: {self.value}")
 
             # Read the data from storage
-            input_bytes = await storage_io.read_file(self.value)
+            input_bytes = await storage_io.read_file_async(self.value)
         else:
             if isinstance(self.value, str):
                 input_bytes = self.value.encode("utf-8")
@@ -272,7 +310,7 @@ class DataTypeSerializer(abc.ABC):
         hash_object = hashlib.sha256(input_bytes)
         return hash_object.hexdigest()
 
-    async def get_data_filename(self, file_name: Optional[str] = None) -> Union[Path, str]:
+    async def get_data_filename_async(self, file_name: Optional[str] = None) -> Union[Path, str]:
         """
         Generate or retrieve a unique filename for the data file.
 
@@ -297,7 +335,12 @@ class DataTypeSerializer(abc.ABC):
             raise RuntimeError("Data sub directory not set")
 
         ticks = int(time.time() * 1_000_000)
-        results_path = self._memory.results_path
+        if self._memory.results_path:
+            results_path = str(self._memory.results_path)
+        else:
+            from pyrit.common.path import DB_DATA_PATH
+
+            results_path = str(DB_DATA_PATH)
         file_name = file_name if file_name else str(ticks)
 
         if self._is_azure_storage_url(results_path):
@@ -305,10 +348,132 @@ class DataTypeSerializer(abc.ABC):
             self._file_path = full_data_directory_path + f"/{file_name}.{self.file_extension}"
         else:
             full_data_directory_path = results_path + self.data_sub_directory
-            await self._memory.results_storage_io.create_directory_if_not_exists(Path(full_data_directory_path))
+            if self._memory.results_storage_io is None:
+                raise RuntimeError("self._memory.results_storage_io is not initialized")
+            await self._memory.results_storage_io.create_directory_if_not_exists_async(Path(full_data_directory_path))
             self._file_path = Path(full_data_directory_path, f"{file_name}.{self.file_extension}")
 
         return self._file_path
+
+    async def save_data(  # pyrit-async-suffix-exempt
+        self, data: bytes, output_filename: Optional[str] = None
+    ) -> None:
+        """
+        Save data to storage (deprecated alias of ``save_data_async``).
+
+        Args:
+            data: The data to be saved.
+            output_filename: Optional filename to store data as.
+        """
+        print_deprecation_message(
+            old_item="pyrit.models.data_type_serializer.DataTypeSerializer.save_data",
+            new_item="pyrit.models.data_type_serializer.DataTypeSerializer.save_data_async",
+            removed_in="0.16.0",
+        )
+        await self.save_data_async(data, output_filename)
+
+    async def save_b64_image(  # pyrit-async-suffix-exempt
+        self, data: str | bytes, output_filename: str | None = None
+    ) -> None:
+        """
+        Save a base64-encoded image to storage (deprecated alias of ``save_b64_image_async``).
+
+        Args:
+            data: String or bytes with base64 data.
+            output_filename: Optional filename to store image as.
+        """
+        print_deprecation_message(
+            old_item="pyrit.models.data_type_serializer.DataTypeSerializer.save_b64_image",
+            new_item="pyrit.models.data_type_serializer.DataTypeSerializer.save_b64_image_async",
+            removed_in="0.16.0",
+        )
+        await self.save_b64_image_async(data, output_filename)
+
+    async def save_formatted_audio(  # pyrit-async-suffix-exempt
+        self,
+        data: bytes,
+        num_channels: int = 1,
+        sample_width: int = 2,
+        sample_rate: int = 16000,
+        output_filename: Optional[str] = None,
+    ) -> None:
+        """
+        Save formatted audio data to storage (deprecated alias of ``save_formatted_audio_async``).
+
+        Args:
+            data: Audio data bytes.
+            num_channels: Number of channels in audio data.
+            sample_width: Sample width in bytes.
+            sample_rate: Sample rate in Hz.
+            output_filename: Optional filename to store audio as.
+        """
+        print_deprecation_message(
+            old_item="pyrit.models.data_type_serializer.DataTypeSerializer.save_formatted_audio",
+            new_item="pyrit.models.data_type_serializer.DataTypeSerializer.save_formatted_audio_async",
+            removed_in="0.16.0",
+        )
+        await self.save_formatted_audio_async(data, num_channels, sample_width, sample_rate, output_filename)
+
+    async def read_data(self) -> bytes:  # pyrit-async-suffix-exempt
+        """
+        Read data from storage (deprecated alias of ``read_data_async``).
+
+        Returns:
+            bytes: The data read from storage.
+        """
+        print_deprecation_message(
+            old_item="pyrit.models.data_type_serializer.DataTypeSerializer.read_data",
+            new_item="pyrit.models.data_type_serializer.DataTypeSerializer.read_data_async",
+            removed_in="0.16.0",
+        )
+        return await self.read_data_async()
+
+    async def read_data_base64(self) -> str:  # pyrit-async-suffix-exempt
+        """
+        Read data and return it as a base64 string (deprecated alias of ``read_data_base64_async``).
+
+        Returns:
+            str: Base64-encoded data.
+        """
+        print_deprecation_message(
+            old_item="pyrit.models.data_type_serializer.DataTypeSerializer.read_data_base64",
+            new_item="pyrit.models.data_type_serializer.DataTypeSerializer.read_data_base64_async",
+            removed_in="0.16.0",
+        )
+        return await self.read_data_base64_async()
+
+    async def get_sha256(self) -> str:  # pyrit-async-suffix-exempt
+        """
+        Compute SHA256 hash for this serializer's current value (deprecated alias of ``get_sha256_async``).
+
+        Returns:
+            str: Hex digest of the computed SHA256 hash.
+        """
+        print_deprecation_message(
+            old_item="pyrit.models.data_type_serializer.DataTypeSerializer.get_sha256",
+            new_item="pyrit.models.data_type_serializer.DataTypeSerializer.get_sha256_async",
+            removed_in="0.16.0",
+        )
+        return await self.get_sha256_async()
+
+    async def get_data_filename(  # pyrit-async-suffix-exempt
+        self, file_name: Optional[str] = None
+    ) -> Union[Path, str]:
+        """
+        Generate or retrieve a unique filename for the data file (deprecated alias of ``get_data_filename_async``).
+
+        Args:
+            file_name: Optional file name override.
+
+        Returns:
+            Union[Path, str]: Full storage path for the generated data file.
+        """
+        print_deprecation_message(
+            old_item="pyrit.models.data_type_serializer.DataTypeSerializer.get_data_filename",
+            new_item="pyrit.models.data_type_serializer.DataTypeSerializer.get_data_filename_async",
+            removed_in="0.16.0",
+        )
+        return await self.get_data_filename_async(file_name)
 
     @staticmethod
     def get_extension(file_path: str) -> str | None:
@@ -322,8 +487,8 @@ class DataTypeSerializer(abc.ABC):
             str | None: File extension (including dot) or None if unavailable.
 
         """
-        _, ext = os.path.splitext(file_path)
-        return ext if ext else None
+        ext = Path(file_path).suffix
+        return ext or None
 
     @staticmethod
     def get_mime_type(file_path: str) -> str | None:
@@ -358,7 +523,7 @@ class DataTypeSerializer(abc.ABC):
 class TextDataTypeSerializer(DataTypeSerializer):
     """Serializer for text and text-like prompt values that stay in-memory."""
 
-    def __init__(self, *, prompt_text: str, data_type: PromptDataType = "text"):
+    def __init__(self, *, prompt_text: str, data_type: PromptDataType = "text") -> None:
         """
         Initialize a text serializer.
 
@@ -384,7 +549,7 @@ class TextDataTypeSerializer(DataTypeSerializer):
 class ErrorDataTypeSerializer(DataTypeSerializer):
     """Serializer for error payloads stored as in-memory text."""
 
-    def __init__(self, *, prompt_text: str):
+    def __init__(self, *, prompt_text: str) -> None:
         """
         Initialize an error serializer.
 
@@ -409,7 +574,7 @@ class ErrorDataTypeSerializer(DataTypeSerializer):
 class URLDataTypeSerializer(DataTypeSerializer):
     """Serializer for URL values and URL-backed local file references."""
 
-    def __init__(self, *, category: str, prompt_text: str, extension: Optional[str] = None):
+    def __init__(self, *, category: str, prompt_text: str, extension: Optional[str] = None) -> None:
         """
         Initialize a URL serializer.
 
@@ -439,7 +604,7 @@ class URLDataTypeSerializer(DataTypeSerializer):
 class ImagePathDataTypeSerializer(DataTypeSerializer):
     """Serializer for image path values stored on disk."""
 
-    def __init__(self, *, category: str, prompt_text: Optional[str] = None, extension: Optional[str] = None):
+    def __init__(self, *, category: str, prompt_text: Optional[str] = None, extension: Optional[str] = None) -> None:
         """
         Initialize an image-path serializer.
 
@@ -476,7 +641,7 @@ class AudioPathDataTypeSerializer(DataTypeSerializer):
         category: str,
         prompt_text: Optional[str] = None,
         extension: Optional[str] = None,
-    ):
+    ) -> None:
         """
         Initialize an audio-path serializer.
 
@@ -513,7 +678,7 @@ class VideoPathDataTypeSerializer(DataTypeSerializer):
         category: str,
         prompt_text: Optional[str] = None,
         extension: Optional[str] = None,
-    ):
+    ) -> None:
         """
         Initialize a video-path serializer.
 
@@ -550,7 +715,7 @@ class BinaryPathDataTypeSerializer(DataTypeSerializer):
         category: str,
         prompt_text: Optional[str] = None,
         extension: Optional[str] = None,
-    ):
+    ) -> None:
         """
         Initialize a generic binary-path serializer.
 

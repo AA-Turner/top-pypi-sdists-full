@@ -664,3 +664,119 @@ def config(
         console.print(f"  Active sessions:  {active_sessions}")
         roles_str = ", ".join(roles_in_use) if roles_in_use else "[dim]none[/dim]"
         console.print(f"  Roles in use:     {roles_str}")
+
+
+@auth_app.command(name="migrate")
+def migrate(
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Report what would change; write nothing.")
+    ] = False,
+    user_entity: Annotated[
+        str,
+        typer.Option(
+            "--user-entity",
+            help="Domain entity linking email->tenant (default: [auth] user_entity).",
+        ),
+    ] = "",
+    database_url: Annotated[str, typer.Option("--database-url", help="Override DB URL.")] = "",
+) -> None:
+    """Backfill an existing deployment onto the membership model (auth Plan 1d).
+
+    Mirrors each domain tenant-root row into the framework `organizations` table
+    at the same id, and creates a membership per auth user (tenant resolved via
+    the domain user entity, matched by email). Idempotent.
+    """
+    from pathlib import Path
+
+    import psycopg
+
+    from dazzle.cli.env import get_active_env
+    from dazzle.cli.utils import load_project_appspec
+    from dazzle.core.manifest import load_manifest, resolve_database_url
+    from dazzle.db.auth_migrate import MigrateError, migrate_to_memberships
+
+    project_root = Path.cwd().resolve()
+    manifest = load_manifest(project_root / "dazzle.toml")
+    url = (
+        database_url
+        or _database_url_override
+        or resolve_database_url(manifest, env_name=get_active_env())
+    )
+    appspec = load_project_appspec(project_root)
+
+    try:
+        with psycopg.connect(url) as conn:  # non-autocommit → one transaction
+            result = migrate_to_memberships(
+                appspec, conn=conn, dry_run=dry_run, user_entity=user_entity or None
+            )
+    except MigrateError as exc:
+        console.print(f"[red]Migration aborted: {exc}[/red]")
+        raise typer.Exit(1) from exc
+
+    verb = "Would migrate" if dry_run else "Migrated"
+    console.print(f"[green]{verb}:[/green]")
+    console.print(f"  organizations mirrored: {result.orgs_mirrored}")
+    console.print(f"  memberships created:    {result.memberships_created}")
+    if result.users_skipped:
+        console.print(
+            f"  [yellow]users skipped (no resolvable tenant):[/yellow] {len(result.users_skipped)}"
+        )
+        for email in result.users_skipped:
+            console.print(f"    - {email}")
+
+
+# `dazzle auth connection ...` — per-org enterprise SSO connection management +
+# DNS-TXT domain verification (auth Plan 4b.iv). Defined in a sibling module to keep
+# this file focused; the connection commands resolve the store via `_get_auth_store`.
+from dazzle.cli.auth_connection import connection_app  # noqa: E402
+
+auth_app.add_typer(connection_app, name="connection")
+
+
+@auth_app.command(name="rotate-encryption-key")
+def rotate_encryption_key() -> None:
+    """Re-encrypt all connection secrets onto a new DAZZLE_CONNECTION_SECRET (key rotation).
+
+    Procedure (zero-downtime):
+      1. Generate a NEW 32-byte key.
+      2. Set DAZZLE_CONNECTION_SECRET=<new> AND DAZZLE_CONNECTION_SECRET_OLD=<old>; restart
+         the app(s) (now decrypts with either key, encrypts with the new one).
+      3. Run this command — it rewraps every connection secret onto the new key.
+      4. Once every instance is rewrapped, remove DAZZLE_CONNECTION_SECRET_OLD.
+    """
+    import os
+
+    from dazzle.back.runtime.auth.connection_crypto import (
+        _ENV_KEY_OLD,
+        ConnectionSecretError,
+        _load_key,
+    )
+
+    # The primary (new) key must be valid before we touch anything.
+    try:
+        _load_key()
+    except ConnectionSecretError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
+
+    has_old = bool(os.environ.get(_ENV_KEY_OLD, "").strip())
+    result = _get_auth_store()._store.rewrap_all_connection_secrets()
+
+    console.print(
+        f"[green]Rewrapped[/green] {result.rewrapped} connection secret(s) onto the current key; "
+        f"{result.already_current} already current."
+    )
+    if result.failed:
+        console.print(
+            f"[red]{len(result.failed)} could not be decrypted by any configured key[/red] — set "
+            f"{_ENV_KEY_OLD} to the previous key and re-run. Affected: {', '.join(result.failed)}"
+        )
+        raise typer.Exit(code=1)
+    if result.rewrapped and not has_old:
+        console.print(
+            f"[yellow]Note:[/yellow] {_ENV_KEY_OLD} is not set — those rewraps used only the "
+            "primary key."
+        )
+    console.print(
+        f"Done. Once every deployment instance has been rewrapped, remove {_ENV_KEY_OLD}."
+    )

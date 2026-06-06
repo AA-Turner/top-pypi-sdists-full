@@ -37,6 +37,14 @@ DEFAULT_OPENAI_MODEL = "gpt-5.4-mini"
 # populates LLMConfig.model — None cannot fall through to the per-agent
 # default the way it does for the Anthropic backend.
 DEFAULT_BEDROCK_MODEL = "us.anthropic.claude-opus-4-7-v1:0"
+# Default model for the `bedrock_openai` backend (OpenAI models served on
+# Bedrock via the `bedrock-mantle` OpenAI Responses-API endpoint — AWS model
+# card, launched 2026-06-01). gpt-5.5 is the default: the 2026-06-05 dispatch
+# scored it 100% precision + 95.8% recall on csp-starter-cfn vs gpt-5.4 at
+# 82.6% / 95.0% (gpt-5.4 over-flags procedural KSIs). Pass --llm-model
+# openai.gpt-5.4 for the alternative. Commercial us-east-2 / us-west-2 only
+# at launch (no GovCloud yet).
+DEFAULT_BEDROCK_OPENAI_MODEL = "openai.gpt-5.5"
 
 
 class LLMConfig(BaseModel):
@@ -66,7 +74,17 @@ class LLMConfig(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    backend: Literal["anthropic", "bedrock", "claude_code", "openai"] = "anthropic"
+    backend: Literal["anthropic", "bedrock", "claude_code", "openai", "bedrock_openai"] = (
+        "anthropic"
+    )
+    # `bedrock_openai` (v0.1.216) routes calls to OpenAI models served on
+    # AWS Bedrock via the `bedrock-mantle` OpenAI Responses-API endpoint
+    # (NOT the Converse API the `bedrock` backend uses for Anthropic models).
+    # Needs an AWS region (commercial us-east-2/us-west-2 at launch) and a
+    # Bedrock API key (`AWS_BEARER_TOKEN_BEDROCK`). Default model
+    # `openai.gpt-5.4`. Keeps OpenAI-model inference inside an AWS account
+    # for customers who want Bedrock billing/governance without Anthropic
+    # egress. See LIMITATIONS.md "OpenAI on Bedrock (bedrock_openai)".
     # `claude_code` (v0.1.148 / #353) routes calls through the local
     # `claude --print` subprocess so users with a Claude Pro/Max
     # subscription can run efterlev at no per-token cost. Requires
@@ -104,21 +122,28 @@ class LLMConfig(BaseModel):
 
     @model_validator(mode="after")
     def _region_required_iff_bedrock(self) -> LLMConfig:
-        if self.backend == "bedrock" and not self.region:
+        if self.backend in ("bedrock", "bedrock_openai") and not self.region:
             raise ValueError(
-                "LLMConfig.region is required when backend is 'bedrock'; "
-                "set region to e.g. 'us-gov-west-1' or 'us-east-1'."
+                f"LLMConfig.region is required when backend is '{self.backend}'; "
+                "set region to e.g. 'us-gov-west-1' or 'us-east-1' (bedrock) / "
+                "'us-east-2' or 'us-west-2' (bedrock_openai)."
             )
         if self.backend in ("anthropic", "claude_code", "openai") and self.region is not None:
             raise ValueError(
                 f"LLMConfig.region must be unset when backend is '{self.backend}' "
-                "(region is only used by the Bedrock backend)."
+                "(region is only used by the Bedrock backends)."
             )
         if self.backend == "bedrock" and self.model is None:
             raise ValueError(
                 "LLMConfig.model is required when backend is 'bedrock'; "
                 "Bedrock model IDs differ from the Anthropic short-form IDs "
                 f"the agent defaults use (e.g. '{DEFAULT_BEDROCK_MODEL}')."
+            )
+        if self.backend == "bedrock_openai" and self.model is None:
+            raise ValueError(
+                "LLMConfig.model is required when backend is 'bedrock_openai'; "
+                "the agent defaults are Claude model IDs the Mantle endpoint "
+                f"rejects. Set model to e.g. '{DEFAULT_BEDROCK_OPENAI_MODEL}'."
             )
         if self.backend == "openai" and self.model is None:
             # The per-agent default_model values are Claude short-form IDs
@@ -388,10 +413,10 @@ def save_config(config: Config, path: Path) -> None:
     if config.llm.model is not None:
         llm_lines.append(f'model = "{config.llm.model}"')
     llm_lines.append(f'fallback_model = "{config.llm.fallback_model}"')
-    # SPEC-11: emit region only when backend=bedrock to keep the default
+    # SPEC-11: emit region only for the Bedrock backends to keep the default
     # (anthropic) config visually minimal. Pydantic validator guarantees
-    # region is set iff backend==bedrock.
-    if config.llm.backend == "bedrock":
+    # region is set iff backend is a Bedrock backend.
+    if config.llm.backend in ("bedrock", "bedrock_openai"):
         llm_lines.append(f'region = "{config.llm.region}"')
     lines = [
         "# Efterlev workspace config — written by `efterlev init`.",

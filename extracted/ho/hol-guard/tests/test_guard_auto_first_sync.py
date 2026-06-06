@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from codex_plugin_scanner.guard.cli import commands as guard_commands_module
+from codex_plugin_scanner.guard.cli.connect_flow import CONNECT_SYNC_AUTH_CONTEXT_KEY
 from codex_plugin_scanner.guard.daemon import server as daemon_server_module
 from codex_plugin_scanner.guard.daemon.manager import load_guard_daemon_auth_token
 from codex_plugin_scanner.guard.daemon.server import GuardDaemonServer
@@ -30,7 +31,7 @@ def test_finalize_guard_connect_payload_keeps_first_sync_pending_on_transient_sy
     def _raise_runtime_error(_store: GuardStore) -> dict[str, object]:
         raise RuntimeError("temporary receipt sync failure")
 
-    monkeypatch.setattr(guard_commands_module, "sync_receipts", _raise_runtime_error)
+    monkeypatch.setattr(guard_commands_module, "sync_local_guard_cloud_proof", _raise_runtime_error)
 
     payload = guard_commands_module._finalize_guard_connect_payload(
         store=store,
@@ -49,6 +50,57 @@ def test_finalize_guard_connect_payload_keeps_first_sync_pending_on_transient_sy
     assert isinstance(latest_state, dict)
     assert latest_state["status"] == "connected"
     assert latest_state["milestone"] == "first_sync_pending"
+
+
+def test_finalize_guard_connect_payload_uses_fresh_oauth_access_token_once(tmp_path, monkeypatch) -> None:
+    store = GuardStore(tmp_path / "guard-home")
+    connect_url = "https://hol.org/guard/connect"
+    now = "2026-06-04T12:00:00+00:00"
+    sync_calls: list[dict[str, object] | None] = []
+
+    monkeypatch.setattr(
+        store,
+        "get_cloud_sync_profile",
+        lambda: {"sync_url": "https://hol.org/api/guard/receipts/sync"},
+    )
+    monkeypatch.setattr(
+        store,
+        "get_oauth_local_credential_health",
+        lambda: {"configured": True, "state": "healthy"},
+    )
+
+    def _fake_sync(
+        _store: GuardStore,
+        *,
+        auth_context: dict[str, object] | None = None,
+    ) -> dict[str, object]:
+        sync_calls.append(auth_context)
+        return {
+            "synced_at": "2026-06-04T12:00:05+00:00",
+            "runtime_session_id": "session-1",
+            "runtime_session_synced_at": "2026-06-04T12:00:05+00:00",
+            "runtime_sessions_visible": 1,
+            "receipts_stored": 0,
+        }
+
+    monkeypatch.setattr(guard_commands_module, "sync_local_guard_cloud_proof", _fake_sync)
+
+    payload = guard_commands_module._finalize_guard_connect_payload(
+        store=store,
+        connect_url=connect_url,
+        payload={
+            "status": "connected",
+            CONNECT_SYNC_AUTH_CONTEXT_KEY: {
+                "access_token": "access-token-1",
+                "dpop_key_material": "dpop",
+                "sync_url": "https://hol.org/api/guard/receipts/sync",
+            },
+        },
+        now=now,
+    )
+
+    assert sync_calls == [None]
+    assert CONNECT_SYNC_AUTH_CONTEXT_KEY not in payload
 
 
 def test_guard_daemon_runtime_request_queues_pending_first_sync(tmp_path, monkeypatch) -> None:
@@ -121,7 +173,7 @@ def test_finalize_guard_connect_payload_keeps_reauth_failures_in_retry_required_
     def _raise_auth_expired(_store: GuardStore) -> dict[str, object]:
         raise guard_commands_module.GuardSyncAuthorizationExpiredError("reauth required")
 
-    monkeypatch.setattr(guard_commands_module, "sync_receipts", _raise_auth_expired)
+    monkeypatch.setattr(guard_commands_module, "sync_local_guard_cloud_proof", _raise_auth_expired)
 
     payload = guard_commands_module._finalize_guard_connect_payload(
         store=store,
@@ -165,7 +217,7 @@ def test_headless_first_sync_auth_expiry_marks_connect_state_for_repair(tmp_path
         queued_calls.append(str(store.guard_home))
         return {"status": "queued", "message": "Guard Cloud sync started."}
 
-    monkeypatch.setattr(daemon_server_module, "sync_receipts", _raise_auth_expired)
+    monkeypatch.setattr(daemon_server_module, "sync_local_guard_cloud_proof", _raise_auth_expired)
     monkeypatch.setattr(daemon_server_module, "_queue_headless_cloud_sync", _record_queue)
 
     daemon_server_module._run_headless_cloud_sync(store=store)

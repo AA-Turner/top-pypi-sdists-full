@@ -4,6 +4,7 @@ Monitoring and logging configuration utilities.
 This module provides structured logging setup using structlog.
 """
 
+import json
 import logging
 from enum import StrEnum
 from typing import Any
@@ -14,6 +15,8 @@ import temporalio.workflow
 from opentelemetry import trace
 from pydantic import BaseModel
 from structlog.typing import EventDict, Processor
+
+from mistralai.workflows.worker_client.errors import SDKError
 
 
 class Env(StrEnum):
@@ -161,3 +164,38 @@ def setup_logging(
         logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,
     )
+
+
+def extract_error_context(exc: Exception) -> dict:
+    ctx: dict = {
+        "error_type": type(exc).__name__,
+        "error_message": str(exc),
+    }
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None:
+        if id(current) in seen:
+            break
+        seen.add(id(current))
+        if isinstance(current, SDKError):
+            ctx["http_status"] = getattr(current, "status_code", None)
+            body = getattr(current, "body", None)
+            ctx["api_error_body"] = body
+            if body:
+                try:
+                    parsed = json.loads(body)
+                    if isinstance(parsed, dict):
+                        if "code" in parsed:
+                            ctx["api_error_code"] = parsed["code"]
+                        if "message" in parsed:
+                            ctx["api_error_message"] = parsed["message"]
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            break
+        if current.__cause__ is not None:
+            current = current.__cause__
+        elif not current.__suppress_context__:
+            current = current.__context__
+        else:
+            break
+    return ctx

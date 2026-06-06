@@ -1,4 +1,4 @@
-# See http://go/std-makefile to get an understanding of common Makefile targets used throughout the project
+ # See http://go/std-makefile to get an understanding of common Makefile targets used throughout the project
 
 .PHONY: onboarding lint format typecheck check-api-surface test integration-tests dev installdeps lock
 
@@ -23,7 +23,7 @@ test:
 	uv run invoke tests
 
 integration-tests:
-	uv run invoke integration-tests
+	uv run invoke integration-tests -v
 
 dev:
 	@echo "Development environment setup"

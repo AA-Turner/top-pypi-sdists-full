@@ -982,17 +982,31 @@ class TestGuardApprovals:
         expected_port = daemon_manager_module._configured_port(guard_home)
         responses = iter([None, None, f"http://127.0.0.1:{expected_port}"])
 
+        class FakeProcess:
+            def poll(self):
+                return None
+
         monkeypatch.delenv("GUARD_DAEMON_PORT", raising=False)
         monkeypatch.setattr(
             daemon_manager_module,
             "load_guard_daemon_url",
             lambda _guard_home: next(responses),
         )
+        monkeypatch.setattr(
+            daemon_manager_module,
+            "_running_guard_daemon_processes_for_guard_home",
+            lambda _guard_home: [],
+        )
         monkeypatch.setattr(daemon_manager_module, "_running_ephemeral_guard_daemon_processes", lambda: [])
+        monkeypatch.setattr(
+            daemon_manager_module,
+            "_running_guard_daemon_processes_for_guard_home",
+            lambda _guard_home: [],
+        )
         monkeypatch.setattr(
             daemon_manager_module.subprocess,
             "Popen",
-            lambda command, **_kwargs: launched_commands.append(command) or SimpleNamespace(),
+            lambda command, **_kwargs: launched_commands.append(command) or FakeProcess(),
         )
 
         url = daemon_manager_module.ensure_guard_daemon(guard_home)

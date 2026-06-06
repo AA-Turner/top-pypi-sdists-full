@@ -1,119 +1,176 @@
-"""
-Docs: https://docs.swanlab.cn/guide_cloud/integration/integration-fastai.html
-"""
+from __future__ import annotations
 
-try:
-    from fastai.learner import Callback
-    from fastcore.basics import store_attr, detuplify, ignore_exceptions
-    from fastai.callback.hook import total_params
-except ImportError:
-    raise RuntimeError(
-        "This module requires `fastai` to be installed. " "Please install it with command: \n pip install fastai"
-    )
+import warnings
+from typing import Any, Dict, List, Optional
 
-from typing import Optional, Any, Dict, List
 import swanlab
-from swanlab.log import swanlog as swl
+import swanlab.vendor
+from swanlab import Callback
+
+_FastaiCallback = swanlab.vendor.fastai.learner.Callback
+_fastai_hook = swanlab.vendor.fastai.callback.hook
+_fastcore_basics = swanlab.vendor.fastcore.basics
 
 
-class SwanLabCallback(Callback):
+class SwanLabCallback(Callback, _FastaiCallback):
+    """
+    FastAI callback implementing both ``swanlab.Callback`` and fastai's ``Callback``.
+
+    Usage (recommended):
+
+        import swanlab
+        from swanlab.integration.fastai import SwanLabCallback
+
+        cb = SwanLabCallback()
+        swanlab.init(project="my-project", callbacks=[cb])
+        learn = Learner(..., cbs=cb)
+        learn.fit_one_cycle(5)
+        swanlab.finish()
+    """
+
     def __init__(
         self,
+        *,
         project: Optional[str] = None,
+        workspace: Optional[str] = None,
         experiment_name: Optional[str] = None,
         description: Optional[str] = None,
-        workspace: Optional[str] = None,
-        config: Optional[dict] = None,
-        mode: Optional[str] = None,
+        log_dir: Optional[str] = None,
         logdir: Optional[str] = None,
+        mode: Optional[str] = None,
         tags: Optional[List[str]] = None,
+        config: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
-    ):
-        store_attr()
-        self._experiment = swanlab
-
-        self.project = project
-        self.experiment_name = experiment_name
-        self.workspace = workspace
-        self.config = config
-        self.description = description
-        self.mode = mode
-        self.logdir = logdir
-        self.train_suffix = "train"
-        self.summary_suffix = "summary"
-        
-        self.tags = tags or []
-        self.tags.append("fastai") if "fastai" not in self.tags else None
-    
-    def update_config(self, config: Dict[str, Any]):
-        swanlab.config.update(config)
-
-    def setup_swanlab(self):
-        swanlab.config["FRAMEWORK"] = "fastai"
-        if self._experiment.get_run() is None:
-            self._experiment.init(
-                project=self.project,
-                workspace=self.workspace,
-                experiment_name=self.experiment_name,
-                description=self.description,
-                config=self.config,
-                mode=self.mode,
-                logdir=self.logdir,
-                tags=self.tags,
+    ) -> None:
+        if logdir is not None:
+            warnings.warn(
+                "The `logdir` parameter is deprecated, use `log_dir` instead.",
+                DeprecationWarning,
+                stacklevel=2,
             )
+            log_dir = logdir
 
-    def before_fit(self):
-        # print("=" * 10 + "before_fit" + "=" * 10)
-        self.setup_swanlab()
-        configs_log = self.gather_args()
-        formatted_config = SwanLabCallback.format_config(configs_log)
-        self._experiment.config.update(formatted_config)
+        Callback.__init__(self)
+        _FastaiCallback.__init__(self)
+
+        tags = list(tags) if tags else []
+        if "fastai" not in tags:
+            tags.append("fastai")
+
+        self._init_kwargs: Dict[str, Any] = {}
+        for key, value in [
+            ("project", project),
+            ("workspace", workspace),
+            ("experiment_name", experiment_name),
+            ("description", description),
+            ("log_dir", log_dir),
+            ("mode", mode),
+            ("tags", tags),
+        ]:
+            if value is not None:
+                self._init_kwargs[key] = value
+        self._init_kwargs.update(kwargs)
+        self._init_kwargs.pop("callbacks", None)
+        self._init_kwargs.pop("config", None)
+
+        self._pending_config: Dict[str, Any] = dict(config) if config else {}
+        self._initialized = False
         self._swanlab_step = 0
 
-    def after_batch(self):
-        if self.training:
-            self._swanlab_step += 1
-            swanlab.log(
-                {f"{self.train_suffix}/loss": self.loss.item(), f"{self.train_suffix}/step": self._swanlab_step},
-                step=self._swanlab_step,
-            )
-            for i, h in enumerate(self.opt.hypers):
-                for k, v in h.items():
-                    swanlab.log({f"{self.train_suffix}/{k}_{i}": v}, self._swanlab_step)
+    @property
+    def name(self) -> str:
+        return "swanlab-integration-fastai"
 
-    def before_epoch(self):
-        # print("=" * 10 + "before_epoch" + "=" * 10)
-        for metric in self.metrics:
-            metric.reset()
+    # --- swanlab.Callback hooks ---
 
-    def after_epoch(self):
-        # print("=" * 10 + "after_epoch" + "=" * 10)
+    def on_run_initialized(self, run_dir: str, path: str, **kwargs: Any) -> None:
+        run = self._get_active_run()
+        if run is None:
+            return
+        self._initialized = True
+        run.config["FRAMEWORK"] = "fastai"
+        self._flush_pending_config(run)
+
+    def on_run_finished(self, state: str, error: Optional[str] = None, **kwargs: Any) -> None:
+        self._initialized = False
+        self._pending_config.clear()
+
+    # --- fastai callback hooks ---
+
+    def before_fit(self) -> None:
+        self._ensure_init()
+        run = self._get_active_run()
+        if run is not None:
+            configs_log = self._gather_args()
+            formatted_config = self._format_config(configs_log)
+            run.config.update(formatted_config)
+
+    def after_batch(self) -> None:
+        if not self.training:
+            return
+        self._swanlab_step += 1
+        payload: Dict[str, Any] = {
+            "train/loss": self.loss.item(),
+            "train/step": self._swanlab_step,
+        }
+        for i, h in enumerate(self.opt.hypers):
+            for k, v in h.items():
+                payload[f"train/{k}_{i}"] = v
+        swanlab.log(payload, step=self._swanlab_step)
+
+    def after_epoch(self) -> None:
+        payload: Dict[str, Any] = {}
         for name, value in zip(self.recorder.metric_names, self.recorder.log):
             if value is not None:
-                swanlab.log({f"{self.summary_suffix}/{name}": value})
+                payload[f"epoch/{name}"] = value
+        if payload:
+            swanlab.log(payload, step=self.epoch)
 
-    def __del__(self):
-        # 如果实验已经结束，且实验状态为0，即RUNNING状态，则关闭实验
-        if self._experiment.Run.get_state().value == 0:
-            swanlab.finish()
+    # --- helpers ---
 
-    def gather_args(self):
-        "Gather config parameters accessible to the learner"
-        cb_args = {f"{cb}": getattr(cb, "__stored_args__", True) for cb in self.cbs if cb != self}
-        args = {"Learner": self.learn, **cb_args}
+    def update_config(self, config: Dict[str, Any]) -> None:
+        run = self._get_active_run()
+        if run is None:
+            self._pending_config.update(config)
+            return
+        run.config.update(config)
+
+    def _ensure_init(self) -> None:
+        if self._initialized:
+            return
+        run = self._get_active_run()
+        if run is not None:
+            self._initialized = True
+            run.config["FRAMEWORK"] = "fastai"
+            self._flush_pending_config(run)
+            return
+        init_kwargs = dict(self._init_kwargs)
+        if self._pending_config:
+            init_kwargs["config"] = dict(self._pending_config)
+        swanlab.init(callbacks=[self], **init_kwargs)
+        self._pending_config.clear()
+
+    def _gather_args(self) -> Dict[str, Any]:
+        cb_args = {type(cb).__name__: getattr(cb, "__stored_args__", True) for cb in self.cbs if cb != self}
+        args: Dict[str, Any] = {"Learner": self.learn, **cb_args}
         try:
             n_inp = self.dls.train.n_inp
             args["n_inp"] = n_inp
             xb = self.dls.valid.one_batch()[:n_inp]
             args.update(
-                {f"input {n+1} dim {i+1}": d for n in range(n_inp) for i, d in enumerate(list(detuplify(xb[n]).shape))}
+                {
+                    f"input {n + 1} dim {i + 1}": d
+                    for n in range(n_inp)
+                    for i, d in enumerate(list(_fastcore_basics.detuplify(xb[n]).shape))
+                }
             )
         except Exception:
-            swl.warning("Failed to gather input dimensions")
-        with ignore_exceptions():
+            pass
+
+        with _fastcore_basics.ignore_exceptions():
             args["batch_size"] = self.dls.bs
             args["batch_per_epoch"] = len(self.dls.train)
-            args["model_parameters"] = total_params(self.model)[0]
+            args["model_parameters"] = _fastai_hook.total_params(self.model)[0]
             args["device"] = self.dls.device.type
             args["frozen"] = bool(self.opt.frozen_idx)
             args["frozen_idx"] = self.opt.frozen_idx
@@ -124,19 +181,35 @@ class SwanLabCallback(Callback):
         return args
 
     @classmethod
-    def format_config(cls, config):
-        "Format config parameters for logging"
+    def _format_config(cls, config: Dict[str, Any]) -> Dict[str, Any]:
+        result: Dict[str, Any] = {}
         for key, value in config.items():
             if isinstance(value, dict):
-                config[key] = SwanLabCallback.format_config(value)
+                result[key] = cls._format_config(value)
             else:
-                config[key] = SwanLabCallback.format_config_value(value)
-        return config
+                result[key] = cls._format_config_value(value)
+        return result
 
     @classmethod
-    def format_config_value(cls, value):
+    def _format_config_value(cls, value: Any) -> Any:
         if isinstance(value, list):
-            return [SwanLabCallback.format_config_value(item) for item in value]
+            return [cls._format_config_value(item) for item in value]
         elif hasattr(value, "__stored_args__"):
-            return {**SwanLabCallback.format_config(value.__stored_args__), "_name": value}
+            return {**cls._format_config(value.__stored_args__), "_name": str(value)}
         return value
+
+    def _flush_pending_config(self, run: Any) -> None:
+        if not self._pending_config:
+            return
+        run.config.update(self._pending_config)
+        self._pending_config.clear()
+
+    @staticmethod
+    def _get_active_run():
+        try:
+            return swanlab.get_run()
+        except RuntimeError:
+            return None
+
+
+__all__ = ["SwanLabCallback"]

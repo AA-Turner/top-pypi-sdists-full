@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seleniumbase
-Version: 4.49.6
+Version: 4.49.7
 Summary: A framework for stealthy Chromium automation with CDP Mode. Includes CAPTCHA-bypass, E2E Testing, and a Playwright integration.
 Home-page: https://github.com/seleniumbase/SeleniumBase
 Author: Michael Mintz

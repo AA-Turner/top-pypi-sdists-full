@@ -4768,6 +4768,11 @@ impl LatentCoordDesignDerivativeBasis {
     }
 }
 
+trait LatentCoordLocalDesignJacobian {
+    fn local_design_jacobian_row(&self, row: usize, axis: usize)
+    -> Result<Array1<f64>, BasisError>;
+}
+
 /// The rayon chunk size for parallel implicit matvec operations.
 /// Each chunk processes this many data points before reducing.
 const IMPLICIT_MATVEC_CHUNK_SIZE: usize = 1000;
@@ -4997,53 +5002,6 @@ impl LatentCoordDesignDerivative {
         (flat_axis / d, flat_axis % d)
     }
 
-    fn unproject(&self, u: &ArrayView1<'_, f64>) -> Result<(Array1<f64>, Array1<f64>), BasisError> {
-        match &self.basis {
-            LatentCoordDesignDerivativeBasis::Radial {
-                ident_transform,
-                full_ident_transform,
-                n_poly,
-                ..
-            } => {
-                let after_full = match full_ident_transform {
-                    Some(zf) => zf.dot(u),
-                    None => u.to_owned(),
-                };
-                let p_constrained = self.basis.p_constrained();
-                let smooth_part = after_full.slice(s![..p_constrained]);
-                let raw_knot = match ident_transform {
-                    Some(z) => z.dot(&smooth_part),
-                    None => smooth_part.to_owned(),
-                };
-                let poly = after_full
-                    .slice(s![p_constrained..p_constrained + *n_poly])
-                    .to_owned();
-                Ok((raw_knot, poly))
-            }
-            LatentCoordDesignDerivativeBasis::Jet { .. } => Err(BasisError::InvalidInput(
-                "LatentCoordDesignDerivative::unproject called on Jet basis; \
-                 jet derivatives must route through unproject_jet"
-                    .to_string(),
-            )),
-        }
-    }
-
-    fn unproject_jet(&self, u: &ArrayView1<'_, f64>) -> Result<Array1<f64>, BasisError> {
-        match &self.basis {
-            LatentCoordDesignDerivativeBasis::Jet {
-                ident_transform, ..
-            } => Ok(match ident_transform {
-                Some(z) => z.dot(u),
-                None => u.to_owned(),
-            }),
-            LatentCoordDesignDerivativeBasis::Radial { .. } => Err(BasisError::InvalidInput(
-                "LatentCoordDesignDerivative::unproject_jet called on Radial basis; \
-                 radial derivatives must route through unproject"
-                    .to_string(),
-            )),
-        }
-    }
-
     fn project_and_pad(
         &self,
         raw_knot: &Array1<f64>,
@@ -5180,7 +5138,35 @@ impl LatentCoordDesignDerivative {
         }
         out
     }
+}
 
+impl LatentCoordLocalDesignJacobian for LatentCoordDesignDerivative {
+    fn local_design_jacobian_row(
+        &self,
+        row: usize,
+        axis: usize,
+    ) -> Result<Array1<f64>, BasisError> {
+        match &self.basis {
+            LatentCoordDesignDerivativeBasis::Radial { centers, .. } => {
+                let mut raw_knot = Array1::<f64>::zeros(centers.nrows());
+                for center in 0..centers.nrows() {
+                    raw_knot[center] = self.kernel_axis_scalar(row, center, axis)?;
+                }
+                let raw_poly = self.polynomial_axis_values(row, axis);
+                self.project_and_pad(&raw_knot, &raw_poly)
+            }
+            LatentCoordDesignDerivativeBasis::Jet { jet, .. } => {
+                let mut raw_knot = Array1::<f64>::zeros(jet.shape()[1]);
+                for basis_col in 0..jet.shape()[1] {
+                    raw_knot[basis_col] = jet[[row, basis_col, axis]];
+                }
+                self.project_jet(&raw_knot)
+            }
+        }
+    }
+}
+
+impl LatentCoordDesignDerivative {
     pub fn forward_mul_axis(
         &self,
         flat_axis: usize,
@@ -5197,26 +5183,8 @@ impl LatentCoordDesignDerivative {
             "latent-coordinate derivative coefficient length mismatch in forward_mul_axis"
         );
         let (row, axis) = self.row_axis(flat_axis);
-        let value = match &self.basis {
-            LatentCoordDesignDerivativeBasis::Radial { centers, .. } => {
-                let (u_knot, u_poly) = self.unproject(u)?;
-                let mut value = 0.0_f64;
-                for center in 0..centers.nrows() {
-                    value += self.kernel_axis_scalar(row, center, axis)? * u_knot[center];
-                }
-                let poly = self.polynomial_axis_values(row, axis);
-                value += poly.dot(&u_poly);
-                value
-            }
-            LatentCoordDesignDerivativeBasis::Jet { jet, .. } => {
-                let u_knot = self.unproject_jet(u)?;
-                let mut value = 0.0_f64;
-                for basis_col in 0..jet.shape()[1] {
-                    value += jet[[row, basis_col, axis]] * u_knot[basis_col];
-                }
-                value
-            }
-        };
+        let local_jacobian = self.local_design_jacobian_row(row, axis)?;
+        let value = local_jacobian.dot(u);
         let mut out = Array1::<f64>::zeros(self.n_data());
         out[row] = value;
         Ok(out)
@@ -5239,29 +5207,9 @@ impl LatentCoordDesignDerivative {
         );
         let (row, axis) = self.row_axis(flat_axis);
         let scale = v[row];
-        match &self.basis {
-            LatentCoordDesignDerivativeBasis::Radial { centers, .. } => {
-                let mut raw_knot = Array1::<f64>::zeros(centers.nrows());
-                if scale != 0.0 {
-                    for center in 0..centers.nrows() {
-                        raw_knot[center] = scale * self.kernel_axis_scalar(row, center, axis)?;
-                    }
-                }
-                let raw_poly = self
-                    .polynomial_axis_values(row, axis)
-                    .mapv(|value| scale * value);
-                self.project_and_pad(&raw_knot, &raw_poly)
-            }
-            LatentCoordDesignDerivativeBasis::Jet { jet, .. } => {
-                let mut raw_knot = Array1::<f64>::zeros(jet.shape()[1]);
-                if scale != 0.0 {
-                    for basis_col in 0..jet.shape()[1] {
-                        raw_knot[basis_col] = scale * jet[[row, basis_col, axis]];
-                    }
-                }
-                self.project_jet(&raw_knot)
-            }
-        }
+        Ok(self
+            .local_design_jacobian_row(row, axis)?
+            .mapv(|value| scale * value))
     }
 
     pub fn materialize_axis(&self, flat_axis: usize) -> Result<Array2<f64>, BasisError> {
@@ -5271,23 +5219,7 @@ impl LatentCoordDesignDerivative {
             self.n_axes()
         );
         let (row, axis) = self.row_axis(flat_axis);
-        let projected = match &self.basis {
-            LatentCoordDesignDerivativeBasis::Radial { centers, .. } => {
-                let mut raw_knot = Array1::<f64>::zeros(centers.nrows());
-                for center in 0..centers.nrows() {
-                    raw_knot[center] = self.kernel_axis_scalar(row, center, axis)?;
-                }
-                let raw_poly = self.polynomial_axis_values(row, axis);
-                self.project_and_pad(&raw_knot, &raw_poly)?
-            }
-            LatentCoordDesignDerivativeBasis::Jet { jet, .. } => {
-                let mut raw_knot = Array1::<f64>::zeros(jet.shape()[1]);
-                for basis_col in 0..jet.shape()[1] {
-                    raw_knot[basis_col] = jet[[row, basis_col, axis]];
-                }
-                self.project_jet(&raw_knot)?
-            }
-        };
+        let projected = self.local_design_jacobian_row(row, axis)?;
         let mut out = Array2::<f64>::zeros((self.n_data(), projected.len()));
         out.row_mut(row).assign(&projected);
         Ok(out)
@@ -17226,6 +17158,19 @@ fn build_duchon_operator_penalty_psi_derivatives(
         );
     }
     let metric_weights: Option<Vec<f64>> = aniso.map(centered_aniso_metric_weights);
+    // Only assemble derivative-order blocks that the *enabled* operator
+    // penalties actually consume. `max_derivative_order` is computed from
+    // `effective_operator_penalties`, which has tension/stiffness already
+    // disabled when the kernel is too rough to admit them (the
+    // `two_pps <= dim + k` guards above). Computing higher-order blocks
+    // anyway is not just wasted work — the d2 collision branch calls
+    // `duchonphi_rr_collision_psi_triplet`, which requires
+    // `2(p+s) > dim + 2` and aborts the whole fit when the upstream
+    // auto-disable has correctly recognized the boundary case. Gating the
+    // accumulators here keeps the contract between the operator-spec
+    // validator and the per-pair worker consistent.
+    let need_d1 = max_derivative_order >= 1;
+    let need_d2 = max_derivative_order >= 2;
     let chunk_count = rayon::current_num_threads().max(1);
     let chunk_size = p_colloc.div_ceil(chunk_count).max(1);
     let chunks: Vec<(usize, usize)> = (0..p_colloc)
@@ -17266,6 +17211,9 @@ fn build_duchon_operator_penalty_psi_derivatives(
                             local.d0_psi[[i, col]] += core.phi.psi * z_jc;
                             local.d0_psi_psi[[i, col]] += core.phi.psi_psi * z_jc;
                         }
+                        if !need_d1 && !need_d2 {
+                            continue;
+                        }
                         if r > 1e-10 {
                             let jets =
                                 duchon_radial_jets(r, length_scale, p_order, s_order, d, &coeffs)?;
@@ -17276,52 +17224,57 @@ fn build_duchon_operator_penalty_psi_derivatives(
                             let (t_psi, t_psi_psi) = scaled_log_kappa_derivatives(
                                 jets.t, jets.t_r, jets.t_rr, t_exponent, r,
                             );
-                            for axis in 0..d {
-                                let delta = collocation_points[[i, axis]] - centers[[j, axis]];
-                                let axis_scale = metric_weights
-                                    .as_ref()
-                                    .map(|weights| weights[axis])
-                                    .unwrap_or(1.0);
-                                let row = i * d + axis;
-                                for col in 0..kernel_cols {
-                                    let z_jc = z_kernel[[j, col]];
-                                    local.d1[[row, col]] += q * axis_scale * delta * z_jc;
-                                    local.d1_psi[[row, col]] += q_psi * axis_scale * delta * z_jc;
-                                    local.d1_psi_psi[[row, col]] +=
-                                        q_psi_psi * axis_scale * delta * z_jc;
-                                }
-                            }
-                            for col in 0..kernel_cols {
-                                let z_jc = z_kernel[[j, col]];
-                                for axis_b in 0..d {
-                                    let h_b =
-                                        collocation_points[[i, axis_b]] - centers[[j, axis_b]];
-                                    let w_b = metric_weights
+                            if need_d1 {
+                                for axis in 0..d {
+                                    let delta = collocation_points[[i, axis]] - centers[[j, axis]];
+                                    let axis_scale = metric_weights
                                         .as_ref()
-                                        .map(|weights| weights[axis_b])
+                                        .map(|weights| weights[axis])
                                         .unwrap_or(1.0);
-                                    for axis_c in 0..d {
-                                        let h_c =
-                                            collocation_points[[i, axis_c]] - centers[[j, axis_c]];
-                                        let w_c = metric_weights
-                                            .as_ref()
-                                            .map(|weights| weights[axis_c])
-                                            .unwrap_or(1.0);
-                                        let row = (i * d + axis_b) * d + axis_c;
-                                        local.d2[[row, col]] += hessian_operator_entry(
-                                            q, jets.t, h_b, h_c, w_b, w_c, axis_b, axis_c,
-                                        ) * z_jc;
-                                        local.d2_psi[[row, col]] += hessian_operator_entry(
-                                            q_psi, t_psi, h_b, h_c, w_b, w_c, axis_b, axis_c,
-                                        ) * z_jc;
-                                        local.d2_psi_psi[[row, col]] += hessian_operator_entry(
-                                            q_psi_psi, t_psi_psi, h_b, h_c, w_b, w_c, axis_b,
-                                            axis_c,
-                                        ) * z_jc;
+                                    let row = i * d + axis;
+                                    for col in 0..kernel_cols {
+                                        let z_jc = z_kernel[[j, col]];
+                                        local.d1[[row, col]] += q * axis_scale * delta * z_jc;
+                                        local.d1_psi[[row, col]] +=
+                                            q_psi * axis_scale * delta * z_jc;
+                                        local.d1_psi_psi[[row, col]] +=
+                                            q_psi_psi * axis_scale * delta * z_jc;
                                     }
                                 }
                             }
-                        } else {
+                            if need_d2 {
+                                for col in 0..kernel_cols {
+                                    let z_jc = z_kernel[[j, col]];
+                                    for axis_b in 0..d {
+                                        let h_b =
+                                            collocation_points[[i, axis_b]] - centers[[j, axis_b]];
+                                        let w_b = metric_weights
+                                            .as_ref()
+                                            .map(|weights| weights[axis_b])
+                                            .unwrap_or(1.0);
+                                        for axis_c in 0..d {
+                                            let h_c = collocation_points[[i, axis_c]]
+                                                - centers[[j, axis_c]];
+                                            let w_c = metric_weights
+                                                .as_ref()
+                                                .map(|weights| weights[axis_c])
+                                                .unwrap_or(1.0);
+                                            let row = (i * d + axis_b) * d + axis_c;
+                                            local.d2[[row, col]] += hessian_operator_entry(
+                                                q, jets.t, h_b, h_c, w_b, w_c, axis_b, axis_c,
+                                            ) * z_jc;
+                                            local.d2_psi[[row, col]] += hessian_operator_entry(
+                                                q_psi, t_psi, h_b, h_c, w_b, w_c, axis_b, axis_c,
+                                            ) * z_jc;
+                                            local.d2_psi_psi[[row, col]] += hessian_operator_entry(
+                                                q_psi_psi, t_psi_psi, h_b, h_c, w_b, w_c, axis_b,
+                                                axis_c,
+                                            ) * z_jc;
+                                        }
+                                    }
+                                }
+                            }
+                        } else if need_d2 {
                             let (phi_rr, phi_rr_psi, phi_rr_psi_psi) =
                                 duchonphi_rr_collision_psi_triplet(
                                     length_scale,

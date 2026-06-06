@@ -1,30 +1,10 @@
-"""MDM-managed configuration lookup for AI Watch.
-
-Lets a single binary/installer be deployed to any tenant without rebuilding:
-the admin sets tenant-specific host + org API key value through the OS-native
-managed-configuration surface, and the binary resolves them at runtime.
-
-The MDM-pushed value is the actual org API key secret (e.g. ``rl_org_...``),
-not a name to look up — there is no pre-existing local config on a freshly
-MDM-deployed device for a name-based lookup to resolve against.
-
-- macOS: Managed Preferences at
-  ``/Library/Managed Preferences/com.runlayer.aiwatch.plist`` (pushed via an
-  MDM Configuration Profile for the ``com.runlayer.aiwatch`` domain), with a
-  fallback to ``/Library/Preferences/com.runlayer.aiwatch.plist`` for local
-  overrides.
-- Windows: ``HKLM\\Software\\Runlayer\\AIWatch`` values ``Host`` and
-  ``OrgApiKey`` (written by the MSI from the ``AIWATCH_HOST`` and
-  ``AIWATCH_ORG_API_KEY`` public properties at install time), with
-  ``HKCU\\Software\\Runlayer\\AIWatch`` as a fallback for per-user overrides.
-
-Stdlib-only — no subprocess, no third-party dependencies.
-"""
+"""MDM-managed configuration lookup for AI Watch (see cli/AGENTS.md for fields)."""
 
 from __future__ import annotations
 
 import platform
 import plistlib
+import re
 import sys
 from pathlib import Path
 from typing import TypedDict, cast
@@ -39,13 +19,55 @@ REG_KEY_PATH = r"Software\Runlayer\AIWatch"
 
 HOST_KEY = "Host"
 ORG_API_KEY_KEY = "OrgApiKey"
+ENROLLMENT_KEY_KEY = "EnrollmentKey"
+USERNAME_KEY = "Username"
+DEVICE_NAME_KEY = "DeviceName"
+ENFORCEMENT_KEY = "Enforcement"
+SESSIONS_KEY = "Sessions"
+
+_STRING_FIELDS: tuple[tuple[str, str], ...] = (
+    (HOST_KEY, "host"),
+    (ORG_API_KEY_KEY, "org_api_key"),
+    (ENROLLMENT_KEY_KEY, "enrollment_key"),
+    (USERNAME_KEY, "username"),
+    (DEVICE_NAME_KEY, "device_name"),
+)
+
+_BOOL_FIELDS: tuple[tuple[str, str], ...] = (
+    (ENFORCEMENT_KEY, "enforcement"),
+    (SESSIONS_KEY, "sessions"),
+)
+
+# Sentinels in the shipped mobileconfig template; ignored as live values to
+# protect operators who upload without find-and-replace.
+_PLACEHOLDER_PREFIX = "REPLACE_WITH"
+_PLACEHOLDER_SUFFIX = "_OR_LEAVE_BLANK"
+
+# Workspace ONE lookup tokens — admins upload com.runlayer.aiwatch.config.ws1
+# .mobileconfig with `{CustomAttribute3}` etc. Live devices receive the
+# substituted value; misconfigured fleets land the literal token in managed
+# prefs. Filter it out so enroll doesn't POST garbage to /api/v1/mdm/enroll.
+_WS1_LOOKUP_TOKEN_RE = re.compile(r"^\{[A-Za-z]\w*\}$")
+
+
+def _is_placeholder(value: str) -> bool:
+    return (
+        _PLACEHOLDER_PREFIX in value
+        or value.endswith(_PLACEHOLDER_SUFFIX)
+        or bool(_WS1_LOOKUP_TOKEN_RE.match(value))
+    )
 
 
 class ManagedConfig(TypedDict, total=False):
-    """Subset of MDM-managed settings relevant to the scan flow."""
+    """Subset of MDM-managed settings relevant to scan + hook flows."""
 
     host: str
     org_api_key: str
+    enrollment_key: str
+    username: str
+    device_name: str
+    enforcement: bool
+    sessions: bool
 
 
 MACOS_PLIST_PATHS: tuple[Path, ...] = (
@@ -64,10 +86,37 @@ def read_managed_config() -> ManagedConfig:
     return {}
 
 
+def resolve_include_pipeline(
+    all_events: bool, managed: ManagedConfig | None = None
+) -> bool:
+    """Whether to install event/session hooks alongside enforcement hooks.
+
+    Config-driven and scope-independent: ``--all-events`` always wins, otherwise
+    the MDM ``Sessions`` key decides (absent / non-bool ⇒ full set). This is the
+    single source of truth shared by ``aiwatch bootstrap`` / ``aiwatch setup
+    hooks {install,check}`` so the bootstrap phase installs the full set by
+    default on every platform.
+    """
+    if all_events:
+        return True
+    if managed is None:
+        managed = read_managed_config()
+    return bool(managed.get("sessions", True))
+
+
+def _merge_first_wins(result: ManagedConfig, parsed: ManagedConfig) -> None:
+    parsed_dict = cast(dict[str, object], parsed)
+    result_dict = cast(dict[str, object], result)
+    for _, attr in _STRING_FIELDS:
+        if attr in parsed_dict and attr not in result_dict:
+            result_dict[attr] = parsed_dict[attr]
+    for _, attr in _BOOL_FIELDS:
+        if attr in parsed_dict and attr not in result_dict:
+            result_dict[attr] = parsed_dict[attr]
+
+
 def _read_macos(paths: tuple[Path, ...]) -> ManagedConfig:
-    # Merge partial configs across plists (first-wins per key) so a managed
-    # profile setting only Host can be combined with a local plist supplying
-    # OrgApiKey. Mirrors _read_windows's hive-merging behavior.
+    # First-wins merge across plists (matches _read_windows hive merging).
     result: ManagedConfig = {}
     for path in paths:
         try:
@@ -77,19 +126,11 @@ def _read_macos(paths: tuple[Path, ...]) -> ManagedConfig:
             continue
         except plistlib.InvalidFileException:
             continue
-        parsed = _parse_mapping(data)
-        if "host" in parsed and "host" not in result:
-            result["host"] = parsed["host"]
-        if "org_api_key" in parsed and "org_api_key" not in result:
-            result["org_api_key"] = parsed["org_api_key"]
-        if "host" in result and "org_api_key" in result:
-            break
+        _merge_first_wins(result, _parse_mapping(data))
     return result
 
 
 def _read_windows() -> ManagedConfig:
-    # winreg is a stdlib module that only exists on Windows; on other
-    # platforms the module-level import falls back to None.
     if winreg is None:
         return {}
 
@@ -97,16 +138,19 @@ def _read_windows() -> ManagedConfig:
     for hive in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
         try:
             with winreg.OpenKey(hive, REG_KEY_PATH, 0, winreg.KEY_READ) as key:
-                host = _reg_read_string(key, HOST_KEY)
-                org_api_key = _reg_read_string(key, ORG_API_KEY_KEY)
+                parsed: ManagedConfig = {}
+                parsed_dict = cast(dict[str, object], parsed)
+                for reg_name, attr in _STRING_FIELDS:
+                    str_value = _reg_read_string(key, reg_name)
+                    if str_value:
+                        parsed_dict[attr] = str_value
+                for reg_name, attr in _BOOL_FIELDS:
+                    bool_value = _reg_read_bool(key, reg_name)
+                    if bool_value is not None:
+                        parsed_dict[attr] = bool_value
         except OSError:
             continue
-        if host and "host" not in result:
-            result["host"] = host
-        if org_api_key and "org_api_key" not in result:
-            result["org_api_key"] = org_api_key
-        if "host" in result and "org_api_key" in result:
-            break
+        _merge_first_wins(result, parsed)
     return result
 
 
@@ -119,9 +163,24 @@ def _reg_read_string(key: object, name: str) -> str | None:
         return None
     if reg_type != winreg.REG_SZ:
         return None
-    if not isinstance(value, str) or not value:
+    if not isinstance(value, str) or not value or _is_placeholder(value):
         return None
     return value
+
+
+def _reg_read_bool(key: object, name: str) -> bool | None:
+    """Read a REG_DWORD as bool (0 -> False, non-zero -> True). None when absent/wrong-type."""
+    if winreg is None:
+        return None
+    try:
+        value, reg_type = winreg.QueryValueEx(key, name)
+    except FileNotFoundError:
+        return None
+    if reg_type != winreg.REG_DWORD:
+        return None
+    if not isinstance(value, int):
+        return None
+    return value != 0
 
 
 def _parse_mapping(data: object) -> ManagedConfig:
@@ -129,10 +188,15 @@ def _parse_mapping(data: object) -> ManagedConfig:
         return {}
     mapping = cast(dict[str, object], data)
     result: ManagedConfig = {}
-    host = mapping.get(HOST_KEY)
-    org_api_key = mapping.get(ORG_API_KEY_KEY)
-    if isinstance(host, str) and host:
-        result["host"] = host
-    if isinstance(org_api_key, str) and org_api_key:
-        result["org_api_key"] = org_api_key
+    result_dict = cast(dict[str, object], result)
+    for plist_key, attr in _STRING_FIELDS:
+        value = mapping.get(plist_key)
+        if isinstance(value, str) and value and not _is_placeholder(value):
+            result_dict[attr] = value
+    for plist_key, attr in _BOOL_FIELDS:
+        value = mapping.get(plist_key)
+        # Reject ints (plistlib gives `True is 1` parity, but `isinstance(1, bool)` is False, so
+        # we only accept literal bool nodes; string "false" is dropped by the type check).
+        if isinstance(value, bool):
+            result_dict[attr] = value
     return result

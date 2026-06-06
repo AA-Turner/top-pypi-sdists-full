@@ -1,0 +1,129 @@
+"""
+@author: cunyue
+@file: __init__.py
+@time: 2026/4/9 16:41
+@description: SwanLab 硬件监控对象
+"""
+
+from typing import Dict, List, Optional
+
+from google.protobuf.timestamp_pb2 import Timestamp
+
+from swanlab.proto.swanlab.metric.column.v1.column_pb2 import ColumnRecord
+from swanlab.proto.swanlab.metric.data.v1.data_pb2 import ScalarRecord
+from swanlab.sdk.internal.pkg import console, safe, timer
+from swanlab.sdk.internal.pkg.executor import SafeThreadPoolExecutor
+from swanlab.sdk.internal.probe_python.context import ProbeContext
+from swanlab.sdk.internal.probe_python.hardware_vendor.accelerator import ACCELERATOR_REGISTRY
+from swanlab.sdk.internal.probe_python.hardware_vendor.apple import Apple
+from swanlab.sdk.internal.probe_python.hardware_vendor.cpu import CPU
+from swanlab.sdk.internal.probe_python.hardware_vendor.memory import Memory
+from swanlab.sdk.internal.probe_python.monitor import builder
+from swanlab.sdk.internal.probe_python.protocol import CollectorProtocol, CollectResult
+from swanlab.sdk.internal.probe_python.typings import SystemScalars, SystemShim
+from swanlab.sdk.protocol import CoreProtocol
+from swanlab.utils.experiment import generate_id
+
+__all__ = ["Monitor"]
+
+
+class Monitor:
+    """
+    硬件监控定时任务
+    """
+
+    def __init__(self, shim: SystemShim, core: CoreProtocol):
+        self._core = core
+        self._shim = shim
+        self._timer: Optional[timer.Timer] = None
+        self._executor: Optional[SafeThreadPoolExecutor] = None
+
+    def start(self, ctx: ProbeContext) -> Optional["Monitor"]:
+        now_step = ctx.config.global_system_step
+        # 1. 收集采集器
+        # 注意 scalars 设计上越靠前的越先发送、在前端显示越靠前
+        collectors: List[CollectorProtocol] = []
+        scalars: SystemScalars = []
+        # 1.1 基础硬件信息
+        if (cpu := CPU.new(self._shim)) is not None:
+            collectors.append(cpu[0])
+            scalars = cpu[1] + scalars
+        if (memory := Memory.new(self._shim)) is not None:
+            collectors.append(memory[0])
+            scalars = memory[1] + scalars
+
+        # 1.2 苹果芯片信息
+        if (apple := Apple.new(self._shim)) is not None:
+            collectors.append(apple[0])
+            scalars = apple[1] + scalars
+
+        # 1.3 加速器信息
+        for acc_config in self._shim.accelerators:
+            vendor_cls = ACCELERATOR_REGISTRY.get(acc_config.vendor)
+            if vendor_cls is None:
+                continue
+            if (instance := vendor_cls.new(self._shim)) is not None:
+                collectors.append(instance[0])
+                scalars = instance[1] + scalars
+
+        # 2. 定义指标
+        # 有部分指标会聚合到一个图表中，所以需要一个缓存来记录每个指标对应的图表索引
+        cache_chart_index: Dict[str, str] = {}
+        column_records: List[ColumnRecord] = []
+        for scalar in scalars:
+            if (chart_index := cache_chart_index.get(scalar.chart_name)) is None:
+                chart_index = generate_id(8)
+                cache_chart_index[scalar.chart_name] = chart_index
+            with safe.block(message=f"Failed to build column record for scalar {scalar.key}"):
+                column_records.append(builder.build_probe_column(scalar, chart_index=chart_index))
+        if len(column_records) == 0:
+            console.debug("No hardware monitor columns found, skipping creating monitor task")
+            return None
+        # 3. 定义并启动任务
+        all_handlers = [(type(c).__name__, c.collect) for c in collectors]
+        if len(all_handlers) == 0:
+            console.debug("No hardware monitor collectors found, skipping creating monitor task")
+            return None
+        # 使用线程池执行任务
+        # 监控任务的执行效率不要求特别高，线程池的方式可以兼容大部分采集器的实现方式，同时也避免了某些采集器在执行过程中可能出现的阻塞问题
+        first_execute = True
+        self._executor = SafeThreadPoolExecutor(max_workers=2)
+
+        def task():
+            nonlocal now_step, column_records, first_execute
+            assert self._executor is not None, "Monitor Executor is not initialized"
+            assert len(column_records) > 0, "No column records to upsert"
+            if first_execute:
+                self._core.upsert_columns(column_records)
+                first_execute = False
+            futures = [(n, self._executor.submit(fn)) for n, fn in all_handlers]
+            results: List[CollectResult] = []
+            for n, f in futures:
+                with safe.block(message=f"Error collecting metric via {n}"):
+                    result = f.result()
+                    results.extend(result)
+            ts = Timestamp()
+            ts.GetCurrentTime()
+            scalar_records: List[ScalarRecord] = []
+            now_step += 1
+            for k, v in results:
+                scalar_records.append(builder.build_probe_scalar(k, value=v, timestamp=ts, step=now_step))
+            self._core.upsert_scalars(scalar_records)
+
+        # 不设置立即执行，以避免产生一些无用的数据
+        self._timer = timer.Timer(
+            task,
+            interval=ctx.config.monitor_interval,
+            immediate=False,
+            name="SwanLab·Monitor",
+        )
+        self._timer.start()
+        return self
+
+    def stop(self) -> None:
+        assert self._timer is not None, "HardwareMonitor is not running"
+        self._timer.cancel()
+        self._timer.join()
+        if self._executor is not None:
+            self._executor.shutdown(wait=True)
+            self._executor = None

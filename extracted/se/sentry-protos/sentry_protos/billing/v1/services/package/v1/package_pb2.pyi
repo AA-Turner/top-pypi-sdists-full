@@ -9,6 +9,7 @@ import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.message
 import sentry_protos.billing.v1.common.v1.billing_interval_pb2
+import sentry_protos.billing.v1.common.v1.flexible_price_pb2
 import sentry_protos.billing.v1.common.v1.line_item_details_pb2
 import sentry_protos.billing.v1.common.v1.pricing_tier_pb2
 import typing
@@ -77,6 +78,7 @@ class SharedLineItemPool(google.protobuf.message.Message):
     IS_OPTIONAL_ADD_ON_FIELD_NUMBER: builtins.int
     SHARED_LINE_ITEM_FIELD_NUMBER: builtins.int
     BASE_PRICE_CENTS_FIELD_NUMBER: builtins.int
+    FLEXIBLE_BASE_PRICE_CENTS_FIELD_NUMBER: builtins.int
     reserved_pool_cents: builtins.int
     """how much money this shared pool has. For example, if logs costs $1.00 per GB and metrics
     costs $1.00 per GB and we wanted to give metrics and logs a shared 5GB pool, the reserved_pool_cents
@@ -92,6 +94,8 @@ class SharedLineItemPool(google.protobuf.message.Message):
     def shared_line_item(self) -> sentry_protos.billing.v1.common.v1.line_item_details_pb2.LineItemDetails:
         """The unique line item details used when invoicing this shared pool."""
 
+    @property
+    def flexible_base_price_cents(self) -> sentry_protos.billing.v1.common.v1.flexible_price_pb2.FlexiblePrice: ...
     def __init__(
         self,
         *,
@@ -100,9 +104,10 @@ class SharedLineItemPool(google.protobuf.message.Message):
         is_optional_add_on: builtins.bool = ...,
         shared_line_item: sentry_protos.billing.v1.common.v1.line_item_details_pb2.LineItemDetails | None = ...,
         base_price_cents: builtins.int = ...,
+        flexible_base_price_cents: sentry_protos.billing.v1.common.v1.flexible_price_pb2.FlexiblePrice | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["shared_line_item", b"shared_line_item"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["base_price_cents", b"base_price_cents", "is_optional_add_on", b"is_optional_add_on", "line_items", b"line_items", "reserved_pool_cents", b"reserved_pool_cents", "shared_line_item", b"shared_line_item"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["flexible_base_price_cents", b"flexible_base_price_cents", "shared_line_item", b"shared_line_item"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["base_price_cents", b"base_price_cents", "flexible_base_price_cents", b"flexible_base_price_cents", "is_optional_add_on", b"is_optional_add_on", "line_items", b"line_items", "reserved_pool_cents", b"reserved_pool_cents", "shared_line_item", b"shared_line_item"]) -> None: ...
 
 global___SharedLineItemPool = SharedLineItemPool
 
@@ -114,6 +119,7 @@ class PackageConfig(google.protobuf.message.Message):
     LINE_ITEM_CONFIGS_FIELD_NUMBER: builtins.int
     SHARED_LINE_ITEM_POOLS_FIELD_NUMBER: builtins.int
     BASE_PRICE_CENTS_FIELD_NUMBER: builtins.int
+    FLEXIBLE_BASE_PRICE_CENTS_FIELD_NUMBER: builtins.int
     BILLING_INTERVAL_FIELD_NUMBER: builtins.int
     TITLE_FIELD_NUMBER: builtins.int
     SUPPORTED_MONTH_INTERVALS_FIELD_NUMBER: builtins.int
@@ -128,6 +134,8 @@ class PackageConfig(google.protobuf.message.Message):
     @property
     def shared_line_item_pools(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SharedLineItemPool]: ...
     @property
+    def flexible_base_price_cents(self) -> sentry_protos.billing.v1.common.v1.flexible_price_pb2.FlexiblePrice: ...
+    @property
     def supported_month_intervals(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.int]:
         """Number-of-months billing intervals this package offers.
         [1] = monthly only, [1, 12] = monthly or annual, [12] = annual only.
@@ -140,10 +148,12 @@ class PackageConfig(google.protobuf.message.Message):
         line_item_configs: collections.abc.Iterable[global___LineItemConfig] | None = ...,
         shared_line_item_pools: collections.abc.Iterable[global___SharedLineItemPool] | None = ...,
         base_price_cents: builtins.int = ...,
+        flexible_base_price_cents: sentry_protos.billing.v1.common.v1.flexible_price_pb2.FlexiblePrice | None = ...,
         billing_interval: sentry_protos.billing.v1.common.v1.billing_interval_pb2.BillingInterval.ValueType = ...,
         title: builtins.str = ...,
         supported_month_intervals: collections.abc.Iterable[builtins.int] | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["base_price_cents", b"base_price_cents", "billing_interval", b"billing_interval", "line_item_configs", b"line_item_configs", "shared_line_item_pools", b"shared_line_item_pools", "supported_month_intervals", b"supported_month_intervals", "title", b"title", "uid", b"uid"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["flexible_base_price_cents", b"flexible_base_price_cents"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["base_price_cents", b"base_price_cents", "billing_interval", b"billing_interval", "flexible_base_price_cents", b"flexible_base_price_cents", "line_item_configs", b"line_item_configs", "shared_line_item_pools", b"shared_line_item_pools", "supported_month_intervals", b"supported_month_intervals", "title", b"title", "uid", b"uid"]) -> None: ...
 
 global___PackageConfig = PackageConfig

@@ -13,6 +13,45 @@ from kanban_framework.infra.filesystem import Filesystem
 from kanban_framework.types import Phase
 
 
+def clip_evidence(text: str, section_title: str = "", max_length: int = 1000) -> str:
+    """Deterministically clip evidence text from execution artifacts. (#529)
+
+    Splits by ## headings, finds the matching section, clips to max_length.
+    Falls back to full text truncation when no headings found.
+    """
+    if not text or max_length <= 0:
+        return ""
+    if len(text) <= max_length:
+        return text
+    # Try section-based clipping
+    if "\n## " in text:
+        sections = text.split("\n## ")
+        target = section_title.lower().lstrip("#").strip() if section_title else ""
+        for sec in sections:
+            heading = sec.split("\n", 1)[0].lower().strip()
+            if target and target in heading:
+                clipped = _clip_to_boundary(sec, max_length)
+                return clipped
+        # No matching section — use first section
+        clipped = _clip_to_boundary(sections[0], max_length)
+        return clipped
+    # No headings — truncate full text
+    return _clip_to_boundary(text, max_length)
+
+
+def _clip_to_boundary(text: str, max_length: int) -> str:
+    """Clip text to max_length at sentence/line boundary."""
+    if len(text) <= max_length:
+        return text
+    # Try sentence boundary (。or \n)
+    for boundary in ("。", "\n", "；", ". "):
+        pos = text.rfind(boundary, 0, max_length)
+        if pos > max_length // 2:
+            return text[:pos + len(boundary)].rstrip()
+    # No good boundary — hard clip with ellipsis
+    return text[:max_length - 3].rstrip() + "..."
+
+
 def extract_knowledge(task, fs: Filesystem) -> dict:
     """Extract and import knowledge entries after retrospective or in quick-mode archive."""
     knowledge_result: dict = {}
@@ -116,6 +155,7 @@ def _extract_quick_archive_knowledge(task, fs: Filesystem) -> dict:
                 if any(_title.lower() in e.get("title", "").lower()
                        for e in _existing):
                     continue
+                _evidence = clip_evidence(_text, _title, max_length=1000)
                 _entry = km.add_entry(
                     domain="infra",
                     category=_category,
@@ -124,9 +164,11 @@ def _extract_quick_archive_knowledge(task, fs: Filesystem) -> dict:
                     tags=["quick-mode", "auto-extracted"],
                     severity="medium",
                     source={"task_id": task.id, "source_file": _src_path.name,
-                            "extraction_mode": "quick_archive"},
+                            "extraction_mode": "quick_archive",
+                            "section_title": _title},
                     biz_context=biz_tag,
                     status="pending",
+                    evidence=_evidence or None,
                 )
                 if not _entry.get("skipped"):
                     _quick_added.append(_entry["id"])

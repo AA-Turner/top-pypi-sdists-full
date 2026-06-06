@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # Copyright (C) 2025 CERN.
+# Copyright (C) 2026 KTH Royal Institute of Technology.
 #
 # Invenio-Requests is free software; you can redistribute it and/or
 # modify it under the terms of the MIT License; see LICENSE file for more
@@ -20,4 +21,4 @@ def read_file(pid_value, file_key):
         id_=pid_value,
         file_key=file_key,
     )
-    return file.send_file(as_attachment=True, restricted=True), 200
+    return file.send_file(as_attachment=True, restricted=True)

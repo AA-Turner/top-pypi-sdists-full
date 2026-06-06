@@ -1,6 +1,6 @@
 from fivetran_connector_sdk.protos import common_pb2
 
-TESTER_VERSION = "2.26.0601.001"
+TESTER_VERSION = "2.26.0604.001"
 
 WIN_OS = "windows"
 ARM_64 = "arm64"
@@ -42,6 +42,7 @@ OUTPUT_FILES_DIR = "files"
 REQUIREMENTS_TXT = "requirements.txt"
 PYPROJECT_TOML = "pyproject.toml"
 PYPROJECT_SKIP_VALIDATION_MESSAGE = "using pyproject.toml; skipping dependency validation"
+RECOMMEND_STABLE_VERSION_MESSAGE = "We recommend using the current stable version for the following libraries:"
 CONFIGURATION_JSON = "configuration.json"
 PYPI_PACKAGE_DETAILS_URL = "https://pypi.org/pypi/fivetran_connector_sdk/json"
 ONE_DAY_IN_SEC = 24 * 60 * 60
@@ -61,6 +62,11 @@ ALWAYS_INCLUDED_FILES = [GITIGNORE_FILENAME]
 EXCLUDED_DIRS = ["__pycache__", "lib", "include", OUTPUT_FILES_DIR]
 EXCLUDED_PIPREQS_DIRS = ["bin,etc,include,lib,Lib,lib64,Scripts,share"]
 VALID_COMMANDS = ["version", "init", "debug", "deploy", "reset", "package", "help"]
+FORCE_DEPRECATION_WARNING_COMMANDS = ["init", "package", "deploy", "reset"]
+DEPRECATED_FORCE_FLAG_WARNING = (
+    "--force and -f are deprecated and will be removed in a future release."
+    "Use --non-interactive instead."
+)
 MAX_ALLOWED_EDIT_DISTANCE_FROM_VALID_COMMAND = 3
 COMMANDS_AND_SYNONYMS = {
     "debug": {"test", "verify", "diagnose", "check"},
@@ -78,13 +84,17 @@ MAX_CONFIG_FIELDS = 100
 SUPPORTED_PYTHON_VERSIONS = ["3.14", "3.13", "3.12", "3.11", "3.10"]
 DEFAULT_PYTHON_VERSION = "3.13"
 FIVETRAN_HD_AGENT_ID = "FIVETRAN_HD_AGENT_ID"
+FIVETRAN_NAMING_ENV = "FIVETRAN_NAMING"  # Environment variable name for setting naming strategy
+FIVETRAN_NAMING_VALUE = "FIVETRAN"  # Fivetran naming strategy value
+SOURCE_NAMING_VALUE = "SOURCE"  # Source naming strategy value
+UNDERSCORE_NAMING = "_NAMING"  # Suffix for sending naming to Fivetran API
 UTF_8 = "utf-8"
 REDACTED_VALUE = "****"
-EXAMPLES_GITHUB_REPO = "fivetran/fivetran_connector_sdk"
+EXAMPLES_GITHUB_REPO = "fivetran/connector_sdk"
 GITHUB_BRANCH = "main"
-CONNECTORS_GITHUB_REPO = "fivetran/fivetran_csdk_connectors"
+CONNECTORS_GITHUB_REPO = "fivetran/community_connectors"
 CONNECTORS_TEMPLATE_PREFIX = "connectors/"
-TOOLS_GITHUB_REPO = "fivetran/fivetran_csdk_tools"
+TOOLS_GITHUB_REPO = "fivetran/connector_sdk_tools"
 TOOLS_GITHUB_REPO_URL = f"https://github.com/{TOOLS_GITHUB_REPO}"
 TOOLS_PLUGIN_NAME = "fivetran-connector-sdk@fivetran-connector-sdk-ai"
 AGENT_PLUGINS = {
@@ -109,6 +119,14 @@ AGENT_PLUGINS = {
         "cli_command": "gemini",
         "install_commands": [
             ["gemini", "extensions", "install", TOOLS_GITHUB_REPO_URL, "--consent", "--skip-settings", "--auto-update"],
+        ],
+    },
+    "copilot": {
+        "display_name": "Github Copilot CLI",
+        "cli_command": "copilot",
+        "install_commands": [
+            ["copilot", "plugin", "marketplace", "add", TOOLS_GITHUB_REPO],
+            ["copilot", "plugin", "install", TOOLS_PLUGIN_NAME],
         ],
     },
 }

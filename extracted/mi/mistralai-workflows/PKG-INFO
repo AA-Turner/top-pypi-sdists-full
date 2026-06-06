@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistralai-workflows
-Version: 3.5.0
+Version: 3.6.1
 Summary: Mistral Workflows - Build reliable AI workflows with Python
 Project-URL: Homepage, https://mistral.ai
 Project-URL: Documentation, https://docs.mistral.ai/workflows/getting-started/introduction
@@ -19,7 +19,7 @@ Requires-Python: <3.15,>=3.12
 Requires-Dist: asynciolimiter<2.0.0,>=1.2.0
 Requires-Dist: httpx<1.0.0,>=0.27.0
 Requires-Dist: jsonpatch<2.0.0,>=1.33
-Requires-Dist: mistralai<3.0.0,>=2.4.7
+Requires-Dist: mistralai<3.0.0,>=2.4.9
 Requires-Dist: opentelemetry-api<2.0.0,>=1.30.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0
 Requires-Dist: opentelemetry-instrumentation-asyncio<0.61b0,>=0.60b1
@@ -28,14 +28,17 @@ Requires-Dist: opentelemetry-sdk<2.0.0,>=1.30.0
 Requires-Dist: orjson<4.0.0,>=3.10.15
 Requires-Dist: pydantic-settings<3.0.0,>=2.9.0
 Requires-Dist: pydantic<3.0.0,>=2.12.0
+Requires-Dist: starlette>=1.0.1
 Requires-Dist: structlog<26,>=24
 Requires-Dist: temporalio<1.28.0,>=1.27.2
 Requires-Dist: tenacity<10.0.0,>=9.1.2
+Requires-Dist: urllib3>=2.7.0
 Provides-Extra: all
 Requires-Dist: aiocache<1.0.0,>=0.12.3; extra == 'all'
 Requires-Dist: mcp<2.0.0,>=1.12.4; extra == 'all'
 Requires-Dist: mistralai-workflows-plugins-mistralai<4.0.0,>=3.0.0a1; extra == 'all'
 Requires-Dist: mistralai-workflows-plugins-webhook<4.0.0,>=3.0.0a1; extra == 'all'
+Requires-Dist: mistralai[workflow-payload-compression]; extra == 'all'
 Requires-Dist: mistralai[workflow-payload-encryption]; extra == 'all'
 Requires-Dist: mistralai[workflow-payload-offloading]; extra == 'all'
 Provides-Extra: all-plugins
@@ -43,10 +46,13 @@ Requires-Dist: aiocache<1.0.0,>=0.12.3; extra == 'all-plugins'
 Requires-Dist: mcp<2.0.0,>=1.12.4; extra == 'all-plugins'
 Requires-Dist: mistralai-workflows-plugins-mistralai<4.0.0,>=3.0.0a1; extra == 'all-plugins'
 Requires-Dist: mistralai-workflows-plugins-webhook<4.0.0,>=3.0.0a1; extra == 'all-plugins'
+Requires-Dist: mistralai[workflow-payload-compression]; extra == 'all-plugins'
 Requires-Dist: mistralai[workflow-payload-encryption]; extra == 'all-plugins'
 Requires-Dist: mistralai[workflow-payload-offloading]; extra == 'all-plugins'
 Provides-Extra: azure
 Requires-Dist: mistralai[workflow-payload-offloading-azure]; extra == 'azure'
+Provides-Extra: compression
+Requires-Dist: mistralai[workflow-payload-compression]; extra == 'compression'
 Provides-Extra: encryption
 Requires-Dist: mistralai[workflow-payload-encryption]; extra == 'encryption'
 Provides-Extra: gcs

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asyncua
-Version: 1.1.8
+Version: 2.0
 Summary: Pure Python OPC-UA client and server library
 Project-URL: Homepage, http://freeopcua.github.io/
 Project-URL: Repository, https://github.com/FreeOpcUa/opcua-asyncio
@@ -11,25 +11,26 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
-Requires-Dist: aiofiles
+Requires-Python: >=3.10
 Requires-Dist: aiosqlite
+Requires-Dist: anyio
 Requires-Dist: cryptography>42.0.0
 Requires-Dist: pyopenssl>23.2.0
 Requires-Dist: python-dateutil
 Requires-Dist: pytz
 Requires-Dist: sortedcontainers
 Requires-Dist: typing-extensions
-Requires-Dist: wait-for2==0.3.2; python_version < '3.12'
+Requires-Dist: wait-for2; python_version < '3.12'
+Provides-Extra: profile
+Requires-Dist: pytest-profiling; extra == 'profile'
 Description-Content-Type: text/markdown
 
-OPC UA / IEC 62541 Client and Server for Python >= 3.8 and pypy3 .
+OPC UA / IEC 62541 Client and Server for Python >= 3.10 and pypy3 .
 http://freeopcua.github.io/, https://github.com/FreeOpcUa/opcua-asyncio
 
 [![Python package](https://github.com/FreeOpcUa/opcua-asyncio/workflows/Python%20package/badge.svg)](https://github.com/FreeOpcUa/opcua-asyncio/actions)
@@ -153,7 +154,6 @@ Not implemented yet:
 
 - localized text feature
 - XML protocol
-- UDP (PubSub stuff)
 - WebSocket
 - maybe automatic reconnection...
 
@@ -180,7 +180,6 @@ Tested clients: freeopcua C++, freeopcua Python, uaexpert, prosys, quickopc
 
 Not yet implemented:
 
-- UDP (PubSub stuff)
 - WebSocket
 - session restore
 - alarms
@@ -239,12 +238,6 @@ uv run pytest -v -s --cov asyncua --cov-report=html
 To apply linting checks (including ruff, and mypy) at each commit run,
 
 ```bash
-uv sync --group lint
-uv run pre-commit install
-```
-
-You can also run all linters on all files with,
-
-```bash
-uv run pre-commit run -a
+uv run ruff check .
+uv run mypy asyncua
 ```

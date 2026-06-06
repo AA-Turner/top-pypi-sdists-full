@@ -62,10 +62,21 @@ class RunlayerMiddleware(Middleware):
         if pre_response.status_code != 200:
             raise Exception(pre_response.json())
 
-        correlation_id = pre_response.json()["correlation_id"]
-        quick_tool_result = pre_response.json().get("quick_tool_result")
+        pre_json = pre_response.json()
+        correlation_id = pre_json["correlation_id"]
+        quick_tool_result = pre_json.get("quick_tool_result")
         if quick_tool_result:
             return ToolResult(content=quick_tool_result)
+
+        # Input masking: apply masked arguments from the pre scan before the
+        # call reaches the upstream MCP server. Mirrors the hosted proxy, which
+        # executes upstream with the masked `tool_arguments` from
+        # `pre_on_call_tool`. Also refresh `payload.params` so the post audit
+        # records the masked arguments (pre already does).
+        modified_args = pre_json.get("modified_args")
+        if isinstance(modified_args, dict):
+            context.message.arguments = modified_args
+            payload.params = context.message.model_dump()
 
         try:
             result = await call_next(context)
@@ -99,6 +110,19 @@ class RunlayerMiddleware(Middleware):
         post_response = self.runlayer_api_client.post(self.server.id, post_payload)
         if post_response.status_code != 200:
             raise Exception(post_response.json())
+
+        # Output masking: apply the masked result the backend produced (PII
+        # MASK / hidden-ascii redaction) so the MCP client receives the redacted
+        # output instead of the raw upstream payload.
+        post_json = post_response.json()
+        if isinstance(post_json, dict):
+            modified_output = post_json.get("modified_output")
+            if isinstance(modified_output, dict):
+                modified = mt.CallToolResult.model_validate(modified_output)
+                result.content = modified.content
+                # `structuredContent` (camelCase, mcp.types) ↔ `structured_content`
+                # (snake_case, fastmcp) mirrors fastmcp's own `ToolResult.to_mcp_result`.
+                result.structured_content = modified.structuredContent
 
         return result
 

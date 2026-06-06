@@ -8,6 +8,7 @@ import collections.abc
 import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.message
+import sentry_protos.billing.v1.common.v1.flexible_price_pb2
 import typing
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
@@ -19,17 +20,22 @@ class PricingTier(google.protobuf.message.Message):
     START_FIELD_NUMBER: builtins.int
     END_FIELD_NUMBER: builtins.int
     RATE_PER_UNIT_CPE_FIELD_NUMBER: builtins.int
+    PRICE_FIELD_NUMBER: builtins.int
     start: builtins.int
     end: builtins.int
     rate_per_unit_cpe: builtins.int
+    @property
+    def price(self) -> sentry_protos.billing.v1.common.v1.flexible_price_pb2.FlexiblePrice: ...
     def __init__(
         self,
         *,
         start: builtins.int = ...,
         end: builtins.int = ...,
         rate_per_unit_cpe: builtins.int = ...,
+        price: sentry_protos.billing.v1.common.v1.flexible_price_pb2.FlexiblePrice | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["end", b"end", "rate_per_unit_cpe", b"rate_per_unit_cpe", "start", b"start"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["price", b"price"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["end", b"end", "price", b"price", "rate_per_unit_cpe", b"rate_per_unit_cpe", "start", b"start"]) -> None: ...
 
 global___PricingTier = PricingTier
 

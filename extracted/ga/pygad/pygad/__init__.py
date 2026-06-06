@@ -1,3 +1,5 @@
 from .pygad import * # Relative import.
 
-__version__ = "3.6.0"
+from pygad import benchmarks
+
+from ._version import __version__

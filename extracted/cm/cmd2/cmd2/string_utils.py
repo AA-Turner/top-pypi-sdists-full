@@ -5,6 +5,8 @@ These utilities are designed to correctly handle strings with ANSI style sequenc
 full-width characters (like those used in CJK languages).
 """
 
+from collections.abc import Sequence
+
 from rich.align import AlignMethod
 from rich.style import StyleType
 from rich.text import Text
@@ -139,7 +141,7 @@ def quote(val: str) -> str:
 
 def quote_if_needed(val: str) -> str:
     """Quote a string if it contains spaces and isn't already quoted."""
-    if is_quoted(val) or ' ' not in val:
+    if is_quoted(val) or " " not in val:
         return val
 
     return quote(val)
@@ -167,3 +169,22 @@ def norm_fold(val: str) -> str:
     import unicodedata
 
     return unicodedata.normalize("NFC", val).casefold()
+
+
+def common_prefix(m: Sequence[str]) -> str:
+    """Return the longest common leading component of a list of strings.
+
+    This is a replacement for os.path.commonprefix which is deprecated in Python 3.15.
+
+    :param m: list of strings
+    :return: common prefix
+    """
+    if not m:
+        return ""
+
+    s1 = min(m)
+    s2 = max(m)
+    for i, c in enumerate(s1):
+        if i >= len(s2) or c != s2[i]:
+            return s1[:i]
+    return s1

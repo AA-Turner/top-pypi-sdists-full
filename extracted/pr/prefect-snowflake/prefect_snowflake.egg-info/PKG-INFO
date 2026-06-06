@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-snowflake
-Version: 0.28.7
+Version: 0.28.8
 Summary: Prefect integrations for interacting with Snowflake
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
 License: Apache License 2.0
@@ -21,7 +21,8 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: snowflake>=1.5.0
 Requires-Dist: snowflake-connector-python>=3.17.2
-Requires-Dist: prefect>=3.0.0
+Requires-Dist: prefect>=3.6.22
+Requires-Dist: tenacity>=8.0.0
 Dynamic: license-file
 
 # prefect-snowflake

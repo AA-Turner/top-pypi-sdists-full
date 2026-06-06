@@ -29,6 +29,7 @@ import type {
   GuardHarnessAction,
   GuardHarnessActionErrorPayload,
   GuardHarnessActionResult,
+  GuardManagedInstall,
   GuardNotificationSetupResult,
   GuardPolicyDecision,
   PackageManagerProtection,
@@ -60,6 +61,7 @@ import {
 
 const GUARD_TOKEN_PARAM = "guard-token";
 const GUARD_DAEMON_PARAM = "guardDaemon";
+const GUARD_SURFACE_PROTOCOL_VERSIONS = ["1.1", "1.0"] as const;
 let guardTokenOverride: string | null = null;
 let guardTokenLocationKey: string | null = null;
 
@@ -176,42 +178,6 @@ function saveGuardToken(guardToken: string): void {
   window.sessionStorage.setItem(GUARD_TOKEN_PARAM, guardToken);
 }
 
-function parseAuthToken(payload: unknown): string | null {
-  if (!isRecord(payload)) {
-    return null;
-  }
-  const authToken = payload["auth_token"];
-  return typeof authToken === "string" && authToken.trim() ? authToken : null;
-}
-
-async function refreshGuardToken(): Promise<string | null> {
-  const response = await fetch(guardApiInput("/v1/initialize"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      client_name: "guard-dashboard",
-      client_title: "HOL Guard dashboard",
-      surface: "dashboard",
-      capabilities: ["approval-resolution"],
-      supported_protocol_versions: [1]
-    })
-  });
-  if (!response.ok) {
-    return null;
-  }
-  let payload: unknown;
-  try {
-    payload = await response.json();
-  } catch {
-    return null;
-  }
-  const authToken = parseAuthToken(payload);
-  if (authToken !== null) {
-    saveGuardToken(authToken);
-  }
-  return authToken;
-}
-
 function readGuardDaemonOrigin(): string | null {
   const rawDaemonUrl = guardParam(GUARD_DAEMON_PARAM);
   if (rawDaemonUrl) {
@@ -260,7 +226,7 @@ function withGuardAuthForToken(
     return init;
   }
   const headers = new Headers(init?.headers);
-  headers.set("X-Guard-Token", guardToken);
+  headers.set("X-Guard-Dashboard-Session", guardToken);
   return {
     ...init,
     headers
@@ -269,24 +235,57 @@ function withGuardAuthForToken(
 
 async function fetchWithGuardAuth(input: RequestInfo, init?: RequestInit): Promise<Response> {
   const requestInput = guardApiInput(input);
-  let response = await fetch(requestInput, withGuardAuth(init));
-  if (response.status !== 401) {
+  const guardToken = readGuardToken();
+  const response = await fetch(requestInput, withGuardAuthForToken(init, guardToken));
+  if (response.status !== 401 || !guardToken || input instanceof Request) {
     return response;
   }
-  const refreshedToken = await refreshGuardToken();
-  if (refreshedToken === null) {
+  const refreshedGuardToken = await refreshGuardDashboardSession(guardToken);
+  if (!refreshedGuardToken || refreshedGuardToken === guardToken) {
     return response;
   }
-  return fetch(requestInput, withGuardAuthForToken(init, refreshedToken));
+  saveGuardToken(refreshedGuardToken);
+  return fetch(requestInput, withGuardAuthForToken(init, refreshedGuardToken));
 }
 
 function guardAuthHeaders(): HeadersInit {
   const guardToken = readGuardToken();
-  return guardToken ? { "X-Guard-Token": guardToken } : {};
+  return guardToken ? { "X-Guard-Dashboard-Session": guardToken } : {};
 }
 
 function guardAuthHeadersForToken(guardToken: string | null): HeadersInit {
-  return guardToken ? { "X-Guard-Token": guardToken } : {};
+  return guardToken ? { "X-Guard-Dashboard-Session": guardToken } : {};
+}
+
+function parseDashboardSessionToken(payload: unknown): string | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+  const dashboardSessionToken = payload["dashboard_session_token"];
+  return typeof dashboardSessionToken === "string" && dashboardSessionToken.trim() ? dashboardSessionToken : null;
+}
+
+async function refreshGuardDashboardSession(guardToken: string): Promise<string | null> {
+  try {
+    const response = await fetch(guardApiInput("/v1/initialize"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...guardAuthHeadersForToken(guardToken)
+      },
+      body: JSON.stringify({
+        client_name: "guard-dashboard-web",
+        surface: "dashboard",
+        supported_protocol_versions: [...GUARD_SURFACE_PROTOCOL_VERSIONS]
+      })
+    });
+    if (!response.ok) {
+      return null;
+    }
+    return parseDashboardSessionToken(await response.json());
+  } catch {
+    return null;
+  }
 }
 
 export function guardAwareHref(href: string): string {
@@ -565,11 +564,19 @@ function normalizePackageManagerProtection(raw: unknown): PackageManagerProtecti
   if (!isRecord(raw)) {
     return undefined;
   }
-  const pathStatus = raw["path_status"] === "in_path" ? "in_path" : "missing_from_path";
+  const pathStatus =
+    raw["path_status"] === "in_path"
+      ? "in_path"
+      : raw["path_status"] === "restart_required"
+      ? "restart_required"
+      : "missing_from_path";
   const shimDir = typeof raw["shim_dir"] === "string" ? raw["shim_dir"] : "";
   return {
     path_status: pathStatus,
     path_contains_shim_dir: raw["path_contains_shim_dir"] === true,
+    restart_shell_required: raw["restart_shell_required"] === true,
+    shell_profile_configured: raw["shell_profile_configured"] === true,
+    shell_profile_path: isStringOrNull(raw["shell_profile_path"]) ? raw["shell_profile_path"] : null,
     shim_dir: shimDir,
     supported_managers: normalizeStringArray(raw["supported_managers"]),
     installed_managers: normalizeStringArray(raw["installed_managers"]),
@@ -1021,12 +1028,30 @@ export async function fetchRequest(requestId: string): Promise<GuardApprovalRequ
   return normalizeApprovalRequest(payload);
 }
 
+type RawGuardReceipt = Omit<GuardReceipt, "action_envelope_json"> & {
+  action_envelope_json?: unknown;
+};
+
+function normalizeReceipt(item: RawGuardReceipt): GuardReceipt {
+  return {
+    ...item,
+    action_envelope_json: parseActionEnvelope(item.action_envelope_json)
+  };
+}
+
+function normalizeReceipts(items: RawGuardReceipt[] | null | undefined): GuardReceipt[] {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+  return items.map(normalizeReceipt);
+}
+
 export async function fetchReceipts(): Promise<GuardReceipt[]> {
   if (isGuardDemoMode()) {
     return getDemoReceipts();
   }
-  const payload = await readJson<{ items: GuardReceipt[] }>("/v1/receipts");
-  return payload.items;
+  const payload = await readJson<{ items: RawGuardReceipt[] }>("/v1/receipts");
+  return normalizeReceipts(payload.items);
 }
 
 export async function fetchLatestReceipt(
@@ -1045,7 +1070,7 @@ export async function fetchLatestReceipt(
   if (!response.ok) {
     throw new Error(`Receipt request failed with ${response.status}`);
   }
-  return (await response.json()) as GuardReceipt;
+  return normalizeReceipt((await response.json()) as RawGuardReceipt);
 }
 
 export async function fetchPolicy(harness: string): Promise<GuardPolicyDecision[]> {
@@ -1546,7 +1571,14 @@ function normalizePackageFirewallActions(
   if (!isRecord(value)) {
     return {};
   }
-  const allowedStates = new Set(["available", "paid_required", "reconnect_required", "pending", "disabled"]);
+  const allowedStates = new Set([
+    "available",
+    "connect_required",
+    "paid_required",
+    "reconnect_required",
+    "pending",
+    "disabled",
+  ]);
   const entries = Object.entries(value).filter(
     (entry): entry is [PackageFirewallActionType | PackageFirewallGlobalActionType, PackageFirewallActionState] =>
       typeof entry[1] === "string" && allowedStates.has(entry[1]),
@@ -1559,9 +1591,13 @@ function normalizePackageFirewallCliFallback(value: unknown): PackageFirewallCli
     return null;
   }
   const fallback: PackageFirewallCliFallback = {};
+  const connect = stringValue(value.connect);
   const install = stringValue(value.install);
   const status = stringValue(value.status);
   const remove = stringValue(value.remove);
+  if (connect !== null) {
+    fallback.connect = connect;
+  }
   if (install !== null) {
     fallback.install = install;
   }
@@ -1574,11 +1610,58 @@ function normalizePackageFirewallCliFallback(value: unknown): PackageFirewallCli
   return Object.keys(fallback).length > 0 ? fallback : null;
 }
 
-function normalizePackageShimEntry(manager: string, detail: Record<string, unknown> | null): PackageShimEntry {
+function normalizePackageFirewallConnectFlow(
+  value: unknown,
+): PackageFirewallStatusResponse["connect_flow"] {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const state = value.state;
+  if (state !== "idle" && state !== "running" && state !== "failed") {
+    return null;
+  }
+  const title = stringValue(value.title);
+  const detail = stringValue(value.detail);
+  const actionLabel = stringValue(value.action_label);
+  const connectUrl = stringValue(value.connect_url);
+  if (title === null || detail === null || actionLabel === null || connectUrl === null) {
+    return null;
+  }
   return {
-    active: booleanValue(detail?.path_active),
-    installed: detail !== null && stringValue(detail.integrity) !== "missing",
-    integrity: stringValue(detail?.integrity) ?? "uninstalled",
+    state,
+    title,
+    detail,
+    action_label: actionLabel,
+    connect_url: connectUrl,
+    authorize_url: isStringOrNull(value.authorize_url) ? value.authorize_url : null,
+    browser_opened: value.browser_opened === true ? true : value.browser_opened === false ? false : null,
+    request_id: isStringOrNull(value.request_id) ? value.request_id : null,
+    poll_after_ms: numberValue(value.poll_after_ms),
+  };
+}
+
+function normalizePackageShimEntry(
+  manager: string,
+  detail: Record<string, unknown> | null,
+  pathStatus: PackageManagerProtection["path_status"],
+): PackageShimEntry {
+  const integrity = stringValue(detail?.integrity) ?? "uninstalled";
+  const installed = detail !== null && integrity !== "missing";
+  const active = booleanValue(detail?.path_active);
+  const activation_state = !installed
+    ? "uninstalled"
+    : integrity === "tampered"
+    ? "repair_required"
+    : active
+    ? "protected"
+    : pathStatus === "restart_required"
+    ? "restart_required"
+    : "repair_required";
+  return {
+    active,
+    activation_state,
+    installed,
+    integrity,
     manager,
     path_index: numberValue(detail?.path_index),
     real_binary_found: booleanValue(detail?.real_binary_found),
@@ -1588,7 +1671,11 @@ function normalizePackageShimEntry(manager: string, detail: Record<string, unkno
   };
 }
 
-function normalizePackageShimEntries(value: unknown, supportedManagers: string[]): PackageShimEntry[] {
+function normalizePackageShimEntries(
+  value: unknown,
+  supportedManagers: string[],
+  pathStatus: PackageManagerProtection["path_status"],
+): PackageShimEntry[] {
   const status = isRecord(value) ? value : {};
   const detailRows = Array.isArray(status.manager_details)
     ? status.manager_details.filter(isRecord)
@@ -1608,7 +1695,7 @@ function normalizePackageShimEntries(value: unknown, supportedManagers: string[]
   ]);
   return Array.from(managers)
     .sort()
-    .map((manager) => normalizePackageShimEntry(manager, detailByManager.get(manager) ?? null));
+    .map((manager) => normalizePackageShimEntry(manager, detailByManager.get(manager) ?? null, pathStatus));
 }
 
 function actionResultSummary(operation: string, detail: Record<string, unknown>): string {
@@ -1629,12 +1716,43 @@ function actionResultSummary(operation: string, detail: Record<string, unknown>)
 function normalizePackageFirewallStatus(value: unknown): PackageFirewallStatusResponse {
   const record = isRecord(value) ? value : {};
   const supportedManagers = normalizeStringArray(record.supported_managers);
+  const shimStatus = isRecord(record.package_shims) ? record.package_shims : {};
+  const installedManagers = normalizeStringArray(shimStatus.installed_managers);
+  const activeManagers = normalizeStringArray(shimStatus.active_managers);
+  const missingManagers = normalizeStringArray(shimStatus.missing_managers);
+  const rawPathStatus =
+    shimStatus["path_status"] === "in_path"
+      ? "in_path"
+      : shimStatus["path_status"] === "restart_required"
+      ? "restart_required"
+      : "missing_from_path";
+  const packageShims = normalizePackageShimEntries(record.package_shims, supportedManagers, rawPathStatus);
+  const protectedManagers = packageShims
+    .filter((shim) => shim.activation_state === "protected")
+    .map((shim) => shim.manager);
+  const protectedSet = new Set(protectedManagers);
+  const protection: PackageManagerProtection = {
+    path_status: rawPathStatus,
+    path_contains_shim_dir: shimStatus["path_contains_shim_dir"] === true,
+    restart_shell_required: shimStatus["restart_shell_required"] === true,
+    shell_profile_configured: shimStatus["shell_profile_configured"] === true,
+    shell_profile_path: isStringOrNull(shimStatus["shell_profile_path"]) ? shimStatus["shell_profile_path"] : null,
+    shim_dir: stringValue(shimStatus["shim_dir"]) ?? "",
+    supported_managers: supportedManagers,
+    installed_managers: installedManagers,
+    active_managers: activeManagers,
+    missing_shims: missingManagers,
+    protected_managers: protectedManagers,
+    unprotected_managers: supportedManagers.filter((manager) => !protectedSet.has(manager)),
+  };
   return {
     actions: normalizePackageFirewallActions(record.actions),
     cli_fallback: normalizePackageFirewallCliFallback(record.cli_fallback),
+    connect_flow: normalizePackageFirewallConnectFlow(record.connect_flow),
     entitlement: normalizePackageFirewallEntitlement(record.entitlement),
     operation: stringValue(record.operation) ?? "status",
-    package_shims: normalizePackageShimEntries(record.package_shims, supportedManagers),
+    package_shims: packageShims,
+    protection,
     status: stringValue(record.status) ?? "unknown",
     supported_managers: supportedManagers,
   };
@@ -1658,12 +1776,31 @@ export async function fetchPackageFirewallStatus(): Promise<PackageFirewallStatu
   return normalizePackageFirewallStatus(await readJson<unknown>("/v1/supply-chain/package-shims"));
 }
 
+export async function startPackageFirewallConnect(): Promise<PackageFirewallStatusResponse["connect_flow"]> {
+  return normalizePackageFirewallConnectFlow(
+    await readJson<unknown>("/v1/supply-chain/package-shims/connect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    }),
+  );
+}
+
 export async function runPackageFirewallAction(
   action: PackageFirewallActionType,
   manager: string | null,
+  credentials?: { approval_password?: string; approval_totp_code?: string },
 ): Promise<PackageFirewallActionResponse> {
-  const payload = manager !== null ? { managers: [manager] } : {};
-  const response = await readJson<unknown>(
+  const payload = {
+    ...(manager !== null ? { managers: [manager] } : {}),
+    ...(credentials?.approval_password !== undefined
+      ? { approval_password: credentials.approval_password }
+      : {}),
+    ...(credentials?.approval_totp_code !== undefined
+      ? { approval_totp_code: credentials.approval_totp_code }
+      : {}),
+  };
+  const response = await fetchGuardApi(
     `/v1/supply-chain/package-shims/${action}`,
     {
       method: "POST",
@@ -1674,7 +1811,33 @@ export async function runPackageFirewallAction(
       body: JSON.stringify(payload),
     },
   );
-  return normalizePackageFirewallAction(response);
+  const payloadBody = (await response.json().catch(() => null)) as unknown;
+  if (!response.ok) {
+    throw new GuardHarnessActionError(
+      response.status,
+      isGuardHarnessActionErrorPayload(payloadBody) ? payloadBody : null,
+    );
+  }
+  return normalizePackageFirewallAction(payloadBody);
+}
+
+export async function openPackageFirewallShell(): Promise<void> {
+  const response = await fetchGuardApi("/v1/supply-chain/package-shims/open-shell", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...guardAuthHeaders(),
+    },
+    body: JSON.stringify({}),
+  });
+  if (response.ok) {
+    return;
+  }
+  const payloadBody = (await response.json().catch(() => null)) as unknown;
+  if (isRecord(payloadBody) && typeof payloadBody.message === "string" && payloadBody.message.trim()) {
+    throw new Error(payloadBody.message);
+  }
+  throw new Error("Unable to open a new shell.");
 }
 
 export type AuditRemediationAction = "package_shim_path";

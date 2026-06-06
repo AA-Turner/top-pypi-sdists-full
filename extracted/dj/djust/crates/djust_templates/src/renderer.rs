@@ -12,6 +12,25 @@ use std::collections::HashSet;
 /// Regex for {% spaceless %}: matches whitespace between > and <
 static SPACELESS_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r">\s+<").unwrap());
 
+/// Built-in filters whose output is already HTML-safe (escaped or
+/// HTML-producing) and so must NOT be auto-escaped again when they are the
+/// last filter in a chain. Single source of truth shared by the
+/// `Node::Variable`, `Node::InlineIf`, and `get_value_safe` (`{% firstof %}` /
+/// `{% cycle %}`) render paths — hoisted from three inline copies to prevent
+/// parallel-path drift (CLAUDE.md #1646, issue #1692). Mirrors Django's
+/// `is_safe`/`needs_autoescape` semantics. NAME-based check is additive: it
+/// only ever marks MORE values safe, and only for these established names —
+/// never under-escapes a plain/unknown filter's output.
+const SAFE_OUTPUT_FILTERS: [&str; 7] = [
+    "safe",
+    "safeseq",
+    "force_escape",
+    "json_script",
+    "urlize",
+    "urlizetrunc",
+    "unordered_list",
+];
+
 /// Returns ``true`` if the (parser-preserved) filter argument string is a
 /// quoted literal — i.e. starts and ends with matching single or double
 /// quotes. Used to drive the custom-filter fallback's arg-resolution
@@ -413,17 +432,8 @@ pub fn render_node_with_loader<L: TemplateLoader>(
             //    ``mark_safe()``d its result at runtime without the static
             //    ``is_safe=True`` flag (#1660). Additive: only ever marks MORE
             //    values safe, and only when the LAST filter's output is safe.
-            let safe_output_filters = [
-                "safe",
-                "safeseq",
-                "force_escape",
-                "json_script",
-                "urlize",
-                "urlizetrunc",
-                "unordered_list",
-            ];
             let is_safe = filter_specs.iter().any(|(name, _)| {
-                safe_output_filters.contains(&name.as_str())
+                SAFE_OUTPUT_FILTERS.contains(&name.as_str())
                     || crate::filter_registry::is_custom_filter_safe(name)
             }) || context.is_safe(var_name)
                 || runtime_safe;
@@ -475,17 +485,8 @@ pub fn render_node_with_loader<L: TemplateLoader>(
             }
 
             let text = value.to_string();
-            let safe_output_filters = [
-                "safe",
-                "safeseq",
-                "force_escape",
-                "json_script",
-                "urlize",
-                "urlizetrunc",
-                "unordered_list",
-            ];
             let is_safe = filters.iter().any(|(name, _)| {
-                safe_output_filters.contains(&name.as_str())
+                SAFE_OUTPUT_FILTERS.contains(&name.as_str())
                     || crate::filter_registry::is_custom_filter_safe(name)
             }) || context.is_safe(expr)
                 || runtime_safe;
@@ -850,11 +851,21 @@ pub fn render_node_with_loader<L: TemplateLoader>(
 
         Node::FirstOf { args } => {
             // {% firstof var1 var2 ... "fallback" %} → first truthy value
-            // Uses get_value for dotted path support (e.g., user.name)
+            // Uses get_value_safe for dotted path support (e.g., user.name)
+            // AND to thread the runtime-safe flag (#1672, parallel-path per
+            // CLAUDE.md #1646): a custom filter that `mark_safe()`s at runtime
+            // (e.g. `{% firstof a|md %}`) must NOT be re-escaped, matching the
+            // Variable/InlineIf arms (#1660). `runtime_safe` is true ONLY when
+            // the LAST filter produced a genuine SafeString → fail-safe.
             for arg in args {
-                let val = get_value(arg.trim(), context)?;
+                let (val, runtime_safe) = get_value_safe(arg.trim(), context)?;
                 if val.is_truthy() {
-                    return Ok(filters::html_escape(&val.to_string()));
+                    let text = val.to_string();
+                    return Ok(if runtime_safe {
+                        text
+                    } else {
+                        filters::html_escape(&text)
+                    });
                 }
             }
             Ok(String::new())
@@ -904,11 +915,18 @@ pub fn render_node_with_loader<L: TemplateLoader>(
                 .unwrap_or(0);
             let idx = counter % values.len();
             let val = &values[idx];
-            // Resolve via get_value for dotted path and literal support
-            let resolved = get_value(val.trim(), context)?;
+            // Resolve via get_value_safe for dotted path and literal support
+            // AND to thread the runtime-safe flag (#1672, parallel-path per
+            // CLAUDE.md #1646): a custom filter that `mark_safe()`s at runtime
+            // (e.g. `{% cycle a|md ... %}`) must NOT be re-escaped, matching the
+            // Variable/InlineIf arms (#1660). `runtime_safe` is true ONLY when
+            // the LAST filter produced a genuine SafeString → fail-safe.
+            let (resolved, runtime_safe) = get_value_safe(val.trim(), context)?;
             let output = if matches!(resolved, Value::Null) {
                 // Unresolved variable — output the raw name (Django behavior)
                 filters::html_escape(val.trim())
+            } else if runtime_safe {
+                resolved.to_string()
             } else {
                 filters::html_escape(&resolved.to_string())
             };
@@ -1763,6 +1781,32 @@ fn evaluate_condition(condition: &str, context: &Context) -> Result<bool> {
 }
 
 fn get_value(expr: &str, context: &Context) -> Result<Value> {
+    // Thin wrapper that discards the runtime-safe flag. Most callers
+    // (condition operators, progress-bar math, etc.) only need the `Value`
+    // and never reach the auto-escape decision, so they stay on this
+    // signature. The `{% firstof %}` / `{% cycle %}` emit path uses
+    // `get_value_safe` directly to honour runtime SafeStrings (#1672).
+    // Mirrors the `apply_filter_full` / `apply_filter_full_safe` shape in
+    // `filters.rs` — single pipe-loop source of truth, no parallel drift.
+    get_value_safe(expr, context).map(|(value, _)| value)
+}
+
+/// Like [`get_value`] but also reports whether the produced value is a runtime
+/// ``SafeString`` (a custom filter that ``mark_safe()``d its output at runtime).
+///
+/// `runtime_safe` tracks the LAST filter's runtime safeness: a later
+/// plain-returning filter re-taints (resets to false), matching Django's
+/// final-value escape semantics and the Variable/InlineIf render arms (#1660).
+///
+/// NOTE (#1672, parallel-path threading per CLAUDE.md #1646): the
+/// `{% firstof %}` / `{% cycle %}` emit path consumes this bool to skip
+/// auto-escaping for a runtime-SafeString value — closing the parity gap
+/// where the old `get_value` dropped the flag (over-escape, fail-SAFE / no
+/// XSS) while the Variable/InlineIf arms honoured it. The bool originates ONLY
+/// from `apply_filter_full_safe`, which returns `true` solely for a genuine
+/// `str`-subclass with `__html__` (the #1660 XSS-hardened check), so this can
+/// only ever mark MORE values safe — never under-escape a plain value.
+fn get_value_safe(expr: &str, context: &Context) -> Result<(Value, bool)> {
     // Handle pipe filters in expressions (e.g., "project.id|stringformat:\"s\"")
     if expr.contains('|') {
         let parts: Vec<&str> = expr.splitn(2, '|').collect();
@@ -1771,6 +1815,10 @@ fn get_value(expr: &str, context: &Context) -> Result<Value> {
 
         // Resolve the base variable
         let mut value = get_value(var_name, context)?;
+
+        // Track the LAST filter's runtime safeness, mirroring the Variable arm
+        // (#1660). A plain-returning filter after a runtime-safe one re-taints.
+        let mut runtime_safe = false;
 
         // Parse and apply filters (handles chained filters too)
         for filter_part in filter_expr.split('|') {
@@ -1790,58 +1838,64 @@ fn get_value(expr: &str, context: &Context) -> Result<Value> {
                 (filter_part, None, false)
             };
 
-            // NOTE (#1672, parallel-path decision per CLAUDE.md #1646): this
-            // `get_value` pipe helper returns a bare `Value` and is used by the
-            // `{% firstof %}` / `{% cycle %}` emit path. It intentionally uses
-            // the plain `apply_filter_full` (not `apply_filter_full_safe`), so a
-            // custom filter that `mark_safe()`s at runtime is *over-escaped*
-            // here — fail-SAFE (no XSS), unlike the Variable/InlineIf arms which
-            // honour runtime safeness (#1660). Threading `(Value, bool)` out of
-            // `get_value` touches its many callers; deferred to #1672.
-            value = filters::apply_filter_full(
+            // Thread the (Value, bool) shape out so callers in the firstof/cycle
+            // emit path can honour runtime SafeStrings (#1672, follow-up to
+            // #1660). Built-ins always report `produced_safe = false`.
+            let (new_value, produced_safe) = filters::apply_filter_full_safe(
                 filter_name,
                 &value,
                 arg.as_deref(),
                 Some(context),
                 arg_was_quoted,
             )?;
+            value = new_value;
+            // Mark safe when EITHER the filter produced a runtime SafeString
+            // (#1672) OR its NAME is in the name-based safe_output_filters
+            // whitelist / a custom is_safe=True filter — mirroring the
+            // Variable/InlineIf arms exactly (#1692). LAST-filter semantics:
+            // assigned each iteration, so a later plain filter re-taints to
+            // false. Fail-safe: only ever ADDS safeness for established names;
+            // a plain/unknown filter (e.g. `upper`) stays escaped.
+            runtime_safe = produced_safe
+                || SAFE_OUTPUT_FILTERS.contains(&filter_name)
+                || crate::filter_registry::is_custom_filter_safe(filter_name);
         }
 
-        return Ok(value);
+        return Ok((value, runtime_safe));
     }
 
     // Try to get from context
     if let Some(value) = context.get(expr) {
-        return Ok(value.clone());
+        return Ok((value.clone(), false));
     }
 
     // Try to parse as literal
     if expr == "True" || expr == "true" {
-        return Ok(Value::Bool(true));
+        return Ok((Value::Bool(true), false));
     }
     if expr == "False" || expr == "false" {
-        return Ok(Value::Bool(false));
+        return Ok((Value::Bool(false), false));
     }
     if expr == "None" || expr == "none" {
-        return Ok(Value::Null);
+        return Ok((Value::Null, false));
     }
 
     if let Ok(i) = expr.parse::<i64>() {
-        return Ok(Value::Integer(i));
+        return Ok((Value::Integer(i), false));
     }
 
     if let Ok(f) = expr.parse::<f64>() {
-        return Ok(Value::Float(f));
+        return Ok((Value::Float(f), false));
     }
 
     // String literal (remove quotes)
     if (expr.starts_with('"') && expr.ends_with('"'))
         || (expr.starts_with('\'') && expr.ends_with('\''))
     {
-        return Ok(Value::String(expr[1..expr.len() - 1].to_string()));
+        return Ok((Value::String(expr[1..expr.len() - 1].to_string()), false));
     }
 
-    Ok(Value::Null)
+    Ok((Value::Null, false))
 }
 
 fn values_equal(a: &Value, b: &Value) -> bool {
@@ -2804,6 +2858,69 @@ mod tests {
         context.set("user".to_string(), Value::Object(user));
         let result = render_nodes(&nodes, &context).unwrap();
         assert_eq!(result, "Alice");
+    }
+
+    // ---- #1692: firstof/cycle must honor the NAME-BASED safe_output_filters
+    // whitelist (safe/urlize/...), completing #1660→#1672. ----
+
+    #[test]
+    fn test_firstof_safe_filter_not_double_escaped() {
+        // {% firstof x|safe %} must NOT be re-escaped — `safe` is a name-based
+        // safe_output_filter (matches the Variable arm).
+        let tokens = tokenize("{% firstof x|safe %}").unwrap();
+        let nodes = parse(&tokens).unwrap();
+        let mut context = Context::new();
+        context.set("x".to_string(), Value::String("<b>hi</b>".to_string()));
+        let result = render_nodes(&nodes, &context).unwrap();
+        assert_eq!(result, "<b>hi</b>");
+    }
+
+    #[test]
+    fn test_cycle_urlize_filter_not_double_escaped() {
+        // {% cycle x|urlize %} — urlize produces its own <a href=...> HTML; it
+        // must not be re-escaped (urlize is a name-based safe_output_filter).
+        let tokens = tokenize("{% cycle x|urlize %}").unwrap();
+        let nodes = parse(&tokens).unwrap();
+        let mut context = Context::new();
+        context.set(
+            "x".to_string(),
+            Value::String("Visit https://example.com".to_string()),
+        );
+        let result = render_nodes(&nodes, &context).unwrap();
+        // urlize's <a href="..."> must survive verbatim, not become &lt;a ...
+        assert!(
+            result.contains("<a href=\"https://example.com\""),
+            "urlize output was re-escaped: {result}"
+        );
+        assert!(
+            !result.contains("&lt;a"),
+            "urlize output was double-escaped: {result}"
+        );
+    }
+
+    #[test]
+    fn test_firstof_nonsafe_filter_still_escaped() {
+        // {% firstof x|upper %} — `upper` is NOT a safe_output_filter, so HTML
+        // in its output must STILL be escaped (fail-safe: only whitelisted
+        // names skip escaping).
+        let tokens = tokenize("{% firstof x|upper %}").unwrap();
+        let nodes = parse(&tokens).unwrap();
+        let mut context = Context::new();
+        context.set("x".to_string(), Value::String("<b>hi</b>".to_string()));
+        let result = render_nodes(&nodes, &context).unwrap();
+        assert_eq!(result, "&lt;B&gt;HI&lt;/B&gt;");
+    }
+
+    #[test]
+    fn test_firstof_safe_then_plain_filter_re_taints() {
+        // LAST-filter semantics: `{% firstof x|safe|upper %}` — `upper` is the
+        // last filter and is NOT safe, so the value is re-tainted and escaped.
+        let tokens = tokenize("{% firstof x|safe|upper %}").unwrap();
+        let nodes = parse(&tokens).unwrap();
+        let mut context = Context::new();
+        context.set("x".to_string(), Value::String("<b>hi</b>".to_string()));
+        let result = render_nodes(&nodes, &context).unwrap();
+        assert_eq!(result, "&lt;B&gt;HI&lt;/B&gt;");
     }
 
     #[test]

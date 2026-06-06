@@ -1,11 +1,11 @@
-from enum import IntEnum
+from __future__ import annotations
+
 import re
-from typing import List, Optional, Tuple
+from enum import IntEnum
 
-from asyncua.ua.uatypes import NodeId, NodeIdType, RelativePath, RelativePathElement, QualifiedName
+from asyncua.ua.object_ids import ObjectIdNames, ObjectIds
 from asyncua.ua.uaerrors import UaInvalidParameterError
-from asyncua.ua.object_ids import ObjectIds, ObjectIdNames
-
+from asyncua.ua.uatypes import NodeId, NodeIdType, QualifiedName, RelativePath, RelativePathElement
 
 _NS_IDX_PATTERN = re.compile(r"([0-9]*):")
 _REFERENCE_TYPE_PREFIX_CHARS = "/.<"
@@ -23,10 +23,10 @@ class RelativePathElementType(IntEnum):
 class RelativePathElementFormatter:
     _element_type: RelativePathElementType = RelativePathElementType.AnyHierarchical
     _include_subtypes: bool = True
-    _target_name: Optional[QualifiedName] = None
-    _reference_type_name: Optional[QualifiedName] = None
+    _target_name: QualifiedName | None = None
+    _reference_type_name: QualifiedName | None = None
 
-    def __init__(self, element: Optional[RelativePathElement] = None):
+    def __init__(self, element: RelativePathElement | None = None) -> None:
         if element is not None:
             self._include_subtypes = element.IncludeSubtypes
             self._target_name = element.TargetName
@@ -50,7 +50,7 @@ class RelativePathElementFormatter:
                 raise UaInvalidParameterError("RelativePathElementType is not specified.")
 
     @staticmethod
-    def parse(string: str) -> Tuple["RelativePathElementFormatter", str]:
+    def parse(string: str) -> tuple["RelativePathElementFormatter", str]:
         el = RelativePathElementFormatter()
 
         rest = string
@@ -79,7 +79,7 @@ class RelativePathElementFormatter:
         return el, rest
 
     @staticmethod
-    def _parse_name(string: str, is_reference: bool) -> Tuple[Optional[QualifiedName], str]:
+    def _parse_name(string: str, is_reference: bool) -> tuple[QualifiedName | None, str]:
         rest = string
 
         # Extract namespace index if present.
@@ -113,11 +113,9 @@ class RelativePathElementFormatter:
                         rest = rest[1:]
                         continue
                     raise ValueError(f"Invalid escape sequence '&{head}' in browse path.")
-                else:
-                    raise ValueError("Unexpected end after escape character '&'.")
-            else:
-                name.append(head)
-                rest = rest[1:]
+                raise ValueError("Unexpected end after escape character '&'.")
+            name.append(head)
+            rest = rest[1:]
 
         if is_reference and head != ">":
             raise ValueError("Missing closing '>' for reference type name in browse path.")
@@ -131,7 +129,7 @@ class RelativePathElementFormatter:
         return QualifiedName("".join(name), idx), rest
 
     def build(self) -> RelativePathElement:
-        reference_type_id: Optional[NodeId] = None
+        reference_type_id: NodeId | None = None
         is_inverse = False
         include_subtypes = self._include_subtypes
         target_name = self._target_name
@@ -195,15 +193,15 @@ class RelativePathFormatter:
     https://reference.opcfoundation.org/Core/Part4/v105/docs/A.2
     """
 
-    _elements: List[RelativePathElementFormatter]
+    _elements: list[RelativePathElementFormatter]
 
-    def __init__(self, relative_path: Optional[RelativePath] = None):
+    def __init__(self, relative_path: RelativePath | None = None) -> None:
         self._elements = []
         if relative_path:
             self._elements = [RelativePathElementFormatter(el) for el in relative_path.Elements]
 
     @staticmethod
-    def parse(string: str):
+    def parse(string: str) -> RelativePathFormatter:
         formatter = RelativePathFormatter()
 
         if string:
@@ -224,7 +222,7 @@ class RelativePathFormatter:
         return "".join([el.to_string() for el in self._elements])
 
 
-def _peek(string: str) -> Optional[str]:
+def _peek(string: str) -> str | None:
     return string[0] if len(string) > 0 else None
 
 
@@ -236,8 +234,7 @@ def _find_reference_type(reference_type_name: QualifiedName) -> NodeId:
     type_id = getattr(ObjectIds, reference_type_name.Name, None)
     if type_id is not None:
         return NodeId(Identifier=type_id, NamespaceIndex=0)
-    else:
-        raise ValueError("Non-standard ReferenceTypes are not supported.")
+    raise ValueError("Non-standard ReferenceTypes are not supported.")
 
 
 def _find_reference_type_name(reference_type_id: NodeId) -> QualifiedName:
@@ -247,5 +244,4 @@ def _find_reference_type_name(reference_type_id: NodeId) -> QualifiedName:
             type_id: int = reference_type_id.Identifier
             return QualifiedName.from_string(ObjectIdNames[type_id])
         raise ValueError("Non-integer NodeIds are not supported.")
-    else:
-        raise ValueError("Non-standard ReferenceTypes are not supported.")
+    raise ValueError("Non-standard ReferenceTypes are not supported.")

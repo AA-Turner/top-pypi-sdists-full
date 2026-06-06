@@ -1,17 +1,17 @@
 import asyncio
 import copy
-import time
 import logging
-from typing import Deque, Optional, Dict
+import time
 from collections import deque
-from datetime import datetime, timedelta, timezone
+from typing import Literal
 
 from asyncua import ua
-from ..ua.ua_binary import nodeid_from_binary, struct_from_binary, struct_to_binary, uatcp_to_binary
-from .internal_server import InternalServer, InternalSession
+
 from ..common.connection import SecureConnection, TransportLimits
 from ..common.utils import ServiceError
 from ..crypto.security_policies import SecurityPolicyNone
+from ..ua.ua_binary import nodeid_from_binary, struct_from_binary, struct_to_binary, uatcp_to_binary
+from .internal_server import InternalServer, InternalSession
 
 _logger = logging.getLogger(__name__)
 
@@ -21,6 +21,9 @@ class PublishRequestData:
         self.requesthdr = requesthdr
         self.seqhdr = seqhdr
         self.timestamp = time.monotonic()
+
+    def has_timed_out(self, now: float) -> bool:
+        return self.requesthdr.TimeoutHint != 0 and self.requesthdr.TimeoutHint / 1000 < now - self.timestamp
 
 
 class UaProcessor:
@@ -32,18 +35,18 @@ class UaProcessor:
         self.iserver: InternalServer = internal_server
         self.name = transport.get_extra_info("peername")
         self.sockname = transport.get_extra_info("sockname")
-        self.session: Optional[InternalSession] = None
-        self.session_last_activity: Optional[datetime] = None
+        self.session: InternalSession | None = None
+        self.session_last_activity: float | None = None
         self._transport = transport
         # deque for Publish Requests
-        self._publish_requests: Deque[PublishRequestData] = deque()
+        self._publish_requests: deque[PublishRequestData] = deque()
         # queue for publish results callbacks (using SubscriptionId)
         # rely on dict insertion order (therefore can't use set())
-        self._publish_results_subs: Dict[ua.IntegerId, bool] = {}
+        self._publish_results_subs: dict[ua.IntegerId, Literal[True]] = {}
         self._limits = copy.deepcopy(limits)  # Copy limits because they get overriden
         self._connection = SecureConnection(SecurityPolicyNone(), self._limits)
         self._closing: bool = False
-        self._session_watchdog_task: Optional[asyncio.Task] = None
+        self._session_watchdog_task: asyncio.Task | None = None
         self._watchdog_interval: float = 1.0
 
     def set_policies(self, policies):
@@ -73,6 +76,7 @@ class UaProcessor:
         self.send_response(request.RequestHeader.RequestHandle, seqhdr, response, ua.MessageType.SecureOpen)
 
     def get_publish_request(self, subscription_id: ua.IntegerId):
+        now = time.monotonic()
         while True:
             if not self._publish_requests:
                 # only store one callback per subscription
@@ -85,14 +89,37 @@ class UaProcessor:
                 return None
             # We pop left from the Publish Request deque (FIFO)
             requestdata = self._publish_requests.popleft()
-            if (
-                requestdata.requesthdr.TimeoutHint == 0
-                or requestdata.requesthdr.TimeoutHint != 0
-                and time.monotonic() - requestdata.timestamp < requestdata.requesthdr.TimeoutHint / 1000
-            ):
+            if not requestdata.has_timed_out(now):
                 # Continue and use `requestdata` only if there was no timeout
                 break
+            self._send_publish_request_timeout(requestdata)
         return requestdata
+
+    def _evict_publish_request(self) -> None:
+        # "When a Server receives a new Publish request that exceeds its
+        # limit it shall de-queue the oldest Publish request and return a
+        # response with the result set to Bad_TooManyPublishRequests."
+        # A timed-out request gets BadTimeout instead and substitutes for
+        # the oldest eviction, since reaping it also frees a slot.
+        now = time.monotonic()
+        for i, requestdata in enumerate(self._publish_requests):
+            if requestdata.has_timed_out(now):
+                del self._publish_requests[i]
+                self._send_publish_request_timeout(requestdata)
+                return
+        if not self._publish_requests:
+            return
+        oldest = self._publish_requests.popleft()
+        response = ua.ServiceFault()
+        response.ResponseHeader.ServiceResult = ua.StatusCode(ua.StatusCodes.BadTooManyPublishRequests)
+        self.send_response(oldest.requesthdr.RequestHandle, oldest.seqhdr, response)
+
+    def _send_publish_request_timeout(self, requestdata: PublishRequestData):
+        # "If the request timed out, a Bad_Timeout Service result is
+        # sent and another Publish request is used."
+        response = ua.ServiceFault()
+        response.ResponseHeader.ServiceResult = ua.StatusCode(ua.StatusCodes.BadTimeout)
+        self.send_response(requestdata.requesthdr.RequestHandle, requestdata.seqhdr, response)
 
     async def forward_publish_response(self, result: ua.PublishResult, requestdata: PublishRequestData):
         """
@@ -107,7 +134,7 @@ class UaProcessor:
         try:
             msg = self._connection.receive_from_header_and_body(header, body)
         except ua.uaerrors.BadRequestTooLarge as e:
-            _logger.warning("Recived request that exceed the transport limits")
+            _logger.warning("Received request that exceed the transport limits")
             err = ua.ErrorMessage(ua.StatusCode(e.code), str(e))
             data = uatcp_to_binary(ua.MessageType.Error, err)
             self._transport.write(data)
@@ -189,7 +216,9 @@ class UaProcessor:
                 if self._connection.security_policy.permissions.check_validity(user, typeid, body) is False:
                     raise ua.uaerrors.BadUserAccessDenied
 
-        self.session_last_activity = datetime.now(timezone.utc)
+        self.session_last_activity = time.monotonic()
+        if self.session is not None:
+            self.session.touch()
 
         if typeid == ua.NodeId(ua.ObjectIds.CreateSessionRequest_Encoding_DefaultBinary):
             _logger.info("Create session request (%s)", user)
@@ -232,8 +261,21 @@ class UaProcessor:
             _logger.info("Activate session request (%s)", user)
             params = struct_from_binary(ua.ActivateSessionParameters, body)
             if not self.session:
-                _logger.info("request to activate non-existing session (%s)", user)
-                raise ServiceError(ua.StatusCodes.BadSessionIdInvalid)
+                # Spec Part 4 §6.7 reconnect: a fresh SecureChannel may carry an
+                # ActivateSession for a still-live session. Look it up by auth_token
+                # and rebind any existing subscriptions' publish callbacks here.
+                existing = self.iserver.lookup_external_session(requesthdr.AuthenticationToken)
+                if existing is None:
+                    _logger.info("request to activate non-existing session (%s)", user)
+                    raise ServiceError(ua.StatusCodes.BadSessionIdInvalid)
+                self.session = existing
+                self._closing = False
+                if self._session_watchdog_task is None or self._session_watchdog_task.done():
+                    self._session_watchdog_task = asyncio.create_task(self._session_watchdog_loop())
+                for sub in self.iserver.subscription_service.subscriptions.values():
+                    if sub.session_id == existing.session_id:
+                        sub.pub_result_callback = self.forward_publish_response
+                        sub.pub_request_callback = self.get_publish_request
             if self._connection.security_policy.host_certificate is None:
                 data = self.session.nonce
             else:
@@ -454,7 +496,7 @@ class UaProcessor:
                 if not self.session:
                     return False
                 params = struct_from_binary(ua.PublishParameters, body)
-                self.session.publish(params.SubscriptionAcknowledgements)
+                subscriptions = self.session.publish(params.SubscriptionAcknowledgements)
                 data = PublishRequestData(requesthdr=requesthdr, seqhdr=seqhdr)
                 # If there is an enqueued publish results callback, try to call it immediately
                 while self._publish_results_subs:
@@ -468,6 +510,8 @@ class UaProcessor:
                         # publish request has been consumed
                         break
                 else:
+                    if len(self._publish_requests) >= self.publish_request_limit(subscriptions):
+                        self._evict_publish_request()
                     # Store the Publish Request (will be used to send publish answers from server)
                     self._publish_requests.append(data)
 
@@ -477,6 +521,14 @@ class UaProcessor:
                 msg = self.session.republish(params)
                 response = ua.RepublishResponse()
                 response.NotificationMessage = msg
+                self.send_response(requesthdr.RequestHandle, seqhdr, response)
+
+            elif typeid == ua.NodeId(ua.ObjectIds.TransferSubscriptionsRequest_Encoding_DefaultBinary):
+                _logger.info("transfer subscriptions request (%s)", user)
+                params = struct_from_binary(ua.TransferSubscriptionsParameters, body)
+                results = await self.session.transfer_subscriptions(params, self.forward_publish_response)
+                response = ua.TransferSubscriptionsResponse()
+                response.Parameters.Results = results
                 self.send_response(requesthdr.RequestHandle, seqhdr, response)
 
             elif typeid == ua.NodeId(ua.ObjectIds.CallRequest_Encoding_DefaultBinary):
@@ -521,28 +573,62 @@ class UaProcessor:
 
         return True
 
+    def publish_request_limit(self, subscription_count: int) -> int:
+        # "A Server should limit the number of active Publish
+        # requests to avoid an infinite number since it is
+        # expected that the Publish requests are queued in the
+        # Server. But a Server shall accept more queued Publish
+        # requests than created Subscriptions."
+        # TODO Make the limit configurable
+        return subscription_count + 10
+
     async def close(self):
         """
-        to be called when client has disconnected to ensure we really close
-        everything we should
+        Drop the per-processor watchdog when the client connection is lost.
+
+        Spec Part 4 §6.7: an activated external session with live Subscriptions
+        must outlive its TCP connection so the client can transfer/reactivate
+        them on a new SecureChannel. The session is reachable via the iserver
+        registry by AuthenticationToken; its own InternalSession._timeout_loop
+        will close it after session_timeout of inactivity.
+
+        Sessions with no Subscriptions, internal sessions, and not-yet-activated
+        sessions still close immediately on transport loss.
         """
         _logger.info("Cleanup client connection: %s", self.name)
         self._closing = True
         try:
-            if self._session_watchdog_task:
-                await self._session_watchdog_task
+            if self._session_watchdog_task and self._session_watchdog_task is not asyncio.current_task():
+                self._session_watchdog_task.cancel()
+                try:
+                    await self._session_watchdog_task
+                except (asyncio.CancelledError, Exception):
+                    pass
         finally:
-            if self.session:
+            if self.session and self._should_close_session_on_transport_loss():
                 await self.session.close_session(True)
+
+    def _should_close_session_on_transport_loss(self) -> bool:
+        if self.session is None:
+            return False
+        if not self.session.external or not self.session.is_activated():
+            return True
+        has_subs = any(
+            sub.session_id == self.session.session_id
+            for sub in self.iserver.subscription_service.subscriptions.values()
+        )
+        return not has_subs
 
     async def _session_watchdog_loop(self):
         """
         Checks if the session is alive
         """
         timeout = min(self.session.session_timeout / 2, self._watchdog_interval)
-        timeout_timedelta = timedelta(seconds=self.session.session_timeout)
+        session_timeout = self.session.session_timeout
         while not self._closing:
             await asyncio.sleep(timeout)
-            if (datetime.now(timezone.utc) - timeout_timedelta) > self.session_last_activity:
-                _logger.warning("Session timed out after %ss of inactivity", timeout_timedelta.total_seconds())
+            if self.session_last_activity is None:
+                continue
+            if time.monotonic() - self.session_last_activity > session_timeout:
+                _logger.warning("Session timed out after %ss of inactivity", session_timeout)
                 await self.close()

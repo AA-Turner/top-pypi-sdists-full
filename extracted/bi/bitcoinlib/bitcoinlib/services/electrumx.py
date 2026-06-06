@@ -2,7 +2,7 @@
 #
 #    BitcoinLib - Python Cryptocurrency Library
 #    Electrumx client
-#    © 2025 January - 1200 Web Development <http://1200wd.com/>
+#    © 2025-2026 June - 1200 Web Development <http://1200wd.com/>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU Affero General Public License as
@@ -34,7 +34,7 @@ from bitcoinlib.keys import Address, sha256
 from bitcoinlib.scripts import Script
 
 PROVIDERNAME = 'electrumx'
-
+ELECTRUMX_PROTOCOL_VERSION = "1.6"
 
 _logger = logging.getLogger(__name__)
 
@@ -65,10 +65,10 @@ class ElectrumxClient(BaseClient):
             async def main(host, port, method, parameters):
                 async with aiorpcx.connect_rs(host, port, framer=aiorpcx.NewlineFramer(5000000)) as session:
                     session.sent_request_timeout = self.timeout
+                    await session.send_request('server.version', ["Bitcoinlib", ELECTRUMX_PROTOCOL_VERSION])
                     return await session.send_request(method, parameters)
 
-            loop = asyncio.get_event_loop()
-            return loop.run_until_complete(main(host, port, method, parameters))
+            return asyncio.run(main(host, port, method, parameters))
         else:
             content = {
                 "method": method,
@@ -81,6 +81,20 @@ class ElectrumxClient(BaseClient):
             sock.connect((host, int(port)))
             import json
             from time import sleep
+            server_version_msg = {"method": "server.version", "params": ["BitcoinLib", ELECTRUMX_PROTOCOL_VERSION], "id": 0}
+            sock.sendall(json.dumps(server_version_msg).encode('utf-8') + b'\n')
+            sleep(0.1)
+            buffer = b""
+            try:
+                sock.settimeout(1)
+                while True:
+                    data = sock.recv(4096)
+                    if not data:
+                        break
+                    buffer += data
+            except socket.timeout:
+                pass
+            sock.settimeout(10)
             sock.sendall(json.dumps(content).encode('utf-8')+b'\n')
             sleep(0.5)
             sock.shutdown(socket.SHUT_WR)

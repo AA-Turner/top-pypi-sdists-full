@@ -57,6 +57,9 @@ Numeric = TypeVar('Numeric', int, float, Decimal)
 class Buffer:
     """A Buffer for reading data from a PDF."""
 
+    def __bytes__(self) -> bytes: ...
+    def __len__(self) -> int: ...
+
 class _NamePath:
     """Path for accessing nested Dictionary/Stream values.
 
@@ -420,7 +423,6 @@ class TokenType(Enum):
 class Object:
     def _ipython_key_completions_(self) -> KeysView | None: ...
     def _inline_image_raw_bytes(self) -> bytes: ...
-    def _parse_page_contents(self, callbacks: Callable) -> None: ...
     def _parse_page_contents_grouped(
         self, whitelist: str
     ) -> list[tuple[Collection[Object | PdfInlineImage], Operator]]: ...
@@ -1986,9 +1988,7 @@ class Pdf:
                 if False append after last page.
         """
     def _decode_all_streams_and_discard(self, progress) -> None: ...
-    def _get_object_id(self, arg0: int, arg1: int) -> Object: ...
     def _process(self, arg0: str, arg1: bytes) -> None: ...
-    def _remove_page(self, arg0: Object) -> None: ...
     def _replace_object(self, arg0: tuple[int, int], arg1: Object) -> None: ...
     def _swap_objects(self, arg0: tuple[int, int], arg1: tuple[int, int]) -> None: ...
     def check_pdf_syntax(
@@ -2333,16 +2333,15 @@ class Pdf:
                 considering the root level, ``1`` the first-level
                 sub-outline of each root element, and so on. Items beyond
                 this depth will be silently ignored. Default is ``15``.
-            strict: With the default behavior (set to ``False``),
-                structural errors (e.g. reference loops) in the PDF document
-                will only cancel processing further nodes on that particular
-                level, recovering the valid parts of the document outline
-                without raising an exception. When set to ``True``, any such
-                error will raise an ``OutlineStructureError``, leaving the
-                invalid parts in place.
-                Similarly, outline objects that have been accidentally
-                duplicated in the ``Outline`` container will be silently
-                fixed (i.e. reproduced as new objects) or raise an
+            strict: When ``False`` (the default), pikepdf quietly corrects
+                minor structural problems in the outline where the correct
+                repair is known, recovering the valid parts of the document
+                outline without raising an exception. For example, a missing
+                required ``/Title`` is treated as an empty string; a structural
+                error such as a reference loop cancels processing of further
+                nodes on that level; and outline objects that have been
+                accidentally duplicated are reproduced as new objects. When set
+                to ``True``, any such structural problem raises an
                 ``OutlineStructureError``.
         """
     def remove_unreferenced_resources(self) -> None:
@@ -2575,8 +2574,6 @@ class Pdf:
     @property
     def _allow_extract(self) -> bool: ...
     @property
-    def _allow_modify_all(self) -> bool: ...
-    @property
     def _allow_modify_annotation(self) -> bool: ...
     @property
     def _allow_modify_assembly(self) -> bool: ...
@@ -2590,8 +2587,6 @@ class Pdf:
     def _allow_print_lowres(self) -> bool: ...
     @property
     def _encryption_data(self) -> dict: ...
-    @property
-    def _pages(self) -> Any: ...
     @property
     def allow(self) -> Permissions:
         """Report permissions associated with this PDF.

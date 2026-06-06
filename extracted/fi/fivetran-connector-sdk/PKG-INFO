@@ -1,22 +1,22 @@
 Metadata-Version: 2.4
 Name: fivetran_connector_sdk
-Version: 2.9.0
+Version: 2.9.1
 Summary: Build custom connectors on Fivetran platform
 Author-email: Fivetran <developers@fivetran.com>
 Project-URL: Homepage, https://fivetran.com/docs/connectors/connector-sdk
-Project-URL: Github, https://github.com/fivetran/fivetran_connector_sdk
+Project-URL: Github, https://github.com/fivetran/connector_sdk
 Project-URL: Changelog, https://fivetran.com/docs/connectors/connector-sdk/changelog
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: grpcio==1.78.0
-Requires-Dist: grpcio-tools==1.78.0
-Requires-Dist: requests==2.33.0
+Requires-Dist: grpcio==1.80.0
+Requires-Dist: grpcio-tools==1.80.0
+Requires-Dist: requests==2.33.1
 Requires-Dist: pipreqs-fivetran==1.1.2
 Requires-Dist: prompt-toolkit==3.0.52
-Requires-Dist: pathspec==1.0.4
+Requires-Dist: pathspec==1.1.1
 Requires-Dist: tqdm==4.67.1
 
 # **fivetran-connector-sdk**
@@ -56,7 +56,7 @@ Import required classes from fivetran_connector_sdk to begin writing your custom
 ```
 See our [Technical Reference](https://fivetran.com/docs/connectors/connector-sdk/technical-reference#update) and [Best Practices](https://fivetran.com/docs/connectors/connector-sdk/best-practices) documentation for more details.
 
-You can also refer to our [existing examples](https://github.com/fivetran/fivetran_connector_sdk) to better understand Fivetran's Connector SDK and start creating custom data connectors.
+You can also refer to our [existing examples](https://github.com/fivetran/connector_sdk) to better understand Fivetran's Connector SDK and start creating custom data connectors.
 
 ## **Maintenance**
 This package is actively maintained by Fivetran Developers. Please reach out to our [Support team](https://support.fivetran.com/hc/en-us) for any inquiries.

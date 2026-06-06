@@ -6,7 +6,7 @@ import logging
 from pyrit.datasets.seed_datasets.remote.remote_dataset_loader import (
     _RemoteDatasetLoader,
 )
-from pyrit.models import SeedDataset, SeedPrompt
+from pyrit.models import Modality, SeedDataset, SeedPrompt
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +22,16 @@ class _TDC23RedteamingDataset(_RemoteDatasetLoader):
     Reference: [@mazeika2023tdc]
     """
 
+    # Metadata
+    modalities: tuple[Modality, ...] = (Modality.TEXT,)
+    size: str = "small"  # 100 narrative-style harmful prompts
+    tags: frozenset[str] = frozenset({"safety", "jailbreak"})
+
     def __init__(
         self,
         *,
         source: str = "walledai/TDC23-RedTeaming",
-    ):
+    ) -> None:
         """
         Initialize the TDC23-RedTeaming dataset loader.
 
@@ -40,7 +45,7 @@ class _TDC23RedteamingDataset(_RemoteDatasetLoader):
         """Return the dataset name."""
         return "tdc23_redteaming"
 
-    async def fetch_dataset(self, *, cache: bool = True) -> SeedDataset:
+    async def fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
         """
         Fetch TDC23-RedTeaming dataset and return as SeedDataset.
 
@@ -52,7 +57,7 @@ class _TDC23RedteamingDataset(_RemoteDatasetLoader):
         """
         logger.info(f"Loading TDC23-RedTeaming dataset from {self.source}")
 
-        data = await self._fetch_from_huggingface(
+        data = await self._fetch_from_huggingface_async(
             dataset_name=self.source,
             config="default",
             split="train",

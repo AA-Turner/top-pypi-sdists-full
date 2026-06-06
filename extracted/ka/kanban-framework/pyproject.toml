@@ -13,7 +13,7 @@ kanban_framework = ["dashboard/node_modules/**", "dashboard/package-lock.json"]
 
 [project]
 name = "kanban-framework"
-version = "0.136.1"
+version = "0.144.0"
 description = "Kanban multi-agent orchestration framework for Claude Code"
 requires-python = ">=3.10"
 dependencies = [

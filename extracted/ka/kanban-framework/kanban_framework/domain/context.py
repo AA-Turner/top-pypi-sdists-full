@@ -29,6 +29,22 @@ def _is_knowledge_available(fs: Filesystem) -> bool:
         return False
 
 
+def _is_share_enabled(fs: Filesystem) -> bool:
+    """Check if team shared knowledge base is configured. (#525)"""
+    try:
+        cfg_path = fs.config_file()
+        if not cfg_path.is_file():
+            return False
+        raw = json.loads(cfg_path.read_text(encoding="utf-8"))
+        kb_cfg = raw.get("knowledge", {})
+        share_cfg = kb_cfg.get("share", {})
+        return (isinstance(share_cfg, dict)
+                and share_cfg.get("enabled")
+                and bool(share_cfg.get("path")))
+    except Exception:
+        return False
+
+
 def _get_scope(fs: Filesystem) -> str:
     """Read knowledge.scope from config.json."""
     cfg_path = fs.config_file()
@@ -67,6 +83,7 @@ def _load_knowledge_summary(fs: Filesystem, task: Task) -> dict | None:
             "matched_count": len(matched),
             "top_matches": [
                 {"id": m["id"], "title": m.get("title", ""), "relevance": m.get("relevance", ""),
+                 "source": m.get("source", "local"),
                  "how_to_apply": m.get("how_to_apply", "")[:100]}
                 for m in matched[:5]
             ],
@@ -145,7 +162,7 @@ def _auto_knowledge_retrieval(fs: Filesystem, task: Task, step_id: str,
         return [
             {"id": r["id"], "title": r.get("title", ""),
              "domain": r.get("domain", ""), "category": r.get("category", ""),
-             "severity": r.get("severity", ""),
+             "severity": r.get("severity", ""), "source": r.get("_source", "local"),
              "snippet": (r.get("content", "") or "")[:120]}
             for r in final
         ]
@@ -235,27 +252,35 @@ def _codegraph_pitfall_context(backend, repo_path, task, parts: list) -> None:
 
 
 def _resolve_prompt_hooks(config: Config, phase: str, step_id: str, mode: str = "") -> list[str]:
-    """Resolve custom prompt hooks from config for a given phase/step.
+    """Resolve custom prompt hooks from workflow.json for a given phase/step.
 
-    Matches keys in priority order:
-      1. "{mode}.{step_id}" (e.g. "quick.execute.spawn")
-      2. "{mode}.{phase}"   (e.g. "quick.execute")
-      3. "{step_id}"        (e.g. "execute.spawn")
-      4. "{phase}"          (e.g. "execute")
+    Sources (both collected independently, never overwrite each other):
+      1. workflow.json top-level "prompt_hooks"
+      2. workflow.json modes.<mode>.prompt_hooks (mode-specific)
+
+    Key matching priority (within each source):
+      1. "{step_id}"        (e.g. "execute.spawn")
+      2. "{phase}"          (e.g. "execute")
     """
-    hooks = config.prompt_hooks
+    top_hooks = config.prompt_hooks  # top-level from workflow.json / config.json
     matched = []
+    # Collect top-level matches first
+    if step_id in top_hooks:
+        matched.append(top_hooks[step_id])
+    if phase in top_hooks and top_hooks.get(phase) not in matched:
+        matched.append(top_hooks[phase])
+    # Collect mode-specific matches (append, never overwrite)
     if mode:
-        mode_step = f"{mode}.{step_id}"
-        if mode_step in hooks:
-            matched.append(hooks[mode_step])
-        mode_phase = f"{mode}.{phase}"
-        if mode_phase in hooks and hooks[mode_phase] not in matched:
-            matched.append(hooks[mode_phase])
-    if step_id in hooks and hooks[step_id] not in matched:
-        matched.append(hooks[step_id])
-    if phase in hooks and hooks[phase] not in matched:
-        matched.append(hooks[phase])
+        modes = config.workflow.get("modes", {})
+        mode_cfg = modes.get(mode, {}) if isinstance(modes, dict) else {}
+        mode_hooks = mode_cfg.get("prompt_hooks", {})
+        if isinstance(mode_hooks, dict):
+            mode_step_val = mode_hooks.get(step_id)
+            if mode_step_val and str(mode_step_val) not in matched:
+                matched.append(str(mode_step_val))
+            mode_phase_val = mode_hooks.get(phase)
+            if mode_phase_val and str(mode_phase_val) not in matched:
+                matched.append(str(mode_phase_val))
     return matched
 
 

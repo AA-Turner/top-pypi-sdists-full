@@ -7,30 +7,39 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Set, Union, Dict, List, Tuple
 from dataclasses import fields, is_dataclass
+from typing import get_type_hints
+
+import asyncua
+from asyncua import Node, ua
 from asyncua.common.structures104 import (
+    load_basetype_alias_xml_import,
     load_custom_struct_xml_import,
     load_enum_xml_import,
-    load_basetype_alias_xml_import,
 )
-import asyncua
-from asyncua import ua, Node
-from asyncua.ua.uatypes import type_is_union, types_from_union, type_is_list, type_from_list
-from .xmlparser import XMLParser, ua_type_to_python
+from asyncua.ua.uatypes import (
+    type_from_list,
+    type_from_optional,
+    type_is_list,
+    type_is_optional,
+    type_is_union,
+    types_from_union,
+)
+
 from ..ua.uaerrors import UaError
+from .xmlparser import XMLParser, ua_type_to_python
 
 _logger = logging.getLogger(__name__)
 
 
-def _parse_version(version_string: str) -> List[int]:
+def _parse_version(version_string: str) -> list[int]:
     return [int(v) for v in version_string.split(".")]
 
 
 class XmlImporter:
     def __init__(
         self,
-        server: Union[asyncua.Server, asyncua.Client],
+        server: asyncua.Server | asyncua.Client,
         strict_mode: bool = True,
         auto_load_definitions: bool = True,
     ):
@@ -41,9 +50,9 @@ class XmlImporter:
         """
         self.parser = None
         self.session = server
-        self.namespaces: Dict[int, int] = {}  # Dict[IndexInXml, IndexInServer]
-        self.aliases: Dict[str, ua.NodeId] = {}
-        self._unmigrated_aliases: Dict[str, str] = {}  # Dict[name, nodeId string]
+        self.namespaces: dict[int, int] = {}  # dict[IndexInXml, IndexInServer]
+        self.aliases: dict[str, ua.NodeId] = {}
+        self._unmigrated_aliases: dict[str, str] = {}  # dict[name, nodeId string]
         self.refs = None
         self.strict_mode = strict_mode
         self.auto_load_definitions = auto_load_definitions
@@ -101,7 +110,7 @@ class XmlImporter:
     async def _check_required_models(self, xmlpath=None, xmlstring=None):
         req_models = self.parser.list_required_models(xmlpath, xmlstring)
         if not req_models:
-            return None
+            return
         server_model_list = await self._get_existing_model_in_namespace()
         for model in server_model_list:
             for req_model in req_models:
@@ -123,7 +132,7 @@ class XmlImporter:
                     missing_model["PublicationDate"],
                 )
             raise ValueError("Server doesn't satisfy required XML-Models. Import them first!")
-        return None
+        return
 
     async def _check_if_namespace_meta_information_is_added(self):
         """
@@ -192,7 +201,7 @@ class XmlImporter:
         await self._check_if_namespace_meta_information_is_added()
         return nodes
 
-    async def _add_missing_reverse_references(self, new_nodes: List[Node]) -> Set[Node]:
+    async def _add_missing_reverse_references(self, new_nodes: list[Node]) -> set[Node]:
         __unidirectional_types = {
             ua.ObjectIds.GuardVariableType,
             ua.ObjectIds.HasGuard,
@@ -207,12 +216,12 @@ class XmlImporter:
         }
         dangling_refs_to_missing_nodes = set(new_nodes)
 
-        RefSpecKey = Tuple[ua.NodeId, ua.NodeId, ua.NodeId]  # (source_node_id, target_node_id, ref_type_id)
-        node_reference_map: Dict[RefSpecKey, ua.ReferenceDescription] = {}
+        RefSpecKey = tuple[ua.NodeId, ua.NodeId, ua.NodeId]  # (source_node_id, target_node_id, ref_type_id)
+        node_reference_map: dict[RefSpecKey, ua.ReferenceDescription] = {}
 
         for new_node_id in new_nodes:
             node = self.session.get_node(new_node_id)
-            node_ref_list: List[ua.ReferenceDescription] = await node.get_references()
+            node_ref_list: list[ua.ReferenceDescription] = await node.get_references()
 
             for ref in node_ref_list:
                 dangling_refs_to_missing_nodes.discard(new_node_id)
@@ -327,7 +336,7 @@ class XmlImporter:
                     field.datatype = self._to_migrated_nodeid(field.datatype)
         return new_nodes
 
-    def _migrate_ns(self, obj: Union[ua.NodeId, ua.QualifiedName]) -> Union[ua.NodeId, ua.QualifiedName]:
+    def _migrate_ns(self, obj: ua.NodeId | ua.QualifiedName) -> ua.NodeId | ua.QualifiedName:
         """
         Check if the index of nodeid or browsename  given in the xml model file
         must be converted to an already existing namespace id based on the files
@@ -379,11 +388,11 @@ class XmlImporter:
         )
         return node
 
-    def _to_migrated_nodeid(self, nodeid: Union[ua.NodeId, None, str]) -> Union[ua.NodeId, ua.QualifiedName]:
+    def _to_migrated_nodeid(self, nodeid: ua.NodeId | None | str) -> ua.NodeId | ua.QualifiedName:
         nodeid = self._to_nodeid(nodeid)
         return self._migrate_ns(nodeid)
 
-    def _to_nodeid(self, nodeid: Union[ua.NodeId, None, str]) -> ua.NodeId:
+    def _to_nodeid(self, nodeid: ua.NodeId | None | str) -> ua.NodeId:
         if isinstance(nodeid, ua.NodeId):
             return nodeid
         if not nodeid:
@@ -478,6 +487,7 @@ class XmlImporter:
                 extclass = self._get_ext_class(obj.objname)
             else:
                 raise exp
+        resolved_types = get_type_hints(extclass, {"ua": ua})
         args = {}
         for name, val in obj.body:
             if not isinstance(val, list):
@@ -490,7 +500,7 @@ class XmlImporter:
             for attname, v in val:
                 if attname != "EncodingMask":
                     # Skip Encoding Mask used for optional types
-                    atttype = self._get_val_type(extclass, attname)
+                    atttype = resolved_types[attname]
                     self._set_attr(atttype, args, attname, v)
         return extclass(**args)
 
@@ -504,7 +514,10 @@ class XmlImporter:
         # tow possible values:
         # either we get value directly
         # or a dict if it s an object or a list
-        if type_is_union(atttype):
+        #
+        if type_is_optional(atttype):
+            atttype = type_from_optional(atttype)
+        elif type_is_union(atttype):
             atttype = types_from_union(atttype)[0]
         if isinstance(val, str):
             pval = ua_type_to_python(val, atttype.__name__)
@@ -535,10 +548,11 @@ class XmlImporter:
             for attname2, v2 in val:
                 if attname2 != "EncodingMask":
                     # Skip Encoding Mask used for optional types
-                    sub_atttype = self._get_val_type(atttype, attname2)
+                    resolved_sub_type = get_type_hints(atttype, {"ua": ua})
+                    sub_atttype = resolved_sub_type[attname2]
+                    # sub_atttype = self._get_val_type(atttype, attname2)
                     self._set_attr(sub_atttype, subargs, attname2, v2)
-            if "Encoding" in subargs:
-                del subargs["Encoding"]
+            subargs.pop("Encoding", None)
             fargs[attname] = atttype(**subargs)  # type: ignore[operator]
         else:
             raise RuntimeError(f"Could not handle type {atttype} of type {type(atttype)}")
@@ -572,8 +586,7 @@ class XmlImporter:
             return ua.Variant(uuid.UUID(obj.value), getattr(ua.VariantType, obj.valuetype))
         if obj.valuetype == "LocalizedText":
             myargs = dict(obj.value)
-            if "Encoding" in myargs:
-                del myargs["Encoding"]
+            myargs.pop("Encoding", None)
             ltext = ua.LocalizedText(**dict(obj.value))
             return ua.Variant(ltext, ua.VariantType.LocalizedText)
         if obj.valuetype == "NodeId":
@@ -647,10 +660,10 @@ class XmlImporter:
         return res[0].AddedNodeId
 
     async def add_datatype(self, obj, no_namespace_migration=False):
-        is_enum: bool = False
-        is_struct: bool = False
-        is_option_set: bool = False
-        is_alias: bool = False
+        is_enum = False
+        is_struct = False
+        is_option_set = False
+        is_alias = False
         node = self._get_add_node_item(obj, no_namespace_migration)
         attrs = ua.DataTypeAttributes()
         if obj.desc:

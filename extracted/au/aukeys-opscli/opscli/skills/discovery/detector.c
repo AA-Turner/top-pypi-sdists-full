@@ -1524,7 +1524,7 @@ static const char* const __pyx_f[] = {
 /*--- Type declarations ---*/
 struct __pyx_obj_6opscli_6skills_9discovery_8detector___pyx_scope_struct__genexpr;
 
-/* "opscli/skills/discovery/detector.py":81
+/* "opscli/skills/discovery/detector.py":82
  *                 continue
  *             #
  *             for skill_dir in sorted(p for p in base_dir.iterdir() if p.is_dir()):             # <<<<<<<<<<<<<<
@@ -2634,7 +2634,7 @@ typedef struct {
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_values;
   PyObject *__pyx_tuple[3];
   PyObject *__pyx_codeobj_tab[12];
-  PyObject *__pyx_string_tab[164];
+  PyObject *__pyx_string_tab[166];
 /* #### Code section: module_state_contents ### */
 
 #if CYTHON_USE_FREELISTS
@@ -2696,162 +2696,164 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_kp_u_VERSION_json_s_s __pyx_string_tab[5]
 #define __pyx_kp_u__2 __pyx_string_tab[6]
 #define __pyx_kp_u_add_note __pyx_string_tab[7]
-#define __pyx_kp_u_claude __pyx_string_tab[8]
-#define __pyx_kp_u_codex __pyx_string_tab[9]
-#define __pyx_kp_u_config __pyx_string_tab[10]
-#define __pyx_kp_u_disable __pyx_string_tab[11]
-#define __pyx_kp_u_enable __pyx_string_tab[12]
-#define __pyx_kp_u_gc __pyx_string_tab[13]
-#define __pyx_kp_u_isenabled __pyx_string_tab[14]
-#define __pyx_kp_u_list_Path __pyx_string_tab[15]
-#define __pyx_kp_u_list_SkillRecord __pyx_string_tab[16]
-#define __pyx_kp_u_list_str_None __pyx_string_tab[17]
-#define __pyx_kp_u_list_tuple_str_Path __pyx_string_tab[18]
-#define __pyx_kp_u_openclaw __pyx_string_tab[19]
-#define __pyx_kp_u_opencode_2 __pyx_string_tab[20]
-#define __pyx_kp_u_opscli_skills_detector __pyx_string_tab[21]
-#define __pyx_kp_u_opscli_skills_discovery_detector_2 __pyx_string_tab[22]
-#define __pyx_kp_u_str_None __pyx_string_tab[23]
-#define __pyx_kp_u_trae_cn __pyx_string_tab[24]
-#define __pyx_kp_u_trae_cn_2 __pyx_string_tab[25]
-#define __pyx_kp_u_tuple_str_Path __pyx_string_tab[26]
-#define __pyx_kp_u_utf_8 __pyx_string_tab[27]
-#define __pyx_kp_u_v0_0_0 __pyx_string_tab[28]
-#define __pyx_kp_u_workbuddy __pyx_string_tab[29]
-#define __pyx_n_u_OPSCLI_SKILLS_DIR __pyx_string_tab[30]
-#define __pyx_n_u_Path __pyx_string_tab[31]
-#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[32]
-#define __pyx_n_u_SkillDetector __pyx_string_tab[33]
-#define __pyx_n_u_SkillDetector__dedupe_targets __pyx_string_tab[34]
-#define __pyx_n_u_SkillDetector__infer_runtime __pyx_string_tab[35]
-#define __pyx_n_u_SkillDetector__opencode_config_d __pyx_string_tab[36]
-#define __pyx_n_u_SkillDetector__opencode_skills_d __pyx_string_tab[37]
-#define __pyx_n_u_SkillDetector_candidate_dirs __pyx_string_tab[38]
-#define __pyx_n_u_SkillDetector_detect_all_install __pyx_string_tab[39]
-#define __pyx_n_u_SkillDetector_detect_available_i __pyx_string_tab[40]
-#define __pyx_n_u_SkillDetector_detect_global_inst __pyx_string_tab[41]
-#define __pyx_n_u_SkillDetector_detect_install_tar __pyx_string_tab[42]
-#define __pyx_n_u_SkillDetector_detect_install_tar_2 __pyx_string_tab[43]
-#define __pyx_n_u_SkillDetector_discover __pyx_string_tab[44]
-#define __pyx_n_u_SkillDetector_discover_locals_ge __pyx_string_tab[45]
-#define __pyx_n_u_SkillRecord __pyx_string_tab[46]
-#define __pyx_n_u__3 __pyx_string_tab[47]
-#define __pyx_n_u_all __pyx_string_tab[48]
-#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[49]
-#define __pyx_n_u_available __pyx_string_tab[50]
-#define __pyx_n_u_base_dir __pyx_string_tab[51]
-#define __pyx_n_u_candidate_dirs __pyx_string_tab[52]
-#define __pyx_n_u_candidates __pyx_string_tab[53]
-#define __pyx_n_u_claude_2 __pyx_string_tab[54]
-#define __pyx_n_u_cline_in_traceback __pyx_string_tab[55]
-#define __pyx_n_u_close __pyx_string_tab[56]
-#define __pyx_n_u_codex_2 __pyx_string_tab[57]
-#define __pyx_n_u_current __pyx_string_tab[58]
-#define __pyx_n_u_cwd __pyx_string_tab[59]
-#define __pyx_n_u_data __pyx_string_tab[60]
-#define __pyx_n_u_data_dir __pyx_string_tab[61]
-#define __pyx_n_u_debug __pyx_string_tab[62]
-#define __pyx_n_u_dedupe_targets __pyx_string_tab[63]
-#define __pyx_n_u_det_exc __pyx_string_tab[64]
-#define __pyx_n_u_detect_all_install_targets __pyx_string_tab[65]
-#define __pyx_n_u_detect_available_install_targets __pyx_string_tab[66]
-#define __pyx_n_u_detect_global_install_targets __pyx_string_tab[67]
-#define __pyx_n_u_detect_install_target __pyx_string_tab[68]
-#define __pyx_n_u_detect_install_targets __pyx_string_tab[69]
-#define __pyx_n_u_discover __pyx_string_tab[70]
-#define __pyx_n_u_doc __pyx_string_tab[71]
-#define __pyx_n_u_encoding __pyx_string_tab[72]
-#define __pyx_n_u_env_dir __pyx_string_tab[73]
-#define __pyx_n_u_exists __pyx_string_tab[74]
-#define __pyx_n_u_expanduser __pyx_string_tab[75]
-#define __pyx_n_u_func __pyx_string_tab[76]
-#define __pyx_n_u_genexpr __pyx_string_tab[77]
-#define __pyx_n_u_get __pyx_string_tab[78]
-#define __pyx_n_u_getLogger __pyx_string_tab[79]
-#define __pyx_n_u_getenv __pyx_string_tab[80]
-#define __pyx_n_u_home __pyx_string_tab[81]
-#define __pyx_n_u_infer_runtime __pyx_string_tab[82]
-#define __pyx_n_u_is_coroutine __pyx_string_tab[83]
-#define __pyx_n_u_is_dir __pyx_string_tab[84]
-#define __pyx_n_u_item __pyx_string_tab[85]
-#define __pyx_n_u_items __pyx_string_tab[86]
-#define __pyx_n_u_iterdir __pyx_string_tab[87]
-#define __pyx_n_u_json __pyx_string_tab[88]
-#define __pyx_n_u_key __pyx_string_tab[89]
-#define __pyx_n_u_loads __pyx_string_tab[90]
-#define __pyx_n_u_logger __pyx_string_tab[91]
-#define __pyx_n_u_logging __pyx_string_tab[92]
-#define __pyx_n_u_lower __pyx_string_tab[93]
-#define __pyx_n_u_main __pyx_string_tab[94]
-#define __pyx_n_u_metaclass __pyx_string_tab[95]
-#define __pyx_n_u_module __pyx_string_tab[96]
-#define __pyx_n_u_name __pyx_string_tab[97]
-#define __pyx_n_u_name_2 __pyx_string_tab[98]
-#define __pyx_n_u_next __pyx_string_tab[99]
-#define __pyx_n_u_normalized __pyx_string_tab[100]
-#define __pyx_n_u_openclaw_2 __pyx_string_tab[101]
-#define __pyx_n_u_opencode __pyx_string_tab[102]
-#define __pyx_n_u_opencode_config __pyx_string_tab[103]
-#define __pyx_n_u_opencode_config_dir __pyx_string_tab[104]
-#define __pyx_n_u_opencode_skills_dir __pyx_string_tab[105]
-#define __pyx_n_u_opscli_skills_discovery_detector __pyx_string_tab[106]
-#define __pyx_n_u_opscli_skills_domain_models __pyx_string_tab[107]
-#define __pyx_n_u_os __pyx_string_tab[108]
-#define __pyx_n_u_p __pyx_string_tab[109]
-#define __pyx_n_u_parent __pyx_string_tab[110]
-#define __pyx_n_u_part __pyx_string_tab[111]
-#define __pyx_n_u_parts __pyx_string_tab[112]
-#define __pyx_n_u_path __pyx_string_tab[113]
-#define __pyx_n_u_pathlib __pyx_string_tab[114]
-#define __pyx_n_u_payload __pyx_string_tab[115]
-#define __pyx_n_u_pop __pyx_string_tab[116]
-#define __pyx_n_u_preferred_runtime __pyx_string_tab[117]
-#define __pyx_n_u_preferred_runtimes __pyx_string_tab[118]
-#define __pyx_n_u_prepare __pyx_string_tab[119]
-#define __pyx_n_u_qualname __pyx_string_tab[120]
-#define __pyx_n_u_read_text __pyx_string_tab[121]
-#define __pyx_n_u_records __pyx_string_tab[122]
-#define __pyx_n_u_resolve __pyx_string_tab[123]
-#define __pyx_n_u_result __pyx_string_tab[124]
-#define __pyx_n_u_return __pyx_string_tab[125]
-#define __pyx_n_u_root __pyx_string_tab[126]
-#define __pyx_n_u_runtime __pyx_string_tab[127]
-#define __pyx_n_u_runtime_dirs __pyx_string_tab[128]
-#define __pyx_n_u_seen __pyx_string_tab[129]
-#define __pyx_n_u_self __pyx_string_tab[130]
-#define __pyx_n_u_send __pyx_string_tab[131]
-#define __pyx_n_u_set_name __pyx_string_tab[132]
-#define __pyx_n_u_setdefault __pyx_string_tab[133]
-#define __pyx_n_u_shutil __pyx_string_tab[134]
-#define __pyx_n_u_skill_dir __pyx_string_tab[135]
-#define __pyx_n_u_skills __pyx_string_tab[136]
-#define __pyx_n_u_skills_dir __pyx_string_tab[137]
-#define __pyx_n_u_str __pyx_string_tab[138]
-#define __pyx_n_u_strip __pyx_string_tab[139]
-#define __pyx_n_u_target __pyx_string_tab[140]
-#define __pyx_n_u_targets __pyx_string_tab[141]
-#define __pyx_n_u_test __pyx_string_tab[142]
-#define __pyx_n_u_throw __pyx_string_tab[143]
-#define __pyx_n_u_trae __pyx_string_tab[144]
-#define __pyx_n_u_unknown __pyx_string_tab[145]
-#define __pyx_n_u_value __pyx_string_tab[146]
-#define __pyx_n_u_values __pyx_string_tab[147]
-#define __pyx_n_u_version __pyx_string_tab[148]
-#define __pyx_n_u_version_file __pyx_string_tab[149]
-#define __pyx_n_u_which __pyx_string_tab[150]
-#define __pyx_n_u_workbuddy_2 __pyx_string_tab[151]
-#define __pyx_kp_b_iso88591_6e_RRS_Q_L_O1K_4q_t87_V1A_z_7_A __pyx_string_tab[152]
-#define __pyx_kp_b_iso88591_A __pyx_string_tab[153]
-#define __pyx_kp_b_iso88591_A_t5_t_1_uBj_uBl_A_uBir_t_8_uBm __pyx_string_tab[154]
-#define __pyx_kp_b_iso88591_B_IXQ_9Cq_t3a_AQ_9A_q __pyx_string_tab[155]
-#define __pyx_kp_b_iso88591_EAXXY_c_T_1_gQd_k_G1A_1_gQd_8_a __pyx_string_tab[156]
-#define __pyx_kp_b_iso88591_E_PPffg_c_T_Jb_L_IRq_L_M_1_Kr_T __pyx_string_tab[157]
-#define __pyx_kp_b_iso88591_U_RRnno_c_T_1_a_1_WF_F_c_4_7_4A __pyx_string_tab[158]
-#define __pyx_kp_b_iso88591_V3d_1_s_1_9Cq_1_c_1_1_1_c_1_q __pyx_string_tab[159]
-#define __pyx_kp_b_iso88591_a_t5_2Zr __pyx_string_tab[160]
-#define __pyx_kp_b_iso88591_a_t_2Q __pyx_string_tab[161]
-#define __pyx_kp_b_iso88591_q_t5_E_WCs_az_7_Je2Zr_E_wc_F_WA __pyx_string_tab[162]
-#define __pyx_kp_b_iso88591_u4K1_c_T_HBj_q_7_Jhb_A_HBl_7_L __pyx_string_tab[163]
+#define __pyx_kp_u_agents __pyx_string_tab[8]
+#define __pyx_kp_u_claude __pyx_string_tab[9]
+#define __pyx_kp_u_codex __pyx_string_tab[10]
+#define __pyx_kp_u_config __pyx_string_tab[11]
+#define __pyx_kp_u_disable __pyx_string_tab[12]
+#define __pyx_kp_u_enable __pyx_string_tab[13]
+#define __pyx_kp_u_gc __pyx_string_tab[14]
+#define __pyx_kp_u_isenabled __pyx_string_tab[15]
+#define __pyx_kp_u_list_Path __pyx_string_tab[16]
+#define __pyx_kp_u_list_SkillRecord __pyx_string_tab[17]
+#define __pyx_kp_u_list_str_None __pyx_string_tab[18]
+#define __pyx_kp_u_list_tuple_str_Path __pyx_string_tab[19]
+#define __pyx_kp_u_openclaw __pyx_string_tab[20]
+#define __pyx_kp_u_opencode_2 __pyx_string_tab[21]
+#define __pyx_kp_u_opscli_skills_detector __pyx_string_tab[22]
+#define __pyx_kp_u_opscli_skills_discovery_detector_2 __pyx_string_tab[23]
+#define __pyx_kp_u_str_None __pyx_string_tab[24]
+#define __pyx_kp_u_trae_cn __pyx_string_tab[25]
+#define __pyx_kp_u_trae_cn_2 __pyx_string_tab[26]
+#define __pyx_kp_u_tuple_str_Path __pyx_string_tab[27]
+#define __pyx_kp_u_utf_8 __pyx_string_tab[28]
+#define __pyx_kp_u_v0_0_0 __pyx_string_tab[29]
+#define __pyx_kp_u_workbuddy __pyx_string_tab[30]
+#define __pyx_n_u_OPSCLI_SKILLS_DIR __pyx_string_tab[31]
+#define __pyx_n_u_Path __pyx_string_tab[32]
+#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[33]
+#define __pyx_n_u_SkillDetector __pyx_string_tab[34]
+#define __pyx_n_u_SkillDetector__dedupe_targets __pyx_string_tab[35]
+#define __pyx_n_u_SkillDetector__infer_runtime __pyx_string_tab[36]
+#define __pyx_n_u_SkillDetector__opencode_config_d __pyx_string_tab[37]
+#define __pyx_n_u_SkillDetector__opencode_skills_d __pyx_string_tab[38]
+#define __pyx_n_u_SkillDetector_candidate_dirs __pyx_string_tab[39]
+#define __pyx_n_u_SkillDetector_detect_all_install __pyx_string_tab[40]
+#define __pyx_n_u_SkillDetector_detect_available_i __pyx_string_tab[41]
+#define __pyx_n_u_SkillDetector_detect_global_inst __pyx_string_tab[42]
+#define __pyx_n_u_SkillDetector_detect_install_tar __pyx_string_tab[43]
+#define __pyx_n_u_SkillDetector_detect_install_tar_2 __pyx_string_tab[44]
+#define __pyx_n_u_SkillDetector_discover __pyx_string_tab[45]
+#define __pyx_n_u_SkillDetector_discover_locals_ge __pyx_string_tab[46]
+#define __pyx_n_u_SkillRecord __pyx_string_tab[47]
+#define __pyx_n_u__3 __pyx_string_tab[48]
+#define __pyx_n_u_agents_2 __pyx_string_tab[49]
+#define __pyx_n_u_all __pyx_string_tab[50]
+#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[51]
+#define __pyx_n_u_available __pyx_string_tab[52]
+#define __pyx_n_u_base_dir __pyx_string_tab[53]
+#define __pyx_n_u_candidate_dirs __pyx_string_tab[54]
+#define __pyx_n_u_candidates __pyx_string_tab[55]
+#define __pyx_n_u_claude_2 __pyx_string_tab[56]
+#define __pyx_n_u_cline_in_traceback __pyx_string_tab[57]
+#define __pyx_n_u_close __pyx_string_tab[58]
+#define __pyx_n_u_codex_2 __pyx_string_tab[59]
+#define __pyx_n_u_current __pyx_string_tab[60]
+#define __pyx_n_u_cwd __pyx_string_tab[61]
+#define __pyx_n_u_data __pyx_string_tab[62]
+#define __pyx_n_u_data_dir __pyx_string_tab[63]
+#define __pyx_n_u_debug __pyx_string_tab[64]
+#define __pyx_n_u_dedupe_targets __pyx_string_tab[65]
+#define __pyx_n_u_det_exc __pyx_string_tab[66]
+#define __pyx_n_u_detect_all_install_targets __pyx_string_tab[67]
+#define __pyx_n_u_detect_available_install_targets __pyx_string_tab[68]
+#define __pyx_n_u_detect_global_install_targets __pyx_string_tab[69]
+#define __pyx_n_u_detect_install_target __pyx_string_tab[70]
+#define __pyx_n_u_detect_install_targets __pyx_string_tab[71]
+#define __pyx_n_u_discover __pyx_string_tab[72]
+#define __pyx_n_u_doc __pyx_string_tab[73]
+#define __pyx_n_u_encoding __pyx_string_tab[74]
+#define __pyx_n_u_env_dir __pyx_string_tab[75]
+#define __pyx_n_u_exists __pyx_string_tab[76]
+#define __pyx_n_u_expanduser __pyx_string_tab[77]
+#define __pyx_n_u_func __pyx_string_tab[78]
+#define __pyx_n_u_genexpr __pyx_string_tab[79]
+#define __pyx_n_u_get __pyx_string_tab[80]
+#define __pyx_n_u_getLogger __pyx_string_tab[81]
+#define __pyx_n_u_getenv __pyx_string_tab[82]
+#define __pyx_n_u_home __pyx_string_tab[83]
+#define __pyx_n_u_infer_runtime __pyx_string_tab[84]
+#define __pyx_n_u_is_coroutine __pyx_string_tab[85]
+#define __pyx_n_u_is_dir __pyx_string_tab[86]
+#define __pyx_n_u_item __pyx_string_tab[87]
+#define __pyx_n_u_items __pyx_string_tab[88]
+#define __pyx_n_u_iterdir __pyx_string_tab[89]
+#define __pyx_n_u_json __pyx_string_tab[90]
+#define __pyx_n_u_key __pyx_string_tab[91]
+#define __pyx_n_u_loads __pyx_string_tab[92]
+#define __pyx_n_u_logger __pyx_string_tab[93]
+#define __pyx_n_u_logging __pyx_string_tab[94]
+#define __pyx_n_u_lower __pyx_string_tab[95]
+#define __pyx_n_u_main __pyx_string_tab[96]
+#define __pyx_n_u_metaclass __pyx_string_tab[97]
+#define __pyx_n_u_module __pyx_string_tab[98]
+#define __pyx_n_u_name __pyx_string_tab[99]
+#define __pyx_n_u_name_2 __pyx_string_tab[100]
+#define __pyx_n_u_next __pyx_string_tab[101]
+#define __pyx_n_u_normalized __pyx_string_tab[102]
+#define __pyx_n_u_openclaw_2 __pyx_string_tab[103]
+#define __pyx_n_u_opencode __pyx_string_tab[104]
+#define __pyx_n_u_opencode_config __pyx_string_tab[105]
+#define __pyx_n_u_opencode_config_dir __pyx_string_tab[106]
+#define __pyx_n_u_opencode_skills_dir __pyx_string_tab[107]
+#define __pyx_n_u_opscli_skills_discovery_detector __pyx_string_tab[108]
+#define __pyx_n_u_opscli_skills_domain_models __pyx_string_tab[109]
+#define __pyx_n_u_os __pyx_string_tab[110]
+#define __pyx_n_u_p __pyx_string_tab[111]
+#define __pyx_n_u_parent __pyx_string_tab[112]
+#define __pyx_n_u_part __pyx_string_tab[113]
+#define __pyx_n_u_parts __pyx_string_tab[114]
+#define __pyx_n_u_path __pyx_string_tab[115]
+#define __pyx_n_u_pathlib __pyx_string_tab[116]
+#define __pyx_n_u_payload __pyx_string_tab[117]
+#define __pyx_n_u_pop __pyx_string_tab[118]
+#define __pyx_n_u_preferred_runtime __pyx_string_tab[119]
+#define __pyx_n_u_preferred_runtimes __pyx_string_tab[120]
+#define __pyx_n_u_prepare __pyx_string_tab[121]
+#define __pyx_n_u_qualname __pyx_string_tab[122]
+#define __pyx_n_u_read_text __pyx_string_tab[123]
+#define __pyx_n_u_records __pyx_string_tab[124]
+#define __pyx_n_u_resolve __pyx_string_tab[125]
+#define __pyx_n_u_result __pyx_string_tab[126]
+#define __pyx_n_u_return __pyx_string_tab[127]
+#define __pyx_n_u_root __pyx_string_tab[128]
+#define __pyx_n_u_runtime __pyx_string_tab[129]
+#define __pyx_n_u_runtime_dirs __pyx_string_tab[130]
+#define __pyx_n_u_seen __pyx_string_tab[131]
+#define __pyx_n_u_self __pyx_string_tab[132]
+#define __pyx_n_u_send __pyx_string_tab[133]
+#define __pyx_n_u_set_name __pyx_string_tab[134]
+#define __pyx_n_u_setdefault __pyx_string_tab[135]
+#define __pyx_n_u_shutil __pyx_string_tab[136]
+#define __pyx_n_u_skill_dir __pyx_string_tab[137]
+#define __pyx_n_u_skills __pyx_string_tab[138]
+#define __pyx_n_u_skills_dir __pyx_string_tab[139]
+#define __pyx_n_u_str __pyx_string_tab[140]
+#define __pyx_n_u_strip __pyx_string_tab[141]
+#define __pyx_n_u_target __pyx_string_tab[142]
+#define __pyx_n_u_targets __pyx_string_tab[143]
+#define __pyx_n_u_test __pyx_string_tab[144]
+#define __pyx_n_u_throw __pyx_string_tab[145]
+#define __pyx_n_u_trae __pyx_string_tab[146]
+#define __pyx_n_u_unknown __pyx_string_tab[147]
+#define __pyx_n_u_value __pyx_string_tab[148]
+#define __pyx_n_u_values __pyx_string_tab[149]
+#define __pyx_n_u_version __pyx_string_tab[150]
+#define __pyx_n_u_version_file __pyx_string_tab[151]
+#define __pyx_n_u_which __pyx_string_tab[152]
+#define __pyx_n_u_workbuddy_2 __pyx_string_tab[153]
+#define __pyx_kp_b_iso88591_6e_RRS_Q_L_O1K_4q_t87_V1A_z_7_A __pyx_string_tab[154]
+#define __pyx_kp_b_iso88591_A __pyx_string_tab[155]
+#define __pyx_kp_b_iso88591_A_t5_t_1_uBj_uBl_A_uBir_t_8_uBm __pyx_string_tab[156]
+#define __pyx_kp_b_iso88591_B_IXQ_9Cq_t3a_AQ_9A_q __pyx_string_tab[157]
+#define __pyx_kp_b_iso88591_EAXXY_c_T_1_gQd_k_G1A_1_gQd_8_a __pyx_string_tab[158]
+#define __pyx_kp_b_iso88591_E_PPffg_c_T_Jb_L_IRq_L_M_1_Kr_J __pyx_string_tab[159]
+#define __pyx_kp_b_iso88591_U_RRnno_c_T_1_a_1_WF_F_c_4_7_4A __pyx_string_tab[160]
+#define __pyx_kp_b_iso88591_V3d_1_s_1_9Cq_1_c_1_1_1_c_1_S_1 __pyx_string_tab[161]
+#define __pyx_kp_b_iso88591_a_t5_2Zr __pyx_string_tab[162]
+#define __pyx_kp_b_iso88591_a_t_2Q __pyx_string_tab[163]
+#define __pyx_kp_b_iso88591_q_t5_E_WCs_az_7_Je2Zr_E_wc_F_WA __pyx_string_tab[164]
+#define __pyx_kp_b_iso88591_u4K1_c_T_HBj_q_7_Jhb_A_HBl_7_L __pyx_string_tab[165]
 /* #### Code section: module_state_clear ### */
 #if CYTHON_USE_MODULE_STATE
 static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
@@ -2870,7 +2872,7 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_type_6opscli_6skills_9discovery_8detector___pyx_scope_struct__genexpr);
   for (int i=0; i<3; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
   for (int i=0; i<12; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<164; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<166; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* CommonTypesMetaclass.module_state_clear */
 Py_CLEAR(clear_module_state->__pyx_CommonTypesMetaclassType);
@@ -2900,7 +2902,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_type_6opscli_6skills_9discovery_8detector___pyx_scope_struct__genexpr);
   for (int i=0; i<3; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
   for (int i=0; i<12; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<164; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<166; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* CommonTypesMetaclass.module_state_traverse */
 Py_VISIT(traverse_module_state->__pyx_CommonTypesMetaclassType);
@@ -3073,7 +3075,8 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_c
   int __pyx_t_12;
   int __pyx_t_13;
   int __pyx_t_14;
-  Py_ssize_t __pyx_t_15;
+  int __pyx_t_15;
+  Py_ssize_t __pyx_t_16;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -3459,7 +3462,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_c
  *                 self._opencode_skills_dir(),
  *                 home / ".workbuddy" / "skills",             # <<<<<<<<<<<<<<
  *                 home / ".trae-cn" / "skills",
- *             ]
+ *                 home / ".agents" / "skills",
 */
   __pyx_t_4 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_workbuddy); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
@@ -3481,8 +3484,8 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_c
  *                 self._opencode_skills_dir(),
  *                 home / ".workbuddy" / "skills",
  *                 home / ".trae-cn" / "skills",             # <<<<<<<<<<<<<<
+ *                 home / ".agents" / "skills",
  *             ]
- *         )
 */
   __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_trae_cn); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 55, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
@@ -3497,36 +3500,59 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_c
  *             [
  *                 current / ".claude" / "skills",
 */
-  __pyx_t_14 = __Pyx_PyList_Append(__pyx_v_candidates, __pyx_t_4); if (unlikely(__pyx_t_14 == ((int)-1))) __PYX_ERR(0, 47, __pyx_L1_error)
+  __pyx_t_14 = __Pyx_ListComp_Append(__pyx_v_candidates, __pyx_t_4); if (unlikely(__pyx_t_14 == ((int)-1))) __PYX_ERR(0, 47, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  (void)((__pyx_t_8 | (__pyx_t_9 | (__pyx_t_10 | (__pyx_t_11 | (__pyx_t_12 | (__pyx_t_13 | __pyx_t_14)))))));
 
-  /* "opscli/skills/discovery/detector.py":60
+  /* "opscli/skills/discovery/detector.py":56
+ *                 home / ".workbuddy" / "skills",
+ *                 home / ".trae-cn" / "skills",
+ *                 home / ".agents" / "skills",             # <<<<<<<<<<<<<<
+ *             ]
+ *         )
+*/
+  __pyx_t_4 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_agents); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 56, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 56, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "opscli/skills/discovery/detector.py":47
+ *         #
+ *         home = Path.home()
+ *         candidates.extend(             # <<<<<<<<<<<<<<
+ *             [
+ *                 current / ".claude" / "skills",
+*/
+  __pyx_t_15 = __Pyx_PyList_Append(__pyx_v_candidates, __pyx_t_6); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(0, 47, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  (void)((__pyx_t_8 | (__pyx_t_9 | (__pyx_t_10 | (__pyx_t_11 | (__pyx_t_12 | (__pyx_t_13 | (__pyx_t_14 | __pyx_t_15))))))));
+
+  /* "opscli/skills/discovery/detector.py":61
  * 
  *         #
  *         seen: set[str] = set()             # <<<<<<<<<<<<<<
  *         result: list[Path] = []
  *         for item in candidates:
 */
-  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 60, __pyx_L1_error)
+  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 61, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_seen = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/skills/discovery/detector.py":61
+  /* "opscli/skills/discovery/detector.py":62
  *         #
  *         seen: set[str] = set()
  *         result: list[Path] = []             # <<<<<<<<<<<<<<
  *         for item in candidates:
  *             key = str(item.resolve()) if item.exists() else str(item.expanduser())
 */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 61, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 62, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_result = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/skills/discovery/detector.py":62
+  /* "opscli/skills/discovery/detector.py":63
  *         seen: set[str] = set()
  *         result: list[Path] = []
  *         for item in candidates:             # <<<<<<<<<<<<<<
@@ -3534,23 +3560,23 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_c
  *             if key in seen:
 */
   __pyx_t_1 = __pyx_v_candidates; __Pyx_INCREF(__pyx_t_1);
-  __pyx_t_15 = 0;
+  __pyx_t_16 = 0;
   for (;;) {
     {
       Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
       #if !CYTHON_ASSUME_SAFE_SIZE
-      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 62, __pyx_L1_error)
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 63, __pyx_L1_error)
       #endif
-      if (__pyx_t_15 >= __pyx_temp) break;
+      if (__pyx_t_16 >= __pyx_temp) break;
     }
-    __pyx_t_4 = __Pyx_PyList_GetItemRefFast(__pyx_t_1, __pyx_t_15, __Pyx_ReferenceSharing_OwnStrongReference);
-    ++__pyx_t_15;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 62, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_4);
-    __Pyx_XDECREF_SET(__pyx_v_item, __pyx_t_4);
-    __pyx_t_4 = 0;
+    __pyx_t_6 = __Pyx_PyList_GetItemRefFast(__pyx_t_1, __pyx_t_16, __Pyx_ReferenceSharing_OwnStrongReference);
+    ++__pyx_t_16;
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 63, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __Pyx_XDECREF_SET(__pyx_v_item, __pyx_t_6);
+    __pyx_t_6 = 0;
 
-    /* "opscli/skills/discovery/detector.py":63
+    /* "opscli/skills/discovery/detector.py":64
  *         result: list[Path] = []
  *         for item in candidates:
  *             key = str(item.resolve()) if item.exists() else str(item.expanduser())             # <<<<<<<<<<<<<<
@@ -3562,60 +3588,60 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_c
     __pyx_t_7 = 0;
     {
       PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
-      __pyx_t_6 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_exists, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_exists, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 63, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_6);
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 64, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
     }
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 63, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 64, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     if (__pyx_t_2) {
       __pyx_t_5 = __pyx_v_item;
       __Pyx_INCREF(__pyx_t_5);
       __pyx_t_7 = 0;
       {
         PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
-        __pyx_t_6 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_resolve, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+        __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_resolve, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 63, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_6);
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 64, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_4);
       }
-      __pyx_t_5 = __Pyx_PyObject_Unicode(__pyx_t_6); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 63, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_Unicode(__pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 64, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      __pyx_t_4 = __pyx_t_5;
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __pyx_t_6 = __pyx_t_5;
       __pyx_t_5 = 0;
     } else {
-      __pyx_t_6 = __pyx_v_item;
-      __Pyx_INCREF(__pyx_t_6);
+      __pyx_t_4 = __pyx_v_item;
+      __Pyx_INCREF(__pyx_t_4);
       __pyx_t_7 = 0;
       {
-        PyObject *__pyx_callargs[2] = {__pyx_t_6, NULL};
+        PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
         __pyx_t_5 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_expanduser, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-        __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 63, __pyx_L1_error)
+        __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 64, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
       }
-      __pyx_t_6 = __Pyx_PyObject_Unicode(__pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 63, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_6);
+      __pyx_t_4 = __Pyx_PyObject_Unicode(__pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 64, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_4 = __pyx_t_6;
-      __pyx_t_6 = 0;
+      __pyx_t_6 = __pyx_t_4;
+      __pyx_t_4 = 0;
     }
-    __Pyx_XDECREF_SET(__pyx_v_key, ((PyObject*)__pyx_t_4));
-    __pyx_t_4 = 0;
+    __Pyx_XDECREF_SET(__pyx_v_key, ((PyObject*)__pyx_t_6));
+    __pyx_t_6 = 0;
 
-    /* "opscli/skills/discovery/detector.py":64
+    /* "opscli/skills/discovery/detector.py":65
  *         for item in candidates:
  *             key = str(item.resolve()) if item.exists() else str(item.expanduser())
  *             if key in seen:             # <<<<<<<<<<<<<<
  *                 continue
  *             seen.add(key)
 */
-    __pyx_t_2 = (__Pyx_PySet_ContainsTF(__pyx_v_key, __pyx_v_seen, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 64, __pyx_L1_error)
+    __pyx_t_2 = (__Pyx_PySet_ContainsTF(__pyx_v_key, __pyx_v_seen, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 65, __pyx_L1_error)
     if (__pyx_t_2) {
 
-      /* "opscli/skills/discovery/detector.py":65
+      /* "opscli/skills/discovery/detector.py":66
  *             key = str(item.resolve()) if item.exists() else str(item.expanduser())
  *             if key in seen:
  *                 continue             # <<<<<<<<<<<<<<
@@ -3624,7 +3650,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_c
 */
       goto __pyx_L7_continue;
 
-      /* "opscli/skills/discovery/detector.py":64
+      /* "opscli/skills/discovery/detector.py":65
  *         for item in candidates:
  *             key = str(item.resolve()) if item.exists() else str(item.expanduser())
  *             if key in seen:             # <<<<<<<<<<<<<<
@@ -3633,25 +3659,25 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_c
 */
     }
 
-    /* "opscli/skills/discovery/detector.py":66
+    /* "opscli/skills/discovery/detector.py":67
  *             if key in seen:
  *                 continue
  *             seen.add(key)             # <<<<<<<<<<<<<<
  *             result.append(item)
  *         return result
 */
-    __pyx_t_14 = PySet_Add(__pyx_v_seen, __pyx_v_key); if (unlikely(__pyx_t_14 == ((int)-1))) __PYX_ERR(0, 66, __pyx_L1_error)
+    __pyx_t_15 = PySet_Add(__pyx_v_seen, __pyx_v_key); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(0, 67, __pyx_L1_error)
 
-    /* "opscli/skills/discovery/detector.py":67
+    /* "opscli/skills/discovery/detector.py":68
  *                 continue
  *             seen.add(key)
  *             result.append(item)             # <<<<<<<<<<<<<<
  *         return result
  * 
 */
-    __pyx_t_14 = __Pyx_PyList_Append(__pyx_v_result, __pyx_v_item); if (unlikely(__pyx_t_14 == ((int)-1))) __PYX_ERR(0, 67, __pyx_L1_error)
+    __pyx_t_15 = __Pyx_PyList_Append(__pyx_v_result, __pyx_v_item); if (unlikely(__pyx_t_15 == ((int)-1))) __PYX_ERR(0, 68, __pyx_L1_error)
 
-    /* "opscli/skills/discovery/detector.py":62
+    /* "opscli/skills/discovery/detector.py":63
  *         seen: set[str] = set()
  *         result: list[Path] = []
  *         for item in candidates:             # <<<<<<<<<<<<<<
@@ -3662,7 +3688,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_c
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "opscli/skills/discovery/detector.py":68
+  /* "opscli/skills/discovery/detector.py":69
  *             seen.add(key)
  *             result.append(item)
  *         return result             # <<<<<<<<<<<<<<
@@ -3705,7 +3731,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_c
   return __pyx_r;
 }
 
-/* "opscli/skills/discovery/detector.py":70
+/* "opscli/skills/discovery/detector.py":71
  *         return result
  * 
  *     def discover(self, skills_dir: str | None = None, cwd: Path | None = None) -> list[SkillRecord]:             # <<<<<<<<<<<<<<
@@ -3755,44 +3781,44 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_skills_dir,&__pyx_mstate_global->__pyx_n_u_cwd,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 70, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 71, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 70, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 71, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 70, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 71, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 70, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 71, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "discover", 0) < (0)) __PYX_ERR(0, 70, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "discover", 0) < (0)) __PYX_ERR(0, 71, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject*)Py_None));
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("discover", 0, 1, 3, i); __PYX_ERR(0, 70, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("discover", 0, 1, 3, i); __PYX_ERR(0, 71, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 70, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 71, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 70, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 71, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 70, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 71, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -3805,7 +3831,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("discover", 0, 1, 3, __pyx_nargs); __PYX_ERR(0, 70, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("discover", 0, 1, 3, __pyx_nargs); __PYX_ERR(0, 71, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3816,7 +3842,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_skills_dir), (&PyUnicode_Type), 1, "skills_dir", 2))) __PYX_ERR(0, 70, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_skills_dir), (&PyUnicode_Type), 1, "skills_dir", 2))) __PYX_ERR(0, 71, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2discover(__pyx_self, __pyx_v_self, __pyx_v_skills_dir, __pyx_v_cwd);
 
   /* function exit code */
@@ -3837,7 +3863,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 }
 static PyObject *__pyx_gb_6opscli_6skills_9discovery_8detector_13SkillDetector_8discover_2generator(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "opscli/skills/discovery/detector.py":81
+/* "opscli/skills/discovery/detector.py":82
  *                 continue
  *             #
  *             for skill_dir in sorted(p for p in base_dir.iterdir() if p.is_dir()):             # <<<<<<<<<<<<<<
@@ -3857,7 +3883,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_8
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6opscli_6skills_9discovery_8detector___pyx_scope_struct__genexpr *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 81, __pyx_L1_error)
+    __PYX_ERR(0, 82, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -3865,7 +3891,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_8
   __Pyx_INCREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_genexpr_arg_0);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_6skills_9discovery_8detector_13SkillDetector_8discover_2generator, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_SkillDetector_discover_locals_ge, __pyx_mstate_global->__pyx_n_u_opscli_skills_discovery_detector); if (unlikely(!gen)) __PYX_ERR(0, 81, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Generator_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_6skills_9discovery_8detector_13SkillDetector_8discover_2generator, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_genexpr, __pyx_mstate_global->__pyx_n_u_SkillDetector_discover_locals_ge, __pyx_mstate_global->__pyx_n_u_opscli_skills_discovery_detector); if (unlikely(!gen)) __PYX_ERR(0, 82, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -3904,18 +3930,18 @@ static PyObject *__pyx_gb_6opscli_6skills_9discovery_8detector_13SkillDetector_8
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 81, __pyx_L1_error)
-  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 81, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 82, __pyx_L1_error)
+  __pyx_r = PyList_New(0); if (unlikely(!__pyx_r)) __PYX_ERR(0, 82, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_r);
-  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 81, __pyx_L1_error) }
+  if (unlikely(!__pyx_cur_scope->__pyx_genexpr_arg_0)) { __Pyx_RaiseUnboundLocalError(".0"); __PYX_ERR(0, 82, __pyx_L1_error) }
   if (likely(PyList_CheckExact(__pyx_cur_scope->__pyx_genexpr_arg_0)) || PyTuple_CheckExact(__pyx_cur_scope->__pyx_genexpr_arg_0)) {
     __pyx_t_1 = __pyx_cur_scope->__pyx_genexpr_arg_0; __Pyx_INCREF(__pyx_t_1);
     __pyx_t_2 = 0;
     __pyx_t_3 = NULL;
   } else {
-    __pyx_t_2 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_cur_scope->__pyx_genexpr_arg_0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 81, __pyx_L1_error)
+    __pyx_t_2 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_cur_scope->__pyx_genexpr_arg_0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 82, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_3 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 81, __pyx_L1_error)
+    __pyx_t_3 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 82, __pyx_L1_error)
   }
   for (;;) {
     if (likely(!__pyx_t_3)) {
@@ -3923,7 +3949,7 @@ static PyObject *__pyx_gb_6opscli_6skills_9discovery_8detector_13SkillDetector_8
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 81, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 82, __pyx_L1_error)
           #endif
           if (__pyx_t_2 >= __pyx_temp) break;
         }
@@ -3933,7 +3959,7 @@ static PyObject *__pyx_gb_6opscli_6skills_9discovery_8detector_13SkillDetector_8
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_1);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 81, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 82, __pyx_L1_error)
           #endif
           if (__pyx_t_2 >= __pyx_temp) break;
         }
@@ -3944,13 +3970,13 @@ static PyObject *__pyx_gb_6opscli_6skills_9discovery_8detector_13SkillDetector_8
         #endif
         ++__pyx_t_2;
       }
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 81, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 82, __pyx_L1_error)
     } else {
       __pyx_t_4 = __pyx_t_3(__pyx_t_1);
       if (unlikely(!__pyx_t_4)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 81, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 82, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -3968,13 +3994,13 @@ static PyObject *__pyx_gb_6opscli_6skills_9discovery_8detector_13SkillDetector_8
       PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
       __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_is_dir, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 81, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 82, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
-    __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 81, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 82, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     if (__pyx_t_7) {
-      if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_cur_scope->__pyx_v_p))) __PYX_ERR(0, 81, __pyx_L1_error)
+      if (unlikely(__Pyx_ListComp_Append(__pyx_r, (PyObject*)__pyx_cur_scope->__pyx_v_p))) __PYX_ERR(0, 82, __pyx_L1_error)
     }
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -4002,7 +4028,7 @@ static PyObject *__pyx_gb_6opscli_6skills_9discovery_8detector_13SkillDetector_8
   return __pyx_r;
 }
 
-/* "opscli/skills/discovery/detector.py":70
+/* "opscli/skills/discovery/detector.py":71
  *         return result
  * 
  *     def discover(self, skills_dir: str | None = None, cwd: Path | None = None) -> list[SkillRecord]:             # <<<<<<<<<<<<<<
@@ -4056,19 +4082,19 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("discover", 0);
 
-  /* "opscli/skills/discovery/detector.py":76
+  /* "opscli/skills/discovery/detector.py":77
  *         JSON
  *         """
  *         records: list[SkillRecord] = []             # <<<<<<<<<<<<<<
  *         for base_dir in self.candidate_dirs(skills_dir=skills_dir, cwd=cwd):
  *             if not base_dir.exists():
 */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 76, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 77, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_records = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/skills/discovery/detector.py":77
+  /* "opscli/skills/discovery/detector.py":78
  *         """
  *         records: list[SkillRecord] = []
  *         for base_dir in self.candidate_dirs(skills_dir=skills_dir, cwd=cwd):             # <<<<<<<<<<<<<<
@@ -4080,14 +4106,14 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
   __pyx_t_3 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_2, NULL};
-    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 77, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 78, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_skills_dir, __pyx_v_skills_dir, __pyx_t_4, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 77, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_cwd, __pyx_v_cwd, __pyx_t_4, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 77, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_skills_dir, __pyx_v_skills_dir, __pyx_t_4, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 78, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_cwd, __pyx_v_cwd, __pyx_t_4, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 78, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_candidate_dirs, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 77, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 78, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   if (likely(PyList_CheckExact(__pyx_t_1)) || PyTuple_CheckExact(__pyx_t_1)) {
@@ -4095,9 +4121,9 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
     __pyx_t_5 = 0;
     __pyx_t_6 = NULL;
   } else {
-    __pyx_t_5 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 77, __pyx_L1_error)
+    __pyx_t_5 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 78, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_6 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 77, __pyx_L1_error)
+    __pyx_t_6 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 78, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   for (;;) {
@@ -4106,7 +4132,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_4);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 77, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 78, __pyx_L1_error)
           #endif
           if (__pyx_t_5 >= __pyx_temp) break;
         }
@@ -4116,7 +4142,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_4);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 77, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 78, __pyx_L1_error)
           #endif
           if (__pyx_t_5 >= __pyx_temp) break;
         }
@@ -4127,13 +4153,13 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
         #endif
         ++__pyx_t_5;
       }
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 77, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 78, __pyx_L1_error)
     } else {
       __pyx_t_1 = __pyx_t_6(__pyx_t_4);
       if (unlikely(!__pyx_t_1)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 77, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 78, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -4143,7 +4169,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
     __Pyx_XDECREF_SET(__pyx_v_base_dir, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "opscli/skills/discovery/detector.py":78
+    /* "opscli/skills/discovery/detector.py":79
  *         records: list[SkillRecord] = []
  *         for base_dir in self.candidate_dirs(skills_dir=skills_dir, cwd=cwd):
  *             if not base_dir.exists():             # <<<<<<<<<<<<<<
@@ -4157,15 +4183,15 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
       PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_exists, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 78, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 79, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
-    __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 78, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 79, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_8 = (!__pyx_t_7);
     if (__pyx_t_8) {
 
-      /* "opscli/skills/discovery/detector.py":79
+      /* "opscli/skills/discovery/detector.py":80
  *         for base_dir in self.candidate_dirs(skills_dir=skills_dir, cwd=cwd):
  *             if not base_dir.exists():
  *                 continue             # <<<<<<<<<<<<<<
@@ -4174,7 +4200,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
 */
       goto __pyx_L3_continue;
 
-      /* "opscli/skills/discovery/detector.py":78
+      /* "opscli/skills/discovery/detector.py":79
  *         records: list[SkillRecord] = []
  *         for base_dir in self.candidate_dirs(skills_dir=skills_dir, cwd=cwd):
  *             if not base_dir.exists():             # <<<<<<<<<<<<<<
@@ -4183,7 +4209,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
 */
     }
 
-    /* "opscli/skills/discovery/detector.py":81
+    /* "opscli/skills/discovery/detector.py":82
  *                 continue
  *             #
  *             for skill_dir in sorted(p for p in base_dir.iterdir() if p.is_dir()):             # <<<<<<<<<<<<<<
@@ -4197,16 +4223,16 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
       PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_iterdir, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 81, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 82, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
-    __pyx_t_2 = __pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_8discover_genexpr(NULL, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 81, __pyx_L1_error)
+    __pyx_t_2 = __pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_8discover_genexpr(NULL, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 82, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_Generator_GetInlinedResult(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 81, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_Generator_GetInlinedResult(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 82, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely((PyList_Sort(__pyx_t_1) < 0))) __PYX_ERR(0, 81, __pyx_L1_error)
+    if (unlikely((PyList_Sort(__pyx_t_1) < 0))) __PYX_ERR(0, 82, __pyx_L1_error)
     __pyx_t_2 = __pyx_t_1; __Pyx_INCREF(__pyx_t_2);
     __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -4214,45 +4240,45 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
       {
         Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_2);
         #if !CYTHON_ASSUME_SAFE_SIZE
-        if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 81, __pyx_L1_error)
+        if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 82, __pyx_L1_error)
         #endif
         if (__pyx_t_9 >= __pyx_temp) break;
       }
       __pyx_t_1 = __Pyx_PyList_GetItemRefFast(__pyx_t_2, __pyx_t_9, __Pyx_ReferenceSharing_OwnStrongReference);
       ++__pyx_t_9;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 81, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 82, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_XDECREF_SET(__pyx_v_skill_dir, __pyx_t_1);
       __pyx_t_1 = 0;
 
-      /* "opscli/skills/discovery/detector.py":82
+      /* "opscli/skills/discovery/detector.py":83
  *             #
  *             for skill_dir in sorted(p for p in base_dir.iterdir() if p.is_dir()):
  *                 version_file = skill_dir / "data" / "VERSION.json"             # <<<<<<<<<<<<<<
  *                 data_dir = skill_dir / "data"
  *                 if version_file.exists():
 */
-      __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_skill_dir, __pyx_mstate_global->__pyx_n_u_data); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 82, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_skill_dir, __pyx_mstate_global->__pyx_n_u_data); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 83, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_10 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_VERSION_json); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 82, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_VERSION_json); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 83, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_XDECREF_SET(__pyx_v_version_file, __pyx_t_10);
       __pyx_t_10 = 0;
 
-      /* "opscli/skills/discovery/detector.py":83
+      /* "opscli/skills/discovery/detector.py":84
  *             for skill_dir in sorted(p for p in base_dir.iterdir() if p.is_dir()):
  *                 version_file = skill_dir / "data" / "VERSION.json"
  *                 data_dir = skill_dir / "data"             # <<<<<<<<<<<<<<
  *                 if version_file.exists():
  *                     # data/VERSION.json
 */
-      __pyx_t_10 = __Pyx_PyNumber_Divide(__pyx_v_skill_dir, __pyx_mstate_global->__pyx_n_u_data); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 83, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_PyNumber_Divide(__pyx_v_skill_dir, __pyx_mstate_global->__pyx_n_u_data); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 84, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
       __Pyx_XDECREF_SET(__pyx_v_data_dir, __pyx_t_10);
       __pyx_t_10 = 0;
 
-      /* "opscli/skills/discovery/detector.py":84
+      /* "opscli/skills/discovery/detector.py":85
  *                 version_file = skill_dir / "data" / "VERSION.json"
  *                 data_dir = skill_dir / "data"
  *                 if version_file.exists():             # <<<<<<<<<<<<<<
@@ -4266,14 +4292,14 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
         PyObject *__pyx_callargs[2] = {__pyx_t_1, NULL};
         __pyx_t_10 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_exists, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 84, __pyx_L1_error)
+        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 85, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
       }
-      __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_10); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 84, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_10); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 85, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       if (__pyx_t_8) {
 
-        /* "opscli/skills/discovery/detector.py":86
+        /* "opscli/skills/discovery/detector.py":87
  *                 if version_file.exists():
  *                     # data/VERSION.json
  *                     try:             # <<<<<<<<<<<<<<
@@ -4289,7 +4315,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
           __Pyx_XGOTREF(__pyx_t_13);
           /*try:*/ {
 
-            /* "opscli/skills/discovery/detector.py":87
+            /* "opscli/skills/discovery/detector.py":88
  *                     # data/VERSION.json
  *                     try:
  *                         payload = json.loads(version_file.read_text(encoding="utf-8"))             # <<<<<<<<<<<<<<
@@ -4297,9 +4323,9 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
  *                         _logger.debug(" VERSION.json: %s [%s]", version_file, _det_exc)
 */
             __pyx_t_1 = NULL;
-            __Pyx_GetModuleGlobalName(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 87, __pyx_L9_error)
+            __Pyx_GetModuleGlobalName(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 88, __pyx_L9_error)
             __Pyx_GOTREF(__pyx_t_14);
-            __pyx_t_15 = __Pyx_PyObject_GetAttrStr(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_loads); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 87, __pyx_L9_error)
+            __pyx_t_15 = __Pyx_PyObject_GetAttrStr(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_loads); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 88, __pyx_L9_error)
             __Pyx_GOTREF(__pyx_t_15);
             __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
             __pyx_t_16 = __pyx_v_version_file;
@@ -4307,13 +4333,13 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
             __pyx_t_3 = 0;
             {
               PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_16, NULL};
-              __pyx_t_17 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 87, __pyx_L9_error)
+              __pyx_t_17 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 88, __pyx_L9_error)
               __Pyx_GOTREF(__pyx_t_17);
-              if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_encoding, __pyx_mstate_global->__pyx_kp_u_utf_8, __pyx_t_17, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 87, __pyx_L9_error)
+              if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_encoding, __pyx_mstate_global->__pyx_kp_u_utf_8, __pyx_t_17, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 88, __pyx_L9_error)
               __pyx_t_14 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_read_text, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_17);
               __Pyx_XDECREF(__pyx_t_16); __pyx_t_16 = 0;
               __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-              if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 87, __pyx_L9_error)
+              if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 88, __pyx_L9_error)
               __Pyx_GOTREF(__pyx_t_14);
             }
             __pyx_t_3 = 1;
@@ -4334,13 +4360,13 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
               __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
               __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
               __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-              if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 87, __pyx_L9_error)
+              if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 88, __pyx_L9_error)
               __Pyx_GOTREF(__pyx_t_10);
             }
             __Pyx_XDECREF_SET(__pyx_v_payload, __pyx_t_10);
             __pyx_t_10 = 0;
 
-            /* "opscli/skills/discovery/detector.py":86
+            /* "opscli/skills/discovery/detector.py":87
  *                 if version_file.exists():
  *                     # data/VERSION.json
  *                     try:             # <<<<<<<<<<<<<<
@@ -4360,7 +4386,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
           __Pyx_XDECREF(__pyx_t_16); __pyx_t_16 = 0;
           __Pyx_XDECREF(__pyx_t_17); __pyx_t_17 = 0;
 
-          /* "opscli/skills/discovery/detector.py":88
+          /* "opscli/skills/discovery/detector.py":89
  *                     try:
  *                         payload = json.loads(version_file.read_text(encoding="utf-8"))
  *                     except Exception as _det_exc:             # <<<<<<<<<<<<<<
@@ -4370,7 +4396,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
           __pyx_t_18 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
           if (__pyx_t_18) {
             __Pyx_AddTraceback("opscli.skills.discovery.detector.SkillDetector.discover", __pyx_clineno, __pyx_lineno, __pyx_filename);
-            if (__Pyx_GetException(&__pyx_t_10, &__pyx_t_15, &__pyx_t_14) < 0) __PYX_ERR(0, 88, __pyx_L11_except_error)
+            if (__Pyx_GetException(&__pyx_t_10, &__pyx_t_15, &__pyx_t_14) < 0) __PYX_ERR(0, 89, __pyx_L11_except_error)
             __Pyx_XGOTREF(__pyx_t_10);
             __Pyx_XGOTREF(__pyx_t_15);
             __Pyx_XGOTREF(__pyx_t_14);
@@ -4378,7 +4404,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
             __pyx_v__det_exc = __pyx_t_15;
             /*try:*/ {
 
-              /* "opscli/skills/discovery/detector.py":89
+              /* "opscli/skills/discovery/detector.py":90
  *                         payload = json.loads(version_file.read_text(encoding="utf-8"))
  *                     except Exception as _det_exc:
  *                         _logger.debug(" VERSION.json: %s [%s]", version_file, _det_exc)             # <<<<<<<<<<<<<<
@@ -4386,9 +4412,9 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
  *                     version = str(payload.get("version", "unknown"))
 */
               __pyx_t_17 = NULL;
-              __Pyx_GetModuleGlobalName(__pyx_t_16, __pyx_mstate_global->__pyx_n_u_logger); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 89, __pyx_L22_error)
+              __Pyx_GetModuleGlobalName(__pyx_t_16, __pyx_mstate_global->__pyx_n_u_logger); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 90, __pyx_L22_error)
               __Pyx_GOTREF(__pyx_t_16);
-              __pyx_t_19 = __Pyx_PyObject_GetAttrStr(__pyx_t_16, __pyx_mstate_global->__pyx_n_u_debug); if (unlikely(!__pyx_t_19)) __PYX_ERR(0, 89, __pyx_L22_error)
+              __pyx_t_19 = __Pyx_PyObject_GetAttrStr(__pyx_t_16, __pyx_mstate_global->__pyx_n_u_debug); if (unlikely(!__pyx_t_19)) __PYX_ERR(0, 90, __pyx_L22_error)
               __Pyx_GOTREF(__pyx_t_19);
               __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
               __pyx_t_3 = 1;
@@ -4408,12 +4434,12 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
                 __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_19, __pyx_callargs+__pyx_t_3, (4-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
                 __Pyx_XDECREF(__pyx_t_17); __pyx_t_17 = 0;
                 __Pyx_DECREF(__pyx_t_19); __pyx_t_19 = 0;
-                if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 89, __pyx_L22_error)
+                if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 90, __pyx_L22_error)
                 __Pyx_GOTREF(__pyx_t_1);
               }
               __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-              /* "opscli/skills/discovery/detector.py":90
+              /* "opscli/skills/discovery/detector.py":91
  *                     except Exception as _det_exc:
  *                         _logger.debug(" VERSION.json: %s [%s]", version_file, _det_exc)
  *                         continue             # <<<<<<<<<<<<<<
@@ -4423,7 +4449,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
               goto __pyx_L19_continue;
             }
 
-            /* "opscli/skills/discovery/detector.py":88
+            /* "opscli/skills/discovery/detector.py":89
  *                     try:
  *                         payload = json.loads(version_file.read_text(encoding="utf-8"))
  *                     except Exception as _det_exc:             # <<<<<<<<<<<<<<
@@ -4477,7 +4503,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
           }
           goto __pyx_L11_except_error;
 
-          /* "opscli/skills/discovery/detector.py":86
+          /* "opscli/skills/discovery/detector.py":87
  *                 if version_file.exists():
  *                     # data/VERSION.json
  *                     try:             # <<<<<<<<<<<<<<
@@ -4499,25 +4525,25 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
           __pyx_L16_try_end:;
         }
 
-        /* "opscli/skills/discovery/detector.py":91
+        /* "opscli/skills/discovery/detector.py":92
  *                         _logger.debug(" VERSION.json: %s [%s]", version_file, _det_exc)
  *                         continue
  *                     version = str(payload.get("version", "unknown"))             # <<<<<<<<<<<<<<
  *                 elif data_dir.exists():
  *                     # data/  VERSION.json
 */
-        __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 91, __pyx_L1_error)
+        __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 92, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_14);
-        __pyx_t_15 = __Pyx_PyObject_Call(__pyx_t_14, __pyx_mstate_global->__pyx_tuple[0], NULL); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 91, __pyx_L1_error)
+        __pyx_t_15 = __Pyx_PyObject_Call(__pyx_t_14, __pyx_mstate_global->__pyx_tuple[0], NULL); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 92, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_15);
         __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-        __pyx_t_14 = __Pyx_PyObject_Unicode(__pyx_t_15); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 91, __pyx_L1_error)
+        __pyx_t_14 = __Pyx_PyObject_Unicode(__pyx_t_15); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 92, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_14);
         __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
         __Pyx_XDECREF_SET(__pyx_v_version, ((PyObject*)__pyx_t_14));
         __pyx_t_14 = 0;
 
-        /* "opscli/skills/discovery/detector.py":84
+        /* "opscli/skills/discovery/detector.py":85
  *                 version_file = skill_dir / "data" / "VERSION.json"
  *                 data_dir = skill_dir / "data"
  *                 if version_file.exists():             # <<<<<<<<<<<<<<
@@ -4527,7 +4553,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
         goto __pyx_L8;
       }
 
-      /* "opscli/skills/discovery/detector.py":92
+      /* "opscli/skills/discovery/detector.py":93
  *                         continue
  *                     version = str(payload.get("version", "unknown"))
  *                 elif data_dir.exists():             # <<<<<<<<<<<<<<
@@ -4541,14 +4567,14 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
         PyObject *__pyx_callargs[2] = {__pyx_t_15, NULL};
         __pyx_t_14 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_exists, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_15); __pyx_t_15 = 0;
-        if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 92, __pyx_L1_error)
+        if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 93, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_14);
       }
-      __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_14); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 92, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_14); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 93, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
       if (__pyx_t_8) {
 
-        /* "opscli/skills/discovery/detector.py":95
+        /* "opscli/skills/discovery/detector.py":96
  *                     # data/  VERSION.json
  *                     #  v0.0.0
  *                     version = "v0.0.0"             # <<<<<<<<<<<<<<
@@ -4558,7 +4584,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
         __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_v0_0_0);
         __Pyx_XDECREF_SET(__pyx_v_version, __pyx_mstate_global->__pyx_kp_u_v0_0_0);
 
-        /* "opscli/skills/discovery/detector.py":92
+        /* "opscli/skills/discovery/detector.py":93
  *                         continue
  *                     version = str(payload.get("version", "unknown"))
  *                 elif data_dir.exists():             # <<<<<<<<<<<<<<
@@ -4568,7 +4594,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
         goto __pyx_L8;
       }
 
-      /* "opscli/skills/discovery/detector.py":98
+      /* "opscli/skills/discovery/detector.py":99
  *                 else:
  *                     # data/  Skill
  *                     continue             # <<<<<<<<<<<<<<
@@ -4580,7 +4606,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
       }
       __pyx_L8:;
 
-      /* "opscli/skills/discovery/detector.py":100
+      /* "opscli/skills/discovery/detector.py":101
  *                     continue
  *                 #
  *                 runtime = self._infer_runtime(skill_dir)             # <<<<<<<<<<<<<<
@@ -4594,13 +4620,13 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
         PyObject *__pyx_callargs[2] = {__pyx_t_15, __pyx_v_skill_dir};
         __pyx_t_14 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_infer_runtime, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_15); __pyx_t_15 = 0;
-        if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 100, __pyx_L1_error)
+        if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 101, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_14);
       }
       __Pyx_XDECREF_SET(__pyx_v_runtime, __pyx_t_14);
       __pyx_t_14 = 0;
 
-      /* "opscli/skills/discovery/detector.py":102
+      /* "opscli/skills/discovery/detector.py":103
  *                 runtime = self._infer_runtime(skill_dir)
  *                 records.append(
  *                     SkillRecord(             # <<<<<<<<<<<<<<
@@ -4608,20 +4634,20 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
  *                         version=version,
 */
       __pyx_t_15 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SkillRecord); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 102, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SkillRecord); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 103, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
 
-      /* "opscli/skills/discovery/detector.py":103
+      /* "opscli/skills/discovery/detector.py":104
  *                 records.append(
  *                     SkillRecord(
  *                         name=skill_dir.name,             # <<<<<<<<<<<<<<
  *                         version=version,
  *                         runtime=runtime,
 */
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_skill_dir, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 103, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_skill_dir, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 104, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
 
-      /* "opscli/skills/discovery/detector.py":107
+      /* "opscli/skills/discovery/detector.py":108
  *                         runtime=runtime,
  *                         root=skill_dir,
  *                         version_file=version_file,             # <<<<<<<<<<<<<<
@@ -4642,33 +4668,33 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
       #endif
       {
         PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 5 : 0)] = {__pyx_t_15, NULL};
-        __pyx_t_19 = __Pyx_MakeVectorcallBuilderKwds(5); if (unlikely(!__pyx_t_19)) __PYX_ERR(0, 102, __pyx_L1_error)
+        __pyx_t_19 = __Pyx_MakeVectorcallBuilderKwds(5); if (unlikely(!__pyx_t_19)) __PYX_ERR(0, 103, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_19);
-        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_name, __pyx_t_1, __pyx_t_19, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 102, __pyx_L1_error)
-        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_version, __pyx_v_version, __pyx_t_19, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 102, __pyx_L1_error)
-        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_runtime, __pyx_v_runtime, __pyx_t_19, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 102, __pyx_L1_error)
-        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_root, __pyx_v_skill_dir, __pyx_t_19, __pyx_callargs+1, 3) < (0)) __PYX_ERR(0, 102, __pyx_L1_error)
-        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_version_file, __pyx_v_version_file, __pyx_t_19, __pyx_callargs+1, 4) < (0)) __PYX_ERR(0, 102, __pyx_L1_error)
+        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_name, __pyx_t_1, __pyx_t_19, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 103, __pyx_L1_error)
+        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_version, __pyx_v_version, __pyx_t_19, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 103, __pyx_L1_error)
+        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_runtime, __pyx_v_runtime, __pyx_t_19, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 103, __pyx_L1_error)
+        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_root, __pyx_v_skill_dir, __pyx_t_19, __pyx_callargs+1, 3) < (0)) __PYX_ERR(0, 103, __pyx_L1_error)
+        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_version_file, __pyx_v_version_file, __pyx_t_19, __pyx_callargs+1, 4) < (0)) __PYX_ERR(0, 103, __pyx_L1_error)
         __pyx_t_14 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_10, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_19);
         __Pyx_XDECREF(__pyx_t_15); __pyx_t_15 = 0;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
         __Pyx_DECREF(__pyx_t_19); __pyx_t_19 = 0;
         __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-        if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 102, __pyx_L1_error)
+        if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 103, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_14);
       }
 
-      /* "opscli/skills/discovery/detector.py":101
+      /* "opscli/skills/discovery/detector.py":102
  *                 #
  *                 runtime = self._infer_runtime(skill_dir)
  *                 records.append(             # <<<<<<<<<<<<<<
  *                     SkillRecord(
  *                         name=skill_dir.name,
 */
-      __pyx_t_28 = __Pyx_PyList_Append(__pyx_v_records, __pyx_t_14); if (unlikely(__pyx_t_28 == ((int)-1))) __PYX_ERR(0, 101, __pyx_L1_error)
+      __pyx_t_28 = __Pyx_PyList_Append(__pyx_v_records, __pyx_t_14); if (unlikely(__pyx_t_28 == ((int)-1))) __PYX_ERR(0, 102, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
 
-      /* "opscli/skills/discovery/detector.py":81
+      /* "opscli/skills/discovery/detector.py":82
  *                 continue
  *             #
  *             for skill_dir in sorted(p for p in base_dir.iterdir() if p.is_dir()):             # <<<<<<<<<<<<<<
@@ -4679,7 +4705,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "opscli/skills/discovery/detector.py":77
+    /* "opscli/skills/discovery/detector.py":78
  *         """
  *         records: list[SkillRecord] = []
  *         for base_dir in self.candidate_dirs(skills_dir=skills_dir, cwd=cwd):             # <<<<<<<<<<<<<<
@@ -4690,7 +4716,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
   }
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/skills/discovery/detector.py":110
+  /* "opscli/skills/discovery/detector.py":111
  *                     )
  *                 )
  *         return records             # <<<<<<<<<<<<<<
@@ -4702,7 +4728,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
   __pyx_r = __pyx_v_records;
   goto __pyx_L0;
 
-  /* "opscli/skills/discovery/detector.py":70
+  /* "opscli/skills/discovery/detector.py":71
  *         return result
  * 
  *     def discover(self, skills_dir: str | None = None, cwd: Path | None = None) -> list[SkillRecord]:             # <<<<<<<<<<<<<<
@@ -4739,7 +4765,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
   return __pyx_r;
 }
 
-/* "opscli/skills/discovery/detector.py":112
+/* "opscli/skills/discovery/detector.py":113
  *         return records
  * 
  *     def detect_install_target(self, cwd: Path | None = None, preferred_runtime: str | None = None) -> tuple[str, Path]:             # <<<<<<<<<<<<<<
@@ -4789,44 +4815,44 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_cwd,&__pyx_mstate_global->__pyx_n_u_preferred_runtime,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 112, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 113, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 112, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 113, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 112, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 113, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 112, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 113, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "detect_install_target", 0) < (0)) __PYX_ERR(0, 112, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "detect_install_target", 0) < (0)) __PYX_ERR(0, 113, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject*)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("detect_install_target", 0, 1, 3, i); __PYX_ERR(0, 112, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("detect_install_target", 0, 1, 3, i); __PYX_ERR(0, 113, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 112, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 113, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 112, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 113, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 112, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 113, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -4839,7 +4865,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("detect_install_target", 0, 1, 3, __pyx_nargs); __PYX_ERR(0, 112, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("detect_install_target", 0, 1, 3, __pyx_nargs); __PYX_ERR(0, 113, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4850,7 +4876,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_preferred_runtime), (&PyUnicode_Type), 1, "preferred_runtime", 2))) __PYX_ERR(0, 112, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_preferred_runtime), (&PyUnicode_Type), 1, "preferred_runtime", 2))) __PYX_ERR(0, 113, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_4detect_install_target(__pyx_self, __pyx_v_self, __pyx_v_cwd, __pyx_v_preferred_runtime);
 
   /* function exit code */
@@ -4894,14 +4920,14 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_4
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("detect_install_target", 0);
 
-  /* "opscli/skills/discovery/detector.py":121
+  /* "opscli/skills/discovery/detector.py":122
  *             (runtime, target_path)
  *         """
  *         current = cwd or Path.cwd()             # <<<<<<<<<<<<<<
  *         #
  *         runtime_dirs = {
 */
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_cwd); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 121, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_cwd); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 122, __pyx_L1_error)
   if (!__pyx_t_2) {
   } else {
     __Pyx_INCREF(__pyx_v_cwd);
@@ -4909,9 +4935,9 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_4
     goto __pyx_L3_bool_binop_done;
   }
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_Path); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 121, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_Path); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_cwd); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 121, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_cwd); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 122, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_7 = 1;
@@ -4931,7 +4957,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_4
     __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 121, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 122, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __Pyx_INCREF(__pyx_t_3);
@@ -4941,102 +4967,117 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_4
   __pyx_v_current = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/skills/discovery/detector.py":124
+  /* "opscli/skills/discovery/detector.py":125
  *         #
  *         runtime_dirs = {
  *             "claude":     current / ".claude" / "skills",             # <<<<<<<<<<<<<<
  *             "openclaw":   current / ".openclaw" / "skills",
  *             "codex":      current / ".codex" / "skills",
 */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 124, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(7); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_claude); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 124, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_claude); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 124, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_claude_2, __pyx_t_6) < (0)) __PYX_ERR(0, 124, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_claude_2, __pyx_t_6) < (0)) __PYX_ERR(0, 125, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "opscli/skills/discovery/detector.py":125
+  /* "opscli/skills/discovery/detector.py":126
  *         runtime_dirs = {
  *             "claude":     current / ".claude" / "skills",
  *             "openclaw":   current / ".openclaw" / "skills",             # <<<<<<<<<<<<<<
  *             "codex":      current / ".codex" / "skills",
  *             "opencode":   current / ".opencode" / "skills",
 */
-  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_openclaw); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 125, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_openclaw); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 126, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 125, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 126, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_openclaw_2, __pyx_t_3) < (0)) __PYX_ERR(0, 124, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_openclaw_2, __pyx_t_3) < (0)) __PYX_ERR(0, 125, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "opscli/skills/discovery/detector.py":126
+  /* "opscli/skills/discovery/detector.py":127
  *             "claude":     current / ".claude" / "skills",
  *             "openclaw":   current / ".openclaw" / "skills",
  *             "codex":      current / ".codex" / "skills",             # <<<<<<<<<<<<<<
  *             "opencode":   current / ".opencode" / "skills",
  *             "workbuddy":  current / ".workbuddy" / "skills",
 */
-  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_codex); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 126, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_codex); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 127, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 126, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 127, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_codex_2, __pyx_t_6) < (0)) __PYX_ERR(0, 124, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_codex_2, __pyx_t_6) < (0)) __PYX_ERR(0, 125, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "opscli/skills/discovery/detector.py":127
+  /* "opscli/skills/discovery/detector.py":128
  *             "openclaw":   current / ".openclaw" / "skills",
  *             "codex":      current / ".codex" / "skills",
  *             "opencode":   current / ".opencode" / "skills",             # <<<<<<<<<<<<<<
  *             "workbuddy":  current / ".workbuddy" / "skills",
  *             "trae-cn":    current / ".trae-cn" / "skills",
 */
-  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_opencode_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 127, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_opencode_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 128, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 127, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 128, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_opencode, __pyx_t_3) < (0)) __PYX_ERR(0, 124, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_opencode, __pyx_t_3) < (0)) __PYX_ERR(0, 125, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "opscli/skills/discovery/detector.py":128
+  /* "opscli/skills/discovery/detector.py":129
  *             "codex":      current / ".codex" / "skills",
  *             "opencode":   current / ".opencode" / "skills",
  *             "workbuddy":  current / ".workbuddy" / "skills",             # <<<<<<<<<<<<<<
  *             "trae-cn":    current / ".trae-cn" / "skills",
- *         }
+ *             "agents":     current / ".agents" / "skills",
 */
-  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_workbuddy); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_workbuddy); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 129, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 129, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_workbuddy_2, __pyx_t_6) < (0)) __PYX_ERR(0, 124, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_workbuddy_2, __pyx_t_6) < (0)) __PYX_ERR(0, 125, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "opscli/skills/discovery/detector.py":129
+  /* "opscli/skills/discovery/detector.py":130
  *             "opencode":   current / ".opencode" / "skills",
  *             "workbuddy":  current / ".workbuddy" / "skills",
  *             "trae-cn":    current / ".trae-cn" / "skills",             # <<<<<<<<<<<<<<
+ *             "agents":     current / ".agents" / "skills",
+ *         }
+*/
+  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_trae_cn); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_trae_cn_2, __pyx_t_3) < (0)) __PYX_ERR(0, 125, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+
+  /* "opscli/skills/discovery/detector.py":131
+ *             "workbuddy":  current / ".workbuddy" / "skills",
+ *             "trae-cn":    current / ".trae-cn" / "skills",
+ *             "agents":     current / ".agents" / "skills",             # <<<<<<<<<<<<<<
  *         }
  *         if preferred_runtime and preferred_runtime in runtime_dirs:
 */
-  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_trae_cn); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 129, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 129, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_agents); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 131, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_trae_cn_2, __pyx_t_3) < (0)) __PYX_ERR(0, 124, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_agents_2, __pyx_t_6) < (0)) __PYX_ERR(0, 125, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __pyx_v_runtime_dirs = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/skills/discovery/detector.py":131
- *             "trae-cn":    current / ".trae-cn" / "skills",
+  /* "opscli/skills/discovery/detector.py":133
+ *             "agents":     current / ".agents" / "skills",
  *         }
  *         if preferred_runtime and preferred_runtime in runtime_dirs:             # <<<<<<<<<<<<<<
  *             return preferred_runtime, runtime_dirs[preferred_runtime]
@@ -5046,7 +5087,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_4
   else
   {
     Py_ssize_t __pyx_temp = __Pyx_PyUnicode_IS_TRUE(__pyx_v_preferred_runtime);
-    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 131, __pyx_L1_error)
+    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 133, __pyx_L1_error)
     __pyx_t_8 = (__pyx_temp != 0);
   }
 
@@ -5055,12 +5096,12 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_4
     __pyx_t_2 = __pyx_t_8;
     goto __pyx_L6_bool_binop_done;
   }
-  __pyx_t_8 = (__Pyx_PyDict_ContainsTF(__pyx_v_preferred_runtime, __pyx_v_runtime_dirs, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 131, __pyx_L1_error)
+  __pyx_t_8 = (__Pyx_PyDict_ContainsTF(__pyx_v_preferred_runtime, __pyx_v_runtime_dirs, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 133, __pyx_L1_error)
   __pyx_t_2 = __pyx_t_8;
   __pyx_L6_bool_binop_done:;
   if (__pyx_t_2) {
 
-    /* "opscli/skills/discovery/detector.py":132
+    /* "opscli/skills/discovery/detector.py":134
  *         }
  *         if preferred_runtime and preferred_runtime in runtime_dirs:
  *             return preferred_runtime, runtime_dirs[preferred_runtime]             # <<<<<<<<<<<<<<
@@ -5068,22 +5109,22 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_4
  *         #
 */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = __Pyx_PyDict_GetItem(__pyx_v_runtime_dirs, __pyx_v_preferred_runtime); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 132, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_GetItem(__pyx_v_runtime_dirs, __pyx_v_preferred_runtime); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 134, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 132, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 134, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
     __Pyx_INCREF(__pyx_v_preferred_runtime);
     __Pyx_GIVEREF(__pyx_v_preferred_runtime);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_v_preferred_runtime) != (0)) __PYX_ERR(0, 132, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_v_preferred_runtime) != (0)) __PYX_ERR(0, 134, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_1);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_t_1) != (0)) __PYX_ERR(0, 132, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_t_1) != (0)) __PYX_ERR(0, 134, __pyx_L1_error);
     __pyx_t_1 = 0;
-    __pyx_r = ((PyObject*)__pyx_t_3);
-    __pyx_t_3 = 0;
+    __pyx_r = ((PyObject*)__pyx_t_6);
+    __pyx_t_6 = 0;
     goto __pyx_L0;
 
-    /* "opscli/skills/discovery/detector.py":131
- *             "trae-cn":    current / ".trae-cn" / "skills",
+    /* "opscli/skills/discovery/detector.py":133
+ *             "agents":     current / ".agents" / "skills",
  *         }
  *         if preferred_runtime and preferred_runtime in runtime_dirs:             # <<<<<<<<<<<<<<
  *             return preferred_runtime, runtime_dirs[preferred_runtime]
@@ -5091,7 +5132,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_4
 */
   }
 
-  /* "opscli/skills/discovery/detector.py":135
+  /* "opscli/skills/discovery/detector.py":137
  * 
  *         #
  *         for runtime, path in runtime_dirs.items():             # <<<<<<<<<<<<<<
@@ -5099,47 +5140,47 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_4
  *                 return runtime, path
 */
   __pyx_t_9 = 0;
-  __pyx_t_1 = __Pyx_dict_iterator(__pyx_v_runtime_dirs, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_10), (&__pyx_t_11)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 135, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_dict_iterator(__pyx_v_runtime_dirs, 1, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_10), (&__pyx_t_11)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 137, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_XDECREF(__pyx_t_3);
-  __pyx_t_3 = __pyx_t_1;
+  __Pyx_XDECREF(__pyx_t_6);
+  __pyx_t_6 = __pyx_t_1;
   __pyx_t_1 = 0;
   while (1) {
-    __pyx_t_12 = __Pyx_dict_iter_next(__pyx_t_3, __pyx_t_10, &__pyx_t_9, &__pyx_t_1, &__pyx_t_6, NULL, __pyx_t_11);
+    __pyx_t_12 = __Pyx_dict_iter_next(__pyx_t_6, __pyx_t_10, &__pyx_t_9, &__pyx_t_1, &__pyx_t_3, NULL, __pyx_t_11);
     if (unlikely(__pyx_t_12 == 0)) break;
-    if (unlikely(__pyx_t_12 == -1)) __PYX_ERR(0, 135, __pyx_L1_error)
+    if (unlikely(__pyx_t_12 == -1)) __PYX_ERR(0, 137, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __Pyx_GOTREF(__pyx_t_6);
+    __Pyx_GOTREF(__pyx_t_3);
     __Pyx_XDECREF_SET(__pyx_v_runtime, __pyx_t_1);
     __pyx_t_1 = 0;
-    __Pyx_XDECREF_SET(__pyx_v_path, __pyx_t_6);
-    __pyx_t_6 = 0;
+    __Pyx_XDECREF_SET(__pyx_v_path, __pyx_t_3);
+    __pyx_t_3 = 0;
 
-    /* "opscli/skills/discovery/detector.py":136
+    /* "opscli/skills/discovery/detector.py":138
  *         #
  *         for runtime, path in runtime_dirs.items():
  *             if path.parent.exists():             # <<<<<<<<<<<<<<
  *                 return runtime, path
  *         #  claude
 */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_path, __pyx_mstate_global->__pyx_n_u_parent); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 136, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_path, __pyx_mstate_global->__pyx_n_u_parent); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 138, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_1 = __pyx_t_4;
     __Pyx_INCREF(__pyx_t_1);
     __pyx_t_7 = 0;
     {
       PyObject *__pyx_callargs[2] = {__pyx_t_1, NULL};
-      __pyx_t_6 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_exists, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_exists, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 136, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_6);
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 138, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_3);
     }
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 136, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 138, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     if (__pyx_t_2) {
 
-      /* "opscli/skills/discovery/detector.py":137
+      /* "opscli/skills/discovery/detector.py":139
  *         for runtime, path in runtime_dirs.items():
  *             if path.parent.exists():
  *                 return runtime, path             # <<<<<<<<<<<<<<
@@ -5147,20 +5188,20 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_4
  *         return "claude", current / ".claude" / "skills"
 */
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 137, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_6);
+      __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 139, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_3);
       __Pyx_INCREF(__pyx_v_runtime);
       __Pyx_GIVEREF(__pyx_v_runtime);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_v_runtime) != (0)) __PYX_ERR(0, 137, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_v_runtime) != (0)) __PYX_ERR(0, 139, __pyx_L1_error);
       __Pyx_INCREF(__pyx_v_path);
       __Pyx_GIVEREF(__pyx_v_path);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_v_path) != (0)) __PYX_ERR(0, 137, __pyx_L1_error);
-      __pyx_r = ((PyObject*)__pyx_t_6);
-      __pyx_t_6 = 0;
-      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_v_path) != (0)) __PYX_ERR(0, 139, __pyx_L1_error);
+      __pyx_r = ((PyObject*)__pyx_t_3);
+      __pyx_t_3 = 0;
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       goto __pyx_L0;
 
-      /* "opscli/skills/discovery/detector.py":136
+      /* "opscli/skills/discovery/detector.py":138
  *         #
  *         for runtime, path in runtime_dirs.items():
  *             if path.parent.exists():             # <<<<<<<<<<<<<<
@@ -5169,9 +5210,9 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_4
 */
     }
   }
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "opscli/skills/discovery/detector.py":139
+  /* "opscli/skills/discovery/detector.py":141
  *                 return runtime, path
  *         #  claude
  *         return "claude", current / ".claude" / "skills"             # <<<<<<<<<<<<<<
@@ -5179,24 +5220,24 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_4
  *     def detect_install_targets(self, cwd: Path | None = None, preferred_runtimes: list[str] | None = None) -> list[tuple[str, Path]]:
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_claude); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 139, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 139, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_claude); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 141, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 139, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 141, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+  __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 141, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_claude_2);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_claude_2);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_mstate_global->__pyx_n_u_claude_2) != (0)) __PYX_ERR(0, 139, __pyx_L1_error);
-  __Pyx_GIVEREF(__pyx_t_6);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_t_6) != (0)) __PYX_ERR(0, 139, __pyx_L1_error);
-  __pyx_t_6 = 0;
-  __pyx_r = ((PyObject*)__pyx_t_3);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_mstate_global->__pyx_n_u_claude_2) != (0)) __PYX_ERR(0, 141, __pyx_L1_error);
+  __Pyx_GIVEREF(__pyx_t_3);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 141, __pyx_L1_error);
   __pyx_t_3 = 0;
+  __pyx_r = ((PyObject*)__pyx_t_6);
+  __pyx_t_6 = 0;
   goto __pyx_L0;
 
-  /* "opscli/skills/discovery/detector.py":112
+  /* "opscli/skills/discovery/detector.py":113
  *         return records
  * 
  *     def detect_install_target(self, cwd: Path | None = None, preferred_runtime: str | None = None) -> tuple[str, Path]:             # <<<<<<<<<<<<<<
@@ -5223,7 +5264,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_4
   return __pyx_r;
 }
 
-/* "opscli/skills/discovery/detector.py":141
+/* "opscli/skills/discovery/detector.py":143
  *         return "claude", current / ".claude" / "skills"
  * 
  *     def detect_install_targets(self, cwd: Path | None = None, preferred_runtimes: list[str] | None = None) -> list[tuple[str, Path]]:             # <<<<<<<<<<<<<<
@@ -5273,44 +5314,44 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_cwd,&__pyx_mstate_global->__pyx_n_u_preferred_runtimes,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 141, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 143, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 141, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 143, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 141, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 143, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 141, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 143, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "detect_install_targets", 0) < (0)) __PYX_ERR(0, 141, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "detect_install_targets", 0) < (0)) __PYX_ERR(0, 143, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject*)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("detect_install_targets", 0, 1, 3, i); __PYX_ERR(0, 141, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("detect_install_targets", 0, 1, 3, i); __PYX_ERR(0, 143, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 141, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 143, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 141, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 143, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 141, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 143, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -5323,7 +5364,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("detect_install_targets", 0, 1, 3, __pyx_nargs); __PYX_ERR(0, 141, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("detect_install_targets", 0, 1, 3, __pyx_nargs); __PYX_ERR(0, 143, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5334,7 +5375,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_preferred_runtimes), (&PyList_Type), 1, "preferred_runtimes", 2))) __PYX_ERR(0, 141, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_preferred_runtimes), (&PyList_Type), 1, "preferred_runtimes", 2))) __PYX_ERR(0, 143, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6detect_install_targets(__pyx_self, __pyx_v_self, __pyx_v_cwd, __pyx_v_preferred_runtimes);
 
   /* function exit code */
@@ -5380,14 +5421,14 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("detect_install_targets", 0);
 
-  /* "opscli/skills/discovery/detector.py":143
+  /* "opscli/skills/discovery/detector.py":145
  *     def detect_install_targets(self, cwd: Path | None = None, preferred_runtimes: list[str] | None = None) -> list[tuple[str, Path]]:
  *         """"""
  *         current = cwd or Path.cwd()             # <<<<<<<<<<<<<<
  * 
  *         if preferred_runtimes:
 */
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_cwd); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 143, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_cwd); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 145, __pyx_L1_error)
   if (!__pyx_t_2) {
   } else {
     __Pyx_INCREF(__pyx_v_cwd);
@@ -5395,9 +5436,9 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
     goto __pyx_L3_bool_binop_done;
   }
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_Path); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 143, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_Path); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 145, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_cwd); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 143, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_cwd); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 145, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_7 = 1;
@@ -5417,7 +5458,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
     __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 143, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 145, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __Pyx_INCREF(__pyx_t_3);
@@ -5427,7 +5468,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
   __pyx_v_current = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/skills/discovery/detector.py":145
+  /* "opscli/skills/discovery/detector.py":147
  *         current = cwd or Path.cwd()
  * 
  *         if preferred_runtimes:             # <<<<<<<<<<<<<<
@@ -5438,25 +5479,25 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
   else
   {
     Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_v_preferred_runtimes);
-    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 145, __pyx_L1_error)
+    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 147, __pyx_L1_error)
     __pyx_t_2 = (__pyx_temp != 0);
   }
 
   if (__pyx_t_2) {
 
-    /* "opscli/skills/discovery/detector.py":146
+    /* "opscli/skills/discovery/detector.py":148
  * 
  *         if preferred_runtimes:
  *             targets: list[tuple[str, Path]] = []             # <<<<<<<<<<<<<<
  *             for runtime in preferred_runtimes:
  *                 normalized = runtime.strip().lower()
 */
-    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 146, __pyx_L1_error)
+    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 148, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_v_targets = ((PyObject*)__pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "opscli/skills/discovery/detector.py":147
+    /* "opscli/skills/discovery/detector.py":149
  *         if preferred_runtimes:
  *             targets: list[tuple[str, Path]] = []
  *             for runtime in preferred_runtimes:             # <<<<<<<<<<<<<<
@@ -5465,7 +5506,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
 */
     if (unlikely(__pyx_v_preferred_runtimes == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-      __PYX_ERR(0, 147, __pyx_L1_error)
+      __PYX_ERR(0, 149, __pyx_L1_error)
     }
     __pyx_t_1 = __pyx_v_preferred_runtimes; __Pyx_INCREF(__pyx_t_1);
     __pyx_t_8 = 0;
@@ -5473,18 +5514,18 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
       {
         Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
         #if !CYTHON_ASSUME_SAFE_SIZE
-        if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 147, __pyx_L1_error)
+        if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 149, __pyx_L1_error)
         #endif
         if (__pyx_t_8 >= __pyx_temp) break;
       }
       __pyx_t_3 = __Pyx_PyList_GetItemRefFast(__pyx_t_1, __pyx_t_8, __Pyx_ReferenceSharing_OwnStrongReference);
       ++__pyx_t_8;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 147, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 149, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_XDECREF_SET(__pyx_v_runtime, __pyx_t_3);
       __pyx_t_3 = 0;
 
-      /* "opscli/skills/discovery/detector.py":148
+      /* "opscli/skills/discovery/detector.py":150
  *             targets: list[tuple[str, Path]] = []
  *             for runtime in preferred_runtimes:
  *                 normalized = runtime.strip().lower()             # <<<<<<<<<<<<<<
@@ -5498,7 +5539,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
         PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
         __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_strip, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 148, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 150, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __pyx_t_6 = __pyx_t_4;
@@ -5509,23 +5550,23 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
         __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_lower, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 148, __pyx_L1_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 150, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
       }
       __Pyx_XDECREF_SET(__pyx_v_normalized, __pyx_t_3);
       __pyx_t_3 = 0;
 
-      /* "opscli/skills/discovery/detector.py":149
+      /* "opscli/skills/discovery/detector.py":151
  *             for runtime in preferred_runtimes:
  *                 normalized = runtime.strip().lower()
  *                 if normalized == "all":             # <<<<<<<<<<<<<<
  *                     return self.detect_all_install_targets()
  *                 _, path = self.detect_install_target(cwd=current, preferred_runtime=normalized)
 */
-      __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_normalized, __pyx_mstate_global->__pyx_n_u_all, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 149, __pyx_L1_error)
+      __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_normalized, __pyx_mstate_global->__pyx_n_u_all, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 151, __pyx_L1_error)
       if (__pyx_t_2) {
 
-        /* "opscli/skills/discovery/detector.py":150
+        /* "opscli/skills/discovery/detector.py":152
  *                 normalized = runtime.strip().lower()
  *                 if normalized == "all":
  *                     return self.detect_all_install_targets()             # <<<<<<<<<<<<<<
@@ -5540,16 +5581,16 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
           PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
           __pyx_t_3 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_detect_all_install_targets, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 150, __pyx_L1_error)
+          if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 152, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_3);
         }
-        if (!(likely(PyList_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_3))) __PYX_ERR(0, 150, __pyx_L1_error)
+        if (!(likely(PyList_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_3))) __PYX_ERR(0, 152, __pyx_L1_error)
         __pyx_r = ((PyObject*)__pyx_t_3);
         __pyx_t_3 = 0;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
         goto __pyx_L0;
 
-        /* "opscli/skills/discovery/detector.py":149
+        /* "opscli/skills/discovery/detector.py":151
  *             for runtime in preferred_runtimes:
  *                 normalized = runtime.strip().lower()
  *                 if normalized == "all":             # <<<<<<<<<<<<<<
@@ -5558,7 +5599,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
 */
       }
 
-      /* "opscli/skills/discovery/detector.py":151
+      /* "opscli/skills/discovery/detector.py":153
  *                 if normalized == "all":
  *                     return self.detect_all_install_targets()
  *                 _, path = self.detect_install_target(cwd=current, preferred_runtime=normalized)             # <<<<<<<<<<<<<<
@@ -5570,14 +5611,14 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
       __pyx_t_7 = 0;
       {
         PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_4, NULL};
-        __pyx_t_6 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 151, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 153, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
-        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_cwd, __pyx_v_current, __pyx_t_6, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 151, __pyx_L1_error)
-        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_preferred_runtime, __pyx_v_normalized, __pyx_t_6, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 151, __pyx_L1_error)
+        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_cwd, __pyx_v_current, __pyx_t_6, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 153, __pyx_L1_error)
+        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_preferred_runtime, __pyx_v_normalized, __pyx_t_6, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 153, __pyx_L1_error)
         __pyx_t_3 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_detect_install_target, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_6);
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 151, __pyx_L1_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 153, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_3);
       }
       if ((likely(PyTuple_CheckExact(__pyx_t_3))) || (PyList_CheckExact(__pyx_t_3))) {
@@ -5586,7 +5627,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
         if (unlikely(size != 2)) {
           if (size > 2) __Pyx_RaiseTooManyValuesError(2);
           else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-          __PYX_ERR(0, 151, __pyx_L1_error)
+          __PYX_ERR(0, 153, __pyx_L1_error)
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
         if (likely(PyTuple_CheckExact(sequence))) {
@@ -5596,22 +5637,22 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
           __Pyx_INCREF(__pyx_t_4);
         } else {
           __pyx_t_6 = __Pyx_PyList_GetItemRefFast(sequence, 0, __Pyx_ReferenceSharing_SharedReference);
-          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 151, __pyx_L1_error)
+          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 153, __pyx_L1_error)
           __Pyx_XGOTREF(__pyx_t_6);
           __pyx_t_4 = __Pyx_PyList_GetItemRefFast(sequence, 1, __Pyx_ReferenceSharing_SharedReference);
-          if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 151, __pyx_L1_error)
+          if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 153, __pyx_L1_error)
           __Pyx_XGOTREF(__pyx_t_4);
         }
         #else
-        __pyx_t_6 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 151, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 153, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
-        __pyx_t_4 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 151, __pyx_L1_error)
+        __pyx_t_4 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 153, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
         #endif
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       } else {
         Py_ssize_t index = -1;
-        __pyx_t_5 = PyObject_GetIter(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 151, __pyx_L1_error)
+        __pyx_t_5 = PyObject_GetIter(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 153, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         __pyx_t_9 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_5);
@@ -5619,7 +5660,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
         __Pyx_GOTREF(__pyx_t_6);
         index = 1; __pyx_t_4 = __pyx_t_9(__pyx_t_5); if (unlikely(!__pyx_t_4)) goto __pyx_L9_unpacking_failed;
         __Pyx_GOTREF(__pyx_t_4);
-        if (__Pyx_IternextUnpackEndCheck(__pyx_t_9(__pyx_t_5), 2) < (0)) __PYX_ERR(0, 151, __pyx_L1_error)
+        if (__Pyx_IternextUnpackEndCheck(__pyx_t_9(__pyx_t_5), 2) < (0)) __PYX_ERR(0, 153, __pyx_L1_error)
         __pyx_t_9 = NULL;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         goto __pyx_L10_unpacking_done;
@@ -5627,7 +5668,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         __pyx_t_9 = NULL;
         if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-        __PYX_ERR(0, 151, __pyx_L1_error)
+        __PYX_ERR(0, 153, __pyx_L1_error)
         __pyx_L10_unpacking_done:;
       }
       __Pyx_XDECREF_SET(__pyx_v__, __pyx_t_6);
@@ -5635,25 +5676,25 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
       __Pyx_XDECREF_SET(__pyx_v_path, __pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "opscli/skills/discovery/detector.py":152
+      /* "opscli/skills/discovery/detector.py":154
  *                     return self.detect_all_install_targets()
  *                 _, path = self.detect_install_target(cwd=current, preferred_runtime=normalized)
  *                 targets.append((normalized, path))             # <<<<<<<<<<<<<<
  *             return self._dedupe_targets(targets)
  * 
 */
-      __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 152, __pyx_L1_error)
+      __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 154, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_INCREF(__pyx_v_normalized);
       __Pyx_GIVEREF(__pyx_v_normalized);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_v_normalized) != (0)) __PYX_ERR(0, 152, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_v_normalized) != (0)) __PYX_ERR(0, 154, __pyx_L1_error);
       __Pyx_INCREF(__pyx_v_path);
       __Pyx_GIVEREF(__pyx_v_path);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_v_path) != (0)) __PYX_ERR(0, 152, __pyx_L1_error);
-      __pyx_t_10 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_3); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 152, __pyx_L1_error)
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_v_path) != (0)) __PYX_ERR(0, 154, __pyx_L1_error);
+      __pyx_t_10 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_3); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 154, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-      /* "opscli/skills/discovery/detector.py":147
+      /* "opscli/skills/discovery/detector.py":149
  *         if preferred_runtimes:
  *             targets: list[tuple[str, Path]] = []
  *             for runtime in preferred_runtimes:             # <<<<<<<<<<<<<<
@@ -5663,7 +5704,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "opscli/skills/discovery/detector.py":153
+    /* "opscli/skills/discovery/detector.py":155
  *                 _, path = self.detect_install_target(cwd=current, preferred_runtime=normalized)
  *                 targets.append((normalized, path))
  *             return self._dedupe_targets(targets)             # <<<<<<<<<<<<<<
@@ -5678,15 +5719,15 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_targets};
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_dedupe_targets, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 153, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 155, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
-    if (!(likely(PyList_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_1))) __PYX_ERR(0, 153, __pyx_L1_error)
+    if (!(likely(PyList_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_1))) __PYX_ERR(0, 155, __pyx_L1_error)
     __pyx_r = ((PyObject*)__pyx_t_1);
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "opscli/skills/discovery/detector.py":145
+    /* "opscli/skills/discovery/detector.py":147
  *         current = cwd or Path.cwd()
  * 
  *         if preferred_runtimes:             # <<<<<<<<<<<<<<
@@ -5695,7 +5736,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
 */
   }
 
-  /* "opscli/skills/discovery/detector.py":155
+  /* "opscli/skills/discovery/detector.py":157
  *             return self._dedupe_targets(targets)
  * 
  *         available = self.detect_available_install_targets(cwd=current)             # <<<<<<<<<<<<<<
@@ -5707,29 +5748,29 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
   __pyx_t_7 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_3, NULL};
-    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 155, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 157, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_cwd, __pyx_v_current, __pyx_t_4, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 155, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_cwd, __pyx_v_current, __pyx_t_4, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 157, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_detect_available_install_targets, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 155, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 157, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_available = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/skills/discovery/detector.py":156
+  /* "opscli/skills/discovery/detector.py":158
  * 
  *         available = self.detect_available_install_targets(cwd=current)
  *         if available:             # <<<<<<<<<<<<<<
  *             return available
  * 
 */
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_available); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 156, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_available); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 158, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "opscli/skills/discovery/detector.py":157
+    /* "opscli/skills/discovery/detector.py":159
  *         available = self.detect_available_install_targets(cwd=current)
  *         if available:
  *             return available             # <<<<<<<<<<<<<<
@@ -5739,12 +5780,12 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
     __Pyx_XDECREF(__pyx_r);
     __pyx_t_1 = __pyx_v_available;
     __Pyx_INCREF(__pyx_t_1);
-    if (!(likely(PyList_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_1))) __PYX_ERR(0, 157, __pyx_L1_error)
+    if (!(likely(PyList_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_1))) __PYX_ERR(0, 159, __pyx_L1_error)
     __pyx_r = ((PyObject*)__pyx_t_1);
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "opscli/skills/discovery/detector.py":156
+    /* "opscli/skills/discovery/detector.py":158
  * 
  *         available = self.detect_available_install_targets(cwd=current)
  *         if available:             # <<<<<<<<<<<<<<
@@ -5753,7 +5794,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
 */
   }
 
-  /* "opscli/skills/discovery/detector.py":159
+  /* "opscli/skills/discovery/detector.py":161
  *             return available
  * 
  *         runtime, target = self.detect_install_target(cwd=current, preferred_runtime=None)             # <<<<<<<<<<<<<<
@@ -5765,14 +5806,14 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
   __pyx_t_7 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_4, NULL};
-    __pyx_t_3 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 159, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 161, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_cwd, __pyx_v_current, __pyx_t_3, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 159, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_preferred_runtime, Py_None, __pyx_t_3, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 159, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_cwd, __pyx_v_current, __pyx_t_3, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 161, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_preferred_runtime, Py_None, __pyx_t_3, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 161, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_detect_install_target, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_3);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 159, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 161, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   if ((likely(PyTuple_CheckExact(__pyx_t_1))) || (PyList_CheckExact(__pyx_t_1))) {
@@ -5781,7 +5822,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
     if (unlikely(size != 2)) {
       if (size > 2) __Pyx_RaiseTooManyValuesError(2);
       else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-      __PYX_ERR(0, 159, __pyx_L1_error)
+      __PYX_ERR(0, 161, __pyx_L1_error)
     }
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
     if (likely(PyTuple_CheckExact(sequence))) {
@@ -5791,22 +5832,22 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
       __Pyx_INCREF(__pyx_t_4);
     } else {
       __pyx_t_3 = __Pyx_PyList_GetItemRefFast(sequence, 0, __Pyx_ReferenceSharing_SharedReference);
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 159, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 161, __pyx_L1_error)
       __Pyx_XGOTREF(__pyx_t_3);
       __pyx_t_4 = __Pyx_PyList_GetItemRefFast(sequence, 1, __Pyx_ReferenceSharing_SharedReference);
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 159, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 161, __pyx_L1_error)
       __Pyx_XGOTREF(__pyx_t_4);
     }
     #else
-    __pyx_t_3 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 159, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 161, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 159, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 161, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     #endif
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   } else {
     Py_ssize_t index = -1;
-    __pyx_t_6 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 159, __pyx_L1_error)
+    __pyx_t_6 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 161, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_9 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_6);
@@ -5814,7 +5855,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
     __Pyx_GOTREF(__pyx_t_3);
     index = 1; __pyx_t_4 = __pyx_t_9(__pyx_t_6); if (unlikely(!__pyx_t_4)) goto __pyx_L13_unpacking_failed;
     __Pyx_GOTREF(__pyx_t_4);
-    if (__Pyx_IternextUnpackEndCheck(__pyx_t_9(__pyx_t_6), 2) < (0)) __PYX_ERR(0, 159, __pyx_L1_error)
+    if (__Pyx_IternextUnpackEndCheck(__pyx_t_9(__pyx_t_6), 2) < (0)) __PYX_ERR(0, 161, __pyx_L1_error)
     __pyx_t_9 = NULL;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     goto __pyx_L14_unpacking_done;
@@ -5822,7 +5863,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_t_9 = NULL;
     if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-    __PYX_ERR(0, 159, __pyx_L1_error)
+    __PYX_ERR(0, 161, __pyx_L1_error)
     __pyx_L14_unpacking_done:;
   }
   __pyx_v_runtime = __pyx_t_3;
@@ -5830,7 +5871,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
   __pyx_v_target = __pyx_t_4;
   __pyx_t_4 = 0;
 
-  /* "opscli/skills/discovery/detector.py":160
+  /* "opscli/skills/discovery/detector.py":162
  * 
  *         runtime, target = self.detect_install_target(cwd=current, preferred_runtime=None)
  *         return [(runtime, target)]             # <<<<<<<<<<<<<<
@@ -5838,24 +5879,24 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
  *     def detect_available_install_targets(self, cwd: Path | None = None) -> list[tuple[str, Path]]:
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 160, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 162, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_v_runtime);
   __Pyx_GIVEREF(__pyx_v_runtime);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_v_runtime) != (0)) __PYX_ERR(0, 160, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_v_runtime) != (0)) __PYX_ERR(0, 162, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_target);
   __Pyx_GIVEREF(__pyx_v_target);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_v_target) != (0)) __PYX_ERR(0, 160, __pyx_L1_error);
-  __pyx_t_4 = PyList_New(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 160, __pyx_L1_error)
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_v_target) != (0)) __PYX_ERR(0, 162, __pyx_L1_error);
+  __pyx_t_4 = PyList_New(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 162, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_GIVEREF(__pyx_t_1);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 160, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 162, __pyx_L1_error);
   __pyx_t_1 = 0;
   __pyx_r = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "opscli/skills/discovery/detector.py":141
+  /* "opscli/skills/discovery/detector.py":143
  *         return "claude", current / ".claude" / "skills"
  * 
  *     def detect_install_targets(self, cwd: Path | None = None, preferred_runtimes: list[str] | None = None) -> list[tuple[str, Path]]:             # <<<<<<<<<<<<<<
@@ -5886,7 +5927,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_6
   return __pyx_r;
 }
 
-/* "opscli/skills/discovery/detector.py":162
+/* "opscli/skills/discovery/detector.py":164
  *         return [(runtime, target)]
  * 
  *     def detect_available_install_targets(self, cwd: Path | None = None) -> list[tuple[str, Path]]:             # <<<<<<<<<<<<<<
@@ -5935,35 +5976,35 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_cwd,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 162, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 164, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 162, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 164, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 162, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 164, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "detect_available_install_targets", 0) < (0)) __PYX_ERR(0, 162, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "detect_available_install_targets", 0) < (0)) __PYX_ERR(0, 164, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("detect_available_install_targets", 0, 1, 2, i); __PYX_ERR(0, 162, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("detect_available_install_targets", 0, 1, 2, i); __PYX_ERR(0, 164, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 162, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 164, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 162, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 164, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -5974,7 +6015,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("detect_available_install_targets", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 162, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("detect_available_install_targets", 0, 1, 2, __pyx_nargs); __PYX_ERR(0, 164, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6013,14 +6054,14 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_8
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("detect_available_install_targets", 0);
 
-  /* "opscli/skills/discovery/detector.py":169
+  /* "opscli/skills/discovery/detector.py":171
  *          which which  detect_global_install_targets
  *         """
  *         current = cwd or Path.cwd()             # <<<<<<<<<<<<<<
  *         targets: list[tuple[str, Path]] = []
  *         # Claude Code.claude/
 */
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_cwd); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 169, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_cwd); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 171, __pyx_L1_error)
   if (!__pyx_t_2) {
   } else {
     __Pyx_INCREF(__pyx_v_cwd);
@@ -6028,9 +6069,9 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_8
     goto __pyx_L3_bool_binop_done;
   }
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_Path); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 169, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_Path); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 171, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_cwd); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 169, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_cwd); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 171, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_7 = 1;
@@ -6050,7 +6091,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_8
     __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 169, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 171, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __Pyx_INCREF(__pyx_t_3);
@@ -6060,26 +6101,26 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_8
   __pyx_v_current = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/skills/discovery/detector.py":170
+  /* "opscli/skills/discovery/detector.py":172
  *         """
  *         current = cwd or Path.cwd()
  *         targets: list[tuple[str, Path]] = []             # <<<<<<<<<<<<<<
  *         # Claude Code.claude/
  *         if (current / ".claude").exists():
 */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 170, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 172, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_targets = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/skills/discovery/detector.py":172
+  /* "opscli/skills/discovery/detector.py":174
  *         targets: list[tuple[str, Path]] = []
  *         # Claude Code.claude/
  *         if (current / ".claude").exists():             # <<<<<<<<<<<<<<
  *             targets.append(("claude", current / ".claude" / "skills"))
  *         # OpenClaw.openclaw/
 */
-  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_claude); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 172, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_claude); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 174, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __pyx_t_3 = __pyx_t_6;
   __Pyx_INCREF(__pyx_t_3);
@@ -6089,37 +6130,37 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_8
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_exists, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 172, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 174, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 172, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 174, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "opscli/skills/discovery/detector.py":173
+    /* "opscli/skills/discovery/detector.py":175
  *         # Claude Code.claude/
  *         if (current / ".claude").exists():
  *             targets.append(("claude", current / ".claude" / "skills"))             # <<<<<<<<<<<<<<
  *         # OpenClaw.openclaw/
  *         if (current / ".openclaw").exists():
 */
-    __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_claude); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 173, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_claude); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 175, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 173, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 175, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 173, __pyx_L1_error)
+    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 175, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_claude_2);
     __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_claude_2);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u_claude_2) != (0)) __PYX_ERR(0, 173, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u_claude_2) != (0)) __PYX_ERR(0, 175, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_6);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_6) != (0)) __PYX_ERR(0, 173, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_6) != (0)) __PYX_ERR(0, 175, __pyx_L1_error);
     __pyx_t_6 = 0;
-    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_1); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 173, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_1); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 175, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "opscli/skills/discovery/detector.py":172
+    /* "opscli/skills/discovery/detector.py":174
  *         targets: list[tuple[str, Path]] = []
  *         # Claude Code.claude/
  *         if (current / ".claude").exists():             # <<<<<<<<<<<<<<
@@ -6128,14 +6169,14 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_8
 */
   }
 
-  /* "opscli/skills/discovery/detector.py":175
+  /* "opscli/skills/discovery/detector.py":177
  *             targets.append(("claude", current / ".claude" / "skills"))
  *         # OpenClaw.openclaw/
  *         if (current / ".openclaw").exists():             # <<<<<<<<<<<<<<
  *             targets.append(("openclaw", current / ".openclaw" / "skills"))
  *         # Codex CLI.codex/
 */
-  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_openclaw); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 175, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_openclaw); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 177, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_6 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_6);
@@ -6145,37 +6186,37 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_8
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_exists, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 175, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 177, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 175, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 177, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "opscli/skills/discovery/detector.py":176
+    /* "opscli/skills/discovery/detector.py":178
  *         # OpenClaw.openclaw/
  *         if (current / ".openclaw").exists():
  *             targets.append(("openclaw", current / ".openclaw" / "skills"))             # <<<<<<<<<<<<<<
  *         # Codex CLI.codex/
  *         if (current / ".codex").exists():
 */
-    __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_openclaw); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 176, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_openclaw); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 178, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 176, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 178, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 176, __pyx_L1_error)
+    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 178, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_openclaw_2);
     __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_openclaw_2);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u_openclaw_2) != (0)) __PYX_ERR(0, 176, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u_openclaw_2) != (0)) __PYX_ERR(0, 178, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_3);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 176, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 178, __pyx_L1_error);
     __pyx_t_3 = 0;
-    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_1); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 176, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_1); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 178, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "opscli/skills/discovery/detector.py":175
+    /* "opscli/skills/discovery/detector.py":177
  *             targets.append(("claude", current / ".claude" / "skills"))
  *         # OpenClaw.openclaw/
  *         if (current / ".openclaw").exists():             # <<<<<<<<<<<<<<
@@ -6184,14 +6225,14 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_8
 */
   }
 
-  /* "opscli/skills/discovery/detector.py":178
+  /* "opscli/skills/discovery/detector.py":180
  *             targets.append(("openclaw", current / ".openclaw" / "skills"))
  *         # Codex CLI.codex/
  *         if (current / ".codex").exists():             # <<<<<<<<<<<<<<
  *             targets.append(("codex", current / ".codex" / "skills"))
  *         # OpenCode.config/opencode/
 */
-  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_codex); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 178, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_codex); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 180, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __pyx_t_3 = __pyx_t_6;
   __Pyx_INCREF(__pyx_t_3);
@@ -6201,37 +6242,37 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_8
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_exists, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 178, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 180, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 178, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 180, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "opscli/skills/discovery/detector.py":179
+    /* "opscli/skills/discovery/detector.py":181
  *         # Codex CLI.codex/
  *         if (current / ".codex").exists():
  *             targets.append(("codex", current / ".codex" / "skills"))             # <<<<<<<<<<<<<<
  *         # OpenCode.config/opencode/
  *         if (current / ".config" / "opencode").exists():
 */
-    __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_codex); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 179, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_codex); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 181, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 179, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 181, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 179, __pyx_L1_error)
+    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 181, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_codex_2);
     __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_codex_2);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u_codex_2) != (0)) __PYX_ERR(0, 179, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u_codex_2) != (0)) __PYX_ERR(0, 181, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_6);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_6) != (0)) __PYX_ERR(0, 179, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_6) != (0)) __PYX_ERR(0, 181, __pyx_L1_error);
     __pyx_t_6 = 0;
-    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_1); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 179, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_1); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 181, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "opscli/skills/discovery/detector.py":178
+    /* "opscli/skills/discovery/detector.py":180
  *             targets.append(("openclaw", current / ".openclaw" / "skills"))
  *         # Codex CLI.codex/
  *         if (current / ".codex").exists():             # <<<<<<<<<<<<<<
@@ -6240,16 +6281,16 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_8
 */
   }
 
-  /* "opscli/skills/discovery/detector.py":181
+  /* "opscli/skills/discovery/detector.py":183
  *             targets.append(("codex", current / ".codex" / "skills"))
  *         # OpenCode.config/opencode/
  *         if (current / ".config" / "opencode").exists():             # <<<<<<<<<<<<<<
  *             targets.append(("opencode", current / ".config" / "opencode" / "skills"))
  *         # WorkBuddy.workbuddy/
 */
-  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_config); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 181, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_config); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 183, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyNumber_Divide(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_opencode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 181, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyNumber_Divide(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_opencode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 183, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_6 = __pyx_t_4;
@@ -6260,40 +6301,40 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_8
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_exists, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 181, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 183, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 181, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 183, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (__pyx_t_2) {
 
-    /* "opscli/skills/discovery/detector.py":182
+    /* "opscli/skills/discovery/detector.py":184
  *         # OpenCode.config/opencode/
  *         if (current / ".config" / "opencode").exists():
  *             targets.append(("opencode", current / ".config" / "opencode" / "skills"))             # <<<<<<<<<<<<<<
  *         # WorkBuddy.workbuddy/
  *         if (current / ".workbuddy").exists():
 */
-    __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_config); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 182, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_config); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 184, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_opencode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 182, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_opencode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 184, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 182, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 184, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 182, __pyx_L1_error)
+    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 184, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_opencode);
     __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_opencode);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_mstate_global->__pyx_n_u_opencode) != (0)) __PYX_ERR(0, 182, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_mstate_global->__pyx_n_u_opencode) != (0)) __PYX_ERR(0, 184, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_1);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_1) != (0)) __PYX_ERR(0, 182, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_1) != (0)) __PYX_ERR(0, 184, __pyx_L1_error);
     __pyx_t_1 = 0;
-    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_4); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 182, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_4); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 184, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "opscli/skills/discovery/detector.py":181
+    /* "opscli/skills/discovery/detector.py":183
  *             targets.append(("codex", current / ".codex" / "skills"))
  *         # OpenCode.config/opencode/
  *         if (current / ".config" / "opencode").exists():             # <<<<<<<<<<<<<<
@@ -6302,14 +6343,14 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_8
 */
   }
 
-  /* "opscli/skills/discovery/detector.py":184
+  /* "opscli/skills/discovery/detector.py":186
  *             targets.append(("opencode", current / ".config" / "opencode" / "skills"))
  *         # WorkBuddy.workbuddy/
  *         if (current / ".workbuddy").exists():             # <<<<<<<<<<<<<<
  *             targets.append(("workbuddy", current / ".workbuddy" / "skills"))
  *         # Trae Solo.trae-cn/
 */
-  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_workbuddy); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 184, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_workbuddy); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 186, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __pyx_t_1 = __pyx_t_6;
   __Pyx_INCREF(__pyx_t_1);
@@ -6319,37 +6360,37 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_8
     __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_exists, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 184, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 186, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 184, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 186, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   if (__pyx_t_2) {
 
-    /* "opscli/skills/discovery/detector.py":185
+    /* "opscli/skills/discovery/detector.py":187
  *         # WorkBuddy.workbuddy/
  *         if (current / ".workbuddy").exists():
  *             targets.append(("workbuddy", current / ".workbuddy" / "skills"))             # <<<<<<<<<<<<<<
  *         # Trae Solo.trae-cn/
  *         if (current / ".trae-cn").exists():
 */
-    __pyx_t_4 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_workbuddy); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 185, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_workbuddy); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 187, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 185, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 187, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 185, __pyx_L1_error)
+    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 187, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_workbuddy_2);
     __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_workbuddy_2);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_mstate_global->__pyx_n_u_workbuddy_2) != (0)) __PYX_ERR(0, 185, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_mstate_global->__pyx_n_u_workbuddy_2) != (0)) __PYX_ERR(0, 187, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_6);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_6) != (0)) __PYX_ERR(0, 185, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_6) != (0)) __PYX_ERR(0, 187, __pyx_L1_error);
     __pyx_t_6 = 0;
-    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_4); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 185, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_4); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 187, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "opscli/skills/discovery/detector.py":184
+    /* "opscli/skills/discovery/detector.py":186
  *             targets.append(("opencode", current / ".config" / "opencode" / "skills"))
  *         # WorkBuddy.workbuddy/
  *         if (current / ".workbuddy").exists():             # <<<<<<<<<<<<<<
@@ -6358,14 +6399,14 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_8
 */
   }
 
-  /* "opscli/skills/discovery/detector.py":187
+  /* "opscli/skills/discovery/detector.py":189
  *             targets.append(("workbuddy", current / ".workbuddy" / "skills"))
  *         # Trae Solo.trae-cn/
  *         if (current / ".trae-cn").exists():             # <<<<<<<<<<<<<<
  *             targets.append(("trae-cn", current / ".trae-cn" / "skills"))
- *         return self._dedupe_targets(targets)
+ *         # Agents.agents/
 */
-  __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_trae_cn); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 187, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_trae_cn); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 189, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_6 = __pyx_t_1;
   __Pyx_INCREF(__pyx_t_6);
@@ -6375,69 +6416,125 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_8
     __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_exists, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 187, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 189, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 187, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 189, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   if (__pyx_t_2) {
 
-    /* "opscli/skills/discovery/detector.py":188
+    /* "opscli/skills/discovery/detector.py":190
  *         # Trae Solo.trae-cn/
  *         if (current / ".trae-cn").exists():
  *             targets.append(("trae-cn", current / ".trae-cn" / "skills"))             # <<<<<<<<<<<<<<
- *         return self._dedupe_targets(targets)
- * 
+ *         # Agents.agents/
+ *         if (current / ".agents").exists():
 */
-    __pyx_t_4 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_trae_cn); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 188, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_trae_cn); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 190, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 188, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 190, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 188, __pyx_L1_error)
+    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 190, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_trae_cn_2);
     __Pyx_GIVEREF(__pyx_mstate_global->__pyx_kp_u_trae_cn_2);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_mstate_global->__pyx_kp_u_trae_cn_2) != (0)) __PYX_ERR(0, 188, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_mstate_global->__pyx_kp_u_trae_cn_2) != (0)) __PYX_ERR(0, 190, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_1);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_1) != (0)) __PYX_ERR(0, 188, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_1) != (0)) __PYX_ERR(0, 190, __pyx_L1_error);
     __pyx_t_1 = 0;
-    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_4); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 188, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_4); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 190, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "opscli/skills/discovery/detector.py":187
+    /* "opscli/skills/discovery/detector.py":189
  *             targets.append(("workbuddy", current / ".workbuddy" / "skills"))
  *         # Trae Solo.trae-cn/
  *         if (current / ".trae-cn").exists():             # <<<<<<<<<<<<<<
  *             targets.append(("trae-cn", current / ".trae-cn" / "skills"))
+ *         # Agents.agents/
+*/
+  }
+
+  /* "opscli/skills/discovery/detector.py":192
+ *             targets.append(("trae-cn", current / ".trae-cn" / "skills"))
+ *         # Agents.agents/
+ *         if (current / ".agents").exists():             # <<<<<<<<<<<<<<
+ *             targets.append(("agents", current / ".agents" / "skills"))
+ *         return self._dedupe_targets(targets)
+*/
+  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_agents); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 192, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __pyx_t_1 = __pyx_t_6;
+  __Pyx_INCREF(__pyx_t_1);
+  __pyx_t_7 = 0;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_1, NULL};
+    __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_exists, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 192, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+  }
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 192, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (__pyx_t_2) {
+
+    /* "opscli/skills/discovery/detector.py":193
+ *         # Agents.agents/
+ *         if (current / ".agents").exists():
+ *             targets.append(("agents", current / ".agents" / "skills"))             # <<<<<<<<<<<<<<
+ *         return self._dedupe_targets(targets)
+ * 
+*/
+    __pyx_t_4 = __Pyx_PyNumber_Divide(__pyx_v_current, __pyx_mstate_global->__pyx_kp_u_agents); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 193, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 193, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 193, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_agents_2);
+    __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_agents_2);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_mstate_global->__pyx_n_u_agents_2) != (0)) __PYX_ERR(0, 193, __pyx_L1_error);
+    __Pyx_GIVEREF(__pyx_t_6);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_6) != (0)) __PYX_ERR(0, 193, __pyx_L1_error);
+    __pyx_t_6 = 0;
+    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_4); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 193, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+    /* "opscli/skills/discovery/detector.py":192
+ *             targets.append(("trae-cn", current / ".trae-cn" / "skills"))
+ *         # Agents.agents/
+ *         if (current / ".agents").exists():             # <<<<<<<<<<<<<<
+ *             targets.append(("agents", current / ".agents" / "skills"))
  *         return self._dedupe_targets(targets)
 */
   }
 
-  /* "opscli/skills/discovery/detector.py":189
- *         if (current / ".trae-cn").exists():
- *             targets.append(("trae-cn", current / ".trae-cn" / "skills"))
+  /* "opscli/skills/discovery/detector.py":194
+ *         if (current / ".agents").exists():
+ *             targets.append(("agents", current / ".agents" / "skills"))
  *         return self._dedupe_targets(targets)             # <<<<<<<<<<<<<<
  * 
  *     def detect_global_install_targets(self) -> list[tuple[str, Path]]:
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_v_self;
-  __Pyx_INCREF(__pyx_t_1);
+  __pyx_t_6 = __pyx_v_self;
+  __Pyx_INCREF(__pyx_t_6);
   __pyx_t_7 = 0;
   {
-    PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_v_targets};
+    PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v_targets};
     __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_dedupe_targets, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 189, __pyx_L1_error)
+    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 194, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
-  if (!(likely(PyList_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_4))) __PYX_ERR(0, 189, __pyx_L1_error)
+  if (!(likely(PyList_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_4))) __PYX_ERR(0, 194, __pyx_L1_error)
   __pyx_r = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "opscli/skills/discovery/detector.py":162
+  /* "opscli/skills/discovery/detector.py":164
  *         return [(runtime, target)]
  * 
  *     def detect_available_install_targets(self, cwd: Path | None = None) -> list[tuple[str, Path]]:             # <<<<<<<<<<<<<<
@@ -6462,7 +6559,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_8
   return __pyx_r;
 }
 
-/* "opscli/skills/discovery/detector.py":191
+/* "opscli/skills/discovery/detector.py":196
  *         return self._dedupe_targets(targets)
  * 
  *     def detect_global_install_targets(self) -> list[tuple[str, Path]]:             # <<<<<<<<<<<<<<
@@ -6510,32 +6607,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 191, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 196, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 191, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 196, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "detect_global_install_targets", 0) < (0)) __PYX_ERR(0, 191, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "detect_global_install_targets", 0) < (0)) __PYX_ERR(0, 196, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("detect_global_install_targets", 1, 1, 1, i); __PYX_ERR(0, 191, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("detect_global_install_targets", 1, 1, 1, i); __PYX_ERR(0, 196, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 191, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 196, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("detect_global_install_targets", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 191, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("detect_global_install_targets", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 196, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6575,7 +6672,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("detect_global_install_targets", 0);
 
-  /* "opscli/skills/discovery/detector.py":205
+  /* "opscli/skills/discovery/detector.py":210
  *          [(runtime, skills_dir), ...]
  *         """
  *         home = Path.home()             # <<<<<<<<<<<<<<
@@ -6583,9 +6680,9 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
  * 
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_Path); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 205, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_Path); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 210, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_home); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 205, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_home); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 210, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_5 = 1;
@@ -6605,32 +6702,32 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 205, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 210, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_home = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/skills/discovery/detector.py":206
+  /* "opscli/skills/discovery/detector.py":211
  *         """
  *         home = Path.home()
  *         targets: list[tuple[str, Path]] = []             # <<<<<<<<<<<<<<
  * 
  *         # Claude Code~/.claude/   `which claude`
 */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 206, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 211, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_targets = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/skills/discovery/detector.py":209
+  /* "opscli/skills/discovery/detector.py":214
  * 
  *         # Claude Code~/.claude/   `which claude`
  *         if (home / ".claude").exists() or shutil.which("claude") is not None:             # <<<<<<<<<<<<<<
  *             targets.append(("claude", home / ".claude" / "skills"))
  * 
 */
-  __pyx_t_2 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_claude); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 209, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_claude); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 214, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_4 = __pyx_t_2;
   __Pyx_INCREF(__pyx_t_4);
@@ -6640,10 +6737,10 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_exists, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 209, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 214, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 209, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 214, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (!__pyx_t_7) {
   } else {
@@ -6651,9 +6748,9 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     goto __pyx_L4_bool_binop_done;
   }
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_shutil); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 209, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_shutil); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 214, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_which); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 209, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_which); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 214, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_5 = 1;
@@ -6673,7 +6770,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 209, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 214, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_t_7 = (__pyx_t_1 != Py_None);
@@ -6682,30 +6779,30 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_6) {
 
-    /* "opscli/skills/discovery/detector.py":210
+    /* "opscli/skills/discovery/detector.py":215
  *         # Claude Code~/.claude/   `which claude`
  *         if (home / ".claude").exists() or shutil.which("claude") is not None:
  *             targets.append(("claude", home / ".claude" / "skills"))             # <<<<<<<<<<<<<<
  * 
  *         # OpenClaw~/.openclaw/   `which openclaw`
 */
-    __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_claude); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 210, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_claude); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 215, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 210, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 215, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 210, __pyx_L1_error)
+    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 215, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_claude_2);
     __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_claude_2);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u_claude_2) != (0)) __PYX_ERR(0, 210, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u_claude_2) != (0)) __PYX_ERR(0, 215, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_3);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 210, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 215, __pyx_L1_error);
     __pyx_t_3 = 0;
-    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_1); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 210, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_1); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 215, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "opscli/skills/discovery/detector.py":209
+    /* "opscli/skills/discovery/detector.py":214
  * 
  *         # Claude Code~/.claude/   `which claude`
  *         if (home / ".claude").exists() or shutil.which("claude") is not None:             # <<<<<<<<<<<<<<
@@ -6714,14 +6811,14 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
 */
   }
 
-  /* "opscli/skills/discovery/detector.py":213
+  /* "opscli/skills/discovery/detector.py":218
  * 
  *         # OpenClaw~/.openclaw/   `which openclaw`
  *         if (home / ".openclaw").exists() or shutil.which("openclaw") is not None:             # <<<<<<<<<<<<<<
  *             targets.append(("openclaw", home / ".openclaw" / "skills"))
  * 
 */
-  __pyx_t_2 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_openclaw); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 213, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_openclaw); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 218, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = __pyx_t_2;
   __Pyx_INCREF(__pyx_t_3);
@@ -6731,10 +6828,10 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_exists, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 213, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 218, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 213, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 218, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (!__pyx_t_7) {
   } else {
@@ -6742,9 +6839,9 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     goto __pyx_L7_bool_binop_done;
   }
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_shutil); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 213, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_shutil); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 218, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_which); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 213, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_which); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 218, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_5 = 1;
@@ -6764,7 +6861,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 213, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 218, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_t_7 = (__pyx_t_1 != Py_None);
@@ -6773,30 +6870,30 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
   __pyx_L7_bool_binop_done:;
   if (__pyx_t_6) {
 
-    /* "opscli/skills/discovery/detector.py":214
+    /* "opscli/skills/discovery/detector.py":219
  *         # OpenClaw~/.openclaw/   `which openclaw`
  *         if (home / ".openclaw").exists() or shutil.which("openclaw") is not None:
  *             targets.append(("openclaw", home / ".openclaw" / "skills"))             # <<<<<<<<<<<<<<
  * 
  *         # Codex CLI~/.codex/   `which codex`
 */
-    __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_openclaw); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 214, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_openclaw); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 219, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_4 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 214, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 219, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 214, __pyx_L1_error)
+    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 219, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_openclaw_2);
     __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_openclaw_2);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u_openclaw_2) != (0)) __PYX_ERR(0, 214, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u_openclaw_2) != (0)) __PYX_ERR(0, 219, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_4);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_4) != (0)) __PYX_ERR(0, 214, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_4) != (0)) __PYX_ERR(0, 219, __pyx_L1_error);
     __pyx_t_4 = 0;
-    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_1); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 214, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_1); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 219, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "opscli/skills/discovery/detector.py":213
+    /* "opscli/skills/discovery/detector.py":218
  * 
  *         # OpenClaw~/.openclaw/   `which openclaw`
  *         if (home / ".openclaw").exists() or shutil.which("openclaw") is not None:             # <<<<<<<<<<<<<<
@@ -6805,14 +6902,14 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
 */
   }
 
-  /* "opscli/skills/discovery/detector.py":217
+  /* "opscli/skills/discovery/detector.py":222
  * 
  *         # Codex CLI~/.codex/   `which codex`
  *         if (home / ".codex").exists() or shutil.which("codex") is not None:             # <<<<<<<<<<<<<<
  *             targets.append(("codex", home / ".codex" / "skills"))
  * 
 */
-  __pyx_t_2 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_codex); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 217, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_codex); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 222, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_4 = __pyx_t_2;
   __Pyx_INCREF(__pyx_t_4);
@@ -6822,10 +6919,10 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_exists, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 217, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 222, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 217, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 222, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (!__pyx_t_7) {
   } else {
@@ -6833,9 +6930,9 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     goto __pyx_L10_bool_binop_done;
   }
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_shutil); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 217, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_shutil); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 222, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_which); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 217, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_which); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 222, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_5 = 1;
@@ -6855,7 +6952,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 217, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 222, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_t_7 = (__pyx_t_1 != Py_None);
@@ -6864,30 +6961,30 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
   __pyx_L10_bool_binop_done:;
   if (__pyx_t_6) {
 
-    /* "opscli/skills/discovery/detector.py":218
+    /* "opscli/skills/discovery/detector.py":223
  *         # Codex CLI~/.codex/   `which codex`
  *         if (home / ".codex").exists() or shutil.which("codex") is not None:
  *             targets.append(("codex", home / ".codex" / "skills"))             # <<<<<<<<<<<<<<
  * 
  *         # OpenCode~/.config/opencode/ `which opencode`
 */
-    __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_codex); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 218, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_codex); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 223, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 218, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 223, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 218, __pyx_L1_error)
+    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 223, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_codex_2);
     __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_codex_2);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u_codex_2) != (0)) __PYX_ERR(0, 218, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u_codex_2) != (0)) __PYX_ERR(0, 223, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_3);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 218, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 223, __pyx_L1_error);
     __pyx_t_3 = 0;
-    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_1); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 218, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_1); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 223, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "opscli/skills/discovery/detector.py":217
+    /* "opscli/skills/discovery/detector.py":222
  * 
  *         # Codex CLI~/.codex/   `which codex`
  *         if (home / ".codex").exists() or shutil.which("codex") is not None:             # <<<<<<<<<<<<<<
@@ -6896,7 +6993,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
 */
   }
 
-  /* "opscli/skills/discovery/detector.py":221
+  /* "opscli/skills/discovery/detector.py":226
  * 
  *         # OpenCode~/.config/opencode/ `which opencode`
  *         opencode_config = self._opencode_config_dir()             # <<<<<<<<<<<<<<
@@ -6910,13 +7007,13 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_opencode_config_dir, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 221, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 226, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_opencode_config = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/skills/discovery/detector.py":222
+  /* "opscli/skills/discovery/detector.py":227
  *         # OpenCode~/.config/opencode/ `which opencode`
  *         opencode_config = self._opencode_config_dir()
  *         if opencode_config.exists() or shutil.which("opencode") is not None:             # <<<<<<<<<<<<<<
@@ -6930,10 +7027,10 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_exists, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 222, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 227, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 222, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 227, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (!__pyx_t_7) {
   } else {
@@ -6941,9 +7038,9 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     goto __pyx_L13_bool_binop_done;
   }
   __pyx_t_3 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_shutil); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 222, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_shutil); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 227, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_which); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 222, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_which); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 227, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_5 = 1;
@@ -6963,7 +7060,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 222, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 227, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_t_7 = (__pyx_t_1 != Py_None);
@@ -6972,7 +7069,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
   __pyx_L13_bool_binop_done:;
   if (__pyx_t_6) {
 
-    /* "opscli/skills/discovery/detector.py":223
+    /* "opscli/skills/discovery/detector.py":228
  *         opencode_config = self._opencode_config_dir()
  *         if opencode_config.exists() or shutil.which("opencode") is not None:
  *             targets.append(("opencode", self._opencode_skills_dir()))             # <<<<<<<<<<<<<<
@@ -6986,21 +7083,21 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
       PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_opencode_skills_dir, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 223, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 228, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
-    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 223, __pyx_L1_error)
+    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 228, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_opencode);
     __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_opencode);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_mstate_global->__pyx_n_u_opencode) != (0)) __PYX_ERR(0, 223, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_mstate_global->__pyx_n_u_opencode) != (0)) __PYX_ERR(0, 228, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_1);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_1) != (0)) __PYX_ERR(0, 223, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_1) != (0)) __PYX_ERR(0, 228, __pyx_L1_error);
     __pyx_t_1 = 0;
-    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_4); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 223, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_4); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 228, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "opscli/skills/discovery/detector.py":222
+    /* "opscli/skills/discovery/detector.py":227
  *         # OpenCode~/.config/opencode/ `which opencode`
  *         opencode_config = self._opencode_config_dir()
  *         if opencode_config.exists() or shutil.which("opencode") is not None:             # <<<<<<<<<<<<<<
@@ -7009,14 +7106,14 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
 */
   }
 
-  /* "opscli/skills/discovery/detector.py":226
+  /* "opscli/skills/discovery/detector.py":231
  * 
  *         # WorkBuddy~/.workbuddy/   `which workbuddy`
  *         if (home / ".workbuddy").exists() or shutil.which("workbuddy") is not None:             # <<<<<<<<<<<<<<
  *             targets.append(("workbuddy", home / ".workbuddy" / "skills"))
  * 
 */
-  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_workbuddy); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 226, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_workbuddy); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 231, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_1 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_1);
@@ -7026,10 +7123,10 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_exists, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 226, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 231, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
-  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 226, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 231, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   if (!__pyx_t_7) {
   } else {
@@ -7037,9 +7134,9 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     goto __pyx_L16_bool_binop_done;
   }
   __pyx_t_3 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_shutil); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 226, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_shutil); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 231, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_which); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 226, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_which); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 231, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_5 = 1;
@@ -7059,7 +7156,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_2, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 226, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 231, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
   __pyx_t_7 = (__pyx_t_4 != Py_None);
@@ -7068,30 +7165,30 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
   __pyx_L16_bool_binop_done:;
   if (__pyx_t_6) {
 
-    /* "opscli/skills/discovery/detector.py":227
+    /* "opscli/skills/discovery/detector.py":232
  *         # WorkBuddy~/.workbuddy/   `which workbuddy`
  *         if (home / ".workbuddy").exists() or shutil.which("workbuddy") is not None:
  *             targets.append(("workbuddy", home / ".workbuddy" / "skills"))             # <<<<<<<<<<<<<<
  * 
  *         # Trae Solo~/.trae-cn/   `which trae` macOS/Linux/Windows  .trae-cn
 */
-    __pyx_t_4 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_workbuddy); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 227, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_workbuddy); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 232, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_2 = __Pyx_PyNumber_Divide(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 227, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyNumber_Divide(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 232, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 227, __pyx_L1_error)
+    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 232, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_workbuddy_2);
     __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_workbuddy_2);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_mstate_global->__pyx_n_u_workbuddy_2) != (0)) __PYX_ERR(0, 227, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_mstate_global->__pyx_n_u_workbuddy_2) != (0)) __PYX_ERR(0, 232, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_2);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_2) != (0)) __PYX_ERR(0, 227, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_2) != (0)) __PYX_ERR(0, 232, __pyx_L1_error);
     __pyx_t_2 = 0;
-    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_4); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 227, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_4); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 232, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "opscli/skills/discovery/detector.py":226
+    /* "opscli/skills/discovery/detector.py":231
  * 
  *         # WorkBuddy~/.workbuddy/   `which workbuddy`
  *         if (home / ".workbuddy").exists() or shutil.which("workbuddy") is not None:             # <<<<<<<<<<<<<<
@@ -7100,14 +7197,14 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
 */
   }
 
-  /* "opscli/skills/discovery/detector.py":230
+  /* "opscli/skills/discovery/detector.py":235
  * 
  *         # Trae Solo~/.trae-cn/   `which trae` macOS/Linux/Windows  .trae-cn
  *         if (home / ".trae-cn").exists() or shutil.which("trae") is not None:             # <<<<<<<<<<<<<<
  *             targets.append(("trae-cn", home / ".trae-cn" / "skills"))
  * 
 */
-  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_trae_cn); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_trae_cn); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 235, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
@@ -7117,10 +7214,10 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_exists, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 230, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 235, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
-  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 235, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   if (!__pyx_t_7) {
   } else {
@@ -7128,9 +7225,9 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     goto __pyx_L19_bool_binop_done;
   }
   __pyx_t_3 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_shutil); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_shutil); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 235, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_which); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 230, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_which); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 235, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_5 = 1;
@@ -7150,7 +7247,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_1, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 230, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 235, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
   __pyx_t_7 = (__pyx_t_4 != Py_None);
@@ -7159,30 +7256,30 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
   __pyx_L19_bool_binop_done:;
   if (__pyx_t_6) {
 
-    /* "opscli/skills/discovery/detector.py":231
+    /* "opscli/skills/discovery/detector.py":236
  *         # Trae Solo~/.trae-cn/   `which trae` macOS/Linux/Windows  .trae-cn
  *         if (home / ".trae-cn").exists() or shutil.which("trae") is not None:
  *             targets.append(("trae-cn", home / ".trae-cn" / "skills"))             # <<<<<<<<<<<<<<
  * 
- *         return self._dedupe_targets(targets)
+ *         # Agents~/.agents/   `which agents`
 */
-    __pyx_t_4 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_trae_cn); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 231, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_trae_cn); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 236, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 231, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 236, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 231, __pyx_L1_error)
+    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 236, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_trae_cn_2);
     __Pyx_GIVEREF(__pyx_mstate_global->__pyx_kp_u_trae_cn_2);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_mstate_global->__pyx_kp_u_trae_cn_2) != (0)) __PYX_ERR(0, 231, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_mstate_global->__pyx_kp_u_trae_cn_2) != (0)) __PYX_ERR(0, 236, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_1);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_1) != (0)) __PYX_ERR(0, 231, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_1) != (0)) __PYX_ERR(0, 236, __pyx_L1_error);
     __pyx_t_1 = 0;
-    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_4); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 231, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_4); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 236, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "opscli/skills/discovery/detector.py":230
+    /* "opscli/skills/discovery/detector.py":235
  * 
  *         # Trae Solo~/.trae-cn/   `which trae` macOS/Linux/Windows  .trae-cn
  *         if (home / ".trae-cn").exists() or shutil.which("trae") is not None:             # <<<<<<<<<<<<<<
@@ -7191,30 +7288,121 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
 */
   }
 
-  /* "opscli/skills/discovery/detector.py":233
- *             targets.append(("trae-cn", home / ".trae-cn" / "skills"))
+  /* "opscli/skills/discovery/detector.py":239
+ * 
+ *         # Agents~/.agents/   `which agents`
+ *         if (home / ".agents").exists() or shutil.which("agents") is not None:             # <<<<<<<<<<<<<<
+ *             targets.append(("agents", home / ".agents" / "skills"))
+ * 
+*/
+  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_agents); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 239, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_1 = __pyx_t_3;
+  __Pyx_INCREF(__pyx_t_1);
+  __pyx_t_5 = 0;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_1, NULL};
+    __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_exists, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 239, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+  }
+  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 239, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (!__pyx_t_7) {
+  } else {
+    __pyx_t_6 = __pyx_t_7;
+    goto __pyx_L22_bool_binop_done;
+  }
+  __pyx_t_3 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_shutil); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 239, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_which); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 239, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_5 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_2))) {
+    __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_2);
+    assert(__pyx_t_3);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_2);
+    __Pyx_INCREF(__pyx_t_3);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_2, __pyx__function);
+    __pyx_t_5 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_mstate_global->__pyx_n_u_agents_2};
+    __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_2, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 239, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+  }
+  __pyx_t_7 = (__pyx_t_4 != Py_None);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_6 = __pyx_t_7;
+  __pyx_L22_bool_binop_done:;
+  if (__pyx_t_6) {
+
+    /* "opscli/skills/discovery/detector.py":240
+ *         # Agents~/.agents/   `which agents`
+ *         if (home / ".agents").exists() or shutil.which("agents") is not None:
+ *             targets.append(("agents", home / ".agents" / "skills"))             # <<<<<<<<<<<<<<
+ * 
+ *         return self._dedupe_targets(targets)
+*/
+    __pyx_t_4 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_agents); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 240, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __pyx_t_2 = __Pyx_PyNumber_Divide(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 240, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 240, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_agents_2);
+    __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_agents_2);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_mstate_global->__pyx_n_u_agents_2) != (0)) __PYX_ERR(0, 240, __pyx_L1_error);
+    __Pyx_GIVEREF(__pyx_t_2);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_2) != (0)) __PYX_ERR(0, 240, __pyx_L1_error);
+    __pyx_t_2 = 0;
+    __pyx_t_8 = __Pyx_PyList_Append(__pyx_v_targets, __pyx_t_4); if (unlikely(__pyx_t_8 == ((int)-1))) __PYX_ERR(0, 240, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+    /* "opscli/skills/discovery/detector.py":239
+ * 
+ *         # Agents~/.agents/   `which agents`
+ *         if (home / ".agents").exists() or shutil.which("agents") is not None:             # <<<<<<<<<<<<<<
+ *             targets.append(("agents", home / ".agents" / "skills"))
+ * 
+*/
+  }
+
+  /* "opscli/skills/discovery/detector.py":242
+ *             targets.append(("agents", home / ".agents" / "skills"))
  * 
  *         return self._dedupe_targets(targets)             # <<<<<<<<<<<<<<
  * 
  *     def detect_all_install_targets(self) -> list[tuple[str, Path]]:
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_v_self;
-  __Pyx_INCREF(__pyx_t_1);
+  __pyx_t_2 = __pyx_v_self;
+  __Pyx_INCREF(__pyx_t_2);
   __pyx_t_5 = 0;
   {
-    PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_v_targets};
+    PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_targets};
     __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_dedupe_targets, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 233, __pyx_L1_error)
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 242, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
-  if (!(likely(PyList_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_4))) __PYX_ERR(0, 233, __pyx_L1_error)
+  if (!(likely(PyList_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_4))) __PYX_ERR(0, 242, __pyx_L1_error)
   __pyx_r = ((PyObject*)__pyx_t_4);
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "opscli/skills/discovery/detector.py":191
+  /* "opscli/skills/discovery/detector.py":196
  *         return self._dedupe_targets(targets)
  * 
  *     def detect_global_install_targets(self) -> list[tuple[str, Path]]:             # <<<<<<<<<<<<<<
@@ -7239,7 +7427,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
   return __pyx_r;
 }
 
-/* "opscli/skills/discovery/detector.py":235
+/* "opscli/skills/discovery/detector.py":244
  *         return self._dedupe_targets(targets)
  * 
  *     def detect_all_install_targets(self) -> list[tuple[str, Path]]:             # <<<<<<<<<<<<<<
@@ -7287,32 +7475,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 235, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 244, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 235, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 244, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "detect_all_install_targets", 0) < (0)) __PYX_ERR(0, 235, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "detect_all_install_targets", 0) < (0)) __PYX_ERR(0, 244, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("detect_all_install_targets", 1, 1, 1, i); __PYX_ERR(0, 235, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("detect_all_install_targets", 1, 1, 1, i); __PYX_ERR(0, 244, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 235, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 244, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("detect_all_install_targets", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 235, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("detect_all_install_targets", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 244, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -7347,12 +7535,13 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
   PyObject *__pyx_t_8 = NULL;
   PyObject *__pyx_t_9 = NULL;
   PyObject *__pyx_t_10 = NULL;
+  PyObject *__pyx_t_11 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("detect_all_install_targets", 0);
 
-  /* "opscli/skills/discovery/detector.py":241
+  /* "opscli/skills/discovery/detector.py":250
  * 
  *         """
  *         home = Path.home()             # <<<<<<<<<<<<<<
@@ -7360,9 +7549,9 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
  *             [
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_Path); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 241, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_Path); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 250, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_home); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 241, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_home); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 250, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_5 = 1;
@@ -7382,13 +7571,13 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 241, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 250, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_home = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/skills/discovery/detector.py":242
+  /* "opscli/skills/discovery/detector.py":251
  *         """
  *         home = Path.home()
  *         return self._dedupe_targets(             # <<<<<<<<<<<<<<
@@ -7399,70 +7588,70 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
   __pyx_t_4 = __pyx_v_self;
   __Pyx_INCREF(__pyx_t_4);
 
-  /* "opscli/skills/discovery/detector.py":244
+  /* "opscli/skills/discovery/detector.py":253
  *         return self._dedupe_targets(
  *             [
  *                 ("claude",     home / ".claude" / "skills"),             # <<<<<<<<<<<<<<
  *                 ("openclaw",   home / ".openclaw" / "skills"),
  *                 ("codex",      home / ".codex" / "skills"),
 */
-  __pyx_t_2 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_claude); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 244, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_claude); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 253, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 244, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 253, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 244, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 253, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_claude_2);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_claude_2);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_mstate_global->__pyx_n_u_claude_2) != (0)) __PYX_ERR(0, 244, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_mstate_global->__pyx_n_u_claude_2) != (0)) __PYX_ERR(0, 253, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 244, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 253, __pyx_L1_error);
   __pyx_t_3 = 0;
 
-  /* "opscli/skills/discovery/detector.py":245
+  /* "opscli/skills/discovery/detector.py":254
  *             [
  *                 ("claude",     home / ".claude" / "skills"),
  *                 ("openclaw",   home / ".openclaw" / "skills"),             # <<<<<<<<<<<<<<
  *                 ("codex",      home / ".codex" / "skills"),
  *                 ("opencode",   self._opencode_skills_dir()),
 */
-  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_openclaw); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 245, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_openclaw); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 254, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 245, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 254, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 245, __pyx_L1_error)
+  __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 254, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_openclaw_2);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_openclaw_2);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_mstate_global->__pyx_n_u_openclaw_2) != (0)) __PYX_ERR(0, 245, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_mstate_global->__pyx_n_u_openclaw_2) != (0)) __PYX_ERR(0, 254, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_6);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_t_6) != (0)) __PYX_ERR(0, 245, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_t_6) != (0)) __PYX_ERR(0, 254, __pyx_L1_error);
   __pyx_t_6 = 0;
 
-  /* "opscli/skills/discovery/detector.py":246
+  /* "opscli/skills/discovery/detector.py":255
  *                 ("claude",     home / ".claude" / "skills"),
  *                 ("openclaw",   home / ".openclaw" / "skills"),
  *                 ("codex",      home / ".codex" / "skills"),             # <<<<<<<<<<<<<<
  *                 ("opencode",   self._opencode_skills_dir()),
  *                 ("workbuddy",  home / ".workbuddy" / "skills"),
 */
-  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_codex); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 246, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_codex); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 255, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_7 = __Pyx_PyNumber_Divide(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 246, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyNumber_Divide(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 255, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 246, __pyx_L1_error)
+  __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 255, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_codex_2);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_codex_2);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_mstate_global->__pyx_n_u_codex_2) != (0)) __PYX_ERR(0, 246, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_mstate_global->__pyx_n_u_codex_2) != (0)) __PYX_ERR(0, 255, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_7);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_t_7) != (0)) __PYX_ERR(0, 246, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_t_7) != (0)) __PYX_ERR(0, 255, __pyx_L1_error);
   __pyx_t_7 = 0;
 
-  /* "opscli/skills/discovery/detector.py":247
+  /* "opscli/skills/discovery/detector.py":256
  *                 ("openclaw",   home / ".openclaw" / "skills"),
  *                 ("codex",      home / ".codex" / "skills"),
  *                 ("opencode",   self._opencode_skills_dir()),             # <<<<<<<<<<<<<<
@@ -7476,110 +7665,134 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     PyObject *__pyx_callargs[2] = {__pyx_t_8, NULL};
     __pyx_t_7 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_opencode_skills_dir, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 247, __pyx_L1_error)
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 256, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
   }
-  __pyx_t_8 = PyTuple_New(2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 247, __pyx_L1_error)
+  __pyx_t_8 = PyTuple_New(2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 256, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_opencode);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_opencode);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_mstate_global->__pyx_n_u_opencode) != (0)) __PYX_ERR(0, 247, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_mstate_global->__pyx_n_u_opencode) != (0)) __PYX_ERR(0, 256, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_7);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 1, __pyx_t_7) != (0)) __PYX_ERR(0, 247, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 1, __pyx_t_7) != (0)) __PYX_ERR(0, 256, __pyx_L1_error);
   __pyx_t_7 = 0;
 
-  /* "opscli/skills/discovery/detector.py":248
+  /* "opscli/skills/discovery/detector.py":257
  *                 ("codex",      home / ".codex" / "skills"),
  *                 ("opencode",   self._opencode_skills_dir()),
  *                 ("workbuddy",  home / ".workbuddy" / "skills"),             # <<<<<<<<<<<<<<
  *                 ("trae-cn",    home / ".trae-cn" / "skills"),
- *             ]
+ *                 ("agents",     home / ".agents" / "skills"),
 */
-  __pyx_t_7 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_workbuddy); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 248, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_workbuddy); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 257, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_9 = __Pyx_PyNumber_Divide(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 248, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyNumber_Divide(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 257, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  __pyx_t_7 = PyTuple_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 248, __pyx_L1_error)
+  __pyx_t_7 = PyTuple_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 257, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_workbuddy_2);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_workbuddy_2);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_mstate_global->__pyx_n_u_workbuddy_2) != (0)) __PYX_ERR(0, 248, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_mstate_global->__pyx_n_u_workbuddy_2) != (0)) __PYX_ERR(0, 257, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_9);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_t_9) != (0)) __PYX_ERR(0, 248, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_t_9) != (0)) __PYX_ERR(0, 257, __pyx_L1_error);
   __pyx_t_9 = 0;
 
-  /* "opscli/skills/discovery/detector.py":249
+  /* "opscli/skills/discovery/detector.py":258
  *                 ("opencode",   self._opencode_skills_dir()),
  *                 ("workbuddy",  home / ".workbuddy" / "skills"),
  *                 ("trae-cn",    home / ".trae-cn" / "skills"),             # <<<<<<<<<<<<<<
+ *                 ("agents",     home / ".agents" / "skills"),
  *             ]
- *         )
 */
-  __pyx_t_9 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_trae_cn); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 249, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_trae_cn); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 258, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
-  __pyx_t_10 = __Pyx_PyNumber_Divide(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 249, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyNumber_Divide(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 258, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-  __pyx_t_9 = PyTuple_New(2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 249, __pyx_L1_error)
+  __pyx_t_9 = PyTuple_New(2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 258, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_trae_cn_2);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_kp_u_trae_cn_2);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 0, __pyx_mstate_global->__pyx_kp_u_trae_cn_2) != (0)) __PYX_ERR(0, 249, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 0, __pyx_mstate_global->__pyx_kp_u_trae_cn_2) != (0)) __PYX_ERR(0, 258, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_10);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 1, __pyx_t_10) != (0)) __PYX_ERR(0, 249, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 1, __pyx_t_10) != (0)) __PYX_ERR(0, 258, __pyx_L1_error);
   __pyx_t_10 = 0;
 
-  /* "opscli/skills/discovery/detector.py":243
+  /* "opscli/skills/discovery/detector.py":259
+ *                 ("workbuddy",  home / ".workbuddy" / "skills"),
+ *                 ("trae-cn",    home / ".trae-cn" / "skills"),
+ *                 ("agents",     home / ".agents" / "skills"),             # <<<<<<<<<<<<<<
+ *             ]
+ *         )
+*/
+  __pyx_t_10 = __Pyx_PyNumber_Divide(__pyx_v_home, __pyx_mstate_global->__pyx_kp_u_agents); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 259, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_10);
+  __pyx_t_11 = __Pyx_PyNumber_Divide(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 259, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_11);
+  __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+  __pyx_t_10 = PyTuple_New(2); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 259, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_10);
+  __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_agents_2);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_agents_2);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 0, __pyx_mstate_global->__pyx_n_u_agents_2) != (0)) __PYX_ERR(0, 259, __pyx_L1_error);
+  __Pyx_GIVEREF(__pyx_t_11);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_10, 1, __pyx_t_11) != (0)) __PYX_ERR(0, 259, __pyx_L1_error);
+  __pyx_t_11 = 0;
+
+  /* "opscli/skills/discovery/detector.py":252
  *         home = Path.home()
  *         return self._dedupe_targets(
  *             [             # <<<<<<<<<<<<<<
  *                 ("claude",     home / ".claude" / "skills"),
  *                 ("openclaw",   home / ".openclaw" / "skills"),
 */
-  __pyx_t_10 = PyList_New(6); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 243, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_10);
+  __pyx_t_11 = PyList_New(7); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 252, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_11);
   __Pyx_GIVEREF(__pyx_t_2);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_10, 0, __pyx_t_2) != (0)) __PYX_ERR(0, 243, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_11, 0, __pyx_t_2) != (0)) __PYX_ERR(0, 252, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_10, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 243, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_11, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 252, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_6);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_10, 2, __pyx_t_6) != (0)) __PYX_ERR(0, 243, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_11, 2, __pyx_t_6) != (0)) __PYX_ERR(0, 252, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_8);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_10, 3, __pyx_t_8) != (0)) __PYX_ERR(0, 243, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_11, 3, __pyx_t_8) != (0)) __PYX_ERR(0, 252, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_7);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_10, 4, __pyx_t_7) != (0)) __PYX_ERR(0, 243, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_11, 4, __pyx_t_7) != (0)) __PYX_ERR(0, 252, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_9);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_10, 5, __pyx_t_9) != (0)) __PYX_ERR(0, 243, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_11, 5, __pyx_t_9) != (0)) __PYX_ERR(0, 252, __pyx_L1_error);
+  __Pyx_GIVEREF(__pyx_t_10);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_11, 6, __pyx_t_10) != (0)) __PYX_ERR(0, 252, __pyx_L1_error);
   __pyx_t_2 = 0;
   __pyx_t_3 = 0;
   __pyx_t_6 = 0;
   __pyx_t_8 = 0;
   __pyx_t_7 = 0;
   __pyx_t_9 = 0;
+  __pyx_t_10 = 0;
   __pyx_t_5 = 0;
   {
-    PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_t_10};
+    PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_t_11};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_dedupe_targets, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 242, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 251, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
 
-  /* "opscli/skills/discovery/detector.py":242
+  /* "opscli/skills/discovery/detector.py":251
  *         """
  *         home = Path.home()
  *         return self._dedupe_targets(             # <<<<<<<<<<<<<<
  *             [
  *                 ("claude",     home / ".claude" / "skills"),
 */
-  if (!(likely(PyList_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_1))) __PYX_ERR(0, 242, __pyx_L1_error)
+  if (!(likely(PyList_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_1))) __PYX_ERR(0, 251, __pyx_L1_error)
   __pyx_r = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "opscli/skills/discovery/detector.py":235
+  /* "opscli/skills/discovery/detector.py":244
  *         return self._dedupe_targets(targets)
  * 
  *     def detect_all_install_targets(self) -> list[tuple[str, Path]]:             # <<<<<<<<<<<<<<
@@ -7598,6 +7811,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
   __Pyx_XDECREF(__pyx_t_8);
   __Pyx_XDECREF(__pyx_t_9);
   __Pyx_XDECREF(__pyx_t_10);
+  __Pyx_XDECREF(__pyx_t_11);
   __Pyx_AddTraceback("opscli.skills.discovery.detector.SkillDetector.detect_all_install_targets", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -7607,7 +7821,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
   return __pyx_r;
 }
 
-/* "opscli/skills/discovery/detector.py":253
+/* "opscli/skills/discovery/detector.py":263
  *         )
  * 
  *     def _opencode_config_dir(self) -> Path:             # <<<<<<<<<<<<<<
@@ -7655,32 +7869,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 253, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 263, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 253, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 263, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_opencode_config_dir", 0) < (0)) __PYX_ERR(0, 253, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_opencode_config_dir", 0) < (0)) __PYX_ERR(0, 263, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_opencode_config_dir", 1, 1, 1, i); __PYX_ERR(0, 253, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_opencode_config_dir", 1, 1, 1, i); __PYX_ERR(0, 263, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 253, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 263, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_opencode_config_dir", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 253, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_opencode_config_dir", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 263, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -7714,7 +7928,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_opencode_config_dir", 0);
 
-  /* "opscli/skills/discovery/detector.py":255
+  /* "opscli/skills/discovery/detector.py":265
  *     def _opencode_config_dir(self) -> Path:
  *         """ OpenCode  ~/.config/opencode/"""
  *         return Path.home() / ".config" / "opencode"             # <<<<<<<<<<<<<<
@@ -7723,9 +7937,9 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_Path); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 255, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_Path); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 265, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_home); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 255, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_home); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 265, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_5 = 1;
@@ -7745,20 +7959,20 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 255, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 265, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_4 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_config); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 255, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_config); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 265, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_opencode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 255, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_opencode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 265, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "opscli/skills/discovery/detector.py":253
+  /* "opscli/skills/discovery/detector.py":263
  *         )
  * 
  *     def _opencode_config_dir(self) -> Path:             # <<<<<<<<<<<<<<
@@ -7780,7 +7994,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
   return __pyx_r;
 }
 
-/* "opscli/skills/discovery/detector.py":257
+/* "opscli/skills/discovery/detector.py":267
  *         return Path.home() / ".config" / "opencode"
  * 
  *     def _opencode_skills_dir(self) -> Path:             # <<<<<<<<<<<<<<
@@ -7828,32 +8042,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 257, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 267, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 257, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 267, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_opencode_skills_dir", 0) < (0)) __PYX_ERR(0, 257, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_opencode_skills_dir", 0) < (0)) __PYX_ERR(0, 267, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_opencode_skills_dir", 1, 1, 1, i); __PYX_ERR(0, 257, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_opencode_skills_dir", 1, 1, 1, i); __PYX_ERR(0, 267, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 257, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 267, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_opencode_skills_dir", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 257, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_opencode_skills_dir", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 267, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -7885,7 +8099,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_opencode_skills_dir", 0);
 
-  /* "opscli/skills/discovery/detector.py":259
+  /* "opscli/skills/discovery/detector.py":269
  *     def _opencode_skills_dir(self) -> Path:
  *         """ OpenCode  Skills """
  *         return self._opencode_config_dir() / "skills"             # <<<<<<<<<<<<<<
@@ -7900,17 +8114,17 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_opencode_config_dir, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 259, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 269, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  __pyx_t_2 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 259, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_skills); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 269, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "opscli/skills/discovery/detector.py":257
+  /* "opscli/skills/discovery/detector.py":267
  *         return Path.home() / ".config" / "opencode"
  * 
  *     def _opencode_skills_dir(self) -> Path:             # <<<<<<<<<<<<<<
@@ -7930,7 +8144,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
   return __pyx_r;
 }
 
-/* "opscli/skills/discovery/detector.py":261
+/* "opscli/skills/discovery/detector.py":271
  *         return self._opencode_config_dir() / "skills"
  * 
  *     def _dedupe_targets(self, targets: list[tuple[str, Path]]) -> list[tuple[str, Path]]:             # <<<<<<<<<<<<<<
@@ -7978,39 +8192,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_targets,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 261, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 271, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 261, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 271, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 261, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 271, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_dedupe_targets", 0) < (0)) __PYX_ERR(0, 261, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_dedupe_targets", 0) < (0)) __PYX_ERR(0, 271, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_dedupe_targets", 1, 2, 2, i); __PYX_ERR(0, 261, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_dedupe_targets", 1, 2, 2, i); __PYX_ERR(0, 271, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 261, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 271, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 261, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 271, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_targets = ((PyObject*)values[1]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_dedupe_targets", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 261, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_dedupe_targets", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 271, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8021,7 +8235,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_targets), (&PyList_Type), 0, "targets", 2))) __PYX_ERR(0, 261, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_targets), (&PyList_Type), 0, "targets", 2))) __PYX_ERR(0, 271, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_18_dedupe_targets(__pyx_self, __pyx_v_self, __pyx_v_targets);
 
   /* function exit code */
@@ -8063,31 +8277,31 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_dedupe_targets", 0);
 
-  /* "opscli/skills/discovery/detector.py":262
+  /* "opscli/skills/discovery/detector.py":272
  * 
  *     def _dedupe_targets(self, targets: list[tuple[str, Path]]) -> list[tuple[str, Path]]:
  *         seen: set[tuple[str, str]] = set()             # <<<<<<<<<<<<<<
  *         result: list[tuple[str, Path]] = []
  *         for runtime, path in targets:
 */
-  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 262, __pyx_L1_error)
+  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 272, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_seen = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/skills/discovery/detector.py":263
+  /* "opscli/skills/discovery/detector.py":273
  *     def _dedupe_targets(self, targets: list[tuple[str, Path]]) -> list[tuple[str, Path]]:
  *         seen: set[tuple[str, str]] = set()
  *         result: list[tuple[str, Path]] = []             # <<<<<<<<<<<<<<
  *         for runtime, path in targets:
  *             key = (runtime, str(path))
 */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 263, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 273, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_result = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/skills/discovery/detector.py":264
+  /* "opscli/skills/discovery/detector.py":274
  *         seen: set[tuple[str, str]] = set()
  *         result: list[tuple[str, Path]] = []
  *         for runtime, path in targets:             # <<<<<<<<<<<<<<
@@ -8100,13 +8314,13 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     {
       Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
       #if !CYTHON_ASSUME_SAFE_SIZE
-      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 264, __pyx_L1_error)
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 274, __pyx_L1_error)
       #endif
       if (__pyx_t_2 >= __pyx_temp) break;
     }
     __pyx_t_3 = __Pyx_PyList_GetItemRefFast(__pyx_t_1, __pyx_t_2, __Pyx_ReferenceSharing_OwnStrongReference);
     ++__pyx_t_2;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 264, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 274, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     if ((likely(PyTuple_CheckExact(__pyx_t_3))) || (PyList_CheckExact(__pyx_t_3))) {
       PyObject* sequence = __pyx_t_3;
@@ -8114,7 +8328,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
       if (unlikely(size != 2)) {
         if (size > 2) __Pyx_RaiseTooManyValuesError(2);
         else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-        __PYX_ERR(0, 264, __pyx_L1_error)
+        __PYX_ERR(0, 274, __pyx_L1_error)
       }
       #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
       if (likely(PyTuple_CheckExact(sequence))) {
@@ -8124,22 +8338,22 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
         __Pyx_INCREF(__pyx_t_5);
       } else {
         __pyx_t_4 = __Pyx_PyList_GetItemRefFast(sequence, 0, __Pyx_ReferenceSharing_SharedReference);
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 264, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 274, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_4);
         __pyx_t_5 = __Pyx_PyList_GetItemRefFast(sequence, 1, __Pyx_ReferenceSharing_SharedReference);
-        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 264, __pyx_L1_error)
+        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 274, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_5);
       }
       #else
-      __pyx_t_4 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 264, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 274, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_5 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 264, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 274, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       #endif
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     } else {
       Py_ssize_t index = -1;
-      __pyx_t_6 = PyObject_GetIter(__pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 264, __pyx_L1_error)
+      __pyx_t_6 = PyObject_GetIter(__pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 274, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __pyx_t_7 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_6);
@@ -8147,7 +8361,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
       __Pyx_GOTREF(__pyx_t_4);
       index = 1; __pyx_t_5 = __pyx_t_7(__pyx_t_6); if (unlikely(!__pyx_t_5)) goto __pyx_L5_unpacking_failed;
       __Pyx_GOTREF(__pyx_t_5);
-      if (__Pyx_IternextUnpackEndCheck(__pyx_t_7(__pyx_t_6), 2) < (0)) __PYX_ERR(0, 264, __pyx_L1_error)
+      if (__Pyx_IternextUnpackEndCheck(__pyx_t_7(__pyx_t_6), 2) < (0)) __PYX_ERR(0, 274, __pyx_L1_error)
       __pyx_t_7 = NULL;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       goto __pyx_L6_unpacking_done;
@@ -8155,7 +8369,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __pyx_t_7 = NULL;
       if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-      __PYX_ERR(0, 264, __pyx_L1_error)
+      __PYX_ERR(0, 274, __pyx_L1_error)
       __pyx_L6_unpacking_done:;
     }
     __Pyx_XDECREF_SET(__pyx_v_runtime, __pyx_t_4);
@@ -8163,37 +8377,37 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
     __Pyx_XDECREF_SET(__pyx_v_path, __pyx_t_5);
     __pyx_t_5 = 0;
 
-    /* "opscli/skills/discovery/detector.py":265
+    /* "opscli/skills/discovery/detector.py":275
  *         result: list[tuple[str, Path]] = []
  *         for runtime, path in targets:
  *             key = (runtime, str(path))             # <<<<<<<<<<<<<<
  *             if key in seen:
  *                 continue
 */
-    __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_v_path); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 265, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_v_path); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 275, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 265, __pyx_L1_error)
+    __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 275, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_INCREF(__pyx_v_runtime);
     __Pyx_GIVEREF(__pyx_v_runtime);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_v_runtime) != (0)) __PYX_ERR(0, 265, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_v_runtime) != (0)) __PYX_ERR(0, 275, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_3);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 265, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 275, __pyx_L1_error);
     __pyx_t_3 = 0;
     __Pyx_XDECREF_SET(__pyx_v_key, ((PyObject*)__pyx_t_5));
     __pyx_t_5 = 0;
 
-    /* "opscli/skills/discovery/detector.py":266
+    /* "opscli/skills/discovery/detector.py":276
  *         for runtime, path in targets:
  *             key = (runtime, str(path))
  *             if key in seen:             # <<<<<<<<<<<<<<
  *                 continue
  *             seen.add(key)
 */
-    __pyx_t_8 = (__Pyx_PySet_ContainsTF(__pyx_v_key, __pyx_v_seen, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 266, __pyx_L1_error)
+    __pyx_t_8 = (__Pyx_PySet_ContainsTF(__pyx_v_key, __pyx_v_seen, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 276, __pyx_L1_error)
     if (__pyx_t_8) {
 
-      /* "opscli/skills/discovery/detector.py":267
+      /* "opscli/skills/discovery/detector.py":277
  *             key = (runtime, str(path))
  *             if key in seen:
  *                 continue             # <<<<<<<<<<<<<<
@@ -8202,7 +8416,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
 */
       goto __pyx_L3_continue;
 
-      /* "opscli/skills/discovery/detector.py":266
+      /* "opscli/skills/discovery/detector.py":276
  *         for runtime, path in targets:
  *             key = (runtime, str(path))
  *             if key in seen:             # <<<<<<<<<<<<<<
@@ -8211,34 +8425,34 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
 */
     }
 
-    /* "opscli/skills/discovery/detector.py":268
+    /* "opscli/skills/discovery/detector.py":278
  *             if key in seen:
  *                 continue
  *             seen.add(key)             # <<<<<<<<<<<<<<
  *             result.append((runtime, path))
  *         return result
 */
-    __pyx_t_9 = PySet_Add(__pyx_v_seen, __pyx_v_key); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 268, __pyx_L1_error)
+    __pyx_t_9 = PySet_Add(__pyx_v_seen, __pyx_v_key); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 278, __pyx_L1_error)
 
-    /* "opscli/skills/discovery/detector.py":269
+    /* "opscli/skills/discovery/detector.py":279
  *                 continue
  *             seen.add(key)
  *             result.append((runtime, path))             # <<<<<<<<<<<<<<
  *         return result
  * 
 */
-    __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 269, __pyx_L1_error)
+    __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 279, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_INCREF(__pyx_v_runtime);
     __Pyx_GIVEREF(__pyx_v_runtime);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_v_runtime) != (0)) __PYX_ERR(0, 269, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_v_runtime) != (0)) __PYX_ERR(0, 279, __pyx_L1_error);
     __Pyx_INCREF(__pyx_v_path);
     __Pyx_GIVEREF(__pyx_v_path);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_v_path) != (0)) __PYX_ERR(0, 269, __pyx_L1_error);
-    __pyx_t_9 = __Pyx_PyList_Append(__pyx_v_result, __pyx_t_5); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 269, __pyx_L1_error)
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_v_path) != (0)) __PYX_ERR(0, 279, __pyx_L1_error);
+    __pyx_t_9 = __Pyx_PyList_Append(__pyx_v_result, __pyx_t_5); if (unlikely(__pyx_t_9 == ((int)-1))) __PYX_ERR(0, 279, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "opscli/skills/discovery/detector.py":264
+    /* "opscli/skills/discovery/detector.py":274
  *         seen: set[tuple[str, str]] = set()
  *         result: list[tuple[str, Path]] = []
  *         for runtime, path in targets:             # <<<<<<<<<<<<<<
@@ -8249,7 +8463,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "opscli/skills/discovery/detector.py":270
+  /* "opscli/skills/discovery/detector.py":280
  *             seen.add(key)
  *             result.append((runtime, path))
  *         return result             # <<<<<<<<<<<<<<
@@ -8261,7 +8475,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
   __pyx_r = __pyx_v_result;
   goto __pyx_L0;
 
-  /* "opscli/skills/discovery/detector.py":261
+  /* "opscli/skills/discovery/detector.py":271
  *         return self._opencode_config_dir() / "skills"
  * 
  *     def _dedupe_targets(self, targets: list[tuple[str, Path]]) -> list[tuple[str, Path]]:             # <<<<<<<<<<<<<<
@@ -8289,7 +8503,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_1
   return __pyx_r;
 }
 
-/* "opscli/skills/discovery/detector.py":272
+/* "opscli/skills/discovery/detector.py":282
  *         return result
  * 
  *     def _infer_runtime(self, skill_dir: Path) -> str:             # <<<<<<<<<<<<<<
@@ -8338,39 +8552,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_skill_dir,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 272, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 282, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 272, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 282, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 272, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 282, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_infer_runtime", 0) < (0)) __PYX_ERR(0, 272, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_infer_runtime", 0) < (0)) __PYX_ERR(0, 282, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_infer_runtime", 1, 2, 2, i); __PYX_ERR(0, 272, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_infer_runtime", 1, 2, 2, i); __PYX_ERR(0, 282, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 272, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 282, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 272, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 282, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_skill_dir = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_infer_runtime", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 272, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_infer_runtime", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 282, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -8409,7 +8623,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_infer_runtime", 0);
 
-  /* "opscli/skills/discovery/detector.py":277
+  /* "opscli/skills/discovery/detector.py":287
  *          claude
  *         """
  *         parts = {part.lower() for part in skill_dir.parts}             # <<<<<<<<<<<<<<
@@ -8417,18 +8631,18 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
  *             return "openclaw"
 */
   { /* enter inner scope */
-    __pyx_t_1 = PySet_New(NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 277, __pyx_L5_error)
+    __pyx_t_1 = PySet_New(NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 287, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_skill_dir, __pyx_mstate_global->__pyx_n_u_parts); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 277, __pyx_L5_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_skill_dir, __pyx_mstate_global->__pyx_n_u_parts); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 287, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_2);
     if (likely(PyList_CheckExact(__pyx_t_2)) || PyTuple_CheckExact(__pyx_t_2)) {
       __pyx_t_3 = __pyx_t_2; __Pyx_INCREF(__pyx_t_3);
       __pyx_t_4 = 0;
       __pyx_t_5 = NULL;
     } else {
-      __pyx_t_4 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 277, __pyx_L5_error)
+      __pyx_t_4 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 287, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_5 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 277, __pyx_L5_error)
+      __pyx_t_5 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 287, __pyx_L5_error)
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     for (;;) {
@@ -8437,7 +8651,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_3);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 277, __pyx_L5_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 287, __pyx_L5_error)
             #endif
             if (__pyx_t_4 >= __pyx_temp) break;
           }
@@ -8447,7 +8661,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
           {
             Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_3);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 277, __pyx_L5_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 287, __pyx_L5_error)
             #endif
             if (__pyx_t_4 >= __pyx_temp) break;
           }
@@ -8458,13 +8672,13 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
           #endif
           ++__pyx_t_4;
         }
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 277, __pyx_L5_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 287, __pyx_L5_error)
       } else {
         __pyx_t_2 = __pyx_t_5(__pyx_t_3);
         if (unlikely(!__pyx_t_2)) {
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
-            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 277, __pyx_L5_error)
+            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 287, __pyx_L5_error)
             PyErr_Clear();
           }
           break;
@@ -8480,10 +8694,10 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
         PyObject *__pyx_callargs[2] = {__pyx_t_6, NULL};
         __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_lower, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 277, __pyx_L5_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 287, __pyx_L5_error)
         __Pyx_GOTREF(__pyx_t_2);
       }
-      if (unlikely(PySet_Add(__pyx_t_1, (PyObject*)__pyx_t_2))) __PYX_ERR(0, 277, __pyx_L5_error)
+      if (unlikely(PySet_Add(__pyx_t_1, (PyObject*)__pyx_t_2))) __PYX_ERR(0, 287, __pyx_L5_error)
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     }
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -8497,17 +8711,17 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
   __pyx_v_parts = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/skills/discovery/detector.py":278
+  /* "opscli/skills/discovery/detector.py":288
  *         """
  *         parts = {part.lower() for part in skill_dir.parts}
  *         if ".openclaw" in parts:             # <<<<<<<<<<<<<<
  *             return "openclaw"
  *         if ".codex" in parts:
 */
-  __pyx_t_8 = (__Pyx_PySet_ContainsTF(__pyx_mstate_global->__pyx_kp_u_openclaw, __pyx_v_parts, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 278, __pyx_L1_error)
+  __pyx_t_8 = (__Pyx_PySet_ContainsTF(__pyx_mstate_global->__pyx_kp_u_openclaw, __pyx_v_parts, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 288, __pyx_L1_error)
   if (__pyx_t_8) {
 
-    /* "opscli/skills/discovery/detector.py":279
+    /* "opscli/skills/discovery/detector.py":289
  *         parts = {part.lower() for part in skill_dir.parts}
  *         if ".openclaw" in parts:
  *             return "openclaw"             # <<<<<<<<<<<<<<
@@ -8519,7 +8733,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
     __pyx_r = __pyx_mstate_global->__pyx_n_u_openclaw_2;
     goto __pyx_L0;
 
-    /* "opscli/skills/discovery/detector.py":278
+    /* "opscli/skills/discovery/detector.py":288
  *         """
  *         parts = {part.lower() for part in skill_dir.parts}
  *         if ".openclaw" in parts:             # <<<<<<<<<<<<<<
@@ -8528,17 +8742,17 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
 */
   }
 
-  /* "opscli/skills/discovery/detector.py":280
+  /* "opscli/skills/discovery/detector.py":290
  *         if ".openclaw" in parts:
  *             return "openclaw"
  *         if ".codex" in parts:             # <<<<<<<<<<<<<<
  *             return "codex"
  *         if "opencode" in parts:
 */
-  __pyx_t_8 = (__Pyx_PySet_ContainsTF(__pyx_mstate_global->__pyx_kp_u_codex, __pyx_v_parts, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 280, __pyx_L1_error)
+  __pyx_t_8 = (__Pyx_PySet_ContainsTF(__pyx_mstate_global->__pyx_kp_u_codex, __pyx_v_parts, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 290, __pyx_L1_error)
   if (__pyx_t_8) {
 
-    /* "opscli/skills/discovery/detector.py":281
+    /* "opscli/skills/discovery/detector.py":291
  *             return "openclaw"
  *         if ".codex" in parts:
  *             return "codex"             # <<<<<<<<<<<<<<
@@ -8550,7 +8764,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
     __pyx_r = __pyx_mstate_global->__pyx_n_u_codex_2;
     goto __pyx_L0;
 
-    /* "opscli/skills/discovery/detector.py":280
+    /* "opscli/skills/discovery/detector.py":290
  *         if ".openclaw" in parts:
  *             return "openclaw"
  *         if ".codex" in parts:             # <<<<<<<<<<<<<<
@@ -8559,17 +8773,17 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
 */
   }
 
-  /* "opscli/skills/discovery/detector.py":282
+  /* "opscli/skills/discovery/detector.py":292
  *         if ".codex" in parts:
  *             return "codex"
  *         if "opencode" in parts:             # <<<<<<<<<<<<<<
  *             return "opencode"
  *         if ".workbuddy" in parts:
 */
-  __pyx_t_8 = (__Pyx_PySet_ContainsTF(__pyx_mstate_global->__pyx_n_u_opencode, __pyx_v_parts, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 282, __pyx_L1_error)
+  __pyx_t_8 = (__Pyx_PySet_ContainsTF(__pyx_mstate_global->__pyx_n_u_opencode, __pyx_v_parts, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 292, __pyx_L1_error)
   if (__pyx_t_8) {
 
-    /* "opscli/skills/discovery/detector.py":283
+    /* "opscli/skills/discovery/detector.py":293
  *             return "codex"
  *         if "opencode" in parts:
  *             return "opencode"             # <<<<<<<<<<<<<<
@@ -8581,7 +8795,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
     __pyx_r = __pyx_mstate_global->__pyx_n_u_opencode;
     goto __pyx_L0;
 
-    /* "opscli/skills/discovery/detector.py":282
+    /* "opscli/skills/discovery/detector.py":292
  *         if ".codex" in parts:
  *             return "codex"
  *         if "opencode" in parts:             # <<<<<<<<<<<<<<
@@ -8590,17 +8804,17 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
 */
   }
 
-  /* "opscli/skills/discovery/detector.py":284
+  /* "opscli/skills/discovery/detector.py":294
  *         if "opencode" in parts:
  *             return "opencode"
  *         if ".workbuddy" in parts:             # <<<<<<<<<<<<<<
  *             return "workbuddy"
  *         if ".trae-cn" in parts:
 */
-  __pyx_t_8 = (__Pyx_PySet_ContainsTF(__pyx_mstate_global->__pyx_kp_u_workbuddy, __pyx_v_parts, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 284, __pyx_L1_error)
+  __pyx_t_8 = (__Pyx_PySet_ContainsTF(__pyx_mstate_global->__pyx_kp_u_workbuddy, __pyx_v_parts, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 294, __pyx_L1_error)
   if (__pyx_t_8) {
 
-    /* "opscli/skills/discovery/detector.py":285
+    /* "opscli/skills/discovery/detector.py":295
  *             return "opencode"
  *         if ".workbuddy" in parts:
  *             return "workbuddy"             # <<<<<<<<<<<<<<
@@ -8612,7 +8826,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
     __pyx_r = __pyx_mstate_global->__pyx_n_u_workbuddy_2;
     goto __pyx_L0;
 
-    /* "opscli/skills/discovery/detector.py":284
+    /* "opscli/skills/discovery/detector.py":294
  *         if "opencode" in parts:
  *             return "opencode"
  *         if ".workbuddy" in parts:             # <<<<<<<<<<<<<<
@@ -8621,39 +8835,70 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
 */
   }
 
-  /* "opscli/skills/discovery/detector.py":286
+  /* "opscli/skills/discovery/detector.py":296
  *         if ".workbuddy" in parts:
  *             return "workbuddy"
  *         if ".trae-cn" in parts:             # <<<<<<<<<<<<<<
  *             return "trae-cn"
- *         return "claude"
+ *         if ".agents" in parts:
 */
-  __pyx_t_8 = (__Pyx_PySet_ContainsTF(__pyx_mstate_global->__pyx_kp_u_trae_cn, __pyx_v_parts, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 286, __pyx_L1_error)
+  __pyx_t_8 = (__Pyx_PySet_ContainsTF(__pyx_mstate_global->__pyx_kp_u_trae_cn, __pyx_v_parts, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 296, __pyx_L1_error)
   if (__pyx_t_8) {
 
-    /* "opscli/skills/discovery/detector.py":287
+    /* "opscli/skills/discovery/detector.py":297
  *             return "workbuddy"
  *         if ".trae-cn" in parts:
  *             return "trae-cn"             # <<<<<<<<<<<<<<
- *         return "claude"
+ *         if ".agents" in parts:
+ *             return "agents"
 */
     __Pyx_XDECREF(__pyx_r);
     __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_trae_cn_2);
     __pyx_r = __pyx_mstate_global->__pyx_kp_u_trae_cn_2;
     goto __pyx_L0;
 
-    /* "opscli/skills/discovery/detector.py":286
+    /* "opscli/skills/discovery/detector.py":296
  *         if ".workbuddy" in parts:
  *             return "workbuddy"
  *         if ".trae-cn" in parts:             # <<<<<<<<<<<<<<
  *             return "trae-cn"
+ *         if ".agents" in parts:
+*/
+  }
+
+  /* "opscli/skills/discovery/detector.py":298
+ *         if ".trae-cn" in parts:
+ *             return "trae-cn"
+ *         if ".agents" in parts:             # <<<<<<<<<<<<<<
+ *             return "agents"
+ *         return "claude"
+*/
+  __pyx_t_8 = (__Pyx_PySet_ContainsTF(__pyx_mstate_global->__pyx_kp_u_agents, __pyx_v_parts, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 298, __pyx_L1_error)
+  if (__pyx_t_8) {
+
+    /* "opscli/skills/discovery/detector.py":299
+ *             return "trae-cn"
+ *         if ".agents" in parts:
+ *             return "agents"             # <<<<<<<<<<<<<<
+ *         return "claude"
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_agents_2);
+    __pyx_r = __pyx_mstate_global->__pyx_n_u_agents_2;
+    goto __pyx_L0;
+
+    /* "opscli/skills/discovery/detector.py":298
+ *         if ".trae-cn" in parts:
+ *             return "trae-cn"
+ *         if ".agents" in parts:             # <<<<<<<<<<<<<<
+ *             return "agents"
  *         return "claude"
 */
   }
 
-  /* "opscli/skills/discovery/detector.py":288
- *         if ".trae-cn" in parts:
- *             return "trae-cn"
+  /* "opscli/skills/discovery/detector.py":300
+ *         if ".agents" in parts:
+ *             return "agents"
  *         return "claude"             # <<<<<<<<<<<<<<
 */
   __Pyx_XDECREF(__pyx_r);
@@ -8661,7 +8906,7 @@ static PyObject *__pyx_pf_6opscli_6skills_9discovery_8detector_13SkillDetector_2
   __pyx_r = __pyx_mstate_global->__pyx_n_u_claude_2;
   goto __pyx_L0;
 
-  /* "opscli/skills/discovery/detector.py":272
+  /* "opscli/skills/discovery/detector.py":282
  *         return result
  * 
  *     def _infer_runtime(self, skill_dir: Path) -> str:             # <<<<<<<<<<<<<<
@@ -8903,15 +9148,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_RefNannySetupContext("__Pyx_modinit_type_init_code", 0);
   /*--- Type init code ---*/
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6opscli_6skills_9discovery_8detector___pyx_scope_struct__genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_6skills_9discovery_8detector___pyx_scope_struct__genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_6skills_9discovery_8detector___pyx_scope_struct__genexpr)) __PYX_ERR(0, 81, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_6skills_9discovery_8detector___pyx_scope_struct__genexpr_spec, __pyx_mstate->__pyx_ptype_6opscli_6skills_9discovery_8detector___pyx_scope_struct__genexpr) < (0)) __PYX_ERR(0, 81, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6opscli_6skills_9discovery_8detector___pyx_scope_struct__genexpr = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_6skills_9discovery_8detector___pyx_scope_struct__genexpr_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_6skills_9discovery_8detector___pyx_scope_struct__genexpr)) __PYX_ERR(0, 82, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_6skills_9discovery_8detector___pyx_scope_struct__genexpr_spec, __pyx_mstate->__pyx_ptype_6opscli_6skills_9discovery_8detector___pyx_scope_struct__genexpr) < (0)) __PYX_ERR(0, 82, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6opscli_6skills_9discovery_8detector___pyx_scope_struct__genexpr = &__pyx_type_6opscli_6skills_9discovery_8detector___pyx_scope_struct__genexpr;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_6skills_9discovery_8detector___pyx_scope_struct__genexpr) < (0)) __PYX_ERR(0, 81, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_6skills_9discovery_8detector___pyx_scope_struct__genexpr) < (0)) __PYX_ERR(0, 82, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6opscli_6skills_9discovery_8detector___pyx_scope_struct__genexpr);
@@ -9384,19 +9629,19 @@ __Pyx_RefNannySetupContext("PyInit_detector", 0);
   if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_candidate_dirs, __pyx_t_4) < (0)) __PYX_ERR(0, 23, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/skills/discovery/detector.py":70
+  /* "opscli/skills/discovery/detector.py":71
  *         return result
  * 
  *     def discover(self, skills_dir: str | None = None, cwd: Path | None = None) -> list[SkillRecord]:             # <<<<<<<<<<<<<<
  *         """ Skill
  * 
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_skills_dir, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 70, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_cwd, __pyx_mstate_global->__pyx_kp_u_Path_None) < (0)) __PYX_ERR(0, 70, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_SkillRecord) < (0)) __PYX_ERR(0, 70, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6skills_9discovery_8detector_13SkillDetector_3discover, 0, __pyx_mstate_global->__pyx_n_u_SkillDetector_discover, NULL, __pyx_mstate_global->__pyx_n_u_opscli_skills_discovery_detector, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 70, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_skills_dir, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 71, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_cwd, __pyx_mstate_global->__pyx_kp_u_Path_None) < (0)) __PYX_ERR(0, 71, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_SkillRecord) < (0)) __PYX_ERR(0, 71, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6skills_9discovery_8detector_13SkillDetector_3discover, 0, __pyx_mstate_global->__pyx_n_u_SkillDetector_discover, NULL, __pyx_mstate_global->__pyx_n_u_opscli_skills_discovery_detector, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_6);
@@ -9404,22 +9649,22 @@ __Pyx_RefNannySetupContext("PyInit_detector", 0);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_6, __pyx_mstate_global->__pyx_tuple[1]);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_discover, __pyx_t_6) < (0)) __PYX_ERR(0, 70, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_discover, __pyx_t_6) < (0)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "opscli/skills/discovery/detector.py":112
+  /* "opscli/skills/discovery/detector.py":113
  *         return records
  * 
  *     def detect_install_target(self, cwd: Path | None = None, preferred_runtime: str | None = None) -> tuple[str, Path]:             # <<<<<<<<<<<<<<
  *         """ Skill
  * 
 */
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 112, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 113, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_cwd, __pyx_mstate_global->__pyx_kp_u_Path_None) < (0)) __PYX_ERR(0, 112, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_preferred_runtime, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 112, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_tuple_str_Path) < (0)) __PYX_ERR(0, 112, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6skills_9discovery_8detector_13SkillDetector_5detect_install_target, 0, __pyx_mstate_global->__pyx_n_u_SkillDetector_detect_install_tar, NULL, __pyx_mstate_global->__pyx_n_u_opscli_skills_discovery_detector, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 112, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_cwd, __pyx_mstate_global->__pyx_kp_u_Path_None) < (0)) __PYX_ERR(0, 113, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_preferred_runtime, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 113, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_tuple_str_Path) < (0)) __PYX_ERR(0, 113, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6skills_9discovery_8detector_13SkillDetector_5detect_install_target, 0, __pyx_mstate_global->__pyx_n_u_SkillDetector_detect_install_tar, NULL, __pyx_mstate_global->__pyx_n_u_opscli_skills_discovery_detector, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 113, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
@@ -9427,22 +9672,22 @@ __Pyx_RefNannySetupContext("PyInit_detector", 0);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_mstate_global->__pyx_tuple[1]);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_6);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_detect_install_target, __pyx_t_4) < (0)) __PYX_ERR(0, 112, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_detect_install_target, __pyx_t_4) < (0)) __PYX_ERR(0, 113, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/skills/discovery/detector.py":141
+  /* "opscli/skills/discovery/detector.py":143
  *         return "claude", current / ".claude" / "skills"
  * 
  *     def detect_install_targets(self, cwd: Path | None = None, preferred_runtimes: list[str] | None = None) -> list[tuple[str, Path]]:             # <<<<<<<<<<<<<<
  *         """"""
  *         current = cwd or Path.cwd()
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 141, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 143, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_cwd, __pyx_mstate_global->__pyx_kp_u_Path_None) < (0)) __PYX_ERR(0, 141, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_preferred_runtimes, __pyx_mstate_global->__pyx_kp_u_list_str_None) < (0)) __PYX_ERR(0, 141, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_tuple_str_Path) < (0)) __PYX_ERR(0, 141, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6skills_9discovery_8detector_13SkillDetector_7detect_install_targets, 0, __pyx_mstate_global->__pyx_n_u_SkillDetector_detect_install_tar_2, NULL, __pyx_mstate_global->__pyx_n_u_opscli_skills_discovery_detector, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 141, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_cwd, __pyx_mstate_global->__pyx_kp_u_Path_None) < (0)) __PYX_ERR(0, 143, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_preferred_runtimes, __pyx_mstate_global->__pyx_kp_u_list_str_None) < (0)) __PYX_ERR(0, 143, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_tuple_str_Path) < (0)) __PYX_ERR(0, 143, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6skills_9discovery_8detector_13SkillDetector_7detect_install_targets, 0, __pyx_mstate_global->__pyx_n_u_SkillDetector_detect_install_tar_2, NULL, __pyx_mstate_global->__pyx_n_u_opscli_skills_discovery_detector, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 143, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_6);
@@ -9450,21 +9695,21 @@ __Pyx_RefNannySetupContext("PyInit_detector", 0);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_6, __pyx_mstate_global->__pyx_tuple[1]);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_detect_install_targets, __pyx_t_6) < (0)) __PYX_ERR(0, 141, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_detect_install_targets, __pyx_t_6) < (0)) __PYX_ERR(0, 143, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "opscli/skills/discovery/detector.py":162
+  /* "opscli/skills/discovery/detector.py":164
  *         return [(runtime, target)]
  * 
  *     def detect_available_install_targets(self, cwd: Path | None = None) -> list[tuple[str, Path]]:             # <<<<<<<<<<<<<<
  *         """/
  * 
 */
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 162, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 164, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_cwd, __pyx_mstate_global->__pyx_kp_u_Path_None) < (0)) __PYX_ERR(0, 162, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_tuple_str_Path) < (0)) __PYX_ERR(0, 162, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6skills_9discovery_8detector_13SkillDetector_9detect_available_install_targets, 0, __pyx_mstate_global->__pyx_n_u_SkillDetector_detect_available_i, NULL, __pyx_mstate_global->__pyx_n_u_opscli_skills_discovery_detector, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 162, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_cwd, __pyx_mstate_global->__pyx_kp_u_Path_None) < (0)) __PYX_ERR(0, 164, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_tuple_str_Path) < (0)) __PYX_ERR(0, 164, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6skills_9discovery_8detector_13SkillDetector_9detect_available_install_targets, 0, __pyx_mstate_global->__pyx_n_u_SkillDetector_detect_available_i, NULL, __pyx_mstate_global->__pyx_n_u_opscli_skills_discovery_detector, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 164, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
@@ -9472,129 +9717,129 @@ __Pyx_RefNannySetupContext("PyInit_detector", 0);
   __Pyx_CyFunction_SetDefaultsTuple(__pyx_t_4, __pyx_mstate_global->__pyx_tuple[2]);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_6);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_detect_available_install_targets, __pyx_t_4) < (0)) __PYX_ERR(0, 162, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_detect_available_install_targets, __pyx_t_4) < (0)) __PYX_ERR(0, 164, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/skills/discovery/detector.py":191
+  /* "opscli/skills/discovery/detector.py":196
  *         return self._dedupe_targets(targets)
  * 
  *     def detect_global_install_targets(self) -> list[tuple[str, Path]]:             # <<<<<<<<<<<<<<
  *         """ AI  Skills
  * 
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 191, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 196, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_tuple_str_Path) < (0)) __PYX_ERR(0, 191, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6skills_9discovery_8detector_13SkillDetector_11detect_global_install_targets, 0, __pyx_mstate_global->__pyx_n_u_SkillDetector_detect_global_inst, NULL, __pyx_mstate_global->__pyx_n_u_opscli_skills_discovery_detector, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 191, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_tuple_str_Path) < (0)) __PYX_ERR(0, 196, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6skills_9discovery_8detector_13SkillDetector_11detect_global_install_targets, 0, __pyx_mstate_global->__pyx_n_u_SkillDetector_detect_global_inst, NULL, __pyx_mstate_global->__pyx_n_u_opscli_skills_discovery_detector, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 196, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_6);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_detect_global_install_targets, __pyx_t_6) < (0)) __PYX_ERR(0, 191, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_detect_global_install_targets, __pyx_t_6) < (0)) __PYX_ERR(0, 196, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "opscli/skills/discovery/detector.py":235
+  /* "opscli/skills/discovery/detector.py":244
  *         return self._dedupe_targets(targets)
  * 
  *     def detect_all_install_targets(self) -> list[tuple[str, Path]]:             # <<<<<<<<<<<<<<
  *         """
  * 
 */
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 235, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 244, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_tuple_str_Path) < (0)) __PYX_ERR(0, 235, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6skills_9discovery_8detector_13SkillDetector_13detect_all_install_targets, 0, __pyx_mstate_global->__pyx_n_u_SkillDetector_detect_all_install, NULL, __pyx_mstate_global->__pyx_n_u_opscli_skills_discovery_detector, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 235, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_tuple_str_Path) < (0)) __PYX_ERR(0, 244, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6skills_9discovery_8detector_13SkillDetector_13detect_all_install_targets, 0, __pyx_mstate_global->__pyx_n_u_SkillDetector_detect_all_install, NULL, __pyx_mstate_global->__pyx_n_u_opscli_skills_discovery_detector, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 244, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_6);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_detect_all_install_targets, __pyx_t_4) < (0)) __PYX_ERR(0, 235, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_detect_all_install_targets, __pyx_t_4) < (0)) __PYX_ERR(0, 244, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/skills/discovery/detector.py":253
+  /* "opscli/skills/discovery/detector.py":263
  *         )
  * 
  *     def _opencode_config_dir(self) -> Path:             # <<<<<<<<<<<<<<
  *         """ OpenCode  ~/.config/opencode/"""
  *         return Path.home() / ".config" / "opencode"
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 253, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 263, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_Path) < (0)) __PYX_ERR(0, 253, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6skills_9discovery_8detector_13SkillDetector_15_opencode_config_dir, 0, __pyx_mstate_global->__pyx_n_u_SkillDetector__opencode_config_d, NULL, __pyx_mstate_global->__pyx_n_u_opscli_skills_discovery_detector, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[8])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 253, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_Path) < (0)) __PYX_ERR(0, 263, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6skills_9discovery_8detector_13SkillDetector_15_opencode_config_dir, 0, __pyx_mstate_global->__pyx_n_u_SkillDetector__opencode_config_d, NULL, __pyx_mstate_global->__pyx_n_u_opscli_skills_discovery_detector, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[8])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 263, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_6);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_opencode_config_dir, __pyx_t_6) < (0)) __PYX_ERR(0, 253, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_opencode_config_dir, __pyx_t_6) < (0)) __PYX_ERR(0, 263, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "opscli/skills/discovery/detector.py":257
+  /* "opscli/skills/discovery/detector.py":267
  *         return Path.home() / ".config" / "opencode"
  * 
  *     def _opencode_skills_dir(self) -> Path:             # <<<<<<<<<<<<<<
  *         """ OpenCode  Skills """
  *         return self._opencode_config_dir() / "skills"
 */
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 257, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 267, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_Path) < (0)) __PYX_ERR(0, 257, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6skills_9discovery_8detector_13SkillDetector_17_opencode_skills_dir, 0, __pyx_mstate_global->__pyx_n_u_SkillDetector__opencode_skills_d, NULL, __pyx_mstate_global->__pyx_n_u_opscli_skills_discovery_detector, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[9])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 257, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_Path) < (0)) __PYX_ERR(0, 267, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6skills_9discovery_8detector_13SkillDetector_17_opencode_skills_dir, 0, __pyx_mstate_global->__pyx_n_u_SkillDetector__opencode_skills_d, NULL, __pyx_mstate_global->__pyx_n_u_opscli_skills_discovery_detector, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[9])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 267, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_6);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_opencode_skills_dir, __pyx_t_4) < (0)) __PYX_ERR(0, 257, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_opencode_skills_dir, __pyx_t_4) < (0)) __PYX_ERR(0, 267, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/skills/discovery/detector.py":261
+  /* "opscli/skills/discovery/detector.py":271
  *         return self._opencode_config_dir() / "skills"
  * 
  *     def _dedupe_targets(self, targets: list[tuple[str, Path]]) -> list[tuple[str, Path]]:             # <<<<<<<<<<<<<<
  *         seen: set[tuple[str, str]] = set()
  *         result: list[tuple[str, Path]] = []
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 261, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 271, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_targets, __pyx_mstate_global->__pyx_kp_u_list_tuple_str_Path) < (0)) __PYX_ERR(0, 261, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_tuple_str_Path) < (0)) __PYX_ERR(0, 261, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6skills_9discovery_8detector_13SkillDetector_19_dedupe_targets, 0, __pyx_mstate_global->__pyx_n_u_SkillDetector__dedupe_targets, NULL, __pyx_mstate_global->__pyx_n_u_opscli_skills_discovery_detector, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[10])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 261, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_targets, __pyx_mstate_global->__pyx_kp_u_list_tuple_str_Path) < (0)) __PYX_ERR(0, 271, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_tuple_str_Path) < (0)) __PYX_ERR(0, 271, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6skills_9discovery_8detector_13SkillDetector_19_dedupe_targets, 0, __pyx_mstate_global->__pyx_n_u_SkillDetector__dedupe_targets, NULL, __pyx_mstate_global->__pyx_n_u_opscli_skills_discovery_detector, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[10])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 271, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_6);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_dedupe_targets, __pyx_t_6) < (0)) __PYX_ERR(0, 261, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_dedupe_targets, __pyx_t_6) < (0)) __PYX_ERR(0, 271, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "opscli/skills/discovery/detector.py":272
+  /* "opscli/skills/discovery/detector.py":282
  *         return result
  * 
  *     def _infer_runtime(self, skill_dir: Path) -> str:             # <<<<<<<<<<<<<<
  *         """ Skill
  * 
 */
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 272, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 282, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_skill_dir, __pyx_mstate_global->__pyx_n_u_Path) < (0)) __PYX_ERR(0, 272, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 272, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6skills_9discovery_8detector_13SkillDetector_21_infer_runtime, 0, __pyx_mstate_global->__pyx_n_u_SkillDetector__infer_runtime, NULL, __pyx_mstate_global->__pyx_n_u_opscli_skills_discovery_detector, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[11])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 272, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_skill_dir, __pyx_mstate_global->__pyx_n_u_Path) < (0)) __PYX_ERR(0, 282, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 282, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_6skills_9discovery_8detector_13SkillDetector_21_infer_runtime, 0, __pyx_mstate_global->__pyx_n_u_SkillDetector__infer_runtime, NULL, __pyx_mstate_global->__pyx_n_u_opscli_skills_discovery_detector, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[11])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 282, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_6);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_infer_runtime, __pyx_t_4) < (0)) __PYX_ERR(0, 272, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_infer_runtime, __pyx_t_4) < (0)) __PYX_ERR(0, 282, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "opscli/skills/discovery/detector.py":20
@@ -9679,14 +9924,14 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "opscli/skills/discovery/detector.py":91
+  /* "opscli/skills/discovery/detector.py":92
  *                         _logger.debug(" VERSION.json: %s [%s]", version_file, _det_exc)
  *                         continue
  *                     version = str(payload.get("version", "unknown"))             # <<<<<<<<<<<<<<
  *                 elif data_dir.exists():
  *                     # data/  VERSION.json
 */
-  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_version, __pyx_mstate_global->__pyx_n_u_unknown); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 91, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_version, __pyx_mstate_global->__pyx_n_u_unknown); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 92, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[0]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[0]);
 
@@ -9701,14 +9946,14 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[1]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[1]);
 
-  /* "opscli/skills/discovery/detector.py":162
+  /* "opscli/skills/discovery/detector.py":164
  *         return [(runtime, target)]
  * 
  *     def detect_available_install_targets(self, cwd: Path | None = None) -> list[tuple[str, Path]]:             # <<<<<<<<<<<<<<
  *         """/
  * 
 */
-  __pyx_mstate_global->__pyx_tuple[2] = PyTuple_Pack(1, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[2])) __PYX_ERR(0, 162, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[2] = PyTuple_Pack(1, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[2])) __PYX_ERR(0, 164, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[2]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[2]);
   #if CYTHON_IMMORTAL_CONSTANTS
@@ -9741,34 +9986,34 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 9; } index[] = {{1},{179},{11},{63},{12},{37},{1},{8},{7},{6},{7},{7},{6},{2},{9},{10},{17},{16},{22},{9},{9},{22},{35},{10},{8},{7},{16},{5},{6},{10},{17},{4},{20},{13},{29},{28},{34},{34},{28},{40},{46},{43},{35},{36},{22},{39},{11},{1},{3},{18},{9},{8},{14},{10},{6},{18},{5},{5},{7},{3},{4},{8},{5},{15},{8},{26},{32},{29},{21},{22},{8},{7},{8},{7},{6},{10},{8},{7},{3},{9},{6},{4},{14},{13},{6},{4},{5},{7},{4},{3},{5},{7},{7},{5},{8},{13},{10},{4},{8},{4},{10},{8},{8},{15},{20},{20},{32},{27},{2},{1},{6},{4},{5},{4},{7},{7},{3},{17},{18},{11},{12},{9},{7},{7},{6},{6},{4},{7},{12},{4},{4},{4},{12},{10},{6},{9},{6},{10},{3},{5},{6},{7},{8},{5},{4},{7},{5},{6},{7},{12},{5},{9},{238},{2},{104},{75},{273},{188},{179},{103},{22},{19},{324},{242}};
-    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (2221 bytes) */
-const char* const cstring = "BZh91AY&SY\316\327\004\263\000\001:\377\377\377\377\377\377\377\377\377\377\277\377\377\377\277\377\377\376v\357\342z\330IZ\306\300@@@K\300\300\000`\007\235\361\315\263{\270BN\261\004\333H\371\360\003\310jh\204\223@\365\r\032\036\247\223P\3323T\306e=4\211\243\324\332\236\240\0316\22344!\247\246\247\246\240\321\211\210\320\321\204\323\365#\010\030\231\242\014\200\036\220h\200\010\320\021\242b1O)\250\323A\352h\000\365\032h\000\320\000\006\200\001\352\032\r\000\001\352\000\000\000\000h\002\250y\010j2\006\206\2324\320\000\320\321\241\202i\240\000\014\200\302\006@\302\003\001\000\006\200h\001\240\006\215\001\240j`I\250Q\351=OH6\240\000\000\000\000\320\0004\000\000\000\000\003A\243@4\320\000\000\003@\321\352\006\232\2514\000\000\000\000\000\000\000\000\000\000\000\0004\000\320\000\000\000\000\000\000\000\022\232@D\324\301\000\236\221\247\252y4\231\014@\000\000\320\000\000\000\000\000\003@\r\000\000\000\000\r\000p\005\002\274P:\332\312h\256cq\016\367\313\304=e\351\266O{*\025\261\033\230h\006e\014>\360b\244#\023\376a\251R'\003\200$2Hd2I I\r2\334\346`|\226\026]\006\013\224J\260X\230\003R,\0278\323\256\"\263\007\022\023\024\000\252j\004A\306x\337\2630\270r\033Q\020!yI\017'\206\005\033\242\3633\234\204\034 \322u4\020\234\007\221\0019\230s\2235\024\000\351J@8B\226\232\010&\374B\005;\210\260\261\321d@\013\\\317\234X7+\234\022l\241GE\213]n\313[\323J\214'\223\035\374A\237E\311\263\351\346\355!e^<\003\257\244\261:\367\354$\356\202\367\024vh\321Cw\234\366V4\317OOSne\333\033u\261\002:\316\351\341%\2610kh\315\022\205,)\3074\234+\255Z$\267\274(\262\032\350\021\214\336\203\0379Ds2($\212\230\245N\n\327\231-P\231\227\202\334\255\253\265\005\270\272\220\376\002\320@\306\336d\220\314\324\003\034\r\241\233.\333=2\214\373\310\305v\r\2760a\300Z\2304\025\356\004DJ\3368)\"ek\235\321Z`\256\341\233O`\373\255\235\365\205\302R '\353$\202\005\004H\324\246F\021\006\302\002(%\002\021\326\032 \003\000D\306\210@\300\034!.hi\021\326\240.H\214\000\223\000I\"\362R\226\224\311-'#RcA\232\0218\317+w;hO\231""\342\230l\263\341\267\306&:\353\037\024H:f\221S\301\240x^<\030\032!\014\311\tr\002\025\231~\037\006\0330x\017\022@G\222.\221e\200\271\276*\332\304l\237\013$\007\211\202\002\360\240\350I\250!\n\326N\242\252\244GTZ\210\020d@\213\366\271<\265\n\241\203\220\344u\320\200\200(B9|\t\301T`/\201P?\030f`\362\303\275\373\233p21\236*\016\331g\236m}\202\320aJ:\267w\271\361\320\035\030J\310oS\230\311\206[\307\312\355\372I\332\n\344\366\264\021\006\206\3078\351(z\274\234H\033\t\356+s\216F\304\344\335:t\35794\025\263\265^\210\210\216P\250\220$\017\005aX\263\330\251\277\225W\227\275$\331\215\354\024\025\342\203\013\242\305\276\241pf\344\223{<\202-\031\221r\306\024\315\014\013\204bE&np\231\360%\301\356\214\272\272\373\311l\020%\256\341\027\331\352\013!\275\3121\373!X\233\002\223\361\236l6\350\236v\356\0222\0075`\300\225\033\340\242%\251\030I)$!\204 \240@\314\020\021\305|\025b\370\203)A\344H\244\"\004\216\216\342\264\203QH\236\345\222qeX\322IO\307rf\006Tb\250\265\r\2432\305\\2\203\337)d\013p\231\271\255\227\006\265\245\370R\246\333)\230\234\"\323\231\t\251\nFR\231\322\211]\341+\006\022\000-+\020F\326aA%%p\254l\250R\205\025\225\010\001M.\201d\0163\004\242\227(GOlme+\010\216Q\024.\205\372Z\226I\330\\\364P\200\307(\014\222\034f\235\366\326\272\215n\210\337\234\331\362\351\311\273]\301\240\306\302\000\236F\375\322\251\320N<\355]\2425\200\004\211+\013\3163\342q\001\220\361\231]\236\273\001kc\247\021D\014dx\201\002\215\306D\241\\\022\0205]jA\tP\303\231\204E\241\230R\t\260\003Kr\276\013\272\335h\342y\254-\";-\320\005\346\004\363\236\341\267\027\014\031\351!\215V\265\235\006\201\243\2564\260\310\026\243\350n\310\3336\0010\311\201rFC\320\311\241lp\005\023*\331\007\276D\326\226vqH\336\275eAE\007gf\233\275\266\322\221\240\351$\345\205\252\366\010\214Q \231M\242u\022\216@\023*OSNz\273\030\255\264aX2\315\026\275\317\270{\212a\r%V2\246\026.>&Y\352\017Sr\326\004 \260\354\251\234aF(\352\306m\204f\265\246h@H\224U9\327\201\341\244\032\264\361\010\3234\363\013l\226l\002\202\002\200\201j\325\030F\324""\250\013\327\265j\346\265w:\0224\237\034\215\215\r@J\034\327*\214\004r\004R\010\251H$\230@\006\205\0033\300Rf\250\"+\215\322\266Q\213\004c\002\n\024H1]j*\001Q\203(0Bj\205\321DS\231\370\3606\037\"\311\327\003\2336!\211\004\345(MM\321\221\343E\214\022A\2002U>\266n\253P\266\301\0018\334M\214\266\030\034\312v\t\257\242\272\203L.\220\035P\306\327\221lU&\344\312\3554\307\201\225a\rd\201\320\312)@c\0336$\306\226<4\034\240\343\014\263\007\261\341CFPb\370,JR\260lnF\313\365\034\000eT\000\373\352\322\350\260\250|\210\202U\004\332\364M6@\013,}\270\215\"\2418@\302\245d\232\200K\030\n\244qy\347\022!\213>\376\364\212tcqV\232\222\021\010A\362d\r:\223\247T<\264iv\261\220\023Qxq\367\244\312\361\3343o\235H\275\013\262*\315tD\215\251@\341\376?\007\332\021\303\356\205YD\304@\240\000M\262\260\205\010\003\357\323\337\345`~\037\317_\033\365\340*\020d<)U\214P\200B;\202@(\020\202\240\022H\272\033\310\233\267\332\212\253\002\264\ni\306\320\263\032\300p\351\211 \313Z\370\r\034\002'\037\354\323_\314<\211#\236\010\200\354e;\345g\200f\262\323@\230\2204L\257cUE\203?f\251\306vb\241P\rM\332\tw\311P\n\031d\020\317L\362|\245\213QN\037\235\375;`\004j\200\177\304:\320\013^\356\304[\211\201iO\374!c\234c/\005<\n\200\263\371\276\320g\267P\220\331H\241b\200\324\033\355\332D\273\202\\\264\233\344\352\340\030%\\\251\324\006\362d\261\206\315]r\t\236\220\323\236\010\014\351n\tC&A\346\205~\241\352\332\"\330\2059\357Q\216\0322#\000y\031\215\312\014$\t\272\310;/F^\265\240\333f\331a\222\366x\335\314\365\340.Lb\332T\324\255\036k0\365g\247\245c\332\301\307\226\211\020\241K&\256!4\204\323\037\235\213\213\233fD\215\001\025!V4d3o\363N\336\330U\027\035\010@\266b\266\274\361\355\020\232Z\";\000\230\177L\2758\325\332\276\336\252\361\345\213J\306\234<O\254i\"I\215r\335\355!\t\"\303\n%/\312\354<\222\362\366\313\013\267I{u\022\300\272\364qv]\273\344u\250\241\326\300\352\355\334_\360 \337}q%\326K\032r\325\243b\037'h\205\250@|\336%\ra`\370\315rV\264\032o\214x.\024\237\230\313\213\307WR\251f\251\2103\240\rv\342U\347\303\242\341""\3105\003\242C\244\250\024\210\023l\242\016D\243\264\020@Q\346\021h\270&q\026\004H\031^'\020\233#\232eF\007\004'@\2619\036Zs\022\022<d\311JIE\247\220]\314^\0134'O\211\022\237\000\336\301\266?\277\315\275_%\255\275\275\235Z\265gfN\324?{\211\2636\205\313\232$\007)pP\221\335 \2062\236\214\226\337\361w$S\205\t\014\355pK0";
-    PyObject *data = __Pyx_DecompressString(cstring, 2221, 2);
+    const struct { const unsigned int length: 9; } index[] = {{1},{179},{11},{63},{12},{37},{1},{8},{7},{7},{6},{7},{7},{6},{2},{9},{10},{17},{16},{22},{9},{9},{22},{35},{10},{8},{7},{16},{5},{6},{10},{17},{4},{20},{13},{29},{28},{34},{34},{28},{40},{46},{43},{35},{36},{22},{39},{11},{1},{6},{3},{18},{9},{8},{14},{10},{6},{18},{5},{5},{7},{3},{4},{8},{5},{15},{8},{26},{32},{29},{21},{22},{8},{7},{8},{7},{6},{10},{8},{7},{3},{9},{6},{4},{14},{13},{6},{4},{5},{7},{4},{3},{5},{7},{7},{5},{8},{13},{10},{4},{8},{4},{10},{8},{8},{15},{20},{20},{32},{27},{2},{1},{6},{4},{5},{4},{7},{7},{3},{17},{18},{11},{12},{9},{7},{7},{6},{6},{4},{7},{12},{4},{4},{4},{12},{10},{6},{9},{6},{10},{3},{5},{6},{7},{8},{5},{4},{7},{5},{6},{7},{12},{5},{9},{238},{2},{117},{75},{284},{201},{179},{117},{22},{19},{372},{274}};
+    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (2275 bytes) */
+const char* const cstring = "BZh91AY&SY\201p\363\023\000\001M\377\377\377\377\377\377\377\377\377\377\277\377\377\377\277\377\377\376v\357\342z\330IZ\306\300@@@K\300\300\000`\007\335\360\355\263\021\250\251\t\021\024\217\267\200k\312\032\232\"\024\332\203\324\006\207\251\352\r\036\230M0\324\315)\2206\246\201\243M\224\323\311\223(i\262\233S\324\320\014M\003&M4\375H\306\247\250bf\2102\032=G\352\201\241\002b\002d\230\001\250\310\223FF\231\000di\243 \000\000\032\000\007\250d4\000\006\200\000\000\000\032\001\006\215\032h4\310\003&F\214\232\014\200\300\214\232\014\214\215\0322bd\320i\2044\014\206A\211\223&L\215\014\231\030F\230\214& j`H\247\2517\252=5\017S\324\323\324\365\000\000\0004h\320\000\000\r\000\000\000\000\0004h\000\000\0004\000\006\246\252\000h\0002\003C\322\003A\246\200\311\220\000\000\000\320\003j2=@4\000\000\000\000\000h\000\320\022\232@$\324\311\223S&\247\352#a\t\2204\000\r\000\000\000\000\000\000\000\000\r\0004\000\000\000\320\007\200\025\245aZw;\215\024W1\263\207s\341\340\036\222\363\225\270Ok2\022[\2329\205\020fP\307\354\314T\204b\177\3035\n\264M\366\370I\231$\314\206I$\t!\246]\224\030|\326,_\001\213\324J\260Y0\301\262\210\305\356\315:\343+0q!1F\002\251\250\021\007fx\341\266qx\3446\202!\201E\324\220\244\357\211F\374\026Ig\ruZ\3525s\3611\234\026\031\214\344\212\326\027\342\304\025\303\207\010$\020\245\306\200\225\251\020\202\235h\264\261\321X\210\001\214\225\363\n\306\273&\"Ut,\350\255\215BJ\264%J\023\302bc\276B\014\371\336'O\237\226\354\303\241f;\303\253\237\345\235\233\365\222\263\230\266\312-g\235\016s\272~\207\227\224\3654\366[sP\332\233u\266\201\035gt\360\222\333Lf\272\200D\241B\3059rb\001&\264\216Qox\221l6\020F\"_A\257\230\2427s\224\024\000\246*\\\201{\022\251\313\022\266\350d\213\331\275\204Y\213\252\017\340\261\0003ZqmY\013X\200\307\007d[\237\212\337L\2436\346i\232\274[a\305\332\224)\322\276\336@2\"V\360\301I\0212MM\031X\344\202\263\206m\026\221\366\272\353\323\013\204\262\220\023j%@\000Y\233\027X\313\031\320G\txU\n\372z\346\014\026j\365Q\255tI+\232\223\332U\222e\224M(\3100""\230\256\246\357J.DNk xA\000\010\243\037\312\344[\007\023w\333\242\005kv\336`\250\027d\367\305'\022J\340\005<*\007\207\303\203C\204!j\200P\221\002.\326x\234(o \360\036'@\236H\2759g\200\274\357\031\216jo\017\211\222\003\305\277\001tPt(\326\021\027\231XWU\"9E\211\000M\210\021~\317-\236\241T/\356\271M\204@\200P\211\310\354a\261\311\222\374\006\210d\027\212jL\363\013on\246\220\201\032\270\"Ww?AP\266\201\224Ak:\271\013\273\361\300:0\025p\336\252\323&\231n_<\276\261\231\241(\3454\202\214\005\022\265\370\010\222\207\255\311\304\201\266Oy[\334r6NM\323\247N\363\223A];\226\010\210\210\345\n\211\002@\360V+\026{*o%U\345\363d\233\005\331\315\354\226\024\n\214`\350\261\371\2650\206\206i7\265\310\"\341\231\031\313@)\2241\256\t\211\024\231\271\306c\201-\240\333\333\233G$\315p\240\315\010\343&+.@x\206\376\320G\354\205\342tHE\370\317>\0134M3\265\240l\312\322B\0148\271\202,\322\213\351\264 \316\363b\350\214$0`\315\2426CPA\264\241\344P\244$\t:;\305a\007%\"k\314%Ui\334336\360\3204PF\342\022\030\201\202\274\320\363\222\226)'\016z\204)\025\326V\321\255\001:\235 \323h\230\320\005\264\346BjB\221\250S,\242WtJ\303\t\000{Y\360)\356T\276\026\264fFO(\301Y\261F\327\260e\206\211\033\016\324\251\014P\306\324\323\332\233IJ\304G(\212\027\303\r.K4\354^\364P\200\306\354\031$8\315=\032d\2265*\340:5~\256\320\332\354\3709i\024\021\303\270gaV\334\307?]\252\265i\240O)~\200\006&\204\311j\232\271\252\301\220\361\231_\325\254X\0136:q\224@\270G\210\020(\3362%\213\220PA\226K\024\010OCNV\221\026\206\340P'@\r.\316\3702\365\231\243\211\346\302`P\216\035\270\000D\2004l\367\r\270\274`\330$\2068\006\271\235\006\211\245\2564\263\344\013d\372<1\033\246\300&\0310.H\314z9\264n\216 \242e[A\360\2215\245\227)H\340\301j\202\212\016\316\332n\367]JF\203\244\223\226.X1Db\211\004\312o\351\324J9\000Lnn<\r\315\257T \010\033\301\035f\014\364J\234rJ\035H\027\316B\026\231\003\253\230X\265\270\302H6\244\360\024\243\247\013\254\024\230\251y\226\322\244\021@\2325\024\024'\212\346;\227\336\034A\314V\3214\3134\242\312\347\266\370\240\200""\240 \261\213\214#b\226\005\333\271j\3472\353\350P\322{\247\341\365\3509\007\255+\034[\026XFl#\343\213\264\020\340\236\"w\327\311)f(o\3178l-JH\204\234\032$K\022ZY\243\000\315\"Q\034D\325\013\342\210\2476\03116y\344Zu\304\343\354\330X\320NR\204\324\335\031\236\021\242\310\021b!9\352}\306\355n,YX\200\230kK\214\267\r\0226\235\3019\364\\\2508\303)\002J\201\014\374\321URnL\256\377\246\317\003Qg\206\262@\350e\024\2401\221\233\032cc\223>\203\224\034a\226p\366xP\322\224\030\302\013\032\224\2546G#l5\034\002x\361\003\365\027\246H\264\250{g\"3\001l\202\254bK.@\013<}\270\215\"\2410A\201k\311-\000\230/\225I\266\325\230N\013\026\257Ovr\2311\310W\025R\202B\020|\355\201\253\014\312\312\036Z4\311\230\310\th\2729;\263\266\346;\302\335\364\224\213\260\275\221b\275\200\221#r\220q\277\037\203\355\t\306\356\307`@\014`f\243\000Ey\216\014F \007\347\257\307\323XhM=\231\240\344\005x6Q\315\214\031\021\210\t\233XH\0233!;$\221\335\233\320=\377\003y\336\365\247\2167\217.\244\367\016\324\366\002\227\244M1\224\223\200i\006\004[\317\356Y\246xh\"\\\321j\010\200\274\310\254\211D\030\313d\246\201A#\032\323#\334\265\221`\325Hxq\231\224\360<\0063\333\340\227|\253\200+2\257\004(\246y\276r\303|\364?;\367\254L\004g\300\377\236D@\013RwHK\024\r\003\260\373\010@9\306*\202\022w\357D\007\324\351\030\316z\360\320\305\207(@'\341h^\r\242D\243RSd|\374}+\360d\013ggbcy\261\340\341+cl\202W\2404\031\004\005s\306\304\203\000\023 \3374ttOb\026\"\325\206\273\233\210<\004F\212\001\345e4(P\320)\351\240\352\271\031:r\r\257\313\270\361\002S\247\213}EG\352\024\0349\026\026\020#\323W\217\244\311\220\235\215s\010c\013\324J\207\016\364\226VZ\310M1\255\253.d\221*\030,\321h\0225\210\316\205*\353\350\235\324\223p\312\311\010@\223gl\250\217!\t\245\234#\301\005\005\363\305+\306\220f\353n\355\273x\301a]\025q\343u\032\266%\344Y\215\034V\202\027\202\337\006#\217\230\232\023]\246\010V\262c\020\205\314\345I\\\035=\374\225,\315\274\"\331\271\033`\351\001\212\222S\021\236a\352\317\035g\210\303\244\326\254qD\n\260\035D\025|B\300\362\232a""\\\355t\035\030\360\232\260\252\354\253\273\236\332\356s\212l<\2031\370\324h'O\370\332\265w\010Q\250IQh\246\\\023\262\031\023UB\010$y\004V.qG\210@\320\"@\312\3618\204\264d\222FG\007\004(\244\204\3219N\305\230\220\215\0362\272P\225'i\210-\333\026\001 \3112\014\331\2412M\023\316\225\272r\177z\325\027\245\354\251S\320\272\353\257\224\276\211\373\265\237\352um\232\266\337$\021i\242\235Dc\352\037^\326?\361w$S\205\t\010\027\01710";
+    PyObject *data = __Pyx_DecompressString(cstring, 2275, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (2107 bytes) */
-const char* const cstring = "x\332\215U\335O\034\327\025\367\342m\0021nXX\033l\2070\013\030l\327^\272\206\032\333\030G\013\306\t\201\330\354\202?\222\330\035\315\316\334]\306\0143\273sgX\326u\245\266jUGm\343\311C\245\333FU\257\232\227+U\212F\255\252\314C\253\356#\217\3638\217H\025\266\337\312\237\320sgwY\300$\265\361\334\231s\357\271\347\343w~\347l\362\226a!\301Z\226,a\272b-\033\272\240bAA\232\232C\246d!\255\"`\313Te\013\231\\I\027\026f\026.\214]\036\023$]\021L\364\010\311\026\026\260\235\2235\tc\204\005#/\344lU\263T]\260*E\204\223\302l^\250\030\266\240#\244\010\226!\024Ao\367\005k\031\351\002F\026\377\020\206%]7,\311R\r]\204\353\252^\030\026\024\325\004'\352\032\342\267oJ\032F\311\005\311Z\026\236\010\267\014\035-\256\250\232&<\377\374/\317\377\361\233\255?\260\377\376\363\267\317?\373\353\363g\317^|\365\363\027_\222\027_~\275\365\257\337o=\373\342\305\347\356\3267\177\333\372\372\263\227_\375\352\305\037\177)\204\327\376\363\263_\334\235\311.\316\336\276\225|\204\r\375\3457\177\177\371\357_?\377\335\237\267\376\364\214\353\354>\273*\234\306\302\247\247\361\303\367$E\021!F\224\204\004l\005^\206\202\326a\325\363jAQ\261\224\323\020\322\371Z\220U\\\373R4\025[\237\362\240\037\206_\241\363,\222\rS\251m\000\302\017\353\371\204\262e\0275\304w\317\013\341\255\207I\243\210tpX\256}\200K\243\210eMMbn\n'\025d\001F\206Y\333\035\251\355\216@8\262\261\206\314\312H\343<Y\254\200\325\272\253\244eJ\350\202\2547^\373\234\332V\376\302\345\265\037&\371_\3310Wr\266\242Tn/,N\317\317\212\213s\263\363\363\213\342\215\331,W\025\305\205\312:<7\200&\342-\264neQ>\314\361F\335\355\036!)*H\261\213H\264$\263\200,\274\357P\325\363\310\024M[\267\324U\264\357\254\221\274X\203[\004j|\233F\r\202W5d\340\255\252\000\261\371\321>\3375\224DI\323 \nl\361\367\20116\364\326$U\343\365}-\355\202f\344\244\3273\274W\3475T\366\233\251\327\375\340\335\3445\315\220\241\215\256'\013HG\353Es\027\035y\356\022\256\350\262j\000\245M\303\206>Fx'\321\234\204C\334\366\202\270#\341ZK\000\003u\216\211\010\304\222\341\216\274\"k\006Fa\243\310\266i\"\335""\222\313\n\\\220\370\303M((g\027\366\321\002DK\204\013\337^\224\377W\206\357\004\376@\034\017\006\267\001\234(*\206,\212!\301`2!}\215\307\216\326\241c1\340\010(\330\230k\345m\035\324\352\340\202\001\370?o\024\n\210\177\303\245ec\025\355e\271\250bq\007m5$\255j\241U\376`XL\220\371\014ZA\025\315\220\024,j\2415\276B\030\232Q\346NW%\000\034\376\255\"K\nGk(\030\212\r\270\210\272\264\332\\\241?u\303\\\2254\3651R\032s\2459V\366v\330\001\035wP\217\355\233F\215\271\263o.\355\234\033<\332$D\2074l\340bQ\342\234\2005|p\021F\n\177\340'\250(\205)\027\215b\321D\200\230\211\224\006h\257l@\306\260\307m\361\324K\266\244\325\0226\221\244\210\026dm\206\024\307&\302\206\006\321!lk\260g\331\246n\032\206U\267\322(\t'6\206I\216\221\226\2071\256\210\"\374F\325!\304\234)y\t\256\343e\250\231\026\246\025\336\010\363k\302\002\303\224\377x\026kDj\020\033\202\301\026\254\313\246Q\346\263\327\326Wt\243\254\257I\232\215\302\005Ct\030~\002\353/1\257j\250\274\254\312\313;c\330\217v;O\374\201K.\362'\262~vq\273\375P\333\020\315\004\255\355O\347I\224\334f)6\347>\251\216UKA\373\333O-\3472\031\247\211\240#\266\331\336\341\034%wi\212\246\203\216>\362\230u\262q\267\337\005\341\024\271J\263\264\024tt9\327H\231J\233\361cAO?\035\244y\226f\017\274\223\325Tuv#\023\304O\221I\026\tz\372\310\032\315\370C3\325\037\373\213KA\317\211 \376.\221i\214\016\2638\313\260\025/\026\034\353%\367hz\373\215C\307\372\210\304_\3077;N\222Ab\300\271\024tt;e\"\005\361>R\nzz\311\307T\nz\004\032\251/\275$\023\364\234\246\031\270\326\326\361\264D\323~\364<K\363$; \231\037\221H\320\nY\371]\0034\025\264\037\rb}\304\246S\364\221\333\342&\032\202\026\246U\027Tf\2721.X\376\300e/\322\330^u/\272\231\206\260\342v\272)?:\354\017OU\023A\353\031\310\262\365,\213qHg\235\373\020P{\227s\205L\223\022\004\030b:\352@\032\261\000\020\215:i\007\316;\235a\322I\256\000\264\020]\311\217\366\222\007\376\331k\336\214\237\276\357\337\377x;~\250\255\313\031td\022'K\024\354&h\214\347\327\376\024r8\356\024H\206(4A'8x|\277\313\351w\336')\002\326\216\354U\271\314&""\\\251\006M\035\014\3569\306\221\350\350!-\344\034d\003\241\035s\262\316c\332\t\020\205\237O\350E H\370Y\241-\234\rq?\316\023\014\267~\332\274\363\023\332\017u{\353P[/\367\315K\001\020|\340\244y\202\003N\306Q\310\231\260\314\367\334\017\274i\257T\215V\3476J\337\001I\214$\352\200\014\322\031\377\354\244?\271\340/\344\375|a\273s\017\"\233\255mA\373I0\336O?d97\322\020\346\303\262\326\205Y\226e\245\003O>\342\365k\010s\274\340\233\255G\374#\275d\311O\214\272\243\256\004\005\364\273\206\200\030\t7\305\321;\032\326\365\001;\316\352\321\217\223a\250\0130\263B#\233\020\361c\322\003\360]\345\036\375\350iz\307?w\335\277\016\335\246\373\272\261\t\230\357\212<\254P\022x\r\251\037!\2008'\377M\326\317nB\200\320R\023\2749x\363\214\371}W\275pk\234\014\372\357\216\271iw\311;\341O-\371KwjM\221\243\355,\315\3116\346w\017\323\022\203P\342\316\r\277\347\212\027\363\006=\251\316\206.'\265\331\032sN\274j\004\0027a?\341G\317\26067\306\013\031s\"N\334\271KF\201>g\330Y\200\t\214\\s0\024\206\033\342\322\025g\332)\355H\023\220YlG\232$\207I\352\300\263\260\252C0,x;\002\025\017\223\213\344\023j\262Xs\327\357:\303\016\263\213,\343GGXi\373\235]\254=\307\022\265:\3148\235\316U\000l\232b6\344\276\341J\356\343j\367F\204;\031'\375\344C\212\300\300'\256Yk\214\232>\037R2\353\002\200\207\274\210\367N\365\336F\272\241?\317\276\0075{\342]\3642M\375+\344}:\n7\216\26357\343\252^\271*5\364g\351\035\250\324\254\233uK\\\377\024\307t\264\006\322{@\211.\210k\215\335uS\356|\365\315j\251\351%\352\237OWw\2054I\337\204\004\006@\365\022\324\352B\265\274\261\343\342#v\014(}\324\313z\245\246\376\004)\320E\000\347\222{\334-y\255\273\215\317Q\233M\301$\350\364R\233;\243\216\217\301\021f\373cs\033\251\355\357\357\233&\000\346f\330\247S\316#\210\243\324\004o\031<\277\345\365{\351\306\271\006\355\033k\246\321\n]t\336\313U#\215s\225\317\377&8\367\001\314\212\327\342\355\262\337B\177\000\355\237\336k\343\2347\345\255ltn\244\032z\253t\234%\232\010\364@\203NV[\252;vVh7\21343^\207\236=\0056\244`W\306\377\003u\325\341X";
-    PyObject *data = __Pyx_DecompressString(cstring, 2107, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (2134 bytes) */
+const char* const cstring = "x\332\225U\335O\034\327\0257\230&\020\343\206\205\305\306v\010\003\306`\273\366\3225\324\330`\034-\030'\004b\263\013\376Hbw4;sw\0313\314\354\316\235aYJ\245\266JU\242\266\361\364\241\322m\243\252W\315\313\225*E\243VU\346\241U\367\221\307y\234G\244\n\333o\345O\350\271\263_\200q\342\032\317\3359\367\236s\3569\277\363;gbw\014\013\t\326\222d\tSEk\311\320\005\025\013\n\322\32442%\013iE\001[\246*[\310\344J\2720?=\177y\344\332\210 \351\212`\242'H\266\260\200\355\264\254I\030#,\030\031!m\253\232\245\352\202U\314!\034\023f2B\321\260\005\035!E\260\014!\007z{\r\254%\244\013\030Y\374E\030\224t\335\260$K5t\021\314U=;((\252\t\227\250\253\210[\337\2264\214b\363\222\265$l\010w\014\035-,\253\232&<\373\342/\317\376\361\353\235?\260\377\376\3637\317>\377\353\263\247O\237\177\365\363\347_\222\347_~\275\363\257\337\357<\375\335\363/\334\235o\376\266\363\365\347/\276\372\345\363?~&\204f\377\371\331/\356O\247\026f\356\336\211=\301\206\376\342\233\277\277\370\367\257\236\375\366\317;\177z\312u\366\236\215\t\347\260\360\3519\374\370=IQD\210\021\305\244,\322-\034\203<l\005\305dCAk\260\352\0315\253\250XJk\010\351|\315\312*.\277)\232\212\255Oy\354\217\303\2670\206\024\222\rS)o\000\320\217+i\205\262e\3474\304w/\t\241\325\343\230\221C:\\X(\277\300\225F\016\313\232\032\303\334\025\216)\310\002\250\014\263\274;T\336\035\202pdc\025\231\305\241\352y,W\004\257\225\253b\226)\241\313\262^\3759p\251me._[\375a\214\377\025\014s9m+J\361\356\374\302\324\334\214\2700;37\267 \336\232IqUQ\234/\256\301s\013\330\"\336AkV\ne\302\034oU\256\335'\304D\005)v\016\211\226df\221\205\017\034\252z\006\231\242i\353\226\272\202\016\234U\223\027\313p\213\300\220Wi\224!xYC\006\372\252\n\360\233\037\035\270\273\214\222(i\032D\201-\376{h\214U\275UI\325x}_K;\253\031i\351\365\034\357\327y\r\225\203n*u?|7vC3d\350\246\2331\3401Z\313\231{\350(\226\271\r\236%\\\324e\325\000b\233\206\rM\215p-\335\264\204C\364\366CY\223p\2711\200\207:GF\004z\311`#/\313\232\201Q\330.\262m\232p\217\\P\300@\342\017w\241\240\264\235=@\016\020-\021\014^]""\232\357*\306\267\302\177(\232\207C\\\205O\024\025C\026\305\220f0\246\220\276\312cGk\320\267\030\320\004\024l\314\2652\266\016j\025\210\301\001\374\2373\262Y\304\337\301h\311XA\373\271.\252X\254\241\255\206\324U-\264\302\037\014\213\t2\037H\313\250\250\031\222\202E-\364\306W\010C3\n\374\322\025\t\000\207\177+\310\222\3029\033\n\206b\003.\242.\255\324W\350R\3350W$M]GJu\272\324\207\313\376>;\244\357\016\353\264\0033\251:}\016L\247\332\271\301\243\215AtH\303\006\316\345$\316\tX\303\007\347`\260\360\007\276G9)L9g\344r&\002\304L\244TA{i\0032\206=\356\213\247\236\267%\255\234\260\211$E\264 k3$:6\02164\210\016a[\203=\3136u\3230\254\212\227jI8\2611\314s\214\264\014\014sE\024\341\203U\201\020s\246d$0\307KP3-L+\264\010\363\253\303\002#\225\177Ise\"U\211\r\301`\013\326%\323(\360\tl\353\313\272Q\320W%\315F\341\202!:\014\337\303\312\217\230Q5TXR\345\245\3320\366\233N:\033\376\331\253.\362\307S~ja\267\365H\313\000M\006\315\255\233s\244\211\334eq6\353n\224FJ\371\240\365\355M\313\271FFio\320\026\331nms\216\223\3734N\023A[\017Yg\355l\324\355sA8C\306h\212\346\203\266\016\347\006)Pi;\332\031t\365\321~\232a\t\366\310;]\212\227f\266\222A\364\014\231`\rAW\017Y\245I\177`\272\364c\177a1\350:\025D\337%2\215\320A\026eI\266\354E\202\316n\362\200&v\3378\322\331C$\376sb\273\3554\351'\006\234KA\333I\247@\244 \332C\362AW7\371\230JA\227@\033*K7I\006]\347h\022\314Z\3326\3634\3417]b\t\236d\033$\363#\322\0204CV~\307Y\032\017Z\217\007\221\036b\323I\372\304mt{\253\202\026\246U\021Tf\272\021.X\376\331k^Cu{\305\275\342&\253\302\262\333\356\306\367\271\362\233\006\375\301\311Ro\320|\036Rn\276\300\"\034\337\031\347!D\327\332\341\\'S$\017\321\206\000\017;\220S$\000x\233\234\204\003\347\355\316 i'\327\001g\0105\3577u\223G\376\205\033\336\264\237x\350?\374x7z\244\245\303\351wd\022%\213\024\374\366\322\010O\266u\023\022:\341dI\222(\264\227\216s$\371~\207\323\347\274O\342\004\274\035\333\257r\215\215\273R\031\247\n2\374\346\010\207\245\255\2134\222\213\220\r\204\326\351\244\234u\332\016x\205\257\033\364\n\260%|""-\322FN\215\250\037\345\t\206[?\255\333\374\204\366q\252\324\314w\337:\322\322\315\303\340%\0024>p\022<\327\263N\322Q\310\371\260\374\017\334\017\274)/_j*\315n\345\277\005\235\010\351\255`\323O\247\375\013\023\376\304\274?\237\3613\331\335\366}\340l7\267\004\255\247\301y\037\375\220\245\335\206\2520\027\226\273\"\314\260\024\313\037z\362QX\327\2120\033\022a\257\267\355\346c\376\261n\262\350\367\016\273\303\256\004\205\365;\006\200=\275n\234\243z<\254\367#v\202UR\031%\203P/\240o\221\202\355\333\233\353\244\013p\031\343\327\373M\347\350=\377\342M\377&\264\244\356\353\3066\324bO\032a\345b@~\300\341\030\201J\360\016\271\315\372\330m\210\026\372n\234w\020\357\260\021\277g\314\013\267FI\277\377\356\210\233p\027\275S\376\344\242\277x\257\3349i\332\312\022\234\204#\376\311A\232g\020J\324\271\345w]\367\"^\277'UX\322\341\304\267\233#\316\251\227\235@\340&\354\003\305\317\263\0267\302\253\032q\032\234\250s\237\014\003\255\316\263\013\200\0318\271\341`\250\022w\304\245\353\316\224\223\257I\343\220Y\244&M\220\243$\376\212\2631g\001\210Y\226\302\202\017\300|\341\035\014\204=J\256\220O\250\311\"\365]\277\343<;\312\256\260\244\3374\304\362\273\357\354\341\366E\326[\256\312\264\323\356\214\001|S\024\263\001\367\rWr\327K'\267\302KFI\037\371\220\"p\360\211k\226\333\247\254\317\347\232\314:\000\356\001\257\301{\247\364`+Q\325\237c\337\203\nnxW\274d]\377:y\237\016\203\305\t\266\352&]\325+\224\244\252\376\014\275\007u\233qSn\236\353\237\341\010\017\227!{\017\010\322\001q\255\262\373n\334\235+\275Y\312\327oi\362/%J{B\232\240oB\002gA\365*T\356r\251\260U\273\342#\326\t\374<\356\245\274|]\177\234d\351\002\200s\325=\341\346\275\346\275\316g\251\315&a^\264{\361\377\027\242\355\3324\345\223v\210\331\376\310\354V|\367\373\007f\024\200\277\035\266\374\244\363\004\342\316\327=-A\244oy}^\242z\256\301$\210\324\323n\206\206\274\344\245K\r\325s\225\177b\352`>\004\360\213^\243\267\307\177#\375\001L\222\304~\037\027\275Ioy\253}+^\325[\241\243\254\267\216X\027\364\372D\251\261T\363\263LO\262\206:Bk\320""\376g\300\207\364]y\004{\020\371\037\024\341\033\177";
+    PyObject *data = __Pyx_DecompressString(cstring, 2134, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (3742 bytes) */
-const char* const bytes = ".Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Path | NoneSkill \346\216\242\346\265\213\345\231\250\357\274\214\346\211\253\346\217\217\347\243\201\347\233\230\347\233\256\345\275\225\345\217\221\347\216\260\345\267\262\345\256\211\350\243\205\347\232\204 Skill\343\200\202VERSION.json\350\267\263\350\277\207\346\215\237\345\235\217\347\232\204 VERSION.json: %s [%s]?add_note.claude.codex.configdisableenablegcisenabledlist[Path]list[SkillRecord]list[str] | Nonelist[tuple[str, Path]].openclaw.opencodeopscli.skills.detectoropscli/skills/discovery/detector.pystr | None.trae-cntrae-cntuple[str, Path]utf-8v0.0.0.workbuddyOPSCLI_SKILLS_DIRPath__Pyx_PyDict_NextRefSkillDetectorSkillDetector._dedupe_targetsSkillDetector._infer_runtimeSkillDetector._opencode_config_dirSkillDetector._opencode_skills_dirSkillDetector.candidate_dirsSkillDetector.detect_all_install_targetsSkillDetector.detect_available_install_targetsSkillDetector.detect_global_install_targetsSkillDetector.detect_install_targetSkillDetector.detect_install_targetsSkillDetector.discoverSkillDetector.discover.<locals>.genexprSkillRecord_allasyncio.coroutinesavailablebase_dircandidate_dirscandidatesclaudecline_in_tracebackclosecodexcurrentcwddatadata_dirdebug_dedupe_targets_det_excdetect_all_install_targetsdetect_available_install_targetsdetect_global_install_targetsdetect_install_targetdetect_install_targetsdiscover__doc__encodingenv_direxistsexpanduser__func__genexprgetgetLoggergetenvhome_infer_runtime_is_coroutineis_diritemitemsiterdirjsonkeyloads_loggerlogginglower__main____metaclass____module__name__name__nextnormalizedopenclawopencodeopencode_config_opencode_config_dir_opencode_skills_diropscli.skills.discovery.detectoropscli.skills.domain.modelsospparentpartpartspathpathlibpayloadpoppreferred_runtimepreferred_runtimes__prepare____qualname__read_textrecordsresolveresultreturnrootru""ntimeruntime_dirsseenselfsend__set_name__setdefaultshutilskill_dirskillsskills_dirstrstriptargettargets__test__throwtraeunknownvaluevaluesversionversion_filewhichworkbuddy\320\004\027\220|\320#6\260e\320;R\320RS\360\014\000\t&\240Q\330\010\014\210L\230\004\230O\2501\250K\260|\3004\300q\330\014\017\210t\2208\2307\240!\330\020\021\340\014\020\220\r\230V\2401\240A\330\020\037\230z\250\022\2507\260\"\260A\330\020\033\230:\240R\240q\330\020\023\220<\230w\240a\340\024\025\330\030\"\240$\240f\250A\250\\\270\032\3001\300I\310Q\330\024\033\230=\250\001\330\030\037\230v\240Q\320&E\300^\320ST\330\030\031\330\024\036\230c\240\021\240'\250\024\250Q\250k\270\021\330\025\035\230W\240A\360\006\000\025\037\230a\360\006\000\025\026\340\020\032\230$\230o\250Q\250a\330\020\027\220w\230a\330\024\037\230q\330\030\035\230Y\240a\330\030 \240\001\330\030 \240\001\330\030\035\230Q\330\030%\240Q\360\006\000\t\020\210q\240A\320\004,\250A\360\014\000\t\020\210t\2205\230\001\330\010\017\210t\320\023#\2401\330\014\r\330\021\037\230u\240B\240j\260\002\260!\330\021\037\230u\240B\240l\260\"\260A\330\021\037\230u\240B\240i\250r\260\021\330\021\037\230t\320#8\270\001\330\021\037\230u\240B\240m\2602\260Q\330\021\037\230u\240B\240k\260\022\2601\320\004'\320'B\300!\330\010(\250\001\330\010)\250\021\330\010\014\210I\220X\230Q\330\014\023\2209\230C\230q\240\001\330\014\017\210t\2203\220a\330\020\021\330\014\020\220\004\220A\220Q\330\014\022\220'\230\022\2309\240A\330\010\017\210q\320\004\035\230\\\320)<\270E\320AX\320XY\360\024\000\t\023\220$\220c\230\024\230T\240\021\330\010!\240\021\360\006\000\t\014\2101\330\014\026\220g\230Q\230d\240!\240;\250k\270\021\360\006\000\t\023\220\"\220G\2301\230A\330\010\013\2101\330\014\026\220g\230Q\230d\240!\2408\250;\260a\360\006\000\t\020\210t\2205\230\001\330\010\022\220'\230\021\330\014\r\330\020\030\230\002\230*\240B\240a\330\020\025\220R\220z\240\022\2401\330\020\025\220R\220|\2402\240Q\330\020\025\220R\220y\240\002\240!\330\020\024\320\024)\250\021\330\020\025\220R""\220}\240B\240a\330\020\025\220R\220{\240\"\240A\360\n\000\t\035\230A\330\010\035\230Q\330\010\014\210H\220A\330\014\022\220#\220Q\220d\230(\240'\250\024\250W\260H\270C\270q\300\004\300K\310q\330\014\017\210t\2203\220a\330\020\021\330\014\020\220\004\220A\220Q\330\014\022\220'\230\021\230!\330\010\017\210q\320\004$\240E\320)=\320=P\320Pf\320fg\360\022\000\t\023\220$\220c\230\024\230T\240\021\340\010\t\330\014\032\230(\240\"\240J\250b\260\001\330\014\032\230(\240\"\240L\260\002\260!\330\014\032\230(\240\"\240I\250R\250q\330\014\032\230(\240\"\240L\260\002\260!\330\014\032\230(\240\"\240M\260\022\2601\330\014\032\230(\240\"\240K\250r\260\021\340\010\013\320\013\035\230T\320!3\2603\260a\330\014\023\320\023&\240l\260!\2601\360\006\000\t\r\210I\220X\230\\\250\026\250q\330\014\017\210t\2207\230'\240\021\330\020\027\220y\240\001\340\010\017\210z\230\030\240\022\240:\250R\250q\320\004%\240U\320*>\320>R\320Rn\320no\340\010\022\220$\220c\230\024\230T\240\021\340\010\013\2101\330\014.\250a\330\014\020\220\013\2301\330\020\035\230W\240F\250\"\250F\260!\330\020\023\220;\230c\240\021\330\024\033\2304\320\037:\270!\330\020\023\2207\230$\320\0364\260A\260T\270\031\320BT\320TU\330\020\027\220w\230b\240\014\250A\330\014\023\2204\320\027'\240q\250\001\340\010\024\220D\320\0309\270\021\270$\270a\330\010\013\2101\330\014\023\2201\340\010\021\220\031\230$\320\0364\260A\260T\270\031\320BT\320TU\330\010\017\210r\220\031\230!\320\004(\250\t\260\021\360\n\000\t\021\220\001\220\024\220V\2303\230d\240(\250)\2601\330\010\013\210<\220s\230!\330\014\023\2201\330\010\013\2109\220C\220q\330\014\023\2201\330\010\013\210;\220c\230\021\330\014\023\2201\330\010\013\210=\230\003\2301\330\014\023\2201\330\010\013\210;\220c\230\021\330\014\023\2201\330\010\017\210q\320\004&\240a\340\010\017\210t\2205\230\003\2302\230Z\240r\250\021\320\004&\240a\340\010\017\210t\320\023(\250\003\2502\250Q\320\004/\250q\360\034\000\t\020\210t\2205\230\001\330\010*\250!\360\006\000\t\r\210E\220\022\220:\230W\240C\240s\250&""\260\006\260a\260z\300\027\310\001\330\014\023\2207\230\"\230J\240e\2502\250Z\260r\270\021\360\006\000\t\r\210E\220\022\220<\230w\240c\250\023\250F\260&\270\001\270\034\300W\310A\330\014\023\2207\230\"\230L\250\005\250R\250|\2702\270Q\360\006\000\t\r\210E\220\022\2209\230G\2403\240c\250\026\250v\260Q\260i\270w\300a\330\014\023\2207\230\"\230I\240U\250\"\250I\260R\260q\360\006\000\t\033\230$\320\0363\2601\330\010\013\210?\230'\240\023\240C\240v\250V\2601\260L\300\007\300q\330\014\023\2207\230\"\230L\250\004\320,A\300\021\360\006\000\t\r\210E\220\022\220=\240\007\240s\250#\250V\2606\270\021\270-\300w\310a\330\014\023\2207\230\"\230M\250\025\250b\260\r\270R\270q\360\006\000\t\r\210E\220\022\220;\230g\240S\250\003\2506\260\026\260q\270\010\300\007\300q\330\014\023\2207\230\"\230K\240u\250B\250k\270\022\2701\340\010\017\210t\320\023#\2401\240A\320\004/\250u\3204K\3101\360\016\000\t\023\220$\220c\230\024\230T\240\021\330\010*\250!\340\010\014\210H\220B\220j\240\007\240q\330\014\023\2207\230\"\230J\240h\250b\260\n\270\"\270A\340\010\014\210H\220B\220l\240'\250\021\330\014\023\2207\230\"\230L\250\010\260\002\260,\270b\300\001\340\010\014\210H\220B\220i\230w\240a\330\014\023\2207\230\"\230I\240X\250R\250y\270\002\270!\340\010\014\210H\220B\220j\240\002\240+\250W\260A\330\014\023\2207\230\"\230L\250\010\260\002\260*\270B\270k\310\022\3101\340\010\014\210H\220B\220m\2407\250!\330\014\023\2207\230\"\230M\250\030\260\022\260=\300\002\300!\340\010\014\210H\220B\220k\240\027\250\001\330\014\023\2207\230\"\230K\240x\250r\260\033\270B\270a\330\010\017\210t\320\023#\2401\240A";
+    #else /* compression: none (3886 bytes) */
+const char* const bytes = ".Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Path | NoneSkill \346\216\242\346\265\213\345\231\250\357\274\214\346\211\253\346\217\217\347\243\201\347\233\230\347\233\256\345\275\225\345\217\221\347\216\260\345\267\262\345\256\211\350\243\205\347\232\204 Skill\343\200\202VERSION.json\350\267\263\350\277\207\346\215\237\345\235\217\347\232\204 VERSION.json: %s [%s]?add_note.agents.claude.codex.configdisableenablegcisenabledlist[Path]list[SkillRecord]list[str] | Nonelist[tuple[str, Path]].openclaw.opencodeopscli.skills.detectoropscli/skills/discovery/detector.pystr | None.trae-cntrae-cntuple[str, Path]utf-8v0.0.0.workbuddyOPSCLI_SKILLS_DIRPath__Pyx_PyDict_NextRefSkillDetectorSkillDetector._dedupe_targetsSkillDetector._infer_runtimeSkillDetector._opencode_config_dirSkillDetector._opencode_skills_dirSkillDetector.candidate_dirsSkillDetector.detect_all_install_targetsSkillDetector.detect_available_install_targetsSkillDetector.detect_global_install_targetsSkillDetector.detect_install_targetSkillDetector.detect_install_targetsSkillDetector.discoverSkillDetector.discover.<locals>.genexprSkillRecord_agentsallasyncio.coroutinesavailablebase_dircandidate_dirscandidatesclaudecline_in_tracebackclosecodexcurrentcwddatadata_dirdebug_dedupe_targets_det_excdetect_all_install_targetsdetect_available_install_targetsdetect_global_install_targetsdetect_install_targetdetect_install_targetsdiscover__doc__encodingenv_direxistsexpanduser__func__genexprgetgetLoggergetenvhome_infer_runtime_is_coroutineis_diritemitemsiterdirjsonkeyloads_loggerlogginglower__main____metaclass____module__name__name__nextnormalizedopenclawopencodeopencode_config_opencode_config_dir_opencode_skills_diropscli.skills.discovery.detectoropscli.skills.domain.modelsospparentpartpartspathpathlibpayloadpoppreferred_runtimepreferred_runtimes__prepare____qualname__read_textrecordsresolveresul""treturnrootruntimeruntime_dirsseenselfsend__set_name__setdefaultshutilskill_dirskillsskills_dirstrstriptargettargets__test__throwtraeunknownvaluevaluesversionversion_filewhichworkbuddy\320\004\027\220|\320#6\260e\320;R\320RS\360\014\000\t&\240Q\330\010\014\210L\230\004\230O\2501\250K\260|\3004\300q\330\014\017\210t\2208\2307\240!\330\020\021\340\014\020\220\r\230V\2401\240A\330\020\037\230z\250\022\2507\260\"\260A\330\020\033\230:\240R\240q\330\020\023\220<\230w\240a\340\024\025\330\030\"\240$\240f\250A\250\\\270\032\3001\300I\310Q\330\024\033\230=\250\001\330\030\037\230v\240Q\320&E\300^\320ST\330\030\031\330\024\036\230c\240\021\240'\250\024\250Q\250k\270\021\330\025\035\230W\240A\360\006\000\025\037\230a\360\006\000\025\026\340\020\032\230$\230o\250Q\250a\330\020\027\220w\230a\330\024\037\230q\330\030\035\230Y\240a\330\030 \240\001\330\030 \240\001\330\030\035\230Q\330\030%\240Q\360\006\000\t\020\210q\240A\320\004,\250A\360\014\000\t\020\210t\2205\230\001\330\010\017\210t\320\023#\2401\330\014\r\330\021\037\230u\240B\240j\260\002\260!\330\021\037\230u\240B\240l\260\"\260A\330\021\037\230u\240B\240i\250r\260\021\330\021\037\230t\320#8\270\001\330\021\037\230u\240B\240m\2602\260Q\330\021\037\230u\240B\240k\260\022\2601\330\021\037\230u\240B\240j\260\002\260!\320\004'\320'B\300!\330\010(\250\001\330\010)\250\021\330\010\014\210I\220X\230Q\330\014\023\2209\230C\230q\240\001\330\014\017\210t\2203\220a\330\020\021\330\014\020\220\004\220A\220Q\330\014\022\220'\230\022\2309\240A\330\010\017\210q\320\004\035\230\\\320)<\270E\320AX\320XY\360\024\000\t\023\220$\220c\230\024\230T\240\021\330\010!\240\021\360\006\000\t\014\2101\330\014\026\220g\230Q\230d\240!\240;\250k\270\021\360\006\000\t\023\220\"\220G\2301\230A\330\010\013\2101\330\014\026\220g\230Q\230d\240!\2408\250;\260a\360\006\000\t\020\210t\2205\230\001\330\010\022\220'\230\021\330\014\r\330\020\030\230\002\230*\240B\240a\330\020\025\220R\220z\240\022\2401\330\020\025\220R\220|\2402\240Q\330\020\025\220R\220y\240""\002\240!\330\020\024\320\024)\250\021\330\020\025\220R\220}\240B\240a\330\020\025\220R\220{\240\"\240A\330\020\025\220R\220z\240\022\2401\360\n\000\t\035\230A\330\010\035\230Q\330\010\014\210H\220A\330\014\022\220#\220Q\220d\230(\240'\250\024\250W\260H\270C\270q\300\004\300K\310q\330\014\017\210t\2203\220a\330\020\021\330\014\020\220\004\220A\220Q\330\014\022\220'\230\021\230!\330\010\017\210q\320\004$\240E\320)=\320=P\320Pf\320fg\360\022\000\t\023\220$\220c\230\024\230T\240\021\340\010\t\330\014\032\230(\240\"\240J\250b\260\001\330\014\032\230(\240\"\240L\260\002\260!\330\014\032\230(\240\"\240I\250R\250q\330\014\032\230(\240\"\240L\260\002\260!\330\014\032\230(\240\"\240M\260\022\2601\330\014\032\230(\240\"\240K\250r\260\021\330\014\032\230(\240\"\240J\250b\260\001\340\010\013\320\013\035\230T\320!3\2603\260a\330\014\023\320\023&\240l\260!\2601\360\006\000\t\r\210I\220X\230\\\250\026\250q\330\014\017\210t\2207\230'\240\021\330\020\027\220y\240\001\340\010\017\210z\230\030\240\022\240:\250R\250q\320\004%\240U\320*>\320>R\320Rn\320no\340\010\022\220$\220c\230\024\230T\240\021\340\010\013\2101\330\014.\250a\330\014\020\220\013\2301\330\020\035\230W\240F\250\"\250F\260!\330\020\023\220;\230c\240\021\330\024\033\2304\320\037:\270!\330\020\023\2207\230$\320\0364\260A\260T\270\031\320BT\320TU\330\020\027\220w\230b\240\014\250A\330\014\023\2204\320\027'\240q\250\001\340\010\024\220D\320\0309\270\021\270$\270a\330\010\013\2101\330\014\023\2201\340\010\021\220\031\230$\320\0364\260A\260T\270\031\320BT\320TU\330\010\017\210r\220\031\230!\320\004(\250\t\260\021\360\n\000\t\021\220\001\220\024\220V\2303\230d\240(\250)\2601\330\010\013\210<\220s\230!\330\014\023\2201\330\010\013\2109\220C\220q\330\014\023\2201\330\010\013\210;\220c\230\021\330\014\023\2201\330\010\013\210=\230\003\2301\330\014\023\2201\330\010\013\210;\220c\230\021\330\014\023\2201\330\010\013\210:\220S\230\001\330\014\023\2201\330\010\017\210q\320\004&\240a\340\010\017\210t\2205\230\003\2302\230Z\240r\250""\021\320\004&\240a\340\010\017\210t\320\023(\250\003\2502\250Q\320\004/\250q\360\034\000\t\020\210t\2205\230\001\330\010*\250!\360\006\000\t\r\210E\220\022\220:\230W\240C\240s\250&\260\006\260a\260z\300\027\310\001\330\014\023\2207\230\"\230J\240e\2502\250Z\260r\270\021\360\006\000\t\r\210E\220\022\220<\230w\240c\250\023\250F\260&\270\001\270\034\300W\310A\330\014\023\2207\230\"\230L\250\005\250R\250|\2702\270Q\360\006\000\t\r\210E\220\022\2209\230G\2403\240c\250\026\250v\260Q\260i\270w\300a\330\014\023\2207\230\"\230I\240U\250\"\250I\260R\260q\360\006\000\t\033\230$\320\0363\2601\330\010\013\210?\230'\240\023\240C\240v\250V\2601\260L\300\007\300q\330\014\023\2207\230\"\230L\250\004\320,A\300\021\360\006\000\t\r\210E\220\022\220=\240\007\240s\250#\250V\2606\270\021\270-\300w\310a\330\014\023\2207\230\"\230M\250\025\250b\260\r\270R\270q\360\006\000\t\r\210E\220\022\220;\230g\240S\250\003\2506\260\026\260q\270\010\300\007\300q\330\014\023\2207\230\"\230K\240u\250B\250k\270\022\2701\360\006\000\t\r\210E\220\022\220:\230W\240C\240s\250&\260\006\260a\260z\300\027\310\001\330\014\023\2207\230\"\230J\240e\2502\250Z\260r\270\021\340\010\017\210t\320\023#\2401\240A\320\004/\250u\3204K\3101\360\016\000\t\023\220$\220c\230\024\230T\240\021\330\010*\250!\340\010\014\210H\220B\220j\240\007\240q\330\014\023\2207\230\"\230J\240h\250b\260\n\270\"\270A\340\010\014\210H\220B\220l\240'\250\021\330\014\023\2207\230\"\230L\250\010\260\002\260,\270b\300\001\340\010\014\210H\220B\220i\230w\240a\330\014\023\2207\230\"\230I\240X\250R\250y\270\002\270!\340\010\014\210H\220B\220j\240\002\240+\250W\260A\330\014\023\2207\230\"\230L\250\010\260\002\260*\270B\270k\310\022\3101\340\010\014\210H\220B\220m\2407\250!\330\014\023\2207\230\"\230M\250\030\260\022\260=\300\002\300!\340\010\014\210H\220B\220k\240\027\250\001\330\014\023\2207\230\"\230K\240x\250r\260\033\270B\270a\340\010\014\210H\220B\220j\240\007\240q\330\014\023\2207\230\"\230J\240h\250b\260\n\270\"\270A\330\010\017\210t\320\023#\2401""\240A";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif
     PyObject **stringtab = __pyx_mstate->__pyx_string_tab;
     Py_ssize_t pos = 0;
-    for (int i = 0; i < 152; i++) {
+    for (int i = 0; i < 154; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyUnicode_DecodeUTF8(bytes + pos, bytes_length, NULL);
-      if (likely(string) && i >= 30) PyUnicode_InternInPlace(&string);
+      if (likely(string) && i >= 31) PyUnicode_InternInPlace(&string);
       if (unlikely(!string)) {
         Py_XDECREF(data);
         __PYX_ERR(0, 1, __pyx_L1_error)
@@ -9776,7 +10021,7 @@ const char* const bytes = ".Note that Cython is deliberately stricter than PEP-4
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 152; i < 164; i++) {
+    for (int i = 154; i < 166; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
@@ -9787,14 +10032,14 @@ const char* const bytes = ".Note that Cython is deliberately stricter than PEP-4
       }
     }
     Py_XDECREF(data);
-    for (Py_ssize_t i = 0; i < 164; i++) {
+    for (Py_ssize_t i = 0; i < 166; i++) {
       if (unlikely(PyObject_Hash(stringtab[i]) == -1)) {
         __PYX_ERR(0, 1, __pyx_L1_error)
       }
     }
     #if CYTHON_IMMORTAL_CONSTANTS
     {
-      PyObject **table = stringtab + 152;
+      PyObject **table = stringtab + 154;
       for (Py_ssize_t i=0; i<12; ++i) {
         #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
         #if PY_VERSION_HEX < 0x030E0000
@@ -9840,7 +10085,7 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   PyObject* tuple_dedup_map = PyDict_New();
   if (unlikely(!tuple_dedup_map)) return -1;
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 81};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_GENERATOR), 82};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_p};
     __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_skills_discovery_detector_2, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_kp_b_iso88591_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
@@ -9850,54 +10095,54 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_skills_discovery_detector_2, __pyx_mstate->__pyx_n_u_candidate_dirs, __pyx_mstate->__pyx_kp_b_iso88591_EAXXY_c_T_1_gQd_k_G1A_1_gQd_8_a, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 14, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 70};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 14, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 71};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_skills_dir, __pyx_mstate->__pyx_n_u_cwd, __pyx_mstate->__pyx_n_u_records, __pyx_mstate->__pyx_n_u_base_dir, __pyx_mstate->__pyx_n_u_skill_dir, __pyx_mstate->__pyx_n_u_version_file, __pyx_mstate->__pyx_n_u_data_dir, __pyx_mstate->__pyx_n_u_payload, __pyx_mstate->__pyx_n_u_det_exc, __pyx_mstate->__pyx_n_u_version, __pyx_mstate->__pyx_n_u_runtime, __pyx_mstate->__pyx_n_u_genexpr, __pyx_mstate->__pyx_n_u_genexpr};
     __pyx_mstate_global->__pyx_codeobj_tab[2] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_skills_discovery_detector_2, __pyx_mstate->__pyx_n_u_discover, __pyx_mstate->__pyx_kp_b_iso88591_6e_RRS_Q_L_O1K_4q_t87_V1A_z_7_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[2])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 7, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 112};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 7, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 113};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_cwd, __pyx_mstate->__pyx_n_u_preferred_runtime, __pyx_mstate->__pyx_n_u_current, __pyx_mstate->__pyx_n_u_runtime_dirs, __pyx_mstate->__pyx_n_u_runtime, __pyx_mstate->__pyx_n_u_path};
-    __pyx_mstate_global->__pyx_codeobj_tab[3] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_skills_discovery_detector_2, __pyx_mstate->__pyx_n_u_detect_install_target, __pyx_mstate->__pyx_kp_b_iso88591_E_PPffg_c_T_Jb_L_IRq_L_M_1_Kr_T, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[3])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[3] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_skills_discovery_detector_2, __pyx_mstate->__pyx_n_u_detect_install_target, __pyx_mstate->__pyx_kp_b_iso88591_E_PPffg_c_T_Jb_L_IRq_L_M_1_Kr_J, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[3])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 11, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 141};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 11, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 143};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_cwd, __pyx_mstate->__pyx_n_u_preferred_runtimes, __pyx_mstate->__pyx_n_u_current, __pyx_mstate->__pyx_n_u_targets, __pyx_mstate->__pyx_n_u_runtime, __pyx_mstate->__pyx_n_u_normalized, __pyx_mstate->__pyx_n_u__3, __pyx_mstate->__pyx_n_u_path, __pyx_mstate->__pyx_n_u_available, __pyx_mstate->__pyx_n_u_target};
     __pyx_mstate_global->__pyx_codeobj_tab[4] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_skills_discovery_detector_2, __pyx_mstate->__pyx_n_u_detect_install_targets, __pyx_mstate->__pyx_kp_b_iso88591_U_RRnno_c_T_1_a_1_WF_F_c_4_7_4A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[4])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 162};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 164};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_cwd, __pyx_mstate->__pyx_n_u_current, __pyx_mstate->__pyx_n_u_targets};
     __pyx_mstate_global->__pyx_codeobj_tab[5] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_skills_discovery_detector_2, __pyx_mstate->__pyx_n_u_detect_available_install_targets, __pyx_mstate->__pyx_kp_b_iso88591_u4K1_c_T_HBj_q_7_Jhb_A_HBl_7_L, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[5])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 191};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 196};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_home, __pyx_mstate->__pyx_n_u_targets, __pyx_mstate->__pyx_n_u_opencode_config};
     __pyx_mstate_global->__pyx_codeobj_tab[6] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_skills_discovery_detector_2, __pyx_mstate->__pyx_n_u_detect_global_install_targets, __pyx_mstate->__pyx_kp_b_iso88591_q_t5_E_WCs_az_7_Je2Zr_E_wc_F_WA, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[6])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 235};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 244};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_home};
     __pyx_mstate_global->__pyx_codeobj_tab[7] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_skills_discovery_detector_2, __pyx_mstate->__pyx_n_u_detect_all_install_targets, __pyx_mstate->__pyx_kp_b_iso88591_A_t5_t_1_uBj_uBl_A_uBir_t_8_uBm, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[7])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 253};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 263};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[8] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_skills_discovery_detector_2, __pyx_mstate->__pyx_n_u_opencode_config_dir, __pyx_mstate->__pyx_kp_b_iso88591_a_t5_2Zr, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[8])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 257};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 267};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[9] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_skills_discovery_detector_2, __pyx_mstate->__pyx_n_u_opencode_skills_dir, __pyx_mstate->__pyx_kp_b_iso88591_a_t_2Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[9])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 7, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 261};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 7, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 271};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_targets, __pyx_mstate->__pyx_n_u_seen, __pyx_mstate->__pyx_n_u_result, __pyx_mstate->__pyx_n_u_runtime, __pyx_mstate->__pyx_n_u_path, __pyx_mstate->__pyx_n_u_key};
     __pyx_mstate_global->__pyx_codeobj_tab[10] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_skills_discovery_detector_2, __pyx_mstate->__pyx_n_u_dedupe_targets, __pyx_mstate->__pyx_kp_b_iso88591_B_IXQ_9Cq_t3a_AQ_9A_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[10])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 272};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 282};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_skill_dir, __pyx_mstate->__pyx_n_u_parts, __pyx_mstate->__pyx_n_u_part};
-    __pyx_mstate_global->__pyx_codeobj_tab[11] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_skills_discovery_detector_2, __pyx_mstate->__pyx_n_u_infer_runtime, __pyx_mstate->__pyx_kp_b_iso88591_V3d_1_s_1_9Cq_1_c_1_1_1_c_1_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[11])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[11] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_skills_discovery_detector_2, __pyx_mstate->__pyx_n_u_infer_runtime, __pyx_mstate->__pyx_kp_b_iso88591_V3d_1_s_1_9Cq_1_c_1_1_1_c_1_S_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[11])) goto bad;
   }
   Py_DECREF(tuple_dedup_map);
   return 0;

@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import List
+from collections.abc import Callable
+from typing import Any
+
 from asyncua import ua
 
 
@@ -12,7 +14,7 @@ class AbstractSession(ABC):
     # View Service Set: https://reference.opcfoundation.org/Core/Part4/v104/5.8.1/
 
     @abstractmethod
-    async def browse(self, parameters: ua.BrowseParameters) -> List[ua.BrowseResult]:
+    async def browse(self, parameters: ua.BrowseParameters) -> list[ua.BrowseResult]:
         """
         https://reference.opcfoundation.org/Core/Part4/v104/5.8.2/
 
@@ -22,7 +24,7 @@ class AbstractSession(ABC):
         """
 
     @abstractmethod
-    async def browse_next(self, parameters: ua.BrowseNextParameters) -> List[ua.BrowseResult]:
+    async def browse_next(self, parameters: ua.BrowseNextParameters) -> list[ua.BrowseResult]:
         """
         https://reference.opcfoundation.org/Core/Part4/v104/5.8.3/
 
@@ -33,7 +35,7 @@ class AbstractSession(ABC):
         """
 
     @abstractmethod
-    async def translate_browsepaths_to_nodeids(self, browse_paths: List[ua.BrowsePath]) -> List[ua.BrowsePathResult]:
+    async def translate_browsepaths_to_nodeids(self, browse_paths: list[ua.BrowsePath]) -> list[ua.BrowsePathResult]:
         """
         https://reference.opcfoundation.org/Core/Part4/v104/5.8.4/
 
@@ -44,7 +46,7 @@ class AbstractSession(ABC):
         """
 
     @abstractmethod
-    async def register_nodes(self, nodes: List[ua.NodeId]) -> List[ua.NodeId]:
+    async def register_nodes(self, nodes: list[ua.NodeId]) -> list[ua.NodeId]:
         """
         https://reference.opcfoundation.org/Core/Part4/v104/5.8.5/
 
@@ -57,7 +59,7 @@ class AbstractSession(ABC):
         """
 
     @abstractmethod
-    async def unregister_nodes(self, nodes: List[ua.NodeId]) -> List[ua.NodeId]:
+    async def unregister_nodes(self, nodes: list[ua.NodeId]) -> None:
         """
         https://reference.opcfoundation.org/Core/Part4/v104/5.8.6/
 
@@ -67,7 +69,7 @@ class AbstractSession(ABC):
     # Attribute Service Set: https://reference.opcfoundation.org/Core/Part4/v104/5.10.1/
 
     @abstractmethod
-    async def read(self, parameters: ua.ReadParameters) -> List[ua.DataValue]:
+    async def read(self, parameters: ua.ReadParameters) -> list[ua.DataValue]:
         """
         https://reference.opcfoundation.org/Core/Part4/v104/5.10.2/
 
@@ -78,7 +80,7 @@ class AbstractSession(ABC):
         """
 
     @abstractmethod
-    async def write(self, parameters: ua.WriteParameters) -> List[ua.StatusCode]:
+    async def write(self, parameters: ua.WriteParameters) -> list[ua.StatusCode]:
         """
         https://reference.opcfoundation.org/Core/Part4/v104/5.10.4/
 
@@ -89,7 +91,7 @@ class AbstractSession(ABC):
         """
 
     @abstractmethod
-    async def history_read(self, params: ua.HistoryReadParameters) -> List[ua.HistoryReadResult]:
+    async def history_read(self, params: ua.HistoryReadParameters) -> list[ua.HistoryReadResult]:
         """
         https://reference.opcfoundation.org/Core/Part4/v104/5.10.3/
 
@@ -104,7 +106,7 @@ class AbstractSession(ABC):
     # NodeManagement Service Set: https://reference.opcfoundation.org/Core/Part4/v104/5.7.1/
 
     @abstractmethod
-    async def add_nodes(self, params: ua.AddNodesParameters) -> List[ua.AddNodesResult]:
+    async def add_nodes(self, nodestoadd: list[ua.AddNodesItem]) -> list[ua.AddNodesResult]:
         """
         https://reference.opcfoundation.org/Core/Part4/v104/5.7.2/
 
@@ -114,7 +116,7 @@ class AbstractSession(ABC):
         """
 
     @abstractmethod
-    async def add_references(self, refs: List[ua.AddReferencesItem]) -> List[ua.StatusCode]:
+    async def add_references(self, refs: list[ua.AddReferencesItem]) -> list[ua.StatusCode]:
         """
         https://reference.opcfoundation.org/Core/Part4/v104/5.7.3/
 
@@ -124,7 +126,7 @@ class AbstractSession(ABC):
         """
 
     @abstractmethod
-    async def delete_nodes(self, params: ua.DeleteNodesParameters) -> List[ua.StatusCode]:
+    async def delete_nodes(self, params: ua.DeleteNodesParameters) -> list[ua.StatusCode]:
         """
         https://reference.opcfoundation.org/Core/Part4/v104/5.7.4/
 
@@ -132,7 +134,7 @@ class AbstractSession(ABC):
         """
 
     @abstractmethod
-    async def delete_references(self, refs: List[ua.DeleteReferencesItem]) -> List[ua.StatusCode]:
+    async def delete_references(self, refs: list[ua.DeleteReferencesItem]) -> list[ua.StatusCode]:
         """
         https://reference.opcfoundation.org/Core/Part4/v104/5.7.5/
 
@@ -142,7 +144,7 @@ class AbstractSession(ABC):
     # Method Service Set: https://reference.opcfoundation.org/Core/Part4/v104/5.11.1/
 
     @abstractmethod
-    async def call(self, methodstocall: List[ua.CallMethodRequest]) -> List[ua.CallMethodResult]:
+    async def call(self, methodstocall: list[ua.CallMethodRequest]) -> list[ua.CallMethodResult]:
         """
         https://reference.opcfoundation.org/Core/Part4/v104/5.11.2/
 
@@ -152,29 +154,27 @@ class AbstractSession(ABC):
     # Subscription Service Set: https://reference.opcfoundation.org/Core/Part4/v104/5.13.1/
 
     @abstractmethod
-    async def create_subscription(self, params: ua.CreateSubscriptionParameters) -> ua.CreateSubscriptionResult:
+    async def create_subscription(
+        self,
+        params: ua.CreateSubscriptionParameters,
+        callback: Callable[..., Any],
+    ) -> ua.CreateSubscriptionResult:
         """
         https://reference.opcfoundation.org/Core/Part4/v104/5.13.2/
 
-        This Service is used to create a Subscription.
-
-        Subscriptions monitor a set of MonitoredItems for Notifications and return them to the Client in response to Publish requests.
+        Create a Subscription and register `callback` for `PublishResult`s on it.
+        Server-side implementations may accept additional optional parameters (e.g.
+        a per-connection request callback).
         """
 
     @abstractmethod
-    async def modify_subscription(self, params: ua.ModifySubscriptionParameters) -> ua.ModifySubscriptionResult:
-        """
-        https://reference.opcfoundation.org/Core/Part4/v104/5.13.3/
-
-        This Service is used to modify a Subscription.
-        """
-
-    @abstractmethod
-    async def delete_subscriptions(self, params: ua.DeleteSubscriptionsParameters) -> List[ua.StatusCode]:
+    async def delete_subscriptions(self, subscription_ids: list[int]) -> list[ua.StatusCode]:
         """
         https://reference.opcfoundation.org/Core/Part4/v104/5.13.8/
 
-        This Service is invoked to delete one or more Subscriptions that belong to the Client's Session.
+        Delete one or more subscriptions identified by SubscriptionId. The list shape
+        matches the high-level API used by both client and server internally; the wire
+        format is built/parsed by the protocol layer.
         """
 
     # MonitoredItem Service Set: https://reference.opcfoundation.org/Core/Part4/v104/5.12.1/
@@ -182,7 +182,7 @@ class AbstractSession(ABC):
     @abstractmethod
     async def create_monitored_items(
         self, params: ua.CreateMonitoredItemsParameters
-    ) -> List[ua.MonitoredItemCreateResult]:
+    ) -> list[ua.MonitoredItemCreateResult]:
         """
         https://reference.opcfoundation.org/Core/Part4/v104/5.12.2/
 
@@ -197,7 +197,7 @@ class AbstractSession(ABC):
     @abstractmethod
     async def modify_monitored_items(
         self, params: ua.ModifyMonitoredItemsParameters
-    ) -> List[ua.MonitoredItemModifyResult]:
+    ) -> list[ua.MonitoredItemModifyResult]:
         """
         https://reference.opcfoundation.org/Core/Part4/v104/5.12.3/
 
@@ -207,7 +207,7 @@ class AbstractSession(ABC):
         """
 
     @abstractmethod
-    async def delete_monitored_items(self, params: ua.DeleteMonitoredItemsParameters) -> List[ua.StatusCode]:
+    async def delete_monitored_items(self, params: ua.DeleteMonitoredItemsParameters) -> list[ua.StatusCode]:
         """
         https://reference.opcfoundation.org/Core/Part4/v104/5.12.6/
 
@@ -216,11 +216,9 @@ class AbstractSession(ABC):
         """
 
     @abstractmethod
-    async def transfer_subscriptions(self, params: ua.TransferSubscriptionsParameters) -> List[ua.TransferResult]:
+    async def transfer_subscriptions(self, params: ua.TransferSubscriptionsParameters) -> list[ua.TransferResult]:
         """
         https://reference.opcfoundation.org/Core/Part4/v104/5.13.7/
 
         This Service is used to transfer a Subscription and its MonitoredItems from one Session to another.
-        For example, a Client may need to reopen a Session and then transfer its Subscriptions to that Session.
-        It may also be used by one Client to take over a Subscription from another Client by transferring the Subscription to its Session.
         """

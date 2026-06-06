@@ -278,9 +278,10 @@ class MistralWorkflowTracingInterceptor(temporalio.client.Interceptor, temporali
 
 
 def get_temporal_tracing_interceptors() -> list[Interceptor]:
-    # Standard OTEL tracing interceptor injects the tracing context in the headers
-    # which is necessary to have a single trace per workflow, so we always include it
-    interceptors: list[Interceptor] = [TracingInterceptor()]
+    # TracingInterceptor handles trace context propagation from Temporal headers.
+    # always_create_workflow_spans=True ensures scheduled workflows get their own trace
+    # instead of polluting other workflow traces.
+    interceptors: list[Interceptor] = [TracingInterceptor(always_create_workflow_spans=True)]
     if config.common.otel_enabled:
         interceptors.append(MistralWorkflowTracingInterceptor())
     return interceptors

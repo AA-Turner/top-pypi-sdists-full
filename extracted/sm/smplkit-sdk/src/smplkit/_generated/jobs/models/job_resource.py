@@ -19,7 +19,7 @@ T = TypeVar("T", bound="JobResource")
 
 @_attrs_define
 class JobResource:
-    """JSON:API resource envelope for a job. The caller supplies `id` (the slug) on create.
+    """JSON:API resource envelope for a job. The caller supplies `id` on create.
 
     Example:
         {'attributes': {'concurrency_policy': 'ALLOW', 'configuration': {'body': '{"scope":"all"}', 'headers': [{'name':

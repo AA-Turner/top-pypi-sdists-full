@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
      name='fyers_apiv3',  
-     version='3.1.12',
+     version='3.1.13',
      author="Fyers-Tech",
      author_email="support@fyers.in",
      description="Fyers trading APIs.",
@@ -14,7 +14,7 @@ setuptools.setup(
      url="https://github.com/FyersDev/fyers-api-sample-code/tree/sample_v3/v3/python",
      packages=setuptools.find_packages(),
      package_data={  
-         'fyers_apiv3': ['/Users/em1125/Documents/Projects/Trading projects/GitHub/option greeks/fyers-api-py/fyers_apiv3/FyersWebsocket/map.json']
+         'fyers_apiv3': ['/Users/em997/Documents/Fyers/Backend/sdks/fyers-api-py/fyers_apiv3/FyersWebsocket/map.json']
      },
      include_package_data=True,
      install_requires=[

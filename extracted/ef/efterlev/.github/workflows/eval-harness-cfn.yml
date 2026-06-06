@@ -46,13 +46,14 @@ on:
           - anthropic
           - bedrock
           - openai
+          - bedrock_openai
       llm_model:
-        description: "Model ID (must match the chosen backend; e.g. claude-haiku-4-5, gpt-5.4, us.anthropic.claude-haiku-4-5-20251001-v1:0)"
+        description: "Model ID (must match the chosen backend; e.g. claude-haiku-4-5, gpt-5.4, us.anthropic.claude-haiku-4-5-20251001-v1:0, openai.gpt-5.4)"
         required: false
         default: "claude-haiku-4-5"
         type: string
       region:
-        description: "AWS region (required when backend=bedrock; e.g., us-east-1)"
+        description: "AWS region (required when backend=bedrock or bedrock_openai; e.g. us-east-1, or us-east-2/us-west-2 for bedrock_openai)"
         required: false
         default: "us-east-1"
         type: string
@@ -90,6 +91,10 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # bedrock_openai (OpenAI on Bedrock via Mantle) authenticates with a
+          # Bedrock long-term API key, not OIDC role-assumption. Configure the
+          # AWS_BEARER_TOKEN_BEDROCK repo secret to dispatch a gpt-5.4 run.
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
         run: |
           set -euo pipefail
           ARGS=(
@@ -97,7 +102,7 @@ jobs:
             --llm-backend "${{ inputs.backend }}"
             --llm-model "${{ inputs.llm_model }}"
           )
-          if [ "${{ inputs.backend }}" = "bedrock" ]; then
+          if [ "${{ inputs.backend }}" = "bedrock" ] || [ "${{ inputs.backend }}" = "bedrock_openai" ]; then
             ARGS+=(--llm-region "${{ inputs.region }}")
           fi
           uv run python -m evals run "${ARGS[@]}"

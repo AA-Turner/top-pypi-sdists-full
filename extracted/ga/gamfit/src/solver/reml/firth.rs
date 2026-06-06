@@ -1,8 +1,7 @@
 use super::*;
 use crate::linalg::utils::enforce_symmetry;
-use crate::mixture_link::fisher_weight_jet5;
-use crate::types::StandardLink;
-use ndarray::Zip;
+use crate::mixture_link::fisher_weight_jet5_for_inverse_link;
+use crate::types::InverseLink;
 
 const FIRTH_DERIVATIVE_PARALLEL_MIN_N: usize = 16_384;
 
@@ -75,13 +74,16 @@ impl<'a> RemlState<'a> {
         super::assembly::row_scale_dense_in_place_by_inverse_positive_or_zero(out, scale);
     }
 
-    /// GLM Fisher working-weight 5-jet for the requested standard link. For
-    /// `StandardLink::Logit` this is byte-identical to the historical
+    /// GLM Fisher working-weight 5-jet for the requested inverse link. For
+    /// standard Logit this is byte-identical to the historical
     /// `logit_inverse_link_jet5(eta).d1..d5` path that the Firth operator used
-    /// before the weights were generalized to arbitrary standard links.
+    /// before the weights were generalized to arbitrary inverse links.
     #[inline]
-    fn fisher_weight_derivatives(link: StandardLink, eta: f64) -> (f64, f64, f64, f64, f64) {
-        fisher_weight_jet5(link, eta)
+    fn fisher_weight_derivatives(
+        link: &InverseLink,
+        eta: f64,
+    ) -> Result<(f64, f64, f64, f64, f64), EstimationError> {
+        fisher_weight_jet5_for_inverse_link(link, eta)
     }
 
     #[inline]
@@ -157,14 +159,14 @@ impl<'a> RemlState<'a> {
     }
 
     fn fill_fisher_weight_derivative_arrays(
-        link: StandardLink,
+        link: &InverseLink,
         eta: &Array1<f64>,
         w: &mut Array1<f64>,
         w1: &mut Array1<f64>,
         w2: &mut Array1<f64>,
         w3: &mut Array1<f64>,
         w4: &mut Array1<f64>,
-    ) {
+    ) -> Result<(), EstimationError> {
         assert_eq!(eta.len(), w.len());
         assert_eq!(eta.len(), w1.len());
         assert_eq!(eta.len(), w2.len());
@@ -172,40 +174,30 @@ impl<'a> RemlState<'a> {
         assert_eq!(eta.len(), w4.len());
 
         if Self::parallelize_firth_derivative_rows(eta.len()) {
-            Zip::from(w)
-                .and(w1)
-                .and(w2)
-                .and(w3)
-                .and(w4)
-                .and(eta.view())
-                .par_for_each(|wi, wi1, wi2, wi3, wi4, &ei| {
-                    let (value, first, second, third, fourth) =
-                        Self::fisher_weight_derivatives(link, ei);
-                    *wi = value;
-                    *wi1 = first;
-                    *wi2 = second;
-                    *wi3 = third;
-                    *wi4 = fourth;
-                });
-        } else {
-            Zip::from(w)
-                .and(w1)
-                .and(w2)
-                .and(w3)
-                .and(w4)
-                .and(eta.view())
-                .for_each(|wi, wi1, wi2, wi3, wi4, &ei| {
-                    let (value, first, second, third, fourth) =
-                        Self::fisher_weight_derivatives(link, ei);
-                    *wi = value;
-                    *wi1 = first;
-                    *wi2 = second;
-                    *wi3 = third;
-                    *wi4 = fourth;
-                });
+            let values: Result<Vec<_>, EstimationError> = eta
+                .par_iter()
+                .map(|&ei| Self::fisher_weight_derivatives(link, ei))
+                .collect();
+            for (i, (value, first, second, third, fourth)) in values?.into_iter().enumerate() {
+                w[i] = value;
+                w1[i] = first;
+                w2[i] = second;
+                w3[i] = third;
+                w4[i] = fourth;
+            }
+            return Ok(());
         }
+        for i in 0..eta.len() {
+            let (value, first, second, third, fourth) =
+                Self::fisher_weight_derivatives(link, eta[i])?;
+            w[i] = value;
+            w1[i] = first;
+            w2[i] = second;
+            w3[i] = third;
+            w4[i] = fourth;
+        }
+        Ok(())
     }
-
 
     pub(crate) fn weighted_cross(
         left: &Array2<f64>,
@@ -315,11 +307,10 @@ impl<'a> RemlState<'a> {
 
     /// Link-aware dense Firth/Jeffreys builder. The REML callsites resolve the
     /// Fisher-weight link via `reml_robust_jeffreys_link` and pass it here;
-    /// `StandardLink::Logit` reproduces the historical logit-pinned build
-    /// byte-for-byte, and the link-general Jeffreys path (probit, ...) flows
-    /// through with the resolved link.
+    /// standard Logit reproduces the historical logit-pinned build byte-for-byte,
+    /// and stateful links flow through the same inverse-link derivative path.
     pub(super) fn build_firth_dense_operator_for_link(
-        link: StandardLink,
+        link: &InverseLink,
         x_dense: &Array2<f64>,
         eta: &Array1<f64>,
         observation_weights: ndarray::ArrayView1<'_, f64>,
@@ -420,7 +411,7 @@ impl FirthDenseOperator {
     }
 
     pub(crate) fn build_for_link(
-        link: StandardLink,
+        link: &InverseLink,
         x_dense: &Array2<f64>,
         eta: &Array1<f64>,
     ) -> Result<FirthDenseOperator, EstimationError> {
@@ -428,7 +419,7 @@ impl FirthDenseOperator {
     }
 
     pub(crate) fn build_with_observation_weights_for_link(
-        link: StandardLink,
+        link: &InverseLink,
         x_dense: &Array2<f64>,
         eta: &Array1<f64>,
         observation_weights: ndarray::ArrayView1<'_, f64>,
@@ -442,7 +433,7 @@ impl FirthDenseOperator {
     }
 
     fn build_with_observation_weights_impl(
-        link: StandardLink,
+        link: &InverseLink,
         x_dense: &Array2<f64>,
         eta: &Array1<f64>,
         observation_weights: Option<ndarray::ArrayView1<'_, f64>>,
@@ -536,7 +527,7 @@ impl FirthDenseOperator {
         let mut w4 = Array1::<f64>::zeros(n);
         RemlState::fill_fisher_weight_derivative_arrays(
             link, eta, &mut w, &mut w1, &mut w2, &mut w3, &mut w4,
-        );
+        )?;
         let basis_design = if let Some(scale) = observation_weight_sqrt.as_ref() {
             RemlState::row_scale(x_dense, scale)
         } else {
@@ -2672,6 +2663,7 @@ impl FirthDenseOperator {
 mod tests {
     use super::*;
     use crate::mixture_link::logit_inverse_link_jet5;
+    use crate::types::StandardLink;
     use ndarray::{Array1, Array2, array};
 
     fn build_logit_firth_dense_operator(
@@ -2679,7 +2671,7 @@ mod tests {
         eta: &Array1<f64>,
     ) -> Result<FirthDenseOperator, EstimationError> {
         FirthDenseOperator::build_with_observation_weights_impl(
-            StandardLink::Logit,
+            &InverseLink::Standard(StandardLink::Logit),
             x_dense,
             eta,
             None,
@@ -2692,7 +2684,7 @@ mod tests {
         observation_weights: ndarray::ArrayView1<'_, f64>,
     ) -> Result<FirthDenseOperator, EstimationError> {
         FirthDenseOperator::build_with_observation_weights_impl(
-            StandardLink::Logit,
+            &InverseLink::Standard(StandardLink::Logit),
             x_dense,
             eta,
             Some(observation_weights),
@@ -2825,12 +2817,8 @@ mod tests {
         let beta = array![0.2, -0.45, 0.25];
         let observation_weights = array![1.0, 0.5, 2.0, 1.5, 0.75];
         let eta = x.dot(&beta);
-        let op = build_weighted_logit_firth_dense_operator(
-            &x,
-            &eta,
-            observation_weights.view(),
-        )
-        .expect("weighted firth operator");
+        let op = build_weighted_logit_firth_dense_operator(&x, &eta, observation_weights.view())
+            .expect("weighted firth operator");
         let grad = op.jeffreys_beta_gradient();
         let h = 1e-6;
 
@@ -2865,8 +2853,13 @@ mod tests {
         beta: &Array1<f64>,
     ) -> FirthDenseOperator {
         let eta = x.dot(beta);
-        FirthDenseOperator::build_with_observation_weights_impl(link, x, &eta, None)
-            .expect("link-general firth operator")
+        FirthDenseOperator::build_with_observation_weights_impl(
+            &InverseLink::Standard(link),
+            x,
+            &eta,
+            None,
+        )
+        .expect("link-general firth operator")
     }
 
     fn link_firth_phi(link: StandardLink, x: &Array2<f64>, beta: &Array1<f64>) -> f64 {
@@ -2924,9 +2917,13 @@ mod tests {
         let eta = x.dot(&beta);
 
         let historical = build_logit_firth_dense_operator(&x, &eta).expect("historical logit");
-        let link_general =
-            FirthDenseOperator::build_with_observation_weights_impl(StandardLink::Logit, &x, &eta, None)
-                .expect("link-general logit");
+        let link_general = FirthDenseOperator::build_with_observation_weights_impl(
+            &InverseLink::Standard(StandardLink::Logit),
+            &x,
+            &eta,
+            None,
+        )
+        .expect("link-general logit");
 
         assert_eq!(
             historical.jeffreys_logdet(),
@@ -3195,12 +3192,8 @@ mod tests {
             );
         }
 
-        let op = build_weighted_logit_firth_dense_operator(
-            &x,
-            &eta,
-            observation_weights.view(),
-        )
-        .expect("original firth operator");
+        let op = build_weighted_logit_firth_dense_operator(&x, &eta, observation_weights.view())
+            .expect("original firth operator");
         let op_reparameterized = build_weighted_logit_firth_dense_operator(
             &x_reparameterized,
             &eta_reparameterized,
@@ -3233,12 +3226,8 @@ mod tests {
         let beta = array![0.25, -0.5];
         let eta = x.dot(&beta);
         let observation_weights = array![1.0, 0.5, 1.75, 0.9, 1.2];
-        let op = build_weighted_logit_firth_dense_operator(
-            &x,
-            &eta,
-            observation_weights.view(),
-        )
-        .expect("firth operator");
+        let op = build_weighted_logit_firth_dense_operator(&x, &eta, observation_weights.view())
+            .expect("firth operator");
 
         let reduced_metric = fast_atb(&op.x_reduced, &op.x_reduced);
         for i in 0..reduced_metric.nrows() {
@@ -3634,7 +3623,8 @@ mod tests {
         let h = 1e-5_f64;
         let fd_block = |x_eval: &Array2<f64>| -> Array2<f64> {
             let eta_e = x_eval.dot(&beta);
-            let op_e = build_logit_firth_dense_operator(x_eval, &eta_e).expect("perturbed firth operator");
+            let op_e =
+                build_logit_firth_dense_operator(x_eval, &eta_e).expect("perturbed firth operator");
             let x_tau_i_r = op_e.reduce_explicit_design(&x_tau_i);
             let deta_i_e = x_tau_i.dot(&beta);
             let (dot_i_i_e, dot_h_i_e) = op_e.dot_i_and_h_from_reduced(&x_tau_i_r, &deta_i_e);
@@ -3664,7 +3654,8 @@ mod tests {
         // double-cover the primitive.
         let fd_block_j = |x_eval: &Array2<f64>| -> Array2<f64> {
             let eta_e = x_eval.dot(&beta);
-            let op_e = build_logit_firth_dense_operator(x_eval, &eta_e).expect("perturbed firth operator");
+            let op_e =
+                build_logit_firth_dense_operator(x_eval, &eta_e).expect("perturbed firth operator");
             let x_tau_j_r = op_e.reduce_explicit_design(&x_tau_j);
             let deta_j_e = x_tau_j.dot(&beta);
             let (dot_i_j_e, dot_h_j_e) = op_e.dot_i_and_h_from_reduced(&x_tau_j_r, &deta_j_e);
@@ -3774,7 +3765,8 @@ mod tests {
         let h = 1e-5_f64;
         let single_tau_apply = |beta_eval: &Array1<f64>| -> Array2<f64> {
             let eta_e = x.dot(beta_eval);
-            let op_e = build_logit_firth_dense_operator(&x, &eta_e).expect("perturbed firth operator");
+            let op_e =
+                build_logit_firth_dense_operator(&x, &eta_e).expect("perturbed firth operator");
             let x_tau_r = op_e.reduce_explicit_design(&x_tau);
             let deta_e = x_tau.dot(beta_eval);
             let (dot_i_e, dot_h_e) = op_e.dot_i_and_h_from_reduced(&x_tau_r, &deta_e);
@@ -3865,8 +3857,8 @@ mod tests {
             let (w, w1, w2, _w3, _w4) =
                 crate::mixture_link::fisher_weight_jet5(StandardLink::Probit, eta);
             let ref_w = reference_probit_weight(eta);
-            let fd1 = (reference_probit_weight(eta + h) - reference_probit_weight(eta - h))
-                / (2.0 * h);
+            let fd1 =
+                (reference_probit_weight(eta + h) - reference_probit_weight(eta - h)) / (2.0 * h);
             let fd2 = (reference_probit_weight(eta + h) - 2.0 * reference_probit_weight(eta)
                 + reference_probit_weight(eta - h))
                 / (h * h);

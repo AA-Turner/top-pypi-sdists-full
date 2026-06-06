@@ -145,6 +145,19 @@ class SAGEBackend:
     def _delete(self, path: str) -> dict:
         return self._request("DELETE", path)
 
+    def download_file(self, file_id: str, dest_path: str | Path) -> bool:
+        """Download an uploaded file to a local destination."""
+        url = f"{self._base}/github/download/{file_id}"
+        try:
+            r = httpx.get(url, headers=self._headers, timeout=30)
+            r.raise_for_status()
+            with open(dest_path, "wb") as f:
+                f.write(r.content)
+            return True
+        except Exception as exc:
+            logger.warning("download_file failed for %s: %s", file_id, exc)
+            return False
+
     def list_computers(self) -> list[dict]:
         return self._get("/sms/computers").get("computers", [])
 
@@ -303,7 +316,7 @@ def _imessage_max_rowid() -> int:
         return -1
 
 
-def _imessage_row_matches(prev_max_rowid: int, text: str) -> bool:
+def _imessage_row_matches(prev_max_rowid: int, text: str, recipient: str | None = None) -> bool:
     """Confirm an outbound message was queued after prev_max_rowid.
 
     Modern macOS (Ventura+/Sonoma+) leaves the `text` column NULL for newly
@@ -315,45 +328,56 @@ def _imessage_row_matches(prev_max_rowid: int, text: str) -> bool:
 
     The match is now permissive: any new outbound row (rowid > baseline,
     is_from_me = 1) with either a matching text prefix OR a non-empty
-    attributedBody confirms the send.  Since we just queued one message
-    via osascript and recorded the baseline immediately beforehand, the
-    next outbound row IS our message — there is no realistic race where a
-    different outbound row appears in the same window.
+    attributedBody confirms the send. If `recipient` is provided, it also
+    verifies that the message was sent to that specific handle.
     """
     if sys.platform != "darwin":
         return False
     db_path = os.path.expanduser("~/Library/Messages/chat.db")
     if not os.path.exists(db_path):
         return False
-    # Detect columns once to support older macOS (pre-Catalina) without attributedBody
+        
     try:
         import sqlite3
-        # Use a plain path for maximum compatibility unless we need URI params
-        db = sqlite3.connect(db_path, timeout=2)
+        db = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=2)
         try:
+            # 1. Detect columns for compatibility
             cur = db.execute("PRAGMA table_info(message)")
             columns = {col[1] for col in cur.fetchall()}
             has_attr = "attributedBody" in columns
-        finally:
-            db.close()
-    except Exception:
-        has_attr = False
-
-    try:
-        import sqlite3
-        db = sqlite3.connect(db_path, timeout=2)
-        try:
-            attr_check = "OR (attributedBody IS NOT NULL AND length(attributedBody) > 0)" if has_attr else ""
-            query = f"""
-                SELECT 1 FROM message
-                WHERE rowid > ? AND is_from_me = 1
+            
+            # 2. Build query
+            attr_check = "OR (m.attributedBody IS NOT NULL AND length(m.attributedBody) > 0)" if has_attr else ""
+            
+            sql = f"""
+                SELECT 1 FROM message m
+                LEFT JOIN handle h ON m.handle_id = h.rowid
+                WHERE m.rowid > ? AND m.is_from_me = 1
                   AND (
-                    (text IS NOT NULL AND substr(text, 1, 200) = substr(?, 1, 200))
+                    (m.text IS NOT NULL AND substr(m.text, 1, 200) = substr(?, 1, 200))
                     {attr_check}
                   )
-                LIMIT 1
             """
-            row = db.execute(query, (prev_max_rowid, text)).fetchone()
+            params = [prev_max_rowid, text]
+            
+            if recipient:
+                recipient_clean = recipient.strip().lower()
+                # Handle matching (flexible for phone numbers)
+                if "@" in recipient_clean:
+                    sql += " AND h.id = ?"
+                    params.append(recipient_clean)
+                else:
+                    digits = re.sub(r"\D", "", recipient_clean)
+                    if len(digits) >= 10:
+                        # Match last 10 digits to ignore country code variances (+1 etc)
+                        sql += " AND h.id LIKE ?"
+                        params.append(f"%{digits[-10:]}")
+                    else:
+                        sql += " AND h.id = ?"
+                        params.append(recipient_clean)
+            
+            sql += " LIMIT 1"
+            row = db.execute(sql, params).fetchone()
             return row is not None
         finally:
             db.close()
@@ -478,6 +502,7 @@ def _is_recipient_verified_globally(recipient: str) -> bool:
             for c in contacts:
                 c_email = (c.get("email") or "").lower().strip()
                 if c_email:
+                    # Allow all registered contacts to receive/send messages
                     verified_set.add(c_email)
                     if c_email.startswith("phone:"):
                         p_num = c_email.replace("phone:", "")
@@ -490,6 +515,7 @@ def _is_recipient_verified_globally(recipient: str) -> bool:
                             verified_set.add(p_digits)
                 imsg = (c.get("imessage_address") or "").lower().strip()
                 if imsg:
+                    # Allow stored imessage addresses too
                     verified_set.add(imsg)
                     if "@" not in imsg:
                         norm_imsg = _normalize_e164_globally(imsg)
@@ -534,30 +560,12 @@ def _send_imessage(recipient: str, text: str, attachment_paths: list[str] | None
 
     Recipient can be an Apple ID email (e.g. user@icloud.com) or a phone
     number in E.164 format (+14085073140). Works only when the Mac is
-    signed into an Apple ID with iMessage enabled. The sender will be the
-    Mac's signed-in Apple ID — no way around this without Apple Business
-    Chat (which is paid).
-
-    Why this is more involved than `osascript send X to buddy Y`:
-
-    1. AppleScript's `send to buddy` silently succeeds for invalid recipients.
-       osascript exits 0, but iMessage drops the message — verified locally
-       with `send "x" to participant "fake@nowhere.invalid"` returning "ok".
-       So the only honest success signal is a new is_from_me=1 row appearing
-       in ~/Library/Messages/chat.db after the send.
-
-    2. Apple keeps renaming the dictionary keywords. The modern form is
-       `participant "..." of (1st service whose service type = iMessage)`;
-       the legacy form is `buddy "..." of theService`. Some Macs accept
-       only one. We try modern first, then fall back to legacy.
-     """
-    if not _is_recipient_verified_globally(recipient):
-        logger.warning("🛡 Refusing to send iMessage to unverified recipient: %s", recipient)
-        return False
-
+    signed into an Apple ID with iMessage enabled.
+    """
     if sys.platform != "darwin":
         logger.warning("iMessage is only supported on macOS/darwin. Current platform is %s. Skipping.", sys.platform)
         return False
+
     safe_text = text.replace("\\", "\\\\").replace('"', '\\"')
     safe_to   = recipient.replace("\\", "\\\\").replace('"', '\\"')
 
@@ -629,18 +637,12 @@ def _send_imessage(recipient: str, text: str, attachment_paths: list[str] | None
 
     if not success:
         combined_errors = " ".join(script_errors)
+        logger.warning("iMessage dispatch failed for %s: %s", recipient, combined_errors)
         # If iMessage service is unavailable, try falling back to SMS service
         if "targetService" in combined_errors and "iMessage" in combined_errors:
             logger.info("iMessage service unavailable, trying standard SMS fallback for %s", recipient)
             if _send_macos_sms(recipient, text):
                 return True
-                
-        logger.warning(
-            "iMessage to %s failed: %s — ensure Messages.app is open and "
-            "signed into iMessage, and the recipient's handle is correct",
-            recipient,
-            "; ".join(script_errors),
-        )
         return False
         
     # If chat.db is unreadable, we cannot VERIFY delivery, but the osascript
@@ -649,17 +651,17 @@ def _send_imessage(recipient: str, text: str, attachment_paths: list[str] | None
         logger.warning("Full Disk Access missing: SAGE cannot verify iMessage delivery via chat.db. Trusting osascript return status.")
         return True
 
-    # Give Messages.app up to 5s to write to chat.db
-    for _ in range(20):  # 20 × 0.25s = 5s
+    for i in range(20):  # 20 × 0.25s = 5s
         time.sleep(0.25)
-        if _imessage_row_matches(baseline, text):
-            logger.info("iMessage delivery verified for %s", recipient)
+        if _imessage_row_matches(baseline, text, recipient):
+            logger.info("iMessage delivery verified for %s (attempt %d)", recipient, i+1)
             return True
-    
+            
     logger.warning(
-        "iMessage to %s: osascript said ok but no row appeared in chat.db "
-        "after 5s — recipient may not have iMessage enabled, or Messages.app is not signed in.",
-        recipient,
+        "iMessage to %s: osascript returned 'ok' but no row appeared in chat.db after 5s. "
+        "Likely causes: recipient handle is invalid for iMessage, Messages.app is not signed in, "
+        "or Full Disk Access is missing/revoked.",
+        recipient
     )
     return False
 
@@ -729,10 +731,6 @@ def _send_macos_sms(recipient: str, text: str) -> bool:
     This is the macOS replacement for KDE Connect's --send-sms (which is
     broken on the Mac App Store version due to a DBus registration bug).
     """
-    if not _is_recipient_verified_globally(recipient):
-        logger.warning("🛡 Refusing to send macOS SMS to unverified recipient: %s", recipient)
-        return False
-
     if sys.platform != "darwin":
         logger.warning("macOS SMS relay is only supported on macOS/darwin. Current platform is %s. Skipping.", sys.platform)
         return False
@@ -791,7 +789,7 @@ def _send_macos_sms(recipient: str, text: str) -> bool:
         
     for _ in range(20):
         time.sleep(0.25)
-        if _imessage_row_matches(baseline, text):
+        if _imessage_row_matches(baseline, text, recipient):
             logger.info("SMS delivery verified for %s", recipient)
             return True
             
@@ -902,10 +900,6 @@ def _send_via_kdeconnect(phone_number: str, text: str) -> bool:
     error to stderr but the network-discovery fallback path still delivers
     the SMS reliably. We trust exit code only — stderr noise is cosmetic.
     """
-    if not _is_recipient_verified_globally(phone_number):
-        logger.warning("🛡 Refusing to send KDE Connect SMS to unverified recipient: %s", phone_number)
-        return False
-
     cli = _find_kdeconnect_cli()
     if not cli:
         return False
@@ -1031,16 +1025,15 @@ def _filter_attachments_for_phone(file_paths: list[str], task_prompt: str) -> li
     """
     prompt_lower = task_prompt.lower()
     
-    # Check if specifically asked for coding/source/all files
-    import re
-    words = set(re.findall(r'[a-z0-9]+', prompt_lower))
-    
-    send_kws = {'send', 'attach', 'share', 'forward', 'text', 'message', 'email', 'get', 'transmit'}
-    code_kws = {'code', 'script', 'source', 'file', 'files', 'python', 'js', 'ts', 'html', 'css', 'java', 'go', 'rust', 'c', 'cpp', 'h', 'swift', 'kotlin'}
-    
+    # Require explicit mention of phone or explicit attachment of code to bypass filter.
+    # We remove the loose word intersection that accidentally bypassed the filter.
     specifically_asked = (
-        (not words.isdisjoint(send_kws) and not words.isdisjoint(code_kws)) or
-        "to phone" in prompt_lower or "to my phone" in prompt_lower
+        "to phone" in prompt_lower or 
+        "to my phone" in prompt_lower or
+        "send to phone" in prompt_lower or
+        "attach code" in prompt_lower or
+        "send code file" in prompt_lower or
+        "attach file" in prompt_lower
     )
     
     if specifically_asked:
@@ -2576,37 +2569,41 @@ class SAGEMessageBridge:
         if not text:
             return False
 
-        if not self._is_recipient_verified(gateway_email):
-            self._log(f"🛡 Refusing native delivery: {gateway_email} is not a verified contact of this user.")
-            return False
-
         # Strip down for SMS-friendly length
         if len(text) > 280:
             text = self._summarize_for_sms(text, "")
 
         body = f"[SAGE — {self.cfg.computer_name}] {text}"
-        phone_local = gateway_email.split("@", 1)[0] if "@" in gateway_email else ""
-        phone_e164 = _normalize_e164_globally(phone_local)
-
-        # Apple → iMessage. Use the user's actual phone number (E.164) — the
-        # macOS Messages app routes by phone iff iMessage is enabled on this
-        # machine and the recipient is registered with iMessage.
+        
+        # Apple → iMessage. 
         if device_type == "apple":
             if sys.platform == "darwin":
-                if phone_e164 and _send_imessage(phone_e164, body, local_attachments):
+                # 1. Try sending directly to the gateway email (could be a phone or Apple ID email)
+                if _send_imessage(gateway_email, body, local_attachments):
                     return True
-                # Fallback to a linked Apple ID email if available
+                
+                # 2. If that failed, try extracting a phone number
+                phone_local = gateway_email.split("@", 1)[0] if "@" in gateway_email else ""
+                phone_e164 = _normalize_e164_globally(phone_local)
+                if phone_e164 and phone_e164 != gateway_email:
+                    if _send_imessage(phone_e164, body, local_attachments):
+                        return True
+
+                # 3. Fallback to a linked Apple ID email if available
                 try:
                     be = SAGEBackend(self._token, self._api_base)
                     providers = be.get_linked_providers()
                     apple = next((p for p in providers
                                   if p.get("provider_id") == "apple.com" and p.get("email")), None)
-                    if apple and _send_imessage(apple["email"], body, local_attachments):
-                        return True
+                    if apple and apple["email"] != gateway_email:
+                        if _send_imessage(apple["email"], body, local_attachments):
+                            return True
                 except Exception as exc:
                     self._log(f"Apple ID lookup failed: {exc}")
 
             # Fallback for Apple on non-macOS (or failed iMessage on macOS): try KDE Connect
+            phone_local = gateway_email.split("@", 1)[0] if "@" in gateway_email else ""
+            phone_e164 = _normalize_e164_globally(phone_local)
             if phone_e164 and _send_via_kdeconnect(phone_e164, body):
                 if local_attachments:
                     for ap in local_attachments:
@@ -2668,10 +2665,6 @@ class SAGEMessageBridge:
         if not phone or not text:
             return
 
-        if not self._is_recipient_verified(phone):
-            self._log(f"🛡 Refusing native message: {phone} is not a verified contact of this user.")
-            return
-
         phone_e164 = _normalize_e164_globally(phone)
         if not phone_e164:
             self._log(f"native_message: invalid phone {phone!r}")
@@ -2721,10 +2714,6 @@ class SAGEMessageBridge:
         if not text:
             return
 
-        if not self._is_recipient_verified(recipient_bounced):
-            self._log(f"🛡 Refusing native fallback: {recipient_bounced} is not a verified contact of this user.")
-            return
-
         # Normalize phone number for KDE Connect
         phone_local = recipient_bounced.split("@", 1)[0] if "@" in recipient_bounced else ""
         phone_e164 = _normalize_e164_globally(phone_local)
@@ -2763,7 +2752,7 @@ class SAGEMessageBridge:
             "Android/Linux/Windows: install KDE Connect on this computer and on your phone, then pair them."
         )
 
-    def _handle_imessage_to_apple_id(self, msg: dict) -> None:
+    def _handle_imessage_to_apple_id(self, ws: websocket.WebSocket, msg: dict) -> None:
         """Send an iMessage directly to an Apple ID email address via Messages.app.
 
         Called when the backend dispatches `type: imessage_to_apple_id`. This
@@ -2772,39 +2761,77 @@ class SAGEMessageBridge:
         valid Apple ID email (including @privaterelay.appleid.com addresses) as
         long as this Mac is signed into iCloud with iMessage enabled.
         """
-        apple_email  = (msg.get("apple_email") or "").strip()
-        text         = (msg.get("text") or "").strip()
+        apple_email   = (msg.get("apple_email") or "").strip()
+        text          = (msg.get("text") or "").strip()
         computer_name = (msg.get("computer_name") or self.cfg.computer_name or "SAGE").strip()
-        if not apple_email or not text:
-            return
-
-        if not self._is_recipient_verified(apple_email):
-            self._log(f"🛡 Refusing native iMessage to Apple ID: {apple_email} is not a verified contact of this user.")
+        task_id       = msg.get("task_id")
+        attachments   = msg.get("attachments") or []
+        
+        if not apple_email or (not text and not attachments):
             return
 
         body = f"[SAGE — {computer_name}] {text}"
+        
+        local_attachment_paths = []
+        if attachments:
+            import tempfile
+            temp_dir = Path(tempfile.mkdtemp(prefix="sage-sms-attachments-"))
+            be = SAGEBackend(self._token, self._api_base)
+            for att in attachments:
+                file_id = att.get("file_id")
+                filename = att.get("filename", "attachment")
+                if not file_id:
+                    continue
+                dest = temp_dir / filename
+                if be.download_file(file_id, dest):
+                    local_attachment_paths.append(str(dest))
 
+        # Normalize handle: if it looks like a phone number, convert to E.164
+        normalized_recipient = apple_email
+        if "@" not in apple_email:
+            e164 = _normalize_e164_globally(apple_email)
+            if e164:
+                normalized_recipient = e164
+
+        success = False
         if sys.platform != "darwin":
-            # Fallback for non-macOS: if apple_email is a phone number, try KDE Connect
-            phone_e164 = _normalize_e164_globally(apple_email)
+            # Fallback for non-macOS: if normalized_recipient is a phone number, try KDE Connect
+            phone_e164 = _normalize_e164_globally(normalized_recipient)
             if phone_e164:
                 if _send_via_kdeconnect(phone_e164, body):
-                    self._log(f"→ iMessage (SMS fallback via KDE Connect) delivered to {apple_email}")
-                    return
+                    if local_attachment_paths:
+                        for ap in local_attachment_paths:
+                            _share_via_kdeconnect(ap)
+                    self._log(f"→ iMessage (SMS fallback via KDE Connect) delivered to {normalized_recipient}")
+                    success = True
 
-            self._log(
-                f"⚠ iMessage to Apple ID {apple_email} skipped — "
-                "only supported on macOS, and KDE Connect fallback failed or target is not a phone number"
-            )
-            return
-
-        if _send_imessage(apple_email, body):
-            self._log(f"→ iMessage delivered to Apple ID {apple_email}")
+            if not success:
+                self._log(
+                    f"⚠ iMessage to Apple ID {normalized_recipient} skipped — "
+                    "only supported on macOS, and KDE Connect fallback failed or target is not a phone number"
+                )
         else:
-            self._log(
-                f"⚠ iMessage to Apple ID {apple_email} failed — "
-                "ensure Messages.app is open and signed into iCloud with iMessage enabled"
-            )
+            # macOS Path
+            if _send_imessage(normalized_recipient, body, local_attachment_paths):
+                self._log(f"→ iMessage delivered to Apple ID {normalized_recipient}")
+                success = True
+            else:
+                self._log(
+                    f"⚠ iMessage to Apple ID {normalized_recipient} failed — "
+                    "ensure Messages.app is open and signed into iCloud with iMessage enabled"
+                )
+
+        # Send result back if task_id exists, so backend can confirm delivery
+        if task_id:
+            try:
+                import json
+                ws.send(json.dumps({
+                    "type": "result",
+                    "task_id": task_id,
+                    "delivered_locally": success,
+                }))
+            except Exception:
+                pass
 
     # Known Apple ID email domains that are valid iMessage addresses
     _APPLE_ID_DOMAINS = {"icloud.com", "me.com", "mac.com"}
@@ -2815,111 +2842,22 @@ class SAGEMessageBridge:
         Two delivery paths:
           1. SAGE email bridge (backend POST /sms/announce) — handles Gmail, SMTP,
              phone-gateway iMessage/KDE-Connect.
-          2. Direct iMessage from this Mac — handles Apple ID emails (@icloud.com,
-             @me.com, @mac.com) and contacts that have an imessage_address stored.
-             Done here on the CLI so we don't need a WebSocket roundtrip.
+          2. Direct iMessage from this Mac — handled in backend now.
         """
         be = SAGEBackend(self._token, self._api_base)
 
-        # 1. Sync provider emails as contacts (idempotent)
+        # Reclaim identities to ensure routing is correct for this UID (Privacy protection)
         try:
-            be.sync_provider_contacts()
-            # Also reclaim identities to ensure routing is correct for this UID
             be.reclaim_identities()
         except Exception as exc:
-            self._log(f"Contact sync failed (non-fatal): {exc}")
+            self._log(f"Identity reclaim failed (non-fatal): {exc}")
 
-        # 2. SAGE email bridge — email + phone contacts
+        # SAGE email bridge — email + phone contacts
         try:
             be.announce(self.cfg.computer_name)
-            self._log("Announced online to contacts (email bridge)")
+            self._log("Announced online to contacts")
         except Exception as exc:
-            self._log(f"Email bridge announce failed (non-fatal): {exc}")
-
-        # 3. Direct iMessage from this Mac for Apple ID email contacts.
-        #    No WebSocket roundtrip needed — we have Messages.app right here.
-        if sys.platform != "darwin":
-            return
-        try:
-            providers = be.get_linked_providers()
-            contacts = be.list_contacts()
-        except Exception as exc:
-            self._log(f"Could not fetch contacts for direct iMessage (non-fatal): {exc}")
-            return
-
-        computer_name = self.cfg.computer_name or "SAGE"
-        announce_text = (
-            f"✅ [{computer_name}] SAGE is online and ready.\n"
-            f"Send me any task and I'll run it on your computer.\n"
-            f"Reply @help to see available commands."
-        )
-
-        sent_to: set[str] = set()
-
-        # Send to contacts with a stored imessage_address
-        for c in contacts:
-            if not isinstance(c, dict):
-                continue
-            imsg_addr = (c.get("imessage_address") or "").strip()
-            if not imsg_addr or imsg_addr in sent_to or not self._is_recipient_verified(imsg_addr):
-                continue
-            body = f"[SAGE — {computer_name}] {announce_text}"
-            if _send_imessage(imsg_addr, body):
-                self._log(f"→ Direct iMessage via imessage_address: {imsg_addr}")
-                sent_to.add(imsg_addr)
-            else:
-                self._log(f"⚠ Direct iMessage failed for {imsg_addr} — check Messages.app")
-
-        # Send to contacts whose email IS a valid iMessage address (@icloud.com etc.)
-        for c in contacts:
-            if not isinstance(c, dict):
-                continue
-            email = (c.get("email") or "").lower().strip()
-            if not email or email in sent_to or not self._is_recipient_verified(email):
-                continue
-            domain = email.split("@")[-1] if "@" in email else ""
-            if domain not in self._APPLE_ID_DOMAINS:
-                continue
-            body = f"[SAGE — {computer_name}] {announce_text}"
-            if _send_imessage(email, body):
-                self._log(f"→ Direct iMessage to Apple ID: {email}")
-                sent_to.add(email)
-            else:
-                self._log(
-                    f"⚠ iMessage to {email} failed — ensure the recipient has this "
-                    f"email enabled as an iMessage handle on their device"
-                )
-
-        # Also try Apple provider emails from linked providers
-        for p in providers:
-            if not isinstance(p, dict):
-                continue
-            if p.get("provider_id") != "apple.com":
-                continue
-            email = (p.get("email") or "").lower().strip()
-            if not email or email in sent_to or not self._is_recipient_verified(email):
-                continue
-            domain = email.split("@")[-1] if "@" in email else ""
-            if domain in self._APPLE_ID_DOMAINS:
-                body = f"[SAGE — {computer_name}] {announce_text}"
-                if _send_imessage(email, body):
-                    self._log(f"→ Direct iMessage to linked Apple provider: {email}")
-                    sent_to.add(email)
-                else:
-                    self._log(
-                        f"⚠ iMessage to linked Apple account {email} failed.\n"
-                        "  Troubleshoot: open Messages.app → ensure it shows 'iMessage' active,\n"
-                        "  that this email is a valid iMessage handle for the recipient,\n"
-                        "  and try: sage sms test-imessage <email>"
-                    )
-
-        if not sent_to:
-            self._log(
-                "⚠ No iMessages sent — check that:\n"
-                "  1. Messages.app is open and signed in on this Mac\n"
-                "  2. Your contacts have valid iMessage handles (iCloud email or phone)\n"
-                "  3. Run: sage sms test-imessage <phone_or_email> to test a specific address"
-            )
+            self._log(f"Announce failed (non-fatal): {exc}")
 
     def run(self) -> None:
         """Main loop: connect to backend WebSocket, process tasks until stopped."""
@@ -2997,14 +2935,19 @@ class SAGEMessageBridge:
                 self._bridge_email = resp.get("display_email") or resp.get("bridge_email", "")
                 self._user_email = (resp.get("user_email") or "").lower().strip()
                 self._user_phone = (resp.get("user_phone") or "").strip()
+                phone_file = Path.home() / ".sage" / "verified_phone.txt"
                 if self._user_phone:
                     try:
-                        phone_file = Path.home() / ".sage" / "verified_phone.txt"
                         phone_file.parent.mkdir(parents=True, exist_ok=True)
                         phone_file.write_text(self._user_phone, encoding="utf-8")
                         phone_file.chmod(0o600)
                     except Exception:
                         pass
+                else:
+                    # Clear it if the current user has none, ensuring no leak from previous user
+                    if phone_file.exists():
+                        try: phone_file.unlink()
+                        except Exception: pass
                 reconnect_delay = 3
                 self._log(f"Connected. Users message: {self._bridge_email}")
 
@@ -3068,7 +3011,7 @@ class SAGEMessageBridge:
                             # and the SMTP path can't reach it (Apple relay not configured).
                             threading.Thread(
                                 target=self._handle_imessage_to_apple_id,
-                                args=(msg,),
+                                args=(ws, msg),
                                 daemon=True,
                             ).start()
 

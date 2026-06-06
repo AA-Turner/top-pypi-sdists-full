@@ -267,7 +267,38 @@ class TPLinkEXClient(TPLinkMRClientBase):
 
         status.isp_name = values[3]['ispName']
 
+        try:
+            acts = [self.ActItem(self.ActItem.GL, 'DEV2_LTE_SERVING_CELL_INFO',
+                                 attrs=['networkType', 'signalStrength', 'SSRSRP', 'SSRSRQ', 'SSSINR'])]
+            _, values = self.req_act(acts)
+
+            # Each entry in serving_cell_info_list is one RAT. Match on active networkType.
+            active_serving_cell = next(
+                (c for c in values[0]
+                 if int(c.get('networkType', -1)) == status.network_type),
+                None,
+            )
+            if active_serving_cell is not None:
+                # Per-RAT signal from DEV2_LTE_SERVING_CELL_INFO
+                status.sig_level = int(active_serving_cell['signalStrength'])
+                status.rsrp = int(active_serving_cell['SSRSRP'])
+                status.rsrq = int(active_serving_cell['SSRSRQ'])
+                status.snr = int(active_serving_cell['SSSINR'])
+        except Exception:
+            pass
+
         return status
+
+    def send_sms(self, phone_number: str, message: str) -> None:
+        acts = [
+            self.ActItem(
+                self.ActItem.SET, 'DEV2_LTE_SMS_SENDNEWMSG', attrs=[
+                    '"index":"1"',
+                    f'"to":"{phone_number}"',
+                    f'"textContent":"{message}"',
+                ]),
+        ]
+        self.req_act(acts)
 
     def req_act(self, acts: list):
         '''

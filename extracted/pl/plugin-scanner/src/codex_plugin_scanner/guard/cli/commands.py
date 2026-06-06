@@ -102,12 +102,14 @@ from ..desktop_notifications import (
 )
 from ..harness_usage import record_harness_usage_events
 from ..incident import build_incident_context
+from ..local_dashboard_session import build_local_dashboard_session_token
 from ..local_supply_chain import (
     build_local_supply_chain_posture,
     build_supply_chain_explain_payload,
     build_supply_chain_status_payload,
     build_workspace_audit_payload,
     build_workspace_scan_payload,
+    resolve_package_firewall_entitlement_with_refresh,
 )
 from ..mcp_tool_calls import (
     allow_tool_call,
@@ -118,8 +120,9 @@ from ..mcp_tool_calls import (
 )
 from ..models import SEVERITY_RANK, GuardArtifact, HarnessDetection, PolicyDecision
 from ..package_firewall_entitlement import (
+    package_firewall_action_states,
+    package_firewall_available_actions,
     package_firewall_block_details,
-    resolve_package_firewall_entitlement,
 )
 from ..policy.engine import SAFE_CHANGED_HASH_ACTION, VALID_GUARD_ACTIONS, build_decision_v2, guard_action_severity
 from ..protect import build_protect_payload
@@ -162,6 +165,7 @@ from ..runtime.runner import (
     extract_prompt_requests,
     guard_run,
     prompt_requests_to_artifacts,
+    sync_local_guard_cloud_proof,
     sync_receipts,
     sync_runtime_session,
     sync_supply_chain_bundle,
@@ -184,7 +188,7 @@ from ..runtime.sed_scripts import sed_script_is_bounded_print
 from ..runtime.signals import RiskSignalV2
 from ..runtime.supply_chain_package_eval import evaluate_package_request_artifact
 from ..runtime.surface_server import GuardSurfaceRuntime
-from ..shims import install_package_shims, package_shim_status, repair_package_shims, uninstall_package_shims
+from ..shims import activate_package_shims, package_shim_status, uninstall_package_shims
 from ..store import GuardStore
 from .approval_commands import (
     add_approval_parser,
@@ -196,6 +200,7 @@ from .approval_commands import (
 from .approval_gate_prompt import approval_gate_cli_payload, prompt_for_approval_gate
 from .bootstrap import DEFAULT_ALIAS_NAME, build_guard_bootstrap_payload
 from .connect_flow import (
+    CONNECT_SYNC_AUTH_CONTEXT_KEY,
     DEFAULT_GUARD_CONNECT_URL,
     DEFAULT_GUARD_SYNC_URL,
     build_connect_status_payload,
@@ -1039,6 +1044,11 @@ def _configure_guard_parser(guard_parser: argparse.ArgumentParser) -> None:
     bridge_parser.add_argument("--telegram-token", help="Telegram bot token for notifications")
     bridge_parser.add_argument("--telegram-chat-id", help="Telegram chat ID for notifications")
     bridge_parser.add_argument("--webhook-url", help="Webhook URL for notifications")
+    bridge_parser.add_argument(
+        "--webhook-include-artifact-details",
+        action="store_true",
+        help="Include artifact details in webhook notifications",
+    )
     bridge_parser.add_argument("--hermes-chat-id", help="Hermes chat ID for notifications")
     bridge_parser.add_argument("--dry-run", action="store_true", help="Log notifications without sending")
     _add_guard_common_args(bridge_parser)
@@ -1153,25 +1163,6 @@ def _add_guard_cisco_mode_arg(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _package_firewall_action_states(entitlement: dict[str, object]) -> dict[str, str]:
-    allowed = bool(entitlement.get("allowed"))
-    reason = str(entitlement.get("reason") or "").strip().lower()
-    if allowed:
-        state = "available"
-    elif reason == "guard_cloud_reconnect_required":
-        state = "reconnect_required"
-    else:
-        state = "paid_required"
-    return {
-        "install": state,
-        "repair": state,
-        "test": state,
-        "audit": state,
-        "sync": state,
-        "remove": state,
-    }
-
-
 def _package_firewall_cli_gate_input(args: argparse.Namespace, guard_home: Path) -> ApprovalGateInput | None:
     password = getattr(args, "approval_password", None)
     totp_code = getattr(args, "approval_totp", None)
@@ -1185,13 +1176,17 @@ def _package_firewall_cli_gate_input(args: argparse.Namespace, guard_home: Path)
 def _package_firewall_block_payload(
     *,
     entitlement: dict[str, object],
+    has_installed_managers: bool,
     operation: str,
 ) -> tuple[int, dict[str, object]]:
     status, error_code, message = package_firewall_block_details(entitlement)
     return (
         status,
         {
-            "available_actions": ["status", "education", "cli_fallback"],
+            "available_actions": package_firewall_available_actions(
+                entitlement,
+                has_installed_managers=has_installed_managers,
+            ),
             "cli_fallback": {
                 "connect": "hol-guard connect",
                 "status": "hol-guard package-shims status --json",
@@ -1759,6 +1754,7 @@ def _guard_cloud_app_urls(
     browser_url = _browser_url_with_guard_params(
         public_url,
         auth_token=auth_token,
+        surface="cloud-dashboard",
         daemon_url=daemon_url,
     )
     return public_url, browser_url
@@ -2093,17 +2089,22 @@ def run_guard_command(
             if isinstance(manager, str) and manager.strip()
         )
         shim_command = getattr(args, "package_shims_command", "status")
-        entitlement = resolve_package_firewall_entitlement(store)
+        entitlement = resolve_package_firewall_entitlement_with_refresh(store)
+        current_status = package_shim_status(context)
         if shim_command == "status":
-            payload = package_shim_status(context)
-            payload["actions"] = _package_firewall_action_states(entitlement)
+            payload = current_status
+            payload["actions"] = package_firewall_action_states(
+                entitlement,
+                has_installed_managers=bool(current_status.get("installed_managers")),
+            )
             payload["entitlement"] = entitlement
             payload["generated_at"] = _now()
             _emit("package-shims", payload, getattr(args, "json", False))
             return 0
-        if not bool(entitlement["allowed"]):
+        if shim_command not in {"repair", "uninstall"} and not bool(entitlement["allowed"]):
             status, payload = _package_firewall_block_payload(
                 entitlement=entitlement,
+                has_installed_managers=bool(current_status.get("installed_managers")),
                 operation="remove" if shim_command == "uninstall" else shim_command,
             )
             payload["generated_at"] = _now()
@@ -2118,9 +2119,13 @@ def run_guard_command(
                     approval_gate_input=gate_input,
                 )
             if shim_command == "install":
-                payload = install_package_shims(context, managers=requested_managers or None)
+                payload = activate_package_shims(context, managers=requested_managers or None)
             elif shim_command == "repair":
-                payload = repair_package_shims(context, managers=requested_managers or None)
+                payload = activate_package_shims(
+                    context,
+                    managers=requested_managers or None,
+                    repair=True,
+                )
             elif shim_command == "uninstall":
                 payload = uninstall_package_shims(context, managers=requested_managers or None)
             else:
@@ -2635,12 +2640,16 @@ def run_guard_command(
         telegram_token = getattr(args, "telegram_token", None)
         telegram_chat_id = getattr(args, "telegram_chat_id", None)
         webhook_url = getattr(args, "webhook_url", None)
+        webhook_include_artifact_details = getattr(args, "webhook_include_artifact_details", False)
         hermes_chat_id = getattr(args, "hermes_chat_id", None)
 
         if telegram_token and telegram_chat_id:
             backend = TelegramBackend(telegram_token, telegram_chat_id)
         elif webhook_url:
-            backend = WebhookBackend(webhook_url)
+            backend = WebhookBackend(
+                webhook_url,
+                include_artifact_details=webhook_include_artifact_details,
+            )
         elif hermes_chat_id:
             backend = HermesBackend(hermes_chat_id)
 
@@ -3426,7 +3435,7 @@ def run_guard_command(
                     else "policy"
                 ),
             )
-            store.add_receipt(receipt)
+            store.add_receipt(receipt, action_envelope=action_envelope)
             response_payload = {
                 "recorded": True,
                 "harness": _canonical_harness_name(args.harness),
@@ -3667,14 +3676,18 @@ def run_guard_command(
                 return 0
             if codex_browser_decision == "block":
                 policy_action = "block"
+            approval_context = _native_approval_center_context(response_payload, harness=args.harness)
+            raw_runtime_reason = _runtime_artifact_native_reason(runtime_artifact, response_payload)
             if _should_emit_native_hook_exit_block(args, event_name=event_name, policy_action=policy_action):
-                _emit_native_hook_block_stderr(
-                    _native_hook_reason_for_harness(
+                if _canonical_harness_name(args.harness) == "codex" and approval_context is not None:
+                    native_block_reason = _native_hook_reason(raw_runtime_reason, approval_context)
+                else:
+                    native_block_reason = _native_hook_reason_for_harness(
                         args.harness,
-                        _runtime_artifact_native_reason(runtime_artifact, response_payload),
-                        _native_approval_center_context(response_payload, harness=args.harness),
+                        raw_runtime_reason,
+                        approval_context,
                     )
-                )
+                _emit_native_hook_block_stderr(native_block_reason)
                 _record_harness_usage_for_hook(
                     store=store,
                     action_envelope=action_envelope,
@@ -3682,17 +3695,18 @@ def run_guard_command(
                     policy_action=policy_action,
                 )
                 return 2
-            raw_runtime_reason = _runtime_artifact_native_reason(runtime_artifact, response_payload)
-            if _canonical_harness_name(args.harness) == "codex" and event_name == "UserPromptSubmit":
+            if _canonical_harness_name(args.harness) == "codex" and (
+                event_name == "UserPromptSubmit" or approval_context is not None
+            ):
                 runtime_reason = _native_hook_reason(
                     raw_runtime_reason,
-                    _native_approval_center_context(response_payload, harness=args.harness),
+                    approval_context,
                 )
             else:
                 runtime_reason = _native_hook_reason_for_harness(
                     args.harness,
                     raw_runtime_reason,
-                    _native_approval_center_context(response_payload, harness=args.harness),
+                    approval_context,
                 )
             if _should_emit_claude_native_pretooluse_notice(
                 args,
@@ -3839,7 +3853,7 @@ def run_guard_command(
                 user_override=_optional_string(payload.get("user_override")),
                 approval_source=("inline" if _optional_string(payload.get("user_override")) is not None else "policy"),
             )
-            store.add_receipt(receipt)
+            store.add_receipt(receipt, action_envelope=action_envelope)
         _record_harness_usage_for_hook(
             store=store,
             action_envelope=action_envelope,
@@ -3853,15 +3867,35 @@ def run_guard_command(
                 output_stream=output_stream,
             )
             return 0
+        _localize_pending_approval_copy(payload, harness=args.harness)
         incoming_reason = (
             daemon_failure_reason
             or _decision_v2_harness_message(payload)
             or payload.get("permission_decision_reason")
         )
+        approval_context = _native_approval_center_context(payload, harness=args.harness)
         if _should_emit_native_hook_exit_block(args, event_name=hook_event_name, policy_action=policy_action):
-            _emit_native_hook_block_stderr(_native_hook_reason_for_harness(args.harness, incoming_reason))
+            _emit_native_hook_block_stderr(
+                _native_hook_reason_for_harness(
+                    args.harness,
+                    incoming_reason,
+                    approval_context,
+                )
+            )
             return 2
-        reason = _native_hook_reason_for_harness(args.harness, incoming_reason)
+        if _canonical_harness_name(args.harness) == "codex" and (
+            hook_event_name == "UserPromptSubmit" or approval_context is not None
+        ):
+            reason = _native_hook_reason(
+                incoming_reason,
+                approval_context,
+            )
+        else:
+            reason = _native_hook_reason_for_harness(
+                args.harness,
+                incoming_reason,
+                approval_context,
+            )
         if _should_emit_claude_native_pretooluse_notice(
             args,
             event_name=hook_event_name,
@@ -3876,12 +3910,18 @@ def run_guard_command(
             output_stream=output_stream,
         ):
             system_message = None
+            canonical_harness = _canonical_harness_name(args.harness)
             if (
-                _canonical_harness_name(args.harness) == "claude-code"
+                canonical_harness == "claude-code"
                 and hook_event_name in {"UserPromptSubmit", "PreToolUse"}
                 and policy_action in {"block", "sandbox-required", "require-reapproval"}
             ):
                 system_message = _ensure_terminal_punctuation(reason)
+            elif canonical_harness == "codex" and hook_event_name == "UserPromptSubmit":
+                system_message = _codex_prompt_block_system_message(
+                    policy_action=policy_action,
+                    native_reason=reason,
+                )
             _emit_native_hook_response(
                 harness=args.harness,
                 policy_action=policy_action,
@@ -5059,6 +5099,8 @@ def _native_hook_reason_for_harness(harness: str, *values: object | None) -> str
     reason = _native_hook_reason(*values)
     if harness != "codex":
         return reason
+    if "open hol guard to approve or keep this blocked:" in reason.lower():
+        return reason
     if "approve it in hol guard, then retry." in reason.lower():
         return reason
     if _HOOK_DAEMON_UNREACHABLE_REASON_MARKER in reason.lower():
@@ -6226,13 +6268,14 @@ def _open_approval_center(
 def _approval_center_browser_url(approval_center_url: str, auth_token: str | None) -> str | None:
     if auth_token is None:
         return None
-    return _browser_url_with_guard_params(approval_center_url, auth_token=auth_token)
+    return _browser_url_with_guard_params(approval_center_url, auth_token=auth_token, surface="approval-center")
 
 
 def _browser_url_with_guard_params(
     url: str,
     *,
     auth_token: str,
+    surface: str,
     daemon_url: str | None = None,
 ) -> str:
     parsed = urllib.parse.urlparse(url)
@@ -6243,7 +6286,12 @@ def _browser_url_with_guard_params(
     ]
     if daemon_url:
         fragment_pairs.append(("guardDaemon", daemon_url))
-    fragment_pairs.append(("guard-token", auth_token))
+    fragment_pairs.append(
+        (
+            "guard-token",
+            build_local_dashboard_session_token(auth_token=auth_token, surface=surface),
+        )
+    )
     return urllib.parse.urlunparse(parsed._replace(fragment=urllib.parse.urlencode(fragment_pairs)))
 
 
@@ -9356,6 +9404,21 @@ def _guard_doctor_latest_connect_state_payload(latest_state: dict[str, object]) 
 
 
 def _synced_policy_payload(store: GuardStore) -> dict[str, object] | None:
+    policy_bundle = store.get_sync_payload("policy_bundle")
+    if isinstance(policy_bundle, dict):
+        policy_defaults = policy_bundle.get("policyDefaults")
+        if isinstance(policy_defaults, dict):
+            payload = dict(policy_defaults)
+            issued_at = _optional_string(policy_bundle.get("issuedAt"))
+            bundle_hash = _optional_string(policy_bundle.get("bundleHash"))
+            bundle_version = _optional_string(policy_bundle.get("bundleVersion"))
+            if issued_at is not None:
+                payload["updatedAt"] = issued_at
+            if bundle_hash is not None:
+                payload["bundleHash"] = bundle_hash
+            if bundle_version is not None:
+                payload["bundleVersion"] = bundle_version
+            return payload
     payload = store.get_sync_payload("policy")
     return payload if isinstance(payload, dict) else None
 
@@ -9363,14 +9426,55 @@ def _synced_policy_payload(store: GuardStore) -> dict[str, object] | None:
 def _refresh_cloud_policy_bundle(store: GuardStore) -> None:
     if store.get_cloud_sync_profile() is None:
         return
+    now = _now()
     try:
         sync_receipts(store)
-    except (GuardSyncNotConfiguredError, RuntimeError):
+    except GuardSyncAuthorizationExpiredError as error:
+        store.set_sync_payload(
+            "policy_bundle_last_error",
+            {"reason": "auth_expired", "message": str(error)},
+            now,
+        )
+        return
+    except GuardSyncNotConfiguredError:
+        return
+    except RuntimeError as error:
+        store.set_sync_payload(
+            "policy_bundle_last_error",
+            {"reason": "sync_failed", "message": str(error)},
+            now,
+        )
         return
     try:
         sync_supply_chain_bundle(store)
-    except (GuardSyncNotConfiguredError, RuntimeError):
+    except GuardSyncAuthorizationExpiredError as error:
+        store.set_sync_payload(
+            "policy_bundle_last_error",
+            {"reason": "auth_expired", "message": str(error)},
+            now,
+        )
         return
+    except GuardSyncNotConfiguredError:
+        return
+    except RuntimeError as error:
+        store.set_sync_payload(
+            "policy_bundle_last_error",
+            {"reason": "sync_failed", "message": str(error)},
+            now,
+        )
+        return
+    policy_bundle_last_error = store.get_sync_payload("policy_bundle_last_error")
+    policy_bundle_rejection_reason = (
+        _optional_string(policy_bundle_last_error.get("reason"))
+        if isinstance(policy_bundle_last_error, dict)
+        else None
+    )
+    if policy_bundle_rejection_reason not in {
+        "bundle_version_downgrade",
+        "invalid_policy_bundle",
+        "unsupported_daemon_version",
+    }:
+        store.set_sync_payload("policy_bundle_last_error", {}, now)
 
 
 def _guard_cloud_urls_for_connect(connect_url: str) -> dict[str, str]:
@@ -9393,6 +9497,7 @@ def _finalize_guard_connect_payload(
     payload: dict[str, object],
     now: str,
 ) -> dict[str, object]:
+    payload.pop(CONNECT_SYNC_AUTH_CONTEXT_KEY, None)
     urls = _guard_cloud_urls_for_connect(connect_url)
     for key in ("connect_url", "sync_url", "dashboard_url", "inbox_url", "fleet_url"):
         payload.setdefault(key, urls[key])
@@ -9441,7 +9546,7 @@ def _finalize_guard_connect_payload(
         return payload
     payload["sync_attempted"] = True
     try:
-        sync_payload = sync_receipts(store)
+        sync_payload = sync_local_guard_cloud_proof(store)
     except GuardSyncNotAvailableError as error:
         store.record_latest_guard_connect_sync_result(
             status="connected",
@@ -9558,6 +9663,7 @@ def _run_guard_device_connect_flow(
         open_browser=open_browser,
         ci_safe=ci_safe,
         machine_label=machine_label,
+        include_sync_auth_context=True,
     )
 
 
@@ -9571,6 +9677,7 @@ def _run_guard_browser_connect_flow(
         store=store,
         connect_url=connect_url,
         wait_timeout_seconds=wait_timeout_seconds,
+        include_sync_auth_context=True,
     )
 
 

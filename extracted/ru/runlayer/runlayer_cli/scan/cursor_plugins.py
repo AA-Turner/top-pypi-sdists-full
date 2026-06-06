@@ -49,9 +49,8 @@ def discover_plugins(client_def: MCPClientDefinition) -> list[DiscoveredPlugin]:
     discovered: list[DiscoveredPlugin] = []
     seen_plugins: set[str] = set()
 
-    for plugin_path_def in client_def.plugin_paths:
-        base = plugin_path_def.resolve()
-        if not base or not base.is_dir():
+    for base, mcp_filenames in client_def.get_resolved_plugin_paths():
+        if not base.is_dir():
             continue
 
         try:
@@ -67,7 +66,7 @@ def discover_plugins(client_def: MCPClientDefinition) -> list[DiscoveredPlugin]:
                     if not hash_dir.is_dir():
                         continue
 
-                    for mcp_filename in plugin_path_def.mcp_filenames:
+                    for mcp_filename in mcp_filenames:
                         mcp_path = hash_dir / mcp_filename
                         if not mcp_path.exists():
                             continue

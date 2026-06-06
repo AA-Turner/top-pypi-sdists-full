@@ -19,7 +19,7 @@ VSVersionInfo(
       StringStruct("FileVersion", {version!r}),
       StringStruct("InternalName", {name!r}),
       StringStruct("OriginalFilename", {filename!r}),
-      StringStruct("ProductName", "Runlayer AI Watch"),
+      StringStruct("ProductName", {product_name!r}),
       StringStruct("ProductVersion", {version!r}),
     ])]),
     VarFileInfo([VarStruct("Translation", [0x409, 1200])]),
@@ -28,7 +28,13 @@ VSVersionInfo(
 """
 
 
-def write_version_file(*, name: str, description: str, build_dir: Path) -> str:
+def write_version_file(
+    *,
+    name: str,
+    description: str,
+    build_dir: Path,
+    product_name: str = "Runlayer AI Watch",
+) -> str:
     pyproject = (Path(__file__).parent.parent / "pyproject.toml").read_text()
     raw = next(
         line for line in pyproject.splitlines() if line.startswith("version = ")
@@ -43,6 +49,7 @@ def write_version_file(*, name: str, description: str, build_dir: Path) -> str:
             name=name,
             filename=f"{name}.exe",
             description=description,
+            product_name=product_name,
         )
     )
     return str(out)

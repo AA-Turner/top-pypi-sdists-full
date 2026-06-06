@@ -1,4 +1,4 @@
-"""Tail Claude Code transcript JSONL and forward assistant events incrementally."""
+"""Tail AI client transcript JSONL and forward assistant events incrementally."""
 
 from __future__ import annotations
 
@@ -7,16 +7,24 @@ import re
 import sys
 import tempfile
 import time
+from contextlib import AbstractContextManager, nullcontext
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
-from runlayer_cli.api import API_KEY_HEADER_NAME, USER_AGENT
+from runlayer_sdk.hook_transport import (
+    API_KEY_HEADER_NAME,
+    HookAPIClient,
+    HookHTTPClient,
+)
+
+from runlayer_cli.api import USER_AGENT
 from runlayer_cli.config import load_config
 from runlayer_cli.tls import http_client
 
 _STATE_DIR = Path(tempfile.gettempdir()) / "runlayer-claude-transcript-stream"
 _ACTIVE_MARKER_MAX_AGE_SECONDS = 10
+_COMPLETED_MARKER_MAX_AGE_SECONDS = 120
 _DEFAULT_MAX_SECONDS = 900.0
 _DEFAULT_IDLE_SECONDS = 900.0
 _DEFAULT_POLL_SECONDS = 0.25
@@ -32,17 +40,38 @@ class PostEvent(Protocol):
 
 
 def transcript_marker_path(payload: dict[str, Any]) -> Path | None:
+    return _transcript_marker_path(payload, "active")
+
+
+def transcript_completion_marker_path(payload: dict[str, Any]) -> Path | None:
+    return _transcript_marker_path(payload, "completed")
+
+
+def _transcript_marker_path(payload: dict[str, Any], suffix: str) -> Path | None:
     session_id = _session_id(payload)
     if not session_id:
         return None
     safe_session_id = re.sub(r"[^A-Za-z0-9_.-]", "_", session_id).strip("._")
     if not safe_session_id:
         return None
-    return _STATE_DIR / f"{safe_session_id}.active"
+    return _STATE_DIR / f"{safe_session_id}.{suffix}"
 
 
 def is_transcript_stream_active(payload: dict[str, Any]) -> bool:
-    marker = transcript_marker_path(payload)
+    return _has_recent_transcript_marker(
+        transcript_marker_path(payload),
+        max_age_seconds=_ACTIVE_MARKER_MAX_AGE_SECONDS,
+    )
+
+
+def is_transcript_stream_recently_completed(payload: dict[str, Any]) -> bool:
+    return _has_recent_transcript_marker(
+        transcript_completion_marker_path(payload),
+        max_age_seconds=_COMPLETED_MARKER_MAX_AGE_SECONDS,
+    )
+
+
+def _has_recent_transcript_marker(marker: Path | None, *, max_age_seconds: int) -> bool:
     if marker is None or not marker.exists():
         return False
     try:
@@ -53,10 +82,11 @@ def is_transcript_stream_active(payload: dict[str, Any]) -> bool:
         return False
     except ValueError:
         return False
-    return 0 <= age_seconds < _ACTIVE_MARKER_MAX_AGE_SECONDS
+    return 0 <= age_seconds < max_age_seconds
 
 
 def mark_transcript_stream_active(payload: dict[str, Any]) -> bool:
+    clear_transcript_stream_completed(payload)
     marker = transcript_marker_path(payload)
     if marker is None:
         return False
@@ -68,8 +98,27 @@ def mark_transcript_stream_active(payload: dict[str, Any]) -> bool:
     return True
 
 
+def mark_transcript_stream_completed(payload: dict[str, Any]) -> bool:
+    marker = transcript_completion_marker_path(payload)
+    if marker is None:
+        return False
+    try:
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text(str(int(time.time())))
+    except OSError:
+        return False
+    return True
+
+
 def clear_transcript_stream_active(payload: dict[str, Any]) -> None:
-    marker = transcript_marker_path(payload)
+    _clear_transcript_marker(transcript_marker_path(payload))
+
+
+def clear_transcript_stream_completed(payload: dict[str, Any]) -> None:
+    _clear_transcript_marker(transcript_completion_marker_path(payload))
+
+
+def _clear_transcript_marker(marker: Path | None) -> None:
     if marker is None:
         return
     try:
@@ -118,10 +167,11 @@ def run_transcript_stream(
     last_activity = started
     backfill_required = False
     posting_healthy = False
+    completed_healthy = False
     effective_post: PostEvent | None = None
 
     def process_line(line: str) -> bool:
-        nonlocal backfill_required, last_activity, posting_healthy
+        nonlocal backfill_required, completed_healthy, last_activity, posting_healthy
         assert effective_post is not None
         terminal_line = transcript_line_is_terminal(line)
         for event_name, event_payload in transcript_line_events(
@@ -151,12 +201,16 @@ def run_transcript_stream(
                 backfill_required = True
                 posting_healthy = False
                 clear_transcript_stream_active(payload)
+                clear_transcript_stream_completed(payload)
                 continue
             seen.add(dedupe_key)
             posting_healthy = True
             if not backfill_required:
                 mark_transcript_stream_active(payload)
             last_activity = time.monotonic()
+        if terminal_line and posting_healthy and not backfill_required:
+            mark_transcript_stream_active(payload)
+            completed_healthy = True
         return terminal_line
 
     try:
@@ -203,7 +257,12 @@ def run_transcript_stream(
         close_post = getattr(effective_post, "close", None)
         if callable(close_post):
             close_post()
-        clear_transcript_stream_active(payload)
+        if completed_healthy:
+            mark_transcript_stream_completed(payload)
+            clear_transcript_stream_active(payload)
+        else:
+            clear_transcript_stream_active(payload)
+            clear_transcript_stream_completed(payload)
 
 
 def transcript_line_events(
@@ -303,8 +362,17 @@ class _HTTPEventPoster:
             raise RuntimeError("missing Runlayer hook credentials")
         self._client = http_client()
         self._debug = debug
-        self._host = host
-        self._secret = secret
+        self._hook_client = HookAPIClient(
+            host,
+            headers={
+                API_KEY_HEADER_NAME: secret,
+                "User-Agent": USER_AGENT,
+            },
+            http_client_factory=self._http_client_context,
+        )
+
+    def _http_client_context(self) -> AbstractContextManager[HookHTTPClient]:
+        return nullcontext(cast(HookHTTPClient, self._client))
 
     def __call__(
         self,
@@ -316,16 +384,7 @@ class _HTTPEventPoster:
             {"client": client_name, "event_name": event_name, "payload": payload}
         )
         try:
-            resp = self._client.post(
-                f"{self._host}/api/v1/hooks/events",
-                content=wrapper,
-                headers={
-                    "Content-Type": "application/json",
-                    API_KEY_HEADER_NAME: self._secret,
-                    "User-Agent": USER_AGENT,
-                },
-                timeout=5,
-            )
+            resp = self._hook_client.post_target("event", wrapper)
         except Exception as exc:
             if self._debug:
                 print(
@@ -339,7 +398,12 @@ class _HTTPEventPoster:
                 file=sys.stderr,
             )
         if not resp.is_success:
-            resp.raise_for_status()
+            raise_for_status = getattr(resp, "raise_for_status", None)
+            if callable(raise_for_status):
+                raise_for_status()
+            raise RuntimeError(
+                f"Runlayer transcript stream post failed: HTTP {resp.status_code}"
+            )
 
     def close(self) -> None:
         close_client = getattr(self._client, "close", None)

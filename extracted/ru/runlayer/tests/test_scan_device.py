@@ -1,13 +1,17 @@
 """Tests for device identification."""
 
 import os
+from pathlib import Path
 from unittest import mock
 
 
 from runlayer_cli.scan.device import (
     _get_macos_console_user,
+    detect_wsl,
     get_device_metadata,
     get_or_create_device_id,
+    get_wsl_user_homes,
+    list_wsl_distros,
 )
 
 
@@ -141,6 +145,108 @@ class TestGetDeviceMetadata:
         result = get_device_metadata()
         assert result["username"] == "realuser"
         mock_console.assert_not_called()
+
+
+class TestDetectWSL:
+    @mock.patch.dict(os.environ, {"WSL_DISTRO_NAME": "Ubuntu"})
+    def test_detects_wsl_via_env_var(self):
+        assert detect_wsl() is True
+
+    @mock.patch.dict(os.environ, {}, clear=True)
+    @mock.patch(
+        "pathlib.Path.read_text",
+        return_value="Linux version 5.15.0-1-microsoft-standard-WSL2",
+    )
+    def test_detects_wsl_via_proc_version(self, _read):
+        os.environ.pop("WSL_DISTRO_NAME", None)
+        assert detect_wsl() is True
+
+    @mock.patch.dict(os.environ, {}, clear=True)
+    @mock.patch(
+        "pathlib.Path.read_text",
+        return_value="Linux version 6.1.0-generic #1 SMP Debian",
+    )
+    def test_returns_false_on_native_linux(self, _read):
+        os.environ.pop("WSL_DISTRO_NAME", None)
+        assert detect_wsl() is False
+
+    @mock.patch.dict(os.environ, {}, clear=True)
+    @mock.patch("pathlib.Path.read_text", side_effect=OSError("not found"))
+    def test_returns_false_when_proc_version_missing(self, _read):
+        os.environ.pop("WSL_DISTRO_NAME", None)
+        assert detect_wsl() is False
+
+
+class TestListWSLDistros:
+    @mock.patch("subprocess.run")
+    def test_parses_utf16_distro_list(self, mock_run):
+        # wsl.exe --list --quiet emits UTF-16LE, often with a BOM.
+        raw = "\ufeffUbuntu\r\nDebian\r\n".encode("utf-16-le")
+        mock_run.return_value = mock.Mock(stdout=raw, returncode=0)
+        assert list_wsl_distros() == ["Ubuntu", "Debian"]
+
+    @mock.patch("subprocess.run")
+    def test_drops_docker_desktop_data(self, mock_run):
+        raw = "Ubuntu\r\ndocker-desktop-data\r\n".encode("utf-16-le")
+        mock_run.return_value = mock.Mock(stdout=raw, returncode=0)
+        assert list_wsl_distros() == ["Ubuntu"]
+
+    @mock.patch("subprocess.run")
+    def test_returns_empty_on_nonzero_exit(self, mock_run):
+        mock_run.return_value = mock.Mock(stdout=b"", returncode=1)
+        assert list_wsl_distros() == []
+
+    @mock.patch("subprocess.run", side_effect=FileNotFoundError("wsl.exe"))
+    def test_returns_empty_when_wsl_missing(self, _run):
+        assert list_wsl_distros() == []
+
+
+class TestGetWSLUserHomes:
+    def test_lists_home_dirs_via_unc(self, tmp_path):
+        home_base = tmp_path / "home"
+        home_base.mkdir()
+        (home_base / "alex").mkdir()
+        (home_base / "sam").mkdir()
+        (home_base / "afile").write_text("x")
+
+        def fake_path(p):
+            text = str(p)
+            text = text.replace(R"\\wsl.localhost\Ubuntu", str(tmp_path))
+            return Path(text)
+
+        with mock.patch("runlayer_cli.scan.device.Path", side_effect=fake_path):
+            homes = get_wsl_user_homes("Ubuntu")
+
+        names = sorted(h.name for h in homes)
+        assert names == ["alex", "sam"]
+
+    def test_returns_empty_when_unreachable(self, tmp_path):
+        def fake_path(p):
+            return Path(str(p).replace(R"\\wsl.localhost\Ubuntu", str(tmp_path)))
+
+        with mock.patch("runlayer_cli.scan.device.Path", side_effect=fake_path):
+            assert get_wsl_user_homes("Ubuntu") == []
+
+
+class TestDeviceMetadataWSL:
+    @mock.patch("platform.system", return_value="Linux")
+    @mock.patch("runlayer_cli.scan.device.detect_wsl", return_value=True)
+    def test_includes_is_wsl_flag(self, _wsl, _system):
+        result = get_device_metadata()
+        assert result["is_wsl"] is True
+        assert result["os"] == "linux"
+
+    @mock.patch("platform.system", return_value="Linux")
+    @mock.patch("runlayer_cli.scan.device.detect_wsl", return_value=False)
+    def test_no_wsl_flag_on_native_linux(self, _wsl, _system):
+        result = get_device_metadata()
+        assert "is_wsl" not in result
+        assert result["os"] == "linux"
+
+    @mock.patch("platform.system", return_value="Darwin")
+    def test_no_wsl_flag_on_macos(self, _system):
+        result = get_device_metadata()
+        assert "is_wsl" not in result
 
 
 class TestGetMacosConsoleUser:

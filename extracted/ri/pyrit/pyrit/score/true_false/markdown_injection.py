@@ -4,8 +4,7 @@
 import re
 from typing import Optional
 
-from pyrit.identifiers import ComponentIdentifier
-from pyrit.models import MessagePiece, Score
+from pyrit.models import ComponentIdentifier, MessagePiece, Score
 from pyrit.score.scorer_prompt_validator import ScorerPromptValidator
 from pyrit.score.true_false.true_false_score_aggregator import (
     TrueFalseAggregatorFunc,
@@ -52,7 +51,7 @@ class MarkdownInjectionScorer(TrueFalseScorer):
         """
         return self._create_identifier(
             params={
-                "score_aggregator": self._score_aggregator.__name__,
+                "score_aggregator": self._score_aggregator.__name__,  # type: ignore[ty:unresolved-attribute]
             },
         )
 

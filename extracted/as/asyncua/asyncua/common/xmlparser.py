@@ -2,14 +2,14 @@
 parse xml file from asyncua-spec
 """
 
-import re
 import asyncio
 import base64
 import logging
-from typing import List, Tuple
+import re
 import xml.etree.ElementTree as ET
 
 from pytz import utc
+
 from asyncua import ua
 
 from .ua_utils import string_to_val
@@ -21,10 +21,9 @@ def ua_type_to_python(val, uatype_as_str):
     """
     if hasattr(ua.VariantType, uatype_as_str):
         return string_to_val(val, getattr(ua.VariantType, uatype_as_str))
-    elif hasattr(ua, uatype_as_str):
+    if hasattr(ua, uatype_as_str):
         return string_to_val(val, getattr(ua, uatype_as_str))
-    else:
-        raise ValueError
+    raise ValueError
 
 
 def _to_bool(val):
@@ -377,7 +376,7 @@ class XMLParser:
                 ext.objname = self._retag.match(extension_object_part.find("*").tag).groups()[1]
                 ext.body = self._parse_body(extension_object_part)
             else:
-                self.logger.warning("Unknown ntag", ntag)
+                self.logger.warning("Unknown ntag: %s", ntag)
         return ext
 
     def _parse_body(self, el):
@@ -419,7 +418,7 @@ class XMLParser:
                 obj.typedef = ref.text
             elif not struct.forward:
                 parent, parentlink = struct.target, struct.reftype
-                if obj.parent == parent or obj.parent != parent and not obj.parentlink:
+                if obj.parent == parent or (obj.parent != parent and not obj.parentlink):
                     obj.parentlink = parentlink
 
         if obj.parent and not obj.parentlink:
@@ -447,7 +446,7 @@ class XMLParser:
                 required_models.append(child.attrib)
         return required_models
 
-    def get_nodeset_namespaces(self) -> List[Tuple[str, ua.String, ua.DateTime]]:
+    def get_nodeset_namespaces(self) -> list[tuple[str, ua.String, ua.DateTime]]:
         """
         Get all namespaces that are registered with version and date_time
         """

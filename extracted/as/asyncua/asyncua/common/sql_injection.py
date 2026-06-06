@@ -153,8 +153,6 @@ sqlite3_keywords = [
 class SqlInjectionError(Exception):
     """Raised, if a sql injection is detected."""
 
-    pass
-
 
 def validate_table_name(table_name: str) -> None:
     """Checks wether the sql table name is valid or not."""

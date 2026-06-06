@@ -677,6 +677,26 @@ def InfoOptions(options=None, format='text', deserialize=True,
 
     return (GDALInfoOptions(new_options), format, deserialize)
 
+
+def _get_allowed_drivers_and_open_options(**kwargs):
+
+    allowed_drivers = []
+    open_options = []
+    if 'options' in kwargs and isinstance(kwargs['options'], list):
+        options = kwargs['options']
+        i = 0
+        while i < len(options):
+            if options[i] == "-if":
+                i += 1
+                allowed_drivers.append(options[i])
+            elif options[i] == "-oo":
+                i += 1
+                open_options.append(options[i])
+            i += 1
+
+    return allowed_drivers, open_options
+
+
 def Info(ds, **kwargs):
     """Return information on a raster dataset.
 
@@ -692,13 +712,14 @@ def Info(ds, **kwargs):
 
     _WarnIfUserHasNotSpecifiedIfUsingExceptions()
 
+    allowed_drivers, open_options = _get_allowed_drivers_and_open_options(**kwargs)
     if 'options' not in kwargs or isinstance(kwargs['options'], (list, str)):
         (opts, format, deserialize) = InfoOptions(**kwargs)
     else:
         (opts, format, deserialize) = kwargs['options']
 
     if isinstance(ds, (str, os.PathLike)):
-        ds = Open(ds)
+        ds = OpenEx(ds, allowed_drivers = allowed_drivers, open_options = open_options)
     ret = InfoInternal(ds, opts)
     if format == 'json' and deserialize:
         import json
@@ -811,13 +832,14 @@ def VectorInfo(ds, **kwargs):
 
     _WarnIfUserHasNotSpecifiedIfUsingExceptions()
 
+    allowed_drivers, open_options = _get_allowed_drivers_and_open_options(**kwargs)
     if 'options' not in kwargs or isinstance(kwargs['options'], (list, str)):
         (opts, format, deserialize) = VectorInfoOptions(**kwargs)
     else:
         (opts, format, deserialize) = kwargs['options']
 
     if isinstance(ds, (str, os.PathLike)):
-        ds = OpenEx(ds, OF_VERBOSE_ERROR | OF_VECTOR)
+        ds = OpenEx(ds, OF_VERBOSE_ERROR | OF_VECTOR, allowed_drivers = allowed_drivers, open_options = open_options)
     ret = VectorInfoInternal(ds, opts)
     if format == 'json' and deserialize:
         import json
@@ -863,6 +885,7 @@ def MultiDimInfo(ds, **kwargs):
 
     _WarnIfUserHasNotSpecifiedIfUsingExceptions()
 
+    allowed_drivers, open_options = _get_allowed_drivers_and_open_options(**kwargs)
     if 'options' not in kwargs or isinstance(kwargs['options'], (list, str)):
         opts, as_text = MultiDimInfoOptions(**kwargs)
     else:
@@ -870,7 +893,7 @@ def MultiDimInfo(ds, **kwargs):
         as_text = True
 
     if isinstance(ds, (str, os.PathLike)):
-        ds = OpenEx(ds, OF_VERBOSE_ERROR | OF_MULTIDIM_RASTER)
+        ds = OpenEx(ds, OF_VERBOSE_ERROR | OF_MULTIDIM_RASTER, allowed_drivers = allowed_drivers, open_options = open_options)
     ret = MultiDimInfoInternal(ds, opts)
     if not as_text:
         import json
@@ -1147,6 +1170,7 @@ def Translate(destName, srcDS, **kwargs):
     _WarnIfUserHasNotSpecifiedIfUsingExceptions()
 
     filenamePrefix = ""
+    allowed_drivers, open_options = _get_allowed_drivers_and_open_options(**kwargs)
     if 'options' not in kwargs or isinstance(kwargs['options'], (list, str)):
         (opts, callback, callback_data) = TranslateOptions(**kwargs)
         if "format" in kwargs and kwargs["format"].upper() == "ZARR" and "creationOptions" in kwargs:
@@ -1158,7 +1182,7 @@ def Translate(destName, srcDS, **kwargs):
         (opts, callback, callback_data) = kwargs['options']
 
     if isinstance(srcDS, (str, os.PathLike)):
-        srcDS = Open(filenamePrefix + str(srcDS))
+        srcDS = OpenEx(filenamePrefix + str(srcDS), allowed_drivers = allowed_drivers, open_options = open_options)
 
     return TranslateInternal(destName, srcDS, opts, callback, callback_data)
 
@@ -1440,18 +1464,19 @@ def Warp(destNameOrDestDS, srcDSOrSrcDSTab, **kwargs):
 
     _WarnIfUserHasNotSpecifiedIfUsingExceptions()
 
+    allowed_drivers, open_options = _get_allowed_drivers_and_open_options(**kwargs)
     if 'options' not in kwargs or isinstance(kwargs['options'], (list, str)):
         (opts, callback, callback_data) = WarpOptions(**kwargs)
     else:
         (opts, callback, callback_data) = kwargs['options']
 
     if isinstance(srcDSOrSrcDSTab, (str, os.PathLike)):
-        srcDSTab = [Open(srcDSOrSrcDSTab)]
+        srcDSTab = [OpenEx(srcDSOrSrcDSTab, allowed_drivers = allowed_drivers, open_options = open_options)]
     elif isinstance(srcDSOrSrcDSTab, list):
         srcDSTab = []
         for elt in srcDSOrSrcDSTab:
             if isinstance(elt, (str, os.PathLike)):
-                srcDSTab.append(Open(elt))
+                srcDSTab.append(OpenEx(elt, allowed_drivers = allowed_drivers, open_options = open_options))
             else:
                 srcDSTab.append(elt)
     else:
@@ -1867,13 +1892,14 @@ def VectorTranslate(destNameOrDestDS, srcDS, **kwargs):
 
     _WarnIfUserHasNotSpecifiedIfUsingExceptions()
 
+    allowed_drivers, open_options = _get_allowed_drivers_and_open_options(**kwargs)
     if 'options' not in kwargs or isinstance(kwargs['options'], (list, str)):
         (opts, callback, callback_data) = VectorTranslateOptions(**kwargs)
     else:
         (opts, callback, callback_data) = kwargs['options']
 
     if isinstance(srcDS, (str, os.PathLike)):
-        srcDS = OpenEx(srcDS, gdalconst.OF_VECTOR)
+        srcDS = OpenEx(srcDS, gdalconst.OF_VECTOR, allowed_drivers = allowed_drivers, open_options = open_options)
 
     if isinstance(destNameOrDestDS, (str, os.PathLike)):
         return wrapper_GDALVectorTranslateDestName(destNameOrDestDS, srcDS, opts, callback, callback_data)
@@ -2132,13 +2158,14 @@ def Nearblack(destNameOrDestDS, srcDS, **kwargs):
 
     _WarnIfUserHasNotSpecifiedIfUsingExceptions()
 
+    allowed_drivers, open_options = _get_allowed_drivers_and_open_options(**kwargs)
     if 'options' not in kwargs or isinstance(kwargs['options'], (list, str)):
         (opts, callback, callback_data) = NearblackOptions(**kwargs)
     else:
         (opts, callback, callback_data) = kwargs['options']
 
     if isinstance(srcDS, (str, os.PathLike)):
-        srcDS = OpenEx(srcDS)
+        srcDS = OpenEx(srcDS, allowed_drivers = allowed_drivers, open_options = open_options)
 
     if isinstance(destNameOrDestDS, (str, os.PathLike)):
         return wrapper_GDALNearblackDestName(destNameOrDestDS, srcDS, opts, callback, callback_data)
@@ -2279,13 +2306,14 @@ def Grid(destName, srcDS, **kwargs):
 
     _WarnIfUserHasNotSpecifiedIfUsingExceptions()
 
+    allowed_drivers, open_options = _get_allowed_drivers_and_open_options(**kwargs)
     if 'options' not in kwargs or isinstance(kwargs['options'], (list, str)):
         (opts, callback, callback_data) = GridOptions(**kwargs)
     else:
         (opts, callback, callback_data) = kwargs['options']
 
     if isinstance(srcDS, (str, os.PathLike)):
-        srcDS = OpenEx(srcDS, gdalconst.OF_VECTOR)
+        srcDS = OpenEx(srcDS, gdalconst.OF_VECTOR, allowed_drivers = allowed_drivers, open_options = open_options)
 
     return GridInternal(destName, srcDS, opts, callback, callback_data)
 
@@ -2437,13 +2465,14 @@ def Contour(destNameOrDestDS, srcDS, **kwargs):
 
     _WarnIfUserHasNotSpecifiedIfUsingExceptions()
 
+    allowed_drivers, open_options = _get_allowed_drivers_and_open_options(**kwargs)
     if 'options' not in kwargs or isinstance(kwargs['options'], (list, str)):
         (opts, callback, callback_data) = ContourOptions(**kwargs)
     else:
         (opts, callback, callback_data) = kwargs['options']
 
     if isinstance(srcDS, (str, os.PathLike)):
-        srcDS = OpenEx(srcDS)
+        srcDS = OpenEx(srcDS, allowed_drivers = allowed_drivers, open_options = open_options)
 
     if isinstance(destNameOrDestDS, (str, os.PathLike)):
         return wrapper_GDALContourDestName(destNameOrDestDS, srcDS, opts, callback, callback_data)
@@ -2638,12 +2667,13 @@ def Rasterize(destNameOrDestDS, srcDS, **kwargs):
 
     _WarnIfUserHasNotSpecifiedIfUsingExceptions()
 
+    allowed_drivers, open_options = _get_allowed_drivers_and_open_options(**kwargs)
     if 'options' not in kwargs or isinstance(kwargs['options'], (list, str)):
         (opts, callback, callback_data) = RasterizeOptions(**kwargs)
     else:
         (opts, callback, callback_data) = kwargs['options']
     if isinstance(srcDS, (str, os.PathLike)):
-        srcDS = OpenEx(srcDS, gdalconst.OF_VECTOR)
+        srcDS = OpenEx(srcDS, gdalconst.OF_VECTOR, allowed_drivers = allowed_drivers, open_options = open_options)
 
     if isinstance(destNameOrDestDS, (str, os.PathLike)):
         return wrapper_GDALRasterizeDestName(destNameOrDestDS, srcDS, opts, callback, callback_data)
@@ -2833,13 +2863,14 @@ def Footprint(destNameOrDestDS, srcDS, **kwargs):
         kwargs = copy.copy(kwargs)
         kwargs["format"] = "GeoJSON"
 
+    allowed_drivers, open_options = _get_allowed_drivers_and_open_options(**kwargs)
     if 'options' not in kwargs or isinstance(kwargs['options'], (list, str)):
         (opts, callback, callback_data) = FootprintOptions(**kwargs)
     else:
         (opts, callback, callback_data) = kwargs['options']
 
     if isinstance(srcDS, (str, os.PathLike)):
-        srcDS = OpenEx(srcDS, gdalconst.OF_RASTER)
+        srcDS = OpenEx(srcDS, gdalconst.OF_RASTER, allowed_drivers = allowed_drivers, open_options = open_options)
 
     if inline_geojson_requested or wkt_requested:
         import uuid
@@ -3346,6 +3377,7 @@ def MultiDimTranslate(destName, srcDSOrSrcDSTab, **kwargs):
 
     _WarnIfUserHasNotSpecifiedIfUsingExceptions()
 
+    allowed_drivers, open_options = _get_allowed_drivers_and_open_options(**kwargs)
     if 'options' not in kwargs or isinstance(kwargs['options'], (list, str)):
         (opts, callback, callback_data) = MultiDimTranslateOptions(**kwargs)
     else:
@@ -3354,12 +3386,12 @@ def MultiDimTranslate(destName, srcDSOrSrcDSTab, **kwargs):
     import os
 
     if isinstance(srcDSOrSrcDSTab, (str, os.PathLike)):
-        srcDSTab = [OpenEx(srcDSOrSrcDSTab, OF_VERBOSE_ERROR | OF_RASTER | OF_MULTIDIM_RASTER)]
+        srcDSTab = [OpenEx(srcDSOrSrcDSTab, OF_VERBOSE_ERROR | OF_RASTER | OF_MULTIDIM_RASTER, allowed_drivers = allowed_drivers, open_options = open_options)]
     elif isinstance(srcDSOrSrcDSTab, list):
         srcDSTab = []
         for elt in srcDSOrSrcDSTab:
             if isinstance(elt, str):
-                srcDSTab.append(OpenEx(elt, OF_VERBOSE_ERROR | OF_RASTER | OF_MULTIDIM_RASTER))
+                srcDSTab.append(OpenEx(elt, OF_VERBOSE_ERROR | OF_RASTER | OF_MULTIDIM_RASTER, allowed_drivers = allowed_drivers, open_options = open_options))
             else:
                 srcDSTab.append(elt)
     else:

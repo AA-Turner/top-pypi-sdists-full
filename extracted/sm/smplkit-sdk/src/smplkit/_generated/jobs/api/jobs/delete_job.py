@@ -49,7 +49,7 @@ def sync_detailed(
 ) -> Response[Any]:
     """Delete Job
 
-     Delete a job. Its run history is retained; the slug may be reused later.
+     Delete a job. Its run history is retained; the id may be reused later.
 
     Args:
         job_id (str):
@@ -80,7 +80,7 @@ async def asyncio_detailed(
 ) -> Response[Any]:
     """Delete Job
 
-     Delete a job. Its run history is retained; the slug may be reused later.
+     Delete a job. Its run history is retained; the id may be reused later.
 
     Args:
         job_id (str):

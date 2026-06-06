@@ -8,7 +8,10 @@ from pathlib import Path
 import pytest
 
 from codex_plugin_scanner.cli import main
+from codex_plugin_scanner.guard import local_supply_chain as local_supply_chain_module
+from codex_plugin_scanner.guard.adapters.base import HarnessContext
 from codex_plugin_scanner.guard.approval_gate import update_settings as update_approval_gate_settings
+from codex_plugin_scanner.guard.shims import install_package_shims
 from codex_plugin_scanner.guard.store import GuardStore
 
 
@@ -72,23 +75,54 @@ def _seed_retry_required_oauth_connect(home_dir: Path) -> None:
     )
 
 
-def test_package_shims_install_requires_paid_entitlement(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def _install_local_package_shim(guard_home: Path, home_dir: Path, manager: str) -> None:
+    install_package_shims(
+        HarnessContext(
+            home_dir=home_dir,
+            workspace_dir=None,
+            guard_home=guard_home,
+        ),
+        managers=(manager,),
+    )
+
+
+def test_package_shims_install_requires_guard_cloud_connect_first(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     guard_home = tmp_path / "guard-home"
 
     rc = main(["guard", "package-shims", "install", "--manager", "npm", "--home", str(guard_home), "--json"])
 
     payload = json.loads(capsys.readouterr().out)
     assert rc == 2
-    assert payload["error"] == "paid_guard_cloud_required"
-    assert payload["entitlement"]["tier"] == "free"
+    assert payload["error"] == "guard_cloud_connect_required"
+    assert payload["entitlement"] == {
+        "allowed": False,
+        "reason": "guard_cloud_connect_required",
+        "tier": "unknown",
+        "upgrade_cta": "Connect HOL Guard Cloud to check package firewall access and run package firewall actions.",
+    }
+    assert payload["available_actions"] == ["status", "connect", "education", "cli_fallback"]
 
 
 def test_package_shims_status_reports_reconnect_required_when_cloud_auth_expired(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     guard_home = tmp_path / "guard-home"
     _seed_retry_required_oauth_connect(guard_home)
+    monkeypatch.setattr(
+        local_supply_chain_module,
+        "sync_local_guard_cloud_proof",
+        lambda _store: (_ for _ in ()).throw(RuntimeError("cloud auth still expired")),
+    )
+    monkeypatch.setattr(
+        local_supply_chain_module,
+        "sync_supply_chain_bundle",
+        lambda _store: (_ for _ in ()).throw(RuntimeError("bundle refresh blocked")),
+    )
 
     rc = main(["guard", "package-shims", "status", "--home", str(guard_home), "--json"])
 
@@ -101,14 +135,27 @@ def test_package_shims_status_reports_reconnect_required_when_cloud_auth_expired
         "upgrade_cta": "Reconnect HOL Guard Cloud to refresh package firewall access.",
     }
     assert payload["actions"]["install"] == "reconnect_required"
+    assert payload["actions"]["repair"] == "disabled"
+    assert payload["actions"]["remove"] == "disabled"
 
 
 def test_package_shims_install_requires_reconnect_when_cloud_auth_expired(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     guard_home = tmp_path / "guard-home"
     _seed_retry_required_oauth_connect(guard_home)
+    monkeypatch.setattr(
+        local_supply_chain_module,
+        "sync_local_guard_cloud_proof",
+        lambda _store: (_ for _ in ()).throw(RuntimeError("cloud auth still expired")),
+    )
+    monkeypatch.setattr(
+        local_supply_chain_module,
+        "sync_supply_chain_bundle",
+        lambda _store: (_ for _ in ()).throw(RuntimeError("bundle refresh blocked")),
+    )
 
     rc = main(["guard", "package-shims", "install", "--manager", "npm", "--home", str(guard_home), "--json"])
 
@@ -116,6 +163,61 @@ def test_package_shims_install_requires_reconnect_when_cloud_auth_expired(
     assert rc == 2
     assert payload["error"] == "guard_cloud_reconnect_required"
     assert payload["entitlement"]["tier"] == "unknown"
+
+
+def test_package_shims_install_self_heals_retry_required_cloud_auth(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    home_dir = tmp_path / "home"
+    home_dir.mkdir()
+    monkeypatch.setenv("HOME", str(home_dir))
+    monkeypatch.setenv("SHELL", "/bin/zsh")
+    guard_home = tmp_path / "guard-home"
+    _seed_retry_required_oauth_connect(guard_home)
+
+    def fake_sync_local_guard_cloud_proof(store: GuardStore) -> dict[str, object]:
+        store.record_latest_guard_connect_sync_success(
+            sync_payload={"synced_at": "2026-06-05T01:41:00+00:00", "receipts_stored": 1},
+            now="2026-06-05T01:41:00+00:00",
+        )
+        return {"synced_at": "2026-06-05T01:41:00+00:00", "receipts_stored": 1}
+
+    def fake_sync_supply_chain_bundle(store: GuardStore) -> dict[str, object]:
+        store.set_sync_payload(
+            "supply_chain_bundle_entitlement",
+            {
+                "bundle_version": "bundle-version-test",
+                "key_id": "bundle-key-test",
+                "policy_hash": "policy-hash-test",
+                "tier": "pro",
+                "workspace_id": "workspace-1",
+            },
+            "2026-06-05T01:41:05+00:00",
+        )
+        return {"bundle_version": "bundle-version-test", "tier": "pro"}
+
+    monkeypatch.setattr(local_supply_chain_module, "sync_local_guard_cloud_proof", fake_sync_local_guard_cloud_proof)
+    monkeypatch.setattr(local_supply_chain_module, "sync_supply_chain_bundle", fake_sync_supply_chain_bundle)
+
+    rc = main(["guard", "package-shims", "install", "--manager", "npm", "--home", str(guard_home), "--json"])
+
+    payload = json.loads(capsys.readouterr().out)
+    shim_path = guard_home / "package-shims" / "bin" / "npm"
+    assert rc == 0
+    assert payload["entitlement"] == {
+        "allowed": True,
+        "reason": "paid_entitlement_active",
+        "tier": "pro",
+        "upgrade_cta": None,
+    }
+    assert payload["activation_state"] == "restart_required"
+    assert payload["installed_managers"] == ["npm"]
+    assert payload["profile"]["changed"] is True
+    assert shim_path.exists()
+    profile_path = Path(str(payload["profile"]["profile_path"]))
+    assert str(guard_home / "package-shims" / "bin") in profile_path.read_text(encoding="utf-8")
 
 
 def test_package_shims_status_reports_paid_oauth_entitlement(
@@ -136,6 +238,74 @@ def test_package_shims_status_reports_paid_oauth_entitlement(
         "upgrade_cta": None,
     }
     assert payload["actions"]["install"] == "available"
+    assert payload["actions"]["repair"] == "disabled"
+    assert payload["actions"]["remove"] == "disabled"
+
+
+def test_package_shims_status_allows_local_recovery_when_cloud_is_not_connected(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    home_dir = tmp_path / "home"
+    home_dir.mkdir()
+    monkeypatch.setenv("HOME", str(home_dir))
+    monkeypatch.setenv("SHELL", "/bin/zsh")
+    guard_home = tmp_path / "guard-home"
+    _install_local_package_shim(guard_home, home_dir, "npm")
+
+    rc = main(["guard", "package-shims", "status", "--home", str(guard_home), "--json"])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["entitlement"]["reason"] == "guard_cloud_connect_required"
+    assert payload["actions"]["install"] == "connect_required"
+    assert payload["actions"]["repair"] == "available"
+    assert payload["actions"]["remove"] == "available"
+
+
+def test_package_shims_repair_runs_without_guard_cloud_connect(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    home_dir = tmp_path / "home"
+    home_dir.mkdir()
+    monkeypatch.setenv("HOME", str(home_dir))
+    monkeypatch.setenv("SHELL", "/bin/zsh")
+    guard_home = tmp_path / "guard-home"
+    _install_local_package_shim(guard_home, home_dir, "npm")
+
+    rc = main(["guard", "package-shims", "repair", "--manager", "npm", "--home", str(guard_home), "--json"])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["entitlement"]["reason"] == "guard_cloud_connect_required"
+    assert payload["activation_state"] == "restart_required"
+    assert payload["profile"]["changed"] is True
+    profile_path = Path(str(payload["profile"]["profile_path"]))
+    assert str(guard_home / "package-shims" / "bin") in profile_path.read_text(encoding="utf-8")
+
+
+def test_package_shims_uninstall_runs_without_guard_cloud_connect(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    home_dir = tmp_path / "home"
+    home_dir.mkdir()
+    monkeypatch.setenv("HOME", str(home_dir))
+    monkeypatch.setenv("SHELL", "/bin/zsh")
+    guard_home = tmp_path / "guard-home"
+    _install_local_package_shim(guard_home, home_dir, "npm")
+
+    rc = main(["guard", "package-shims", "uninstall", "--manager", "npm", "--home", str(guard_home), "--json"])
+
+    payload = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert payload["entitlement"]["reason"] == "guard_cloud_connect_required"
+    assert payload["removed_managers"] == ["npm"]
+    assert not (guard_home / "package-shims" / "bin" / "npm").exists()
 
 
 def test_package_shims_install_requires_local_approval_gate_proof(

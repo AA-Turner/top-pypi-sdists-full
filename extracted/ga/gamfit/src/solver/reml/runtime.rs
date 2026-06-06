@@ -7,6 +7,7 @@ use crate::linalg::sparse_exact::build_sparse_penalty_blocks_from_canonical;
 use crate::linalg::utils::{
     boundary_hit_indices, enforce_symmetry, symmetric_spectrum_condition_number,
 };
+use crate::mixture_link::inverse_link_has_fisher_weight_jet;
 use crate::pirls::PirlsWorkspace;
 use crate::solver::estimate::reml::inner_strategy::HessianEvalStrategyKind;
 use crate::solver::outer_strategy::{HessianResult, OuterEval};
@@ -1458,52 +1459,110 @@ fn reml_is_gaussian_identity(likelihood: &GlmLikelihoodSpec) -> bool {
     reml_spec(likelihood).is_gaussian_identity()
 }
 
+/// Inverse link of a Binomial family for which a Fisher-weight jet exists, i.e.
+/// the links the link-general Jeffreys term can regularize. This includes
+/// standard `{Logit, Probit, CLogLog}` and stateful links whose fourth/fifth
+/// inverse-link derivatives are available, including mixture LogLog/Cauchit
+/// components. Returns `None` for any other response or link.
 #[inline]
-fn reml_supports_firth(likelihood: &GlmLikelihoodSpec) -> bool {
-    let spec = reml_spec(likelihood);
-    matches!(spec.response, ResponseFamily::Binomial)
-        && matches!(spec.link, InverseLink::Standard(StandardLink::Logit))
-}
-
-/// Standard link of a Binomial family for which a closed-form Fisher-weight jet
-/// (`fisher_weight_jet5`) exists, i.e. the links the link-general Jeffreys term
-/// can regularize. Currently `{Logit, Probit}`. Returns `None` for any other
-/// response or link.
-#[inline]
-fn reml_jeffreys_supported_link(likelihood: &GlmLikelihoodSpec) -> Option<StandardLink> {
+fn reml_jeffreys_supported_link(likelihood: &GlmLikelihoodSpec) -> Option<InverseLink> {
     let spec = reml_spec(likelihood);
     if !matches!(spec.response, ResponseFamily::Binomial) {
         return None;
     }
-    match spec.link {
-        InverseLink::Standard(link @ StandardLink::Logit)
-        | InverseLink::Standard(link @ StandardLink::Probit) => Some(link),
-        _ => None,
+    if inverse_link_has_fisher_weight_jet(&spec.link) {
+        Some(spec.link.clone())
+    } else {
+        None
     }
 }
 
 /// Resolve whether the Jeffreys/Firth term should be assembled on the REML path
-/// and, if so, the standard link to evaluate the Fisher weight with.
+/// and, if so, the inverse link to evaluate the Fisher weight with.
 ///
-/// `Off` reproduces the released gate exactly: active only for the legacy
-/// `firth_bias_reduction` flag on Binomial-Logit. Under `Auto`/`Force` the gate
-/// broadens to every Binomial link with a closed-form Fisher-weight jet (adds
-/// probit), keeping the released path byte-identical when the flag is `Off`.
+/// Robustness is unconditionally on, so the gate covers every Binomial inverse
+/// link with a Fisher-weight jet. Unsupported links return `None` instead of
+/// pretending they are Logit.
 #[inline]
-pub(super) fn reml_robust_jeffreys_link(config: &RemlConfig) -> Option<StandardLink> {
-    let robust_on = !matches!(
-        config.robust_identification,
-        crate::solver::workflow::RobustIdentification::Off
-    );
-    if robust_on {
-        if let Some(link) = reml_jeffreys_supported_link(&config.likelihood) {
-            return Some(link);
+pub(super) fn reml_robust_jeffreys_link(config: &RemlConfig) -> Option<InverseLink> {
+    reml_jeffreys_supported_link(&config.likelihood)
+}
+
+/// `upper`/`tail_prob` calibrating the firth-general default barrier on an unset
+/// smoothing coordinate. The tail statement `P(d > upper) = tail_prob` on the
+/// marginal-SD distance scale `d = exp(−ρ/2)` calibrates the exponential rate
+/// `θ = −ln(tail_prob)/upper`. We use `upper = 10`, `tail_prob = 0.01`
+/// ⇒ `θ = −ln(0.01)/10 ≈ 0.4605`.
+const FIRTH_DEFAULT_PC_UPPER: f64 = 10.0;
+const FIRTH_DEFAULT_PC_TAIL_PROB: f64 = 0.01;
+
+/// Weakly-informative DEFAULT outer ρ prior used by the firth-general policy on
+/// any smoothing coordinate the caller left unset (`RhoPrior::Flat`).
+///
+/// The *value* returned here is a [`RhoPrior::PenalizedComplexity`] so that
+/// downstream consumers that round-trip the resolved prior (serialization, the
+/// joint-HMC refinement at `effective_rho_prior().into_owned()`) see a
+/// well-defined prior family. Its *outer-objective contribution*, however, is NOT
+/// the plain PC term: the REML/LAML runtime evaluates firth-default coordinates
+/// through the SELF-GATED, one-sided barrier
+/// [`rho_prior_eval::firth_default_barrier_terms`], which is byte-identically
+/// flat (cost/grad/hess = 0) on the identified side `ρ ≥ −2 ln(upper)` and only a
+/// convex wall against the `λ → 0` / `ρ → −∞` under-smoothing degeneracy below
+/// it. This restores STRICT zero-downside (a clean / well-conditioned fit is
+/// byte-identical to plain REML, mirroring the Jeffreys conditioning gate)
+/// instead of the plain PC term's persistent `+1/2` Occam pull, which would
+/// shift every identified `λ` by an `O(1/n)` amount on every fit.
+#[inline]
+fn firth_default_pc_prior() -> RhoPrior {
+    RhoPrior::PenalizedComplexity {
+        upper: FIRTH_DEFAULT_PC_UPPER,
+        tail_prob: FIRTH_DEFAULT_PC_TAIL_PROB,
+    }
+}
+
+/// Per-coordinate `true` where the firth-general default barrier (rather than an
+/// explicitly-configured prior) governs that smoothing coordinate. A coordinate
+/// is a firth default exactly when the caller left it `Flat`: the whole prior is
+/// `Flat` (every coordinate defaulted) or it is an `Independent` with `Flat`
+/// holes. Returned per-`ρ`-coordinate so the runtime can override just those
+/// coordinates' objective contribution with the self-gated barrier.
+fn firth_default_coord_mask(configured: &RhoPrior, len: usize) -> Vec<bool> {
+    match configured {
+        RhoPrior::Flat => vec![true; len],
+        RhoPrior::Independent(priors) if priors.len() == len => {
+            priors.iter().map(|p| matches!(p, RhoPrior::Flat)).collect()
         }
+        _ => vec![false; len],
     }
-    if config.firth_bias_reduction && reml_supports_firth(&config.likelihood) {
-        return Some(StandardLink::Logit);
+}
+
+/// Resolve the *effective* outer ρ prior under the (unconditional) firth-general
+/// default policy.
+///
+/// An *unset* prior (the `Flat` sentinel — whole-prior, or any `Flat` coordinate
+/// of an `Independent`) is filled with the weakly-informative
+/// [`firth_default_pc_prior`]; any explicitly-configured prior is honored
+/// unchanged. Pulled out as a free function so the decision is unit-testable
+/// without constructing a full `RemlState`.
+fn resolve_effective_rho_prior(configured: &RhoPrior) -> std::borrow::Cow<'_, RhoPrior> {
+    match configured {
+        // Whole prior unset → fill every coordinate with the weak PC default.
+        RhoPrior::Flat => std::borrow::Cow::Owned(firth_default_pc_prior()),
+        // Per-coordinate priors: only the `Flat` (unset) coordinates inherit the
+        // PC default; explicitly configured coordinates are preserved.
+        RhoPrior::Independent(priors) if priors.iter().any(|p| matches!(p, RhoPrior::Flat)) => {
+            let filled = priors
+                .iter()
+                .map(|p| match p {
+                    RhoPrior::Flat => firth_default_pc_prior(),
+                    other => other.clone(),
+                })
+                .collect();
+            std::borrow::Cow::Owned(RhoPrior::Independent(filled))
+        }
+        // Any explicitly configured prior is honored as-is.
+        other => std::borrow::Cow::Borrowed(other),
     }
-    None
 }
 
 #[inline]
@@ -1958,7 +2017,32 @@ impl<'a> RemlState<'a> {
             );
             return false;
         }
+        // The analytic outer Hessian for a Firth fit folds in the Tierney-Kadane
+        // curvature, whose c/d/e/f derivative arrays are implemented only for the
+        // canonical Binomial Logit jet. #758 widened Firth to other Binomial
+        // inverse links (Probit, CLogLog, SAS, …); those fits have no analytic TK
+        // Hessian, so decline the analytic path and let BFGS drive the outer loop
+        // off the (link-general) plain-Laplace gradient. Non-Firth fits are
+        // unaffected — they never use the TK correction.
+        if reml_robust_jeffreys_link(&self.config).is_some()
+            && !self.tk_correction_is_canonical_logit()
+        {
+            return false;
+        }
         true
+    }
+
+    /// Whether the Tierney-Kadane outer correction (its value, ρ-gradient, and
+    /// ρ-Hessian) applies to this fit. It is implemented only for canonical
+    /// Binomial Logit Firth fits because its c/d/e/f derivative arrays consume
+    /// the logit 5th-derivative jet (`logit_inverse_link_jet5`). Non-logit Firth
+    /// fits skip the TK refinement and use plain Laplace REML, which is
+    /// link-general; logit fits keep the full higher-order correction.
+    fn tk_correction_is_canonical_logit(&self) -> bool {
+        let spec = reml_spec(&self.config.likelihood);
+        matches!(spec.response, ResponseFamily::Binomial)
+            && matches!(spec.link, InverseLink::Standard(StandardLink::Logit))
+            && self.runtime_mixture_link_state.is_none()
     }
 
     pub(super) fn sparse_exact_beta_original(&self, pirls_result: &PirlsResult) -> Array1<f64> {
@@ -3123,6 +3207,21 @@ impl<'a> RemlState<'a> {
                 hessian: None,
             });
         }
+        // The TK correction's c/d/e/f derivative arrays use the logit
+        // 5th-derivative jet and are implemented only for canonical Binomial
+        // Logit Firth fits. #758 widened Firth to other Binomial inverse links;
+        // those fits skip the higher-order TK refinement (zero correction) and
+        // fall back to plain Laplace REML rather than erroring inside
+        // `hessian_cdef_arrays`. The Firth/Jeffreys bias reduction itself lives in
+        // the inner PIRLS solve, so it is fully retained — only the outer
+        // marginal-likelihood refinement is dropped for non-logit links.
+        if !self.tk_correction_is_canonical_logit() {
+            return Ok(TkCorrectionTerms {
+                value: 0.0,
+                gradient: None,
+                hessian: None,
+            });
+        }
 
         let pirls_result = bundle.pirls_result.as_ref();
         let (c_array, d_array, e_array, f_array) = self.hessian_cdef_arrays(pirls_result)?;
@@ -3182,15 +3281,13 @@ impl<'a> RemlState<'a> {
             };
             let lambdas: Vec<f64> = rho.iter().map(|r| r.exp()).collect();
             let beta = self.sparse_exact_beta_original(pirls_result);
-            let firth_op = if let Some(jeffreys_link) =
-                reml_robust_jeffreys_link(&self.config)
-            {
+            let firth_op = if let Some(jeffreys_link) = reml_robust_jeffreys_link(&self.config) {
                 if let Some(cached) = bundle.firth_dense_operator_original.as_ref() {
                     Some(cached.clone())
                 } else {
                     Some(std::sync::Arc::new(
                         Self::build_firth_dense_operator_for_link(
-                            jeffreys_link,
+                            &jeffreys_link,
                             x_dense.as_ref(),
                             &pirls_result.final_eta,
                             self.weights,
@@ -3336,7 +3433,7 @@ impl<'a> RemlState<'a> {
         let firth_op = if let Some(jeffreys_link) = reml_robust_jeffreys_link(&self.config) {
             Some(std::sync::Arc::new(
                 Self::build_firth_dense_operator_for_link(
-                    jeffreys_link,
+                    &jeffreys_link,
                     &x_eff_dense,
                     &pirls_result.final_eta,
                     self.weights,
@@ -4177,12 +4274,80 @@ impl<'a> RemlState<'a> {
         &self,
         rho: &Array1<f64>,
     ) -> super::rho_prior_eval::RhoPriorEval {
-        super::rho_prior_eval::evaluate(
-            &self.rho_prior,
+        let effective = self.effective_rho_prior();
+        let mut eval = super::rho_prior_eval::evaluate(
+            effective.as_ref(),
             rho,
             super::rho_prior_eval::InvalidPriorPolicy::Saturate,
         )
-        .expect("Saturate policy never errors")
+        .expect("Saturate policy never errors");
+        // FIRTH-DEFAULT SELF-GATE (strict zero-downside). The shared engine
+        // evaluated every firth-default-filled coordinate as a plain PC term,
+        // whose gradient carries the persistent `+1/2` Occam pull that perturbs
+        // even a well-identified λ by O(1/n). Replace those coordinates'
+        // contribution with the SELF-GATED one-sided barrier
+        // `firth_default_barrier_terms`, which is byte-identically flat on the
+        // identified side (ρ ≥ −2 ln upper) and only a convex wall against the
+        // λ → 0 degeneracy below it — so a clean/well-conditioned fit stays
+        // byte-identical to plain REML. Explicitly-configured priors (including a
+        // user-supplied PenalizedComplexity) are left exactly as the engine
+        // produced them. If the saturating policy already flagged a malformed
+        // prior (non-finite cost), leave it untouched so the repulsion stands.
+        if eval.cost.is_finite() {
+            let mask = firth_default_coord_mask(&self.rho_prior, rho.len());
+            if mask.iter().any(|&d| d) {
+                let theta = super::rho_prior_eval::pc_prior_rate(
+                    FIRTH_DEFAULT_PC_UPPER,
+                    FIRTH_DEFAULT_PC_TAIL_PROB,
+                );
+                let mut hess = eval
+                    .hessian
+                    .take()
+                    .unwrap_or_else(|| Array2::<f64>::zeros((rho.len(), rho.len())));
+                for (idx, &is_default) in mask.iter().enumerate() {
+                    if !is_default {
+                        continue;
+                    }
+                    let r = rho[idx];
+                    // Remove the plain PC contribution the engine added for this
+                    // defaulted coordinate, then add the self-gated barrier.
+                    let (pc_c, pc_g, pc_h) = super::rho_prior_eval::pc_prior_terms(theta, r);
+                    let (b_c, b_g, b_h) = super::rho_prior_eval::firth_default_barrier_terms(
+                        theta,
+                        FIRTH_DEFAULT_PC_UPPER,
+                        r,
+                    );
+                    eval.cost += b_c - pc_c;
+                    eval.gradient[idx] += b_g - pc_g;
+                    hess[[idx, idx]] += b_h - pc_h;
+                }
+                eval.hessian = hess.iter().any(|&v| v != 0.0).then_some(hess);
+            }
+        }
+        eval
+    }
+
+    /// Resolve the *effective* outer prior on the log-precision ρ, applying the
+    /// (unconditional) firth-general default-hyperprior policy.
+    ///
+    /// An *unset* prior (the `Flat` sentinel, i.e. the caller did not configure a
+    /// hyperprior on a coordinate) is replaced by the weakly-informative
+    /// penalized-complexity
+    /// (PC) prior [`firth_default_pc_prior`], turning the outer REML point into a
+    /// proper marginal posterior over λ. A PC prior is reparameterization-
+    /// invariant and shrinks only toward the simpler (more-smoothing) base model,
+    /// so it removes the λ→0 degeneracy without ever walling off complexity the
+    /// data actually buys. Any explicitly configured prior (Normal, Gamma, an
+    /// already-PC coordinate, ...) is respected unchanged — the default only
+    /// fills `Flat` holes.
+    ///
+    /// The default is *weakly* informative by construction: its calibrated rate
+    /// `θ = −ln(tail_prob)/upper` is small, so its O(1) cost/gradient is
+    /// dominated by the O(n) REML curvature wherever λ is well identified,
+    /// leaving clean λ-selection unbiased (the zero-downside / information-limit
+    /// reduction to plain REML).
+    fn effective_rho_prior(&self) -> std::borrow::Cow<'_, RhoPrior> {
+        resolve_effective_rho_prior(&self.rho_prior)
     }
 
     fn compute_configured_rho_prior_cost(&self, rho: &Array1<f64>) -> f64 {
@@ -5982,7 +6147,7 @@ impl<'a> RemlState<'a> {
                 .map_err(EstimationError::InvalidInput)?;
                 let firth_build_start = std::time::Instant::now();
                 let firth_op = Arc::new(Self::build_firth_dense_operator_for_link(
-                    jeffreys_link,
+                    &jeffreys_link,
                     x_dense.as_ref(),
                     &pirls_result.final_eta,
                     self.weights,
@@ -6140,7 +6305,7 @@ impl<'a> RemlState<'a> {
                     )
                     .map_err(EstimationError::InvalidInput)?;
                 Some(Arc::new(Self::build_firth_dense_operator_for_link(
-                    jeffreys_link,
+                    &jeffreys_link,
                     x_dense.as_ref(),
                     &pirls_result.final_eta,
                     self.weights,
@@ -6399,8 +6564,9 @@ impl<'a> RemlState<'a> {
                 &pirls_config,
                 warm_start_ref,
                 adaptive_kkt_tolerance,
-                // REML cost eval: never re-profile the Gamma scale against the
-                // trial λ's residuals (would bias λ selection — see #678).
+                // REML cost eval: never re-profile the family dispersion (Gamma
+                // shape / Beta precision) against the trial λ's residuals — that
+                // would couple the scale to λ and bias selection (#678, #769).
                 false,
             );
             let pirls_elapsed = pirls_start.elapsed();
@@ -7919,7 +8085,7 @@ impl<'a> RemlState<'a> {
             }
             return Ok(Some(std::sync::Arc::new(
                 Self::build_firth_dense_operator_for_link(
-                    jeffreys_link,
+                    &jeffreys_link,
                     &x_projected,
                     &pirls_result.final_eta,
                     self.weights,
@@ -7934,7 +8100,7 @@ impl<'a> RemlState<'a> {
         let x_dense = pirls_result.x_transformed.to_dense();
         Ok(Some(std::sync::Arc::new(
             Self::build_firth_dense_operator_for_link(
-                jeffreys_link,
+                &jeffreys_link,
                 &x_dense,
                 &pirls_result.final_eta,
                 self.weights,
@@ -8077,7 +8243,7 @@ impl<'a> RemlState<'a> {
                     .map_err(EstimationError::InvalidInput)?;
                 Some(std::sync::Arc::new(
                     Self::build_firth_dense_operator_for_link(
-                        jeffreys_link,
+                        &jeffreys_link,
                         x_dense.as_ref(),
                         &pirls_result.final_eta,
                         self.weights,
@@ -8251,7 +8417,13 @@ impl<'a> RemlState<'a> {
             penalty_logdet,
             dispersion: ctx.dispersion,
             rho_curvature_scale: 1.0,
-            rho_prior: self.rho_prior.clone(),
+            // The InnerSolution-carried prior must be the *effective* prior
+            // (firth-general PC default substituted for unset coordinates), so
+            // the unified EFS/LAML evaluation in `super::unified` shapes the λ
+            // update with the same hyperprior the outer cost/gradient use. Using
+            // the raw `self.rho_prior` here would leave the firth-general PC
+            // default out of the inner update entirely.
+            rho_prior: self.effective_rho_prior().into_owned(),
             hessian_logdet_correction,
             penalty_subspace_trace,
             deriv_provider: Some(ctx.deriv_provider),
@@ -10045,6 +10217,85 @@ mod tk_math_tests {
     use faer::Side;
     use ndarray::array;
     use num_dual::{Dual3_64, Dual64, DualNum, third_derivative};
+
+    #[test]
+    fn firth_default_pc_prior_fills_flat_holes() {
+        let pc = firth_default_pc_prior();
+        let configured = RhoPrior::Normal { mean: 0.1, sd: 2.0 };
+        // A whole `Flat` prior becomes the weak PC default.
+        assert_eq!(*resolve_effective_rho_prior(&RhoPrior::Flat), pc);
+        // An explicitly-configured prior is honored unchanged (no override).
+        assert_eq!(*resolve_effective_rho_prior(&configured), configured);
+        // Only the `Flat` coordinates of an Independent prior inherit the PC.
+        let indep = RhoPrior::Independent(vec![RhoPrior::Flat, configured.clone()]);
+        assert_eq!(
+            *resolve_effective_rho_prior(&indep),
+            RhoPrior::Independent(vec![pc.clone(), configured.clone()])
+        );
+        // An Independent prior with no Flat holes is left untouched.
+        let no_holes = RhoPrior::Independent(vec![configured.clone(), configured.clone()]);
+        assert_eq!(*resolve_effective_rho_prior(&no_holes), no_holes);
+    }
+
+    #[test]
+    fn firth_default_coord_mask_marks_only_flat_coordinates() {
+        // Whole-Flat → every coordinate is a firth default.
+        assert_eq!(firth_default_coord_mask(&RhoPrior::Flat, 3), vec![true; 3]);
+        // Independent → only the Flat holes are defaults.
+        let indep = RhoPrior::Independent(vec![
+            RhoPrior::Flat,
+            RhoPrior::Normal { mean: 0.0, sd: 1.0 },
+            RhoPrior::Flat,
+        ]);
+        assert_eq!(firth_default_coord_mask(&indep, 3), vec![true, false, true]);
+        // An explicitly-configured scalar prior defaults nothing.
+        assert_eq!(
+            firth_default_coord_mask(&RhoPrior::Normal { mean: 0.0, sd: 1.0 }, 2),
+            vec![false; 2]
+        );
+    }
+
+    #[test]
+    fn firth_default_barrier_is_byte_zero_on_identified_side() {
+        use super::super::rho_prior_eval::{firth_default_barrier_terms, pc_prior_rate};
+        let upper = FIRTH_DEFAULT_PC_UPPER;
+        let theta = pc_prior_rate(upper, FIRTH_DEFAULT_PC_TAIL_PROB);
+        let rho_gate = -2.0 * upper.ln();
+
+        // Identified side (ρ ≥ ρ_gate, distance d = e^{-ρ/2} ≤ upper): the barrier
+        // contributes EXACTLY zero — strict zero-downside, no Occam pull. This is
+        // the whole point of FIX B: the plain PC gradient would be ≈ +1/2 here.
+        for &r in &[rho_gate, rho_gate + 1e-9, 0.0, 5.0, 50.0] {
+            let (c, g, h) = firth_default_barrier_terms(theta, upper, r);
+            assert_eq!((c, g, h), (0.0, 0.0, 0.0), "must be byte-zero at ρ={r}");
+        }
+
+        // Degenerate side (ρ < ρ_gate, λ → 0): a convex wall that pushes ρ UP
+        // (negative gradient) with positive curvature, and is C⁰ at the gate.
+        for &r in &[rho_gate - 1.0, rho_gate - 5.0, -20.0] {
+            let (c, g, h) = firth_default_barrier_terms(theta, upper, r);
+            assert!(c > 0.0, "cost must be positive below the gate at ρ={r}");
+            assert!(g < 0.0, "gradient must push ρ up (away from λ→0) at ρ={r}");
+            assert!(h > 0.0, "curvature must be positive at ρ={r}");
+        }
+
+        // C⁰ continuity at the gate: cost → 0 as ρ ↑ ρ_gate.
+        let (c_below, _, _) = firth_default_barrier_terms(theta, upper, rho_gate - 1e-6);
+        assert!(
+            c_below.abs() < 1e-9,
+            "cost continuous at the gate, got {c_below}"
+        );
+
+        // Finite-difference check of grad and (diagonal) Hessian below the gate.
+        let r = rho_gate - 2.0;
+        let cost_at = |dr: f64| firth_default_barrier_terms(theta, upper, r + dr).0;
+        let grad_at = |dr: f64| firth_default_barrier_terms(theta, upper, r + dr).1;
+        let (_, g, h) = firth_default_barrier_terms(theta, upper, r);
+        let fd_g = (cost_at(1e-6) - cost_at(-1e-6)) / 2e-6;
+        let fd_h = (grad_at(1e-5) - grad_at(-1e-5)) / 2e-5;
+        assert!((fd_g - g).abs() < 1e-6, "grad FD {fd_g} vs {g}");
+        assert!((fd_h - h).abs() < 1e-5, "hess FD {fd_h} vs {h}");
+    }
 
     #[test]
     fn penalty_rank_uses_actual_positive_eigenspace_not_root_rows() {

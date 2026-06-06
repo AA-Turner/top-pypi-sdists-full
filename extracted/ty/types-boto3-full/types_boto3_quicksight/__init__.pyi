@@ -32,6 +32,7 @@ Usage::
         ListIAMPolicyAssignmentsForUserPaginator,
         ListIAMPolicyAssignmentsPaginator,
         ListIngestionsPaginator,
+        ListKnowledgeBasesPaginator,
         ListNamespacesPaginator,
         ListOAuthClientApplicationsPaginator,
         ListRoleMembershipsPaginator,
@@ -51,6 +52,7 @@ Usage::
         SearchFlowsPaginator,
         SearchFoldersPaginator,
         SearchGroupsPaginator,
+        SearchKnowledgeBasesPaginator,
         SearchTopicsPaginator,
     )
 
@@ -78,6 +80,7 @@ Usage::
     list_iam_policy_assignments_for_user_paginator: ListIAMPolicyAssignmentsForUserPaginator = client.get_paginator("list_iam_policy_assignments_for_user")
     list_iam_policy_assignments_paginator: ListIAMPolicyAssignmentsPaginator = client.get_paginator("list_iam_policy_assignments")
     list_ingestions_paginator: ListIngestionsPaginator = client.get_paginator("list_ingestions")
+    list_knowledge_bases_paginator: ListKnowledgeBasesPaginator = client.get_paginator("list_knowledge_bases")
     list_namespaces_paginator: ListNamespacesPaginator = client.get_paginator("list_namespaces")
     list_o_auth_client_applications_paginator: ListOAuthClientApplicationsPaginator = client.get_paginator("list_o_auth_client_applications")
     list_role_memberships_paginator: ListRoleMembershipsPaginator = client.get_paginator("list_role_memberships")
@@ -96,6 +99,7 @@ Usage::
     search_flows_paginator: SearchFlowsPaginator = client.get_paginator("search_flows")
     search_folders_paginator: SearchFoldersPaginator = client.get_paginator("search_folders")
     search_groups_paginator: SearchGroupsPaginator = client.get_paginator("search_groups")
+    search_knowledge_bases_paginator: SearchKnowledgeBasesPaginator = client.get_paginator("search_knowledge_bases")
     search_topics_paginator: SearchTopicsPaginator = client.get_paginator("search_topics")
     ```
 """
@@ -123,6 +127,7 @@ from .paginator import (
     ListIAMPolicyAssignmentsForUserPaginator,
     ListIAMPolicyAssignmentsPaginator,
     ListIngestionsPaginator,
+    ListKnowledgeBasesPaginator,
     ListNamespacesPaginator,
     ListOAuthClientApplicationsPaginator,
     ListRoleMembershipsPaginator,
@@ -141,6 +146,7 @@ from .paginator import (
     SearchFlowsPaginator,
     SearchFoldersPaginator,
     SearchGroupsPaginator,
+    SearchKnowledgeBasesPaginator,
     SearchTopicsPaginator,
 )
 
@@ -169,6 +175,7 @@ __all__ = (
     "ListIAMPolicyAssignmentsForUserPaginator",
     "ListIAMPolicyAssignmentsPaginator",
     "ListIngestionsPaginator",
+    "ListKnowledgeBasesPaginator",
     "ListNamespacesPaginator",
     "ListOAuthClientApplicationsPaginator",
     "ListRoleMembershipsPaginator",
@@ -188,5 +195,6 @@ __all__ = (
     "SearchFlowsPaginator",
     "SearchFoldersPaginator",
     "SearchGroupsPaginator",
+    "SearchKnowledgeBasesPaginator",
     "SearchTopicsPaginator",
 )

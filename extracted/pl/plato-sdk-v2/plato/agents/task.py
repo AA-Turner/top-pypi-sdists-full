@@ -102,6 +102,10 @@ class AgentTask:
         self._continuation_instruction: str | Callable[[], str] = "Continue. Complete all remaining work."
         self._continuation_exhausted_hook: Callable[[], Awaitable[None]] | None = None
         self._continuation_cap_cost: Callable[[], float] | None = None
+        # Bound on zero-cost (cap_cost<=0) continuations so a never-converging
+        # merge-conflict loop can't continue indefinitely. Defaults to
+        # _max_continuations in with_continuation() when not set explicitly.
+        self._max_zero_cost_continuations: int = 2
         # Optional `/compact <instructions>` message sent to the live session
         # after each execution and before the exit condition runs (see
         # _run_session_compaction). None disables it.
@@ -151,6 +155,7 @@ class AgentTask:
         continuation_instruction: str | Callable[[], str] = "Continue. Complete all remaining work.",
         on_exhausted: Callable[[], Awaitable[None]] | None = None,
         continuation_cap_cost: Callable[[], float] | None = None,
+        max_zero_cost_continuations: int | None = None,
         compaction_instruction: str | Callable[[], str] | None = None,
     ) -> AgentTask:
         """Configure a continuation loop for resilient agent execution.
@@ -175,6 +180,9 @@ class AgentTask:
         self._continuation_instruction = continuation_instruction
         self._continuation_exhausted_hook = on_exhausted
         self._continuation_cap_cost = continuation_cap_cost
+        self._max_zero_cost_continuations = (
+            max_zero_cost_continuations if max_zero_cost_continuations is not None else max_continuations
+        )
         self._compaction_instruction = compaction_instruction
         return self
 
@@ -533,6 +541,7 @@ class AgentTask:
                 )
                 attempt = 0
                 used_continuation_budget = 0.0
+                used_zero_cost_continuations = 0
                 while True:
                     is_continuation = attempt > 0
                     task_span.set_attribute("plato.agent.attempts", attempt + 1)
@@ -610,10 +619,25 @@ class AgentTask:
                         cap_cost = float(self._continuation_cap_cost())
 
                     if cap_cost <= 0:
+                        used_zero_cost_continuations += 1
+                        if used_zero_cost_continuations > self._max_zero_cost_continuations:
+                            self.continuation_exhausted = True
+                            logger.warning(
+                                "Zero-cost continuation budget exhausted after %d "
+                                "attempt(s) (max_zero_cost_continuations=%d); stopping "
+                                "the merge-resolution loop to avoid an unbounded retry",
+                                attempt + 1,
+                                self._max_zero_cost_continuations,
+                            )
+                            if self._continuation_exhausted_hook is not None:
+                                await self._continuation_exhausted_hook()
+                            break
                         logger.info(
-                            "Attempt %d did not consume continuation budget (cap_cost=%s); continuing without using review budget",
+                            "Attempt %d did not consume the review budget (cap_cost=%s); zero-cost continuation %d/%d",
                             attempt + 1,
                             cap_cost,
+                            used_zero_cost_continuations,
+                            self._max_zero_cost_continuations,
                         )
                         attempt += 1
                         continue

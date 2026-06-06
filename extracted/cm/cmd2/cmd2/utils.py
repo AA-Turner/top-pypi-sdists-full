@@ -1,6 +1,5 @@
 """Shared utility functions."""
 
-import argparse
 import contextlib
 import functools
 import glob
@@ -14,9 +13,9 @@ import threading
 from collections.abc import (
     Callable,
     Iterable,
+    MutableSequence,
 )
 from difflib import SequenceMatcher
-from enum import Enum
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -28,19 +27,20 @@ from typing import (
 
 from . import constants
 from . import string_utils as su
-from .argparse_custom import (
-    ChoicesProviderFunc,
-    CompleterFunc,
+from .types import (
+    CmdOrSet,
+    CmdOrSetT,
+    UnboundChoicesProvider,
+    UnboundCompleter,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
-    import cmd2  # noqa: F401
-
     PopenTextIO = subprocess.Popen[str]
+    from .argparse_utils import Cmd2ArgumentParser
 else:
     PopenTextIO = subprocess.Popen
 
-_T = TypeVar('_T')
+T = TypeVar("T")
 
 
 def to_bool(val: Any) -> bool:
@@ -64,6 +64,23 @@ def to_bool(val: Any) -> bool:
     return bool(val)
 
 
+def optional_int(val: Any) -> int | None:
+    """Convert a value to an integer or None if it's "None" (case-insensitive).
+
+    :param val: value being converted
+    :return: int or None
+    :raises ValueError: if the value is not "None" and cannot be converted to an integer
+    """
+    if val is None:
+        return None
+    if isinstance(val, str) and val.lower() == "none":
+        return None
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        raise ValueError("must be an integer or None (case-insensitive)") from None
+
+
 class Settable:
     """Used to configure an attribute to be settable via the set command in the CLI."""
 
@@ -77,8 +94,8 @@ class Settable:
         settable_attrib_name: str | None = None,
         onchange_cb: Callable[[str, Any, Any], Any] | None = None,
         choices: Iterable[Any] | None = None,
-        choices_provider: ChoicesProviderFunc | None = None,
-        completer: CompleterFunc | None = None,
+        choices_provider: UnboundChoicesProvider[CmdOrSetT] | None = None,
+        completer: UnboundCompleter[CmdOrSetT] | None = None,
     ) -> None:
         """Settable Initializer.
 
@@ -89,7 +106,7 @@ class Settable:
                          validation fails, which will be caught and displayed to the user
                          by the set command. For example, setting this to int ensures the
                          input is a valid integer. Specifying bool automatically provides
-                         tab completion for 'true' and 'false' and uses a built-in function
+                         completion for 'true' and 'false' and uses a built-in function
                          for conversion and validation.
         :param description: A concise string that describes the purpose of this setting.
         :param settable_object: The object that owns the attribute being made settable (e.g. self).
@@ -105,22 +122,23 @@ class Settable:
                                 old_value: Any - the parameter's old value
                                 new_value: Any - the parameter's new value
 
-        The following optional settings provide tab completion for a parameter's values.
-        They correspond to the same settings in argparse-based tab completion. A maximum
+        The following optional settings provide completion for a parameter's values.
+        They correspond to the same settings in argparse-based completion. A maximum
         of one of these should be provided.
 
         :param choices: iterable of accepted values
         :param choices_provider: function that provides choices for this argument
-        :param completer: tab completion function that provides choices for this argument
+        :param completer: completion function that provides choices for this argument
         """
         if val_type is bool:
+            from .completion import Choices
 
-            def get_bool_choices(_: str) -> list[str]:
+            def get_bool_choices(_cmd2_self: CmdOrSet) -> Choices:
                 """Tab complete lowercase boolean values."""
-                return ['true', 'false']
+                return Choices.from_values(["true", "false"])
 
             val_type = to_bool
-            choices_provider = cast(ChoicesProviderFunc, get_bool_choices)
+            choices_provider = get_bool_choices
 
         self.name = name
         self.val_type = val_type
@@ -148,7 +166,7 @@ class Settable:
 
         # Make sure new_value is a valid choice
         if self.choices is not None and new_value not in self.choices:
-            choices_str = ', '.join(map(repr, self.choices))
+            choices_str = ", ".join(map(repr, self.choices))
             raise ValueError(f"invalid choice: {new_value!r} (choose from {choices_str})")
 
         # Try to update the settable's value
@@ -172,7 +190,7 @@ def is_text_file(file_path: str) -> bool:
 
     # Only need to check for utf-8 compliance since that covers ASCII, too
     try:
-        with open(expanded_path, encoding='utf-8', errors='strict') as f:
+        with open(expanded_path, encoding="utf-8", errors="strict") as f:
             # Make sure the file has only utf-8 text and is not empty
             if sum(1 for _ in f) > 0:
                 valid_text_file = True
@@ -185,18 +203,17 @@ def is_text_file(file_path: str) -> bool:
     return valid_text_file
 
 
-def remove_duplicates(list_to_prune: list[_T]) -> list[_T]:
-    """Remove duplicates from a list while preserving order of the items.
+def remove_duplicates(items: Iterable[T]) -> list[T]:
+    """Remove duplicates from an iterable while preserving order of the items.
 
-    :param list_to_prune: the list being pruned of duplicates
-    :return: The pruned list
+    :param items: the items being pruned of duplicates
+    :return: a list containing only the unique items, in order
     """
-    temp_dict = dict.fromkeys(list_to_prune)
-    return list(temp_dict.keys())
+    return list(dict.fromkeys(items))
 
 
-def alphabetical_sort(list_to_sort: Iterable[str]) -> list[str]:
-    """Sorts a list of strings alphabetically.
+def alphabetical_sort(items: Iterable[str]) -> list[str]:
+    """Sorts an iterable of strings alphabetically.
 
     For example: ['a1', 'A11', 'A2', 'a22', 'a3']
 
@@ -204,10 +221,10 @@ def alphabetical_sort(list_to_sort: Iterable[str]) -> list[str]:
 
     my_list.sort(key=norm_fold)
 
-    :param list_to_sort: the list being sorted
-    :return: the sorted list
+    :param items: the strings to sort
+    :return: a sorted list
     """
-    return sorted(list_to_sort, key=su.norm_fold)
+    return sorted(items, key=su.norm_fold)
 
 
 def try_int_or_force_to_lower_case(input_str: str) -> int | str:
@@ -229,7 +246,7 @@ def natural_keys(input_str: str) -> list[int | str]:
     :param input_str: string to convert
     :return: list of strings and integers
     """
-    return [try_int_or_force_to_lower_case(substr) for substr in re.split(r'(\d+)', input_str)]
+    return [try_int_or_force_to_lower_case(substr) for substr in re.split(r"(\d+)", input_str)]
 
 
 def natural_sort(list_to_sort: Iterable[str]) -> list[str]:
@@ -247,7 +264,7 @@ def natural_sort(list_to_sort: Iterable[str]) -> list[str]:
     return sorted(list_to_sort, key=natural_keys)
 
 
-def quote_specific_tokens(tokens: list[str], tokens_to_quote: list[str]) -> None:
+def quote_specific_tokens(tokens: MutableSequence[str], tokens_to_quote: Iterable[str]) -> None:
     """Quote specific tokens in a list.
 
     :param tokens: token list being edited
@@ -258,7 +275,7 @@ def quote_specific_tokens(tokens: list[str], tokens_to_quote: list[str]) -> None
             tokens[i] = su.quote(token)
 
 
-def unquote_specific_tokens(tokens: list[str], tokens_to_unquote: list[str]) -> None:
+def unquote_specific_tokens(tokens: MutableSequence[str], tokens_to_unquote: Iterable[str]) -> None:
     """Unquote specific tokens in a list.
 
     :param tokens: token list being edited
@@ -280,7 +297,7 @@ def expand_user(token: str) -> str:
             quote_char = token[0]
             token = su.strip_quotes(token)
         else:
-            quote_char = ''
+            quote_char = ""
 
         token = os.path.expanduser(token)
 
@@ -291,7 +308,7 @@ def expand_user(token: str) -> str:
     return token
 
 
-def expand_user_in_tokens(tokens: list[str]) -> None:
+def expand_user_in_tokens(tokens: MutableSequence[str]) -> None:
     """Call expand_user() on all tokens in a list of strings.
 
     :param tokens: tokens to expand.
@@ -306,21 +323,21 @@ def find_editor() -> str | None:
     Otherwise the function will look for a known editor in directories specified by PATH env variable.
     :return: Default editor or None.
     """
-    editor = os.environ.get('EDITOR')
+    editor = os.environ.get("EDITOR")
     if not editor:
-        if sys.platform[:3] == 'win':
-            editors = ['edit', 'code.cmd', 'notepad++.exe', 'notepad.exe']
+        if sys.platform[:3] == "win":
+            editors = ["edit", "code.cmd", "notepad++.exe", "notepad.exe"]
         else:
-            editors = ['vim', 'vi', 'emacs', 'nano', 'pico', 'joe', 'code', 'subl', 'gedit', 'kate']
+            editors = ["vim", "vi", "emacs", "nano", "pico", "joe", "code", "subl", "gedit", "kate"]
 
         # Get a list of every directory in the PATH environment variable and ignore symbolic links
-        env_path = os.getenv('PATH')
+        env_path = os.getenv("PATH")
         paths = [] if env_path is None else [p for p in env_path.split(os.path.pathsep) if not os.path.islink(p)]
 
         for possible_editor, path in itertools.product(editors, paths):
             editor_path = os.path.join(path, possible_editor)
             if os.path.isfile(editor_path) and os.access(editor_path, os.X_OK):
-                if sys.platform[:3] == 'win':
+                if sys.platform[:3] == "win":
                     # Remove extension from Windows file names
                     editor = os.path.splitext(possible_editor)[0]
                 else:
@@ -344,12 +361,12 @@ def files_from_glob_pattern(pattern: str, access: int = os.F_OK) -> list[str]:
     return [f for f in glob.glob(pattern) if os.path.isfile(f) and os.access(f, access)]
 
 
-def files_from_glob_patterns(patterns: list[str], access: int = os.F_OK) -> list[str]:
+def files_from_glob_patterns(patterns: Iterable[str], access: int = os.F_OK) -> list[str]:
     """Return a list of file paths based on a list of glob patterns.
 
     Only files are returned, not directories, and optionally only files for which the user has a specified access to.
 
-    :param patterns: list of file names and/or glob patterns
+    :param patterns: Iterable of file names and/or glob patterns
     :param access: file access type to verify (os.* where * is F_OK, R_OK, W_OK, or X_OK)
     :return: list of files matching the names and/or glob patterns
     """
@@ -367,13 +384,13 @@ def get_exes_in_path(starts_with: str) -> list[str]:
     :return: a list of matching exe names
     """
     # Purposely don't match any executable containing wildcards
-    wildcards = ['*', '?']
+    wildcards = ["*", "?"]
     for wildcard in wildcards:
         if wildcard in starts_with:
             return []
 
     # Get a list of every directory in the PATH environment variable and ignore symbolic links
-    env_path = os.getenv('PATH')
+    env_path = os.getenv("PATH")
     paths = [] if env_path is None else [p for p in env_path.split(os.path.pathsep) if not os.path.islink(p)]
 
     # Use a set to store exe names since there can be duplicates
@@ -382,7 +399,7 @@ def get_exes_in_path(starts_with: str) -> list[str]:
     # Find every executable file in the user's path that matches the pattern
     for path in paths:
         full_path = os.path.join(path, starts_with)
-        matches = files_from_glob_pattern(full_path + '*', access=os.X_OK)
+        matches = files_from_glob_pattern(full_path + "*", access=os.X_OK)
 
         for match in matches:
             exes_set.add(os.path.basename(match))
@@ -398,11 +415,11 @@ class StdSim:
 
     def __init__(
         self,
-        inner_stream: Union[TextIO, 'StdSim'],
+        inner_stream: Union[TextIO, "StdSim"],
         *,
         echo: bool = False,
-        encoding: str = 'utf-8',
-        errors: str = 'replace',
+        encoding: str = "utf-8",
+        errors: str = "replace",
     ) -> None:
         """StdSim Initializer.
 
@@ -424,7 +441,7 @@ class StdSim:
         :param s: String to write to the stream
         """
         if not isinstance(s, str):
-            raise TypeError(f'write() argument must be str, not {type(s)}')
+            raise TypeError(f"write() argument must be str, not {type(s)}")
 
         if not self.pause_storage:
             self.buffer.byte_buf += s.encode(encoding=self.encoding, errors=self.errors)
@@ -480,18 +497,16 @@ class StdSim:
         except AttributeError:
             return False
 
-    def __getattr__(self, item: str) -> Any:
-        """When an attribute lookup fails to find the attribute in the usual places, this special method is called."""
-        if item in self.__dict__:
-            return self.__dict__[item]
-        return getattr(self.inner_stream, item)
+    def __getattr__(self, name: str) -> Any:
+        """Forward attribute lookups to the inner stream for attributes not defined on this class."""
+        return getattr(self.inner_stream, name)
 
 
 class ByteBuf:
     """Used by StdSim to write binary data and stores the actual bytes written."""
 
     # Used to know when to flush the StdSim
-    NEWLINES = (b'\n', b'\r')
+    NEWLINES = (b"\n", b"\r")
 
     def __init__(self, std_sim_instance: StdSim) -> None:
         """Initialize the ByteBuf instance."""
@@ -501,7 +516,7 @@ class ByteBuf:
     def write(self, b: bytes) -> None:
         """Add bytes to internal bytes buffer and if echo is True, echo contents to inner stream."""
         if not isinstance(b, bytes):
-            raise TypeError(f'a bytes-like object is required, not {type(b)}')
+            raise TypeError(f"a bytes-like object is required, not {type(b)}")
         if not self.std_sim_instance.pause_storage:
             self.byte_buf += b
         if self.std_sim_instance.echo:
@@ -532,9 +547,9 @@ class ProcReader:
         self._stdout = stdout
         self._stderr = stderr
 
-        self._out_thread = threading.Thread(name='out_thread', target=self._reader_thread_func, kwargs={'read_stdout': True})
+        self._out_thread = threading.Thread(name="out_thread", target=self._reader_thread_func, kwargs={"read_stdout": True})
 
-        self._err_thread = threading.Thread(name='err_thread', target=self._reader_thread_func, kwargs={'read_stdout': False})
+        self._err_thread = threading.Thread(name="err_thread", target=self._reader_thread_func, kwargs={"read_stdout": False})
 
         # Start the reader threads for pipes only
         if self._proc.stdout is not None:
@@ -546,7 +561,7 @@ class ProcReader:
         """Send a SIGINT to the process similar to if <Ctrl>+C were pressed."""
         import signal
 
-        if sys.platform.startswith('win'):
+        if sys.platform.startswith("win"):
             # cmd2 started the Windows process in a new process group. Therefore we must send
             # a CTRL_BREAK_EVENT since CTRL_C_EVENT signals cannot be generated for process groups.
             self._proc.send_signal(signal.CTRL_BREAK_EVENT)
@@ -630,20 +645,20 @@ class ContextFlag:
 
         It should never go below 0.
         """
-        self.__count = 0
+        self._count = 0
 
     def __bool__(self) -> bool:
         """Define the truth value of an object when it is used in a boolean context."""
-        return self.__count > 0
+        return self._count > 0
 
     def __enter__(self) -> None:
         """When a with block is entered, the __enter__ method of the context manager is called."""
-        self.__count += 1
+        self._count += 1
 
     def __exit__(self, *args: object) -> None:
         """When the execution flow exits a with statement block this is called, regardless of whether an exception occurred."""
-        self.__count -= 1
-        if self.__count < 0:
+        self._count -= 1
+        if self._count < 0:
             raise ValueError("count has gone below 0")
 
 
@@ -652,24 +667,21 @@ class RedirectionSavedState:
 
     def __init__(
         self,
-        self_stdout: StdSim | TextIO,
-        stdouts_match: bool,
-        pipe_proc_reader: ProcReader | None,
+        self_stdout: "StdSim | TextIO",
+        pipe_proc_reader: "ProcReader | None",
         saved_redirecting: bool,
     ) -> None:
         """RedirectionSavedState initializer.
 
         :param self_stdout: saved value of Cmd.stdout
-        :param stdouts_match: True if Cmd.stdout is equal to sys.stdout
         :param pipe_proc_reader: saved value of Cmd._cur_pipe_proc_reader
         :param saved_redirecting: saved value of Cmd._redirecting.
         """
         # Tells if command is redirecting
         self.redirecting = False
 
-        # Used to restore stdout values after redirection ends
+        # Used to restore Cmd.stdout after redirection ends
         self.saved_self_stdout = self_stdout
-        self.stdouts_match = stdouts_match
 
         # Used to restore values after command ends regardless of whether the command redirected
         self.saved_pipe_proc_reader = pipe_proc_reader
@@ -682,7 +694,7 @@ def categorize(func: Callable[..., Any] | Iterable[Callable[..., Any]], category
     The help command output will group the passed function under the
     specified category heading
 
-    :param func: function or list of functions to categorize
+    :param func: function or Iterable of functions to categorize
     :param category: category to put it in
 
     Example:
@@ -698,13 +710,13 @@ def categorize(func: Callable[..., Any] | Iterable[Callable[..., Any]], category
     For an alternative approach to categorizing commands using a decorator, see [cmd2.decorators.with_category][]
 
     """
-    if isinstance(func, Iterable):
-        for item in func:
-            setattr(item, constants.CMD_ATTR_HELP_CATEGORY, category)
-    elif inspect.ismethod(func):
-        setattr(func.__func__, constants.CMD_ATTR_HELP_CATEGORY, category)
-    else:
-        setattr(func, constants.CMD_ATTR_HELP_CATEGORY, category)
+    funcs = func if isinstance(func, Iterable) else (func,)
+
+    for cur_func in funcs:
+        if inspect.ismethod(cur_func):
+            setattr(cur_func.__func__, constants.COMMAND_ATTR_HELP_CATEGORY, category)
+        else:
+            setattr(cur_func, constants.COMMAND_ATTR_HELP_CATEGORY, category)
 
 
 def get_defining_class(meth: Callable[..., Any]) -> type[Any] | None:
@@ -719,46 +731,28 @@ def get_defining_class(meth: Callable[..., Any]) -> type[Any] | None:
     if isinstance(meth, functools.partial):
         return get_defining_class(meth.func)
     if inspect.ismethod(meth) or (
-        inspect.isbuiltin(meth) and hasattr(meth, '__self__') and hasattr(meth.__self__, '__class__')
+        inspect.isbuiltin(meth) and hasattr(meth, "__self__") and hasattr(meth.__self__, "__class__")
     ):
         for cls in inspect.getmro(meth.__self__.__class__):
             if meth.__name__ in cls.__dict__:
                 return cls
-        meth = getattr(meth, '__func__', meth)  # fallback to __qualname__ parsing
+        meth = getattr(meth, "__func__", meth)  # fallback to __qualname__ parsing
     if inspect.isfunction(meth):
-        cls = getattr(inspect.getmodule(meth), meth.__qualname__.split('.<locals>', 1)[0].rsplit('.', 1)[0])
+        cls = getattr(inspect.getmodule(meth), meth.__qualname__.split(".<locals>", 1)[0].rsplit(".", 1)[0])
         if isinstance(cls, type):
             return cls
-    return cast(type, getattr(meth, '__objclass__', None))  # handle special descriptor objects
-
-
-class CompletionMode(Enum):
-    """Enum for what type of tab completion to perform in cmd2.Cmd.read_input()."""
-
-    # Tab completion will be disabled during read_input() call
-    # Use of custom up-arrow history supported
-    NONE = 1
-
-    # read_input() will tab complete cmd2 commands and their arguments
-    # cmd2's command line history will be used for up arrow if history is not provided.
-    # Otherwise use of custom up-arrow history supported.
-    COMMANDS = 2
-
-    # read_input() will tab complete based on one of its following parameters:
-    #     choices, choices_provider, completer, parser
-    # Use of custom up-arrow history supported
-    CUSTOM = 3
+    return cast(type, getattr(meth, "__objclass__", None))  # handle special descriptor objects
 
 
 class CustomCompletionSettings:
-    """Used by cmd2.Cmd.complete() to tab complete strings other than command arguments."""
+    """Used by cmd2.Cmd.complete() to complete strings other than command arguments."""
 
-    def __init__(self, parser: argparse.ArgumentParser, *, preserve_quotes: bool = False) -> None:
+    def __init__(self, parser: "Cmd2ArgumentParser", *, preserve_quotes: bool = False) -> None:
         """CustomCompletionSettings initializer.
 
-        :param parser: arg parser defining format of string being tab completed
+        :param parser: arg parser defining format of string being completed
         :param preserve_quotes: if True, then quoted tokens will keep their quotes when processed by
-                                ArgparseCompleter. This is helpful in cases when you're tab completing
+                                ArgparseCompleter. This is helpful in cases when you're completing
                                 flag-like tokens (e.g. -o, --option) and you don't want them to be
                                 treated as argparse flags when quoted. Set this to True if you plan
                                 on passing the string to argparse with the tokens still quoted.
@@ -773,13 +767,13 @@ def strip_doc_annotations(doc: str) -> str:
     :param doc: documentation string
     """
     # Attempt to locate the first documentation block
-    cmd_desc = ''
+    cmd_desc = ""
     found_first = False
     for doc_line in doc.splitlines():
         stripped_line = doc_line.strip()
 
         # Don't include :param type lines
-        if stripped_line.startswith(':'):
+        if stripped_line.startswith(":"):
             if found_first:
                 break
         elif stripped_line:
@@ -840,7 +834,22 @@ def get_types(func_or_method: Callable[..., Any]) -> tuple[dict[str, Any], Any]:
         type_hints = inspect.get_annotations(func_or_method, eval_str=True)  # Get dictionary of type hints
     except TypeError as exc:
         raise ValueError("Argument passed to get_types should be a function or method") from exc
-    ret_ann = type_hints.pop('return', None)  # Pop off the return annotation if it exists
+    ret_ann = type_hints.pop("return", None)  # Pop off the return annotation if it exists
     if inspect.ismethod(func_or_method):
-        type_hints.pop('self', None)  # Pop off `self` hint for methods
+        type_hints.pop("self", None)  # Pop off `self` hint for methods
     return type_hints, ret_ann
+
+
+# Sorting keys for strings
+ALPHABETICAL_SORT_KEY = su.norm_fold
+NATURAL_SORT_KEY = natural_keys
+
+# Application-wide sort key for strings
+# Set it using cmd2.set_default_str_sort_key().
+DEFAULT_STR_SORT_KEY: Callable[[str], str] = ALPHABETICAL_SORT_KEY
+
+
+def set_default_str_sort_key(sort_key: Callable[[str], str]) -> None:
+    """Set the application-wide sort key for strings."""
+    global DEFAULT_STR_SORT_KEY  # noqa: PLW0603
+    DEFAULT_STR_SORT_KEY = sort_key

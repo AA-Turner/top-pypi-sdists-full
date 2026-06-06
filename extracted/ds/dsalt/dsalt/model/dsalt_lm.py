@@ -96,11 +96,14 @@ class DSALTLMHeadModel(nn.Module):
                             (fused Triton, wins on A100+), or ``"auto"`` (measure
                             per-GPU). NOTE: ``"chunked"`` with a large chunk is
                             fastest on T4 but materialises ``[chunk, vocab]`` fp32
-                            logits — a big memory peak. ``"auto"`` picks by speed
+                            logits, a big memory peak. ``"auto"`` picks by speed
                             only; prefer it on big-VRAM GPUs where ``liger`` (no
                             logits materialisation) wins, not on T4.
-        aux_loss_weight:    Weight of the auxiliary term (inert: frozen window,
-                            kept for signature compatibility).
+        aux_loss_weight:    Weight of the auxiliary term. Inert by design: the
+                            window/landmark predictors are trained directly in the
+                            main forward (soft window edge / soft landmark weight),
+                            so no extra loss is needed. Kept for signature
+                            compatibility; leave at 0.0.
     """
 
     def __init__(
@@ -180,7 +183,7 @@ class DSALTLMHeadModel(nn.Module):
     def _resolve_loss_fn(self, flat_x: torch.Tensor, flat_labels: torch.Tensor) -> tuple[str, int]:
         """Resolve ``loss_fn="auto"`` to a concrete (loss_fn, chunk_size) per GPU.
 
-        Measured once per ``(device, vocab)`` then cached — same one-shot pattern
+        Measured once per ``(device, vocab)`` then cached, same one-shot pattern
         as the kernel block-size autotune. For explicit ``"chunked"``/``"liger"``
         this is a no-op passthrough. Never hard-codes a device: ``"auto"`` picks
         whatever wins on the card actually running (chunked on T4, liger on A100+).
@@ -200,11 +203,64 @@ class DSALTLMHeadModel(nn.Module):
 
     def _compute_loss(self, x: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
         flat_x      = x.view(-1, self.d_model)
-        flat_labels = labels.view(-1)
+        # F.cross_entropy targets must be int64: its internal ``torch.gather`` rejects
+        # int32 indices ("Expected dtype int64 for index, but got torch.int32"). Eager
+        # was lenient on some paths; under torch.compile Inductor traces the gather and
+        # enforces it. Cast here so both the chunked and liger paths get int64 targets.
+        flat_labels = labels.view(-1).long()
         loss_fn, chunk = self._resolve_loss_fn(flat_x, flat_labels)
         if loss_fn == "liger":
             return _liger_cross_entropy(flat_x, self.lm_head.weight, flat_labels)
         return _chunked_cross_entropy(flat_x, self.lm_head.weight, flat_labels, chunk)
+
+    @staticmethod
+    @torch._dynamo.disable
+    def _to_autocast_dtype(x: torch.Tensor) -> torch.Tensor:
+        """Cast ``x`` to the active autocast compute dtype (no-op if not autocasting).
+
+        Marked ``@torch._dynamo.disable``: the autocast state is queried via
+        ``torch.is_autocast_enabled``, which Dynamo evaluates at *trace* time, not
+        at runtime — under ``torch.compile`` the traced state can differ from the
+        real one, so Inductor freezes the embedding to fp32 and an fp32 activation
+        then hits a bf16 weight in the first fused residual ``addmm`` ("self and
+        mat2 must have the same dtype"). Keeping this opaque forces the cast to be
+        decided eagerly, per call, from the live autocast state.
+
+        Handles both the ``device_type`` API (PyTorch ≥ 2.4) and the older no-arg
+        form (PyTorch 2.0–2.3) so the package stays importable on torch>=2.0.
+        """
+        dev = x.device.type
+        try:
+            enabled = torch.is_autocast_enabled(dev)
+            dtype   = torch.get_autocast_dtype(dev)
+        except TypeError:  # PyTorch < 2.4: CUDA-only no-arg API
+            enabled = dev == "cuda" and torch.is_autocast_enabled()
+            dtype   = torch.get_autocast_gpu_dtype() if enabled else x.dtype
+        return x.to(dtype) if enabled and x.dtype != dtype else x
+
+    @staticmethod
+    @torch._dynamo.disable
+    def _packed_rope_meta(cu_seqlens: torch.Tensor, total_len: int, attn0):
+        """Per-step packed metadata: RoPE cos/sin gather + host copy of cu_seqlens.
+
+        Marked ``@torch._dynamo.disable``: this builds tensors from data-dependent
+        positions (``pos_ids`` from per-sequence ``cu_seqlens``) and does the one
+        D2H ``.tolist()`` for ``cu_list``. Under torch.compile the ``.tolist()`` is
+        a graph break AND yields a python list of per-step-varying ints; tracing it
+        would re-specialize the graph every step (varlen packing). Running it eager
+        keeps the compiled forward shape-stable. The single D2H sync is intentional
+        and happens once per step here (not once per layer), while the GPU queue is
+        still shallow. ``rope_cs`` carries no grad (RoPE tables are buffers).
+        """
+        device   = cu_seqlens.device
+        num_seqs = cu_seqlens.shape[0] - 1
+        lens     = (cu_seqlens[1:] - cu_seqlens[:-1]).to(device)
+        starts   = cu_seqlens[:-1].to(device)
+        seq_ids  = torch.repeat_interleave(torch.arange(num_seqs, device=device), lens)
+        pos_ids  = torch.arange(total_len, device=device) - starts[seq_ids]
+        rope_cs  = (attn0.rope_cos[pos_ids], attn0.rope_sin[pos_ids])
+        cu_list  = cu_seqlens.detach().to("cpu").tolist()
+        return rope_cs, cu_list
 
     def forward(
         self,
@@ -218,27 +274,22 @@ class DSALTLMHeadModel(nn.Module):
         if max_seqlen is None:
             max_seqlen = input_ids.shape[-1]
 
-        x        = self.embed_dropout(self.embed_tokens(input_ids))
+        x = self.embed_dropout(self.embed_tokens(input_ids))
+        # Embedding lookups are not autocast-cast, so ``x`` stays fp32 even under a
+        # bf16/fp16 autocast region. Bring it to the autocast compute dtype so the
+        # whole residual stream is homogeneous: otherwise an fp32 activation meets a
+        # bf16 weight in the first projection / FFN and, under torch.compile (which
+        # emits dtype-strict ``addmm``), raises "self and mat2 must have the same
+        # dtype". GPU-portable: a no-op when no autocast is active (stays fp32).
+        x = self._to_autocast_dtype(x)
         aux_loss = torch.zeros((), device=input_ids.device, dtype=x.dtype)
 
         rope_cs = None
         cu_list = None
         if cu_seqlens is not None:
-            device   = input_ids.device
-            attn0    = self.layers[0].attn
-            num_seqs = cu_seqlens.shape[0] - 1
-            lens     = (cu_seqlens[1:] - cu_seqlens[:-1]).to(device)
-            starts   = cu_seqlens[:-1].to(device)
-            seq_ids  = torch.repeat_interleave(torch.arange(num_seqs, device=device), lens)
-            total_len = input_ids.shape[0]
-            pos_ids  = torch.arange(total_len, device=device) - starts[seq_ids]
-            rope_cs  = (attn0.rope_cos[pos_ids], attn0.rope_sin[pos_ids])
-            # Single host copy of cu_seqlens for the whole step (all layers share it).
-            # Done here, early, so the one unavoidable D2H sync happens while the GPU
-            # queue is still shallow — instead of once per layer mid-stream (which the
-            # profiler showed costing ~160ms total). Plain python ints downstream → no
-            # per-layer .item()/.to('cpu').
-            cu_list = cu_seqlens.detach().to("cpu").tolist()
+            rope_cs, cu_list = self._packed_rope_meta(
+                cu_seqlens, input_ids.shape[0], self.layers[0].attn,
+            )
 
         for layer in self.layers:
             x, layer_aux = layer(

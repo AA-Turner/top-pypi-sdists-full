@@ -40,12 +40,7 @@ EVENT_NORMALIZE: dict[str, str] = {
 
 
 def normalize_event_name(event: str) -> str:
-    """Map Cursor-style camelCase event names to Claude Code PascalCase.
-
-    Pass-through for already-PascalCase names and unknown variants. Used both
-    for internal dispatch and for response shaping (deny `hookEventName`),
-    so any future client-specific spelling only needs one map entry.
-    """
+    """Map camelCase / snake_case event names to PascalCase; pass-through unknowns."""
     return EVENT_NORMALIZE.get(event, event)
 
 
@@ -56,40 +51,60 @@ _CURSOR_DIR_PATTERNS = (
     "/programdata/cursor/",
 )
 
+_CLAUDE_CODE_DIR_PATTERNS = (
+    "/.claude/",
+    "/application support/claudecode/",
+    "/program files/claudecode/",
+    "/etc/claude-code/",
+)
+
 
 def _invoked_argv_parent_str() -> str:
-    """Native-separator string of the invoked hook directory.
-
-    Uses Path.absolute() (not resolve()) so symlinks are NOT followed: the
-    MDM-installed binary lives at /usr/local/lib/runlayer/aiwatch-enforce/
-    and clients invoke it through symlinks in their own hooks dirs (e.g.
-    ~/.cursor/hooks/, ~/.codex/hooks/). Following the symlink would erase
-    the per-client path component and silently break client detection plus
-    the cursor-noop guard. Matches bash `dirname "$0"` semantics.
-    """
+    """Native-separator parent of ``sys.argv[0]``; ``absolute()`` so symlinks aren't followed."""
     return str(Path(sys.argv[0]).absolute().parent)
 
 
 def _normalized_hook_dir() -> str:
-    """Hook dir lowercased with backslashes flipped to slashes.
-
-    Path.absolute() yields native separators, so on Windows a Codex install at
-    C:\\Users\\user\\.codex\\hooks would never match patterns like '/.codex/'.
-    Normalizing here keeps a single set of POSIX-shaped patterns valid on both.
-    """
+    """Hook dir lowercased + POSIX-slashed so Windows paths match the same patterns."""
     return _invoked_argv_parent_str().lower().replace("\\", "/")
+
+
+def _explicit_client() -> Client | None:
+    value = os.environ.get("RUNLAYER_HOOK_CLIENT")
+    args = sys.argv[1:]
+    for index, arg in enumerate(args):
+        if arg == "--client" and index + 1 < len(args):
+            value = args[index + 1]
+            break
+        if arg.startswith("--client="):
+            value = arg.split("=", 1)[1]
+            break
+    if not value:
+        return None
+    try:
+        return Client(value)
+    except ValueError:
+        return None
 
 
 def detect_client() -> Client:
     """Detect which AI coding client invoked this hook."""
+    explicit = _explicit_client()
+    if explicit is not None:
+        return explicit
+
     if os.environ.get("CURSOR_VERSION"):
         return Client.CURSOR
 
     hook_dir = _normalized_hook_dir()
+    if any(pat in hook_dir for pat in _CURSOR_DIR_PATTERNS):
+        return Client.CURSOR
     if "/.hermes/" in hook_dir:
         return Client.HERMES
     if "/.codex/" in hook_dir or hook_dir.startswith("/etc/codex/"):
         return Client.CODEX
+    if any(pat in hook_dir for pat in _CLAUDE_CODE_DIR_PATTERNS):
+        return Client.CLAUDE_CODE
 
     return Client.CLAUDE_CODE
 
@@ -98,8 +113,25 @@ def should_noop_for_cursor(client: Client) -> bool:
     """Return True if Cursor loaded this hook from a non-Cursor config dir.
 
     Avoids double-enforcement when both Cursor and Claude Code hooks are installed.
+
+    Only applies to the unfrozen / legacy bash-shim path, where each client gets
+    its own shim copy under its config dir. The frozen ``aiwatch-hook`` binary
+    is a single shared exe (e.g. ``/usr/local/lib/runlayer/aiwatch/aiwatch-hook``)
+    wired into every client's config — ``sys.argv[0]`` is identical regardless
+    of which client invoked it, so the path-based guard can't distinguish them.
+    Trust the MDM operator's wiring on the frozen path.
     """
+    explicit = _explicit_client()
+    if os.environ.get("CURSOR_VERSION") and explicit != Client.CURSOR:
+        hook_dir = _normalized_hook_dir()
+        return not any(pat in hook_dir for pat in _CURSOR_DIR_PATTERNS)
+
     if client != Client.CURSOR:
+        return False
+    if getattr(sys, "frozen", False):
+        return False
+
+    if explicit == Client.CURSOR:
         return False
 
     hook_dir = _normalized_hook_dir()

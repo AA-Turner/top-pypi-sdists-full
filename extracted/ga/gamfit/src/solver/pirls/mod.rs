@@ -7,7 +7,10 @@ use crate::faer_ndarray::{
 use crate::linalg::sparse_exact::{factorize_sparse_spd, solve_sparse_spd};
 use crate::linalg::utils::{StableSolver, boundary_hit_step_fraction};
 use crate::matrix::{DesignMatrix, LinearOperator};
-use crate::mixture_link::{InverseLinkJet as MixtureInverseLinkJet, logit_inverse_link_jet5};
+use crate::mixture_link::{
+    InverseLinkJet as MixtureInverseLinkJet, inverse_link_has_fisher_weight_jet,
+    logit_inverse_link_jet5,
+};
 use crate::solver::active_set;
 use crate::types::{Coefficients, LinearPredictor, StandardLink};
 use crate::types::{
@@ -206,6 +209,69 @@ fn estimate_beta_phi_from_eta(
     }
     let one_plus_phi = (total_weight / weighted_pearson).max(1.0 + PHI_MIN);
     (one_plus_phi - 1.0).clamp(PHI_MIN, PHI_MAX)
+}
+
+/// Pearson moment estimate of the Tweedie dispersion `phi` from the current
+/// linear predictor `eta` (log link, `mu = exp(eta)`).
+///
+/// A Tweedie response has `Var(yᵢ) = phi · V(μᵢ) / wᵢ` with unit variance
+/// function `V(μ) = μ^p` and prior weight `wᵢ`, so the prior-weighted Pearson
+/// statistic `Σ wᵢ (yᵢ − μᵢ)² / μᵢ^p` has expectation `phi · (Σwᵢ − edf)`.
+/// Equating it to its expectation and normalising by the total prior weight
+/// gives the moment estimator
+///
+/// ```text
+/// phî = Σ wᵢ (yᵢ − μᵢ)² / μᵢ^p   /   Σ wᵢ.
+/// ```
+///
+/// This is the standard Pearson dispersion estimator (statsmodels' Tweedie and
+/// mgcv's fixed-`p` `Tweedie()` use the same statistic). We normalise by `Σwᵢ`
+/// rather than the residual df `Σwᵢ − edf` to match the sibling Gamma-shape /
+/// Beta-precision moment estimators in this module, which also estimate at the
+/// converged η without an edf correction; the `O(edf/n)` difference is far
+/// below statistical resolution at any `n` for which a Tweedie fit is
+/// meaningful, and the iterate-to-self-consistency contract (reported `phi` ==
+/// `estimate_tweedie_phi_from_eta(final_eta)`) is what the covariance scale and
+/// the prediction SE both consume. Threading `phî` into the working weight
+/// `prior·μ^{2−p}/phi` is what makes `SE(η̂) ∝ √phi` (issue #771); freezing
+/// `phi = 1` made every Tweedie SE / interval / generate draw ignore the data's
+/// dispersion. The estimate is clamped to a wide strictly-positive band so a
+/// transient degenerate residual sum cannot push `phi` non-positive or
+/// non-finite.
+fn estimate_tweedie_phi_from_eta(
+    y: ArrayView1<'_, f64>,
+    eta: &Array1<f64>,
+    priorweights: ArrayView1<'_, f64>,
+    p: f64,
+) -> f64 {
+    const PHI_MIN: f64 = 1e-6;
+    const PHI_MAX: f64 = 1e12;
+    const MU_EPS: f64 = 1e-300;
+
+    use rayon::iter::{IntoParallelIterator, ParallelIterator};
+    let (weighted_pearson, total_weight) = (0..eta.len())
+        .into_par_iter()
+        .map(|i| {
+            let wi = priorweights[i].max(0.0);
+            if wi == 0.0 {
+                return (0.0_f64, 0.0_f64);
+            }
+            let mui = eta[i].clamp(-ETA_CLAMP, ETA_CLAMP).exp().max(MU_EPS);
+            let resid = y[i] - mui;
+            // Unit variance function V(mu) = mu^p with the dispersion factored
+            // out; the prior-weighted Pearson contribution is wᵢ·resid²/V(μᵢ).
+            let var_unit = mui.powf(p).max(MU_EPS);
+            (wi * resid * resid / var_unit, wi)
+        })
+        .reduce(
+            || (0.0_f64, 0.0_f64),
+            |(p1, w1), (p2, w2)| (p1 + p2, w1 + w2),
+        );
+
+    if total_weight <= 0.0 || !weighted_pearson.is_finite() || weighted_pearson <= 0.0 {
+        return 1.0;
+    }
+    (weighted_pearson / total_weight).clamp(PHI_MIN, PHI_MAX)
 }
 
 #[derive(Clone, Debug)]
@@ -1327,6 +1393,15 @@ pub(super) struct GamWorkingModel<'a> {
     /// and held fixed within the inner solve, refreshing across outer iterations
     /// (a fresh working model is built per inner solve). Issue #567.
     beta_phi_locked: bool,
+    /// Whether the Tweedie dispersion `phi` has been estimated and frozen for the
+    /// duration of this inner P-IRLS solve. Like the Gamma shape, `phi` is a
+    /// nuisance scale entering only the working weight (`prior·μ^{2−p}/phi`) and
+    /// not the working response, so re-estimating it per Newton/LM iterate would
+    /// move the product `φ·λ` the penalized argmin β̂ depends on and stall the LM
+    /// gain ratio. It is therefore estimated once from the warm-start η and held
+    /// fixed within the inner solve, refreshing across outer iterations (a fresh
+    /// working model is built per inner solve). Issue #771.
+    tweedie_phi_locked: bool,
     quadctx: crate::quadrature::QuadratureContext,
 }
 
@@ -1416,6 +1491,7 @@ impl<'a> GamWorkingModel<'a> {
             covariate_se: None,
             gamma_shape_locked: false,
             beta_phi_locked: false,
+            tweedie_phi_locked: false,
             quadctx,
         }
     }
@@ -1865,6 +1941,26 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
             self.beta_phi_locked = true;
         }
 
+        // Estimate the Tweedie dispersion φ once from the warm-start η and freeze
+        // it for this inner solve (issue #771). φ enters the IRLS weight
+        // `prior·μ^{2−p}/φ` (and so the covariance Vb = H⁻¹, giving SE ∝ √φ);
+        // holding it fixed within the inner solve keeps the product φ·λ — hence
+        // the penalized argmin β̂ — a stationary LM target (mirroring the Gamma
+        // shape and Beta φ locks above), and it refreshes across outer iterations
+        // as a fresh working model is built per inner solve.
+        if self.likelihood.scale.tweedie_phi_is_estimated() && !self.tweedie_phi_locked {
+            if let ResponseFamily::Tweedie { p } = self.likelihood.spec.response {
+                let phi = estimate_tweedie_phi_from_eta(
+                    self.y,
+                    &self.workspace.eta_buf,
+                    self.priorweights,
+                    p,
+                );
+                self.likelihood = self.likelihood.clone().with_tweedie_phi(phi);
+                self.tweedie_phi_locked = true;
+            }
+        }
+
         // Use integrated (GHQ) likelihood if per-observation SE is available.
         // This coherently accounts for uncertainty in the base prediction.
         let integrated = self.covariate_se.as_ref().map(|se| IntegratedWorkingInput {
@@ -1973,16 +2069,12 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
         }
         let mut firth = FirthDiagnostics::Inactive;
         if self.firth_bias_reduction {
-            // Standard link whose Fisher working weight drives the Jeffreys
-            // term. The firth gate only activates for links with a closed-form
-            // Fisher-weight jet (`{Logit, Probit}`); any other link here is a
-            // construction-time inconsistency, so fall back to logit rather than
-            // silently mis-weighting.
-            let jeffreys_link = match &self.link_kind {
-                InverseLink::Standard(link @ StandardLink::Logit)
-                | InverseLink::Standard(link @ StandardLink::Probit) => *link,
-                _ => StandardLink::Logit,
-            };
+            if !inverse_link_has_fisher_weight_jet(&self.link_kind) {
+                crate::bail_invalid_estim!(
+                    "Firth/Jeffreys PIRLS requested for unsupported inverse link {:?}",
+                    self.link_kind
+                );
+            }
             // IMPORTANT: Jeffreys/Firth bias reduction must be computed in the
             // *same coefficient basis* as the inner objective being optimized by PIRLS.
             //
@@ -2013,7 +2105,7 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
                             )
                         })?;
                         compute_jeffreys_pirls_diagnostics_sparse(
-                            jeffreys_link,
+                            &self.link_kind,
                             csr,
                             self.workspace.eta_buf.view(),
                             self.priorweights,
@@ -2021,7 +2113,7 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
                     } else {
                         let x_dense_cow = x_transformed.to_dense_cow();
                         compute_jeffreys_pirls_diagnostics(
-                            jeffreys_link,
+                            &self.link_kind,
                             x_dense_cow.view(),
                             self.workspace.eta_buf.view(),
                             self.priorweights,
@@ -2036,7 +2128,7 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
                     let x_t_dense =
                         fast_ab(&self.x_original.to_dense(), &transform.materialize_dense());
                     compute_jeffreys_pirls_diagnostics(
-                        jeffreys_link,
+                        &self.link_kind,
                         x_t_dense.view(),
                         self.workspace.eta_buf.view(),
                         self.priorweights,
@@ -2051,7 +2143,7 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
                             )
                         })?;
                         compute_jeffreys_pirls_diagnostics_sparse(
-                            jeffreys_link,
+                            &self.link_kind,
                             csr,
                             self.workspace.eta_buf.view(),
                             self.priorweights,
@@ -2064,7 +2156,7 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
                             )
                             .map_err(EstimationError::InvalidInput)?;
                         compute_jeffreys_pirls_diagnostics(
-                            jeffreys_link,
+                            &self.link_kind,
                             x_dense.view(),
                             self.workspace.eta_buf.view(),
                             self.priorweights,
@@ -2636,7 +2728,7 @@ fn accumulate_outer_upper(
 }
 
 pub(super) fn compute_jeffreys_pirls_diagnostics_sparse(
-    link: StandardLink,
+    link: &InverseLink,
     x_design_csr: &SparseRowMat<usize, f64>,
     eta: ArrayView1<f64>,
     observation_weights: ArrayView1<f64>,
@@ -2661,7 +2753,7 @@ pub(super) fn compute_jeffreys_pirls_diagnostics_sparse(
 }
 
 pub(super) fn compute_jeffreys_pirls_diagnostics(
-    link: StandardLink,
+    link: &InverseLink,
     x_design: ArrayView2<f64>,
     eta: ArrayView1<f64>,
     observation_weights: ArrayView1<f64>,
@@ -2671,7 +2763,7 @@ pub(super) fn compute_jeffreys_pirls_diagnostics(
     //   Φ(β) = 0.5 log|Xᵀ W(η) X|_+.
     // The operator below is the single source of truth for both the Jeffreys
     // scalar value and the PIRLS hat-diagonal correction derived from it. The
-    // Fisher working weight `W(η)` is evaluated for the resolved standard link;
+    // Fisher working weight `W(η)` is evaluated for the resolved inverse link;
     // `StandardLink::Logit` reproduces the released logit diagnostics exactly.
     let op = FirthDenseOperator::build_with_observation_weights_for_link(
         link,
@@ -6771,7 +6863,7 @@ mod tests {
     use super::{
         LinearInequalityConstraints, PenaltyConfig, PirlsConfig, PirlsLinearSolvePath,
         PirlsProblem, PirlsWorkspace, WorkingDerivativeBuffersMut, bernoulli_geometry_from_jet,
-        calculate_deviance, compute_constraint_kkt_diagnostics,
+        calculate_deviance, compute_constraint_kkt_diagnostics, compute_jeffreys_pirls_diagnostics,
         compute_observed_hessian_curvature_arrays, fit_model_for_fixed_rho,
         select_active_set_release, should_log_pirls_decision_summary,
         should_use_sparse_native_pirls, solve_newton_directionwith_linear_constraints,
@@ -6780,12 +6872,12 @@ mod tests {
         write_poisson_log_working_state, write_tweedie_log_working_state,
     };
     use crate::matrix::DesignMatrix;
-    use crate::mixture_link::InverseLinkJet as MixtureInverseLinkJet;
+    use crate::mixture_link::{InverseLinkJet as MixtureInverseLinkJet, state_fromspec};
     use crate::probability::standard_normal_quantile;
     use crate::solver::active_set;
     use crate::types::{
-        Coefficients, GlmLikelihoodSpec, InverseLink, LikelihoodSpec, LinkFunction,
-        LogSmoothingParamsView, ResponseFamily, StandardLink,
+        Coefficients, GlmLikelihoodSpec, InverseLink, LikelihoodSpec, LinkComponent, LinkFunction,
+        LogSmoothingParamsView, MixtureLinkSpec, ResponseFamily, StandardLink,
     };
     use approx::assert_relative_eq;
     use faer::sparse::{SparseColMat, Triplet};
@@ -6816,6 +6908,44 @@ mod tests {
             streamed[[0, 0]] < 0.0,
             "negative row weights must not be clipped through a sqrt(max(0,w)) Gram path"
         );
+    }
+
+    #[test]
+    fn firth_pirls_diagnostics_preserve_nonstandard_inverse_link() {
+        let x = array![[1.0, -1.2], [1.0, -0.3], [1.0, 0.4], [1.0, 1.1], [1.0, 1.8],];
+        let eta = array![-1.4, -0.5, 0.2, 0.9, 1.4];
+        let observation_weights = array![1.0, 0.7, 1.3, 0.9, 1.1];
+        let cloglog = InverseLink::Standard(StandardLink::CLogLog);
+        let mixture = InverseLink::Mixture(
+            state_fromspec(&MixtureLinkSpec {
+                components: vec![
+                    LinkComponent::CLogLog,
+                    LinkComponent::LogLog,
+                    LinkComponent::Cauchit,
+                ],
+                initial_rho: array![0.2, -0.4],
+            })
+            .expect("valid mixture spec"),
+        );
+
+        for link in [&cloglog, &mixture] {
+            let (hat, logdet) = compute_jeffreys_pirls_diagnostics(
+                link,
+                x.view(),
+                eta.view(),
+                observation_weights.view(),
+            )
+            .expect("supported Firth inverse link");
+            assert_eq!(hat.len(), x.nrows());
+            assert!(
+                logdet.is_finite(),
+                "Jeffreys logdet must stay finite for {link:?}"
+            );
+            assert!(
+                hat.iter().all(|value| value.is_finite() && *value >= 0.0),
+                "hat diagonal must stay finite and non-negative for {link:?}: {hat:?}"
+            );
+        }
     }
 
     /// Calculate scale parameter correctly for different link functions.
@@ -7487,7 +7617,6 @@ mod tests {
             max_iterations: 20,
             convergence_tolerance: 1e-12,
             firth_bias_reduction: false,
-            robust_identification: crate::solver::workflow::RobustIdentification::Off,
             initial_lm_lambda: None,
             geodesic_acceleration: false,
             arrow_schur: None,
@@ -7707,7 +7836,6 @@ mod tests {
             max_iterations: 100,
             convergence_tolerance: 1e-8,
             firth_bias_reduction: false,
-            robust_identification: crate::solver::workflow::RobustIdentification::Off,
             initial_lm_lambda: None,
             geodesic_acceleration: false,
             arrow_schur: None,
@@ -8009,7 +8137,6 @@ mod tests {
             max_iterations: 100,
             convergence_tolerance: 1e-8,
             firth_bias_reduction: false,
-            robust_identification: crate::solver::workflow::RobustIdentification::Off,
             initial_lm_lambda: None,
             geodesic_acceleration: false,
             arrow_schur: None,
@@ -8089,7 +8216,6 @@ mod tests {
             max_iterations: 100,
             convergence_tolerance: 1e-8,
             firth_bias_reduction: false,
-            robust_identification: crate::solver::workflow::RobustIdentification::Off,
             initial_lm_lambda: None,
             geodesic_acceleration: false,
             arrow_schur: None,
@@ -9419,7 +9545,6 @@ mod root_cause_tests {
             max_iterations: 100,
             convergence_tolerance: 1e-8,
             firth_bias_reduction: false,
-            robust_identification: crate::solver::workflow::RobustIdentification::Off,
             initial_lm_lambda: None,
             geodesic_acceleration: false,
             arrow_schur: None,
@@ -9506,7 +9631,6 @@ mod root_cause_tests {
             max_iterations: 100,
             convergence_tolerance: 1e-8,
             firth_bias_reduction: false,
-            robust_identification: crate::solver::workflow::RobustIdentification::Off,
             initial_lm_lambda: None,
             geodesic_acceleration: false,
             arrow_schur: None,
@@ -9612,7 +9736,6 @@ mod root_cause_tests {
                 max_iterations: 100,
                 convergence_tolerance: 1e-8,
                 firth_bias_reduction: false,
-                robust_identification: crate::solver::workflow::RobustIdentification::Off,
                 initial_lm_lambda: None,
                 geodesic_acceleration: false,
                 arrow_schur: None,

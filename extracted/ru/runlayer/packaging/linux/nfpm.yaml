@@ -1,0 +1,29 @@
+# nfpm config for the Runlayer CLI Linux packages (.deb + .rpm).
+# https://nfpm.goreleaser.com/configuration/
+#
+# Built from the PyInstaller onedir bundle (dist/runlayer/). The whole bundle
+# is installed under /usr/lib/runlayer and a /usr/bin/runlayer symlink puts the
+# CLI on PATH. ${VERSION} is expanded from the environment by nfpm at build time
+# (set by build_packages.sh from pyproject.toml).
+name: runlayer
+arch: amd64
+platform: linux
+version: ${VERSION}
+version_schema: none
+section: utils
+priority: optional
+maintainer: Runlayer <engineering@runlayer.com>
+description: |
+  Runlayer CLI — run MCP servers via HTTP transport and manage the
+  Runlayer MCP gateway from the command line.
+vendor: Runlayer Inc.
+homepage: https://runlayer.com
+license: Apache-2.0
+
+contents:
+  - src: ./dist/runlayer
+    dst: /usr/lib/runlayer
+    type: tree
+  - src: /usr/lib/runlayer/runlayer
+    dst: /usr/bin/runlayer
+    type: symlink

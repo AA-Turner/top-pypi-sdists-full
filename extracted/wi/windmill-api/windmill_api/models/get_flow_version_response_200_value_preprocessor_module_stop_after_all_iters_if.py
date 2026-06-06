@@ -19,17 +19,22 @@ class GetFlowVersionResponse200ValuePreprocessorModuleStopAfterAllItersIf:
         error_message (Union[Unset, None, str]): Custom error message when stopping with an error. Mutually exclusive
             with skip_if_stopped. If set to a non-empty string, the flow stops with this error. If empty string, a default
             error message is used. If null or omitted, no error is raised.
+        error_include_result (Union[Unset, bool]): When stopping with an error (error_message set), embed the stopping
+            step's own result inside the raised error object (as error.result) instead of discarding it. The top-level
+            result stays { error }. Defaults to false.
     """
 
     expr: str
     skip_if_stopped: Union[Unset, bool] = UNSET
     error_message: Union[Unset, None, str] = UNSET
+    error_include_result: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         expr = self.expr
         skip_if_stopped = self.skip_if_stopped
         error_message = self.error_message
+        error_include_result = self.error_include_result
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -42,6 +47,8 @@ class GetFlowVersionResponse200ValuePreprocessorModuleStopAfterAllItersIf:
             field_dict["skip_if_stopped"] = skip_if_stopped
         if error_message is not UNSET:
             field_dict["error_message"] = error_message
+        if error_include_result is not UNSET:
+            field_dict["error_include_result"] = error_include_result
 
         return field_dict
 
@@ -54,10 +61,13 @@ class GetFlowVersionResponse200ValuePreprocessorModuleStopAfterAllItersIf:
 
         error_message = d.pop("error_message", UNSET)
 
+        error_include_result = d.pop("error_include_result", UNSET)
+
         get_flow_version_response_200_value_preprocessor_module_stop_after_all_iters_if = cls(
             expr=expr,
             skip_if_stopped=skip_if_stopped,
             error_message=error_message,
+            error_include_result=error_include_result,
         )
 
         get_flow_version_response_200_value_preprocessor_module_stop_after_all_iters_if.additional_properties = d

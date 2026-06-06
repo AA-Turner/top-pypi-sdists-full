@@ -4,26 +4,25 @@
 import abc
 import atexit
 import logging
+import re
 import uuid
-import warnings
 import weakref
 from collections.abc import MutableSequence, Sequence
 from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, TypeVar, Union
 
-from sqlalchemy import MetaData, and_
+from sqlalchemy import MetaData, and_, not_, or_
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 
+if TYPE_CHECKING:
+    from pyrit.memory.memory_embedding import MemoryEmbedding
+
+from pyrit.common.deprecation import print_deprecation_message
 from pyrit.common.path import DB_DATA_PATH
-from pyrit.identifiers.identifier_filters import IdentifierFilter, IdentifierType
-from pyrit.memory.memory_embedding import (
-    MemoryEmbedding,
-    default_memory_embedding_factory,
-)
 from pyrit.memory.memory_exporter import MemoryExporter
 from pyrit.memory.memory_models import (
     AttackResultEntry,
@@ -38,6 +37,8 @@ from pyrit.models import (
     AttackResult,
     ConversationStats,
     DataTypeSerializer,
+    IdentifierFilter,
+    IdentifierType,
     Message,
     MessagePiece,
     ScenarioResult,
@@ -60,6 +61,13 @@ logger = logging.getLogger(__name__)
 
 Model = TypeVar("Model")
 
+# Label keys are interpolated into backend-specific JSON path expressions
+# (e.g. ``$.key``) in the per-backend label-filter helpers. We restrict keys
+# to a conservative allowlist so a crafted key cannot break out of the JSON
+# path literal and inject SQL. Values are always passed as bound parameters
+# and do not need this restriction.
+_LABEL_KEY_PATTERN = re.compile(r"^[A-Za-z0-9_.\-]+$")
+
 
 class MemoryInterface(abc.ABC):
     """
@@ -70,10 +78,15 @@ class MemoryInterface(abc.ABC):
     such as files, databases, or cloud storage services.
     """
 
-    memory_embedding: MemoryEmbedding = None
-    results_storage_io: StorageIO = None
-    results_path: str = None
-    engine: Engine = None
+    # Maximum number of bind variables per SQL statement.
+    # Conservative default based on SQLite's limit of 999. Subclasses can override
+    # for backends with higher limits (e.g., Azure SQL supports 2100).
+    _MAX_BIND_VARS: int = 500
+
+    memory_embedding: "MemoryEmbedding | None" = None
+    results_storage_io: StorageIO | None = None
+    results_path: str | None = None
+    engine: Engine | None = None
 
     @staticmethod
     def _uid() -> str:
@@ -109,6 +122,8 @@ class MemoryInterface(abc.ABC):
             ValueError: If no embedding model is provided and required environment
             variables are not set.
         """
+        from pyrit.memory.memory_embedding import default_memory_embedding_factory
+
         self.memory_embedding = default_memory_embedding_factory(embedding_model=embedding_model)
 
     def disable_embedding(self) -> None:
@@ -183,7 +198,7 @@ class MemoryInterface(abc.ABC):
                 and the condition should resolve if any element in that array matches the value.
                 Cannot be used with partial_match.
             value (str): The string value that must match the extracted JSON property value.
-            partial_match (bool): Whether to perform a substring match.
+            partial_match (bool): Whether to perform a substring match. Defaults to False.
             case_sensitive (bool): Whether the match should be case-sensitive. Defaults to False.
 
         Returns:
@@ -224,11 +239,16 @@ class MemoryInterface(abc.ABC):
         """
         Return a database-specific condition for matching a value at a given path within a JSON object.
 
+        Concrete subclasses translate this contract into their SQL dialect (e.g. SQLite's
+        ``json_extract``, Azure SQL's ``JSON_VALUE`` + ``ISJSON``). Implementations must honor
+        ``partial_match`` and ``case_sensitive`` identically so callers can rely on consistent
+        matching semantics across backends.
+
         Args:
             json_column (InstrumentedAttribute[Any]): The JSON-backed model field to query.
             property_path (str): The JSON path for the property to match.
             value (str): The string value that must match the extracted JSON property value.
-            partial_match (bool): Whether to perform a substring match.
+            partial_match (bool): Whether to perform a substring match. Defaults to False.
             case_sensitive (bool): Whether the match should be case-sensitive. Defaults to False.
 
         Returns:
@@ -243,17 +263,28 @@ class MemoryInterface(abc.ABC):
         property_path: str,
         array_element_path: str | None = None,
         array_to_match: Sequence[str],
+        match_mode: Literal["all", "any"] = "all",
     ) -> Any:
         """
         Return a database-specific condition for matching an array at a given path within a JSON object.
+
+        Concrete subclasses translate this contract into their SQL dialect (e.g. SQLite's
+        ``json_each`` + ``json_extract``, Azure SQL's ``OPENJSON`` + ``JSON_QUERY``).
+        Implementations must honor ``match_mode`` and the empty-``array_to_match`` "absence"
+        semantics identically so callers can rely on consistent matching across backends.
 
         Args:
             json_column (InstrumentedAttribute[Any]): The JSON-backed SQLAlchemy field to query.
             property_path (str): The JSON path for the target array.
             array_element_path (Optional[str]): An optional JSON path applied to each array item before matching.
             array_to_match (Sequence[str]): The array that must match the extracted JSON array values.
-                For a match, ALL values in this array must be present in the JSON array.
-                If `array_to_match` is empty, the condition matches only if the target is also an empty array or None.
+                Combination semantics for multiple entries are controlled by ``match_mode``.
+                If ``array_to_match`` is empty, the condition matches only if the target is also an
+                empty array or None (overloaded "absence" semantics, regardless of ``match_mode``).
+            match_mode (Literal["all", "any"]): How to combine multiple entries in ``array_to_match``.
+                ``"all"`` (default) requires every listed value to be present in the JSON array.
+                ``"any"`` requires at least one listed value to be present. Ignored when
+                ``array_to_match`` has fewer than 2 entries or is empty.
 
         Returns:
             Any: A database-specific SQLAlchemy condition.
@@ -334,6 +365,8 @@ class MemoryInterface(abc.ABC):
         conditions: Optional[Any] = None,
         distinct: bool = False,
         join_scores: bool = False,
+        order_by: Optional[Any] = None,
+        limit: int | None = None,
     ) -> MutableSequence[Model]:
         """
         Fetch data from the specified table model with optional conditions.
@@ -343,10 +376,167 @@ class MemoryInterface(abc.ABC):
             conditions: SQLAlchemy filter conditions (Optional).
             distinct: Whether to return distinct rows only. Defaults to False.
             join_scores: Whether to join the scores table. Defaults to False.
+            order_by: SQLAlchemy order_by clause (Optional).
+            limit (int | None): Maximum number of rows to return. Defaults to None (no limit).
 
         Returns:
             List of model instances representing the rows fetched from the table.
         """
+
+    def _execute_batched_query(
+        self,
+        model_class: type[Model],
+        *,
+        batch_column: InstrumentedAttribute[Any],
+        batch_values: Sequence[Any],
+        other_conditions: list[Any] | None = None,
+        distinct: bool = False,
+        join_scores: bool = False,
+        batch_size: int | None = None,
+        order_by: Optional[Any] = None,
+        limit: int | None = None,
+    ) -> MutableSequence[Model]:
+        """
+        Execute queries in batches to avoid exceeding database bind variable limits.
+
+        SQLite and other databases have per-statement parameter limits. This method
+        executes separate queries for each batch of values and merges the results.
+
+        Args:
+            model_class: The SQLAlchemy model class to query.
+            batch_column: The column to batch the IN condition on.
+            batch_values: The values to filter by (will be batched).
+            other_conditions: Additional SQLAlchemy conditions to include in each query.
+            distinct: Whether to return distinct rows only.
+            join_scores: Whether to join the scores table.
+            batch_size: Override for the number of values per batch.
+                Defaults to ``_MAX_BIND_VARS`` when not specified.
+            order_by: SQLAlchemy order_by clause (Optional).
+            limit (int | None): Maximum number of rows to return. Defaults to None (no limit).
+
+        Returns:
+            MutableSequence[Model]: Merged and deduplicated results from all batched queries.
+        """
+        if other_conditions is None:
+            other_conditions = []
+
+        effective_size = batch_size if batch_size is not None else self._MAX_BIND_VARS
+
+        # If values fit in one batch, execute a single query
+        if len(batch_values) <= effective_size:
+            conditions = other_conditions + [batch_column.in_(batch_values)]
+            return self._query_entries(
+                model_class,
+                conditions=and_(*conditions) if conditions else None,
+                distinct=distinct,
+                join_scores=join_scores,
+                order_by=order_by,
+                limit=limit,
+            )
+
+        # Execute multiple separate queries and merge results
+        all_results: MutableSequence[Model] = []
+        seen_ids: set[str] = set()
+
+        for i in range(0, len(batch_values), effective_size):
+            batch = batch_values[i : i + effective_size]
+            conditions = other_conditions + [batch_column.in_(batch)]
+
+            results = self._query_entries(
+                model_class,
+                conditions=and_(*conditions) if conditions else None,
+                distinct=distinct,
+                join_scores=join_scores,
+                order_by=order_by,
+            )
+
+            # Deduplicate by primary key (id)
+            for result in results:
+                result_id = getattr(result, "id", None)
+                if result_id is not None:
+                    id_str = str(result_id)
+                    if id_str not in seen_ids:
+                        seen_ids.add(id_str)
+                        all_results.append(result)
+                else:
+                    all_results.append(result)
+
+        return all_results
+
+    def _query_with_list_params(
+        self,
+        model_class: type[Model],
+        *,
+        conditions: list[Any],
+        list_params: list[tuple[InstrumentedAttribute[Any], Sequence[Any], str]],
+        join_scores: bool = False,
+    ) -> MutableSequence[Model]:
+        """
+        Execute a query with list-based IN filters, batching when lists exceed bind limits.
+
+        Splits list parameters into "small" (fit in one query) and "large" (need batching).
+        Small params are added to the SQL conditions directly. The first large param is
+        batched via ``_execute_batched_query``; any remaining large params are filtered
+        in Python after fetching.
+
+        The effective batch size is reduced to account for bind variables contributed by
+        small params, preventing cumulative overflow of the per-statement limit.
+
+        Args:
+            model_class: The SQLAlchemy model class to query.
+            conditions: Base conditions (scalar filters) to include in every query.
+            list_params: List of (column, values, attr_name) tuples for IN-clause filters.
+            join_scores: Whether to join the scores table.
+
+        Returns:
+            MutableSequence[Model]: Query results with all filters applied.
+        """
+        if not list_params:
+            return self._query_entries(
+                model_class,
+                conditions=and_(*conditions) if conditions else None,
+                join_scores=join_scores,
+            )
+
+        large_params = [(col, vals, name) for col, vals, name in list_params if len(vals) > self._MAX_BIND_VARS]
+        small_params = [(col, vals, name) for col, vals, name in list_params if len(vals) <= self._MAX_BIND_VARS]
+
+        # If cumulative small params exceed the limit, promote the largest ones to large
+        small_params.sort(key=lambda x: len(x[1]))
+        while sum(len(v) for _, v, _ in small_params) > self._MAX_BIND_VARS and small_params:
+            large_params.append(small_params.pop())
+
+        small_param_binds = sum(len(vals) for _, vals, _ in small_params)
+        for col, vals, _ in small_params:
+            conditions.append(col.in_(vals))
+
+        if not large_params:
+            return self._query_entries(
+                model_class,
+                conditions=and_(*conditions) if conditions else None,
+                join_scores=join_scores,
+            )
+
+        batch_col, batch_vals, _ = large_params[0]
+        other_large_params = large_params[1:]
+
+        # Reduce batch size to account for bind variables already used by small params
+        effective_batch_size = max(1, self._MAX_BIND_VARS - small_param_binds)
+
+        results = self._execute_batched_query(
+            model_class,
+            batch_column=batch_col,
+            batch_values=batch_vals,
+            other_conditions=conditions,
+            join_scores=join_scores,
+            batch_size=effective_batch_size,
+        )
+
+        for _col, vals, attr_name in other_large_params:
+            vals_set = set(vals)
+            results = [e for e in results if getattr(e, attr_name, None) in vals_set]
+
+        return results
 
     @abc.abstractmethod
     def _insert_entry(self, entry: Base) -> None:
@@ -417,13 +607,21 @@ class MemoryInterface(abc.ABC):
         """
 
     @abc.abstractmethod
-    def _get_attack_result_label_condition(self, *, labels: dict[str, str]) -> Any:
+    def _get_attack_result_label_condition(self, *, labels: dict[str, str | Sequence[str]]) -> Any:
         """
-        Return a database-specific condition for filtering AttackResults by labels
-        in the associated PromptMemoryEntry records.
+        Return a database-specific condition for filtering AttackResults by labels.
+
+        Matches if the labels are present on **either** an associated
+        PromptMemoryEntry (via conversation_id) **or** directly on the
+        AttackResultEntry itself.
+
+        Semantics: entries are AND-combined across label names; within a single
+        entry, a string value is an equality match and a sequence value is an
+        OR match over the listed values. An empty sequence is a no-op for that
+        label. See ``get_attack_results`` for examples.
 
         Args:
-            labels: Dictionary of labels that must ALL be present.
+            labels: Label-name-to-value(s) map.
 
         Returns:
             Database-specific SQLAlchemy condition.
@@ -486,6 +684,14 @@ class MemoryInterface(abc.ABC):
     def add_scores_to_memory(self, *, scores: Sequence[Score]) -> None:
         """
         Insert a list of scores into the memory storage.
+
+        Callers that produce scores for pieces flagged via
+        ``MessagePiece.not_in_memory = True`` should null out
+        ``message_piece_id`` on those scores before calling this method so the
+        score itself can still be persisted without a dangling piece linkage.
+        Persisting the score even without a piece is intentional: aggregate
+        analytics (e.g. refusal rate over a batch) still want the score row
+        even when the scored content was never a real conversation turn.
         """
         for score in scores:
             if score.message_piece_id:
@@ -496,7 +702,7 @@ class MemoryInterface(abc.ABC):
                     continue
                 # auto-link score to the original prompt id if the prompt is a duplicate
                 if pieces[0].original_prompt_id != pieces[0].id:
-                    score.message_piece_id = pieces[0].original_prompt_id
+                    score.message_piece_id = pieces[0].original_prompt_id  # type: ignore[ty:invalid-assignment]
         self._insert_entries(entries=[ScoreEntry(entry=score) for score in scores])
 
     def get_scores(
@@ -524,10 +730,11 @@ class MemoryInterface(abc.ABC):
         Returns:
             Sequence[Score]: A list of Score objects that match the specified filters.
         """
+        if score_ids is not None and len(score_ids) == 0:
+            return []
+
         conditions: list[Any] = []
 
-        if score_ids:
-            conditions.append(ScoreEntry.id.in_(score_ids))
         if score_type:
             conditions.append(ScoreEntry.score_type == score_type)
         if score_category:
@@ -545,11 +752,22 @@ class MemoryInterface(abc.ABC):
                 )
             )
 
+        # Handle score_ids with batched queries if needed
+        if score_ids:
+            entries = self._execute_batched_query(
+                ScoreEntry,
+                batch_column=ScoreEntry.id,
+                batch_values=list(score_ids),
+                other_conditions=conditions,
+            )
+            return [entry.get_score() for entry in entries]
+
+        # No score_ids specified - use regular query
         if not conditions:
             return []
 
-        entries: Sequence[ScoreEntry] = self._query_entries(ScoreEntry, conditions=and_(*conditions))
-        return [entry.get_score() for entry in entries]
+        score_entries: Sequence[ScoreEntry] = self._query_entries(ScoreEntry, conditions=and_(*conditions))
+        return [entry.get_score() for entry in score_entries]
 
     def get_prompt_scores(
         self,
@@ -707,55 +925,66 @@ class MemoryInterface(abc.ABC):
             Exception: If there is an error retrieving the prompts,
                 an exception is logged and an empty list is returned.
         """
-        conditions = []
-        if attack_id:
-            conditions.append(
-                self._get_condition_json_property_match(
-                    json_column=PromptMemoryEntry.attack_identifier,
-                    property_path="$.hash",
-                    value=str(attack_id),
-                )
-            )
-        if role:
-            conditions.append(PromptMemoryEntry.role == role)
-        if conversation_id:
-            conditions.append(PromptMemoryEntry.conversation_id == str(conversation_id))
-        if prompt_ids:
-            prompt_ids = [str(pi) for pi in prompt_ids]
-            conditions.append(PromptMemoryEntry.id.in_(prompt_ids))
-        if labels:
-            conditions.extend(self._get_message_pieces_memory_label_conditions(memory_labels=labels))
-        if prompt_metadata:
-            conditions.extend(self._get_message_pieces_prompt_metadata_conditions(prompt_metadata=prompt_metadata))
-        if sent_after:
-            conditions.append(PromptMemoryEntry.timestamp >= sent_after)
-        if sent_before:
-            conditions.append(PromptMemoryEntry.timestamp <= sent_before)
-        if original_values:
-            conditions.append(PromptMemoryEntry.original_value.in_(original_values))
-        if converted_values:
-            conditions.append(PromptMemoryEntry.converted_value.in_(converted_values))
-        if data_type:
-            conditions.append(PromptMemoryEntry.converted_value_data_type == data_type)
-        if not_data_type:
-            conditions.append(PromptMemoryEntry.converted_value_data_type != not_data_type)
-        if converted_value_sha256:
-            conditions.append(PromptMemoryEntry.converted_value_sha256.in_(converted_value_sha256))
-        if identifier_filters:
-            conditions.extend(
-                self._build_identifier_filter_conditions(
-                    identifier_filters=identifier_filters,
-                    identifier_column_map={
-                        IdentifierType.ATTACK: PromptMemoryEntry.attack_identifier,
-                        IdentifierType.TARGET: PromptMemoryEntry.prompt_target_identifier,
-                        IdentifierType.CONVERTER: PromptMemoryEntry.converter_identifiers,
-                    },
-                    caller="get_message_pieces",
-                )
-            )
+        if prompt_ids is not None and len(prompt_ids) == 0:
+            return []
+
         try:
-            memory_entries: Sequence[PromptMemoryEntry] = self._query_entries(
-                PromptMemoryEntry, conditions=and_(*conditions) if conditions else None, join_scores=True
+            conditions: list[Any] = []
+            if attack_id:
+                conditions.append(
+                    self._get_condition_json_property_match(
+                        json_column=PromptMemoryEntry.attack_identifier,
+                        property_path="$.hash",
+                        value=str(attack_id),
+                    )
+                )
+            if role:
+                conditions.append(PromptMemoryEntry.role == role)
+            if conversation_id:
+                conditions.append(PromptMemoryEntry.conversation_id == str(conversation_id))
+            if labels:
+                conditions.extend(self._get_message_pieces_memory_label_conditions(memory_labels=labels))
+            if prompt_metadata:
+                conditions.extend(self._get_message_pieces_prompt_metadata_conditions(prompt_metadata=prompt_metadata))
+            if sent_after:
+                conditions.append(PromptMemoryEntry.timestamp >= sent_after)
+            if sent_before:
+                conditions.append(PromptMemoryEntry.timestamp <= sent_before)
+            if data_type:
+                conditions.append(PromptMemoryEntry.converted_value_data_type == data_type)
+            if not_data_type:
+                conditions.append(PromptMemoryEntry.converted_value_data_type != not_data_type)
+            if identifier_filters:
+                conditions.extend(
+                    self._build_identifier_filter_conditions(
+                        identifier_filters=identifier_filters,
+                        identifier_column_map={
+                            IdentifierType.ATTACK: PromptMemoryEntry.attack_identifier,
+                            IdentifierType.TARGET: PromptMemoryEntry.prompt_target_identifier,
+                            IdentifierType.CONVERTER: PromptMemoryEntry.converter_identifiers,
+                        },
+                        caller="get_message_pieces",
+                    )
+                )
+
+            # Identify list parameters that may need batching
+            list_params: list[tuple[InstrumentedAttribute[Any], Sequence[Any], str]] = []
+            if prompt_ids:
+                list_params.append((PromptMemoryEntry.id, [str(pi) for pi in prompt_ids], "id"))
+            if original_values:
+                list_params.append((PromptMemoryEntry.original_value, list(original_values), "original_value"))
+            if converted_values:
+                list_params.append((PromptMemoryEntry.converted_value, list(converted_values), "converted_value"))
+            if converted_value_sha256:
+                list_params.append(
+                    (PromptMemoryEntry.converted_value_sha256, list(converted_value_sha256), "converted_value_sha256")
+                )
+
+            memory_entries = self._query_with_list_params(
+                PromptMemoryEntry,
+                conditions=conditions,
+                list_params=list_params,
+                join_scores=True,
             )
             message_pieces = [memory_entry.get_message_piece() for memory_entry in memory_entries]
             return sort_message_pieces(message_pieces=message_pieces)
@@ -780,7 +1009,7 @@ class MemoryInterface(abc.ABC):
 
         all_pieces: list[MessagePiece] = []
         for message in messages:
-            duplicated_message = message.duplicate_message()
+            duplicated_message = message.duplicate()
 
             for piece in duplicated_message.message_pieces:
                 piece.conversation_id = new_conversation_id
@@ -951,6 +1180,39 @@ class MemoryInterface(abc.ABC):
             conversation_id=conversation_id, update_fields={"prompt_metadata": prompt_metadata}
         )
 
+    def _run_schema_migration(self, *, silent: bool = False) -> None:
+        """
+        Run schema migrations to ensure the database schema is up to date.
+
+        Args:
+            silent (bool): If True, suppresses Alembic console output. Defaults to False.
+
+        Raises:
+            ValueError: If an invalid schema handling option is provided.
+            RuntimeError: If the engine is not initialized when required.
+            Exception: If there is an error during schema validation or migration.
+        """
+        from pyrit.memory.migration import check_schema_migrations, run_schema_migrations
+
+        logger.info("Running schema migration.")
+        if self.engine is None:
+            raise RuntimeError("Engine must be initialized to run schema migrations.")
+        run_schema_migrations(engine=self.engine, silent=silent)
+        check_schema_migrations(engine=self.engine, silent=silent)
+
+    def reset_database(self) -> None:
+        """
+        Drop and recreate all tables in the database.
+
+        Raises:
+            RuntimeError: If the engine is not initialized.
+        """
+        from pyrit.memory.migration import reset_database
+
+        if self.engine is None:
+            raise RuntimeError("Engine is not initialized")
+        reset_database(engine=self.engine)
+
     @abc.abstractmethod
     def dispose_engine(self) -> None:
         """
@@ -1070,7 +1332,7 @@ class MemoryInterface(abc.ABC):
         if values:
             conditions.extend(field.contains(value) for value in values)
 
-    async def _serialize_seed_value(self, prompt: Seed) -> str:
+    async def _serialize_seed_value_async(self, prompt: Seed) -> str:
         """
         Serialize the value of a seed prompt based on its data type.
 
@@ -1092,15 +1354,15 @@ class MemoryInterface(abc.ABC):
         serialized_prompt_value = None
         if prompt.data_type == "image_path":
             # Read the image
-            original_img_bytes = await serializer.read_data_base64()
+            original_img_bytes = await serializer.read_data_base64_async()
             # Save the image
-            await serializer.save_b64_image(original_img_bytes)
+            await serializer.save_b64_image_async(original_img_bytes)
             serialized_prompt_value = str(serializer.value)
         elif prompt.data_type in ["audio_path", "video_path"]:
-            audio_bytes = await serializer.read_data()
-            await serializer.save_data(data=audio_bytes)
+            audio_bytes = await serializer.read_data_async()
+            await serializer.save_data_async(data=audio_bytes)
             serialized_prompt_value = str(serializer.value)
-        return serialized_prompt_value
+        return serialized_prompt_value or ""
 
     async def add_seeds_to_memory_async(self, *, seeds: Sequence[Seed], added_by: Optional[str] = None) -> None:
         """
@@ -1128,17 +1390,18 @@ class MemoryInterface(abc.ABC):
 
             # Only SeedPrompt has set_encoding_metadata for audio/video/image files
             if hasattr(prompt, "set_encoding_metadata"):
-                prompt.set_encoding_metadata()
+                prompt.set_encoding_metadata()  # type: ignore[ty:call-non-callable]
 
             # Handle serialization for image, audio & video SeedPrompts
             if prompt.data_type in ["image_path", "audio_path", "video_path"]:
-                serialized_prompt_value = await self._serialize_seed_value(prompt=prompt)
+                serialized_prompt_value = await self._serialize_seed_value_async(prompt=prompt)
                 prompt.value = serialized_prompt_value
 
             await prompt.set_sha256_value_async()
 
-            existing = self.get_seeds(value_sha256=[prompt.value_sha256], dataset_name=prompt.dataset_name)
-            if not existing:
+            if prompt.value_sha256 and not self.get_seeds(
+                value_sha256=[prompt.value_sha256], dataset_name=prompt.dataset_name
+            ):
                 entries.append(SeedEntry(entry=prompt))
 
         self._insert_entries(entries=entries)
@@ -1340,6 +1603,11 @@ class MemoryInterface(abc.ABC):
         Returns:
             Path: The path to the exported file.
         """
+        print_deprecation_message(
+            old_item="MemoryInterface.export_conversations",
+            new_item="the pyrit.output module or direct serialization of get_message_pieces results",
+            removed_in="0.15.0",
+        )
         data = self.get_message_pieces(
             attack_id=attack_id,
             conversation_id=conversation_id,
@@ -1453,10 +1721,15 @@ class MemoryInterface(abc.ABC):
         objective_sha256: Optional[Sequence[str]] = None,
         outcome: Optional[str] = None,
         attack_class: Optional[str] = None,
+        attack_classes: Optional[Sequence[str]] = None,
+        atomic_attack_eval_hashes: Optional[Sequence[str]] = None,
         converter_classes: Optional[Sequence[str]] = None,
+        converter_classes_match: Literal["all", "any"] = "all",
+        has_converters: Optional[bool] = None,
         targeted_harm_categories: Optional[Sequence[str]] = None,
-        labels: Optional[dict[str, str]] = None,
+        labels: Optional[dict[str, str | Sequence[str]]] = None,
         identifier_filters: Optional[Sequence[IdentifierFilter]] = None,
+        scenario_result_id: Optional[str] = None,
     ) -> Sequence[AttackResult]:
         """
         Retrieve a list of AttackResult objects based on the specified filters.
@@ -1469,11 +1742,30 @@ class MemoryInterface(abc.ABC):
                 Defaults to None.
             outcome (Optional[str], optional): The outcome to filter by (success, failure, undetermined).
                 Defaults to None.
-            attack_class (Optional[str], optional): Filter by exact attack class_name in attack_identifier.
-                Defaults to None.
+            attack_class (Optional[str], optional): Deprecated. Filter by a single exact attack
+                class_name in attack_identifier. Equivalent to passing ``attack_classes=[attack_class]``.
+                Cannot be combined with ``attack_classes``. Defaults to None.
+            attack_classes (Optional[Sequence[str]], optional): Filter by exact attack class_name in
+                attack_identifier. Returns attacks matching ANY of the listed class names (OR logic,
+                case-sensitive). An empty sequence applies no filter. Defaults to None.
+            atomic_attack_eval_hashes (Optional[Sequence[str]], optional): Filter by behavioral
+                equivalence hash on ``atomic_attack_identifier.eval_hash`` (auto-stamped on persistence
+                by ``AtomicAttackEvaluationIdentifier``). Returns results matching ANY of the listed
+                hashes (OR logic, case-sensitive). Designed for ASR aggregation by technique
+                configuration. An empty sequence applies no filter. Defaults to None.
             converter_classes (Optional[Sequence[str]], optional): Filter by converter class names.
-                Returns only attacks that used ALL specified converters (AND logic, case-insensitive).
-                Defaults to None.
+                Combination semantics for multiple entries are controlled by ``converter_classes_match``.
+                An empty sequence filters to attacks that used no converters; ``None`` applies no
+                filter. To filter by presence/absence of any converter explicitly, use the
+                ``has_converters`` parameter instead. Defaults to None.
+            converter_classes_match (Literal["all", "any"]): How to combine multiple entries in
+                ``converter_classes``. ``"all"`` (default) matches attacks that used every listed
+                converter (AND, case-insensitive). ``"any"`` matches attacks that used at least one
+                listed converter (OR, case-insensitive). Ignored when ``converter_classes`` has
+                fewer than 2 entries or is empty.
+            has_converters (Optional[bool], optional): Filter by converter presence.
+                ``True`` returns only attacks that used at least one converter. ``False`` returns
+                only attacks that used no converters. ``None`` applies no filter. Defaults to None.
             targeted_harm_categories (Optional[Sequence[str]], optional):
                 A list of targeted harm categories to filter results by.
                 These targeted harm categories are associated with the prompts themselves,
@@ -1481,70 +1773,149 @@ class MemoryInterface(abc.ABC):
                 not necessarily one(s) that were found in the response.
                 By providing a list, this means ALL categories in the list must be present.
                 Defaults to None.
-            labels (Optional[dict[str, str]], optional): A dictionary of memory labels to filter results by.
-                These labels are associated with the prompts themselves, used for custom tagging and tracking.
-                Defaults to None.
+            labels (Optional[dict[str, str | Sequence[str]]], optional): Filter results
+                by attack labels. Entries are AND-combined across label names; within a
+                single entry, a string value is an equality match and a sequence value is
+                an OR match over the listed values. An empty sequence applies no filter
+                for that label. Example: ``{"operator": "roakey", "operation":
+                ["roakey_op_a", "roakey_op_b"]}`` matches attacks where ``operator ==
+                "roakey"`` AND (``operation == "roakey_op_a"`` OR ``operation ==
+                "roakey_op_b"``). Defaults to None.
             identifier_filters (Optional[Sequence[IdentifierFilter]], optional):
                 A sequence of IdentifierFilter objects that allows filtering by various attack identifier
                 JSON properties. Defaults to None.
+            scenario_result_id (Optional[str], optional): Filter to attack results linked to a
+                specific scenario via the ``AttackResultEntry.attribution_parent_id`` foreign key.
+                Combined with ``outcome=AttackOutcome.ERROR`` this is the replacement for the
+                removed per-scenario error_attack_result_ids manifest. Defaults to None.
 
         Returns:
             Sequence[AttackResult]: A list of AttackResult objects that match the specified filters.
-        """
-        conditions: list[ColumnElement[bool]] = []
 
-        if attack_result_ids is not None:
-            if len(attack_result_ids) == 0:
-                # Empty list means no results
-                return []
-            conditions.append(AttackResultEntry.id.in_(attack_result_ids))
+        Raises:
+            ValueError: If both ``attack_class`` (deprecated) and ``attack_classes`` are provided.
+        """
+        # Handle empty list cases
+        if attack_result_ids is not None and len(attack_result_ids) == 0:
+            return []
+        if objective_sha256 is not None and len(objective_sha256) == 0:
+            return []
+
+        if attack_class is not None and attack_classes is not None:
+            raise ValueError(
+                "Pass either `attack_class` (deprecated, singular) or `attack_classes` (plural), not both."
+            )
+        if attack_class is not None and attack_classes is None:
+            print_deprecation_message(
+                old_item="get_attack_results(attack_class=...)",
+                new_item="get_attack_results(attack_classes=...)",
+                removed_in="0.15.0",
+            )
+            attack_classes = [attack_class]
+
+        # Build non-list conditions
+        conditions: list[ColumnElement[bool]] = []
         if conversation_id:
             conditions.append(AttackResultEntry.conversation_id == conversation_id)
         if objective:
             conditions.append(AttackResultEntry.objective.contains(objective))
-
-        if objective_sha256:
-            conditions.append(AttackResultEntry.objective_sha256.in_(objective_sha256))
         if outcome:
             conditions.append(AttackResultEntry.outcome == outcome)
+        if scenario_result_id:
+            conditions.append(AttackResultEntry.attribution_parent_id == uuid.UUID(scenario_result_id))
 
-        if attack_class:
-            # Use database-specific JSON query method
+        if attack_classes:
+            # Case-insensitive to mirror converter_classes; forgives casing drift in
+            # REST/CLI callers. PyRIT class names are PascalCase with no case-variant
+            # collisions so this never changes match results for well-formed inputs.
             conditions.append(
-                self._get_condition_json_property_match(
-                    json_column=AttackResultEntry.atomic_attack_identifier,
-                    property_path="$.children.attack_technique.children.attack.class_name",
-                    value=attack_class,
-                    case_sensitive=True,
+                or_(
+                    *[
+                        self._get_condition_json_property_match(
+                            json_column=AttackResultEntry.atomic_attack_identifier,
+                            property_path="$.children.attack_technique.children.attack.class_name",
+                            value=ac,
+                        )
+                        for ac in attack_classes
+                    ]
+                )
+            )
+
+        if atomic_attack_eval_hashes:
+            # Single JSON path query on the auto-stamped eval_hash. OR-combined across
+            # supplied hashes so callers can fetch history for multiple technique
+            # configurations in one round trip.
+            conditions.append(
+                or_(
+                    *[
+                        self._get_condition_json_property_match(
+                            json_column=AttackResultEntry.atomic_attack_identifier,
+                            property_path="$.eval_hash",
+                            value=h,
+                            case_sensitive=True,
+                        )
+                        for h in atomic_attack_eval_hashes
+                    ]
                 )
             )
 
         if converter_classes is not None:
-            # converter_classes=[] means "only attacks with no converters"
-            # converter_classes=["A","B"] means "must have all listed converters"
+            # Non-empty sequence: filter to attacks that used ALL (or ANY, depending on
+            # converter_classes_match) of the listed converters.
+            # Empty sequence: filter to attacks that used NO converters.
+            # None: no filter.
             conditions.append(
                 self._get_condition_json_array_match(
                     json_column=AttackResultEntry.atomic_attack_identifier,
                     property_path="$.children.attack_technique.children.attack.children.request_converters",
                     array_element_path="$.class_name",
                     array_to_match=converter_classes,
+                    match_mode=converter_classes_match,
                 )
             )
 
-        if targeted_harm_categories:
-            warnings.warn(
-                "The 'targeted_harm_categories' parameter is deprecated and will be removed in a future release.",
-                DeprecationWarning,
-                stacklevel=2,
+        # Skip when has_converters=True and converter_classes is already non-empty:
+        # the "ALL listed converters" constraint strictly implies "at least one
+        # converter", so adding this predicate is redundant work.
+        if has_converters is not None and not (has_converters is True and converter_classes):
+            # Reuse the array-empty match (array_to_match=[]) as the "no converters"
+            # condition; invert it for "has at least one converter".
+            empty_condition = self._get_condition_json_array_match(
+                json_column=AttackResultEntry.atomic_attack_identifier,
+                property_path="$.children.attack_technique.children.attack.children.request_converters",
+                array_element_path="$.class_name",
+                array_to_match=[],
             )
-            # Use database-specific JSON query method
+            conditions.append(not_(empty_condition) if has_converters else empty_condition)
+
+        if targeted_harm_categories:
+            print_deprecation_message(
+                old_item="get_attack_results(targeted_harm_categories=...)",
+                new_item="get_attack_results(labels={'harm_category': [...]})",
+                removed_in="0.15.0",
+            )
             conditions.append(
                 self._get_attack_result_harm_category_condition(targeted_harm_categories=targeted_harm_categories)
             )
-
         if labels:
-            # Use database-specific JSON query method
-            conditions.append(self._get_attack_result_label_condition(labels=labels))
+            # Strip keys whose value is an empty sequence — an empty sequence means
+            # "no OR-candidates", and per the docstring applies no filter for that
+            # key. Without this, the per-backend helpers would still emit a base
+            # EXISTS(... labels IS NOT NULL) predicate that is strictly more
+            # restrictive than "no filter".
+            effective_labels = {k: v for k, v in labels.items() if not (isinstance(v, (list, tuple)) and len(v) == 0)}
+            # Validate label keys against an allowlist: backend helpers
+            # interpolate keys into JSON path expressions (e.g. ``$.key``),
+            # so a key with quotes or SQL punctuation could otherwise break
+            # out and inject SQL.
+            invalid_keys = [k for k in effective_labels if not _LABEL_KEY_PATTERN.match(k)]
+            if invalid_keys:
+                raise ValueError(
+                    f"Invalid label key(s) {invalid_keys!r}: keys must match {_LABEL_KEY_PATTERN.pattern}."
+                )
+            if effective_labels:
+                # Use database-specific JSON query method
+                conditions.append(self._get_attack_result_label_condition(labels=effective_labels))
 
         if identifier_filters:
             conditions.extend(
@@ -1556,30 +1927,48 @@ class MemoryInterface(abc.ABC):
             )
 
         try:
-            entries: Sequence[AttackResultEntry] = self._query_entries(
-                AttackResultEntry, conditions=and_(*conditions) if conditions else None
+            list_params: list[tuple[InstrumentedAttribute[Any], Sequence[Any], str]] = []
+            if attack_result_ids:
+                list_params.append((AttackResultEntry.id, list(attack_result_ids), "id"))
+            if objective_sha256:
+                list_params.append((AttackResultEntry.objective_sha256, list(objective_sha256), "objective_sha256"))
+
+            entries = self._query_with_list_params(
+                AttackResultEntry,
+                conditions=conditions,
+                list_params=list_params,
             )
-            # Deduplicate by conversation_id — when duplicate rows exist
-            # (legacy bug), keep only the newest entry per conversation_id.
-            seen: dict[str, AttackResultEntry] = {}
-            for entry in entries:
-                prev = seen.get(entry.conversation_id)
-                if prev is None or entry.timestamp > prev.timestamp:
-                    seen[entry.conversation_id] = entry
-            return [entry.get_attack_result() for entry in seen.values()]
+            return self._dedup_attack_entries(entries)
         except Exception as e:
             logger.exception(f"Failed to retrieve attack results with error {e}")
             raise
+
+    @staticmethod
+    def _dedup_attack_entries(entries: Sequence[AttackResultEntry]) -> list[AttackResult]:
+        """
+        Deduplicate AttackResultEntry rows by conversation_id and convert to AttackResult.
+
+        When duplicate rows exist (legacy bug), keeps only the newest entry per conversation_id.
+
+        Returns:
+            list[AttackResult]: Deduplicated attack results.
+        """
+        seen: dict[str, AttackResultEntry] = {}
+        for entry in entries:
+            prev = seen.get(entry.conversation_id)
+            if prev is None or entry.timestamp > prev.timestamp:
+                seen[entry.conversation_id] = entry
+        return [entry.get_attack_result() for entry in seen.values()]
 
     def get_unique_attack_labels(self) -> dict[str, list[str]]:
         """
         Return all unique label key-value pairs across attack results.
 
-        Labels live on ``PromptMemoryEntry.labels`` (the established SDK
-        path).  This method JOINs with ``AttackResultEntry`` to scope the
-        query to conversations that belong to an attack, applies DISTINCT
-        to reduce duplicate label dicts, then aggregates unique key-value
-        pairs in Python.
+        Labels may live on ``PromptMemoryEntry.labels`` (joined via
+        conversation_id) **or** directly on ``AttackResultEntry.labels``.
+        Both sources are queried (OR logic, mirroring the label filter
+        behaviour in ``get_attack_results``), and unique key-value pairs
+        are aggregated in Python.
 
         Returns:
             dict[str, list[str]]: Mapping of label keys to sorted lists of
@@ -1588,7 +1977,8 @@ class MemoryInterface(abc.ABC):
         label_values: dict[str, set[str]] = {}
 
         with closing(self.get_session()) as session:
-            rows = (
+            # Labels from PromptMemoryEntry linked to an attack
+            pme_rows = (
                 session.query(PromptMemoryEntry.labels)
                 .join(
                     AttackResultEntry,
@@ -1599,7 +1989,12 @@ class MemoryInterface(abc.ABC):
                 .all()
             )
 
-        for (labels,) in rows:
+            # Labels directly on AttackResultEntry
+            are_rows = (
+                session.query(AttackResultEntry.labels).filter(AttackResultEntry.labels.isnot(None)).distinct().all()
+            )
+
+        for (labels,) in (*pme_rows, *are_rows):
             if not isinstance(labels, dict):
                 continue
             for key, value in labels.items():
@@ -1621,107 +2016,77 @@ class MemoryInterface(abc.ABC):
             entries=[ScenarioResultEntry(entry=scenario_result) for scenario_result in scenario_results]
         )
 
-    def add_attack_results_to_scenario(
+    def update_scenario_run_state(
         self,
         *,
         scenario_result_id: str,
-        atomic_attack_name: str,
-        attack_results: Sequence[AttackResult],
-    ) -> bool:
-        """
-        Add attack results to an existing scenario result in memory.
-
-        This method efficiently updates a scenario result by appending new attack results
-        to a specific atomic attack name without requiring a full retrieve-modify-save cycle.
-
-        Args:
-            scenario_result_id (str): The ID of the scenario result to update.
-            atomic_attack_name (str): The name of the atomic attack to add results for.
-            attack_results (Sequence[AttackResult]): The attack results to add.
-
-        Returns:
-            bool: True if the update was successful, False otherwise.
-
-        Example:
-            >>> memory.add_attack_results_to_scenario(
-            ...     scenario_result_id="123e4567-e89b-12d3-a456-426614174000",
-            ...     atomic_attack_name="base64_attack",
-            ...     attack_results=[result1, result2]
-            ... )
-        """
-        try:
-            # Retrieve current scenario result
-            scenario_results = self.get_scenario_results(scenario_result_ids=[scenario_result_id])
-
-            if not scenario_results:
-                logger.error(f"Scenario result with ID {scenario_result_id} not found in memory")
-                return False
-
-            scenario_result = scenario_results[0]
-
-            # Update attack results for this atomic attack name
-            if atomic_attack_name not in scenario_result.attack_results:
-                scenario_result.attack_results[atomic_attack_name] = []
-
-            scenario_result.attack_results[atomic_attack_name].extend(list(attack_results))
-
-            # Save updated result back to memory using update
-            entry = ScenarioResultEntry(entry=scenario_result)
-            self._update_entry(entry)
-
-            logger.info(
-                f"Added {len(attack_results)} attack results to scenario {scenario_result_id} "
-                f"for atomic attack '{atomic_attack_name}'"
-            )
-            return True
-
-        except Exception as e:
-            logger.exception(f"Failed to add attack results to scenario {scenario_result_id}: {str(e)}")
-            raise
-
-    def update_scenario_run_state(self, *, scenario_result_id: str, scenario_run_state: str) -> bool:
+        scenario_run_state: str,
+        error_message: str | None = None,
+        error_type: str | None = None,
+    ) -> None:
         """
         Update the run state of an existing scenario result.
+
+        Performs a targeted UPDATE of only the state/error columns instead of
+        rebuilding the entire ``ScenarioResultEntry`` row. The full-row rebuild
+        used to read the stored row, mutate the ScenarioResult, and re-serialize
+        every column — including ``attack_results_json`` which is being phased
+        out and could be stale during the deprecation window. A targeted UPDATE
+        avoids clobbering manifest data and is also cheaper.
 
         Args:
             scenario_result_id (str): The ID of the scenario result to update.
             scenario_run_state (str): The new state for the scenario
                 (e.g., "CREATED", "IN_PROGRESS", "COMPLETED", "FAILED").
+            error_message (str | None): Optional scenario-level error message.
+            error_type (str | None): Optional exception class name.
 
-        Returns:
-            bool: True if the update was successful, False otherwise.
-
-        Example:
-            >>> memory.update_scenario_run_state(
-            ...     scenario_result_id="123e4567-e89b-12d3-a456-426614174000",
-            ...     scenario_run_state="COMPLETED"
-            ... )
+        Raises:
+            ValueError: If the scenario result is not found.
         """
-        try:
-            # Retrieve current scenario result
-            scenario_results = self.get_scenario_results(scenario_result_ids=[scenario_result_id])
+        with closing(self.get_session()) as session:
+            entry = session.query(ScenarioResultEntry).filter_by(id=scenario_result_id).first()
 
-            if not scenario_results:
-                logger.error(f"Scenario result with ID {scenario_result_id} not found in memory")
-                return False
+            if not entry:
+                raise ValueError(f"Scenario result with ID {scenario_result_id} not found in memory")
 
-            scenario_result = scenario_results[0]
+            entry.scenario_run_state = scenario_run_state
+            if error_message is not None:
+                entry.error_message = error_message
+            if error_type is not None:
+                entry.error_type = error_type
 
-            # Update the scenario run state
-            scenario_result.scenario_run_state = scenario_run_state  # type: ignore[assignment]
+            session.commit()
 
-            # Save updated result back to memory using update
-            entry = ScenarioResultEntry(entry=scenario_result)
-            self._update_entry(entry)
+        logger.info(f"Updated scenario {scenario_result_id} state to '{scenario_run_state}'")
 
-            logger.info(f"Updated scenario {scenario_result_id} state to '{scenario_run_state}'")
-            return True
+    def update_scenario_metadata(
+        self,
+        *,
+        scenario_result_id: str,
+        metadata: dict[str, Any],
+    ) -> None:
+        """
+        Replace the ``scenario_metadata`` JSON blob on an existing scenario result.
 
-        except Exception as e:
-            logger.exception(
-                f"Failed to update scenario {scenario_result_id} state to '{scenario_run_state}': {str(e)}"
-            )
-            raise
+        Used by the scenario layer to persist first-run state (e.g.
+        ``objective_hashes``) that resume needs to replay. Performs a
+        targeted UPDATE so it doesn't clobber other columns.
+
+        Args:
+            scenario_result_id (str): The ID of the scenario result to update.
+            metadata (dict[str, Any]): The full metadata dict to store. Pass the
+                merged dict, not just the new keys — this writes the whole value.
+
+        Raises:
+            ValueError: If the scenario result is not found.
+        """
+        with closing(self.get_session()) as session:
+            entry = session.query(ScenarioResultEntry).filter_by(id=scenario_result_id).first()
+            if not entry:
+                raise ValueError(f"Scenario result with ID {scenario_result_id} not found in memory")
+            entry.scenario_metadata = metadata if metadata else None
+            session.commit()
 
     def get_scenario_results(
         self,
@@ -1736,9 +2101,12 @@ class MemoryInterface(abc.ABC):
         objective_target_endpoint: Optional[str] = None,
         objective_target_model_name: Optional[str] = None,
         identifier_filters: Optional[Sequence[IdentifierFilter]] = None,
+        limit: int | None = None,
     ) -> Sequence[ScenarioResult]:
         """
         Retrieve a list of ScenarioResult objects based on the specified filters.
+
+        Results are always ordered by completion_time descending (most recent first).
 
         Args:
             scenario_result_ids (Optional[Sequence[str]], optional): A list of scenario result IDs.
@@ -1762,22 +2130,69 @@ class MemoryInterface(abc.ABC):
             identifier_filters (Optional[Sequence[IdentifierFilter]], optional):
                 A sequence of IdentifierFilter objects that allows filtering by identifier JSON properties.
                 Defaults to None.
+            limit (int | None): Maximum number of results to return. Defaults to None (no limit).
 
         Returns:
-            Sequence[ScenarioResult]: A list of ScenarioResult objects that match the specified filters.
+            Sequence[ScenarioResult]: A list of ScenarioResult objects that match the specified filters,
+                ordered by completion_time descending.
+        """
+        if scenario_result_ids is not None and len(scenario_result_ids) == 0:
+            return []
+
+        conditions = self._build_scenario_result_query_conditions(
+            scenario_name=scenario_name,
+            scenario_version=scenario_version,
+            pyrit_version=pyrit_version,
+            added_after=added_after,
+            added_before=added_before,
+            labels=labels,
+            objective_target_endpoint=objective_target_endpoint,
+            objective_target_model_name=objective_target_model_name,
+            identifier_filters=identifier_filters,
+        )
+
+        try:
+            entries = self._query_scenario_result_entries(
+                scenario_result_ids=scenario_result_ids,
+                conditions=conditions,
+                limit=limit,
+            )
+
+            attack_results_by_scenario = self._get_attack_results_by_scenario(entries=entries)
+
+            scenario_results: list[ScenarioResult] = []
+            for entry in entries:
+                scenario_result = entry.get_scenario_result()
+                scenario_result.attack_results = attack_results_by_scenario.get(entry.id, {})
+                scenario_results.append(scenario_result)
+
+            return scenario_results
+        except Exception as e:
+            logger.exception(f"Failed to retrieve scenario results with error {e}")
+            raise
+
+    def _build_scenario_result_query_conditions(
+        self,
+        *,
+        scenario_name: str | None,
+        scenario_version: int | None,
+        pyrit_version: str | None,
+        added_after: datetime | None,
+        added_before: datetime | None,
+        labels: dict[str, str] | None,
+        objective_target_endpoint: str | None,
+        objective_target_model_name: str | None,
+        identifier_filters: Sequence[IdentifierFilter] | None,
+    ) -> "list[ColumnElement[bool]]":
+        """
+        Build the WHERE conditions for ``get_scenario_results``.
+
+        Returns:
+            list[ColumnElement[bool]]: SQLAlchemy WHERE clauses derived from the supplied filters.
         """
         conditions: list[ColumnElement[bool]] = []
 
-        if scenario_result_ids is not None:
-            if len(scenario_result_ids) == 0:
-                # Empty list means no results
-                return []
-            conditions.append(ScenarioResultEntry.id.in_(scenario_result_ids))
-
         if scenario_name:
-            # Normalize CLI snake_case names (e.g., "foundry" or "content_harms")
-            # to class names (e.g., "Foundry" or "ContentHarms")
-            # This allows users to query with either format
             normalized_name = ScenarioResult.normalize_scenario_name(scenario_name)
             conditions.append(ScenarioResultEntry.scenario_name.contains(normalized_name))
 
@@ -1794,11 +2209,9 @@ class MemoryInterface(abc.ABC):
             conditions.append(ScenarioResultEntry.completion_time <= added_before)
 
         if labels:
-            # Use database-specific JSON query method
             conditions.append(self._get_scenario_result_label_condition(labels=labels))
 
         if objective_target_endpoint:
-            # Use database-specific JSON query method
             conditions.append(
                 self._get_condition_json_property_match(
                     json_column=ScenarioResultEntry.objective_target_identifier,
@@ -1809,7 +2222,6 @@ class MemoryInterface(abc.ABC):
             )
 
         if objective_target_model_name:
-            # Use database-specific JSON query method
             conditions.append(
                 self._get_condition_json_property_match(
                     json_column=ScenarioResultEntry.objective_target_identifier,
@@ -1831,52 +2243,108 @@ class MemoryInterface(abc.ABC):
                 )
             )
 
-        try:
-            entries: Sequence[ScenarioResultEntry] = self._query_entries(
-                ScenarioResultEntry, conditions=and_(*conditions) if conditions else None
+        return conditions
+
+    def _query_scenario_result_entries(
+        self,
+        *,
+        scenario_result_ids: Sequence[str] | None,
+        conditions: "list[ColumnElement[bool]]",
+        limit: int | None,
+    ) -> Sequence[ScenarioResultEntry]:
+        """
+        Run the (possibly batched) ScenarioResultEntry query.
+
+        Returns:
+            Sequence[ScenarioResultEntry]: The matching rows ordered by completion_time descending.
+        """
+        order_by_clause = ScenarioResultEntry.completion_time.desc()
+
+        if scenario_result_ids:
+            return self._execute_batched_query(
+                ScenarioResultEntry,
+                batch_column=ScenarioResultEntry.id,
+                batch_values=list(scenario_result_ids),
+                other_conditions=conditions,
+                order_by=order_by_clause,
+                limit=limit,
             )
 
-            # Convert entries to ScenarioResults and populate attack_results efficiently
-            scenario_results = []
-            for entry in entries:
-                scenario_result = entry.get_scenario_result()
+        return self._query_entries(
+            ScenarioResultEntry,
+            conditions=and_(*conditions) if conditions else None,
+            order_by=order_by_clause,
+            limit=limit,
+        )
 
-                # Get conversation IDs grouped by attack name
-                conversation_ids_by_attack = entry.get_conversation_ids_by_attack_name()
+    def _get_attack_results_by_scenario(
+        self,
+        *,
+        entries: Sequence[ScenarioResultEntry],
+    ) -> dict[uuid.UUID, dict[str, list[AttackResult]]]:
+        """
+        Fetch every ``AttackResult`` linked to the given scenarios via the
+        ``AttackResultEntry.attribution_parent_id`` foreign key in a single
+        batched query, then group by scenario + ``parent_collection`` (which
+        the scenario layer uses for the atomic attack name) and sort each
+        group by ``AttackResultEntry.timestamp``.
 
-                # Collect all conversation IDs to query in a single batch
-                all_conversation_ids = []
-                for conv_ids in conversation_ids_by_attack.values():
-                    all_conversation_ids.extend(conv_ids)
+        Foreign-key linkage is the sole source of truth — set at write-time by
+        the attack persistence path when an ``AttackResultAttribution`` is on
+        the context. Rows without a valid ``attribution_data`` payload are
+        skipped (and logged) rather than guessed at.
 
-                # Query all AttackResults in a single batch if there are any
-                if all_conversation_ids:
-                    # Build condition to query multiple conversation IDs at once
-                    attack_conditions = [AttackResultEntry.conversation_id.in_(all_conversation_ids)]
-                    attack_entries: Sequence[AttackResultEntry] = self._query_entries(
-                        AttackResultEntry, conditions=and_(*attack_conditions)
-                    )
+        Returns:
+            dict[uuid.UUID, dict[str, list[AttackResult]]]: Mapping of
+            ``scenario_result_id`` → ``atomic_attack_name`` → ordered list of
+            ``AttackResult`` objects. Scenarios with no linked rows map to ``{}``.
+        """
+        if not entries:
+            return {}
 
-                    # Build a dict for quick lookup
-                    attack_results_dict = {entry.conversation_id: entry.get_attack_result() for entry in attack_entries}
+        scenario_ids = [entry.id for entry in entries]
+        attack_rows = self._execute_batched_query(
+            AttackResultEntry,
+            batch_column=AttackResultEntry.attribution_parent_id,
+            batch_values=scenario_ids,
+        )
 
-                    # Populate attack_results by attack name, preserving order
-                    scenario_result.attack_results = {}
-                    for attack_name, conv_ids in conversation_ids_by_attack.items():
-                        scenario_result.attack_results[attack_name] = [
-                            attack_results_dict[conv_id] for conv_id in conv_ids if conv_id in attack_results_dict
-                        ]
+        grouped: dict[uuid.UUID, dict[str, list[tuple[datetime, AttackResult]]]] = {entry.id: {} for entry in entries}
 
-                scenario_results.append(scenario_result)
+        for row in attack_rows:
+            scenario_id = row.attribution_parent_id
+            if scenario_id is None or scenario_id not in grouped:
+                continue
 
-            return scenario_results
-        except Exception as e:
-            logger.exception(f"Failed to retrieve scenario results with error {e}")
-            raise
+            data = row.attribution_data or {}
+            name = data.get("parent_collection")
+            if not name:
+                logger.debug(
+                    f"Skipping AttackResultEntry {row.id} during scenario load: "
+                    "attribution_data missing parent_collection"
+                )
+                continue
+
+            sort_key = row.timestamp or datetime.min.replace(tzinfo=timezone.utc)
+            grouped[scenario_id].setdefault(name, []).append((sort_key, row.get_attack_result()))
+
+        return {
+            scenario_id: {
+                name: [ar for _, ar in sorted(bucket, key=lambda kv: kv[0])] for name, bucket in name_buckets.items()
+            }
+            for scenario_id, name_buckets in grouped.items()
+        }
 
     def print_schema(self) -> None:
-        """Print the schema of all tables in the database."""
+        """
+        Print the schema of all tables in the database.
+
+        Raises:
+            RuntimeError: If the engine is not initialized.
+        """
         metadata = MetaData()
+        if self.engine is None:
+            raise RuntimeError("Engine is not initialized")
         metadata.reflect(bind=self.engine)
 
         for table_name in metadata.tables:

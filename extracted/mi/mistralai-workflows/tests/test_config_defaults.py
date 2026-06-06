@@ -1,4 +1,4 @@
-from mistralai.workflows.core.config.config import AppConfig, WorkerConfig
+from mistralai.workflows.core.config.config import AppConfig, PayloadCompressionConfig, WorkerConfig
 
 
 class TestAgentServerUrlDefault:
@@ -23,3 +23,15 @@ class TestAgentServerUrlDefault:
         cfg = AppConfig()
 
         assert cfg.worker.events_api_version == "v2"
+
+    def test_app_config_reads_temporal_payload_compression(self, monkeypatch):
+        monkeypatch.setenv("TEMPORAL_PAYLOAD_COMPRESSION__MIN_SIZE_BYTES", "4096")
+        monkeypatch.setenv("TEMPORAL_PAYLOAD_COMPRESSION__ALGORITHM_CONFIG__ALGORITHM", "zstd")
+        monkeypatch.setenv("TEMPORAL_PAYLOAD_COMPRESSION__ALGORITHM_CONFIG__LEVEL", "5")
+
+        cfg = AppConfig()
+
+        assert cfg.worker.temporal_payload_compression == PayloadCompressionConfig(
+            min_size_bytes=4096,
+            algorithm_config={"algorithm": "zstd", "level": 5},
+        )

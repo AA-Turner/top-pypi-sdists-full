@@ -2,18 +2,21 @@
 
 import re
 import shlex
-import sys
-from collections.abc import Iterable
+from collections.abc import (
+    Iterable,
+    Mapping,
+    Sequence,
+)
 from dataclasses import (
+    asdict,
     dataclass,
     field,
 )
-from typing import Any
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
+from typing import (
+    Any,
+    ClassVar,
+    Self,
+)
 
 from . import (
     constants,
@@ -36,13 +39,9 @@ def shlex_split(str_to_split: str) -> list[str]:
     return shlex.split(str_to_split, comments=False, posix=False)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class MacroArg:
-    """Information used to replace or unescape arguments in a macro value when the macro is resolved.
-
-    Normal argument syntax:    {5}
-    Escaped argument syntax:  {{5}}.
-    """
+    """Information used to resolve or unescape macro arguments."""
 
     # The starting index of this argument in the macro value
     start_index: int
@@ -55,21 +54,22 @@ class MacroArg:
     # Tells if this argument is escaped and therefore needs to be unescaped
     is_escaped: bool
 
-    # Pattern used to find normal argument
-    # Digits surrounded by exactly 1 brace on a side and 1 or more braces on the opposite side
-    # Match strings like: {5}, {{{{{4}, {2}}}}}
-    macro_normal_arg_pattern = re.compile(r'(?<!{){\d+}|{\d+}(?!})')
+    # Matches normal args like {5}
+    # Uses lookarounds to ensure exactly one brace.
+    # (?<!{){ -> Match '{' not preceded by '{'
+    # \d+     -> Match digits
+    # }(?!})  -> Match '}' not followed by '}'
+    macro_normal_arg_pattern: ClassVar[re.Pattern[str]] = re.compile(r"(?<!{){\d+}|{\d+}(?!})")
 
-    # Pattern used to find escaped arguments
-    # Digits surrounded by 2 or more braces on both sides
-    # Match strings like: {{5}}, {{{{{4}}, {{2}}}}}
-    macro_escaped_arg_pattern = re.compile(r'{{2}\d+}{2}')
+    # Matches escaped args like {{5}}
+    # Specifically looking for exactly two braces on each side.
+    macro_escaped_arg_pattern: ClassVar[re.Pattern[str]] = re.compile(r"{{2}\d+}{2}")
 
     # Finds a string of digits
-    digit_pattern = re.compile(r'\d+')
+    digit_pattern: ClassVar[re.Pattern[str]] = re.compile(r"\d+")
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Macro:
     """Defines a cmd2 macro."""
 
@@ -82,18 +82,20 @@ class Macro:
     # The minimum number of args the user has to pass to this macro
     minimum_arg_count: int
 
-    # Used to fill in argument placeholders in the macro
-    arg_list: list[MacroArg] = field(default_factory=list)
+    # Metadata for argument placeholders and escaped sequences found in 'value'.
+    # This is stored internally as a tuple.
+    args: Sequence[MacroArg] = field(default_factory=tuple)
+
+    def __post_init__(self) -> None:
+        """Finalize the object after initialization."""
+        # Convert args to an immutable tuple.
+        if not isinstance(self.args, tuple):
+            object.__setattr__(self, "args", tuple(self.args))
 
 
 @dataclass(frozen=True)
 class Statement(str):  # noqa: SLOT000
     """String subclass with additional attributes to store the results of parsing.
-
-    The ``cmd`` module in the standard library passes commands around as a
-    string. To retain backwards compatibility, ``cmd2`` does the same. However,
-    we need a place to capture the additional output of the command parsing, so
-    we add our own attributes to this subclass.
 
     Instances of this class should not be created by anything other than the
     [StatementParser.parse][cmd2.parsing.StatementParser.parse] method, nor should any of the
@@ -117,38 +119,36 @@ class Statement(str):  # noqa: SLOT000
        [argv][cmd2.parsing.Statement.argv] for a trick which strips quotes off for you.
     """
 
-    # the arguments, but not the command, nor the output redirection clauses.
-    args: str = ''
+    # A space-delimited string containing the arguments to the command (quotes preserved).
+    # This does not include any output redirection clauses.
+    # Note: If a terminator is present, characters that would otherwise be
+    # redirectors (like '>') are treated as literal arguments if they appear
+    # before the terminator.
+    args: str = ""
 
-    # string containing exactly what we input by the user
-    raw: str = ''
+    # The original, unmodified input string
+    raw: str = ""
 
-    # the command, i.e. the first whitespace delimited word
-    command: str = ''
+    # The resolved command name (after shortcut/alias expansion)
+    command: str = ""
 
-    # list of arguments to the command, not including any output redirection or terminators; quoted args remain quoted
-    arg_list: list[str] = field(default_factory=list)
+    # Whether the command is recognized as a multiline-capable command
+    multiline_command: bool = False
 
-    # if the command is a multiline command, the name of the command, otherwise empty
-    multiline_command: str = ''
+    # The character which terminates the command/arguments portion of the input.
+    # While primarily used to signal the end of multiline commands, its presence
+    # defines the boundary between arguments and any subsequent redirection.
+    terminator: str = ""
 
-    # the character which terminated the multiline command, if there was one
-    terminator: str = ''
+    # Characters appearing after the terminator but before output redirection
+    suffix: str = ""
 
-    # characters appearing after the terminator but before output redirection, if any
-    suffix: str = ''
+    # The operator used to redirect output (e.g. '>', '>>', or '|').
+    redirector: str = ""
 
-    # if output was piped to a shell command, the shell command as a string
-    pipe_to: str = ''
-
-    # if output was redirected, the redirection token, i.e. '>>'
-    output: str = ''
-
-    # if output was redirected, the destination file token (quotes preserved)
-    output_to: str = ''
-
-    # Used in JSON dictionaries
-    _args_field = 'args'
+    # The destination for the redirected output (a file path or a shell command).
+    # Quotes are preserved.
+    redirect_to: str = ""
 
     def __new__(cls, value: object, *_pos_args: Any, **_kw_args: Any) -> Self:
         """Create a new instance of Statement.
@@ -169,38 +169,32 @@ class Statement(str):  # noqa: SLOT000
         excluded, as are any command terminators.
         """
         if self.command and self.args:
-            rtn = f'{self.command} {self.args}'
-        elif self.command:
-            # there were no arguments to the command
-            rtn = self.command
-        else:
-            rtn = ''
-        return rtn
+            return f"{self.command} {self.args}"
+        return self.command
 
     @property
     def post_command(self) -> str:
         """A string containing any ending terminator, suffix, and redirection chars."""
-        rtn = ''
+        parts = []
         if self.terminator:
-            rtn += self.terminator
+            parts.append(self.terminator)
 
         if self.suffix:
-            rtn += ' ' + self.suffix
+            parts.append(self.suffix)
 
-        if self.pipe_to:
-            rtn += ' | ' + self.pipe_to
+        if self.redirector:
+            parts.append(self.redirector)
+            if self.redirect_to:
+                parts.append(self.redirect_to)
 
-        if self.output:
-            rtn += ' ' + self.output
-            if self.output_to:
-                rtn += ' ' + self.output_to
-
-        return rtn
+        return " ".join(parts)
 
     @property
     def expanded_command_line(self) -> str:
         """Concatenate [cmd2.parsing.Statement.command_and_args]() and [cmd2.parsing.Statement.post_command]()."""
-        return self.command_and_args + self.post_command
+        # Use a space if there is a post_command that doesn't start with a terminator
+        sep = " " if self.post_command and not self.terminator else ""
+        return f"{self.command_and_args}{sep}{self.post_command}"
 
     @property
     def argv(self) -> list[str]:
@@ -214,36 +208,69 @@ class Statement(str):  # noqa: SLOT000
         If you want to strip quotes from the input, you can use ``argv[1:]``.
         """
         if self.command:
-            rtn = [su.strip_quotes(self.command)]
-            rtn.extend(su.strip_quotes(cur_token) for cur_token in self.arg_list)
-        else:
-            rtn = []
+            return [su.strip_quotes(self.command)] + [su.strip_quotes(arg) for arg in self.arg_list]
 
-        return rtn
+        return []
+
+    @property
+    def arg_list(self) -> list[str]:
+        """Return the arguments in a list (quotes preserved)."""
+        return shlex_split(self.args)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert this Statement into a dictionary for use in persistent JSON history files."""
-        return self.__dict__.copy()
+        return asdict(self)
 
-    @staticmethod
-    def from_dict(source_dict: dict[str, Any]) -> 'Statement':
+    @classmethod
+    def from_dict(cls, source_dict: dict[str, Any]) -> Self:
         """Restore a Statement from a dictionary.
 
         :param source_dict: source data dictionary (generated using to_dict())
         :return: Statement object
-        :raises KeyError: if source_dict is missing required elements
         """
         # value needs to be passed as a positional argument. It corresponds to the args field.
         try:
-            value = source_dict[Statement._args_field]
-        except KeyError as ex:
-            raise KeyError(f"Statement dictionary is missing {ex} field") from None
+            value = source_dict["args"]
+        except KeyError:
+            raise KeyError("Statement dictionary is missing 'args' field") from None
 
-        # Pass the rest at kwargs (minus args)
-        kwargs = source_dict.copy()
-        del kwargs[Statement._args_field]
+        # Filter out 'args' so it isn't passed twice
+        kwargs = {k: v for k, v in source_dict.items() if k != "args"}
+        return cls(value, **kwargs)
 
-        return Statement(value, **kwargs)
+
+@dataclass(frozen=True, slots=True)
+class PartialStatement:
+    """A partially parsed command line.
+
+    This separates the command from its arguments without validating
+    terminators, redirection, or quoted string completion.
+
+    Note:
+        Unlike [cmd2.parsing.Statement][], this is a simple data object
+        and does not inherit from [str][].
+
+    """
+
+    # The resolved command name (after shortcut/alias expansion)
+    command: str
+
+    # The remaining string after the command. May contain unclosed quotes
+    # or unprocessed redirection/terminator characters.
+    args: str
+
+    # The original, unmodified input string
+    raw: str
+
+    # Whether the command is recognized as a multiline-capable command
+    multiline_command: bool
+
+    @property
+    def command_and_args(self) -> str:
+        """Combine command and args with a space between them."""
+        if self.command and self.args:
+            return f"{self.command} {self.args}"
+        return self.command
 
 
 class StatementParser:
@@ -253,8 +280,8 @@ class StatementParser:
         self,
         terminators: Iterable[str] | None = None,
         multiline_commands: Iterable[str] | None = None,
-        aliases: dict[str, str] | None = None,
-        shortcuts: dict[str, str] | None = None,
+        aliases: Mapping[str, str] | None = None,
+        shortcuts: Mapping[str, str] | None = None,
     ) -> None:
         """Initialize an instance of StatementParser.
 
@@ -272,7 +299,7 @@ class StatementParser:
         else:
             self.terminators = tuple(terminators)
         self.multiline_commands: tuple[str, ...] = tuple(multiline_commands) if multiline_commands is not None else ()
-        self.aliases: dict[str, str] = aliases if aliases is not None else {}
+        self.aliases: dict[str, str] = dict(aliases) if aliases is not None else {}
 
         if shortcuts is None:
             shortcuts = constants.DEFAULT_SHORTCUTS
@@ -308,11 +335,11 @@ class StatementParser:
         second_group_items = [re.escape(x) for x in invalid_command_chars]
         # add the whitespace and end of string, not escaped because they
         # are not literals
-        second_group_items.extend([r'\s', r'\Z'])
+        second_group_items.extend([r"\s", r"\Z"])
         # join them up with a pipe
-        second_group = '|'.join(second_group_items)
+        second_group = "|".join(second_group_items)
         # build the regular expression
-        expr = rf'\A\s*(\S*?)({second_group})'
+        expr = rf"\A\s*(\S*?)({second_group})"
         self._command_pattern = re.compile(expr)
 
     def is_valid_command(self, word: str, *, is_subcommand: bool = False) -> tuple[bool, str]:
@@ -329,7 +356,7 @@ class StatementParser:
         If word is not a valid command, return ``False`` and an error string
         suitable for inclusion in an error message of your choice::
 
-            checkit = '>'
+            checkit = ">"
             valid, errmsg = statement_parser.is_valid_command(checkit)
             if not valid:
                 errmsg = f"alias: {errmsg}"
@@ -337,31 +364,31 @@ class StatementParser:
         valid = False
 
         if not isinstance(word, str):
-            return False, f'must be a string. Received {type(word)!s} instead'  # type: ignore[unreachable]
+            return False, f"must be a string. Received {type(word)!s} instead"  # type: ignore[unreachable]
 
         if not word:
-            return False, 'cannot be an empty string'
+            return False, "cannot be an empty string"
 
         if word.startswith(constants.COMMENT_CHAR):
-            return False, 'cannot start with the comment character'
+            return False, "cannot start with the comment character"
 
         if not is_subcommand:
             for shortcut, _ in self.shortcuts:
                 if word.startswith(shortcut):
                     # Build an error string with all shortcuts listed
-                    errmsg = 'cannot start with a shortcut: '
-                    errmsg += ', '.join(shortcut for (shortcut, _) in self.shortcuts)
+                    errmsg = "cannot start with a shortcut: "
+                    errmsg += ", ".join(shortcut for (shortcut, _) in self.shortcuts)
                     return False, errmsg
 
-        errmsg = 'cannot contain: whitespace, quotes, '
+        errmsg = "cannot contain: whitespace, quotes, "
 
         errchars = (*constants.REDIRECTION_CHARS, *self.terminators)
-        errmsg += ', '.join([shlex.quote(x) for x in errchars])
+        errmsg += ", ".join([shlex.quote(x) for x in errchars])
 
         match = self._command_pattern.search(word)
         if match and word == match.group(1):
             valid = True
-            errmsg = ''
+            errmsg = ""
         return valid, errmsg
 
     def tokenize(self, line: str) -> list[str]:
@@ -399,13 +426,12 @@ class StatementParser:
         # handle the special case/hardcoded terminator of a blank line
         # we have to do this before we tokenize because tokenizing
         # destroys all unquoted whitespace in the input
-        terminator = ''
+        terminator = ""
         if line[-1:] == constants.LINE_FEED:
             terminator = constants.LINE_FEED
 
-        command = ''
-        args = ''
-        arg_list = []
+        command = ""
+        args = ""
 
         # lex the input into a list of tokens
         tokens = self.tokenize(line)
@@ -434,7 +460,7 @@ class StatementParser:
 
             # everything before the first terminator is the command and the args
             (command, args) = self._command_and_args(tokens[:terminator_pos])
-            arg_list = tokens[1:terminator_pos]
+
             # we will set the suffix later
             # remove all the tokens before and including the terminator
             tokens = tokens[terminator_pos + 1 :]
@@ -446,12 +472,10 @@ class StatementParser:
                 # because redirectors can only be after a terminator
                 command = testcommand
                 args = testargs
-                arg_list = tokens[1:]
                 tokens = []
 
-        pipe_to = ''
-        output = ''
-        output_to = ''
+        redirector = ""
+        redirect_to = ""
 
         # Find which redirector character appears first in the command
         try:
@@ -460,9 +484,9 @@ class StatementParser:
             pipe_index = len(tokens)
 
         try:
-            redir_index = tokens.index(constants.REDIRECTION_OUTPUT)
+            overwrite_index = tokens.index(constants.REDIRECTION_OVERWRITE)
         except ValueError:
-            redir_index = len(tokens)
+            overwrite_index = len(tokens)
 
         try:
             append_index = tokens.index(constants.REDIRECTION_APPEND)
@@ -470,121 +494,119 @@ class StatementParser:
             append_index = len(tokens)
 
         # Check if output should be piped to a shell command
-        if pipe_index < redir_index and pipe_index < append_index:
+        if pipe_index < overwrite_index and pipe_index < append_index:
+            redirector = constants.REDIRECTION_PIPE
+
             # Get the tokens for the pipe command and expand ~ where needed
             pipe_to_tokens = tokens[pipe_index + 1 :]
             utils.expand_user_in_tokens(pipe_to_tokens)
 
             # Build the pipe command line string
-            pipe_to = ' '.join(pipe_to_tokens)
+            redirect_to = " ".join(pipe_to_tokens)
 
             # remove all the tokens after the pipe
             tokens = tokens[:pipe_index]
 
         # Check for output redirect/append
-        elif redir_index != append_index:
-            if redir_index < append_index:
-                output = constants.REDIRECTION_OUTPUT
-                output_index = redir_index
+        elif overwrite_index != append_index:
+            if overwrite_index < append_index:
+                redirector = constants.REDIRECTION_OVERWRITE
+                redirector_index = overwrite_index
             else:
-                output = constants.REDIRECTION_APPEND
-                output_index = append_index
+                redirector = constants.REDIRECTION_APPEND
+                redirector_index = append_index
+
+            redirect_to_index = redirector_index + 1
 
             # Check if we are redirecting to a file
-            if len(tokens) > output_index + 1:
-                unquoted_path = su.strip_quotes(tokens[output_index + 1])
+            if len(tokens) > redirect_to_index:
+                unquoted_path = su.strip_quotes(tokens[redirect_to_index])
                 if unquoted_path:
-                    output_to = utils.expand_user(tokens[output_index + 1])
+                    redirect_to = utils.expand_user(tokens[redirect_to_index])
 
             # remove all the tokens after the output redirect
-            tokens = tokens[:output_index]
+            tokens = tokens[:redirector_index]
 
         if terminator:
             # whatever is left is the suffix
-            suffix = ' '.join(tokens)
+            suffix = " ".join(tokens)
         else:
             # no terminator, so whatever is left is the command and the args
-            suffix = ''
+            suffix = ""
             if not command:
                 # command could already have been set, if so, don't set it again
                 (command, args) = self._command_and_args(tokens)
-                arg_list = tokens[1:]
-
-        # set multiline
-        multiline_command = command if command in self.multiline_commands else ''
 
         # build the statement
         return Statement(
             args,
             raw=line,
             command=command,
-            arg_list=arg_list,
-            multiline_command=multiline_command,
+            multiline_command=command in self.multiline_commands,
             terminator=terminator,
             suffix=suffix,
-            pipe_to=pipe_to,
-            output=output,
-            output_to=output_to,
+            redirector=redirector,
+            redirect_to=redirect_to,
         )
 
-    def parse_command_only(self, rawinput: str) -> Statement:
-        """Parse input into a [cmd2.Statement][] object (partially).
+    def parse_command_only(self, rawinput: str) -> PartialStatement:
+        """Identify the command and arguments from raw input.
+
+        Partially parse input into a [cmd2.PartialStatement][] object.
 
         The command is identified, and shortcuts and aliases are expanded.
         Multiline commands are identified, but terminators and output
         redirection are not parsed.
 
-        This method is used by tab completion code and therefore must not
-        generate an exception if there are unclosed quotes.
+        This method is optimized for completion code and gracefully handles
+        unclosed quotes without raising exceptions.
 
-        The [cmd2.parsing.Statement][] object returned by this method can at most
-        contain values in the following attributes:
-        [cmd2.parsing.Statement.args][], [cmd2.parsing.Statement.raw][],
-        [cmd2.parsing.Statement.command][],
-        [cmd2.parsing.Statement.multiline_command][]
-
-        [cmd2.parsing.Statement.args][] will include all output redirection
+        [cmd2.parsing.PartialStatement.args][] will include all output redirection
         clauses and command terminators.
 
-        Different from [cmd2.parsing.StatementParser.parse][] this method
-        does not remove redundant whitespace within args. However, it does
-        ensure args has no leading or trailing whitespace.
+        Note:
+            Unlike [cmd2.parsing.StatementParser.parse][], this method
+            preserves internal whitespace within the args. It ensures
+            args has no leading whitespace, and it strips trailing
+            whitespace only if all quotes are closed.
 
         :param rawinput: the command line as entered by the user
-        :return: a new [cmd2.Statement][] object
+        :return: a [cmd2.PartialStatement][] object representing the split input
+
         """
-        # expand shortcuts and aliases
+        # Expand shortcuts and aliases
         line = self._expand(rawinput)
 
-        command = ''
-        args = ''
+        command = ""
+        args = ""
         match = self._command_pattern.search(line)
+
         if match:
-            # we got a match, extract the command
+            # Extract the resolved command
             command = match.group(1)
 
-            # take everything from the end of the first match group to
-            # the end of the line as the arguments (stripping leading
-            # and unquoted trailing whitespace)
-            args = line[match.end(1) :].lstrip()
-            try:
-                shlex_split(args)
-            except ValueError:
-                # Unclosed quote. Leave trailing whitespace.
-                pass
-            else:
-                args = args.rstrip()
-            # if the command is empty that means the input was either empty
-            # or something weird like '>'. args should be empty if we couldn't
-            # parse a command
-            if not command or not args:
-                args = ''
+            # If the command is empty, the input was either empty or started with
+            # something like a redirector ('>') or terminator (';').
+            if command:
+                # args is everything after the command match
+                args = line[match.end(1) :].lstrip()
 
-        # set multiline
-        multiline_command = command if command in self.multiline_commands else ''
+                try:
+                    # Check for closed quotes
+                    shlex_split(args)
+                except ValueError:
+                    # Unclosed quote: preserve trailing whitespace for completion context.
+                    pass
+                else:
+                    # Quotes are closed: strip trailing whitespace
+                    args = args.rstrip()
 
-        # build the statement
-        return Statement(args, raw=rawinput, command=command, multiline_command=multiline_command)
+        return PartialStatement(
+            command=command,
+            args=args,
+            raw=rawinput,
+            multiline_command=command in self.multiline_commands,
+        )
 
     def get_command_arg_list(
         self, command_name: str, to_parse: Statement | str, preserve_quotes: bool
@@ -612,7 +634,7 @@ class StatementParser:
         """
         # Check if to_parse needs to be converted to a Statement
         if not isinstance(to_parse, Statement):
-            to_parse = self.parse(command_name + ' ' + to_parse)
+            to_parse = self.parse(command_name + " " + to_parse)
 
         if preserve_quotes:
             return to_parse, to_parse.arg_list
@@ -646,8 +668,8 @@ class StatementParser:
                 # If the next character after the shortcut isn't a space, then insert one
                 shortcut_len = len(shortcut)
                 effective_expansion = expansion
-                if len(line) == shortcut_len or line[shortcut_len] != ' ':
-                    effective_expansion += ' '
+                if len(line) == shortcut_len or line[shortcut_len] != " ":
+                    effective_expansion += " "
 
                 # Expand the shortcut
                 line = line.replace(shortcut, effective_expansion, 1)
@@ -657,14 +679,14 @@ class StatementParser:
     @staticmethod
     def _command_and_args(tokens: list[str]) -> tuple[str, str]:
         """Given a list of tokens, return a tuple of the command and the args as a string."""
-        command = ''
-        args = ''
+        command = ""
+        args = ""
 
         if tokens:
             command = tokens[0]
 
         if len(tokens) > 1:
-            args = ' '.join(tokens[1:])
+            args = " ".join(tokens[1:])
 
         return command, args
 
@@ -694,7 +716,7 @@ class StatementParser:
             cur_char = cur_initial_token[cur_index]
 
             # Keep track of the token we are building
-            new_token = ''
+            new_token = ""
 
             while True:
                 if cur_char not in punctuation:
@@ -721,7 +743,7 @@ class StatementParser:
 
                 # Save the new token
                 punctuated_tokens.append(new_token)
-                new_token = ''
+                new_token = ""
 
                 # Check if we've viewed all characters
                 if cur_index >= len(cur_initial_token):

@@ -1,3 +1,68 @@
-from .main import cli
+"""
+@author: cunyue
+@file: __init__.py
+@time: 2026/3/5 14:32
+@description: SwanLab 命令行交互，在终端运行 `swanlab` 命令进行一些CLI操作
+"""
+
+import click
+
+from swanlab.deprecated.local import watch
+from swanlab.sdk import pkg
+
+from .api import api_cli
+from .auth import login, logout, verify
+from .converter import convert
+from .mode import disabled, local, offline, online
+from .ping import ping
+from .sync import sync
+
+
+@click.group(invoke_without_command=True)
+@click.version_option(pkg.helper.get_swanlab_version(), "--version", "-v", message="SwanLab %(version)s")
+@click.pass_context
+def cli(ctx):
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
+
+
+# ---------------------------------- 注册子命令 ----------------------------------
+# Auth
+# noinspection PyTypeChecker
+cli.add_command(login)
+# noinspection PyTypeChecker
+cli.add_command(logout)
+# noinspection PyTypeChecker
+cli.add_command(verify)
+
+# Dashboard
+# noinspection PyTypeChecker
+cli.add_command(watch)
+
+# Converter
+# noinspection PyTypeChecker
+cli.add_command(convert)
+
+# Sync
+# noinspection PyTypeChecker
+cli.add_command(sync)
+
+# Ping
+# noinspection PyTypeChecker
+cli.add_command(ping)
+
+# Mode
+# noinspection PyTypeChecker
+cli.add_command(offline)
+# noinspection PyTypeChecker
+cli.add_command(local)
+# noinspection PyTypeChecker
+cli.add_command(online)
+# noinspection PyTypeChecker
+cli.add_command(disabled)
+
+# Api Cli
+# noinspection PyTypeChecker
+cli.add_command(api_cli)
 
 __all__ = ["cli"]

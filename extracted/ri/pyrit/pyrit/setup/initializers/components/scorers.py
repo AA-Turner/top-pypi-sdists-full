@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, TypeVar, cast
 
 from azure.ai.contentsafety.models import TextCategory
 
+from pyrit.common.parameter import Parameter
 from pyrit.registry import ScorerRegistry, TargetRegistry
 from pyrit.score import (
     AzureContentFilterScorer,
@@ -41,10 +42,10 @@ from pyrit.score import (
     TrueFalseScorer,
     find_objective_metrics_by_eval_hash,
 )
-from pyrit.setup.initializers.pyrit_initializer import InitializerParameter, PyRITInitializer
+from pyrit.setup.initializers.pyrit_initializer import PyRITInitializer
 
 if TYPE_CHECKING:
-    from pyrit.prompt_target.common.prompt_chat_target import PromptChatTarget
+    from pyrit.prompt_target import PromptTarget
 
 logger = logging.getLogger(__name__)
 RequiredDependencyT = TypeVar("RequiredDependencyT")
@@ -75,6 +76,8 @@ class ScorerInitializerTags(str, Enum):
 
 
 # Target registry names used by scorer configurations.
+MAIN_SCORER_TARGET: str = "objective_scorer_chat"
+FALLBACK_SCORER_TARGET: str = "openai_chat"
 GPT4O_TARGET: str = "azure_openai_gpt4o"
 GPT4O_TEMP0_TARGET: str = "azure_openai_gpt4o_temp0"
 GPT4O_TEMP9_TARGET: str = "azure_openai_gpt4o_temp9"
@@ -85,6 +88,17 @@ GPT5_4_TARGET: str = "azure_openai_gpt5_4"
 GPT5_1_TARGET: str = "azure_openai_gpt5_1"
 
 # Scorer registry names.
+MAIN: str = "main"
+""""
+The main scorer is an inverted refusal scorer based on the main scorer target (objective_scorer_chat).
+"""
+FALLBACK: str = "fallback"
+"""
+The fallback scorer is an inverted refusal scorer based on the fallback scorer target (openai_chat).
+It is usually used when the main scorer cannot be created due to missing targets.
+And allows for a user to get a working scorer even if they only have an openai_chat target in their environment.
+"""
+
 REFUSAL_GPT4O_OBJECTIVE_STRICT: str = "refusal_gpt4o_objective_strict"
 REFUSAL_GPT4O_OBJECTIVE_LENIENT: str = "refusal_gpt4o_objective_lenient"
 REFUSAL_GPT4O_NO_OBJECTIVE_STRICT: str = "refusal_gpt4o_no_objective_strict"
@@ -120,11 +134,11 @@ _PREFERRED_BEST: dict[str, tuple[str, str]] = {
 
 class ScorerInitializer(PyRITInitializer):
     """
-    Scorer Initializer for registering pre-configured scorers.
+    Instantiates a collection of scorers using targets from the TargetRegistry and adds them to the ScorerRegistry.
 
     This initializer registers all evaluation scorers into the ScorerRegistry.
     Targets are pulled from the TargetRegistry (populated by TargetInitializer),
-    so this initializer must run after the target initializer (enforced via execution_order).
+    so this initializer should be listed after TargetInitializer in the initializers list.
     Scorers that fail to initialize (e.g., due to missing targets) are skipped with a warning.
 
     Every scorer category follows the same pattern:
@@ -134,38 +148,15 @@ class ScorerInitializer(PyRITInitializer):
     """
 
     @property
-    def supported_parameters(self) -> list[InitializerParameter]:
+    def supported_parameters(self) -> list[Parameter]:
         """Get the list of parameters this initializer accepts."""
         return [
-            InitializerParameter(
+            Parameter(
                 name="tags",
                 description="Tags for filtering (e.g., ['default'])",
                 default=["default"],
             ),
         ]
-
-    @property
-    def name(self) -> str:
-        """Get the name of this initializer."""
-        return "Scorer Initializer"
-
-    @property
-    def execution_order(self) -> int:
-        """
-        Get the execution order for this initializer.
-
-        Returns 2 to ensure this runs after TargetInitializer (order=1),
-        which populates the TargetRegistry that scorers depend on.
-        """
-        return 2
-
-    @property
-    def description(self) -> str:
-        """Get the description of this initializer."""
-        return (
-            "Instantiates a collection of scorers using targets from "
-            "the TargetRegistry and adds them to the ScorerRegistry"
-        )
 
     @property
     def required_env_vars(self) -> list[str]:
@@ -195,6 +186,7 @@ class ScorerInitializer(PyRITInitializer):
                 "Ensure TargetInitializer is included in the initializers list."
             )
 
+        self._register_fallback_scorers()
         self._register_refusal_scorers()
         self._register_scale_scorers()
         self._register_acs_threshold_scorers()
@@ -209,17 +201,42 @@ class ScorerInitializer(PyRITInitializer):
     # Core scorer registration
     # ---------------------------------------------------------------------------
 
+    def _register_fallback_scorers(self) -> None:
+        """
+        Register scorers used as fallback in scenarios.
+        """
+        main = self._get_chat_target(MAIN_SCORER_TARGET)
+        fallback = self._get_chat_target(FALLBACK_SCORER_TARGET)
+        self._try_register(
+            name=MAIN,
+            factory=lambda: TrueFalseInverterScorer(
+                scorer=SelfAskRefusalScorer(chat_target=self._require_dependency(main, name=MAIN_SCORER_TARGET))
+            ),
+            required_targets=[main],
+        )
+        self._try_register(
+            name=FALLBACK,
+            factory=lambda: TrueFalseInverterScorer(
+                scorer=SelfAskRefusalScorer(chat_target=self._require_dependency(fallback, name=FALLBACK_SCORER_TARGET))
+            ),
+            required_targets=[fallback],
+        )
+
     def _register_refusal_scorers(self) -> None:
         """
         Register base refusal scorer variants and tag the best one.
 
         Each variant uses the default refusal prompt (OBJECTIVE_STRICT) but
         differs in model or prompt template. All are tagged ``REFUSAL``.
+
+        When an auto-grouped ``RoundRobinTarget`` wraps a target, it is
+        preferred over the individual endpoint to distribute scoring LLM
+        calls for rate-limit relief.
         """
-        gpt4o = self._get_chat_target(GPT4O_TARGET)
-        gpt5_4 = self._get_chat_target(GPT5_4_TARGET)
-        gpt5_1 = self._get_chat_target(GPT5_1_TARGET)
-        unsafe = self._get_chat_target(GPT4O_UNSAFE_TARGET)
+        gpt4o = self._get_chat_target_prefer_rr(GPT4O_TARGET)
+        gpt5_4 = self._get_chat_target_prefer_rr(GPT5_4_TARGET)
+        gpt5_1 = self._get_chat_target_prefer_rr(GPT5_1_TARGET)
+        unsafe = self._get_chat_target_prefer_rr(GPT4O_UNSAFE_TARGET)
         refusal_tag = [ScorerInitializerTags.REFUSAL]
 
         # Prompt template variants (all use gpt4o)
@@ -288,7 +305,7 @@ class ScorerInitializer(PyRITInitializer):
 
         These are standalone float-scale scorers (no compounds). All are tagged ``SCALE``.
         """
-        gpt4o_temp9 = self._get_chat_target(GPT4O_TEMP9_TARGET)
+        gpt4o_temp9 = self._get_chat_target_prefer_rr(GPT4O_TEMP9_TARGET)
         scale_tag = [ScorerInitializerTags.SCALE]
 
         self._try_register(
@@ -378,8 +395,9 @@ class ScorerInitializer(PyRITInitializer):
         Register self-ask likert scorer variants.
 
         Only scales with evaluation files are registered. All are tagged ``LIKERT``.
+        Prefers an auto-grouped round-robin target when available.
         """
-        gpt4o = self._get_chat_target(GPT4O_TARGET)
+        gpt4o = self._get_chat_target_prefer_rr(GPT4O_TARGET)
         likert_tag = [ScorerInitializerTags.LIKERT]
 
         for scale in LikertScalePaths:
@@ -387,7 +405,7 @@ class ScorerInitializer(PyRITInitializer):
                 scorer_name = f"likert_{scale.name.lower().removesuffix('_scale')}_gpt4o"
                 self._try_register(
                     name=scorer_name,
-                    factory=lambda s=scale: SelfAskLikertScorer(  # type: ignore[misc]
+                    factory=lambda s=scale: SelfAskLikertScorer(
                         chat_target=self._require_dependency(gpt4o, name=GPT4O_TARGET),
                         likert_scale=s,
                     ),
@@ -401,7 +419,7 @@ class ScorerInitializer(PyRITInitializer):
 
         All are tagged ``TASK_ACHIEVED``.
         """
-        gpt4o_temp9 = self._get_chat_target(GPT4O_TEMP9_TARGET)
+        gpt4o_temp9 = self._get_chat_target_prefer_rr(GPT4O_TEMP9_TARGET)
         task_tag = [ScorerInitializerTags.TASK_ACHIEVED]
 
         self._try_register(
@@ -491,13 +509,10 @@ class ScorerInitializer(PyRITInitializer):
             name=ACS_WITH_REFUSAL,
             factory=lambda: TrueFalseCompositeScorer(
                 aggregator=TrueFalseScoreAggregator.AND,
-                scorers=cast(
-                    "list[TrueFalseScorer]",
-                    [
-                        self._require_dependency(acs, name="acs_threshold"),
-                        TrueFalseInverterScorer(scorer=self._require_dependency(refusal, name="refusal")),
-                    ],
-                ),
+                scorers=[
+                    self._require_dependency(acs, name="acs_threshold"),
+                    TrueFalseInverterScorer(scorer=self._require_dependency(refusal, name="refusal")),
+                ],
             ),
             required_targets=[acs, refusal],
             tags=composite_tag,
@@ -506,13 +521,10 @@ class ScorerInitializer(PyRITInitializer):
             name=SCALE_AND_REFUSAL,
             factory=lambda: TrueFalseCompositeScorer(
                 aggregator=TrueFalseScoreAggregator.AND,
-                scorers=cast(
-                    "list[TrueFalseScorer]",
-                    [
-                        self._require_dependency(scale, name="scale"),
-                        TrueFalseInverterScorer(scorer=self._require_dependency(refusal, name="refusal")),
-                    ],
-                ),
+                scorers=[
+                    self._require_dependency(scale, name="scale"),
+                    TrueFalseInverterScorer(scorer=self._require_dependency(refusal, name="refusal")),
+                ],
             ),
             required_targets=[scale, refusal],
             tags=composite_tag,
@@ -600,15 +612,46 @@ class ScorerInitializer(PyRITInitializer):
         """
         return ScorerRegistry.get_registry_singleton()
 
-    def _get_chat_target(self, target_name: str) -> "PromptChatTarget | None":
+    def _get_chat_target(self, target_name: str) -> "PromptTarget | None":
         """
         Get a chat target from the singleton target registry by name.
 
         Returns:
-            PromptChatTarget | None: The chat target instance if found, otherwise None.
+            PromptTarget | None: The chat target instance if found, otherwise None.
         """
         target_registry = TargetRegistry.get_registry_singleton()
-        return target_registry.get_instance_by_name(target_name)  # type: ignore[return-value]
+        return target_registry.get_instance_by_name(target_name)
+
+    def _get_chat_target_prefer_rr(self, target_name: str) -> "PromptTarget | None":
+        """
+        Get a chat target, preferring an auto-grouped ``RoundRobinTarget`` that wraps it.
+
+        Computes the expected round-robin registry name from the individual
+        target's behavioral key (using the same ``_get_behavioral_key`` and
+        ``_generate_rr_name`` that ``TargetInitializer._auto_group_targets``
+        uses). If a round-robin with that name exists, returns it for
+        rate-limit distribution. Otherwise falls back to the individual target.
+
+        Args:
+            target_name: The registry name of the individual target.
+
+        Returns:
+            PromptTarget | None: The wrapping RoundRobinTarget if found,
+                the individual target otherwise, or None if not registered.
+        """
+        from pyrit.setup.initializers.components.targets import generate_rr_name, get_behavioral_key
+
+        target_registry = TargetRegistry.get_registry_singleton()
+        individual = target_registry.get_instance_by_name(target_name)
+        if individual is None:
+            return None
+
+        rr_name = generate_rr_name(get_behavioral_key(individual))
+        rr_target = target_registry.get_instance_by_name(rr_name)
+        if rr_target is not None:
+            return rr_target
+
+        return individual
 
     def _require_dependency(self, value: RequiredDependencyT | None, *, name: str) -> RequiredDependencyT:
         """

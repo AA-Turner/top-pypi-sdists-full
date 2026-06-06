@@ -1761,10 +1761,26 @@ def login_cmd() -> None:
 def logout_cmd() -> None:
     """Log out of your SAGE account."""
     from sage.core.cli_auth import logout, load_auth
+    from sage.main import _sms_terminate_process
+    from sage.core.sms_bridge import SMS_PID_FILE
+    
     auth = load_auth()
     if auth is None:
         renderer.info("Not logged in.")
         return
+
+    # Critical: Stop the SMS bridge if it's running.
+    # This prevents the old session from bleeding into the next user's login.
+    if SMS_PID_FILE.exists():
+        try:
+            pid = int(SMS_PID_FILE.read_text().strip())
+            if _sms_terminate_process(pid):
+                renderer.info("Stopped active SMS bridge.")
+            if SMS_PID_FILE.exists():
+                SMS_PID_FILE.unlink()
+        except Exception:
+            pass
+
     logout()
     renderer.success(f"Logged out of {auth.get('email', 'account')}.")
 
@@ -2094,19 +2110,55 @@ def _sms_backend():
 def _sms_process_alive(pid: int) -> bool:
     """Cross-platform "is this PID still running?" check.
 
-    `os.kill(pid, 0)` is the POSIX idiom but on Windows it raises
-    `OSError: [WinError 87] The parameter is incorrect` because Windows
-    doesn't support signal 0. Use `tasklist /FI "PID eq <pid>"` on
-    Windows instead — it's a built-in command that ships with every
-    supported Windows version.
+    On Windows, we use in-process Win32 Toolhelp snapshots to query the active PID
+    extremely quickly without calling slow and potentially hung CLI commands like tasklist.
     """
     if sys.platform == "win32":
         try:
-            r = subprocess.run(
-                ["tasklist", "/FI", f"PID eq {pid}", "/NH", "/FO", "CSV"],
-                capture_output=True, text=True, timeout=3,
-            )
-            return str(pid) in (r.stdout or "")
+            import ctypes
+            from ctypes import wintypes
+
+            class PROCESSENTRY32(ctypes.Structure):
+                _fields_ = [
+                    ("dwSize", wintypes.DWORD),
+                    ("cntUsage", wintypes.DWORD),
+                    ("th32ProcessID", wintypes.DWORD),
+                    ("th32DefaultHeapID", ctypes.c_size_t),
+                    ("th32ModuleID", wintypes.DWORD),
+                    ("cntThreads", wintypes.DWORD),
+                    ("th32ParentProcessID", wintypes.DWORD),
+                    ("pcPriClassBase", wintypes.LONG),
+                    ("dwFlags", wintypes.DWORD),
+                    ("szExeFile", ctypes.c_char * 260)
+                ]
+
+            CreateToolhelp32Snapshot = ctypes.windll.kernel32.CreateToolhelp32Snapshot
+            CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
+            CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+            Process32First = ctypes.windll.kernel32.Process32First
+            Process32First.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32)]
+            Process32First.restype = wintypes.BOOL
+            Process32Next = ctypes.windll.kernel32.Process32Next
+            Process32Next.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32)]
+            Process32Next.restype = wintypes.BOOL
+            CloseHandle = ctypes.windll.kernel32.CloseHandle
+            CloseHandle.argtypes = [wintypes.HANDLE]
+            CloseHandle.restype = wintypes.BOOL
+
+            TH32CS_SNAPPROCESS = 0x00000002
+            hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
+            found = False
+            if hSnapshot != -1:
+                pe = PROCESSENTRY32()
+                pe.dwSize = ctypes.sizeof(PROCESSENTRY32)
+                retval = Process32First(hSnapshot, ctypes.byref(pe))
+                while retval:
+                    if pe.th32ProcessID == pid:
+                        found = True
+                        break
+                    retval = Process32Next(hSnapshot, ctypes.byref(pe))
+                CloseHandle(hSnapshot)
+            return found
         except Exception:
             return False
     try:
@@ -2119,19 +2171,30 @@ def _sms_process_alive(pid: int) -> bool:
 def _sms_terminate_process(pid: int) -> bool:
     """Cross-platform "terminate this PID" — equivalent of SIGTERM.
 
-    On Windows, `os.kill(pid, signal.SIGTERM)` raises
-    `OSError: [WinError 5] Access is denied` for any process the
-    current user didn't spawn with appropriate flags. Use `taskkill /PID`
-    instead, which respects user-process ACLs and is the canonical way
-    to terminate a Windows process by PID.
+    On Windows, we use the Win32 TerminateProcess API directly to kill the target PID
+    instantly, bypassing the potentially slow taskkill command.
     """
     if sys.platform == "win32":
         try:
-            r = subprocess.run(
-                ["taskkill", "/PID", str(pid), "/F", "/T"],
-                capture_output=True, text=True, timeout=5,
-            )
-            return r.returncode == 0
+            import ctypes
+            from ctypes import wintypes
+            OpenProcess = ctypes.windll.kernel32.OpenProcess
+            OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+            OpenProcess.restype = wintypes.HANDLE
+            TerminateProcess = ctypes.windll.kernel32.TerminateProcess
+            TerminateProcess.argtypes = [wintypes.HANDLE, wintypes.UINT]
+            TerminateProcess.restype = wintypes.BOOL
+            CloseHandle = ctypes.windll.kernel32.CloseHandle
+            CloseHandle.argtypes = [wintypes.HANDLE]
+            CloseHandle.restype = wintypes.BOOL
+
+            PROCESS_TERMINATE = 0x0001
+            hProcess = OpenProcess(PROCESS_TERMINATE, False, pid)
+            if hProcess:
+                ok = TerminateProcess(hProcess, 1)
+                CloseHandle(hProcess)
+                return bool(ok)
+            return False
         except Exception:
             return False
     try:

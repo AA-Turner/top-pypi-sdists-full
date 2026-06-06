@@ -10,8 +10,7 @@ from collections.abc import Callable
 from typing import Any, Optional
 
 from pyrit.common.path import CONVERTER_SEED_PROMPT_PATH
-from pyrit.identifiers import ComponentIdentifier
-from pyrit.models import PromptDataType, SeedPrompt
+from pyrit.models import ComponentIdentifier, PromptDataType, SeedPrompt
 from pyrit.prompt_converter.prompt_converter import ConverterResult, PromptConverter
 
 
@@ -79,7 +78,7 @@ class CodeChameleonConverter(PromptConverter):
                     raise ValueError("Encryption and decryption functions not provided for custom encrypt_type.")
                 self.encrypt_function = encrypt_function
                 if isinstance(decrypt_function, list):
-                    self.decrypt_function = self._stringify_decrypt(decrypt_function)
+                    self.decrypt_function = self._stringify_decrypt(decrypt_function)  # type: ignore[ty:invalid-argument-type]
                 else:
                     self.decrypt_function = self._stringify_decrypt([decrypt_function])
             case "reverse":
@@ -132,7 +131,7 @@ class CodeChameleonConverter(PromptConverter):
         if not self.input_supported(input_type):
             raise ValueError("Input type not supported")
 
-        encoded_prompt = str(self.encrypt_function(prompt)) if self.encrypt_function else prompt
+        encoded_prompt = str(self.encrypt_function(prompt)) if self.encrypt_function is not None else prompt
 
         seed_prompt = SeedPrompt.from_yaml_file(
             pathlib.Path(CONVERTER_SEED_PROMPT_PATH) / "codechameleon_converter.yaml"

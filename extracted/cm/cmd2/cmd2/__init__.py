@@ -11,19 +11,21 @@ from . import (
     rich_utils,
     string_utils,
 )
-from .argparse_completer import set_default_ap_completer_type
-from .argparse_custom import (
+from .annotated import with_annotated
+from .argparse_completer import set_default_argparse_completer
+from .argparse_utils import (
     Cmd2ArgumentParser,
-    Cmd2AttributeWrapper,
-    CompletionItem,
+    SubcommandRecord,
     register_argparse_argument_parameter,
-    set_default_argument_parser_type,
+    set_default_argument_parser,
 )
 from .cmd2 import Cmd
 from .colors import Color
-from .command_definition import (
-    CommandSet,
-    with_default_category,
+from .command_set import CommandSet
+from .completion import (
+    Choices,
+    CompletionItem,
+    Completions,
 )
 from .constants import (
     COMMAND_NAME,
@@ -44,58 +46,82 @@ from .exceptions import (
 )
 from .parsing import Statement
 from .py_bridge import CommandResult
-from .rich_utils import RichPrintKwargs
+from .rich_utils import (
+    ArgumentDefaultsCmd2HelpFormatter,
+    Cmd2HelpFormatter,
+    MetavarTypeCmd2HelpFormatter,
+    RawDescriptionCmd2HelpFormatter,
+    RawTextCmd2HelpFormatter,
+    TextGroup,
+)
 from .string_utils import stylize
 from .styles import Cmd2Style
+from .theme import (
+    get_theme,
+    reset_theme,
+    update_theme,
+)
 from .utils import (
-    CompletionMode,
     CustomCompletionSettings,
     Settable,
     categorize,
+    set_default_str_sort_key,
 )
 
 __all__: list[str] = [  # noqa: RUF022
-    'COMMAND_NAME',
-    'DEFAULT_SHORTCUTS',
+    "COMMAND_NAME",
+    "DEFAULT_SHORTCUTS",
     # Argparse Exports
-    'Cmd2ArgumentParser',
-    'Cmd2AttributeWrapper',
-    'CompletionItem',
-    'register_argparse_argument_parameter',
-    'set_default_ap_completer_type',
-    'set_default_argument_parser_type',
+    "Cmd2ArgumentParser",
+    "SubcommandRecord",
+    "register_argparse_argument_parameter",
+    "set_default_argparse_completer",
+    "set_default_argument_parser",
     # Cmd2
-    'Cmd',
-    'CommandResult',
-    'CommandSet',
-    'Statement',
+    "Cmd",
+    "CommandResult",
+    "CommandSet",
+    "Statement",
     # Colors
     "Color",
+    # Completion
+    "Choices",
+    "CompletionItem",
+    "Completions",
     # Decorators
-    'with_argument_list',
-    'with_argparser',
-    'with_category',
-    'with_default_category',
-    'as_subcommand_to',
+    "with_annotated",
+    "with_argument_list",
+    "with_argparser",
+    "with_category",
+    "as_subcommand_to",
     # Exceptions
-    'Cmd2ArgparseError',
-    'CommandSetRegistrationError',
-    'CompletionError',
-    'PassThroughException',
-    'SkipPostcommandHooks',
+    "Cmd2ArgparseError",
+    "CommandSetRegistrationError",
+    "CompletionError",
+    "PassThroughException",
+    "SkipPostcommandHooks",
     # modules
-    'plugin',
-    'rich_utils',
-    'string_utils',
+    "plugin",
+    "rich_utils",
+    "string_utils",
     # Rich Utils
-    'RichPrintKwargs',
+    "ArgumentDefaultsCmd2HelpFormatter",
+    "Cmd2HelpFormatter",
+    "MetavarTypeCmd2HelpFormatter",
+    "RawDescriptionCmd2HelpFormatter",
+    "RawTextCmd2HelpFormatter",
+    "TextGroup",
     # String Utils
-    'stylize',
-    # Styles,
+    "stylize",
+    # Styles
     "Cmd2Style",
+    # Theme
+    "get_theme",
+    "reset_theme",
+    "update_theme",
     # Utilities
-    'categorize',
-    'CompletionMode',
-    'CustomCompletionSettings',
-    'Settable',
+    "categorize",
+    "CustomCompletionSettings",
+    "Settable",
+    "set_default_str_sort_key",
 ]

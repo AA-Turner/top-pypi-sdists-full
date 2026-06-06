@@ -27,10 +27,20 @@ from __future__ import annotations
 import logging
 import shutil
 import subprocess
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import esphome_device_builder
+
 _LOGGER = logging.getLogger(__name__)
+
+# The installed Device Builder package dir. Only ever sits inside a source
+# checkout's git work tree, never under a user's /config — so it identifies the
+# one repo we must never adopt as a history store: a config dir kept inside the
+# clone (``--dev configs``) would otherwise commit user YAML into the project.
+# Resolved from the package itself so it survives this module being moved.
+_OWN_SOURCE_ROOT = Path(esphome_device_builder.__file__).resolve().parent
 
 # Errors a commit attempt raises for genuine git / environment reasons
 # (a failed ``git`` invocation, the binary vanishing) as opposed to a
@@ -73,6 +83,16 @@ _SECRETS_FILENAME = "secrets.yaml"
 # Glob patterns for the YAML configs this feature versions.
 _YAML_GLOBS = ("*.yaml", "*.yml")
 
+# Min age before a leftover ``index.lock`` counts as stale and is cleared;
+# younger than this a live git may still hold it, so we leave it alone.
+_STALE_LOCK_SECONDS = 30.0
+
+# Repo-local git-config verdict (``true``/``false``) for whether we own a
+# repo. Written at init and cached on the first adopt so ownership survives a
+# restart and the seed-root backfill scan runs at most once per repo. Unset
+# means "not yet resolved"; an adopted user repo ends up cached ``false``.
+_MANAGED_CONFIG_KEY = "device-builder.managed"
+
 # Written only when *we* create the repo and no ``.gitignore`` exists; a
 # pre-existing one is left untouched (the local exclude is what actually
 # protects the secrets above). ``secrets.yaml`` is ignored here — not in
@@ -87,6 +107,22 @@ _DEFAULT_GITIGNORE = "".join(
         "secrets.yaml\n",
     ]
 )
+
+
+class GitCommandError(subprocess.CalledProcessError):
+    """``CalledProcessError`` whose ``str`` carries git's stderr.
+
+    Plain ``CalledProcessError`` renders only the exit status, so a
+    logged ``exc_info`` drops the ``fatal:`` line that says *why* — the
+    one fact needed to triage a failed commit (stale ``index.lock``,
+    dubious ownership, disk full).
+    """
+
+    def __str__(self) -> str:
+        """Exit-status line followed by git's trimmed stderr, when present."""
+        detail = (self.stderr or "").strip()
+        base = super().__str__()
+        return f"{base}: {detail}" if detail else base
 
 
 @dataclass(slots=True)
@@ -108,6 +144,10 @@ class GitRepo:
     git_bin: str | None = None
     toplevel: Path | None = None
     enabled: bool = field(default=False)
+    # True for a repo *we* initialised, set from the persisted
+    # _MANAGED_CONFIG_KEY so it survives a restart's adopt path. Gates
+    # stale-index.lock recovery; an adopted user repo is never ours.
+    managed: bool = field(default=False)
 
     # ------------------------------------------------------------------
     # lifecycle
@@ -127,12 +167,20 @@ class GitRepo:
             return
         try:
             toplevel = self._discover_toplevel()
-            if toplevel is not None:
+            if toplevel is not None and not _encloses_own_source(toplevel):
                 self.toplevel = toplevel
                 self.enabled = True
+                self.managed = self._adopt_ownership()
                 self._ensure_local_excludes()
                 _LOGGER.debug("Adopted existing git work tree at %s", toplevel)
                 return
+            if toplevel is not None:
+                _LOGGER.info(
+                    "Config dir %s is inside the Device Builder source checkout (%s); "
+                    "creating a config-local history repo instead of committing into it",
+                    self.config_dir,
+                    toplevel,
+                )
             self._init_repo()
         except OSError as exc:
             _LOGGER.warning("Could not set up version-history git repo: %s", exc)
@@ -162,6 +210,8 @@ class GitRepo:
         self._run(["init", str(self.config_dir)], cwd=self.config_dir, check=True)
         self.toplevel = self.config_dir
         self.enabled = True
+        self.managed = True
+        self._mark_managed(managed=True)
         self._ensure_local_excludes()
         gitignore = self.config_dir / ".gitignore"
         if not gitignore.exists():
@@ -268,11 +318,11 @@ class GitRepo:
         if not self.enabled or not paths:
             return None
         spec = [str(p) for p in paths]
-        self._run(["add", "-A", "--", *spec], check=True)
+        self._run_write(["add", "-A", "--", *spec])
         staged = self._run(["diff", "--cached", "--quiet", "--", *spec], check=False)
         if staged.returncode == 0:
             return None  # nothing staged for these paths
-        self._run(self._commit_argv(message, tuple(spec)), check=True)
+        self._run_write(self._commit_argv(message, tuple(spec)))
         head = self._run(["rev-parse", "HEAD"], check=False)
         return head.stdout.strip() if head.returncode == 0 else None
 
@@ -378,6 +428,103 @@ class GitRepo:
     # internals
     # ------------------------------------------------------------------
 
+    def _run_write(self, args: list[str]) -> None:
+        """Run a checked git write, clearing a *stale* index.lock and retrying once."""
+        try:
+            self._run(args, check=True)
+        except subprocess.CalledProcessError as exc:
+            if not self._clear_stale_index_lock(exc):
+                raise
+            self._run(args, check=True)
+
+    def _clear_stale_index_lock(self, exc: subprocess.CalledProcessError) -> bool:
+        """
+        Remove the index.lock blamed by *exc* iff it's stale; return whether removed.
+
+        Gated on ownership (only a repo we manage, never an adopted
+        ``/config``) and age (:data:`_STALE_LOCK_SECONDS`), so a lock a
+        live git is actively holding is never deleted out from under it.
+        """
+        if not self.managed or "index.lock" not in (exc.stderr or ""):
+            return False
+        lock = self._index_lock_path()
+        if lock is None or not lock.exists():
+            return False
+        try:
+            age = time.time() - lock.stat().st_mtime
+        except OSError:
+            return False
+        if age < _STALE_LOCK_SECONDS:
+            return False  # fresh — a live git may hold it; don't clobber
+        try:
+            lock.unlink()
+        except OSError as unlink_exc:
+            _LOGGER.warning("Could not remove stale git index.lock at %s: %s", lock, unlink_exc)
+            return False
+        _LOGGER.warning("Removed stale git index.lock at %s (age %.0fs)", lock, age)
+        return True
+
+    def _adopt_ownership(self) -> bool:
+        """
+        Resolve whether an adopted repo is one we own, caching the verdict once.
+
+        A prior run's cached :data:`_MANAGED_CONFIG_KEY` short-circuits.
+        Otherwise the seed-root backfill identifies repos we created before
+        the marker existed; the verdict (ours or not) is stamped so the scan
+        runs at most once. A scan that couldn't run is left uncached.
+        """
+        cached = self._read_managed_flag()
+        if cached is not None:
+            return cached
+        owned = self._looks_self_initialised()
+        if owned is None:
+            return False  # couldn't determine; re-resolve next start
+        self._mark_managed(managed=owned)
+        return owned
+
+    def _mark_managed(self, *, managed: bool) -> None:
+        """Persist the ownership verdict so the next start skips re-deriving it."""
+        value = "true" if managed else "false"
+        result = self._run(["config", "--local", _MANAGED_CONFIG_KEY, value], check=False)
+        if result.returncode != 0:
+            _LOGGER.warning(
+                "Could not stamp managed flag on %s: %s", self.toplevel, result.stderr.strip()
+            )
+
+    def _read_managed_flag(self) -> bool | None:
+        """Return the cached ownership verdict from a prior run, or ``None`` if unresolved."""
+        result = self._run(["config", "--local", "--get", _MANAGED_CONFIG_KEY], check=False)
+        if result.returncode != 0:
+            return None
+        return result.stdout.strip() == "true"
+
+    def _looks_self_initialised(self) -> bool | None:
+        """
+        Whether a root commit was authored by our seed — backfill for pre-marker repos.
+
+        The ``Initialize version history`` seed is authored by our identity,
+        which an adopted user repo's root commit never is; git filters on
+        the author so we only ask whether such a root exists. ``None`` when
+        the query couldn't run (e.g. a repo with no commits yet).
+        """
+        result = self._run(
+            ["log", "--max-parents=0", f"--author={_COMMIT_EMAIL}", "--format=%H"],
+            check=False,
+        )
+        if result.returncode != 0:
+            return None
+        return bool(result.stdout.strip())
+
+    def _index_lock_path(self) -> Path | None:
+        """Resolve the work tree's ``index.lock`` path (handles split git dirs)."""
+        result = self._run(["rev-parse", "--git-path", "index.lock"], check=False)
+        if result.returncode != 0 or not result.stdout.strip():
+            return None
+        lock = Path(result.stdout.strip())
+        if not lock.is_absolute():
+            lock = (self.toplevel or self.config_dir) / lock
+        return lock
+
     def _rel_to_toplevel(self, path: Path) -> str:
         """Return *path* relative to the work-tree root (git's pathspec base)."""
         assert self.toplevel is not None
@@ -393,7 +540,12 @@ class GitRepo:
         check: bool,
         cwd: Path | None = None,
     ) -> subprocess.CompletedProcess[str]:
-        """Run ``git`` with *args* in the work tree; capture text output."""
+        """Run ``git`` with *args* in the work tree; capture text output.
+
+        Checks the exit status here (rather than via ``check=True``) so a
+        failure raises :class:`GitCommandError`, whose ``str`` carries the
+        ``fatal:`` stderr line a bare ``CalledProcessError`` would drop.
+        """
         assert self.git_bin is not None
         # git_bin is a resolved absolute path from shutil.which and the
         # args are a fixed argv (never shell-interpreted), so the only
@@ -402,11 +554,28 @@ class GitRepo:
         # close_fds=True makes the child iterate the fd table before
         # exec, which is pure overhead on memory-pressured systems; our
         # spawns don't rely on inherited fds being closed at the boundary.
-        return subprocess.run(  # noqa: S603
-            [self.git_bin, *args],
+        # --no-optional-locks stops reads from grabbing index.lock for an
+        # optional refresh, so an unlocked read can't contend with a commit;
+        # the required lock add/commit take is unaffected.
+        result = subprocess.run(  # noqa: S603
+            [self.git_bin, "--no-optional-locks", *args],
             cwd=str(cwd or self.toplevel or self.config_dir),
             capture_output=True,
             text=True,
-            check=check,
+            check=False,
             close_fds=False,
         )
+        if check and result.returncode != 0:
+            raise GitCommandError(
+                result.returncode, result.args, output=result.stdout, stderr=result.stderr
+            )
+        return result
+
+
+def _encloses_own_source(toplevel: Path) -> bool:
+    """Whether *toplevel* is the Device Builder's own source checkout."""
+    try:
+        _OWN_SOURCE_ROOT.relative_to(toplevel.resolve())
+    except ValueError:
+        return False
+    return True

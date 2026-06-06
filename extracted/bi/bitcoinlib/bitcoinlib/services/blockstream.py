@@ -2,7 +2,7 @@
 #
 #    BitcoinLib - Python Cryptocurrency Library
 #    BlockstreamClient client
-#    © 2019 November - 1200 Web Development <http://1200wd.com/>
+#    © 2019-2026 June - 1200 Web Development <http://1200wd.com/>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU Affero General Public License as
@@ -188,9 +188,6 @@ class BlockstreamClient(BaseClient):
     def estimatefee(self, blocks):
         est = self.compose_request('fee-estimates')
         closest = (sorted([int(i) - blocks for i in est.keys() if int(i) - blocks >= 0]))
-        # FIXME: temporary fix for too low testnet tx fees:
-        if self.network.name == 'testnet':
-            return 2000
         if closest:
             return round(est[str(closest[0] + blocks)] * 1000)
         else:

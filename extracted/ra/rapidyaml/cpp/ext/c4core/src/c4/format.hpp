@@ -285,18 +285,16 @@ C4_ALWAYS_INLINE overflow_checked_<T> overflow_checked(T &val)
 /** format an integer signed type
  * @ingroup doc_to_chars */
 template<typename T>
-C4_ALWAYS_INLINE
-typename std::enable_if<std::is_signed<T>::value, size_t>::type
-to_chars(substr buf, fmt::integral_<T> fmt)
+C4_ALWAYS_INLINE auto to_chars(substr buf, fmt::integral_<T> fmt)
+    -> typename std::enable_if<std::is_signed<T>::value, size_t>::type
 {
     return itoa(buf, fmt.val, fmt.radix);
 }
 /** format an integer signed type, pad with zeroes
  * @ingroup doc_to_chars */
 template<typename T>
-C4_ALWAYS_INLINE
-typename std::enable_if<std::is_signed<T>::value, size_t>::type
-to_chars(substr buf, fmt::integral_padded_<T> fmt)
+C4_ALWAYS_INLINE auto to_chars(substr buf, fmt::integral_padded_<T> fmt)
+    -> typename std::enable_if<std::is_signed<T>::value, size_t>::type
 {
     return itoa(buf, fmt.val, fmt.radix, fmt.num_digits);
 }
@@ -304,18 +302,16 @@ to_chars(substr buf, fmt::integral_padded_<T> fmt)
 /** format an integer unsigned type
  * @ingroup doc_to_chars */
 template<typename T>
-C4_ALWAYS_INLINE
-typename std::enable_if<std::is_unsigned<T>::value, size_t>::type
-to_chars(substr buf, fmt::integral_<T> fmt)
+C4_ALWAYS_INLINE auto to_chars(substr buf, fmt::integral_<T> fmt)
+    -> typename std::enable_if<std::is_unsigned<T>::value, size_t>::type
 {
     return utoa(buf, fmt.val, fmt.radix);
 }
 /** format an integer unsigned type, pad with zeroes
  * @ingroup doc_to_chars */
 template<typename T>
-C4_ALWAYS_INLINE
-typename std::enable_if<std::is_unsigned<T>::value, size_t>::type
-to_chars(substr buf, fmt::integral_padded_<T> fmt)
+C4_ALWAYS_INLINE auto to_chars(substr buf, fmt::integral_padded_<T> fmt)
+    -> typename std::enable_if<std::is_unsigned<T>::value, size_t>::type
 {
     return utoa(buf, fmt.val, fmt.radix, fmt.num_digits);
 }
@@ -1334,7 +1330,9 @@ template<class CharOwningContainer, class... Args>
 inline csubstr formatrs_append(CharOwningContainer * C4_RESTRICT cont, csubstr fmt, Args const& C4_RESTRICT ...args)
 {
     const size_t pos = cont->size();
+    C4_SUPPRESS_WARNING_GCC_WITH_PUSH("-Warray-bounds")
     cont->resize(cont->capacity()); // improve the odds of fitting in the original buffer
+    C4_SUPPRESS_WARNING_GCC_POP
 retry:
     substr buf = to_substr(*cont).sub(pos);
     size_t ret = format(buf, fmt, args...);

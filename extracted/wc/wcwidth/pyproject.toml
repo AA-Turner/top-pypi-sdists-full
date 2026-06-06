@@ -4,7 +4,7 @@ requires = [ "hatchling" ]
 
 [project]
 name = "wcwidth"
-version = "0.7.0"  # don't forget to also update wcwidth/__init__.py:__version__
+version = "0.8.0"  # don't forget to also update wcwidth/__init__.py:__version__
 description = "Measures the displayed width of unicode strings in a terminal"
 readme = "README.rst"
 keywords = [
@@ -40,6 +40,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Topic :: Software Development :: Internationalization",
   "Topic :: Software Development :: Libraries",
   "Topic :: Software Development :: Localization",
@@ -69,3 +70,6 @@ include = [
   "/.gitignore",
   "/.pylintrc",
 ]
+
+[tool.hatch.build.targets.sdist.force-include]
+"ucs-detect/data" = "ucs-detect/data"

@@ -181,8 +181,6 @@ def build_image(
         DockerBuildError: If build fails
     """
     try:
-        client = docker.from_env()
-
         context_path = Path(context).resolve()
         if not context_path.exists():
             raise DockerBuildError(f"Build context not found: {context}")
@@ -190,6 +188,8 @@ def build_image(
         dockerfile_path = context_path / dockerfile
         if not dockerfile_path.exists():
             raise DockerBuildError(f"Dockerfile not found: {dockerfile_path}")
+
+        client = docker.from_env()
 
         build_kwargs: dict[str, Any] = {
             "path": str(context_path),
@@ -260,6 +260,8 @@ def build_image(
         raise DockerBuildError(f"Docker build failed: {e}")
     except APIError as e:
         raise DockerBuildError(f"Docker API error: {e}")
+    except DockerBuildError:
+        raise
     except Exception as e:
         raise DockerBuildError(f"Unexpected error during build: {e}")
 
@@ -294,14 +296,19 @@ def tag_image(image_id: str, repository: str, tag: str) -> str:
 
 def push_image(image_tag: str, auth_config: Optional[dict[str, str]] = None) -> str:
     """
-    Push a Docker image to a registry and get its digest.
+    Push a Docker image to a registry and return the digest the registry serves.
+
+    The returned digest is resolved from the registry (not from the local push
+    response), so it is always safe to pin for ECS. See
+    ``_resolve_registry_digest`` for why the locally-reported digest can't be
+    trusted.
 
     Args:
         image_tag: Full image tag (e.g., "registry/repo:tag")
         auth_config: Optional request-scoped auth for the registry
 
     Returns:
-        Image digest (SHA256 hash) of the pushed image
+        Manifest digest (sha256:...) as served by the registry
 
     Raises:
         DockerPushError: If push fails
@@ -310,8 +317,6 @@ def push_image(image_tag: str, auth_config: Optional[dict[str, str]] = None) -> 
         client = docker.from_env()
 
         console.print("\nPushing image to registry")
-
-        image_digest = None
 
         with Progress(
             SpinnerColumn(),
@@ -330,10 +335,6 @@ def push_image(image_tag: str, auth_config: Optional[dict[str, str]] = None) -> 
                     error_msg = line.get("error", "Unknown error")
                     console.print(f"\n[red]ERROR: {error_msg}[/red]\n")
                     raise DockerPushError(f"Push failed: {error_msg}")
-
-                if "aux" in line and "Digest" in line.get("aux", {}):
-                    image_digest = line["aux"]["Digest"]
-                    continue
 
                 if "status" not in line:
                     continue
@@ -358,18 +359,7 @@ def push_image(image_tag: str, auth_config: Optional[dict[str, str]] = None) -> 
 
         console.print(f"[bold green]\n{escape(OK)} Push completed\n[/bold green]")
 
-        # If we didn't get the digest from push response, inspect the image
-        if not image_digest:
-            image = client.images.get(image_tag)
-            repo_digests = getattr(image, "attrs", {}).get("RepoDigests", [])
-            if repo_digests:
-                # Extract just the digest part (sha256:...)
-                image_digest = repo_digests[0].split("@")[-1]
-
-        if not image_digest:
-            raise DockerPushError("Failed to get image digest after push")
-
-        return image_digest
+        return _resolve_registry_digest(image_tag, auth_config=auth_config)
 
     except DockerPushError:
         raise
@@ -377,6 +367,48 @@ def push_image(image_tag: str, auth_config: Optional[dict[str, str]] = None) -> 
         raise DockerPushError(f"Docker API error during push: {e}")
     except Exception as e:
         raise DockerPushError(f"Unexpected error during push: {e}")
+
+
+def _resolve_registry_digest(
+    image_tag: str, auth_config: Optional[dict[str, str]] = None
+) -> str:
+    """
+    Resolve the authoritative manifest digest the registry serves for a tag.
+
+    The digest reported locally after `docker push` (``aux.Digest`` / the image's
+    ``RepoDigests``) can differ from the digest the registry actually stores and
+    serves — e.g. with Docker's containerd image store, OCI/manifest-list shapes,
+    or buildx attestation manifests. Pinning the local digest then makes ECS pull
+    a digest ECR never had (CannotPullContainerError). Query the registry directly
+    so we pin the digest ECS will actually be able to pull.
+
+    Args:
+        image_tag: Full image tag pushed to the registry (e.g. "repo:tag")
+        auth_config: Optional request-scoped auth for the registry
+
+    Returns:
+        Manifest digest (sha256:...) as served by the registry
+
+    Raises:
+        DockerPushError: If the digest cannot be resolved from the registry
+    """
+    try:
+        client = docker.from_env()
+        registry_data = client.images.get_registry_data(
+            image_tag, auth_config=auth_config
+        )
+        digest = registry_data.id
+    except APIError as e:
+        raise DockerPushError(f"Failed to resolve registry digest for {image_tag}: {e}")
+    except Exception as e:
+        raise DockerPushError(
+            f"Unexpected error resolving registry digest for {image_tag}: {e}"
+        )
+
+    if not digest:
+        raise DockerPushError(f"Registry returned no digest for {image_tag}")
+
+    return digest
 
 
 def build_and_push(

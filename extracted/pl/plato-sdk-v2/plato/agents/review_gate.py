@@ -87,6 +87,7 @@ def attach_review_gate(
     merge_fn: Callable[[], Awaitable[bool | ReviewGateMergeResult]] | None = None,
     reviewed_commit_fn: Callable[[], str | None] | None = None,
     max_continuations: int = 2,
+    max_zero_cost_continuations: int | None = None,
     compaction_instruction: str | Callable[[], str] | None = None,
     checkpoint_fn: Callable[[str], Awaitable[None]] | None = None,
     result_dir: Path | None = None,
@@ -108,7 +109,12 @@ def attach_review_gate(
         merge_fn: Optional async function that merges the branch. Returns True on success.
         reviewed_commit_fn: Optional function that returns the commit SHA currently
             under review. Attached to the span as ``plato.review.commit_sha`` when available.
-        max_continuations: Max retry attempts after the initial run.
+        max_continuations: Max retry attempts after the initial run. Charged
+            against review failures (cap_cost > 0).
+        max_zero_cost_continuations: Max retry attempts charged against zero-cost
+            failures (build/merge, cap_cost == 0). These don't deplete the review
+            budget, but are bounded here so a never-converging merge-conflict loop
+            can't retry indefinitely. Defaults to ``max_continuations``.
         compaction_instruction: Optional ``/compact <instructions>`` message run on
             the live session after each execution and before review (see
             AgentTask._run_session_compaction), to shrink the continued session
@@ -369,6 +375,7 @@ def attach_review_gate(
         continuation_instruction=_build_continuation_instruction,
         on_exhausted=_handle_review_exhaustion,
         continuation_cap_cost=lambda: _last_continuation_cap_cost,
+        max_zero_cost_continuations=max_zero_cost_continuations,
         compaction_instruction=compaction_instruction,
     )
     return runner

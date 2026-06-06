@@ -4,7 +4,14 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from connector.httpx_rewrite import AsyncClient
 from connector.oai.capability import AuthRequest, get_settings
-from connector.oai.errors import ConnectorError
+from connector.oai.errors import (
+    AuthenticationError,
+    AuthenticationExpiredError,
+    AuthorizationError,
+    ConnectorError,
+    RateLimitError,
+    UpstreamError,
+)
 from connector.oai.integration import DescriptionData, Integration
 from connector.oai.modules.oauth_module import OAuthModule
 from connector.oai.modules.oauth_module_types import (
@@ -647,7 +654,7 @@ async def test_handle_authorization_callback_error(integration):
     )
 
     with patch.object(AsyncClient, "request", return_value=mock_response):
-        with pytest.raises(ConnectorError):
+        with pytest.raises(AuthenticationExpiredError):
             await integration.capabilities[StandardCapabilityName.HANDLE_AUTHORIZATION_CALLBACK](
                 request
             )
@@ -888,3 +895,115 @@ async def test_handle_authorization_callback_with_credentials_uses_credential_id
     assert response.response.access_token == "test_access_token"
     mock_request.assert_called_once()
     assert mock_request.call_args.kwargs["url"] == "https://example.com/token2"
+
+
+# raise_for_oauth_status
+
+_TOKEN_REQUEST = Request("POST", "https://example.com/token")
+_TOKEN_URL = "https://example.com/token"
+
+
+def _oauth_response(status_code: int, body: dict | str) -> Response:
+    if isinstance(body, dict):
+        return Response(status_code, json=body, request=_TOKEN_REQUEST)
+    return Response(status_code, content=body.encode(), request=_TOKEN_REQUEST)
+
+
+def test_raise_for_oauth_status_2xx_does_not_raise():
+    OAuthModule.raise_for_oauth_status(_oauth_response(200, {"access_token": "tok"}), _TOKEN_URL)
+
+
+def test_raise_for_oauth_status_401_raises_authentication_error():
+    with pytest.raises(AuthenticationError) as exc_info:
+        OAuthModule.raise_for_oauth_status(
+            _oauth_response(401, {"error": "invalid_client"}), _TOKEN_URL
+        )
+    meta = exc_info.value.get_error_metadata()
+    assert meta.retryable is False
+    assert meta.refreshable is False
+
+
+def test_raise_for_oauth_status_400_invalid_grant_raises_authentication_expired():
+    with pytest.raises(AuthenticationExpiredError) as exc_info:
+        OAuthModule.raise_for_oauth_status(
+            _oauth_response(400, {"error": "invalid_grant", "error_description": "Token expired"}),
+            _TOKEN_URL,
+        )
+    meta = exc_info.value.get_error_metadata()
+    assert meta.retryable is False
+    assert meta.refreshable is False
+
+
+def test_raise_for_oauth_status_400_invalid_client_raises_authentication_error():
+    with pytest.raises(AuthenticationError) as exc_info:
+        OAuthModule.raise_for_oauth_status(
+            _oauth_response(400, {"error": "invalid_client"}), _TOKEN_URL
+        )
+    meta = exc_info.value.get_error_metadata()
+    assert meta.retryable is False
+    assert meta.refreshable is False
+
+
+def test_raise_for_oauth_status_403_raises_authorization_error():
+    with pytest.raises(AuthorizationError) as exc_info:
+        OAuthModule.raise_for_oauth_status(_oauth_response(403, {"error": "forbidden"}), _TOKEN_URL)
+    assert exc_info.value.get_error_metadata().retryable is False
+
+
+def test_raise_for_oauth_status_400_access_denied_raises_authorization_error():
+    with pytest.raises(AuthorizationError) as exc_info:
+        OAuthModule.raise_for_oauth_status(
+            _oauth_response(400, {"error": "access_denied"}), _TOKEN_URL
+        )
+    assert exc_info.value.get_error_metadata().retryable is False
+
+
+def test_raise_for_oauth_status_400_unauthorized_client_raises_authorization_error():
+    with pytest.raises(AuthorizationError) as exc_info:
+        OAuthModule.raise_for_oauth_status(
+            _oauth_response(400, {"error": "unauthorized_client"}), _TOKEN_URL
+        )
+    assert exc_info.value.get_error_metadata().retryable is False
+
+
+def test_raise_for_oauth_status_429_raises_rate_limit_error():
+    with pytest.raises(RateLimitError) as exc_info:
+        OAuthModule.raise_for_oauth_status(
+            _oauth_response(429, {"error": "rate_limit_exceeded"}), _TOKEN_URL
+        )
+    meta = exc_info.value.get_error_metadata()
+    assert meta.retryable is False
+    assert meta.throttled is False
+
+
+def test_raise_for_oauth_status_500_raises_upstream_error():
+    with pytest.raises(UpstreamError) as exc_info:
+        OAuthModule.raise_for_oauth_status(
+            _oauth_response(500, {"error": "server_error"}), _TOKEN_URL
+        )
+    assert exc_info.value.get_error_metadata().retryable is False
+
+
+def test_raise_for_oauth_status_503_raises_upstream_error():
+    with pytest.raises(UpstreamError) as exc_info:
+        OAuthModule.raise_for_oauth_status(_oauth_response(503, "Service Unavailable"), _TOKEN_URL)
+    assert exc_info.value.get_error_metadata().retryable is False
+
+
+def test_raise_for_oauth_status_non_json_body_falls_back_to_authentication_error():
+    with pytest.raises(AuthenticationError) as exc_info:
+        OAuthModule.raise_for_oauth_status(_oauth_response(400, "Bad Request"), _TOKEN_URL)
+    meta = exc_info.value.get_error_metadata()
+    assert meta.retryable is False
+    assert meta.refreshable is False
+
+
+def test_raise_for_oauth_status_message_includes_status_and_strips_query_params():
+    with pytest.raises(AuthenticationError) as exc_info:
+        OAuthModule.raise_for_oauth_status(
+            _oauth_response(401, {"error": "invalid_client"}),
+            "https://example.com/token?client_secret=s3cr3t",
+        )
+    assert "[401]" in exc_info.value.message
+    assert "https://example.com/token" in exc_info.value.message
+    assert "client_secret=s3cr3t" not in exc_info.value.message

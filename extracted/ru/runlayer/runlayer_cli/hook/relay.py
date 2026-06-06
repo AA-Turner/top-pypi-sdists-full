@@ -1,8 +1,4 @@
-"""HTTP relay for hook enforcement and event forwarding.
-
-Shares the same endpoints and credential resolution as ``runlayer hooks relay``
-but runs in-process (no subprocess needed).
-"""
+"""HTTP relay for hook enforcement and event forwarding (runs in-process)."""
 
 from __future__ import annotations
 
@@ -15,66 +11,73 @@ import time
 from pathlib import Path
 from typing import Any
 
-from runlayer_cli.api import API_KEY_HEADER_NAME, USER_AGENT
-from runlayer_cli.config import load_config
+from runlayer_sdk.hook_transport import (
+    API_KEY_HEADER_NAME,
+    HOOK_RELAY_TARGETS,
+    HookAPIClient,
+)
+
+from runlayer_cli.api import USER_AGENT
+from runlayer_cli.config import load_config, normalize_url, save_config
+from runlayer_cli.enrollment import (
+    EnrollmentError,
+    exchange_enrollment_key,
+    write_enrollment_marker,
+)
 from runlayer_cli.hook.transcript_stream import (
     clear_transcript_stream_active,
+    clear_transcript_stream_completed,
     is_transcript_stream_active,
+    is_transcript_stream_recently_completed,
     resolve_transcript_path,
     transcript_start_offset,
 )
+from runlayer_cli.mdm_config import ManagedConfig, read_managed_config
+from runlayer_cli.paths import get_runlayer_dir
 from runlayer_cli.tls import http_client
 
-_TARGETS: dict[str, tuple[str, int]] = {
-    "enforce": ("/api/v1/hooks/cursor", 30),
-    "event": ("/api/v1/hooks/events", 5),
-    # Tool lifecycle endpoints — see backend/app/api/routes/hooks/tool.py.
-    # These accept the same {client, event_name, tool_name, payload} wrapper
-    # as /events but normalize into LocalToolPre/PostRequest for the scan
-    # pipeline. Routing PreToolUse/PostToolUse data to /events instead would
-    # silently downgrade local-tool scanning to plain audit forwarding.
-    "tool-pre": ("/api/v1/hooks/tool/pre", 30),
-    "tool-post": ("/api/v1/hooks/tool/post", 30),
-}
+_TRANSCRIPT_STREAM_CLIENTS = frozenset({"claude_code", "codex"})
 
 _DEBUG_DIR = Path(tempfile.gettempdir())
 
-# Sentinel argv[1] used when the frozen aiwatch-enforce binary re-spawns itself
-# as a detached relay worker. The frozen bootloader doesn't understand `python
-# -m`, so we route through the same entrypoint and dispatch on argv shape.
-RELAY_WORKER_SENTINEL = "__relay_worker__"
 TRANSCRIPT_STREAM_WORKER_SENTINEL = "__transcript_stream_worker__"
+
+_ENROLLMENT_COOLDOWN_SECONDS = 60.0
+_ENROLLMENT_ATTEMPT_FILENAME = ".enrollment-attempt"
+
+# In-memory re-entry guard for `_try_lazy_enrollment`. The cooldown touch file
+# is the cross-process guard, but it shares a failure domain with `save_config`
+# (read-only fs, missing dir): if both writes fail, the post-success
+# `forward_event` -> `_forward_post` -> `_load_credentials` chain would loop
+# straight back here. This flag breaks the chain regardless of disk state.
+_lazy_enrollment_in_progress = False
 
 
 class RelayError(Exception):
-    """Raised when the relay POST fails. ``exit_code`` mirrors the bash semantics:
-    1 = credentials missing
-    2 = HTTP / network error
-    """
+    """Raised when the relay POST fails. ``exit_code``: 1 = no creds, 2 = HTTP/network."""
 
-    def __init__(self, exit_code: int, detail: str = "") -> None:
+    def __init__(self, exit_code: int, detail: str = "", body: str = "") -> None:
         self.exit_code = exit_code
         self.detail = detail
+        self.body = body
         super().__init__(detail)
 
 
 def _load_credentials() -> tuple[str, str]:
-    """Return (host, secret) from config or raise RelayError(1).
-
-    Any non-RelayError raised by ``load_config`` (corrupted YAML that parses
-    to a non-dict, unreadable file with an unexpected OS error, etc.) or by
-    the credential store (keyring backend raising outside ``KeyringError``)
-    is converted to ``RelayError(1)`` so the hook fails closed (deny) instead
-    of crashing with a non-zero exit. ``__main__`` only catches ``RelayError``
-    around ``enforce()``; an unhandled exception would skip the deny shape and
-    let some AI clients interpret a crashed hook as fail-open.
-    """
+    """Return (host, secret) or raise ``RelayError(1)`` (fail-closed)."""
     try:
         config = load_config()
-        host = config.default_host
-        if not host:
+        managed = read_managed_config()
+        raw_host = config.default_host or managed.get("host")
+        if not raw_host:
             raise RelayError(1, "no default_host")
+        # MDM ``Host`` skips ``set_host_credentials`` normalization; strip
+        # trailing slash so ``_post`` doesn't build double-slash URLs.
+        host = normalize_url(raw_host)
         secret = config.get_secret_for_host(host)
+        if secret:
+            return host, secret
+        secret = _try_lazy_enrollment(host, managed)
         if not secret:
             raise RelayError(1, "no secret for host")
     except RelayError:
@@ -84,41 +87,123 @@ def _load_credentials() -> tuple[str, str]:
     return host, secret
 
 
+def _try_lazy_enrollment(host: str, managed: ManagedConfig) -> str | None:
+    """Self-healing fallback (see cli/AGENTS.md); returns api_key or ``None``."""
+    global _lazy_enrollment_in_progress
+    if _lazy_enrollment_in_progress:
+        return None
+    _lazy_enrollment_in_progress = True
+    try:
+        return _try_lazy_enrollment_inner(host, managed)
+    finally:
+        _lazy_enrollment_in_progress = False
+
+
+def _try_lazy_enrollment_inner(host: str, managed: ManagedConfig) -> str | None:
+    enrollment_key = managed.get("enrollment_key")
+    if not enrollment_key:
+        return None
+    if _enrollment_attempt_recently():
+        return None
+    _touch_enrollment_attempt()
+
+    try:
+        result = exchange_enrollment_key(
+            host=host,
+            enrollment_key=enrollment_key,
+            username=managed.get("username"),
+            device_name=managed.get("device_name"),
+        )
+    except EnrollmentError:
+        return None
+
+    config = load_config()
+    config.set_host_credentials(host, result.api_key)
+    try:
+        save_config(config)
+    except OSError:
+        pass
+    write_enrollment_marker(host)
+
+    try:
+        forward_event(
+            client_name="aiwatch_hook",
+            event_name="aiwatch.lazy_enrollment_fallback_hit",
+            payload={
+                "username": result.username,
+                "device_name": result.device_name,
+                "host": host,
+            },
+        )
+    except Exception:
+        pass
+
+    return result.api_key
+
+
+def _enrollment_attempt_path() -> Path:
+    return get_runlayer_dir() / _ENROLLMENT_ATTEMPT_FILENAME
+
+
+def _enrollment_attempt_recently() -> bool:
+    path = _enrollment_attempt_path()
+    try:
+        mtime = path.stat().st_mtime
+    except (FileNotFoundError, OSError):
+        return False
+    return (time.time() - mtime) < _ENROLLMENT_COOLDOWN_SECONDS
+
+
+def _touch_enrollment_attempt() -> None:
+    path = _enrollment_attempt_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch(exist_ok=True)
+        os.utime(path, None)
+    except OSError:
+        pass
+
+
 def _post(
     host: str,
     secret: str,
-    endpoint: str,
     payload: str,
     *,
     target: str,
-    timeout: int,
+    timeout: int | None = None,
     debug: bool = False,
 ) -> str:
-    url = f"{host}{endpoint}"
+    spec = HOOK_RELAY_TARGETS[target]
+    url = f"{host}{spec.endpoint}"
+    client = HookAPIClient(
+        host,
+        headers={
+            API_KEY_HEADER_NAME: secret,
+            "User-Agent": USER_AGENT,
+        },
+        http_client_factory=http_client,
+    )
     resp = None
     try:
-        with http_client() as client:
-            resp = client.post(
-                url,
-                content=payload,
-                headers={
-                    "Content-Type": "application/json",
-                    API_KEY_HEADER_NAME: secret,
-                    "User-Agent": USER_AGENT,
-                },
-                timeout=timeout,
-            )
-        if debug:
-            _write_debug(target, url, payload, resp)
+        resp = client.post_target(target, payload, timeout=timeout)
+        _maybe_debug(debug, target, url, payload, resp)
         if not resp.is_success:
-            raise RelayError(2, f"HTTP {resp.status_code}")
+            raise RelayError(2, f"HTTP {resp.status_code}", body=resp.text)
         return resp.text
     except RelayError:
         raise
     except Exception:
-        if debug:
-            _write_debug(target, url, payload, resp)
+        _maybe_debug(debug, target, url, payload, resp)
         raise RelayError(2, "network error")
+
+
+def _maybe_debug(debug: bool, target: str, url: str, payload: str, resp: Any) -> None:
+    if not debug:
+        return
+    try:
+        _write_debug(target, url, payload, resp)
+    except Exception:
+        pass
 
 
 def _write_debug(target: str, url: str, request_body: str, resp: Any) -> None:
@@ -138,19 +223,13 @@ def _write_debug(target: str, url: str, request_body: str, resp: Any) -> None:
 
 
 def enforce(payload: str, *, debug: bool = False) -> str:
-    """Synchronous POST to the enforce endpoint. Returns response text.
-
-    Raises RelayError(1) for credential issues, RelayError(2) for network.
-    """
+    """Synchronous POST to enforce; raises ``RelayError(1)`` (creds) or ``RelayError(2)`` (network)."""
     host, secret = _load_credentials()
-    endpoint, default_timeout = _TARGETS["enforce"]
     return _post(
         host,
         secret,
-        endpoint,
         payload,
         target="enforce",
-        timeout=default_timeout,
         debug=debug,
     )
 
@@ -162,7 +241,7 @@ def forward_event(
     *,
     debug: bool = False,
 ) -> None:
-    """Fire-and-forget event POST, run in a detached subprocess."""
+    """Best-effort synchronous in-process event POST; errors swallowed."""
     wrapper = json.dumps(
         {
             "client": client_name,
@@ -170,7 +249,7 @@ def forward_event(
             "payload": payload,
         }
     )
-    _detached_relay("event", wrapper, debug=debug)
+    _forward_post("event", wrapper, debug=debug)
 
 
 def check_tool_lifecycle(
@@ -187,14 +266,11 @@ def check_tool_lifecycle(
         target, client_name, event_name, tool_name, payload
     )
     host, secret = _load_credentials()
-    endpoint, default_timeout = _TARGETS[target]
     return _post(
         host,
         secret,
-        endpoint,
         wrapper,
         target=target,
-        timeout=default_timeout,
         debug=debug,
     )
 
@@ -208,11 +284,11 @@ def forward_tool_lifecycle(
     *,
     debug: bool = False,
 ) -> None:
-    """Fire-and-forget POST to /tool/pre or /tool/post."""
+    """Best-effort synchronous in-process POST to /tool/pre or /tool/post; errors swallowed."""
     wrapper = _tool_lifecycle_wrapper(
         target, client_name, event_name, tool_name, payload
     )
-    _detached_relay(target, wrapper, debug=debug)
+    _forward_post(target, wrapper, debug=debug)
 
 
 def _tool_lifecycle_wrapper(
@@ -253,7 +329,10 @@ def forward_stop_event(
     debug: bool = False,
 ) -> None:
     """Forward a stop event, attaching transcript content if available."""
-    if client_name == "claude_code" and is_transcript_stream_active(payload):
+    if client_name in _TRANSCRIPT_STREAM_CLIENTS and (
+        is_transcript_stream_active(payload)
+        or is_transcript_stream_recently_completed(payload)
+    ):
         forward_event(client_name, event_name, payload, debug=debug)
         return
 
@@ -282,7 +361,7 @@ def forward_stop_event(
                 "transcript": transcript,
             }
         )
-        _detached_relay("event", wrapper, timeout=10, debug=debug)
+        _forward_post("event", wrapper, timeout=10, debug=debug)
     else:
         forward_event(client_name, event_name, payload, debug=debug)
 
@@ -293,12 +372,15 @@ def start_transcript_stream(
     *,
     debug: bool = False,
 ) -> bool:
-    """Start a detached transcript tailer for Claude Code prompt turns."""
-    if client_name != "claude_code":
+    """Start a detached transcript tailer for prompt turns with transcript JSONL."""
+    if client_name not in _TRANSCRIPT_STREAM_CLIENTS:
         return False
     if resolve_transcript_path(payload) is None:
         return False
-    if is_transcript_stream_active(payload):
+    completed_recently = is_transcript_stream_recently_completed(payload)
+    if completed_recently:
+        clear_transcript_stream_completed(payload)
+    elif is_transcript_stream_active(payload):
         return True
 
     start_offset = transcript_start_offset(payload)
@@ -345,44 +427,23 @@ def start_transcript_stream(
     return True
 
 
-def _detached_relay(
+def _forward_post(
     target: str,
     wrapper: str,
     *,
     timeout: int | None = None,
     debug: bool = False,
 ) -> None:
-    """Spawn a detached subprocess that POSTs the event payload.
-
-    The hook process exits before the POST completes.
-    """
-    if getattr(sys, "frozen", False):
-        args = [sys.executable, RELAY_WORKER_SENTINEL, target]
-    else:
-        args = [sys.executable, "-m", "runlayer_cli.hook._relay_worker", target]
-    if timeout is not None:
-        args.extend(["--timeout", str(timeout)])
-    if debug:
-        args.append("--debug")
-
-    kwargs: dict[str, Any] = {
-        "stdin": subprocess.PIPE,
-        "stdout": subprocess.DEVNULL,
-        "stderr": subprocess.DEVNULL,
-        "close_fds": True,
-    }
-    if sys.platform != "win32":
-        kwargs["start_new_session"] = True
-    else:
-        CREATE_NEW_PROCESS_GROUP = 0x00000200
-        DETACHED_PROCESS = 0x00000008
-        kwargs["creationflags"] = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
-
+    """Best-effort fire-and-forget POST; errors swallowed."""
     try:
-        proc = subprocess.Popen(args, **kwargs)
-        stdin = proc.stdin
-        if stdin is not None:
-            stdin.write(wrapper.encode("utf-8"))  # ty: ignore[no-matching-overload]
-            stdin.close()
-    except OSError:
+        host, secret = _load_credentials()
+        _post(
+            host,
+            secret,
+            wrapper,
+            target=target,
+            timeout=timeout,
+            debug=debug,
+        )
+    except Exception:
         pass

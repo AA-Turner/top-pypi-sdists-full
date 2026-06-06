@@ -13,12 +13,12 @@ from pyrit.executor.attack.single_turn.prompt_sending import PromptSendingAttack
 from pyrit.executor.attack.single_turn.single_turn_attack_strategy import (
     SingleTurnAttackContext,
 )
-from pyrit.identifiers import build_atomic_attack_identifier
 from pyrit.models import (
     AttackOutcome,
     AttackResult,
     Message,
     SeedDataset,
+    build_atomic_attack_identifier,
 )
 from pyrit.prompt_normalizer import PromptNormalizer
 from pyrit.prompt_target import PromptTarget
@@ -53,7 +53,7 @@ class SkeletonKeyAttack(PromptSendingAttack):
     def __init__(
         self,
         *,
-        objective_target: PromptTarget = REQUIRED_VALUE,  # type: ignore[assignment]
+        objective_target: PromptTarget = REQUIRED_VALUE,  # type: ignore[ty:invalid-parameter-default]
         attack_converter_config: Optional[AttackConverterConfig] = None,
         attack_scoring_config: Optional[AttackScoringConfig] = None,
         prompt_normalizer: Optional[PromptNormalizer] = None,
@@ -181,4 +181,5 @@ class SkeletonKeyAttack(PromptSendingAttack):
             outcome=AttackOutcome.FAILURE,
             outcome_reason="Skeleton key prompt was filtered or failed",
             executed_turns=1,
+            labels=context.memory_labels,
         )

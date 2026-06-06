@@ -1,6 +1,6 @@
 [project]
 name = "runlayer"
-version = "0.24.14"
+version = "0.24.15"
 description = "A command-line interface for running MCP servers via HTTP transport"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -20,7 +20,7 @@ classifiers = [
 ]
 dependencies = [
   "fastmcp>=2.14.5,<3",  # Security fix for GHSA-rcfx-77hg-w2wv, GHSA-c2jp-c369-7pvx
-  "authlib>=1.6.5,<1.7.0",  # authlib 1.7 deprecates authlib.jose (stderr warning); remove once fastmcp migrates to joserfc
+  "authlib>=1.6.12,<1.7.0",  # authlib 1.7 deprecates authlib.jose (stderr warning); remove once fastmcp migrates to joserfc
   "fakeredis<2.35.0",    # pydocket 0.18.x imports FakeConnection removed in fakeredis 2.35.0
   "typer>=0.17.4",
   "mcp>=1.23.0",  # Security fix for CVE-2025-66416
@@ -35,6 +35,7 @@ dependencies = [
   "questionary>=2.0.0",
   "keyring>=25.0.0,<26",
   "truststore>=0.10.4,<0.11",
+  "runlayer-sdk==0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -59,7 +60,13 @@ Documentation = "https://docs.runlayer.com/"
 exclude-newer = "7 days"
 constraint-dependencies = [
   "pyjwt>=2.12.0",  # Security fix for GHSA-75c5-xw7c-p5pm
+  "urllib3>=2.7.0",  # CVE-2026-44431, CVE-2026-44432
+  "python-multipart>=0.0.27",  # CVE-2026-42561
+  "idna>=3.15",  # CVE-2026-45409
 ]
+
+[tool.uv.sources]
+runlayer-sdk = { path = "../packages/python", editable = true }
 
 [[tool.uv.index]]
 name = "testpypi"
@@ -69,7 +76,7 @@ explicit = true
 
 [dependency-groups]
 dev = [
-  "pytest<9.0.0,>=8.0.0",
+  "pytest<10.0.0,>=9.0.3",
   "pytest-asyncio>=1",
   "ty>=0.0.19",
   "ruff<1.0.0,>=0.15.2",
@@ -92,8 +99,9 @@ packages = ["runlayer_cli", "hooks"]
 markers = [
   "e2e: end-to-end tests",
   "no_backend_e2e: end-to-end tests that do not require a running backend",
+  "frozen_binary: builds + runs the PyInstaller bundle (slow; opt-in)",
 ]
-addopts = "-m 'not e2e'"
+addopts = "-m 'not e2e and not frozen_binary'"
 
 [tool.ruff.lint]
 extend-select = ["TID251"]

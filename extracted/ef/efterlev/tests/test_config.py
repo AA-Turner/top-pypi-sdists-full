@@ -172,6 +172,27 @@ def test_llm_config_openai_accepts_explicit_model() -> None:
     assert cfg.model == "gpt-5.4-mini"
 
 
+def test_llm_config_bedrock_openai_requires_region() -> None:
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="region is required"):
+        LLMConfig(backend="bedrock_openai", model="openai.gpt-5.4")
+
+
+def test_llm_config_bedrock_openai_requires_model() -> None:
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="model is required when backend is 'bedrock_openai'"):
+        LLMConfig(backend="bedrock_openai", region="us-east-2", model=None)
+
+
+def test_llm_config_bedrock_openai_accepts_region_and_model() -> None:
+    cfg = LLMConfig(backend="bedrock_openai", region="us-east-2", model="openai.gpt-5.4")
+    assert cfg.backend == "bedrock_openai"
+    assert cfg.region == "us-east-2"
+    assert cfg.model == "openai.gpt-5.4"
+
+
 def test_llm_config_rejects_unknown_backend() -> None:
     """Literal narrows backend to 'anthropic' | 'bedrock'; anything else
     fails at Pydantic's type level before the model_validator runs."""

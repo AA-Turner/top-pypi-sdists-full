@@ -1,6 +1,5 @@
 import asyncio
 import json
-import traceback
 import warnings
 from collections import defaultdict
 from http import HTTPStatus
@@ -10,6 +9,7 @@ from uuid import uuid4
 import structlog
 import temporalio.api.workflowservice.v1 as wsv1
 import tenacity
+from opentelemetry.instrumentation.utils import suppress_instrumentation
 from pydantic import BaseModel, SecretStr
 from temporalio.client import Client as TemporalClient
 from temporalio.client import Interceptor
@@ -40,6 +40,7 @@ from mistralai.workflows.core.execution.sticky_session.sticky_worker_session imp
     StickyWorkerSession,
     check_activity_is_sticky_to_worker,
 )
+from mistralai.workflows.core.logging import extract_error_context
 from mistralai.workflows.core.rate_limiting.rate_limit import get_rate_limit
 from mistralai.workflows.core.sandbox import (
     get_sandbox_restrictions,
@@ -159,23 +160,27 @@ async def _worker_heartbeat(
         if not heartbeat_endpoint_available:
             return False
         try:
-            await worker_client.heartbeat_async(
-                workflow_registration_refs=[
-                    translate_model(wc_models.WorkflowRegistrationRefInput, ref) for ref in refs
-                ],
-                deployment_name=deployment_name,
-                worker_name=worker_name,
-            )
+            with suppress_instrumentation():
+                await worker_client.heartbeat_async(
+                    workflow_registration_refs=[
+                        translate_model(wc_models.WorkflowRegistrationRefInput, ref) for ref in refs
+                    ],
+                    deployment_name=deployment_name,
+                    worker_name=worker_name,
+                )
             return True
         except Exception as exc:
             if isinstance(exc, SDKError) and exc.status_code in (404, 405):
                 logger.warning(
                     "Heartbeat endpoint not available, disabling heartbeat and falling back to full registration",
-                    error=traceback.format_exc(),
+                    **extract_error_context(exc),
+                    exc_info=exc,
                 )
                 heartbeat_endpoint_available = False
             else:
-                logger.warning("Heartbeat failed, falling back to full registration", error=traceback.format_exc())
+                logger.warning(
+                    "Heartbeat failed, falling back to full registration", **extract_error_context(exc), exc_info=exc
+                )
             return False
 
     try:
@@ -198,10 +203,10 @@ async def _worker_heartbeat(
                     )
                     for ref in response.workflow_registration_refs
                 ]
-            except Exception:
-                logger.error("Full re-registration also failed", error=traceback.format_exc())
-    except Exception:
-        logger.error("Error in heartbeat task", error=traceback.format_exc())
+            except Exception as exc:
+                logger.error("Full re-registration also failed", **extract_error_context(exc), exc_info=exc)
+    except Exception as exc:
+        logger.error("Error in heartbeat task", **extract_error_context(exc), exc_info=exc)
         raise WorkflowsException(code=ErrorCode.WORKER_REGISTRATION_ERROR, message="Fail to heartbeat worker")
 
 
@@ -245,15 +250,16 @@ async def _auto_register_as_current_version(
             )
             return  # Success - exit the function
 
-        except Exception as e:
+        except Exception as exc:
             retry_count += 1
             if retry_count >= max_retries:
                 logger.error(
                     "Failed to auto-register worker as current version after max retries",
-                    error=str(e),
+                    **extract_error_context(exc),
                     deployment_name=deployment_name,
                     build_id=build_id,
                     max_retries=max_retries,
+                    exc_info=exc,
                 )
                 return
 
@@ -263,7 +269,7 @@ async def _auto_register_as_current_version(
                 build_id=build_id,
                 retry_count=retry_count,
                 max_retries=max_retries,
-                error=str(e),
+                **extract_error_context(exc),
             )
 
 
@@ -437,10 +443,25 @@ async def _run_worker(workflows: List[ClassType]) -> None:
         payload_codec: PayloadCodec = MistralWorkflowsPayloadCodec(
             payload_offloading_config=config.worker.temporal_payload_offloading,
             payload_encryption_config=config.worker.temporal_payload_encryption,
+            payload_compression_config=config.worker.temporal_payload_compression,
         )
+
         # Order matters: ContextHandler must run first (unwraps WorkflowContext),
         # then ExecutionRegistration (registers run + sets token), then Event
         # (emits lifecycle events that may need the token).
+
+        # Create PayloadEncoder for event encryption (reuse the same encryption config)
+        event_payload_encoder = None
+        if config.worker.temporal_payload_encryption is not None:
+            from mistralai.extra.workflows.encoding.config import WorkflowEncodingConfig
+            from mistralai.extra.workflows.encoding.payload_encoder import PayloadEncoder
+
+            event_payload_encoder = PayloadEncoder(
+                encoding_config=WorkflowEncodingConfig(
+                    payload_encryption=config.worker.temporal_payload_encryption,
+                    payload_offloading=None,  # Events don't support offloading
+                )
+            )
         extra_interceptors: List[Interceptor] = [
             ContextHandlerInterceptor(),
             ExecutionRegistrationInterceptor(),
@@ -511,6 +532,7 @@ async def _run_worker(workflows: List[ClassType]) -> None:
                 worker_client.events,
                 worker_client,
                 events_api_version=config.worker.events_api_version,
+                payload_encoder=event_payload_encoder,
             ),
         ):
             register_task = tg.create_task(
@@ -556,9 +578,6 @@ async def _run_worker(workflows: List[ClassType]) -> None:
             try:
                 workers_and_health_server = workers + [health_server] if health_server is not None else workers
                 await asyncio.gather(*[worker.run() for worker in workers_and_health_server])
-            except Exception:
-                logger.error("Error running worker", error=traceback.format_exc())
-                raise
             finally:
                 logger.info("Worker shutting down, cleaning up resources")
                 register_task.cancel()
@@ -578,8 +597,8 @@ async def _run_worker(workflows: List[ClassType]) -> None:
                     await asyncio.get_running_loop().run_in_executor(None, health_server.shutdown)
                 logger.info("Worker shutdown complete")
 
-    except Exception:
-        logger.error("Error in worker", error=traceback.format_exc())
+    except Exception as exc:
+        logger.error("Worker stopped due to unhandled exception", **extract_error_context(exc), exc_info=exc)
         raise
 
 

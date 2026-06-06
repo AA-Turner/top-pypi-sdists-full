@@ -10,6 +10,8 @@ from unittest.mock import AsyncMock, patch
 import anyio
 import pytest
 import typer
+from mcp.shared.exceptions import McpError
+from mcp.types import ErrorData
 from typer.testing import CliRunner
 import yaml
 
@@ -483,6 +485,60 @@ def test_run_sync_uses_resolved_alias_server_id(tmp_path: Path):
     sync_mock.assert_awaited_once_with(client, proxy_class.return_value, server_id)
 
 
+def test_run_continues_when_startup_sync_fails(tmp_path: Path):
+    """Regression for ENG-3220: a failing capability sync (e.g. upstream
+    ``initialize`` -> ``McpError: Invalid request parameters``) must not abort the
+    connector. The run should log and still serve via ``run_stdio_async``.
+    """
+    server_id = "550e8400-e29b-41d4-a716-446655440000"
+    server_details = SimpleNamespace(
+        name="Test Server",
+        transport_type="stdio",
+        url="echo",
+        transport_config={},
+        sync_required=True,
+        catalog_entry_name=None,
+    )
+
+    sync_error = McpError(ErrorData(code=-32602, message="Invalid request parameters"))
+
+    with (
+        patch("runlayer_cli.config.load_config", return_value=Config()),
+        patch("runlayer_cli.main.setup_logging", return_value=tmp_path / "run.log"),
+        patch("runlayer_cli.main.RunlayerClient") as client_class,
+        patch("runlayer_cli.main.StdioTransport"),
+        patch("runlayer_cli.main.ProxyClient"),
+        patch("runlayer_cli.main.FastMCPProxy") as proxy_class,
+        patch(
+            "runlayer_cli.main.sync_local_capabilities",
+            new_callable=AsyncMock,
+            side_effect=sync_error,
+        ) as sync_mock,
+        patch(
+            "runlayer_cli.main.anyio.run",
+            side_effect=lambda func: REAL_ANYIO_RUN(func),
+        ),
+    ):
+        client_class.return_value.get_server_details.return_value = server_details
+        proxy_class.return_value.run_stdio_async = AsyncMock()
+
+        result = runner.invoke(
+            app,
+            [
+                "run",
+                server_id,
+                "--host",
+                "https://target.runlayer.com",
+                "--secret",
+                "rl_direct_secret",
+            ],
+        )
+
+    assert result.exit_code == 0
+    sync_mock.assert_awaited_once()
+    proxy_class.return_value.run_stdio_async.assert_awaited_once_with(show_banner=False)
+
+
 @pytest.mark.parametrize("transport_type", ["sse", "streaming-http"])
 def test_run_skips_startup_sync_for_non_stdio_transports(
     tmp_path: Path, transport_type: str
@@ -502,9 +558,7 @@ def test_run_skips_startup_sync_for_non_stdio_transports(
         patch("runlayer_cli.main.setup_logging", return_value=tmp_path / "run.log"),
         patch("runlayer_cli.main.RunlayerClient") as client_class,
         patch("runlayer_cli.main.SSETransport") as sse_transport_class,
-        patch(
-            "runlayer_cli.main.StreamableHttpTransport"
-        ) as stream_transport_class,
+        patch("runlayer_cli.main.StreamableHttpTransport") as stream_transport_class,
         patch("runlayer_cli.main.ProxyClient"),
         patch("runlayer_cli.main.FastMCPProxy") as proxy_class,
         patch(
@@ -532,15 +586,11 @@ def test_run_skips_startup_sync_for_non_stdio_transports(
 
     assert result.exit_code == 0
     transport_class = (
-        sse_transport_class
-        if transport_type == "sse"
-        else stream_transport_class
+        sse_transport_class if transport_type == "sse" else stream_transport_class
     )
     assert transport_class.call_args.kwargs["httpx_client_factory"] is async_http_client
     sync_mock.assert_not_awaited()
-    proxy_class.return_value.run_stdio_async.assert_awaited_once_with(
-        show_banner=False
-    )
+    proxy_class.return_value.run_stdio_async.assert_awaited_once_with(show_banner=False)
 
 
 def test_run_command_with_secret_requires_host():

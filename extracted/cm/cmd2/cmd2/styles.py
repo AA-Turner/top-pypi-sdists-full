@@ -14,7 +14,7 @@ styles. Additionally, app developers may use other Rich objects that have
 their own default styles.
 
 For a complete theming experience, you can create a custom theme that includes
-styles from Rich and rich-argparse. The `cmd2.rich_utils.set_theme()` function
+styles from Rich and rich-argparse. The `cmd2.theme.update_theme()` function
 automatically updates rich-argparse's styles with any custom styles provided in
 your theme dictionary, so you don't have to modify them directly.
 
@@ -22,19 +22,17 @@ You can find Rich's default styles in the `rich.default_styles` module.
 For rich-argparse, the style names are defined in the
 `rich_argparse.RichHelpFormatter.styles` dictionary.
 
+For prompt-toolkit default styles, see:
+https://github.com/prompt-toolkit/python-prompt-toolkit/blob/main/src/prompt_toolkit/styles/defaults.py
 """
 
-import sys
+from enum import StrEnum
 
 from rich.style import (
     Style,
     StyleType,
 )
-
-if sys.version_info >= (3, 11):
-    from enum import StrEnum
-else:
-    from backports.strenum import StrEnum
+from rich_argparse import RichHelpFormatter
 
 from .colors import Color
 
@@ -50,21 +48,46 @@ class Cmd2Style(StrEnum):
     """
 
     COMMAND_LINE = "cmd2.example"  # Command line examples in help text
+    COMPLETION_MENU = "cmd2.completion-menu"  # Base style for the entire completion menu container (sets the background)
+    COMPLETION_MENU_COMPLETION = "cmd2.completion-menu.completion"  # Style for an individual, non-selected completion item
+    COMPLETION_MENU_CURRENT = "cmd2.completion-menu.completion.current"  # Style for the currently selected completion item
+    COMPLETION_MENU_META = "cmd2.completion-menu.meta.completion"  # Style for meta information shown alongside a completion
+    COMPLETION_MENU_META_CURRENT = "cmd2.completion-menu.meta.completion.current"  # Style for meta information of current item
     ERROR = "cmd2.error"  # Error text (used by perror())
     HELP_HEADER = "cmd2.help.header"  # Help table header text
     HELP_LEADER = "cmd2.help.leader"  # Text right before the help tables are listed
+    LEXER_COMMAND = "cmd2.lexer.command"  # Lexer color for commands
+    LEXER_ALIAS = "cmd2.lexer.alias"  # Lexer color for aliases
+    LEXER_MACRO = "cmd2.lexer.macro"  # Lexer color for macros
+    LEXER_FLAG = "cmd2.lexer.flag"  # Lexer color for flags
+    LEXER_ARGUMENT = "cmd2.lexer.argument"  # Lexer color for arguments
     SUCCESS = "cmd2.success"  # Success text (used by psuccess())
     TABLE_BORDER = "cmd2.table_border"  # Applied to cmd2's table borders
     WARNING = "cmd2.warning"  # Warning text (used by pwarning())
 
 
-# Default styles used by cmd2. Tightly coupled with the Cmd2Style enum.
+# Default styles used by cmd2. Used to perform theme resets.
+# Tightly coupled with the Cmd2Style enum.
 DEFAULT_CMD2_STYLES: dict[str, StyleType] = {
     Cmd2Style.COMMAND_LINE: Style(color=Color.CYAN, bold=True),
+    Cmd2Style.COMPLETION_MENU: Style(color="#000000", bgcolor="#bbbbbb"),  # prompt-toolkit default
+    Cmd2Style.COMPLETION_MENU_COMPLETION: Style(),  # prompt-toolkit default
+    Cmd2Style.COMPLETION_MENU_CURRENT: Style(color=Color.GREEN, bgcolor=Color.BLACK),  # This style swaps FG and BG colors
+    Cmd2Style.COMPLETION_MENU_META: Style(color="#000000", bgcolor="#bbbbbb"),  # prompt-toolkit default
+    Cmd2Style.COMPLETION_MENU_META_CURRENT: Style(color=Color.BLACK, bgcolor=Color.BRIGHT_GREEN),
     Cmd2Style.ERROR: Style(color=Color.BRIGHT_RED),
     Cmd2Style.HELP_HEADER: Style(color=Color.BRIGHT_GREEN),
     Cmd2Style.HELP_LEADER: Style(color=Color.CYAN),
+    Cmd2Style.LEXER_COMMAND: Style(color=Color.GREEN),
+    Cmd2Style.LEXER_ALIAS: Style(color=Color.CYAN),
+    Cmd2Style.LEXER_MACRO: Style(color=Color.MAGENTA),
+    Cmd2Style.LEXER_FLAG: Style(color=Color.RED),
+    Cmd2Style.LEXER_ARGUMENT: Style(color=Color.YELLOW),
     Cmd2Style.SUCCESS: Style(color=Color.GREEN),
     Cmd2Style.TABLE_BORDER: Style(color=Color.BRIGHT_GREEN),
     Cmd2Style.WARNING: Style(color=Color.BRIGHT_YELLOW),
 }
+
+# Default styles for argparse output. Used to perform theme resets.
+# Any cmd2-specific settings or overrides should be added to this dictionary.
+DEFAULT_ARGPARSE_STYLES = RichHelpFormatter.styles.copy()

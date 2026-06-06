@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import itertools
 import json
 import sys
 from copy import copy
@@ -812,6 +813,31 @@ class TestString:
         assert bool(String('abc')) is True
 
 
+def test_null_bool():
+    assert bool(pikepdf._core._Null()) is False
+
+
+def test_raw_stream_buffer_len():
+    with pikepdf.new() as pdf:
+        s = Stream(pdf, b'abc123xyz')
+        raw_buffer = s.get_raw_stream_buffer()
+        assert len(raw_buffer) == len(b'abc123xyz')
+
+
+def test_hash_indirect_object_raises():
+    pdf = Pdf.new()
+    indirect = pdf.make_indirect(Dictionary())
+    with pytest.raises(TypeError, match="Can't hash indirect"):
+        hash(indirect)
+
+
+def test_getattr_dunder_name_raises_attribute_error():
+    """__getattr__ converts ValueError from invalid /__name__ key into
+    AttributeError so hasattr/getattr work for Python introspection."""
+    d = Dictionary(A=1)
+    assert not hasattr(d, '__name__')
+
+
 def test_get_resource_names(sandwich):
     assert '/R12' in sandwich.pages[0].Resources._get_resource_names()
 
@@ -873,6 +899,48 @@ class TestCyclicEquality:
         a2['/sibling'] = a1
         assert a == a1['/parent']
         assert a1 == a2
+
+    def test_direct_mutual_cycle(self):
+        # Issue #731: two *direct* (non-indirect) dicts forming a cycle must not
+        # segfault. Previously the cycle detector keyed its visited set on
+        # unparseBinary(), which recurses through the whole graph and overflowed
+        # the C stack for direct cyclic objects.
+        a = pikepdf.Dictionary()
+        b = pikepdf.Dictionary()
+        a['/Kids'] = [b]
+        b['/Kids'] = [a]
+        assert a == a
+        # a and b are mutually bisimilar, so cycle-safe equality treats them as
+        # equal; the essential requirement is that this returns a bool, not crash.
+        assert (a == b) is True
+
+    def test_direct_self_cycle(self):
+        # Issue #731: a direct dict that references itself through an array.
+        a = pikepdf.Dictionary()
+        a['/Self'] = [a]
+        assert a == a
+
+    def test_direct_cycle_unequal(self):
+        # Issue #731 second reproducer: a more complex direct graph that
+        # segfaulted in 10.7.2. Must evaluate without crashing.
+        def v(i):
+            return pikepdf.Dictionary({"/Value": i})
+
+        def leaf(*values):
+            return pikepdf.Dictionary(
+                {"/Names": list(itertools.chain.from_iterable(values))}
+            )
+
+        def inner(*values):
+            return pikepdf.Dictionary({"/Kids": values})
+
+        root = pikepdf.Dictionary()
+        leaf_node = pikepdf.Dictionary()
+        leaf_one = leaf(("foo", v(1)))
+        leaf_node["/Kids"] = [root]
+        root["/Kids"] = [inner(inner(leaf_node, leaf_one))]
+
+        assert (root["/Kids"][0] in [root]) is False
 
 
 class TestKeyErrors:

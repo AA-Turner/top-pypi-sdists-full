@@ -48,6 +48,7 @@ from .paginator import (
     ListIAMPolicyAssignmentsForUserPaginator,
     ListIAMPolicyAssignmentsPaginator,
     ListIngestionsPaginator,
+    ListKnowledgeBasesPaginator,
     ListNamespacesPaginator,
     ListOAuthClientApplicationsPaginator,
     ListRoleMembershipsPaginator,
@@ -66,11 +67,14 @@ from .paginator import (
     SearchFlowsPaginator,
     SearchFoldersPaginator,
     SearchGroupsPaginator,
+    SearchKnowledgeBasesPaginator,
     SearchTopicsPaginator,
 )
 from .type_defs import (
     BatchCreateTopicReviewedAnswerRequestTypeDef,
     BatchCreateTopicReviewedAnswerResponseTypeDef,
+    BatchDeleteKnowledgeBaseRequestTypeDef,
+    BatchDeleteKnowledgeBaseResponseTypeDef,
     BatchDeleteTopicReviewedAnswerRequestTypeDef,
     BatchDeleteTopicReviewedAnswerResponseTypeDef,
     CancelIngestionRequestTypeDef,
@@ -175,6 +179,8 @@ from .type_defs import (
     DeleteIAMPolicyAssignmentResponseTypeDef,
     DeleteIdentityPropagationConfigRequestTypeDef,
     DeleteIdentityPropagationConfigResponseTypeDef,
+    DeleteKnowledgeBaseRequestTypeDef,
+    DeleteKnowledgeBaseResponseTypeDef,
     DeleteNamespaceRequestTypeDef,
     DeleteNamespaceResponseTypeDef,
     DeleteOAuthClientApplicationRequestTypeDef,
@@ -287,6 +293,10 @@ from .type_defs import (
     DescribeIpRestrictionResponseTypeDef,
     DescribeKeyRegistrationRequestTypeDef,
     DescribeKeyRegistrationResponseTypeDef,
+    DescribeKnowledgeBasePermissionsRequestTypeDef,
+    DescribeKnowledgeBasePermissionsResponseTypeDef,
+    DescribeKnowledgeBaseRequestTypeDef,
+    DescribeKnowledgeBaseResponseTypeDef,
     DescribeNamespaceRequestTypeDef,
     DescribeNamespaceResponseTypeDef,
     DescribeOAuthClientApplicationRequestTypeDef,
@@ -389,6 +399,8 @@ from .type_defs import (
     ListIdentityPropagationConfigsResponseTypeDef,
     ListIngestionsRequestTypeDef,
     ListIngestionsResponseTypeDef,
+    ListKnowledgeBasesRequestTypeDef,
+    ListKnowledgeBasesResponseTypeDef,
     ListNamespacesRequestTypeDef,
     ListNamespacesResponseTypeDef,
     ListOAuthClientApplicationsRequestTypeDef,
@@ -425,6 +437,8 @@ from .type_defs import (
     ListTopicsResponseTypeDef,
     ListUserGroupsRequestTypeDef,
     ListUserGroupsResponseTypeDef,
+    ListUsersIndexCapacityRequestTypeDef,
+    ListUsersIndexCapacityResponseTypeDef,
     ListUsersRequestTypeDef,
     ListUsersResponseTypeDef,
     ListVPCConnectionsRequestTypeDef,
@@ -455,6 +469,8 @@ from .type_defs import (
     SearchFoldersResponseTypeDef,
     SearchGroupsRequestTypeDef,
     SearchGroupsResponseTypeDef,
+    SearchKnowledgeBasesRequestTypeDef,
+    SearchKnowledgeBasesResponseTypeDef,
     SearchSpacesRequestTypeDef,
     SearchSpacesResponseTypeDef,
     SearchTopicsRequestTypeDef,
@@ -539,6 +555,8 @@ from .type_defs import (
     UpdateIpRestrictionResponseTypeDef,
     UpdateKeyRegistrationRequestTypeDef,
     UpdateKeyRegistrationResponseTypeDef,
+    UpdateKnowledgeBasePermissionsRequestTypeDef,
+    UpdateKnowledgeBasePermissionsResponseTypeDef,
     UpdateOAuthClientApplicationRequestTypeDef,
     UpdateOAuthClientApplicationResponseTypeDef,
     UpdatePublicSharingSettingsRequestTypeDef,
@@ -665,6 +683,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/batch_create_topic_reviewed_answer.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#batch_create_topic_reviewed_answer)
+        """
+
+    def batch_delete_knowledge_base(
+        self, **kwargs: Unpack[BatchDeleteKnowledgeBaseRequestTypeDef]
+    ) -> BatchDeleteKnowledgeBaseResponseTypeDef:
+        """
+        Deletes one or more knowledge bases.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/batch_delete_knowledge_base.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#batch_delete_knowledge_base)
         """
 
     def batch_delete_topic_reviewed_answer(
@@ -1190,6 +1218,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_identity_propagation_config.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#delete_identity_propagation_config)
+        """
+
+    def delete_knowledge_base(
+        self, **kwargs: Unpack[DeleteKnowledgeBaseRequestTypeDef]
+    ) -> DeleteKnowledgeBaseResponseTypeDef:
+        """
+        Deletes a knowledge base.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_knowledge_base.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#delete_knowledge_base)
         """
 
     def delete_namespace(
@@ -1763,6 +1801,26 @@ class QuickSightClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#describe_key_registration)
         """
 
+    def describe_knowledge_base(
+        self, **kwargs: Unpack[DescribeKnowledgeBaseRequestTypeDef]
+    ) -> DescribeKnowledgeBaseResponseTypeDef:
+        """
+        Describes a knowledge base.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_knowledge_base.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#describe_knowledge_base)
+        """
+
+    def describe_knowledge_base_permissions(
+        self, **kwargs: Unpack[DescribeKnowledgeBasePermissionsRequestTypeDef]
+    ) -> DescribeKnowledgeBasePermissionsResponseTypeDef:
+        """
+        Describes the resource permissions for a knowledge base.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_knowledge_base_permissions.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#describe_knowledge_base_permissions)
+        """
+
     def describe_namespace(
         self, **kwargs: Unpack[DescribeNamespaceRequestTypeDef]
     ) -> DescribeNamespaceResponseTypeDef:
@@ -2282,6 +2340,16 @@ class QuickSightClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#list_ingestions)
         """
 
+    def list_knowledge_bases(
+        self, **kwargs: Unpack[ListKnowledgeBasesRequestTypeDef]
+    ) -> ListKnowledgeBasesResponseTypeDef:
+        """
+        Lists all knowledge bases in an Amazon QuickSight account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_knowledge_bases.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#list_knowledge_bases)
+        """
+
     def list_namespaces(
         self, **kwargs: Unpack[ListNamespacesRequestTypeDef]
     ) -> ListNamespacesResponseTypeDef:
@@ -2467,6 +2535,16 @@ class QuickSightClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#list_users)
         """
 
+    def list_users_index_capacity(
+        self, **kwargs: Unpack[ListUsersIndexCapacityRequestTypeDef]
+    ) -> ListUsersIndexCapacityResponseTypeDef:
+        """
+        Lists per-user index capacity consumption for an account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_users_index_capacity.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#list_users_index_capacity)
+        """
+
     def list_vpc_connections(
         self, **kwargs: Unpack[ListVPCConnectionsRequestTypeDef]
     ) -> ListVPCConnectionsResponseTypeDef:
@@ -2609,6 +2687,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/search_groups.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#search_groups)
+        """
+
+    def search_knowledge_bases(
+        self, **kwargs: Unpack[SearchKnowledgeBasesRequestTypeDef]
+    ) -> SearchKnowledgeBasesResponseTypeDef:
+        """
+        Searches for a subset of knowledge bases based on specified filters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/search_knowledge_bases.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#search_knowledge_bases)
         """
 
     def search_spaces(
@@ -3032,6 +3120,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_key_registration.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#update_key_registration)
+        """
+
+    def update_knowledge_base_permissions(
+        self, **kwargs: Unpack[UpdateKnowledgeBasePermissionsRequestTypeDef]
+    ) -> UpdateKnowledgeBasePermissionsResponseTypeDef:
+        """
+        Updates the resource permissions for a knowledge base.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_knowledge_base_permissions.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#update_knowledge_base_permissions)
         """
 
     def update_o_auth_client_application(
@@ -3508,6 +3606,17 @@ class QuickSightClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_knowledge_bases"]
+    ) -> ListKnowledgeBasesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_namespaces"]
     ) -> ListNamespacesPaginator:
         """
@@ -3697,6 +3806,17 @@ class QuickSightClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["search_groups"]
     ) -> SearchGroupsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_knowledge_bases"]
+    ) -> SearchKnowledgeBasesPaginator:
         """
         Create a paginator for an operation.
 

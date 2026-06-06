@@ -14,6 +14,7 @@ from trilogy.core.enums import (
 from trilogy.core.env_processor import generate_graph
 from trilogy.core.ergonomics import generate_cte_names
 from trilogy.core.exceptions import UnresolvableQueryException
+from trilogy.core.graph_models import ReferenceGraph
 from trilogy.core.models.author import (
     ConceptRef,
     Conditional,
@@ -30,9 +31,11 @@ from trilogy.core.models.build import (
     BuildMultiSelectLineage,
     BuildParamaterizedConceptReference,
     BuildSelectLineage,
+    BuildWhereClause,
     Factory,
     get_canonical_pseudonyms,
 )
+from trilogy.core.models.build_environment import BuildEnvironment
 from trilogy.core.models.core import DataType
 from trilogy.core.models.datasource import Address, Datasource
 from trilogy.core.models.environment import Environment
@@ -50,7 +53,10 @@ from trilogy.core.models.execute import (
 )
 from trilogy.core.optimization import optimize_ctes
 from trilogy.core.processing.concept_strategies_v3 import source_query_concepts
-from trilogy.core.processing.condition_utility import strip_tautological_not_null
+from trilogy.core.processing.concept_strategies_v4 import V4History
+from trilogy.core.processing.concept_strategies_v4 import (
+    search_concepts as search_concepts_v4,
+)
 from trilogy.core.processing.nodes import History, SelectNode, StrategyNode
 from trilogy.core.statements.author import (
     ChartLayer,
@@ -452,6 +458,72 @@ def datasource_to_cte(
     return cte
 
 
+def _get_query_node_v4(
+    build_statement: BuildSelectLineage | BuildMultiSelectLineage,
+    build_environment: BuildEnvironment,
+    graph: ReferenceGraph,
+    conditions: BuildWhereClause | None,
+    history: History,
+) -> StrategyNode:
+    """v4 discovery entrypoint (gated by CONFIG.use_v4_discovery).
+
+    Mirrors the tail of `get_query_node`, but the root node comes from the v4
+    planner, which returns a fully-grouped FINAL node (no `group_if_required_v2`)
+    and may have promoted grain keys to hidden — so hidden_concepts are merged,
+    not overwritten."""
+    info = search_concepts_v4(
+        mandatory_list=list(build_statement.output_components),
+        history=V4History(base_environment=history.base_environment),
+        environment=build_environment,
+        depth=0,
+        g=graph,
+        conditions=[conditions] if conditions else [],
+    )
+    ds = info.strategy_node
+    if ds is None:
+        error_strings = [
+            f"{c.address}<{c.purpose}>{c.derivation}>"
+            for c in build_statement.output_components
+        ]
+        raise UnresolvableQueryException(
+            f"Could not resolve connections for query with output {error_strings} "
+            "from current model (v4 discovery)."
+        )
+    if build_statement.having_clause:
+        final = build_statement.having_clause.conditional
+        if ds.conditions:
+            final = BuildConditional(
+                left=ds.conditions,
+                right=build_statement.having_clause.conditional,
+                operator=BooleanOperator.AND,
+            )
+        ds = SelectNode(
+            output_concepts=build_statement.output_components,
+            input_concepts=ds.usable_outputs,
+            parents=[ds],
+            environment=ds.environment,
+            partial_concepts=ds.partial_concepts,
+            conditions=final,
+        )
+    ds.hidden_concepts = set(ds.hidden_concepts or set()) | set(
+        build_statement.hidden_components
+    )
+    ds.ordering = build_statement.order_by
+    ds.rebuild_cache()
+    requested = {
+        c.address
+        for c in build_statement.output_components
+        if c.address not in build_statement.hidden_components
+    }
+    partial_requested = requested & {c.address for c in ds.partial_concepts}
+    if partial_requested:
+        raise UnresolvableQueryException(
+            f"Query is unresolvable: no complete sources found for output concepts"
+            f" {partial_requested}. These concepts could only be resolved from partial sources."
+        )
+    return ds
+
+
 def get_query_node(
     environment: Environment,
     statement: SelectLineage | MultiSelectLineage,
@@ -492,36 +564,30 @@ def get_query_node(
 
     graph = generate_graph(build_environment)
 
+    if CONFIG.use_v4_discovery:
+        return _get_query_node_v4(
+            build_statement=build_statement,
+            build_environment=build_environment,
+            graph=graph,
+            conditions=build_statement.where_clause,
+            history=history,
+        )
+
     logger.info(
         f"{LOGGER_PREFIX} getting source datasource for outputs {build_statement.output_components} grain {build_statement.grain}"
     )
 
     search_concepts: list[BuildConcept] = build_statement.output_components
 
-    # A model-non-nullable column can only be NULL via outer-join padding, so a
-    # WHERE-only `X IS NOT NULL` on it is tautological pre-join; dropping it here
-    # keeps X from pinning into required concepts / dedup grains for no semantic
-    # effect. Concepts the query directly selects/groups/orders by are protected:
-    # an `IS NOT NULL` there is an author-intended join guard, not noise.
-    protected_addresses: set[str] = set()
-    for component in build_statement.output_components:
-        protected_addresses.add(component.address)
-        protected_addresses.add(component.canonical_address)
-    order_by = getattr(build_statement, "order_by", None)
-    if order_by is not None:
-        for item in order_by.items:
-            for arg in item.concept_arguments:
-                protected_addresses.add(arg.address)
-                protected_addresses.add(arg.canonical_address)
-    resolution_conditions = strip_tautological_not_null(
-        build_statement.where_clause, build_environment, protected_addresses
-    )
-
+    # A tautological `X IS NOT NULL` (X provably non-null given the actual join
+    # tree) is dropped later by the StripRedundantNotNull optimization rule,
+    # which operates on the built CTEs where join types and nullability are
+    # known — pre-resolution we can't tell whether an outer join pads X.
     ods: StrategyNode = source_query_concepts(
         output_concepts=search_concepts,
         environment=build_environment,
         g=graph,
-        conditions=resolution_conditions,
+        conditions=build_statement.where_clause,
         history=history,
     )
     if not ods:

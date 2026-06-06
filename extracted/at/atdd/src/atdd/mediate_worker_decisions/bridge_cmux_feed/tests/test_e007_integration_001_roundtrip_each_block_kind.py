@@ -52,7 +52,7 @@ MULTI_QUESTION = FeedItem(
 SAFE_PERMISSION = FeedItem(
     id="f-p",
     request_id="req-p",
-    kind="permission",
+    kind="permissionRequest",
     tool_name="Bash",
     tool_input="ls -la",
 )
@@ -111,4 +111,6 @@ def test_each_block_kind_round_trips_to_its_reply_shape():
     assert q["selections"] == ["Blue", "Auth", "Billing"]
 
     p = next(pr for v, pr in transport.calls if v == "feed.permission.reply")
-    assert p["decision"] == "once"  # confirm/permission round-trips
+    # cmux requires ``mode`` (not ``decision``) ∈ once|always|all|bypass|deny
+    # (#980/#981 — the shipped contract); align this stale assertion with it.
+    assert p["mode"] == "once"  # confirm/permission round-trips

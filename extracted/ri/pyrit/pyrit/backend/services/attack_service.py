@@ -21,11 +21,12 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Literal, Optional, cast
+from typing import Any, Literal, cast
 from urllib.parse import parse_qs, urlparse
 
-from pyrit.backend.mappers.attack_mappers import (
+from pyrit.backend.mappers import (
     attack_result_to_summary,
+    format_last_message_preview,
     pyrit_messages_to_dto_async,
     request_piece_to_pyrit_message_piece,
     request_to_pyrit_message,
@@ -49,16 +50,16 @@ from pyrit.backend.models.attacks import (
 from pyrit.backend.models.common import PaginationInfo
 from pyrit.backend.services.converter_service import get_converter_service
 from pyrit.backend.services.target_service import get_target_service
-from pyrit.identifiers import ComponentIdentifier
-from pyrit.identifiers.atomic_attack_identifier import build_atomic_attack_identifier
 from pyrit.memory import CentralMemory
 from pyrit.models import (
     AttackOutcome,
     AttackResult,
+    ComponentIdentifier,
     ConversationStats,
     ConversationType,
     MessagePiece,
     PromptDataType,
+    build_atomic_attack_identifier,
     data_serializer_factory,
 )
 from pyrit.prompt_normalizer import PromptConverterConfiguration, PromptNormalizer
@@ -82,14 +83,16 @@ class AttackService:
     async def list_attacks_async(
         self,
         *,
-        attack_type: Optional[str] = None,
-        converter_types: Optional[list[str]] = None,
-        outcome: Optional[Literal["undetermined", "success", "failure"]] = None,
-        labels: Optional[dict[str, str]] = None,
-        min_turns: Optional[int] = None,
-        max_turns: Optional[int] = None,
+        attack_types: Sequence[str] | None = None,
+        converter_types: Sequence[str] | None = None,
+        converter_types_match: Literal["any", "all"] = "all",
+        has_converters: bool | None = None,
+        outcome: Literal["undetermined", "success", "failure", "error"] | None = None,
+        labels: dict[str, str | Sequence[str]] | None = None,
+        min_turns: int | None = None,
+        max_turns: int | None = None,
         limit: int = 20,
-        cursor: Optional[str] = None,
+        cursor: str | None = None,
     ) -> AttackListResponse:
         """
         List attacks with optional filtering and pagination.
@@ -97,12 +100,24 @@ class AttackService:
         Queries AttackResult entries from the database.
 
         Args:
-            attack_type: Filter by exact attack type name (case-sensitive).
-            converter_types: Filter by converter usage.
-                None = no filter, [] = only attacks with no converters,
-                ["A", "B"] = only attacks using ALL specified converters (AND logic, case-insensitive).
+            attack_types: Filter by attack type names (case-insensitive). May be specified
+                multiple times to OR-match across types. None or empty list applies no filter.
+            converter_types: Filter by converter class names (case-insensitive).
+                ``None`` or an empty list applies no filter at this layer. Combination
+                semantics for multiple entries are controlled by ``converter_types_match``.
+                To restrict results to attacks with no converters, pass
+                ``has_converters=False`` instead.
+            converter_types_match: How to combine multiple entries in ``converter_types``.
+                ``"all"`` (default) matches attacks that used every listed converter.
+                ``"any"`` matches attacks that used at least one of the listed converters.
+                Ignored when ``converter_types`` is None or has fewer than 2 entries.
+            has_converters: Filter by converter presence. ``True`` returns only attacks that
+                used at least one converter. ``False`` returns only attacks that used no
+                converters. ``None`` applies no filter.
             outcome: Filter by attack outcome.
-            labels: Filter by labels (all must match).
+            labels: Filter by labels. See ``MemoryInterface.get_attack_results`` for
+                semantics (AND across label names; string equality or sequence OR within
+                each name).
             min_turns: Filter by minimum executed turns.
             max_turns: Filter by maximum executed turns.
             limit: Maximum items to return.
@@ -112,11 +127,19 @@ class AttackService:
             AttackListResponse with filtered and paginated attack summaries.
         """
         # Phase 1: Query + lightweight filtering (no pieces needed)
+        # Coerce an empty converter_types list to None so it behaves as "no filter" at
+        # this layer — the "attacks with no converters" case is expressed through
+        # has_converters=False, which keeps the three layers (route/service/memory)
+        # consistent.
+        effective_converter_types = converter_types if converter_types else None
+
         attack_results = self._memory.get_attack_results(
             outcome=outcome,
             labels=labels if labels else None,
-            attack_class=attack_type,
-            converter_classes=converter_types,
+            attack_classes=attack_types if attack_types else None,
+            converter_classes=effective_converter_types,
+            converter_classes_match=converter_types_match,
+            has_converters=has_converters,
         )
 
         filtered: list[AttackResult] = []
@@ -134,7 +157,7 @@ class AttackService:
         )
 
         # Paginate on the lightweight list first
-        page_results, has_more = self._paginate_attack_results(filtered, cursor, limit)
+        page_results, has_more = self._paginate_attack_results(items=filtered, cursor=cursor, limit=limit)
         next_cursor = page_results[-1].attack_result_id if has_more and page_results else None
 
         # Phase 2: Lightweight DB aggregation for the page only.
@@ -155,11 +178,13 @@ class AttackService:
 
             total_count = (main_stats.message_count if main_stats else 0) + sum(s.message_count for s in pruned_stats)
             preview = main_stats.last_message_preview if main_stats else None
+            preview_data_type = main_stats.last_message_data_type if main_stats else None
             conv_labels = (main_stats.labels if main_stats else None) or {}
 
             merged = ConversationStats(
                 message_count=total_count,
                 last_message_preview=preview,
+                last_message_data_type=preview_data_type,
                 labels=conv_labels,
             )
 
@@ -194,7 +219,7 @@ class AttackService:
         """
         return self._memory.get_unique_converter_class_names()
 
-    async def get_attack_async(self, *, attack_result_id: str) -> Optional[AttackSummary]:
+    async def get_attack_async(self, *, attack_result_id: str) -> AttackSummary | None:
         """
         Get attack details (high-level metadata, no messages).
 
@@ -217,7 +242,7 @@ class AttackService:
         *,
         attack_result_id: str,
         conversation_id: str,
-    ) -> Optional[ConversationMessagesResponse]:
+    ) -> ConversationMessagesResponse | None:
         """
         Get all messages for a conversation belonging to an attack.
 
@@ -308,6 +333,7 @@ class AttackService:
                 "created_at": now.isoformat(),
                 "updated_at": now.isoformat(),
             },
+            labels=labels,
         )
 
         # Store in memory
@@ -315,10 +341,10 @@ class AttackService:
 
         # Store prepended conversation messages if provided
         if request.prepended_conversation:
-            await self._store_prepended_messages(
+            await self._store_prepended_messages_async(
                 conversation_id=conversation_id,
                 prepended=request.prepended_conversation,
-                labels=labels,
+                labels=labels,  # deprecated
             )
 
         return CreateAttackResponse(
@@ -327,9 +353,7 @@ class AttackService:
             created_at=now,
         )
 
-    async def update_attack_async(
-        self, *, attack_result_id: str, request: UpdateAttackRequest
-    ) -> Optional[AttackSummary]:
+    async def update_attack_async(self, *, attack_result_id: str, request: UpdateAttackRequest) -> AttackSummary | None:
         """
         Update an attack's outcome.
 
@@ -347,6 +371,7 @@ class AttackService:
             "undetermined": AttackOutcome.UNDETERMINED,
             "success": AttackOutcome.SUCCESS,
             "failure": AttackOutcome.FAILURE,
+            "error": AttackOutcome.ERROR,
         }
         new_outcome = outcome_map.get(request.outcome, AttackOutcome.UNDETERMINED)
 
@@ -364,7 +389,7 @@ class AttackService:
 
         return await self.get_attack_async(attack_result_id=attack_result_id)
 
-    async def get_conversations_async(self, *, attack_result_id: str) -> Optional[AttackConversationsResponse]:
+    async def get_conversations_async(self, *, attack_result_id: str) -> AttackConversationsResponse | None:
         """
         Get all conversations belonging to an attack.
 
@@ -397,7 +422,10 @@ class AttackService:
                 ConversationSummary(
                     conversation_id=conv_id,
                     message_count=stats.message_count if stats else 0,
-                    last_message_preview=stats.last_message_preview if stats else None,
+                    last_message_preview=format_last_message_preview(
+                        value=stats.last_message_preview if stats else None,
+                        data_type=stats.last_message_data_type if stats else None,
+                    ),
                     created_at=created_at,
                 )
             )
@@ -417,7 +445,7 @@ class AttackService:
 
     async def create_related_conversation_async(
         self, *, attack_result_id: str, request: CreateConversationRequest
-    ) -> Optional[CreateConversationResponse]:
+    ) -> CreateConversationResponse | None:
         """
         Create a new conversation within an existing attack.
 
@@ -473,7 +501,7 @@ class AttackService:
 
     async def update_main_conversation_async(
         self, *, attack_result_id: str, request: UpdateMainConversationRequest
-    ) -> Optional[UpdateMainConversationResponse]:
+    ) -> UpdateMainConversationResponse | None:
         """
         Change the main conversation by promoting a related conversation.
 
@@ -558,7 +586,7 @@ class AttackService:
         ar = results[0]
         main_conversation_id = ar.conversation_id
 
-        self._validate_target_match(attack_identifier=ar.attack_identifier, request=request)
+        self._validate_target_match(attack_identifier=ar.get_attack_strategy_identifier(), request=request)
         self._validate_operator_match(conversation_id=main_conversation_id, request=request)
 
         msg_conversation_id = request.target_conversation_id
@@ -592,14 +620,14 @@ class AttackService:
                 target_registry_name=target_registry_name,
                 request=request,
                 sequence=sequence,
-                labels=attack_labels,
+                labels=attack_labels,  # deprecated
             )
         else:
             await self._store_message_only_async(
                 conversation_id=msg_conversation_id,
                 request=request,
                 sequence=sequence,
-                labels=attack_labels,
+                labels=attack_labels,  # deprecated
             )
 
         await self._update_attack_after_message_async(attack_result_id=attack_result_id, ar=ar, request=request)
@@ -618,7 +646,7 @@ class AttackService:
         return AddMessageResponse(attack=attack_detail, messages=attack_messages)
 
     def _validate_target_match(
-        self, *, attack_identifier: Optional[ComponentIdentifier], request: AddMessageRequest
+        self, *, attack_identifier: ComponentIdentifier | None, request: AddMessageRequest
     ) -> None:
         """
         Validate that the request target matches the attack's stored target.
@@ -684,7 +712,7 @@ class AttackService:
         conversation_id: str,
         main_conversation_id: str,
         existing_pieces: Sequence[MessagePiece],
-        request_labels: Optional[dict[str, str]],
+        request_labels: dict[str, str] | None,
     ) -> dict[str, str]:
         """
         Resolve labels for a new message by inheriting from existing pieces.
@@ -695,7 +723,7 @@ class AttackService:
         Returns:
             dict[str, str]: Resolved labels for the new message.
         """
-        attack_labels: Optional[dict[str, str]] = next(
+        attack_labels: dict[str, str] | None = next(
             (p.labels for p in existing_pieces if p.labels and len(p.labels) > 0), None
         )
         if not attack_labels:
@@ -719,7 +747,7 @@ class AttackService:
         if request.converter_ids:
             converter_objs = get_converter_service().get_converter_objects_for_ids(converter_ids=request.converter_ids)
             new_converter_ids = [c.get_identifier() for c in converter_objs]
-            aid = ar.attack_identifier
+            aid = ar.get_attack_strategy_identifier()
             if aid:
                 existing_converters: list[ComponentIdentifier] = list(aid.get_child_list("request_converters"))
                 existing_hashes = {c.hash for c in existing_converters}
@@ -733,10 +761,8 @@ class AttackService:
                     params=dict(aid.params),
                     children=new_children,
                 )
-                update_fields["attack_identifier"] = new_aid.to_dict()
-                # Also update atomic_attack_identifier so get_attack_strategy_identifier() sees the change
                 if ar.atomic_attack_identifier:
-                    atomic = ComponentIdentifier.from_dict(ar.atomic_attack_identifier.to_dict())
+                    atomic = ComponentIdentifier.model_validate(ar.atomic_attack_identifier.model_dump())
                     atomic_children = dict(atomic.children)
                     # Navigate into attack_technique child to update the nested attack child.
                     technique = atomic_children.get("attack_technique")
@@ -758,7 +784,7 @@ class AttackService:
                         params=dict(atomic.params),
                         children=atomic_children,
                     )
-                    update_fields["atomic_attack_identifier"] = new_atomic.to_dict()
+                    update_fields["atomic_attack_identifier"] = new_atomic.model_dump()
 
         self._memory.update_attack_result_by_id(
             attack_result_id=attack_result_id,
@@ -770,7 +796,7 @@ class AttackService:
     # ========================================================================
 
     def _paginate_attack_results(
-        self, items: list[AttackResult], cursor: Optional[str], limit: int
+        self, *, items: list[AttackResult], cursor: str | None, limit: int
     ) -> tuple[list[AttackResult], bool]:
         """
         Apply cursor-based pagination over AttackResult objects.
@@ -801,7 +827,7 @@ class AttackService:
         *,
         source_conversation_id: str,
         cutoff_index: int,
-        labels_override: Optional[dict[str, str]] = None,
+        labels_override: dict[str, str] | None = None,
         remap_assistant_to_simulated: bool = False,
     ) -> str:
         """
@@ -832,9 +858,12 @@ class AttackService:
         # Apply optional overrides to the fresh pieces before persisting
         for piece in all_pieces:
             if labels_override is not None:
+                # TODO: ``labels`` is slated to move from MessagePiece onto
+                # AttackResult. Revisit this once that lands so we set labels
+                # on the attack result instead of mutating each piece.
                 piece.labels = dict(labels_override)
             if remap_assistant_to_simulated and piece.api_role == "assistant":
-                piece._role = "simulated_assistant"
+                piece.role = "simulated_assistant"
 
         if all_pieces:
             self._memory.add_message_pieces_to_memory(message_pieces=list(all_pieces))
@@ -913,17 +942,18 @@ class AttackService:
                 data_type=cast("PromptDataType", piece.data_type),
                 extension=ext,
             )
-            await serializer.save_b64_image(data=value)
+            await serializer.save_b64_image_async(data=value)
             file_path = serializer.value
             piece.original_value = file_path
             if piece.converted_value is None:
                 piece.converted_value = file_path
 
-    async def _store_prepended_messages(
+    async def _store_prepended_messages_async(
         self,
+        *,
         conversation_id: str,
         prepended: list[Any],
-        labels: Optional[dict[str, str]] = None,
+        labels: dict[str, str] | None = None,  # deprecated
     ) -> None:
         """Store prepended conversation messages in memory."""
         for seq, msg in enumerate(prepended):
@@ -933,7 +963,7 @@ class AttackService:
                     role=msg.role,
                     conversation_id=conversation_id,
                     sequence=seq,
-                    labels=labels,
+                    labels=labels,  # deprecated
                 )
                 self._memory.add_message_pieces_to_memory(message_pieces=[piece])
 
@@ -944,7 +974,7 @@ class AttackService:
         target_registry_name: str,
         request: AddMessageRequest,
         sequence: int,
-        labels: Optional[dict[str, str]] = None,
+        labels: dict[str, str] | None = None,  # deprecated
     ) -> None:
         """Send message to target via normalizer and store response."""
         target_obj = get_target_service().get_target_object(target_registry_name=target_registry_name)
@@ -959,7 +989,7 @@ class AttackService:
             request=request,
             conversation_id=conversation_id,
             sequence=sequence,
-            labels=labels,
+            labels=labels,  # deprecated
         )
 
         converter_configs = self._get_converter_configs(request)
@@ -980,7 +1010,7 @@ class AttackService:
         conversation_id: str,
         request: AddMessageRequest,
         sequence: int,
-        labels: Optional[dict[str, str]] = None,
+        labels: dict[str, str] | None = None,  # deprecated
     ) -> None:
         """Store message without sending (send=False)."""
         await self._persist_base64_pieces_async(request)
@@ -990,7 +1020,7 @@ class AttackService:
                 role=request.role,
                 conversation_id=conversation_id,
                 sequence=sequence,
-                labels=labels,
+                labels=labels,  # deprecated
             )
             self._memory.add_message_pieces_to_memory(message_pieces=[piece])
 

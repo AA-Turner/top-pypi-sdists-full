@@ -2,19 +2,28 @@
 Useful methods and classes not belonging anywhere and depending on asyncua library
 """
 
-import uuid
+from __future__ import annotations
+
 import logging
+import uuid
+from dataclasses import fields
 from datetime import datetime, timezone
 from enum import Enum, IntEnum, IntFlag
+from typing import TYPE_CHECKING, Any
 
 from dateutil import parser  # type: ignore[attr-defined]
 
 from asyncua import ua
 
+from ..ua.ua_binary import get_string_encoding
+
+if TYPE_CHECKING:
+    from asyncua.common.node import Node
+
 _logger = logging.getLogger(__name__)
 
 
-def value_to_datavalue(val, varianttype=None):
+def value_to_datavalue(val: Any, varianttype: ua.VariantType | None = None) -> ua.DataValue:
     """
     convert anything to a DataValue using varianttype
     """
@@ -25,7 +34,7 @@ def value_to_datavalue(val, varianttype=None):
     return ua.DataValue(ua.Variant(val, varianttype), SourceTimestamp=datetime.now(timezone.utc))
 
 
-def val_to_string(val, truncate=False):
+def val_to_string(val: Any, truncate: bool = False) -> str:
     """
     convert a python object or python-asyncua object to a string
     which should be easy to understand for human
@@ -34,7 +43,7 @@ def val_to_string(val, truncate=False):
     if truncate is true then huge strings or bytes are truncated
 
     """
-    if isinstance(val, (list, tuple)):
+    if isinstance(val, list | tuple):
         res = []
         for v in val:
             res.append(val_to_string(v))
@@ -44,7 +53,7 @@ def val_to_string(val, truncate=False):
         val = val.to_string()
     elif isinstance(val, ua.StatusCode):
         val = val.name
-    elif isinstance(val, (Enum, IntEnum, IntFlag)):
+    elif isinstance(val, Enum | IntEnum | IntFlag):
         val = val.name
     elif isinstance(val, ua.DataValue):
         val = variant_to_string(val.Value)
@@ -55,12 +64,12 @@ def val_to_string(val, truncate=False):
             val = val[:10] + "...." + val[-10:]
     elif isinstance(val, bytes):
         if truncate and len(val) > 100:
-            val = val[:10].decode("utf-8", errors="replace") + "...." + val[-10:].decode("utf-8", errors="replace")
+            val = val[:10].decode(get_string_encoding(), errors="surrogateescape") + "...." + val[-10:].decode(get_string_encoding(), errors="surrogateescape")
         else:
-            val = val.decode("utf-8", errors="replace")
+            val = val.decode(get_string_encoding(), errors="surrogateescape")
     elif isinstance(val, datetime):
         val = val.isoformat()
-    elif isinstance(val, (int, float)):
+    elif isinstance(val, int | float):
         val = str(val)
     else:
         # FIXME: Some types are probably missing!
@@ -68,7 +77,7 @@ def val_to_string(val, truncate=False):
     return val
 
 
-def variant_to_string(var):
+def variant_to_string(var: ua.Variant) -> str:
     """
     convert a variant to a string which should be easy to understand for human
     easy to modify, and not too hard to parse back ....not easy
@@ -77,7 +86,7 @@ def variant_to_string(var):
     return val_to_string(var.Value)
 
 
-def string_to_val(string, vtype):
+def string_to_val(string: str, vtype: Any) -> Any:
     """
     Convert back a string to a python or python-asyncua object
     Note: no error checking is done here, supplying null strings could raise exceptions (datetime and guid)
@@ -119,7 +128,7 @@ def string_to_val(string, vtype):
     elif vtype == ua.VariantType.String:
         val = string
     elif vtype == ua.VariantType.ByteString:
-        val = string.encode()
+        val = string.encode(get_string_encoding(), errors="surrogateescape")
     elif vtype in (ua.VariantType.NodeId, ua.VariantType.ExpandedNodeId):
         val = ua.NodeId.from_string(string)
     elif vtype == ua.VariantType.QualifiedName:
@@ -133,7 +142,10 @@ def string_to_val(string, vtype):
     elif vtype == ua.VariantType.Guid:
         val = uuid.UUID(string)
     elif issubclass(vtype, Enum):
-        enum_int = int(string.rsplit("_", 1)[1])
+        if string.isdigit():
+            enum_int = int(string)
+        else:
+            enum_int = int(string.rsplit("_", 1)[1])
         val = vtype(enum_int)
     else:
         # FIXME: Some types are probably missing!
@@ -141,14 +153,14 @@ def string_to_val(string, vtype):
     return val
 
 
-def string_to_variant(string, vtype):
+def string_to_variant(string: str, vtype: Any) -> ua.Variant:
     """
     convert back a string to an ua.Variant
     """
     return ua.Variant(string_to_val(string, vtype), vtype)
 
 
-async def get_node_children(node, nodes=None):
+async def get_node_children(node: Node, nodes: list[Node] | None = None) -> list[Node]:
     """
     Get recursively all children of a node
     """
@@ -160,7 +172,7 @@ async def get_node_children(node, nodes=None):
     return nodes
 
 
-async def get_node_subtypes(node, nodes=None):
+async def get_node_subtypes(node: Node, nodes: list[Node] | None = None) -> list[Node]:
     if nodes is None:
         nodes = [node]
     for child in await node.get_children(refs=ua.ObjectIds.HasSubtype):
@@ -169,7 +181,7 @@ async def get_node_subtypes(node, nodes=None):
     return nodes
 
 
-async def get_node_supertypes(node, includeitself=False, skipbase=True):
+async def get_node_supertypes(node: Node, includeitself: bool = False, skipbase: bool = True) -> list[Node]:
     """
     return get all subtype parents of node recursive
     :param node: can be an ua.Node or ua.NodeId
@@ -186,7 +198,7 @@ async def get_node_supertypes(node, includeitself=False, skipbase=True):
     return parents
 
 
-async def _get_node_supertypes(node):
+async def _get_node_supertypes(node: Node) -> list[Node]:
     """
     recursive implementation of get_node_derived_from_types
     """
@@ -199,7 +211,7 @@ async def _get_node_supertypes(node):
     return basetypes
 
 
-async def get_node_supertype(node):
+async def get_node_supertype(node: Node) -> Node | None:
     """
     return node supertype or None
     """
@@ -209,7 +221,7 @@ async def get_node_supertype(node):
     return None
 
 
-async def is_subtype(node, supertype):
+async def is_subtype(node: Node, supertype: ua.NodeId) -> bool:
     """
     return if a node is a subtype of a specified nodeid
     """
@@ -220,7 +232,7 @@ async def is_subtype(node, supertype):
     return False
 
 
-async def is_child_present(node, browsename):
+async def is_child_present(node: Node, browsename: ua.QualifiedName) -> bool:
     """
     return if a browsename is present a child from the provide node
     :param node: node wherein to find the browsename
@@ -234,7 +246,7 @@ async def is_child_present(node, browsename):
     return False
 
 
-async def data_type_to_variant_type(dtype_node):
+async def data_type_to_variant_type(dtype_node: Node) -> ua.VariantType:
     """
     Given a Node datatype, find out the variant type to encode
     data. This is not exactly straightforward...
@@ -243,13 +255,13 @@ async def data_type_to_variant_type(dtype_node):
     if base.nodeid.Identifier == 29:
         # we have an enumeration, value is an Int32
         return ua.VariantType.Int32
-    elif base.nodeid.Identifier in [24, 26, 27, 28]:
+    if base.nodeid.Identifier in [24, 26, 27, 28]:
         # BaseDataType, Number, Integer, UInteger -> Variant
         return ua.VariantType.Variant
     return ua.VariantType(base.nodeid.Identifier)
 
 
-async def get_base_data_type(datatype):
+async def get_base_data_type(datatype: Node) -> Node:
     """
     Looks up the base datatype of the provided datatype Node
     The base datatype is either:
@@ -265,10 +277,10 @@ async def get_base_data_type(datatype):
         if base.nodeid.NamespaceIndex == 0 and isinstance(base.nodeid.Identifier, int) and base.nodeid.Identifier < 30:
             return base
         base = await get_node_supertype(base)
-    raise ua.UaError(f"Datatype must be a subtype of builtin types {str(datatype)}")
+    raise ua.UaError(f"Datatype must be a subtype of builtin types {datatype!s}")
 
 
-async def get_nodes_of_namespace(server, namespaces=None):
+async def get_nodes_of_namespace(server: Any, namespaces: list[str | int] | None = None) -> list[Node]:
     """
     Get the nodes of one or more namespaces .
     Args:
@@ -279,11 +291,12 @@ async def get_nodes_of_namespace(server, namespaces=None):
     """
     if namespaces is None:
         namespaces = []
+    assert namespaces is not None
     ns_available = await server.get_namespace_array()
 
     if not namespaces:
         namespaces = ns_available[1:]
-    elif isinstance(namespaces, (str, int)):
+    elif isinstance(namespaces, str | int):
         namespaces = [namespaces]
 
     # make sure all namespace are indexes (if needed, convert strings to indexes)
@@ -298,7 +311,7 @@ async def get_nodes_of_namespace(server, namespaces=None):
     return nodes
 
 
-def get_default_value(uatype):
+def get_default_value(uatype: Any) -> Any:
     if isinstance(uatype, ua.VariantType):
         return ua.get_default_value(uatype)
     if hasattr(ua.VariantType, uatype):
@@ -306,19 +319,19 @@ def get_default_value(uatype):
     return getattr(ua, uatype)()
 
 
-def data_type_to_string(dtype):
+def data_type_to_string(dtype: ua.NodeId) -> str:
     # we could just display browse name of node, but it requires a query
     if dtype.NamespaceIndex == 0 and dtype.Identifier in ua.ObjectIdNames:
-        string = ua.ObjectIdNames[dtype.Identifier]
+        string = ua.ObjectIdNames[dtype.Identifier]  # type: ignore[index]
     else:
         string = dtype.to_string()
     return string
 
 
-def copy_dataclass_attr(dc_source, dc_dest) -> None:
+def copy_dataclass_attr(dc_source: Any, dc_dest: Any) -> None:
     """
     Copy the common attributes of dc_source to dc_dest
     """
-    common_params = set(vars(dc_source)) & set(vars(dc_dest))
+    common_params = set(f.name for f in fields(dc_source)) & set(f.name for f in fields(dc_dest))
     for c in common_params:
         setattr(dc_dest, c, getattr(dc_source, c))

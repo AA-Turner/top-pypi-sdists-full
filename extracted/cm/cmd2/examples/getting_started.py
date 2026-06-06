@@ -13,10 +13,14 @@ Features demonstrated include all of the following:
  9) Using a custom prompt
 10) How to make custom attributes settable at runtime.
 11) Shortcuts for commands
+12) Persistent bottom toolbar with realtime status updates
 """
 
 import pathlib
+import threading
+import time
 
+from prompt_toolkit.formatted_text import FormattedText
 from rich.style import Style
 
 import cmd2
@@ -29,44 +33,50 @@ from cmd2 import (
 class BasicApp(cmd2.Cmd):
     """Cmd2 application to demonstrate many common features."""
 
-    CUSTOM_CATEGORY = 'My Custom Commands'
+    DEFAULT_CATEGORY = "My Custom Commands"
 
     def __init__(self) -> None:
         """Initialize the cmd2 application."""
         # Startup script that defines a couple aliases for running shell commands
-        alias_script = pathlib.Path(__file__).absolute().parent / '.cmd2rc'
+        alias_script = pathlib.Path(__file__).absolute().parent / ".cmd2rc"
 
         # Create a shortcut for one of our commands
         shortcuts = cmd2.DEFAULT_SHORTCUTS
-        shortcuts.update({'&': 'intro'})
+        shortcuts.update({"&": "intro"})
         super().__init__(
+            auto_suggest=True,
+            bottom_toolbar=True,
             include_ipy=True,
-            multiline_commands=['echo'],
-            persistent_history_file='cmd2_history.dat',
+            multiline_commands=["echo"],
+            persistent_history_file="cmd2_history.dat",
             shortcuts=shortcuts,
             startup_script=str(alias_script),
         )
 
+        # Spawn a background thread to refresh the bottom toolbar twice a second.
+        # This is necessary because the toolbar contains a timestamp that we want to keep current.
+        self._stop_refresh = False
+        self._refresh_thread = threading.Thread(target=self._refresh_bottom_toolbar, daemon=True)
+        self._refresh_thread.start()
+
         # Prints an intro banner once upon application startup
         self.intro = (
             stylize(
-                'Welcome to cmd2!',
+                "Welcome to cmd2!",
                 style=Style(color=Color.GREEN1, bgcolor=Color.GRAY0, bold=True),
             )
-            + ' Note the full Unicode support:  😇 💩'
+            + " Note the full Unicode support:  😇 💩"
+            + " and the persistent bottom bar with realtime status updates!"
         )
 
         # Show this as the prompt when asking for input
-        self.prompt = 'myapp> '
+        self.prompt = "myapp> "
 
         # Used as prompt for multiline commands after the first line
-        self.continuation_prompt = '... '
+        self.continuation_prompt = "... "
 
         # Allow access to your application in py and ipy via self
         self.self_in_py = True
-
-        # Set the default category name
-        self.default_category = 'cmd2 Built-in Commands'
 
         # Color to output text in with echo command
         self.foreground_color = Color.CYAN.value
@@ -75,20 +85,42 @@ class BasicApp(cmd2.Cmd):
         fg_colors = [c.value for c in Color]
         self.add_settable(
             cmd2.Settable(
-                'foreground_color',
+                "foreground_color",
                 str,
-                'Foreground color to use with echo command',
+                "Foreground color to use with echo command",
                 self,
                 choices=fg_colors,
             )
         )
 
-    @cmd2.with_category(CUSTOM_CATEGORY)
+    def get_rprompt(self) -> str | FormattedText | None:
+        current_working_directory = pathlib.Path.cwd()
+        style = "bg:ansired fg:ansiwhite"
+        text = f"cwd={current_working_directory}"
+        return FormattedText([(style, text)])
+
+    def _refresh_bottom_toolbar(self) -> None:
+        """Background thread target to refresh the bottom toolbar.
+
+        This is a toy example to show how the bottom toolbar can be used to display
+        realtime status updates in an otherwise line-oriented command interpreter.
+        """
+        import contextlib
+
+        from prompt_toolkit.application.current import get_app
+
+        while not self._stop_refresh:
+            with contextlib.suppress(Exception):
+                # get_app() will return the currently running prompt-toolkit application
+                app = get_app()
+                if app:
+                    app.invalidate()
+            time.sleep(0.5)
+
     def do_intro(self, _: cmd2.Statement) -> None:
         """Display the intro banner."""
         self.poutput(self.intro)
 
-    @cmd2.with_category(CUSTOM_CATEGORY)
     def do_echo(self, arg: cmd2.Statement) -> None:
         """Multiline command."""
         self.poutput(
@@ -99,7 +131,7 @@ class BasicApp(cmd2.Cmd):
         )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     app = BasicApp()

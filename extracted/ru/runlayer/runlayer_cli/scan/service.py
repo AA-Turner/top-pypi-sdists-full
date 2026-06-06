@@ -52,6 +52,7 @@ from runlayer_cli.scan.skill_scanner import (
     scan_global_skills,
     tag_skills_with_plugins,
 )
+from runlayer_cli.scan.warp_sqlite import enrich_configurations_with_warp_sqlite
 
 if TYPE_CHECKING:
     from runlayer_cli.api import RunlayerClient
@@ -84,12 +85,11 @@ def scan_extensions_folder(client_def: MCPClientDefinition) -> list[str]:
         return []
 
     found_extensions: list[str] = []
-    for ext_path in client_def.extensions_paths:
-        resolved = ext_path.resolve()
-        if resolved and resolved.is_dir():
+    for resolved, prefix in client_def.get_resolved_extensions_paths():
+        if resolved.is_dir():
             try:
                 for item in resolved.iterdir():
-                    if item.is_dir() and item.name.startswith(ext_path.prefix):
+                    if item.is_dir() and item.name.startswith(prefix):
                         found_extensions.append(item.name)
                         logger.debug(
                             "Found extension folder",
@@ -158,6 +158,7 @@ class ScanResult:
     scan_duration_ms: int
     collector_version: str
     configurations: list[MCPClientConfig]
+    is_wsl: bool = False
     skills: list[DiscoveredSkillArtifact] = field(default_factory=list)
     plugins: list[DiscoveredPluginArtifact] = field(default_factory=list)
 
@@ -202,7 +203,7 @@ class ScanResult:
         return len(self.plugins)
 
     def to_api_payload(self) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "device_id": self.device_id,
             "hostname": self.hostname,
             "os": self.os,
@@ -238,6 +239,9 @@ class ScanResult:
                 for c in self.configurations
             ],
         }
+        if self.is_wsl:
+            payload["is_wsl"] = True
+        return payload
 
 
 def scan_all_clients(
@@ -333,6 +337,10 @@ def scan_all_clients(
                     client=client_def.name,
                     server_count=len(config.servers),
                 )
+
+    # Supplement Warp's file config with its in-app gallery sqlite installs
+    # (owned + merged inside warp_sqlite to keep ordering/dedup local).
+    enrich_configurations_with_warp_sqlite(configurations)
 
     # ==========================================================================
     # PHASE 2: Unified project-level find crawl (MCP configs + skill files)
@@ -592,6 +600,7 @@ def scan_all_clients(
         scan_duration_ms=scan_duration_ms,
         collector_version=collector_version,
         configurations=configurations,
+        is_wsl=device_metadata.get("is_wsl", False),
         skills=all_skills,
         plugins=all_plugins,
     )

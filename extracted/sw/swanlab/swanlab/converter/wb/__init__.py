@@ -1,4 +1,4 @@
-from .wb_converter import WandbConverter
-from .wb_local_converter import WandbLocalConverter
+from swanlab.converter.wb.converter import WandbConverter
+from swanlab.converter.wb.local_converter import WandbLocalConverter
 
 __all__ = ["WandbConverter", "WandbLocalConverter"]

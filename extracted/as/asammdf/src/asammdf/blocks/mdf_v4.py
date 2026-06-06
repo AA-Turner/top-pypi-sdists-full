@@ -669,7 +669,6 @@ class MDF4(MDF_Common[Group]):
 
             for grp in new_groups:
                 grp.data_location = v4c.LOCATION_ORIGINAL_FILE
-                grp.data_blocks_info_generator = data_blocks_info
                 grp.data_blocks = data_blocks
                 grp.uses_ld = uses_ld
                 self._prepare_record(grp)
@@ -1043,7 +1042,7 @@ class MDF4(MDF_Common[Group]):
             # signal data
             cn_data_addr = channel.data_block_addr
             if cn_data_addr:
-                grp.signal_data.append(([], self._get_signal_data_blocks_info(cn_data_addr, stream)))
+                grp.signal_data.append(list(self._get_signal_data_blocks_info(cn_data_addr, stream)))
             else:
                 grp.signal_data.append(None)
 
@@ -1452,7 +1451,6 @@ class MDF4(MDF_Common[Group]):
         has_yielded = False
         _count = 0
 
-        data_blocks_info_generator = group.data_blocks_info_generator
         channel_group = group.channel_group
 
         stream: FileLike | mmap.mmap | tempfile._TemporaryFileWrapper[bytes]
@@ -1526,8 +1524,6 @@ class MDF4(MDF_Common[Group]):
 
             invalidation_split_size = int(invalidation_split_size)
 
-            blocks = iter(group.data_blocks)
-
             cur_size = 0
             data: list[object] = []
 
@@ -1538,56 +1534,29 @@ class MDF4(MDF_Common[Group]):
             ss = 0
             cc = 0
 
-            while True:
-                try:
-                    info = next(blocks)
-                    (
-                        address,
-                        original_size,
-                        compressed_size,
-                        block_type,
-                        param,
-                        block_limit,
-                    ) = (
-                        info.address,
-                        typing.cast(int, info.original_size),
-                        info.compressed_size,
-                        info.block_type,
-                        info.param,
-                        info.block_limit,
-                    )
+            for info in group.data_blocks:
 
-                    if rm and invalidation_size:
-                        invalidation_info = info.invalidation_block
-                    else:
-                        invalidation_info = None
-                except StopIteration:
-                    try:
-                        info = next(data_blocks_info_generator)
-                        (
-                            address,
-                            original_size,
-                            compressed_size,
-                            block_type,
-                            param,
-                            block_limit,
-                        ) = (
-                            info.address,
-                            typing.cast(int, info.original_size),
-                            info.compressed_size,
-                            info.block_type,
-                            info.param,
-                            info.block_limit,
-                        )
+                (
+                    address,
+                    original_size,
+                    compressed_size,
+                    block_type,
+                    param,
+                    block_limit,
+                ) = (
+                    info.address,
+                    typing.cast(int, info.original_size),
+                    info.compressed_size,
+                    info.block_type,
+                    info.param,
+                    info.block_limit,
+                )
 
-                        if rm and invalidation_size:
-                            invalidation_info = info.invalidation_block
-                        else:
-                            invalidation_info = None
-                        group.data_blocks.append(info)
-                    except StopIteration:
-                        break
-
+                if rm and invalidation_size:
+                    invalidation_info = info.invalidation_block
+                else:
+                    invalidation_info = None
+              
                 if offset + original_size < record_offset + 1:
                     offset += original_size
                     if rm and invalidation_size:
@@ -3166,21 +3135,11 @@ class MDF4(MDF_Common[Group]):
                             original_size=data_size,
                             location=v4c.LOCATION_TEMPORARY_FILE,
                         )
-                        gp_sdata.append(
-                            (
-                                [info],
-                                iter(EMPTY_TUPLE),
-                            )
-                        )
+                        gp_sdata.append([info])
                         records.tofile(file)
                     else:
                         data_addr = 0
-                        gp_sdata.append(
-                            (
-                                [],
-                                iter(EMPTY_TUPLE),
-                            )
-                        )
+                        gp_sdata.append([])
 
                     byte_size = 8
                     cn_kwargs = {
@@ -3931,22 +3890,13 @@ class MDF4(MDF_Common[Group]):
                             original_size=data_size,
                             location=v4c.LOCATION_TEMPORARY_FILE,
                         )
-                        gp_sdata.append(
-                            (
-                                [info],
-                                iter(EMPTY_TUPLE),
-                            )
-                        )
+                        gp_sdata.append([info])
                         file.seek(0, 2)
                         file.write(b"".join(buffers))
                     else:
                         data_addr = 0
-                        gp_sdata.append(
-                            (
-                                [],
-                                iter(EMPTY_TUPLE),
-                            )
-                        )
+                        gp_sdata.append([])
+
                 else:
                     offsets = typing.cast(
                         NDArray[np.uint64], arange(len(samples), dtype=uint64) * (signal.samples.itemsize + 4)
@@ -3970,21 +3920,11 @@ class MDF4(MDF_Common[Group]):
                             original_size=data_size,
                             location=v4c.LOCATION_TEMPORARY_FILE,
                         )
-                        gp_sdata.append(
-                            (
-                                [info],
-                                iter(EMPTY_TUPLE),
-                            )
-                        )
+                        gp_sdata.append([info])
                         records.tofile(file)
                     else:
                         data_addr = 0
-                        gp_sdata.append(
-                            (
-                                [],
-                                iter(EMPTY_TUPLE),
-                            )
-                        )
+                        gp_sdata.append([])
 
                 # compute additional byte offset for large records size
                 byte_size = 8
@@ -4869,21 +4809,11 @@ class MDF4(MDF_Common[Group]):
                         original_size=data_size,
                         location=v4c.LOCATION_TEMPORARY_FILE,
                     )
-                    gp_sdata.append(
-                        (
-                            [info],
-                            iter(EMPTY_TUPLE),
-                        )
-                    )
+                    gp_sdata.append([info])
                     array.tofile(file)
                 else:
                     data_addr = 0
-                    gp_sdata.append(
-                        (
-                            [],
-                            iter(EMPTY_TUPLE),
-                        )
-                    )
+                    gp_sdata.append([])
 
                 # compute additional byte offset for large records size
                 byte_size = 8
@@ -5204,21 +5134,11 @@ class MDF4(MDF_Common[Group]):
                         original_size=data_size,
                         location=v4c.LOCATION_TEMPORARY_FILE,
                     )
-                    gp_sdata.append(
-                        (
-                            [info],
-                            iter(EMPTY_TUPLE),
-                        )
-                    )
+                    gp_sdata.append([info])
                     data.tofile(file)
                 else:
                     data_addr = 0
-                    gp_sdata.append(
-                        (
-                            [],
-                            iter(EMPTY_TUPLE),
-                        )
-                    )
+                    gp_sdata.append([])
 
                 # compute additional byte offset for large records size
                 byte_size = 8
@@ -6453,9 +6373,9 @@ class MDF4(MDF_Common[Group]):
                                 location=v4c.LOCATION_TEMPORARY_FILE,
                             )
                             signal_data = typing.cast(
-                                list[tuple[list[SignalDataBlockInfo], Iterator[SignalDataBlockInfo]]], gp.signal_data
+                                list[list[SignalDataBlockInfo] | None], gp.signal_data
                             )
-                            signal_data[i][0].append(info)
+                            signal_data[i].append(info)
                             stream.write(b"".join(pairs))
 
                         offsets_arr += cur_offset  # type: ignore[misc, unused-ignore]
@@ -6485,9 +6405,9 @@ class MDF4(MDF_Common[Group]):
                                 location=v4c.LOCATION_TEMPORARY_FILE,
                             )
                             signal_data = typing.cast(
-                                list[tuple[list[SignalDataBlockInfo], Iterator[SignalDataBlockInfo]]], gp.signal_data
+                                list[list[SignalDataBlockInfo] | None], gp.signal_data
                             )
-                            signal_data[i][0].append(info)
+                            signal_data[i].append(info)
                             values_arr.tofile(stream)
 
                         offsets_arr += cur_offset
@@ -7397,7 +7317,6 @@ class MDF4(MDF_Common[Group]):
                     )
 
             else:
-                grp.load_all_data_blocks()
                 blocks = grp.data_blocks
                 record_size = grp.channel_group.samples_byte_nr + grp.channel_group.invalidation_bytes_nr
                 cycles_nr = grp.channel_group.cycles_nr
@@ -9424,9 +9343,6 @@ class MDF4(MDF_Common[Group]):
                 fragments = [next(stream) for stream in data_streams]
             except Exception:
                 break
-            #
-            # if perf_counter() - tt > 120:
-            #     x = 1 / 0
 
             # prepare the master
             _master = self.get_master(index, data=fragments[master_index], one_piece=True)
@@ -12151,7 +12067,7 @@ class MDF4(MDF_Common[Group]):
             for rec_id, channel_group in cg_map.items():
                 if channel_group.address in self._cn_data_map:
                     gp_idx, cn_idx = self._cn_data_map[channel_group.address]
-                    self.groups[gp_idx].signal_data[cn_idx] = ([], iter(EMPTY_TUPLE))
+                    self.groups[gp_idx].signal_data[cn_idx] = []
 
             group = self.groups[groups[0][0]]
 
@@ -12269,10 +12185,10 @@ class MDF4(MDF_Common[Group]):
                                             location=v4c.LOCATION_TEMPORARY_FILE,
                                         )
                                         signal_data = typing.cast(
-                                            list[tuple[list[SignalDataBlockInfo], Iterator[SignalDataBlockInfo]]],
+                                            list[list[SignalDataBlockInfo] | None],
                                             self.groups[dg_cntr].signal_data,
                                         )
-                                        signal_data[ch_cntr][0].append(info)
+                                        signal_data[ch_cntr].append(info)
 
                                     else:
                                         block_info = DataBlockInfo(
@@ -12296,10 +12212,10 @@ class MDF4(MDF_Common[Group]):
                                             location=v4c.LOCATION_TEMPORARY_FILE,
                                         )
                                         signal_data = typing.cast(
-                                            list[tuple[list[SignalDataBlockInfo], Iterator[SignalDataBlockInfo]]],
+                                            list[list[SignalDataBlockInfo] | None],
                                             self.groups[dg_cntr].signal_data,
                                         )
-                                        signal_data[ch_cntr][0].append(info)
+                                        signal_data[ch_cntr].append(info)
 
                                     else:
                                         block_info = DataBlockInfo(
@@ -12361,10 +12277,10 @@ class MDF4(MDF_Common[Group]):
                                                 location=v4c.LOCATION_TEMPORARY_FILE,
                                             )
                                             signal_data = typing.cast(
-                                                list[tuple[list[SignalDataBlockInfo], Iterator[SignalDataBlockInfo]]],
+                                                list[list[SignalDataBlockInfo] | None],
                                                 self.groups[dg_cntr].signal_data,
                                             )
-                                            signal_data[ch_cntr][0].append(info)
+                                            signal_data[ch_cntr].append(info)
 
                                         else:
                                             block_info = DataBlockInfo(
@@ -12389,10 +12305,10 @@ class MDF4(MDF_Common[Group]):
                                                 location=v4c.LOCATION_TEMPORARY_FILE,
                                             )
                                             signal_data = typing.cast(
-                                                list[tuple[list[SignalDataBlockInfo], Iterator[SignalDataBlockInfo]]],
+                                                list[list[SignalDataBlockInfo] | None],
                                                 self.groups[dg_cntr].signal_data,
                                             )
-                                            signal_data[ch_cntr][0].append(info)
+                                            signal_data[ch_cntr].append(info)
 
                                         else:
                                             block_info = DataBlockInfo(

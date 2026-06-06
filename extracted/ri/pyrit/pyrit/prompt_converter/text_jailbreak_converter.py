@@ -3,8 +3,7 @@
 
 
 from pyrit.datasets import TextJailBreak
-from pyrit.identifiers import ComponentIdentifier
-from pyrit.models import PromptDataType
+from pyrit.models import ComponentIdentifier, PromptDataType
 from pyrit.prompt_converter.prompt_converter import ConverterResult, PromptConverter
 
 
@@ -16,7 +15,7 @@ class TextJailbreakConverter(PromptConverter):
     SUPPORTED_INPUT_TYPES = ("text",)
     SUPPORTED_OUTPUT_TYPES = ("text",)
 
-    def __init__(self, *, jailbreak_template: TextJailBreak):
+    def __init__(self, *, jailbreak_template: TextJailBreak) -> None:
         """
         Initialize the converter with the specified jailbreak template.
 

@@ -2,8 +2,7 @@
 # Licensed under the MIT license.
 
 
-from pyrit.identifiers import ComponentIdentifier
-from pyrit.models import PromptDataType
+from pyrit.models import ComponentIdentifier, PromptDataType
 from pyrit.prompt_converter.prompt_converter import ConverterResult, PromptConverter
 from pyrit.prompt_converter.text_selection_strategy import (
     AllWordsSelectionStrategy,
@@ -196,7 +195,7 @@ class SelectiveTextConverter(PromptConverter):
         words = prompt.split(self._word_separator)
 
         # Get selected word indices
-        selected_indices = self._selection_strategy.select_words(words=words)  # type: ignore[attr-defined]
+        selected_indices = self._selection_strategy.select_words(words=words)  # type: ignore[ty:unresolved-attribute]
 
         # If no words selected, return original prompt
         if not selected_indices:

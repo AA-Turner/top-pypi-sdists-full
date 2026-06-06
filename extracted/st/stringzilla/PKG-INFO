@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stringzilla
-Version: 4.6.1
+Version: 4.6.2
 Summary: Search, hash, sort, and process strings faster via SWAR and SIMD
 Home-page: https://github.com/ashvardanian/StringZilla
 Author: Ash Vardanian
@@ -12,12 +12,11 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Programming Language :: C++
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Operating System :: OS Independent
@@ -27,7 +26,7 @@ Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: System :: Logging
 Classifier: Topic :: Text Processing :: General
 Classifier: Topic :: Text Processing :: Indexing
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Dynamic: author

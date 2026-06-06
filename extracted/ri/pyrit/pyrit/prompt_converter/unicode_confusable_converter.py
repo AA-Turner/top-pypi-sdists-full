@@ -9,8 +9,7 @@ from typing import Literal
 from confusable_homoglyphs.confusables import is_confusable
 from confusables import confusable_characters
 
-from pyrit.identifiers import ComponentIdentifier
-from pyrit.models import PromptDataType
+from pyrit.models import ComponentIdentifier, PromptDataType
 from pyrit.prompt_converter.prompt_converter import ConverterResult, PromptConverter
 
 logger = logging.getLogger(__name__)
@@ -30,7 +29,7 @@ class UnicodeConfusableConverter(PromptConverter):
         *,
         source_package: Literal["confusable_homoglyphs", "confusables"] = "confusable_homoglyphs",
         deterministic: bool = False,
-    ):
+    ) -> None:
         """
         Initialize the converter with the specified source package for homoglyph generation.
 

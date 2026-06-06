@@ -231,6 +231,11 @@ jobs:
         shell: bash
         run: echo "DCC_MCP_ADMIN_UI_PREBUILT=1" >> "$GITHUB_ENV"
 
+      - name: Forbid OpenSSL in Linux server binary graph
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: bash scripts/ci/check_server_binary_tls_graph.sh
+
       - name: Build raw binary (macOS universal2)
         if: matrix.os == 'macos-latest'
         run: |
@@ -387,9 +392,7 @@ jobs:
 
       - name: Setup Python (py37 build)
         if: matrix.target == 'windows-py37'
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.7'
+        uses: ./.github/actions/setup-windows-python37
 
       - name: Install maturin
         if: matrix.target != 'linux-abi3' && matrix.target != 'linux-py37'

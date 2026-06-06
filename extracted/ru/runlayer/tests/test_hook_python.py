@@ -24,13 +24,13 @@ from runlayer_cli.hook.file_policy import (
     check_file_read,
 )
 from runlayer_cli.hook import (
-    _relay_worker,
     _transcript_stream_worker,
     messages,
     relay,
     transcript_stream,
 )
 from runlayer_cli.hook import __main__ as hook_main
+from runlayer_cli.hook import dispatch as hook_dispatch
 from runlayer_cli.hook.mcp_lookup import (
     _claude_enabled_plugins,
     lookup_codex_mcp_server,
@@ -504,8 +504,8 @@ class TestMCPLookup:
             assert result is not None
             assert result["url"] == "https://example.runlayer.com/mcp"
 
-    def test_finds_serverurl_in_project_mcp_json(self):
-        """Windsurf and some other clients use `serverUrl` instead of `url`."""
+    def test_serverurl_in_project_mcp_json_is_accepted(self):
+        """Python hook accepts `serverUrl` (Windsurf) in JSON `.mcp.json`."""
         with tempfile.TemporaryDirectory() as td:
             mcp_file = Path(td) / ".mcp.json"
             mcp_file.write_text(
@@ -521,8 +521,8 @@ class TestMCPLookup:
             assert result is not None
             assert result["url"] == "https://mcp.example.com/sse"
 
-    def test_finds_uri_in_project_mcp_json(self):
-        """Goose uses `uri` instead of `url`."""
+    def test_uri_in_project_mcp_json_is_accepted(self):
+        """Python hook accepts `uri` (Goose) in JSON `.mcp.json`."""
         with tempfile.TemporaryDirectory() as td:
             mcp_file = Path(td) / ".mcp.json"
             mcp_file.write_text(
@@ -534,7 +534,8 @@ class TestMCPLookup:
             assert result is not None
             assert result["url"] == "https://mcp.example.com/sse"
 
-    def test_finds_serverurl_in_claude_json_projects(self):
+    def test_serverurl_in_claude_json_projects_is_accepted(self):
+        """Python hook accepts `serverUrl` in `.claude.json` project entries."""
         with tempfile.TemporaryDirectory() as td:
             claude_json = Path(td) / ".claude.json"
             claude_json.write_text(
@@ -557,7 +558,8 @@ class TestMCPLookup:
             assert result is not None
             assert result["url"] == "https://project.example.com"
 
-    def test_finds_uri_in_claude_json_global(self):
+    def test_uri_in_claude_json_global_is_accepted(self):
+        """Python hook accepts `uri` in `.claude.json` global entries."""
         with tempfile.TemporaryDirectory() as td:
             claude_json = Path(td) / ".claude.json"
             claude_json.write_text(
@@ -704,9 +706,40 @@ class TestMCPLookup:
 
 
 class TestClientDetection:
+    @pytest.mark.parametrize(
+        ("client_name", "expected"),
+        [
+            ("cursor", Client.CURSOR),
+            ("claude_code", Client.CLAUDE_CODE),
+            ("codex", Client.CODEX),
+            ("hermes", Client.HERMES),
+        ],
+    )
+    def test_detect_client_from_explicit_arg(self, client_name, expected):
+        env = {k: v for k, v in os.environ.items() if k != "CURSOR_VERSION"}
+        with patch.dict(os.environ, env, clear=True):
+            with patch(
+                "sys.argv",
+                [
+                    "/usr/local/lib/runlayer/aiwatch/aiwatch-hook",
+                    "--client",
+                    client_name,
+                ],
+            ):
+                assert detect_client() == expected
+
     def test_detect_cursor(self):
         with patch.dict(os.environ, {"CURSOR_VERSION": "1.0.0"}):
             assert detect_client() == Client.CURSOR
+
+    def test_detect_cursor_from_enterprise_path(self):
+        env = {k: v for k, v in os.environ.items() if k != "CURSOR_VERSION"}
+        with patch.dict(os.environ, env, clear=True):
+            with patch(
+                "sys.argv",
+                ["/Library/Application Support/Cursor/hooks/aiwatch-hook"],
+            ):
+                assert detect_client() == Client.CURSOR
 
     def test_detect_claude_code_fallback(self):
         env = {k: v for k, v in os.environ.items() if k != "CURSOR_VERSION"}
@@ -718,6 +751,12 @@ class TestClientDetection:
         env = {k: v for k, v in os.environ.items() if k != "CURSOR_VERSION"}
         with patch.dict(os.environ, env, clear=True):
             with patch("sys.argv", ["/home/user/.codex/hooks/aiwatch-enforce"]):
+                assert detect_client() == Client.CODEX
+
+    def test_detect_codex_from_enterprise_path(self):
+        env = {k: v for k, v in os.environ.items() if k != "CURSOR_VERSION"}
+        with patch.dict(os.environ, env, clear=True):
+            with patch("sys.argv", ["/etc/codex/hooks/aiwatch-hook"]):
                 assert detect_client() == Client.CODEX
 
     def test_detect_hermes_from_path(self):
@@ -771,6 +810,21 @@ class TestClientDetection:
 
 
 class TestShouldNoopForCursor:
+    def test_no_noop_when_cursor_is_explicit_client(self):
+        with patch(
+            "sys.argv",
+            ["/usr/local/lib/runlayer/aiwatch/aiwatch-hook", "--client", "cursor"],
+        ):
+            assert should_noop_for_cursor(Client.CURSOR) is False
+
+    def test_noop_when_cursor_loads_explicit_non_cursor_hook(self):
+        with patch.dict(os.environ, {"CURSOR_VERSION": "1.0.0"}):
+            with patch(
+                "sys.argv",
+                ["/home/user/.claude/hooks/aiwatch-hook", "--client", "claude_code"],
+            ):
+                assert should_noop_for_cursor(Client.CLAUDE_CODE) is True
+
     def test_noop_when_cursor_loads_claude_hook(self):
         with patch("sys.argv", ["/home/user/.claude/hooks/aiwatch-enforce"]):
             assert should_noop_for_cursor(Client.CURSOR) is True
@@ -831,6 +885,25 @@ class TestShouldNoopForCursor:
 
         with patch("sys.argv", [str(symlink)]):
             assert should_noop_for_cursor(Client.CURSOR) is False
+
+    def test_no_noop_when_frozen_binary_in_non_cursor_dir(self):
+        """Regression: frozen aiwatch-hook is a single shared exe wired into
+        every client's config. Its parent dir (/usr/local/lib/runlayer/aiwatch)
+        matches no Cursor-config pattern, so the path-based guard would fire
+        and silently no-op every Cursor event. Frozen path must trust MDM wiring.
+        """
+        with patch.object(sys, "frozen", True, create=True):
+            with patch("sys.argv", ["/usr/local/lib/runlayer/aiwatch/aiwatch-hook"]):
+                assert should_noop_for_cursor(Client.CURSOR) is False
+
+    def test_no_noop_when_frozen_binary_under_claude_config(self):
+        """Documents intentional shared-binary semantics: the frozen binary
+        runs for Cursor regardless of which client's config dir Cursor loaded
+        it from, because argv[0] can't distinguish them in a shared-exe install.
+        """
+        with patch.object(sys, "frozen", True, create=True):
+            with patch("sys.argv", ["/home/user/.claude/hooks/aiwatch-hook"]):
+                assert should_noop_for_cursor(Client.CURSOR) is False
 
 
 class TestHookResponse:
@@ -1216,86 +1289,68 @@ class TestEndToEndCodexDeny:
             assert result.returncode == 0
 
 
-class TestFrozenBinaryRelaySpawn:
-    """Regression: in a PyInstaller frozen `aiwatch-enforce` binary,
-    `sys.executable` is the frozen binary itself — it does NOT understand
-    `python -m runlayer_cli.hook._relay_worker`. Re-spawning with `-m` would
-    re-enter `__main__.main()` (inheriting `HOOK_EVENT_NAME` from parent) and
-    silently break all event forwarding.
+class TestForwardPost:
+    """Fire-and-forget event POSTs run synchronously in-process.
 
-    Fix: when frozen, spawn `[exe, "__relay_worker__", target, ...]` and route
-    that argv shape to the relay worker inside `__main__.main()`.
+    Earlier versions re-execed the binary with a `__relay_worker__` argv[1]
+    sentinel so the POST could outlive the parent. Since `aiwatch-hook` is
+    invoked once per hook event and ships that one event before exiting,
+    there's no benefit to a detached subprocess — synchronous in-process
+    is simpler and behaves identically from the AI client's POV.
     """
 
-    def test_detached_relay_uses_sentinel_argv_when_frozen(self, monkeypatch):
+    def test_forward_post_calls_post_inline(self, monkeypatch):
         captured: dict = {}
 
-        class _FakePopen:
-            def __init__(self, args, **kwargs):
-                captured["args"] = args
-                captured["kwargs"] = kwargs
-                self.stdin = None
+        def _fake_load_credentials():
+            return ("https://api.example.com", "rl_user_xyz")
 
-        monkeypatch.setattr(sys, "frozen", True, raising=False)
-        monkeypatch.setattr(sys, "executable", "/opt/aiwatch-enforce/aiwatch-enforce")
-        monkeypatch.setattr(relay.subprocess, "Popen", _FakePopen)
+        def _fake_post(host, secret, payload, *, target, timeout, debug):
+            captured["host"] = host
+            captured["secret"] = secret
+            captured["payload"] = payload
+            captured["target"] = target
+            captured["timeout"] = timeout
+            return ""
 
-        relay._detached_relay("event", "{}")
+        monkeypatch.setattr(relay, "_load_credentials", _fake_load_credentials)
+        monkeypatch.setattr(relay, "_post", _fake_post)
 
-        assert captured["args"][0] == "/opt/aiwatch-enforce/aiwatch-enforce"
-        assert captured["args"][1] == "__relay_worker__"
-        assert captured["args"][2] == "event"
-        assert "-m" not in captured["args"]
-        assert "runlayer_cli.hook._relay_worker" not in captured["args"]
+        relay._forward_post("event", '{"hello": "world"}')
 
-    def test_detached_relay_uses_module_invocation_when_not_frozen(self, monkeypatch):
-        captured: dict = {}
+        assert captured["host"] == "https://api.example.com"
+        assert captured["secret"] == "rl_user_xyz"
+        assert captured["payload"] == '{"hello": "world"}'
+        assert captured["target"] == "event"
+        assert captured["timeout"] is None
 
-        class _FakePopen:
-            def __init__(self, args, **kwargs):
-                captured["args"] = args
-                self.stdin = None
+    def test_forward_post_swallows_relay_errors(self, monkeypatch):
+        def _raise_credentials():
+            raise relay.RelayError(1, "no host")
 
-        monkeypatch.delattr(sys, "frozen", raising=False)
-        monkeypatch.setattr(relay.subprocess, "Popen", _FakePopen)
+        monkeypatch.setattr(relay, "_load_credentials", _raise_credentials)
+        relay._forward_post("event", "{}")
 
-        relay._detached_relay("event", "{}")
-
-        assert captured["args"][1:4] == [
-            "-m",
-            "runlayer_cli.hook._relay_worker",
-            "event",
-        ]
-
-    def test_main_routes_sentinel_argv_to_relay_worker(self, monkeypatch):
-        """When `aiwatch-enforce __relay_worker__ event` is invoked, the entry
-        point must dispatch to the relay worker — NOT re-enter the hook main."""
-        called: dict = {"hook_main_ran": False, "relay_args": None}
-
-        def _fake_relay_main():
-            called["relay_args"] = list(sys.argv)
-
-        original_dispatch = hook_main._dispatch
-
-        def _spy_dispatch(*args, **kwargs):
-            called["hook_main_ran"] = True
-            return original_dispatch(*args, **kwargs)
-
-        monkeypatch.setattr(_relay_worker, "main", _fake_relay_main)
-        monkeypatch.setattr(hook_main, "_dispatch", _spy_dispatch)
+    def test_forward_post_swallows_post_exceptions(self, monkeypatch):
         monkeypatch.setattr(
-            sys, "argv", ["/opt/aiwatch-enforce", "__relay_worker__", "event"]
+            relay,
+            "_load_credentials",
+            lambda: ("https://api.example.com", "rl_user_xyz"),
         )
-        monkeypatch.setenv("HOOK_EVENT_NAME", "PreToolUse")
 
-        hook_main.main()
+        def _raise_runtime(*args, **kwargs):
+            raise RuntimeError("boom")
 
-        assert called["hook_main_ran"] is False, (
-            "Sentinel argv must short-circuit before hook dispatch — "
-            "otherwise inherited HOOK_EVENT_NAME causes wrapper JSON to be "
-            "processed as a real hook event."
-        )
-        assert called["relay_args"] == ["/opt/aiwatch-enforce", "event"]
+        monkeypatch.setattr(relay, "_post", _raise_runtime)
+        relay._forward_post("event", "{}")
+
+
+class TestTranscriptStreamSpawn:
+    """The transcript-stream tailer is the only worker that re-execs the
+    binary — it must outlive the parent hook process for the whole Claude
+    Code prompt turn. Frozen binaries spawn `[exe, "__transcript_stream_worker__"]`
+    and route that argv shape inside `__main__.main()`.
+    """
 
     def test_start_transcript_stream_uses_sentinel_argv_when_frozen(
         self, monkeypatch, tmp_path: Path
@@ -1338,29 +1393,67 @@ class TestFrozenBinaryRelaySpawn:
         assert wrapper["payload"]["session_id"] == "stream-s1"
         assert not transcript_stream.is_transcript_stream_active(wrapper["payload"])
 
+    def test_start_transcript_stream_supports_codex(self, monkeypatch, tmp_path: Path):
+        captured: dict = {}
+        transcript_path = tmp_path / "transcript.jsonl"
+        transcript_path.write_text("")
+
+        class _FakeStdin:
+            def write(self, data):
+                captured["stdin"] = data
+
+            def close(self):
+                captured["closed"] = True
+
+        class _FakePopen:
+            def __init__(self, args, **kwargs):
+                captured["args"] = args
+                captured["kwargs"] = kwargs
+                self.stdin = _FakeStdin()
+
+        monkeypatch.setattr(sys, "frozen", True, raising=False)
+        monkeypatch.setattr(sys, "executable", "/opt/aiwatch/aiwatch")
+        monkeypatch.setattr(relay.subprocess, "Popen", _FakePopen)
+
+        started = relay.start_transcript_stream(
+            "codex",
+            {"session_id": "codex-stream-s1", "transcript_path": str(transcript_path)},
+        )
+
+        assert started is True
+        assert captured["args"] == [
+            "/opt/aiwatch/aiwatch",
+            "__transcript_stream_worker__",
+        ]
+        wrapper = json.loads(captured["stdin"].decode("utf-8"))
+        assert wrapper["client"] == "codex"
+        assert wrapper["payload"]["session_id"] == "codex-stream-s1"
+
     def test_main_routes_sentinel_argv_to_transcript_stream_worker(self, monkeypatch):
         called: dict = {"hook_main_ran": False, "stream_args": None}
 
         def _fake_stream_main():
             called["stream_args"] = list(sys.argv)
 
-        original_dispatch = hook_main._dispatch
+        original_dispatch = hook_dispatch._dispatch
 
         def _spy_dispatch(*args, **kwargs):
             called["hook_main_ran"] = True
             return original_dispatch(*args, **kwargs)
 
         monkeypatch.setattr(_transcript_stream_worker, "main", _fake_stream_main)
-        monkeypatch.setattr(hook_main, "_dispatch", _spy_dispatch)
+        monkeypatch.setattr(hook_dispatch, "_dispatch", _spy_dispatch)
         monkeypatch.setattr(
-            sys, "argv", ["/opt/aiwatch-enforce", "__transcript_stream_worker__"]
+            sys,
+            "argv",
+            ["/opt/aiwatch/aiwatch-hook", "__transcript_stream_worker__"],
         )
         monkeypatch.setenv("HOOK_EVENT_NAME", "UserPromptSubmit")
 
         hook_main.main()
 
         assert called["hook_main_ran"] is False
-        assert called["stream_args"] == ["/opt/aiwatch-enforce"]
+        assert called["stream_args"] == ["/opt/aiwatch/aiwatch-hook"]
 
 
 class TestTranscriptStream:
@@ -1434,6 +1527,39 @@ class TestTranscriptStream:
         marker = transcript_stream.transcript_marker_path({"session_id": "a::b"})
 
         assert marker == tmp_path / "state" / "a__b.active"
+
+    def test_transcript_stream_completion_marker_is_not_active(
+        self, monkeypatch, tmp_path: Path
+    ):
+        payload = {"session_id": "stream-s1"}
+        monkeypatch.setattr(transcript_stream, "_STATE_DIR", tmp_path / "state")
+
+        assert transcript_stream.mark_transcript_stream_completed(payload)
+
+        assert transcript_stream.is_transcript_stream_recently_completed(payload)
+        assert not transcript_stream.is_transcript_stream_active(payload)
+
+    def test_transcript_stream_completion_marker_outlives_active_heartbeat(
+        self, monkeypatch, tmp_path: Path
+    ):
+        payload = {"session_id": "stream-s1"}
+        monkeypatch.setattr(transcript_stream, "_STATE_DIR", tmp_path / "state")
+        monkeypatch.setattr(transcript_stream.time, "time", lambda: 1000.0)
+
+        assert transcript_stream.mark_transcript_stream_completed(payload)
+        marker = transcript_stream.transcript_completion_marker_path(payload)
+        assert marker is not None
+        marker.write_text(
+            str(1000 - transcript_stream._ACTIVE_MARKER_MAX_AGE_SECONDS - 1)
+        )
+
+        assert transcript_stream.is_transcript_stream_recently_completed(payload)
+
+        marker.write_text(
+            str(1000 - transcript_stream._COMPLETED_MARKER_MAX_AGE_SECONDS - 1)
+        )
+
+        assert not transcript_stream.is_transcript_stream_recently_completed(payload)
 
     def test_transcript_stream_continues_after_post_error(
         self, monkeypatch, tmp_path: Path
@@ -1577,6 +1703,154 @@ class TestTranscriptStream:
         assert delivered == []
         assert marker_updates == []
 
+    def test_transcript_stream_success_marker_suppresses_immediate_stop_backfill(
+        self, monkeypatch, tmp_path: Path
+    ):
+        transcript_path = tmp_path / "transcript.jsonl"
+        transcript_path.write_text(
+            "\n".join(
+                [
+                    json.dumps(
+                        {
+                            "type": "assistant",
+                            "message": {
+                                "role": "assistant",
+                                "content": [{"type": "text", "text": "streamed"}],
+                            },
+                        }
+                    ),
+                    '{"type":"result"}',
+                ]
+            )
+            + "\n"
+        )
+        payload = {"session_id": "s1", "transcript_path": str(transcript_path)}
+        delivered: list[tuple[str, dict]] = []
+        forwarded: list[dict] = []
+        clear_active_saw_completion: list[bool] = []
+
+        monkeypatch.setattr(transcript_stream, "_STATE_DIR", tmp_path / "state")
+        clear_transcript_stream_active = (
+            transcript_stream.clear_transcript_stream_active
+        )
+
+        def _clear_transcript_stream_active(active_payload: dict) -> None:
+            clear_active_saw_completion.append(
+                transcript_stream.is_transcript_stream_recently_completed(
+                    active_payload
+                )
+            )
+            clear_transcript_stream_active(active_payload)
+
+        monkeypatch.setattr(
+            transcript_stream,
+            "clear_transcript_stream_active",
+            _clear_transcript_stream_active,
+        )
+
+        transcript_stream.run_transcript_stream(
+            client_name="claude_code",
+            payload=payload,
+            post_event=lambda _client_name, event_name, event_payload: delivered.append(
+                (event_name, event_payload)
+            ),
+            max_seconds=1,
+            idle_seconds=0.02,
+            poll_seconds=0.01,
+        )
+
+        assert len(delivered) == 1
+        event_name, event_payload = delivered[0]
+        assert event_name == "message.updated"
+        assert event_payload["session_id"] == "s1"
+        assert event_payload["message"] == {"content": "streamed"}
+        assert clear_active_saw_completion == [True]
+        assert not transcript_stream.is_transcript_stream_active(payload)
+        assert transcript_stream.is_transcript_stream_recently_completed(payload)
+
+        monkeypatch.setattr(
+            relay,
+            "_forward_post",
+            lambda _target, wrapper, **_kwargs: forwarded.append(json.loads(wrapper)),
+        )
+
+        relay.forward_stop_event("claude_code", "Stop", payload)
+
+        assert forwarded == [
+            {"client": "claude_code", "event_name": "Stop", "payload": payload}
+        ]
+
+    def test_start_transcript_stream_ignores_completed_marker(
+        self, monkeypatch, tmp_path: Path
+    ):
+        captured: dict = {}
+        transcript_path = tmp_path / "transcript.jsonl"
+        transcript_path.write_text("")
+        payload = {"session_id": "stream-s1", "transcript_path": str(transcript_path)}
+
+        class _FakeStdin:
+            def write(self, data):
+                captured["stdin"] = data
+
+            def close(self):
+                captured["closed"] = True
+
+        class _FakePopen:
+            def __init__(self, args, **kwargs):
+                captured["args"] = args
+                captured["kwargs"] = kwargs
+                self.stdin = _FakeStdin()
+
+        monkeypatch.setattr(transcript_stream, "_STATE_DIR", tmp_path / "state")
+        monkeypatch.setattr(relay.subprocess, "Popen", _FakePopen)
+
+        assert transcript_stream.mark_transcript_stream_completed(payload)
+
+        started = relay.start_transcript_stream("claude_code", payload)
+
+        assert started is True
+        assert captured["args"]
+        assert not transcript_stream.is_transcript_stream_recently_completed(payload)
+
+    def test_start_transcript_stream_restarts_when_completed_overlaps_active(
+        self, monkeypatch, tmp_path: Path
+    ):
+        captured: dict = {}
+        transcript_path = tmp_path / "transcript.jsonl"
+        transcript_path.write_text("")
+        payload = {"session_id": "stream-s1", "transcript_path": str(transcript_path)}
+
+        class _FakeStdin:
+            def write(self, data):
+                captured["stdin"] = data
+
+            def close(self):
+                captured["closed"] = True
+
+        class _FakePopen:
+            def __init__(self, args, **kwargs):
+                captured["args"] = args
+                captured["kwargs"] = kwargs
+                self.stdin = _FakeStdin()
+
+        monkeypatch.setattr(transcript_stream, "_STATE_DIR", tmp_path / "state")
+        monkeypatch.setattr(transcript_stream.time, "time", lambda: 100.0)
+        monkeypatch.setattr(relay.subprocess, "Popen", _FakePopen)
+
+        active_marker = transcript_stream.transcript_marker_path(payload)
+        completed_marker = transcript_stream.transcript_completion_marker_path(payload)
+        assert active_marker is not None
+        assert completed_marker is not None
+        active_marker.parent.mkdir(parents=True, exist_ok=True)
+        active_marker.write_text("100")
+        completed_marker.write_text("100")
+
+        started = relay.start_transcript_stream("claude_code", payload)
+
+        assert started is True
+        assert captured["args"]
+        assert not transcript_stream.is_transcript_stream_recently_completed(payload)
+
     def test_http_event_poster_uses_tls_client_and_raises_post_errors(
         self, monkeypatch
     ):
@@ -1696,10 +1970,10 @@ class TestTranscriptStream:
         def _fake_forward(client_name, event_name, input_data, *, debug):
             forwarded.append((client_name, event_name, input_data, debug))
 
-        monkeypatch.setattr(hook_main, "start_transcript_stream", _fake_start)
-        monkeypatch.setattr(hook_main, "forward_event", _fake_forward)
+        monkeypatch.setattr(hook_dispatch, "start_transcript_stream", _fake_start)
+        monkeypatch.setattr(hook_dispatch, "forward_event", _fake_forward)
 
-        hook_main._dispatch(
+        hook_dispatch._dispatch(
             hook_type="UserPromptSubmit",
             original_hook_type="UserPromptSubmit",
             client=Client.CLAUDE_CODE,
@@ -1714,6 +1988,42 @@ class TestTranscriptStream:
         assert started == [("claude_code", payload, False)]
         assert forwarded == [("claude_code", "UserPromptSubmit", payload, False)]
 
+    def test_codex_user_prompt_submit_starts_transcript_stream(
+        self, monkeypatch, capsys
+    ):
+        started: list[tuple[str, dict, bool]] = []
+        forwarded: list[tuple[str, str, dict, bool]] = []
+        payload = {
+            "hook_event_name": "UserPromptSubmit",
+            "session_id": "codex-s1",
+            "transcript_path": "/tmp/codex-transcript.jsonl",
+        }
+
+        def _fake_start(client_name, input_data, *, debug):
+            started.append((client_name, input_data, debug))
+            return True
+
+        def _fake_forward(client_name, event_name, input_data, *, debug):
+            forwarded.append((client_name, event_name, input_data, debug))
+
+        monkeypatch.setattr(hook_dispatch, "start_transcript_stream", _fake_start)
+        monkeypatch.setattr(hook_dispatch, "forward_event", _fake_forward)
+
+        hook_dispatch._dispatch(
+            hook_type="UserPromptSubmit",
+            original_hook_type="UserPromptSubmit",
+            client=Client.CODEX,
+            resp=HookResponse(Client.CODEX, "UserPromptSubmit"),
+            input_data=payload,
+            raw_input=json.dumps(payload),
+            enforcement=True,
+            debug=False,
+        )
+
+        assert capsys.readouterr().out == ""
+        assert started == [("codex", payload, False)]
+        assert forwarded == [("codex", "UserPromptSubmit", payload, False)]
+
 
 class TestForwardStopEvent:
     def test_existing_transcript_does_not_sleep(self, monkeypatch, tmp_path):
@@ -1722,12 +2032,12 @@ class TestForwardStopEvent:
         sleeps: list[float] = []
         captured: list[tuple[str, str]] = []
 
-        def _fake_detached(target, wrapper, *, timeout=None, debug=False):
+        def _fake_forward(target, wrapper, *, timeout=None, debug=False):
             captured.append((target, wrapper))
 
         monkeypatch.setattr(transcript_stream, "_STATE_DIR", tmp_path / "state")
         monkeypatch.setattr(relay.time, "sleep", lambda seconds: sleeps.append(seconds))
-        monkeypatch.setattr(relay, "_detached_relay", _fake_detached)
+        monkeypatch.setattr(relay, "_forward_post", _fake_forward)
 
         relay.forward_stop_event(
             "claude_code",
@@ -1748,14 +2058,38 @@ class TestForwardStopEvent:
         transcript_path.write_text('{"ready":true}\n')
         captured: list[tuple[str, str]] = []
 
-        def _fake_detached(target, wrapper, *, timeout=None, debug=False):
+        def _fake_forward(target, wrapper, *, timeout=None, debug=False):
             captured.append((target, wrapper))
 
-        monkeypatch.setattr(relay, "_detached_relay", _fake_detached)
+        monkeypatch.setattr(relay, "_forward_post", _fake_forward)
         monkeypatch.setattr(relay, "is_transcript_stream_active", lambda payload: True)
 
         relay.forward_stop_event(
             "claude_code",
+            "Stop",
+            {"session_id": "s1", "transcript_path": str(transcript_path)},
+        )
+
+        assert captured[0][0] == "event"
+        wrapper = json.loads(captured[0][1])
+        assert wrapper["event_name"] == "Stop"
+        assert "transcript" not in wrapper
+
+    def test_codex_stop_skips_transcript_backfill_when_stream_active(
+        self, monkeypatch, tmp_path
+    ):
+        transcript_path = tmp_path / "transcript.jsonl"
+        transcript_path.write_text('{"ready":true}\n')
+        captured: list[tuple[str, str]] = []
+
+        def _fake_forward(target, wrapper, *, timeout=None, debug=False):
+            captured.append((target, wrapper))
+
+        monkeypatch.setattr(relay, "_forward_post", _fake_forward)
+        monkeypatch.setattr(relay, "is_transcript_stream_active", lambda payload: True)
+
+        relay.forward_stop_event(
+            "codex",
             "Stop",
             {"session_id": "s1", "transcript_path": str(transcript_path)},
         )
@@ -1779,10 +2113,10 @@ class TestToolLifecycleRouting:
     def _capture_detached(self, monkeypatch) -> list[tuple[str, str]]:
         captured: list[tuple[str, str]] = []
 
-        def _fake_detached(target, wrapper, *, timeout=None, debug=False):
+        def _fake_forward(target, wrapper, *, timeout=None, debug=False):
             captured.append((target, wrapper))
 
-        monkeypatch.setattr(relay, "_detached_relay", _fake_detached)
+        monkeypatch.setattr(relay, "_forward_post", _fake_forward)
         return captured
 
     def _capture_checks(
@@ -1797,20 +2131,28 @@ class TestToolLifecycleRouting:
             captured.append((target, client_name, event_name, tool_name, payload))
             return response
 
-        monkeypatch.setattr(hook_main, "check_tool_lifecycle", _fake_check)
+        monkeypatch.setattr(hook_dispatch, "check_tool_lifecycle", _fake_check)
         return captured
 
-    def test_targets_dict_includes_tool_pre_and_tool_post(self):
-        assert "tool-pre" in relay._TARGETS
-        assert "tool-post" in relay._TARGETS
-        assert relay._TARGETS["tool-pre"] == ("/api/v1/hooks/tool/pre", 30)
-        assert relay._TARGETS["tool-post"] == ("/api/v1/hooks/tool/post", 30)
+    def test_hook_relay_targets_include_tool_pre_and_tool_post(self):
+        assert relay.HOOK_RELAY_TARGETS["enforce"].timeout == 30
+        assert relay.HOOK_RELAY_TARGETS["event"].timeout == 5
+        assert "tool-pre" in relay.HOOK_RELAY_TARGETS
+        assert "tool-post" in relay.HOOK_RELAY_TARGETS
+        assert relay.HOOK_RELAY_TARGETS["tool-pre"].endpoint == (
+            "/api/v1/hooks/tool/pre"
+        )
+        assert relay.HOOK_RELAY_TARGETS["tool-pre"].timeout == 30
+        assert relay.HOOK_RELAY_TARGETS["tool-post"].endpoint == (
+            "/api/v1/hooks/tool/post"
+        )
+        assert relay.HOOK_RELAY_TARGETS["tool-post"].timeout == 30
 
     def test_pretooluse_other_tool_routes_to_tool_pre(self, monkeypatch):
         self._capture_detached(monkeypatch)
         checks = self._capture_checks(monkeypatch)
         resp = HookResponse(Client.CLAUDE_CODE, "PreToolUse")
-        hook_main._handle_pre_tool_use(
+        hook_dispatch._handle_pre_tool_use(
             client=Client.CLAUDE_CODE,
             resp=resp,
             input_data={
@@ -1846,10 +2188,10 @@ class TestToolLifecycleRouting:
             captured_enforce.append(json.loads(payload))
             return '{"permission":"allow"}'
 
-        monkeypatch.setattr(hook_main, "enforce", _fake_enforce)
+        monkeypatch.setattr(hook_dispatch, "enforce", _fake_enforce)
 
         with patch("runlayer_cli.hook.mcp_lookup.Path.home", return_value=tmp_path):
-            hook_main._handle_pre_tool_use(
+            hook_dispatch._handle_pre_tool_use(
                 client=Client.HERMES,
                 resp=HookResponse(Client.HERMES, "pre_tool_call"),
                 input_data={
@@ -1867,11 +2209,76 @@ class TestToolLifecycleRouting:
         assert captured_enforce[0]["tool_name"] == "mcp_linear_44_list_issues"
         assert json.loads(captured_events[0][1])["event_name"] == "pre_tool_call"
 
+    def test_hermes_mcp_pretooluse_observational_writes_nothing(
+        self, monkeypatch, capsys, tmp_path: Path
+    ):
+        """Observational-mode Hermes mcp_* PreToolUse must emit no stdout on
+        the configured-MCP allow path — matches `runlayer-hook.sh`'s `exit 0`
+        with no body in `_handle_configured_mcp_tool`'s allow branch (lines
+        1673/1676). Cursor never reaches this path (it uses
+        `beforeMCPExecution`), so the Hermes / Claude Code / Codex shape is
+        the only one tested here.
+        """
+        self._capture_detached(monkeypatch)
+
+        def _unexpected_enforce(*args, **kwargs):
+            pytest.fail("monitoring mode must not call /enforce")
+
+        monkeypatch.setattr(hook_dispatch, "enforce", _unexpected_enforce)
+
+        hermes_config = tmp_path / ".hermes" / "config.yaml"
+        hermes_config.parent.mkdir()
+        hermes_config.write_text(
+            "mcp_servers:\n  linear-44:\n    url: https://mcp.example.com/sse\n"
+        )
+
+        with patch("runlayer_cli.hook.mcp_lookup.Path.home", return_value=tmp_path):
+            hook_dispatch._handle_pre_tool_use(
+                client=Client.HERMES,
+                resp=HookResponse(Client.HERMES, "pre_tool_call"),
+                input_data={
+                    "tool_name": "mcp_linear_44_list_issues",
+                    "tool_input": {"query": "x"},
+                },
+                original_hook_type="pre_tool_call",
+                enforcement=False,
+                debug=False,
+            )
+
+        assert capsys.readouterr().out == ""
+
+    def test_claude_mcp_pretooluse_observational_writes_allow(
+        self, monkeypatch, capsys
+    ):
+        """Observational-mode Claude Code mcp__* PreToolUse must mirror the
+        enforce path and call ``_write(resp.allow())`` (None for Claude → no
+        bytes, but stays symmetric with enforce-branch output)."""
+        self._capture_detached(monkeypatch)
+
+        def _unexpected_enforce(*args, **kwargs):
+            pytest.fail("monitoring mode must not call /enforce")
+
+        monkeypatch.setattr(hook_dispatch, "enforce", _unexpected_enforce)
+
+        hook_dispatch._handle_pre_tool_use(
+            client=Client.CLAUDE_CODE,
+            resp=HookResponse(Client.CLAUDE_CODE, "PreToolUse"),
+            input_data={
+                "tool_name": "mcp__github__list_issues",
+                "tool_input": {"owner": "x"},
+            },
+            original_hook_type="PreToolUse",
+            enforcement=False,
+            debug=False,
+        )
+
+        assert capsys.readouterr().out == ""
+
     def test_posttooluse_routes_to_tool_post(self, monkeypatch):
         self._capture_detached(monkeypatch)
         checks = self._capture_checks(monkeypatch, response='{"blocked":false}')
         resp = HookResponse(Client.CLAUDE_CODE, "PostToolUse")
-        hook_main._dispatch(
+        hook_dispatch._dispatch(
             hook_type="PostToolUse",
             original_hook_type="PostToolUse",
             client=Client.CLAUDE_CODE,
@@ -1895,9 +2302,11 @@ class TestToolLifecycleRouting:
         def _unexpected_sync_check(*args, **kwargs):
             pytest.fail("Hermes post_tool_call return values are ignored")
 
-        monkeypatch.setattr(hook_main, "check_tool_lifecycle", _unexpected_sync_check)
+        monkeypatch.setattr(
+            hook_dispatch, "check_tool_lifecycle", _unexpected_sync_check
+        )
         resp = HookResponse(Client.HERMES, "post_tool_call")
-        hook_main._dispatch(
+        hook_dispatch._dispatch(
             hook_type="PostToolUse",
             original_hook_type="post_tool_call",
             client=Client.HERMES,
@@ -1922,7 +2331,7 @@ class TestToolLifecycleRouting:
             response='{"blocked":true,"block_reason":"output blocked"}',
         )
         resp = HookResponse(Client.HERMES, "transform_tool_result")
-        hook_main._dispatch(
+        hook_dispatch._dispatch(
             hook_type="PostToolUse",
             original_hook_type="transform_tool_result",
             client=Client.HERMES,
@@ -1938,7 +2347,7 @@ class TestToolLifecycleRouting:
     def test_cursor_stop_forwards_synthetic_session_end(self, monkeypatch, capsys):
         captured = self._capture_detached(monkeypatch)
         resp = HookResponse(Client.CURSOR, "Stop")
-        hook_main._dispatch(
+        hook_dispatch._dispatch(
             hook_type="Stop",
             original_hook_type="stop",
             client=Client.CURSOR,
@@ -1964,9 +2373,11 @@ class TestToolLifecycleRouting:
         def _unexpected_sync_check(*args, **kwargs):
             pytest.fail("monitoring mode should not synchronously enforce tool-pre")
 
-        monkeypatch.setattr(hook_main, "check_tool_lifecycle", _unexpected_sync_check)
+        monkeypatch.setattr(
+            hook_dispatch, "check_tool_lifecycle", _unexpected_sync_check
+        )
         resp = HookResponse(Client.CLAUDE_CODE, "PreToolUse")
-        hook_main._handle_pre_tool_use(
+        hook_dispatch._handle_pre_tool_use(
             client=Client.CLAUDE_CODE,
             resp=resp,
             input_data={
@@ -1992,9 +2403,11 @@ class TestToolLifecycleRouting:
         def _unexpected_sync_check(*args, **kwargs):
             pytest.fail("monitoring mode should not synchronously enforce tool-post")
 
-        monkeypatch.setattr(hook_main, "check_tool_lifecycle", _unexpected_sync_check)
+        monkeypatch.setattr(
+            hook_dispatch, "check_tool_lifecycle", _unexpected_sync_check
+        )
         resp = HookResponse(Client.CLAUDE_CODE, "PostToolUse")
-        hook_main._dispatch(
+        hook_dispatch._dispatch(
             hook_type="PostToolUse",
             original_hook_type="PostToolUse",
             client=Client.CLAUDE_CODE,
@@ -2016,7 +2429,7 @@ class TestToolLifecycleRouting:
         self._capture_detached(monkeypatch)
         checks = self._capture_checks(monkeypatch, response='{"blocked":false}')
         resp = HookResponse(Client.CURSOR, "postToolUseFailure")
-        hook_main._dispatch(
+        hook_dispatch._dispatch(
             hook_type="PostToolUseFailure",
             original_hook_type="postToolUseFailure",
             client=Client.CURSOR,
@@ -2040,7 +2453,7 @@ class TestToolLifecycleRouting:
         self._capture_detached(monkeypatch)
         checks = self._capture_checks(monkeypatch)
         resp = HookResponse(Client.CLAUDE_CODE, "PreToolUse")
-        hook_main._handle_pre_tool_use(
+        hook_dispatch._handle_pre_tool_use(
             client=Client.CLAUDE_CODE,
             resp=resp,
             input_data={
@@ -2057,7 +2470,7 @@ class TestToolLifecycleRouting:
         self._capture_detached(monkeypatch)
         checks = self._capture_checks(monkeypatch)
         resp = HookResponse(Client.CLAUDE_CODE, "PreToolUse")
-        hook_main._handle_pre_tool_use(
+        hook_dispatch._handle_pre_tool_use(
             client=Client.CLAUDE_CODE,
             resp=resp,
             input_data={
@@ -2074,7 +2487,7 @@ class TestToolLifecycleRouting:
         captured = self._capture_detached(monkeypatch)
         checks = self._capture_checks(monkeypatch)
         resp = HookResponse(Client.CURSOR, "preToolUse")
-        hook_main._handle_pre_tool_use(
+        hook_dispatch._handle_pre_tool_use(
             client=Client.CURSOR,
             resp=resp,
             input_data={
@@ -2102,11 +2515,11 @@ class TestToolLifecycleRouting:
             captured.append(json.loads(payload))
             return '{"permission":"allow"}'
 
-        monkeypatch.setattr(hook_main, "enforce", _fake_enforce)
-        monkeypatch.setattr(hook_main, "forward_event", lambda *a, **kw: None)
+        monkeypatch.setattr(hook_dispatch, "enforce", _fake_enforce)
+        monkeypatch.setattr(hook_dispatch, "forward_event", lambda *a, **kw: None)
         with patch("runlayer_cli.hook.mcp_lookup.Path.home", return_value=tmp_path):
             resp = HookResponse(Client.CODEX, "PreToolUse")
-            hook_main._handle_pre_tool_use(
+            hook_dispatch._handle_pre_tool_use(
                 client=Client.CODEX,
                 resp=resp,
                 input_data={
@@ -2137,7 +2550,7 @@ class TestToolLifecycleRouting:
         )
         resp = HookResponse(Client.CLAUDE_CODE, "PreToolUse")
         with pytest.raises(SystemExit) as exc:
-            hook_main._handle_pre_tool_use(
+            hook_dispatch._handle_pre_tool_use(
                 client=Client.CLAUDE_CODE,
                 resp=resp,
                 input_data={
@@ -2161,10 +2574,10 @@ class TestToolLifecycleRouting:
         def _raise_auth_failure(*args, **kwargs):
             raise relay.RelayError(1, "no secret")
 
-        monkeypatch.setattr(hook_main, "check_tool_lifecycle", _raise_auth_failure)
+        monkeypatch.setattr(hook_dispatch, "check_tool_lifecycle", _raise_auth_failure)
         resp = HookResponse(Client.CLAUDE_CODE, "PreToolUse")
         with pytest.raises(SystemExit) as exc:
-            hook_main._handle_pre_tool_use(
+            hook_dispatch._handle_pre_tool_use(
                 client=Client.CLAUDE_CODE,
                 resp=resp,
                 input_data={
@@ -2190,7 +2603,7 @@ class TestToolLifecycleRouting:
         self._capture_checks(monkeypatch, response="null")
         resp = HookResponse(Client.CLAUDE_CODE, "PreToolUse")
         with pytest.raises(SystemExit) as exc:
-            hook_main._handle_pre_tool_use(
+            hook_dispatch._handle_pre_tool_use(
                 client=Client.CLAUDE_CODE,
                 resp=resp,
                 input_data={
@@ -2218,7 +2631,7 @@ class TestToolLifecycleRouting:
         self._capture_checks(monkeypatch, response=response)
         resp = HookResponse(Client.CLAUDE_CODE, "PreToolUse")
         with pytest.raises(SystemExit) as exc:
-            hook_main._handle_pre_tool_use(
+            hook_dispatch._handle_pre_tool_use(
                 client=Client.CLAUDE_CODE,
                 resp=resp,
                 input_data={
@@ -2249,7 +2662,7 @@ class TestToolLifecycleRouting:
             ),
         )
         resp = HookResponse(Client.CURSOR, "preToolUse")
-        hook_main._handle_pre_tool_use(
+        hook_dispatch._handle_pre_tool_use(
             client=Client.CURSOR,
             resp=resp,
             input_data={
@@ -2268,7 +2681,7 @@ class TestToolLifecycleRouting:
         self._capture_detached(monkeypatch)
         self._capture_checks(monkeypatch, response='{"permission":"allow"}')
         resp = HookResponse(Client.CURSOR, "preToolUse")
-        hook_main._handle_pre_tool_use(
+        hook_dispatch._handle_pre_tool_use(
             client=Client.CURSOR,
             resp=resp,
             input_data={
@@ -2287,7 +2700,7 @@ class TestToolLifecycleRouting:
     def test_cursor_mcp_pretooluse_uses_chat_id_as_session(self, monkeypatch, capsys):
         self._capture_detached(monkeypatch)
         resp = HookResponse(Client.CURSOR, "preToolUse")
-        hook_main._handle_pre_tool_use(
+        hook_dispatch._handle_pre_tool_use(
             client=Client.CURSOR,
             resp=resp,
             input_data={
@@ -2310,7 +2723,7 @@ class TestToolLifecycleRouting:
             response='{"blocked":true,"block_reason":"output blocked"}',
         )
         resp = HookResponse(Client.CLAUDE_CODE, "PostToolUse")
-        hook_main._dispatch(
+        hook_dispatch._dispatch(
             hook_type="PostToolUse",
             original_hook_type="PostToolUse",
             client=Client.CLAUDE_CODE,
@@ -2337,10 +2750,10 @@ class TestToolLifecycleRouting:
         def _raise_auth_failure(*args, **kwargs):
             raise relay.RelayError(1, "no secret")
 
-        monkeypatch.setattr(hook_main, "check_tool_lifecycle", _raise_auth_failure)
+        monkeypatch.setattr(hook_dispatch, "check_tool_lifecycle", _raise_auth_failure)
         resp = HookResponse(Client.CLAUDE_CODE, "PostToolUse")
         with pytest.raises(SystemExit) as exc:
-            hook_main._dispatch(
+            hook_dispatch._dispatch(
                 hook_type="PostToolUse",
                 original_hook_type="PostToolUse",
                 client=Client.CLAUDE_CODE,
@@ -2367,7 +2780,7 @@ class TestToolLifecycleRouting:
         self._capture_checks(monkeypatch, response=response)
         resp = HookResponse(Client.CLAUDE_CODE, "PostToolUse")
         with pytest.raises(SystemExit) as exc:
-            hook_main._dispatch(
+            hook_dispatch._dispatch(
                 hook_type="PostToolUse",
                 original_hook_type="PostToolUse",
                 client=Client.CLAUDE_CODE,
@@ -2393,7 +2806,7 @@ class TestToolLifecycleRouting:
         self._capture_checks(monkeypatch, response=response)
         resp = HookResponse(Client.CLAUDE_CODE, "PostToolUse")
         with pytest.raises(SystemExit) as exc:
-            hook_main._dispatch(
+            hook_dispatch._dispatch(
                 hook_type="PostToolUse",
                 original_hook_type="PostToolUse",
                 client=Client.CLAUDE_CODE,
@@ -2452,7 +2865,7 @@ class TestStringToolInputFailsClosed:
     def test_pretooluse_read_string_tool_input_blocks_dotenv(self, capsys):
         resp = HookResponse(Client.CLAUDE_CODE, "PreToolUse")
         with pytest.raises(SystemExit) as exc:
-            hook_main._handle_pre_tool_use(
+            hook_dispatch._handle_pre_tool_use(
                 client=Client.CLAUDE_CODE,
                 resp=resp,
                 input_data={
@@ -2470,7 +2883,7 @@ class TestStringToolInputFailsClosed:
     def test_pretooluse_bash_string_tool_input_blocks_cat_dotenv(self, capsys):
         resp = HookResponse(Client.CLAUDE_CODE, "PreToolUse")
         with pytest.raises(SystemExit) as exc:
-            hook_main._handle_pre_tool_use(
+            hook_dispatch._handle_pre_tool_use(
                 client=Client.CLAUDE_CODE,
                 resp=resp,
                 input_data={
@@ -2488,10 +2901,10 @@ class TestStringToolInputFailsClosed:
     def test_codex_permission_request_string_tool_input_blocks_cat_dotenv(
         self, monkeypatch, capsys
     ):
-        monkeypatch.setattr(hook_main, "forward_event", lambda *a, **kw: None)
+        monkeypatch.setattr(hook_dispatch, "forward_event", lambda *a, **kw: None)
         resp = HookResponse(Client.CODEX, "PermissionRequest")
         with pytest.raises(SystemExit) as exc:
-            hook_main._dispatch(
+            hook_dispatch._dispatch(
                 hook_type="PermissionRequest",
                 original_hook_type="PermissionRequest",
                 client=Client.CODEX,
@@ -2514,17 +2927,17 @@ class TestStringToolInputFailsClosed:
         to no enforcement (empty file_path) and continue."""
         captured: list[tuple[str, str]] = []
 
-        def _fake_detached(target, wrapper, *, timeout=None, debug=False):
+        def _fake_forward(target, wrapper, *, timeout=None, debug=False):
             captured.append((target, wrapper))
 
-        monkeypatch.setattr(relay, "_detached_relay", _fake_detached)
+        monkeypatch.setattr(relay, "_forward_post", _fake_forward)
         monkeypatch.setattr(
-            hook_main,
+            hook_dispatch,
             "check_tool_lifecycle",
             lambda *a, **kw: '{"permission":"allow"}',
         )
         resp = HookResponse(Client.CLAUDE_CODE, "PreToolUse")
-        hook_main._handle_pre_tool_use(
+        hook_dispatch._handle_pre_tool_use(
             client=Client.CLAUDE_CODE,
             resp=resp,
             input_data={
@@ -2546,8 +2959,8 @@ class TestCursorBeforeMCPResolution:
             captured.append(json.loads(payload))
             return '{"permission":"allow"}'
 
-        monkeypatch.setattr(hook_main, "enforce", _fake_enforce)
-        monkeypatch.setattr(hook_main, "forward_event", lambda *a, **kw: None)
+        monkeypatch.setattr(hook_dispatch, "enforce", _fake_enforce)
+        monkeypatch.setattr(hook_dispatch, "forward_event", lambda *a, **kw: None)
         return captured
 
     def test_cursor_before_mcp_execution_resolves_command_to_url(
@@ -2563,7 +2976,7 @@ class TestCursorBeforeMCPResolution:
         captured = self._capture_enforce(monkeypatch)
 
         resp = HookResponse(Client.CURSOR, "beforeMCPExecution")
-        hook_main._handle_before_mcp_execution(
+        hook_dispatch._handle_before_mcp_execution(
             client=Client.CURSOR,
             resp=resp,
             input_data={
@@ -2605,7 +3018,7 @@ class TestCursorBeforeMCPResolution:
         captured = self._capture_enforce(monkeypatch)
 
         resp = HookResponse(Client.CURSOR, "beforeMCPExecution")
-        hook_main._handle_before_mcp_execution(
+        hook_dispatch._handle_before_mcp_execution(
             client=Client.CURSOR,
             resp=resp,
             input_data={
@@ -2631,7 +3044,7 @@ class TestCursorBeforeMCPResolution:
         captured = self._capture_enforce(monkeypatch)
 
         resp = HookResponse(Client.CURSOR, "beforeMCPExecution")
-        hook_main._handle_before_mcp_execution(
+        hook_dispatch._handle_before_mcp_execution(
             client=Client.CURSOR,
             resp=resp,
             input_data={
@@ -2659,7 +3072,7 @@ class TestLoadCredentialsFailClosed:
 
     Otherwise the unhandled exception escapes ``enforce()``, escapes the
     ``except RelayError`` clauses in ``_handle_before_mcp_execution`` /
-    ``_handle_claude_mcp_tool``, and crashes the hook with exit code 1 — no
+    ``_handle_configured_mcp_tool``, and crashes the hook with exit code 1 — no
     deny shape is written to stdout. Some AI clients interpret a crashed hook
     as fail-open, breaking the security contract documented in
     ``__main__.py:4`` ("Exit code is always 0").
@@ -2714,11 +3127,11 @@ class TestLoadCredentialsFailClosed:
             raise RuntimeError("yaml parsed to a list, not a dict")
 
         monkeypatch.setattr(relay, "load_config", _boom)
-        monkeypatch.setattr(hook_main, "forward_event", lambda *a, **kw: None)
+        monkeypatch.setattr(hook_dispatch, "forward_event", lambda *a, **kw: None)
 
         resp = HookResponse(Client.CURSOR, "beforeMCPExecution")
         with pytest.raises(SystemExit) as exc:
-            hook_main._handle_before_mcp_execution(
+            hook_dispatch._handle_before_mcp_execution(
                 client=Client.CURSOR,
                 resp=resp,
                 input_data={"tool_name": "mcp__x", "url": "https://x"},
@@ -2731,7 +3144,7 @@ class TestLoadCredentialsFailClosed:
         out = json.loads(capsys.readouterr().out)
         assert out["permission"] == "deny"
 
-    def test_handle_claude_mcp_tool_fails_closed_on_corrupt_config(
+    def test_handle_configured_mcp_tool_fails_closed_on_corrupt_config(
         self, monkeypatch, tmp_path, capsys
     ) -> None:
         """The Claude Code MCP enforcement path must emit a deny + sys.exit(0)
@@ -2747,11 +3160,12 @@ class TestLoadCredentialsFailClosed:
             raise RuntimeError("yaml parsed to a list, not a dict")
 
         monkeypatch.setattr(relay, "load_config", _boom)
-        monkeypatch.setattr(hook_main, "forward_event", lambda *a, **kw: None)
+        monkeypatch.setattr(hook_dispatch, "forward_event", lambda *a, **kw: None)
 
         resp = HookResponse(Client.CLAUDE_CODE, "PreToolUse")
         with pytest.raises(SystemExit) as exc:
-            hook_main._handle_claude_mcp_tool(
+            hook_dispatch._handle_configured_mcp_tool(
+                client=Client.CLAUDE_CODE,
                 resp=resp,
                 input_data={
                     "tool_name": "mcp__github__list_repos",
@@ -2766,7 +3180,7 @@ class TestLoadCredentialsFailClosed:
         out = json.loads(capsys.readouterr().out)
         assert out["hookSpecificOutput"]["permissionDecision"] == "deny"
 
-    def test_handle_claude_mcp_tool_sends_cursor_required_fields(
+    def test_handle_configured_mcp_tool_sends_cursor_required_fields(
         self, monkeypatch, tmp_path, capsys
     ) -> None:
         mcp_file = tmp_path / ".mcp.json"
@@ -2775,17 +3189,18 @@ class TestLoadCredentialsFailClosed:
                 {"mcpServers": {"linear-44": {"url": "https://mcp.example.com/sse"}}}
             )
         )
-        monkeypatch.setattr(hook_main, "forward_event", lambda *a, **kw: None)
+        monkeypatch.setattr(hook_dispatch, "forward_event", lambda *a, **kw: None)
         captured: list[dict[str, object]] = []
 
         def _fake_enforce(payload: str, *, debug: bool = False) -> str:
             captured.append(json.loads(payload))
             return '{"permission":"allow"}'
 
-        monkeypatch.setattr(hook_main, "enforce", _fake_enforce)
+        monkeypatch.setattr(hook_dispatch, "enforce", _fake_enforce)
 
         resp = HookResponse(Client.CLAUDE_CODE, "PreToolUse")
-        hook_main._handle_claude_mcp_tool(
+        hook_dispatch._handle_configured_mcp_tool(
+            client=Client.CLAUDE_CODE,
             resp=resp,
             input_data={
                 "tool_name": "mcp__linear-44__list_teams",
@@ -2807,3 +3222,66 @@ class TestLoadCredentialsFailClosed:
         assert captured[0]["generation_id"] == "tool-use-456"
         assert captured[0]["tool_name"] == "mcp__linear-44__list_teams"
         assert captured[0]["url"] == "https://mcp.example.com/sse"
+
+
+class TestResolveEnforcement:
+    """Frozen aiwatch-hook reads MDM-managed Enforcement; unfrozen path keeps
+    the legacy sys.argv[0]-relative runlayer-config.json read (CLI / python -m).
+    """
+
+    def test_frozen_reads_mdm_enforcement_false(self, monkeypatch):
+        monkeypatch.setattr(sys, "frozen", True, raising=False)
+        monkeypatch.setattr(
+            "runlayer_cli.mdm_config.read_managed_config",
+            lambda: {"enforcement": False},
+        )
+        assert hook_dispatch._resolve_enforcement() is False
+
+    def test_frozen_reads_mdm_enforcement_true(self, monkeypatch):
+        monkeypatch.setattr(sys, "frozen", True, raising=False)
+        monkeypatch.setattr(
+            "runlayer_cli.mdm_config.read_managed_config",
+            lambda: {"enforcement": True},
+        )
+        assert hook_dispatch._resolve_enforcement() is True
+
+    def test_frozen_defaults_true_when_key_absent(self, monkeypatch):
+        monkeypatch.setattr(sys, "frozen", True, raising=False)
+        monkeypatch.setattr(
+            "runlayer_cli.mdm_config.read_managed_config",
+            lambda: {"host": "https://t.example.com"},
+        )
+        assert hook_dispatch._resolve_enforcement() is True
+
+    def test_frozen_defaults_true_when_empty_managed_config(self, monkeypatch):
+        monkeypatch.setattr(sys, "frozen", True, raising=False)
+        monkeypatch.setattr(
+            "runlayer_cli.mdm_config.read_managed_config",
+            lambda: {},
+        )
+        assert hook_dispatch._resolve_enforcement() is True
+
+    def test_unfrozen_reads_file_enforcement_false(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(sys, "frozen", False, raising=False)
+        (tmp_path / "runlayer-config.json").write_text(
+            json.dumps({"enforcement": False})
+        )
+        wrapper = tmp_path / "aiwatch-hook"
+        wrapper.write_text("")
+        monkeypatch.setattr(sys, "argv", [str(wrapper)])
+        assert hook_dispatch._resolve_enforcement() is False
+
+    def test_unfrozen_defaults_true_when_file_missing(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(sys, "frozen", False, raising=False)
+        wrapper = tmp_path / "aiwatch-hook"
+        wrapper.write_text("")
+        monkeypatch.setattr(sys, "argv", [str(wrapper)])
+        assert hook_dispatch._resolve_enforcement() is True
+
+    def test_unfrozen_defaults_true_when_file_malformed(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(sys, "frozen", False, raising=False)
+        (tmp_path / "runlayer-config.json").write_text("not json")
+        wrapper = tmp_path / "aiwatch-hook"
+        wrapper.write_text("")
+        monkeypatch.setattr(sys, "argv", [str(wrapper)])
+        assert hook_dispatch._resolve_enforcement() is True

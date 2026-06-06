@@ -7,7 +7,7 @@ from typing import Literal, Optional
 from pyrit.datasets.seed_datasets.remote.remote_dataset_loader import (
     _RemoteDatasetLoader,
 )
-from pyrit.models import SeedDataset, SeedPrompt
+from pyrit.models import Modality, SeedDataset, SeedPrompt
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +22,11 @@ class _PKUSafeRLHFDataset(_RemoteDatasetLoader):
     Reference: https://huggingface.co/datasets/PKU-Alignment/PKU-SafeRLHF
     Paper: [@ji2024pkusaferlhf]
     """
+
+    # Metadata
+    modalities: tuple[Modality, ...] = (Modality.TEXT,)
+    size: str = "huge"  # 73907 prompt-response pairs across 19 harm categories
+    tags: frozenset[str] = frozenset({"default", "safety"})
 
     def __init__(
         self,
@@ -53,7 +58,7 @@ class _PKUSafeRLHFDataset(_RemoteDatasetLoader):
                 ]
             ]
         ] = None,
-    ):
+    ) -> None:
         """
         Initialize the PKU-SafeRLHF dataset loader.
 
@@ -72,7 +77,7 @@ class _PKUSafeRLHFDataset(_RemoteDatasetLoader):
         """Return the dataset name."""
         return "pku_safe_rlhf"
 
-    async def fetch_dataset(self, *, cache: bool = True) -> SeedDataset:
+    async def fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
         """
         Fetch PKU-SafeRLHF dataset and return as SeedDataset.
 
@@ -84,7 +89,7 @@ class _PKUSafeRLHFDataset(_RemoteDatasetLoader):
         """
         logger.info(f"Loading PKU-SafeRLHF dataset from {self.source}")
 
-        data = await self._fetch_from_huggingface(
+        data = await self._fetch_from_huggingface_async(
             dataset_name=self.source,
             config="default",
             cache=cache,

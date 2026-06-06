@@ -347,14 +347,16 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     run.add_argument(
         "--llm-backend",
-        choices=["anthropic", "bedrock", "openai"],
+        choices=["anthropic", "bedrock", "openai", "bedrock_openai"],
         default="bedrock",
         help="LLM backend (default: bedrock per the test-LLM policy).",
     )
     run.add_argument(
         "--llm-region",
         default="us-east-1",
-        help="AWS region for bedrock backend (default: us-east-1; ignored for other backends).",
+        help="AWS region for the bedrock / bedrock_openai backends "
+        "(default: us-east-1; bedrock_openai needs us-east-2 or us-west-2; "
+        "ignored for other backends).",
     )
     run.add_argument(
         "--llm-model",

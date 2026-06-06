@@ -53,7 +53,12 @@ from fivetran_connector_sdk.constants import (
     UTF_8,
     CONNECTION_SCHEMA_NAME_PATTERN,
     TABLES,
+    UNDERSCORE_NAMING,
+    FIVETRAN_NAMING_ENV,
+    SOURCE_NAMING_VALUE,
+    FIVETRAN_NAMING_VALUE,
     REDACTED_VALUE,
+    RECOMMEND_STABLE_VERSION_MESSAGE,
 )
 
 def _get_rss_bytes() -> int:
@@ -201,7 +206,7 @@ def get_connection_name(args, retrying=0):
             f"invalid connection name: '{ft_connection}'", Logging.Level.SEVERE)
         print_library_log("connection names must use only [a-z0-9_] and begin with '_' or a lowercase letter", Logging.Level.SEVERE)
         args.connection = None
-        if retrying >= MAX_RETRIES or args.force:
+        if retrying >= MAX_RETRIES or args.non_interactive:
             sys.exit(1)
         else:
             return get_connection_name(args, retrying + 1)
@@ -217,7 +222,7 @@ def get_api_key(args):
 def get_python_version(args):
     python_version = args.python_version if args.python_version else None
     env_python_version = os.getenv('FIVETRAN_PYTHON_VERSION', None)
-    if env_python_version and not python_version and not args.force:
+    if env_python_version and not python_version and not args.non_interactive:
         python_version = get_input_from_cli("Provide your python version", env_python_version)
     return python_version
 
@@ -225,7 +230,7 @@ def get_hd_agent_id(args):
     hd_agent_id = args.hybrid_deployment_agent_id if args.hybrid_deployment_agent_id else None
     env_hd_agent_id = os.getenv('FIVETRAN_HD_AGENT_ID', None)
 
-    if env_hd_agent_id and not hd_agent_id and not args.force:
+    if env_hd_agent_id and not hd_agent_id and not args.non_interactive:
         hd_agent_id = get_input_from_cli("Provide the Hybrid Deployment Agent ID", env_hd_agent_id)
     return hd_agent_id
 
@@ -240,18 +245,54 @@ def get_state(args):
     state = validate_and_load_state(args, state)
     return state
 
+def validate_naming(naming):
+    """Validate naming value, return uppercase or exit on error.
+
+    Args:
+        naming (str): The naming strategy value to validate.
+
+    Returns:
+        str: Uppercase validated naming value, or None if input is None.
+    """
+    if not naming:
+        return None
+    value_upper = naming.strip().upper()
+    if value_upper in (SOURCE_NAMING_VALUE, FIVETRAN_NAMING_VALUE):
+        return value_upper
+    print_library_log(
+        f"Invalid naming strategy: '{naming}'. Must be 'FIVETRAN' or 'SOURCE' (case-insensitive).",
+        Logging.Level.SEVERE)
+    sys.exit(1)
+
+def get_naming(args):
+    """Fetch, validate, and format naming field from args or environment.
+
+    Args:
+        args: The command-line arguments namespace.
+
+    Returns:
+        str: The formatted naming strategy (e.g., "FIVETRAN_NAMING" or "SOURCE_NAMING"),
+             or None if not explicitly set via CLI or environment variable.
+    """
+    naming = args.naming if hasattr(args, 'naming') else None
+    if not naming:
+        naming = os.getenv(FIVETRAN_NAMING_ENV, None)
+
+    validated = validate_naming(naming)
+    return validated + UNDERSCORE_NAMING if validated else None
+
 
 def get_configuration(args, retrying = 0):
     configuration = args.configuration if args.configuration else None
     env_configuration = os.getenv('FIVETRAN_CONFIGURATION', None)
     try:
-        if not configuration and not args.force and args.command.lower() == "deploy":
+        if not configuration and not args.non_interactive and args.command.lower() == "deploy":
             return _deploy_config_flow(args, env_configuration, retrying)
         config_values = validate_and_load_configuration(args.project_path, configuration)
         return config_values, configuration
     except ValueError as e:
         args.configuration = None
-        if retrying >= MAX_RETRIES or args.force:
+        if retrying >= MAX_RETRIES or args.non_interactive:
             print_library_log(f"invalid configuration error: {e}", level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
             sys.exit(1)
         else:
@@ -539,12 +580,12 @@ def verify_version_mismatch_deps(is_deploy, requirements, tmp_requirements):
     if not version_mismatch_deps:
         return False
     if not is_deploy:
-        print_library_log("We recommend using the current stable version for the following libraries:",
+        print_library_log(RECOMMEND_STABLE_VERSION_MESSAGE,
                           Logging.Level.INFO)
         print(version_mismatch_deps)
         return False
 
-    print_library_log("We recommend using the current stable version for the following libraries:",
+    print_library_log(RECOMMEND_STABLE_VERSION_MESSAGE,
                       Logging.Level.WARNING)
     print(version_mismatch_deps)
     confirm = input(
@@ -736,7 +777,7 @@ def verify_pyproject_version_mismatch_deps(is_deploy, requirements, tmp_requirem
         return
 
     level = Logging.Level.WARNING if is_deploy else Logging.Level.INFO
-    print_library_log("We recommend using the current stable version for the following libraries:", level)
+    print_library_log(RECOMMEND_STABLE_VERSION_MESSAGE, level)
     print(version_mismatch_deps)
     if not is_deploy:
         return
@@ -806,14 +847,17 @@ def log_connection_success(response: rq.Response, is_new_connection: bool, conne
         is_new_connection: True if creating a new connection, False if updating.
         connection_id: The connection ID (provided for updates, extracted for creates).
     """
+    data = response.json()['data']
     # Extract connection_id from response if not provided (create case)
-    conn_id = connection_id if connection_id else response.json()['data']['id']
+    conn_id = connection_id if connection_id else data['id']
     # Determine operation text and dashboard action based on flag
     operation = "created" if is_new_connection else "updated"
     dashboard_action = "to start the initial sync" if is_new_connection else "to manage the connection"
     print_library_log(f"connection {operation}", log_icon=Logging.LogIcon.SUCCESS)
     print_library_log(f"connection id: {conn_id}", indent=True)
-    print_library_log(f"runtime python version: {response.json()['data']['config']['python_version']}",
+    print_library_log(f"runtime python version: {data['config']['python_version']}",
+                      level=Logging.Level.INFO, indent=True)
+    print_library_log(f"naming strategy: {data['destination_schema_names']}",
                       level=Logging.Level.INFO, indent=True)
     print_library_log(f"visit the Fivetran dashboard {dashboard_action}:")
     print_library_log(f"https://fivetran.com/dashboard/connectors/{conn_id}/status")
@@ -948,7 +992,7 @@ def get_connection_details(name: str, group: str, group_id: str, deploy_key: str
 
     return None
 
-def create_connection(deploy_key: str, group_id: str, config: dict, hd_agent_id: str, package_id: str) -> rq.Response:
+def create_connection(deploy_key: str, group_id: str, config: dict, hd_agent_id: str, package_id: str, naming: str) -> rq.Response:
     """Creates a new connection with the given deployment key, group ID, and configuration.
 
     Args:
@@ -957,6 +1001,7 @@ def create_connection(deploy_key: str, group_id: str, config: dict, hd_agent_id:
         config (dict): The configuration dictionary.
         hd_agent_id (str): The hybrid deployment agent ID within the Fivetran system.
         package_id (str): The package ID.
+        naming (str): The formatted naming strategy (e.g., "FIVETRAN_NAMING" or "SOURCE_NAMING").
 
     Returns:
         rq.Response: The response object.
@@ -975,6 +1020,7 @@ def create_connection(deploy_key: str, group_id: str, config: dict, hd_agent_id:
                            "paused": True,
                            "run_setup_tests": True,
                            "sync_frequency": "360",
+                           "destination_schema_names": naming or (FIVETRAN_NAMING_VALUE + UNDERSCORE_NAMING),
                            "hybrid_deployment_agent_id": hd_agent_id
                        })
     return response
@@ -1580,7 +1626,7 @@ def redact_configuration_values(configuration: dict) -> dict:
 
 
 def _build_tester_command(java_exe_str: str, root_dir: str, working_dir: str, port: int,
-                          state_json: str, configuration_json: str) -> list:
+                          state_json: str, configuration_json: str, naming: str = None) -> list:
     """Builds the command list for running the tester.
 
     Args:
@@ -1590,6 +1636,7 @@ def _build_tester_command(java_exe_str: str, root_dir: str, working_dir: str, po
         port (int): The port number to use for the tester.
         state_json (str): The state JSON string to pass to the tester.
         configuration_json (str): The configuration JSON string to pass to the tester.
+        naming (str): The naming strategy to pass to the tester.
 
     Returns:
         list: The command list for subprocess execution.
@@ -1602,12 +1649,13 @@ def _build_tester_command(java_exe_str: str, root_dir: str, working_dir: str, po
            f"--working-dir={working_dir}",
            "--tester-type=source",
            f"--state={state_json}",
+           f"--naming={naming or (FIVETRAN_NAMING_VALUE + UNDERSCORE_NAMING)}",
            f"--configuration={configuration_json}"]
 
     return cmd
 
 
-def run_tester(java_exe_str: str, root_dir: str, project_path: str, port: int, state_json: str, configuration: dict):
+def run_tester(java_exe_str: str, root_dir: str, project_path: str, port: int, state_json: str, configuration: dict, naming: str = None):
     """Runs the connector tester.
 
     Args:
@@ -1617,6 +1665,7 @@ def run_tester(java_exe_str: str, root_dir: str, project_path: str, port: int, s
         port (int): The port number to use for the tester.
         state_json (str): The state JSON string to pass to the tester.
         configuration (dict): The configuration dictionary to pass to the tester.
+        naming (str): The formatted naming strategy (e.g., "FIVETRAN_NAMING" or "SOURCE_NAMING").
 
     Yields:
         str: The log messages from the tester.
@@ -1627,7 +1676,7 @@ def run_tester(java_exe_str: str, root_dir: str, project_path: str, port: int, s
     except FileExistsError:
         pass
 
-    cmd = _build_tester_command(java_exe_str, root_dir, working_dir, port, state_json, json.dumps(configuration))
+    cmd = _build_tester_command(java_exe_str, root_dir, working_dir, port, state_json, json.dumps(configuration), naming)
 
     popen = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
     for line in process_stream(popen.stderr):
@@ -1640,7 +1689,7 @@ def run_tester(java_exe_str: str, root_dir: str, project_path: str, port: int, s
     if return_code == 1:
         # Build redacted command for error reporting
         configuration_redacted = redact_configuration_values(configuration)
-        redacted_cmd = _build_tester_command(java_exe_str, root_dir, working_dir, port, state_json, json.dumps(configuration_redacted))
+        redacted_cmd = _build_tester_command(java_exe_str, root_dir, working_dir, port, state_json, json.dumps(configuration_redacted), naming)
         raise subprocess.CalledProcessError(return_code, redacted_cmd)
 
 def _maybe_colorize_jar_output(line: str) -> str:

@@ -14,9 +14,10 @@ from pyrit.executor.workflow.core import (
     WorkflowResult,
     WorkflowStrategy,
 )
-from pyrit.identifiers import ComponentIdentifier, Identifiable
 from pyrit.memory import CentralMemory
 from pyrit.models import (
+    ComponentIdentifier,
+    Identifiable,
     Message,
     MessagePiece,
     Score,
@@ -80,7 +81,6 @@ class XPIAContext(WorkflowContext):
     memory_labels: dict[str, str] = field(default_factory=dict)
 
 
-@dataclass
 class XPIAResult(WorkflowResult):
     """
     Result of XPIA workflow execution.
@@ -149,7 +149,7 @@ class XPIAWorkflow(WorkflowStrategy[XPIAContext, XPIAResult], Identifiable):
         converter_config: Optional[StrategyConverterConfig] = None,
         prompt_normalizer: Optional[PromptNormalizer] = None,
         logger: logging.Logger = logger,
-    ):
+    ) -> None:
         """
         Initialize the XPIA workflow.
 
@@ -356,8 +356,16 @@ class XPIAWorkflow(WorkflowStrategy[XPIAContext, XPIAResult], Identifiable):
 
         Returns:
             str: The response from the processing target.
+
+        Raises:
+            ValueError: If the processing callback is not set.
+            RuntimeError: If memory is not initialized.
         """
+        if context.processing_callback is None:
+            raise ValueError("processing_callback is not set")
         processing_response = await context.processing_callback()
+        if self._memory is None:
+            raise RuntimeError("Memory not initialized")
         self._memory.add_message_to_memory(
             request=Message(
                 message_pieces=[
@@ -560,7 +568,8 @@ class XPIATestWorkflow(XPIAWorkflow):
         # Create the processing callback using the test context
         async def process_async() -> str:
             # processing_prompt is validated to be non-None in _validate_context
-            assert context.processing_prompt is not None
+            if context.processing_prompt is None:
+                raise RuntimeError("context.processing_prompt is not initialized")
             response = await self._prompt_normalizer.send_prompt_async(
                 message=context.processing_prompt,
                 target=self._processing_target,

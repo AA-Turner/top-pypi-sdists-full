@@ -34,6 +34,7 @@ from huggingface_hub.cli._cli_utils import SoftChoice
 from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import REPO_REGIONS
 
+from ._city_game import run_city_game
 from ._cli_utils import (
     REPO_LIST_DEFAULT_LIMIT,
     EnvFileOpt,
@@ -55,8 +56,9 @@ from ._cli_utils import (
     parse_volumes,
     typer_factory,
 )
+from ._cp import make_cp
 from ._file_listing import format_size
-from ._output import out
+from ._output import OutputFormat, out
 
 
 repos_cli = typer_factory(help="Manage repos on the Hub.")
@@ -132,7 +134,7 @@ repos_cli.add_typer(branch_cli, name="branch")
     "list | ls",
     examples=[
         "hf repos ls",
-        "hf repos ls --type model",
+        "hf repos ls --explore",
         "hf repos ls --namespace my-org --search bert",
     ],
 )
@@ -153,6 +155,10 @@ def repo_list(
     ] = None,
     search: SearchOpt = None,
     limit: LimitOpt = REPO_LIST_DEFAULT_LIMIT,
+    explore: Annotated[
+        bool,
+        typer.Option("--explore", help="Explore your repos as an interactive 3D city."),
+    ] = False,
     token: TokenOpt = None,
 ) -> None:
     """List all repos (models, datasets, spaces, buckets) with storage info."""
@@ -164,6 +170,13 @@ def repo_list(
         search_lower = search.lower()
         repos = [r for r in repos if search_lower in r.id.lower()]
     total = len(repos)
+
+    if explore:
+        if out.mode == OutputFormat.human:
+            run_city_game(repos)
+            return
+        raise CLIError("Repository exploration is only available in terminal.")
+
     if limit > 0:
         repos = repos[:limit]
     items = [
@@ -440,6 +453,26 @@ def repo_delete_files(
         create_pr=create_pr,
     )
     out.result("Files deleted", repo_id=repo_id, commit_url=url)
+
+
+# `hf repos cp` is an alias for the top-level `hf cp` command (see `cli/_cp.py`).
+repos_cli.command(
+    name="cp",
+    examples=[
+        # Download (repo or bucket -> local / stdout)
+        "hf repos cp hf://username/my-model/config.json config.json",
+        "hf repos cp hf://datasets/username/my-dataset/data.csv data/",
+        "hf repos cp hf://username/my-model/config.json -",
+        # Upload (local / stdin -> repo)
+        "hf repos cp model.safetensors hf://username/my-model/model.safetensors",
+        "hf repos cp config.json hf://username/my-model/logs/",
+        "hf repos cp - hf://username/my-model/config.json",
+        # Remote to remote (repo -> repo)
+        "hf repos cp hf://username/source-model/config.json hf://username/dest-model/config.json",
+        "hf repos cp hf://datasets/username/my-dataset/processed/ hf://datasets/username/dest-dataset/processed/",
+        "hf repos cp hf://username/my-model/logs/ hf://username/archive-model/logs/",
+    ],
+)(make_cp("repos"))
 
 
 @branch_cli.command(

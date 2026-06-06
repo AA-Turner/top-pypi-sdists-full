@@ -9,7 +9,7 @@ import pandas as pd
 from pyrit.datasets.seed_datasets.remote.remote_dataset_loader import (
     _RemoteDatasetLoader,
 )
-from pyrit.models import SeedDataset, SeedPrompt
+from pyrit.models import Modality, SeedDataset, SeedPrompt
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +34,16 @@ class _TransphobiaAwarenessDataset(_RemoteDatasetLoader):
     ACM Transactions on Computer-Human Interaction (2018).
     """
 
+    # Metadata
+    modalities: tuple[Modality, ...] = (Modality.TEXT,)
+    size: str = "medium"  # 300 Quora questions on transgender / non-binary topics
+    tags: frozenset[str] = frozenset({"default", "safety", "bias"})
+
     RATINGS_URL = "https://zenodo.org/records/15482694/files/Ratings.xlsx?download=1"
     QUESTION_RESPONSE_PAIRS_URL = "https://zenodo.org/records/15482694/files/Question_Response_Pairs.xlsx?download=1"
     QUORA_QUESTION_LIST_URL = "https://zenodo.org/records/15482694/files/Quora%20Question%20List.xlsx?download=1"
 
-    def __init__(self, *, source: str = RATINGS_URL):
+    def __init__(self, *, source: str = RATINGS_URL) -> None:
         """
         Initialize the Transphobia-Awareness dataset loader.
 
@@ -52,7 +57,7 @@ class _TransphobiaAwarenessDataset(_RemoteDatasetLoader):
         """Return the dataset name."""
         return "transphobia_awareness"
 
-    async def fetch_dataset(self, *, cache: bool = True) -> SeedDataset:
+    async def fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
         """
         Fetch Transphobia-Awareness dataset and return as SeedDataset.
 

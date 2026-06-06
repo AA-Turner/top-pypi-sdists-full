@@ -9,7 +9,7 @@ import typing
 
 # ── Module metadata ──
 
-__version__: builtins.str = "0.17.56"  # x-release-please-version
+__version__: builtins.str = "0.18.2"  # x-release-please-version
 __author__: builtins.str = "Hal Long <hal.long@outlook.com>"
 
 # ── Constants (registered via m.add() in src/lib.rs::register_constants) ──
@@ -3099,7 +3099,7 @@ class ToolDispatcher:
         r"""
         Alphabetically sorted list of registered handler names.
         """
-    def dispatch(self, action_name: builtins.str, params_json: builtins.str = 'null') -> dict:
+    def dispatch(self, action_name: builtins.str, params_json: builtins.str = 'null', meta_json: builtins.str = 'null') -> dict:
         r"""
         Dispatch an action call.
 
@@ -3239,7 +3239,7 @@ class ToolPipeline:
             before_fn: Optional callable ``(action_name: str) -> None`` called before dispatch.
             after_fn:  Optional callable ``(action_name: str, success: bool) -> None`` called after.
         """
-    def dispatch(self, action_name: builtins.str, params_json: builtins.str = 'null') -> dict:
+    def dispatch(self, action_name: builtins.str, params_json: builtins.str = 'null', meta_json: builtins.str = 'null') -> dict:
         r"""
         Dispatch an action through the middleware pipeline.
 

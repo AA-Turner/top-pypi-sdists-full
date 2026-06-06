@@ -8,20 +8,23 @@ import asyncio
 from collections.abc import Iterator
 from typing import Any, BinaryIO, Dict, List, Union
 
+from .protocols import AGFSSyncClientProtocol
+
 
 class AsyncAGFSClient:
-    """Run blocking AGFS client operations off the event loop.
+    """Run blocking AGFS binding client operations off the event loop.
 
-    This is intentionally a thin adapter over the existing synchronous client.
-    If AGFS later provides native async methods, they can be swapped in here
-    without changing storage and transaction call sites.
+    This is intentionally a thin adapter over the synchronous RAGFS binding
+    client (``RAGFSBindingClient``). If the binding later provides native async
+    methods, they can be swapped in here without changing storage and
+    transaction call sites.
     """
 
-    def __init__(self, client: Any):
+    def __init__(self, client: AGFSSyncClientProtocol):
         self._client = client
 
     @property
-    def sync_client(self) -> Any:
+    def sync_client(self) -> AGFSSyncClientProtocol:
         return self._client
 
     async def run(self, method_name: str, /, *args: Any, **kwargs: Any) -> Any:
@@ -88,3 +91,18 @@ class AsyncAGFSClient:
 
     async def grep(self, **kwargs: Any) -> Dict[str, Any]:
         return await self.run("grep", **kwargs)
+
+    async def tree_directory(
+        self,
+        path: str,
+        show_hidden: bool = False,
+        node_limit: int | None = None,
+        level_limit: int | None = None,
+    ) -> list[Dict[str, Any]]:
+        return await self.run(
+            "tree_directory",
+            path,
+            show_hidden=show_hidden,
+            node_limit=node_limit,
+            level_limit=level_limit,
+        )

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """The xAI chat model implementation using the official xai_sdk."""
 from datetime import datetime
-from typing import Any, AsyncGenerator, List, Literal, TYPE_CHECKING
+from typing import Any, AsyncGenerator, List, Literal, TYPE_CHECKING, Type
 
 from pydantic import BaseModel, Field
 
@@ -96,8 +96,10 @@ class XAIChatModel(ChatModelBase):
         parameters: "XAIChatModel.Parameters | None" = None,
         stream: bool = True,
         max_retries: int = 3,
+        retry_delay: float = 1.0,
         context_size: int = 131072,
         formatter: XAIChatFormatter | None = None,
+        client_kwargs: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the xAI chat model.
 
@@ -114,12 +116,20 @@ class XAIChatModel(ChatModelBase):
                 Whether to enable streaming output.
             max_retries (`int`, defaults to `3`):
                 The maximum number of retries for the xAI API.
+            retry_delay (`float`, defaults to `1.0`):
+                Seconds to sleep between retry attempts.
             context_size (`int`, defaults to `131072`):
                 The model context size used for context compression.
             formatter (`XAIChatFormatter | None`, defaults to `None`):
                 The formatter that converts ``Msg`` objects to xai_sdk
                 proto messages. When ``None``, an ``XAIChatFormatter``
                 instance will be used.
+            client_kwargs (`dict[str, Any] | None`, defaults to `None`):
+                Extra keyword arguments forwarded to ``xai_sdk.AsyncClient``
+                (e.g. ``timeout``, ``metadata``, ``channel_options``). Keys
+                that overlap with credential-derived arguments (such as
+                ``api_key`` or ``api_host``) take precedence over the
+                credential values.
         """
         super().__init__(
             credential=credential,
@@ -127,9 +137,24 @@ class XAIChatModel(ChatModelBase):
             parameters=parameters or self.Parameters(),
             stream=stream,
             max_retries=max_retries,
+            retry_delay=retry_delay,
             context_size=context_size,
         )
         self.formatter = formatter or XAIChatFormatter()
+        self.client_kwargs = client_kwargs or {}
+
+    @classmethod
+    def _get_retryable_exceptions(cls) -> tuple[Type[Exception], ...]:
+        import grpc
+
+        # xai_sdk uses grpc.aio under the hood; transport/API failures surface
+        # as grpc.aio.AioRpcError (subclass of grpc.RpcError). We retry the
+        # whole class because the retry mechanism here only filters by type,
+        # not by status code — so 4xx-equivalents (UNAUTHENTICATED, INVALID
+        # _ARGUMENT) will also be retried a few times before failing, which
+        # we accept. Note xai_sdk additionally retries UNAVAILABLE 5 times at
+        # the gRPC layer with exponential backoff before raising to us.
+        return (grpc.RpcError,)
 
     async def _call_api(
         self,
@@ -162,7 +187,11 @@ class XAIChatModel(ChatModelBase):
         from xai_sdk import AsyncClient
 
         client = AsyncClient(
-            api_key=self.credential.api_key.get_secret_value(),
+            **{
+                "api_key": self.credential.api_key.get_secret_value(),
+                "api_host": self.credential.api_host,
+                **self.client_kwargs,
+            },
         )
 
         xai_messages = await self.formatter.format(messages)

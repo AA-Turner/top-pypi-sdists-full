@@ -1,9 +1,4 @@
-"""py2exe setup for AI Watch scan-only binary (Windows alternative to PyInstaller).
-
-Usage:
-  cd cli
-  python packaging/py2exe/setup_py2exe.py py2exe
-"""
+"""py2exe setup for AI Watch (Windows alternative to PyInstaller)."""
 
 import re
 from pathlib import Path
@@ -14,11 +9,8 @@ import py2exe  # noqa: F401
 
 
 def _read_version() -> str:
-    """Read version from cli/pyproject.toml to match other packaging scripts.
-
-    Uses a regex instead of tomllib to avoid a tomli dep on Python 3.10 and
-    to mirror the approach in build_pkg.sh / build_msi.ps1 (grep / Select-String).
-    """
+    # Regex (not tomllib) to avoid a tomli dep on 3.10 and mirror
+    # build_pkg.sh / build_msi.ps1's grep / Select-String approach.
     pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
     match = re.search(r'^version = "([^"]+)"', pyproject.read_text(), re.MULTILINE)
     if not match:

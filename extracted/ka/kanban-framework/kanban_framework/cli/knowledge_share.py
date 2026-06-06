@@ -59,6 +59,7 @@ def handle_share(km: KnowledgeManager, args: list[str]) -> dict:
         share_be = _get_share_backend(km)
         if isinstance(share_be, dict):
             return share_be
+        force = "--force" in args
         if "--all" in args:
             filters = parse_push_filters(args)
             entries = km.list_entries(status="active")
@@ -70,17 +71,21 @@ def handle_share(km: KnowledgeManager, args: list[str]) -> dict:
                 ]}
             pushed = 0
             skipped = 0
+            conflicts = 0
             errors = 0
             for e in filtered:
                 try:
-                    r = share_be.add_entry(**e)
+                    r = share_be.add_entry(force=force, **e)
                     if r.get("merged"):
                         skipped += 1
+                    elif r.get("status") == "conflict":
+                        conflicts += 1
                     else:
                         pushed += 1
                 except Exception:
                     errors += 1
-            return {"pushed": pushed, "skipped": skipped, "errors": errors, "total": len(filtered)}
+            return {"pushed": pushed, "skipped": skipped, "conflicts": conflicts,
+                    "errors": errors, "total": len(filtered)}
         else:
             entry_id = args[1] if len(args) > 1 else ""
             if not entry_id:
@@ -88,8 +93,32 @@ def handle_share(km: KnowledgeManager, args: list[str]) -> dict:
             entry = km.get_entry(entry_id)
             if entry is None:
                 return {"error": f"entry {entry_id} not found"}
-            result = share_be.add_entry(**entry)
-            return {"pushed": True, "id": result.get("id", entry_id)}
+            result = share_be.add_entry(force=force, **entry)
+            return result
+
+    if args[0] == "--resolve":
+        share_be = _get_share_backend(km)
+        if isinstance(share_be, dict):
+            return share_be
+        resolve_args = args[1:]
+        if len(resolve_args) < 2:
+            return {"error": "usage: kanban knowledge share --resolve <existing_id> <action> [--content-file <path>]\n"
+                             "  actions: keep_existing, keep_incoming, merge_both, skip"}
+        existing_id = resolve_args[0]
+        action = resolve_args[1]
+        merged_content = None
+        for i, a in enumerate(resolve_args):
+            if a == "--content-file" and i + 1 < len(resolve_args):
+                from pathlib import Path
+                cf = Path(resolve_args[i + 1])
+                if cf.is_file():
+                    merged_content = cf.read_text(encoding="utf-8")
+                else:
+                    return {"error": f"content file not found: {cf}"}
+        try:
+            return share_be.resolve_conflict(existing_id, action, merged_content=merged_content)
+        except ValueError as e:
+            return {"error": str(e)}
 
     return {"error": f"unknown option: {args[0]}"}
 

@@ -36,6 +36,13 @@ class GitSyncPolicy:
     mode: GitSyncMode = "merge_to_main"
     target: str | None = None
     exact: bool = False
+    # When False, a no-review-gate task that publishes a ref does NOT auto-merge
+    # (squash) that ref into the shared workspace's `main`. Use this for agents
+    # (e.g. reviewers) that check out and publish a route/feature branch only to
+    # produce side artifacts (repro tests) — auto-merging their checkout would
+    # leak the *unapproved* branch's code (schema/migrations/components) onto
+    # shared main. Their artifacts are routed to the right branch separately.
+    integrate_to_main: bool = True
 
     @classmethod
     def merge_to_main(cls) -> GitSyncPolicy:
@@ -46,8 +53,8 @@ class GitSyncPolicy:
         return cls(mode="push_branch", target=branch_name, exact=True)
 
     @classmethod
-    def publish_ref(cls, ref: str, *, exact: bool = False) -> GitSyncPolicy:
-        return cls(mode="publish_ref", target=ref, exact=exact)
+    def publish_ref(cls, ref: str, *, exact: bool = False, integrate_to_main: bool = True) -> GitSyncPolicy:
+        return cls(mode="publish_ref", target=ref, exact=exact, integrate_to_main=integrate_to_main)
 
 
 class AgentWorkspaceMountGitPayload(BaseModel):

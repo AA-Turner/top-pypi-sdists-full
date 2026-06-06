@@ -87,6 +87,22 @@ def get_client_from_config(
         # configs too).
         openai_fallback = fallback if (fallback or "").startswith("gpt") else None
         inner = OpenAIClient(fallback_model=openai_fallback)
+    elif llm_config.backend == "bedrock_openai":
+        # v0.1.216: OpenAI models served on AWS Bedrock via the Mantle
+        # (Responses-API) endpoint. Needs a region; the model id is
+        # `openai.gpt-5.4` etc. See llm/mantle_client.py.
+        if not llm_config.region:
+            raise AgentError(
+                "LLMConfig.region is required for backend='bedrock_openai' "
+                "but was unset; check `.efterlev/config.toml`."
+            )
+        from efterlev.llm.mantle_client import BedrockOpenAIClient
+
+        # Only honor an `openai.`-shaped fallback; the workspace-default
+        # Claude fallback would 404 on the Mantle endpoint (same guard as the
+        # direct-openai backend).
+        mantle_fallback = fallback if (fallback or "").startswith("openai.") else None
+        inner = BedrockOpenAIClient(region=llm_config.region, fallback_model=mantle_fallback)
     else:
         inner = AnthropicClient(fallback_model=fallback)
     if workspace_root is None:

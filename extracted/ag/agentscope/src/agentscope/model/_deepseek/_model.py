@@ -82,8 +82,10 @@ class DeepSeekChatModel(ChatModelBase):
         parameters: "DeepSeekChatModel.Parameters | None" = None,
         stream: bool = True,
         max_retries: int = 3,
+        retry_delay: float = 1.0,
         context_size: int = 65536,
         formatter: FormatterBase | None = None,
+        client_kwargs: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the DeepSeek chat model.
 
@@ -100,12 +102,17 @@ class DeepSeekChatModel(ChatModelBase):
                 Whether to enable streaming output.
             max_retries (`int`, defaults to `3`):
                 The maximum number of retries for the DeepSeek API.
+            retry_delay (`float`, defaults to `1.0`):
+                Seconds to sleep between retry attempts.
             context_size (`int`, defaults to `65536`):
                 The model context size used for context compression.
             formatter (`FormatterBase | None`, defaults to `None`):
                 The formatter that converts ``Msg`` objects to the format
                 required by the DeepSeek API. When ``None``, a
                 ``DeepSeekChatFormatter`` instance will be used.
+            client_kwargs (`dict[str, Any] | None`, defaults to `None`):
+                Extra keyword arguments forwarded to ``openai.AsyncClient``
+                (e.g. ``timeout``, ``default_headers``, ``http_client``).
         """
         super().__init__(
             credential=credential,
@@ -113,9 +120,22 @@ class DeepSeekChatModel(ChatModelBase):
             parameters=parameters or self.Parameters(),
             stream=stream,
             max_retries=max_retries,
+            retry_delay=retry_delay,
             context_size=context_size,
         )
         self.formatter = formatter or DeepSeekChatFormatter()
+        self.client_kwargs = client_kwargs or {}
+
+    @classmethod
+    def _get_retryable_exceptions(cls) -> tuple[Type[Exception], ...]:
+        import openai
+
+        return (
+            openai.APIConnectionError,
+            openai.APITimeoutError,
+            openai.RateLimitError,
+            openai.InternalServerError,
+        )
 
     async def _call_api(
         self,
@@ -148,8 +168,11 @@ class DeepSeekChatModel(ChatModelBase):
         import openai
 
         client = openai.AsyncClient(
-            api_key=self.credential.api_key.get_secret_value(),
-            base_url=self.credential.base_url,
+            **{
+                "api_key": self.credential.api_key.get_secret_value(),
+                "base_url": self.credential.base_url,
+                **self.client_kwargs,
+            },
         )
 
         formatted_messages = await self.formatter.format(messages)

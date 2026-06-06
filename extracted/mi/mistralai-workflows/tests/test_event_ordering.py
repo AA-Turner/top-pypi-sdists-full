@@ -227,6 +227,55 @@ class TestBackgroundEventPublisherConcurrency:
 
             await background_publisher.shutdown()
 
+    @pytest.mark.asyncio
+    async def test_encoding_failure_does_not_stall_queue(
+        self,
+        event_context: EventContext,
+        background_publisher: BackgroundEventPublisher,
+        mock_workflows_client: AsyncMock,
+    ) -> None:
+        """Verify that encoding failures don't prevent drain() from completing.
+
+        When maybe_encode_event raises an exception, the sender loop should:
+        1. Call task_done() for the failed event (so drain doesn't hang)
+        2. Continue processing remaining events
+        3. Successfully send events that encode correctly
+        """
+        events_sent: list[str] = []
+        fail_on_indices = {1, 3, 5}  # These events will fail to encode
+
+        async def track_send_batch(*, events, **kwargs) -> None:
+            for e in events:
+                events_sent.append(e["event_id"])
+
+        mock_workflows_client.send_events_batch_async = AsyncMock(side_effect=track_send_batch)
+
+        call_count = 0
+
+        async def flaky_encode(event, encoder):
+            nonlocal call_count
+            idx = call_count
+            call_count += 1
+            if idx in fail_on_indices:
+                raise ValueError(f"Simulated encoding failure for event {idx}")
+            return event
+
+        async with event_context:
+            with patch(
+                "mistralai.workflows.core._events.event_context.maybe_encode_event",
+                side_effect=flaky_encode,
+            ):
+                for i in range(7):
+                    background_publisher.publish_event_background(_make_event(i))
+
+                # drain() should complete without hanging despite encoding failures
+                await asyncio.wait_for(background_publisher.drain(), timeout=5.0)
+                await background_publisher.shutdown()
+
+        # Events 0, 2, 4, 6 should have been sent (indices 1, 3, 5 failed)
+        assert len(events_sent) == 4
+        assert set(events_sent) == {"evt-0", "evt-2", "evt-4", "evt-6"}
+
 
 class TestTaskEventOrdering:
     @pytest.mark.asyncio

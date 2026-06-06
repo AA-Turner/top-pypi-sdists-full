@@ -8,6 +8,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from mistralai.extra.exceptions import WorkflowPayloadEncryptionException
 from mistralai.extra.workflows import WorkflowEncodingConfig
 from mistralai.extra.workflows.encoding.config import (
+    PayloadCompressionConfig,
     PayloadEncryptionConfig,
     PayloadEncryptionMode,
     PayloadOffloadingConfig,
@@ -16,6 +17,7 @@ from mistralai.extra.workflows.encoding.payload_encoder import PayloadEncoder
 from pydantic import BaseModel
 from pydantic_core import to_json
 
+from mistralai.workflows.core.temporal.payload_codec import MistralWorkflowsPayloadCodec
 from mistralai.workflows.models import (
     EncodedPayloadOptions,
     EncryptedStrField,
@@ -46,6 +48,16 @@ class TestPayloadEncoder:
     @pytest.fixture
     def context(self):
         return WorkflowContext(namespace=TEST_NAMESPACE, execution_id=TEST_EXECUTION_ID)
+
+    def test_temporal_codec_configures_payload_compression(self):
+        codec = MistralWorkflowsPayloadCodec(
+            payload_offloading_config=None,
+            payload_encryption_config=None,
+            payload_compression_config=PayloadCompressionConfig(min_size_bytes=100),
+        )
+
+        assert codec.payload_encoder.compression_config == PayloadCompressionConfig(min_size_bytes=100)
+        assert codec.payload_encoder.compressor is not None
 
     @pytest.mark.asyncio
     async def test_encoding_network_payload(self, mock_blob_storage, context):
@@ -97,6 +109,49 @@ class TestPayloadEncoder:
             assert stored_key.startswith(f"temporal-payload/{TEST_NAMESPACE}/{TEST_EXECUTION_ID}")
             pattern = rb'^\{"key":".*"\}$'
             assert re.match(pattern, encoded_data)
+
+            decoded_content = await encoder.decode_payload_content(encoded_data, encoding_options)
+            assert decoded_content == large_payload_content
+
+    @pytest.mark.asyncio
+    async def test_encoding_with_compression(self, mock_blob_storage, context):
+        with patch(
+            "mistralai.extra.workflows.encoding.payload_encoder.get_blob_storage",
+            side_effect=Mock(return_value=mock_blob_storage),
+        ):
+            encoder = PayloadEncoder(
+                encoding_config=WorkflowEncodingConfig(
+                    payload_compression=PayloadCompressionConfig(min_size_bytes=100),
+                ),
+            )
+
+            large_payload_content = to_json({"data": "x" * LARGE_PAYLOAD_SIZE})
+            encoded_data, encoding_options = await encoder.encode_payload_content(large_payload_content, context)
+
+            assert encoding_options == [EncodedPayloadOptions.COMPRESSED]
+            assert len(encoded_data) < len(large_payload_content)
+
+            decoded_content = await encoder.decode_payload_content(encoded_data, encoding_options)
+            assert decoded_content == large_payload_content
+
+    @pytest.mark.asyncio
+    async def test_encoding_with_compression_prevents_offloading(self, mock_blob_storage, context):
+        with patch(
+            "mistralai.extra.workflows.encoding.payload_encoder.get_blob_storage",
+            side_effect=Mock(return_value=mock_blob_storage),
+        ):
+            encoder = PayloadEncoder(
+                encoding_config=WorkflowEncodingConfig(
+                    payload_compression=PayloadCompressionConfig(min_size_bytes=100),
+                    payload_offloading=PayloadOffloadingConfig(min_size_bytes=1000, storage_config={}),
+                ),
+            )
+
+            large_payload_content = to_json({"data": "x" * LARGE_PAYLOAD_SIZE})
+            encoded_data, encoding_options = await encoder.encode_payload_content(large_payload_content, context)
+
+            assert encoding_options == [EncodedPayloadOptions.COMPRESSED]
+            assert len(mock_blob_storage.blobs) == 0
 
             decoded_content = await encoder.decode_payload_content(encoded_data, encoding_options)
             assert decoded_content == large_payload_content
@@ -275,12 +330,13 @@ class TestPayloadEncoder:
 
             encoded_data, encoding_options = await encoder.encode_payload_content(payload_bytes, context)
 
-            # Partial encryption is skipped when the payload is offloaded (fields not in payload anymore)
-            assert EncodedPayloadOptions.OFFLOADED in encoding_options
-            assert EncodedPayloadOptions.PARTIALLY_ENCRYPTED not in encoding_options
+            assert encoding_options == [EncodedPayloadOptions.PARTIALLY_ENCRYPTED, EncodedPayloadOptions.OFFLOADED]
+            decoded = await encoder.decode_payload_content(encoded_data, encoding_options)
+            decoded_obj = json.loads(decoded)
+            assert decoded_obj["secret"]["data"] == "Shhhh!"
+            assert decoded_obj["bulk"] == "x" * LARGE_PAYLOAD_SIZE
 
-            # Now simulate a payload that has both flags (e.g. produced by a different code path)
-            # to verify decode handles them independently
+            # Also verify a manually offloaded partially encrypted payload decodes in reverse order.
             partially_enc_encoder = PayloadEncoder(
                 encoding_config=WorkflowEncodingConfig(
                     payload_encryption=PayloadEncryptionConfig(

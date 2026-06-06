@@ -2095,6 +2095,8 @@ def register_generated_tools(mcp, _get_client):
         name: str,
         campaign_name: str | None = None,
         ad_set_name: str | None = None,
+        ad_name: str | None = None,
+        tracking: dict[str, Any] | None = None,
         goal: str | None = None,
         budget_amount: float | None = None,
         budget_type: str | None = None,
@@ -2160,7 +2162,9 @@ def register_generated_tools(mcp, _get_client):
                 name: (required)
                 campaign_name: Meta only. Exact campaign name. Overrides the default `<name> - Campaign`.
                 ad_set_name: Meta only. Exact ad set name. Overrides the default `<name> - Ad Set`. (For per-ad names on the multi-creative shape, set `name` on each `creatives[]` entry.)
-                goal: Required on legacy + multi-creative shapes. Inherited from the ad set on the attach shape. Available goals vary by platform. Meta-specific: `conversions` requires `promotedObject.pixelId` + `promotedObject.customEventType`; `app_promotion` requires `promotedObject.applicationId` + `promotedObject.objectStoreUrl`; `lead_generation` accepts an optional `promotedObject.pageId` (auto-filled from the connected Page when omitted). TikTok-specific: `conversions` (website-conversion ad group) requires `promotedObject.pixelId` (your TikTok Pixel ID) and accepts an optional `promotedObject.customEventType` (a TikTok `optimization_event` code like `ON_WEB_ORDER`, `INITIATE_ORDER`, `ON_WEB_REGISTER`, `FORM`); to inherit a pixel + event from an existing ad group, pass `adSetId` instead. LinkedIn-specific: `engagement`, `traffic`, `awareness`, and `video_views` are supported for standalone ads (creates a Direct Sponsored Content single image or single video ad). `traffic` requires `linkUrl`; `video_views` requires the `video` field. For `lead_generation` / `conversions` on LinkedIn — or to promote an existing post — use `POST /v1/ads/boost`.
+                ad_name: Meta only. Exact ad name (the single-creative ad object's name). Overrides the default, which is `name`. (For per-ad names on the multi-creative shape, set `name` on each `creatives[]` entry instead.)
+                tracking: Meta only. Attaches pixel measurement to the ad regardless of the optimization goal (the "Website events" tracking row in Ads Manager). `pixelId` becomes the ad's `tracking_specs` (offsite_conversion + fb_pixel); `urlTags` becomes the ad's `url_tags` (click-tracking query params). Applied to every ad on the legacy single-creative and multi-creative shapes.
+                goal: Required on legacy + multi-creative shapes. Inherited from the ad set on the attach shape. Available goals vary by platform. Meta-specific: `conversions` (OUTCOME_SALES) requires `promotedObject.pixelId` + `promotedObject.customEventType` (use a commerce event, e.g. PURCHASE, START_TRIAL); `lead_conversion` (OUTCOME_LEADS, website pixel leads) requires the same pixel + event but with a leads-class event (e.g. LEAD, SUBMIT_APPLICATION, SCHEDULE, CONTACT) — these are rejected under `conversions` because Meta gates conversion events by objective; `lead_generation` is OUTCOME_LEADS with instant forms (`leadGenFormId`), distinct from `lead_conversion`'s website pixel optimization; `app_promotion` requires `promotedObject.applicationId` + `promotedObject.objectStoreUrl`; `lead_generation` accepts an optional `promotedObject.pageId` (auto-filled from the connected Page when omitted). TikTok-specific: `conversions` (website-conversion ad group) requires `promotedObject.pixelId` (your TikTok Pixel ID) and accepts an optional `promotedObject.customEventType` (a TikTok `optimization_event` code like `ON_WEB_ORDER`, `INITIATE_ORDER`, `ON_WEB_REGISTER`, `FORM`); to inherit a pixel + event from an existing ad group, pass `adSetId` instead. LinkedIn-specific: `engagement`, `traffic`, `awareness`, and `video_views` are supported for standalone ads (creates a Direct Sponsored Content single image or single video ad). `traffic` requires `linkUrl`; `video_views` requires the `video` field. For `lead_generation` / `conversions` on LinkedIn — or to promote an existing post — use `POST /v1/ads/boost`.
                 budget_amount: Required on legacy + multi-creative shapes. Inherited on attach.
                 budget_type: Required on legacy + multi-creative shapes. Inherited on attach.
                 budget_level: Meta only. Where the budget lives, which selects the Meta budget model:
@@ -2349,6 +2353,8 @@ def register_generated_tools(mcp, _get_client):
                 name=name,
                 campaign_name=campaign_name,
                 ad_set_name=ad_set_name,
+                ad_name=ad_name,
+                tracking=tracking,
                 goal=goal,
                 budget_amount=budget_amount,
                 budget_type=budget_type,
@@ -2793,6 +2799,34 @@ def register_generated_tools(mcp, _get_client):
                 events=events,
                 test_code=test_code,
                 consent=consent,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Adjust already-uploaded conversions (Google only)",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ads_adjust_conversions(
+        account_id: str, destination_id: str, adjustments: list[dict[str, Any]] | None
+    ) -> str:
+        """Adjust already-uploaded conversions (Google only)
+
+        Args:
+            account_id: SocialAccount ID. Must be a `googleads` account. (required)
+            destination_id: Conversion action resource name, e.g. `customers/1234567890/conversionActions/987654321`. (required)
+            adjustments: (required)"""
+        client = _get_client()
+        try:
+            response = client.ads.adjust_conversions(
+                account_id=account_id,
+                destination_id=destination_id,
+                adjustments=adjustments,
             )
             return _format_response(response)
         except Exception as e:
@@ -6984,6 +7018,277 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             return f"Error: {e}"
 
+    # INBOX_ANALYTICS
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get inbox messaging volume",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def inbox_analytics_get_inbox_volume(
+        from_date: str,
+        to_date: str | None = None,
+        profile_id: str | None = None,
+        platform: str | None = None,
+        account_id: str | None = None,
+        source: str | None = None,
+    ) -> str:
+        """Get inbox messaging volume
+
+        Args:
+            from_date: Inclusive lower bound (YYYY-MM-DD). Required. (required)
+            to_date: Inclusive upper bound (YYYY-MM-DD). Defaults to today.
+            profile_id
+            platform: Filter by single platform (facebook, instagram, twitter, etc.).
+            account_id
+            source: Filter by metadata.source lineage (human, workflow, sequence, broadcast, comment_automation, api, contact, platform)."""
+        client = _get_client()
+        try:
+            response = client.inbox_analytics.get_inbox_volume(
+                from_date=from_date,
+                to_date=to_date,
+                profile_id=profile_id,
+                platform=platform,
+                account_id=account_id,
+                source=source,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get inbox day-of-week × hour-of-day heatmap",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def inbox_analytics_get_inbox_heatmap(
+        from_date: str,
+        to_date: str | None = None,
+        profile_id: str | None = None,
+        platform: str | None = None,
+        account_id: str | None = None,
+        source: str | None = None,
+        action: str | None = None,
+    ) -> str:
+        """Get inbox day-of-week × hour-of-day heatmap
+
+        Args:
+            from_date: (required)
+            to_date
+            profile_id
+            platform
+            account_id
+            source
+            action: Narrow to a single event type. "all" or omitted means no filter."""
+        client = _get_client()
+        try:
+            response = client.inbox_analytics.get_inbox_heatmap(
+                from_date=from_date,
+                to_date=to_date,
+                profile_id=profile_id,
+                platform=platform,
+                account_id=account_id,
+                source=source,
+                action=action,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get inbox source breakdown",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def inbox_analytics_get_inbox_source_breakdown(
+        from_date: str,
+        to_date: str | None = None,
+        profile_id: str | None = None,
+        platform: str | None = None,
+        account_id: str | None = None,
+    ) -> str:
+        """Get inbox source breakdown
+
+        Args:
+            from_date: (required)
+            to_date
+            profile_id
+            platform
+            account_id"""
+        client = _get_client()
+        try:
+            response = client.inbox_analytics.get_inbox_source_breakdown(
+                from_date=from_date,
+                to_date=to_date,
+                profile_id=profile_id,
+                platform=platform,
+                account_id=account_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get inbox response-time stats",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def inbox_analytics_get_inbox_response_time(
+        from_date: str,
+        to_date: str | None = None,
+        profile_id: str | None = None,
+        platform: str | None = None,
+        account_id: str | None = None,
+    ) -> str:
+        """Get inbox response-time stats
+
+        Args:
+            from_date: (required)
+            to_date
+            profile_id
+            platform
+            account_id"""
+        client = _get_client()
+        try:
+            response = client.inbox_analytics.get_inbox_response_time(
+                from_date=from_date,
+                to_date=to_date,
+                profile_id=profile_id,
+                platform=platform,
+                account_id=account_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get top accounts by inbox volume",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def inbox_analytics_get_inbox_top_accounts(
+        from_date: str,
+        to_date: str | None = None,
+        profile_id: str | None = None,
+        platform: str | None = None,
+        source: str | None = None,
+        limit: int = 10,
+    ) -> str:
+        """Get top accounts by inbox volume
+
+        Args:
+            from_date: (required)
+            to_date
+            profile_id
+            platform
+            source
+            limit: Cap on returned rows. Lower than the posting listing's 100 because each row triggers a SocialAccount Mongo lookup."""
+        client = _get_client()
+        try:
+            response = client.inbox_analytics.get_inbox_top_accounts(
+                from_date=from_date,
+                to_date=to_date,
+                profile_id=profile_id,
+                platform=platform,
+                source=source,
+                limit=limit,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List conversations with inbox analytics",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def inbox_analytics_list_inbox_conversation_analytics(
+        from_date: str,
+        to_date: str | None = None,
+        profile_id: str | None = None,
+        platform: str | None = None,
+        account_id: str | None = None,
+        source: str | None = None,
+        limit: int = 50,
+        page: int = 1,
+        sort_by: str = "lastMessageAt",
+        order: str = "desc",
+    ) -> str:
+        """List conversations with inbox analytics
+
+        Args:
+            from_date: (required)
+            to_date
+            profile_id
+            platform
+            account_id
+            source
+            limit
+            page
+            sort_by
+            order"""
+        client = _get_client()
+        try:
+            response = client.inbox_analytics.list_inbox_conversation_analytics(
+                from_date=from_date,
+                to_date=to_date,
+                profile_id=profile_id,
+                platform=platform,
+                account_id=account_id,
+                source=source,
+                limit=limit,
+                page=page,
+                sort_by=sort_by,
+                order=order,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get analytics for a single conversation",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def inbox_analytics_get_inbox_conversation_analytics(
+        conversation_id: str, from_date: str, to_date: str | None = None
+    ) -> str:
+        """Get analytics for a single conversation
+
+        Args:
+            conversation_id: Mongo _id or platformConversationId. (required)
+            from_date: (required)
+            to_date"""
+        client = _get_client()
+        try:
+            response = client.inbox_analytics.get_inbox_conversation_analytics(
+                conversation_id=conversation_id, from_date=from_date, to_date=to_date
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
     # INSTAGRAM
 
     @mcp.tool(
@@ -10825,7 +11130,10 @@ def register_generated_tools(mcp, _get_client):
         still in review PLUS recently-declined (last 30 days) ones, so a
         failed registration surfaces (with `regulatoryDeclineReason`) instead
         of silently disappearing. Declined numbers can be re-submitted via
-        POST /v1/whatsapp/phone-numbers/{id}/remediate.
+        POST /v1/whatsapp/phone-numbers/{id}/remediate. `verifying` is the
+        short-lived state after the number is provisioned on our side while
+        WhatsApp confirms the activation code; the number is not billed until
+        it reaches `active`.
                 profile_id: Filter by profile"""
         client = _get_client()
         try:
@@ -11028,6 +11336,44 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = (
                 client.whatsapp_phone_numbers.upload_whats_app_number_kyc_document()
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Pre-validate a regulated-number KYC address (Tier 4)",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def whatsapp_phone_numbers_validate_whats_app_number_kyc_address(
+        country: str,
+        street_address: str,
+        locality: str,
+        postal_code: str,
+        administrative_area: str | None = None,
+    ) -> str:
+        """Pre-validate a regulated-number KYC address (Tier 4)
+
+        Args:
+            country: ISO 3166-1 alpha-2 country code. (required)
+            street_address: (required)
+            locality: City / town. (required)
+            administrative_area: State / province / region. When omitted
+            postal_code: (required)"""
+        client = _get_client()
+        try:
+            response = (
+                client.whatsapp_phone_numbers.validate_whats_app_number_kyc_address(
+                    country=country,
+                    street_address=street_address,
+                    locality=locality,
+                    administrative_area=administrative_area,
+                    postal_code=postal_code,
+                )
             )
             return _format_response(response)
         except Exception as e:

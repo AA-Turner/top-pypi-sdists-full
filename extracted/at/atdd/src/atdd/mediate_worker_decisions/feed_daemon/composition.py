@@ -67,6 +67,9 @@ def build_feed_daemon_from_repo(*, config: DaemonConfig) -> FeedDaemonUseCase:  
     from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.feed_reply_applier import (
         CmuxFeedTransport,
     )
+    from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.feed_advance_verifier import (
+        CmuxWorkerAdvance,
+    )
     from atdd.mediate_worker_decisions.feed_daemon.src.integration.jsonl_ledgers import (
         JsonlEscalationSink,
         JsonlVerdictLedger,
@@ -85,6 +88,16 @@ def build_feed_daemon_from_repo(*, config: DaemonConfig) -> FeedDaemonUseCase:  
         source=source,
         reply=CmuxFeedTransport(),
         coach=LlmCoach(provider=config.coach_provider, model=config.coach_model),
+        # #981 policy knob: default ESCALATE keeps the C004 human-in-the-loop
+        # contract (the live daemon never auto-answers a dangerous action). An
+        # operator running fully unattended sets ``dangerous_permission_policy:
+        # deny`` so a dangerous tool-use is blocked immediately instead of
+        # stalling the worker at the 120s soft-wait.
+        dangerous_permission_policy=config.dangerous_permission_policy,
+        # #986: verify the worker actually advanced after each auto-verdict and
+        # send-key the pre-highlighted selection if the Feed reply lost the race;
+        # escalate worker_stuck rather than silently claim delivered.
+        advance=CmuxWorkerAdvance(workspace_id=config.workspace_id),
     )
     answered = AnsweredSet(
         read_handled_request_ids(config.verdicts_path, config.escalations_path)

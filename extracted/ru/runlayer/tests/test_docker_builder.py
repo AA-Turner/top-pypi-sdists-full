@@ -9,8 +9,10 @@ from runlayer_cli.deploy.docker_builder import (
     build_image,
     tag_image,
     push_image,
+    _resolve_registry_digest,
     authenticate_ecr,
     DockerBuildError,
+    DockerPushError,
     get_registry_auth_config,
 )
 from runlayer_cli.api import ECRCredentials
@@ -174,31 +176,37 @@ def test_tag_image_success():
         )
 
 
-def test_push_image_success():
-    """Test successful image push with digest return."""
+def test_push_image_returns_registry_served_digest():
+    """push_image returns the digest the registry serves, ignoring local aux digest."""
     with (
         patch("runlayer_cli.deploy.docker_builder.docker") as mock_docker,
-        patch("runlayer_cli.deploy.docker_builder.console") as mock_console,
+        patch("runlayer_cli.deploy.docker_builder.console"),
     ):
         mock_client = MagicMock()
         mock_docker.from_env.return_value = mock_client
 
-        # Mock push response with digest
+        # Local push reports a digest that differs from what the registry serves.
         push_chunks = [
             {"status": "Pushing"},
             {"status": "Layer pushed"},
-            {"aux": {"Digest": "sha256:def789ghi012"}},
+            {"aux": {"Digest": "sha256:local-wrong-digest"}},
         ]
         mock_client.images.push.return_value = iter(push_chunks)
+        mock_client.images.get_registry_data.return_value = MagicMock(
+            id="sha256:registry-served-digest"
+        )
 
         result = push_image("registry.example.com/repo:v1.0.0")
 
-        assert result == "sha256:def789ghi012"
+        assert result == "sha256:registry-served-digest"
         mock_client.images.push.assert_called_once()
+        mock_client.images.get_registry_data.assert_called_once_with(
+            "registry.example.com/repo:v1.0.0", auth_config=None
+        )
 
 
 def test_push_image_uses_request_scoped_auth():
-    """Push should forward explicit auth to a fresh Docker client."""
+    """Push and the registry digest lookup should both forward explicit auth."""
     auth_config = {
         "username": "AWS",
         "password": "test-password",
@@ -212,7 +220,10 @@ def test_push_image_uses_request_scoped_auth():
         mock_client = MagicMock()
         mock_docker.from_env.return_value = mock_client
         mock_client.images.push.return_value = iter(
-            [{"aux": {"Digest": "sha256:def789ghi012"}}]
+            [{"aux": {"Digest": "sha256:local-wrong-digest"}}]
+        )
+        mock_client.images.get_registry_data.return_value = MagicMock(
+            id="sha256:registry-served-digest"
         )
 
         result = push_image(
@@ -220,13 +231,50 @@ def test_push_image_uses_request_scoped_auth():
             auth_config=auth_config,
         )
 
-        assert result == "sha256:def789ghi012"
+        assert result == "sha256:registry-served-digest"
         mock_client.images.push.assert_called_once_with(
             "123456789.dkr.ecr.us-east-1.amazonaws.com/my-repo:v1.0.0",
             stream=True,
             decode=True,
             auth_config=auth_config,
         )
+        mock_client.images.get_registry_data.assert_called_once_with(
+            "123456789.dkr.ecr.us-east-1.amazonaws.com/my-repo:v1.0.0",
+            auth_config=auth_config,
+        )
+
+
+def test_resolve_registry_digest_returns_registry_served_digest():
+    """Resolve the digest the registry serves, not the locally-reported one."""
+    auth_config = {"username": "AWS", "password": "tok"}
+    with patch("runlayer_cli.deploy.docker_builder.docker") as mock_docker:
+        mock_client = MagicMock()
+        mock_docker.from_env.return_value = mock_client
+        mock_client.images.get_registry_data.return_value = MagicMock(
+            id="sha256:aba0634a"
+        )
+
+        result = _resolve_registry_digest(
+            "123456789.dkr.ecr.us-east-1.amazonaws.com/repo:dep-id",
+            auth_config=auth_config,
+        )
+
+        assert result == "sha256:aba0634a"
+        mock_client.images.get_registry_data.assert_called_once_with(
+            "123456789.dkr.ecr.us-east-1.amazonaws.com/repo:dep-id",
+            auth_config=auth_config,
+        )
+
+
+def test_resolve_registry_digest_raises_when_no_digest():
+    """A registry that returns no digest is a hard failure, not a silent pin."""
+    with patch("runlayer_cli.deploy.docker_builder.docker") as mock_docker:
+        mock_client = MagicMock()
+        mock_docker.from_env.return_value = mock_client
+        mock_client.images.get_registry_data.return_value = MagicMock(id=None)
+
+        with pytest.raises(DockerPushError):
+            _resolve_registry_digest("registry.example.com/repo:v1")
 
 
 def test_authenticate_ecr_success():

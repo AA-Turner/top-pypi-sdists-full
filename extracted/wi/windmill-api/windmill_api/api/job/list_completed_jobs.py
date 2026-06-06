@@ -7,6 +7,7 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.list_completed_jobs_response_200_item import ListCompletedJobsResponse200Item
+from ...models.list_completed_jobs_status import ListCompletedJobsStatus
 from ...types import UNSET, Response, Unset
 
 
@@ -25,6 +26,7 @@ def _get_kwargs(
     started_before: Union[Unset, None, datetime.datetime] = UNSET,
     started_after: Union[Unset, None, datetime.datetime] = UNSET,
     success: Union[Unset, None, bool] = UNSET,
+    status: Union[Unset, None, ListCompletedJobsStatus] = UNSET,
     job_kinds: Union[Unset, None, str] = UNSET,
     args: Union[Unset, None, str] = UNSET,
     result: Union[Unset, None, str] = UNSET,
@@ -71,6 +73,12 @@ def _get_kwargs(
     params["started_after"] = json_started_after
 
     params["success"] = success
+
+    json_status: Union[Unset, None, str] = UNSET
+    if not isinstance(status, Unset):
+        json_status = status.value if status else None
+
+    params["status"] = json_status
 
     params["job_kinds"] = job_kinds
 
@@ -150,6 +158,7 @@ def sync_detailed(
     started_before: Union[Unset, None, datetime.datetime] = UNSET,
     started_after: Union[Unset, None, datetime.datetime] = UNSET,
     success: Union[Unset, None, bool] = UNSET,
+    status: Union[Unset, None, ListCompletedJobsStatus] = UNSET,
     job_kinds: Union[Unset, None, str] = UNSET,
     args: Union[Unset, None, str] = UNSET,
     result: Union[Unset, None, str] = UNSET,
@@ -178,6 +187,7 @@ def sync_detailed(
         started_before (Union[Unset, None, datetime.datetime]):
         started_after (Union[Unset, None, datetime.datetime]):
         success (Union[Unset, None, bool]):
+        status (Union[Unset, None, ListCompletedJobsStatus]):
         job_kinds (Union[Unset, None, str]):
         args (Union[Unset, None, str]):
         result (Union[Unset, None, str]):
@@ -212,6 +222,7 @@ def sync_detailed(
         started_before=started_before,
         started_after=started_after,
         success=success,
+        status=status,
         job_kinds=job_kinds,
         args=args,
         result=result,
@@ -248,6 +259,7 @@ def sync(
     started_before: Union[Unset, None, datetime.datetime] = UNSET,
     started_after: Union[Unset, None, datetime.datetime] = UNSET,
     success: Union[Unset, None, bool] = UNSET,
+    status: Union[Unset, None, ListCompletedJobsStatus] = UNSET,
     job_kinds: Union[Unset, None, str] = UNSET,
     args: Union[Unset, None, str] = UNSET,
     result: Union[Unset, None, str] = UNSET,
@@ -276,6 +288,7 @@ def sync(
         started_before (Union[Unset, None, datetime.datetime]):
         started_after (Union[Unset, None, datetime.datetime]):
         success (Union[Unset, None, bool]):
+        status (Union[Unset, None, ListCompletedJobsStatus]):
         job_kinds (Union[Unset, None, str]):
         args (Union[Unset, None, str]):
         result (Union[Unset, None, str]):
@@ -311,6 +324,7 @@ def sync(
         started_before=started_before,
         started_after=started_after,
         success=success,
+        status=status,
         job_kinds=job_kinds,
         args=args,
         result=result,
@@ -341,6 +355,7 @@ async def asyncio_detailed(
     started_before: Union[Unset, None, datetime.datetime] = UNSET,
     started_after: Union[Unset, None, datetime.datetime] = UNSET,
     success: Union[Unset, None, bool] = UNSET,
+    status: Union[Unset, None, ListCompletedJobsStatus] = UNSET,
     job_kinds: Union[Unset, None, str] = UNSET,
     args: Union[Unset, None, str] = UNSET,
     result: Union[Unset, None, str] = UNSET,
@@ -369,6 +384,7 @@ async def asyncio_detailed(
         started_before (Union[Unset, None, datetime.datetime]):
         started_after (Union[Unset, None, datetime.datetime]):
         success (Union[Unset, None, bool]):
+        status (Union[Unset, None, ListCompletedJobsStatus]):
         job_kinds (Union[Unset, None, str]):
         args (Union[Unset, None, str]):
         result (Union[Unset, None, str]):
@@ -403,6 +419,7 @@ async def asyncio_detailed(
         started_before=started_before,
         started_after=started_after,
         success=success,
+        status=status,
         job_kinds=job_kinds,
         args=args,
         result=result,
@@ -437,6 +454,7 @@ async def asyncio(
     started_before: Union[Unset, None, datetime.datetime] = UNSET,
     started_after: Union[Unset, None, datetime.datetime] = UNSET,
     success: Union[Unset, None, bool] = UNSET,
+    status: Union[Unset, None, ListCompletedJobsStatus] = UNSET,
     job_kinds: Union[Unset, None, str] = UNSET,
     args: Union[Unset, None, str] = UNSET,
     result: Union[Unset, None, str] = UNSET,
@@ -465,6 +483,7 @@ async def asyncio(
         started_before (Union[Unset, None, datetime.datetime]):
         started_after (Union[Unset, None, datetime.datetime]):
         success (Union[Unset, None, bool]):
+        status (Union[Unset, None, ListCompletedJobsStatus]):
         job_kinds (Union[Unset, None, str]):
         args (Union[Unset, None, str]):
         result (Union[Unset, None, str]):
@@ -501,6 +520,7 @@ async def asyncio(
             started_before=started_before,
             started_after=started_after,
             success=success,
+            status=status,
             job_kinds=job_kinds,
             args=args,
             result=result,

@@ -1,0 +1,892 @@
+"""Unit/functional testing for argparse customizations in cmd2"""
+
+import argparse
+import sys
+
+import pytest
+from pytest_mock import MockerFixture
+
+import cmd2
+from cmd2 import (
+    Choices,
+    Cmd2ArgumentParser,
+    SubcommandRecord,
+    argparse_utils,
+    constants,
+)
+from cmd2 import rich_utils as ru
+from cmd2 import string_utils as su
+from cmd2.argparse_utils import (
+    build_range_error,
+    register_argparse_argument_parameter,
+)
+
+from .conftest import (
+    run_cmd,
+    with_ansi_style,
+)
+
+
+class ApCustomTestApp(cmd2.Cmd):
+    """Test app for cmd2's argparse customization"""
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+    range_parser = Cmd2ArgumentParser()
+    range_parser.add_argument("--arg0", nargs=1)
+    range_parser.add_argument("--arg1", nargs=2)
+    range_parser.add_argument("--arg2", nargs=(3,))
+    range_parser.add_argument("--arg3", nargs=(2, 3))
+
+    @cmd2.with_argparser(range_parser)
+    def do_range(self, _) -> None:
+        pass
+
+
+@pytest.fixture
+def cust_app():
+    return ApCustomTestApp()
+
+
+def fake_func() -> None:
+    pass
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "is_valid"),
+    [
+        ({"choices_provider": fake_func}, True),
+        ({"completer": fake_func}, True),
+        ({"choices_provider": fake_func, "completer": fake_func}, False),
+    ],
+)
+def test_apcustom_completion_callable_count(kwargs, is_valid) -> None:
+    parser = Cmd2ArgumentParser()
+    if is_valid:
+        parser.add_argument("name", **kwargs)
+    else:
+        expected_err = "Only one of the following parameters"
+        with pytest.raises(ValueError, match=expected_err):
+            parser.add_argument("name", **kwargs)
+
+
+@pytest.mark.parametrize("kwargs", [({"choices_provider": fake_func}), ({"completer": fake_func})])
+def test_apcustom_no_completion_callable_alongside_choices(kwargs) -> None:
+    parser = Cmd2ArgumentParser()
+
+    expected_err = "None of the following parameters can be used alongside a choices parameter"
+    with pytest.raises(ValueError, match=expected_err):
+        parser.add_argument("name", choices=["my", "choices", "list"], **kwargs)
+
+
+@pytest.mark.parametrize("kwargs", [({"choices_provider": fake_func}), ({"completer": fake_func})])
+def test_apcustom_no_completion_callable_when_nargs_is_0(kwargs) -> None:
+    parser = Cmd2ArgumentParser()
+
+    expected_err = "None of the following parameters can be used on an action that takes no arguments"
+    with pytest.raises(ValueError, match=expected_err):
+        parser.add_argument("--name", action="store_true", **kwargs)
+
+
+def test_apcustom_usage() -> None:
+    usage = "A custom usage statement"
+    parser = Cmd2ArgumentParser(usage=usage)
+    assert usage in parser.format_help()
+
+
+def test_apcustom_nargs_help_format(cust_app) -> None:
+    out, _err = run_cmd(cust_app, "help range")
+    assert "Usage: range [-h] [--arg0 ARG0] [--arg1 ARG1{2}] [--arg2 ARG2{3+}]" in out[0]
+    assert "             [--arg3 ARG3{2..3}]" in out[1]
+
+
+def test_apcustom_nargs_range_validation(cust_app) -> None:
+    # nargs = (3,)  # noqa: ERA001
+    _out, err = run_cmd(cust_app, "range --arg2 one two")
+    assert "Error: argument --arg2: expected at least 3 arguments" in err[2]
+
+    _out, err = run_cmd(cust_app, "range --arg2 one two three")
+    assert not err
+
+    _out, err = run_cmd(cust_app, "range --arg2 one two three four")
+    assert not err
+
+    # nargs = (2,3)  # noqa: ERA001
+    _out, err = run_cmd(cust_app, "range --arg3 one")
+    assert "Error: argument --arg3: expected 2 to 3 arguments" in err[2]
+
+    _out, err = run_cmd(cust_app, "range --arg3 one two")
+    assert not err
+
+    _out, err = run_cmd(cust_app, "range --arg2 one two three")
+    assert not err
+
+
+@pytest.mark.parametrize(
+    ("nargs", "expected_parts"),
+    [
+        # arg{2}
+        (
+            2,
+            [("arg", True), ("{2}", False)],
+        ),
+        # arg{2+}
+        (
+            (2,),
+            [("arg", True), ("{2+}", False)],
+        ),
+        # arg{0..5}
+        (
+            (0, 5),
+            [("arg", True), ("{0..5}", False)],
+        ),
+    ],
+)
+def test_rich_metavar_parts(
+    nargs: int | tuple[int, int | float],
+    expected_parts: list[tuple[str, bool]],
+) -> None:
+    """
+    Test cmd2's override of _rich_metavar_parts which handles custom nargs formats.
+
+    :param nargs: the arguments nargs value
+    :param expected_parts: list to compare to _rich_metavar_parts's return value
+
+                           Each element in this list is a 2-item tuple.
+                           item 1: one part of the argument string outputted by _format_args
+                           item 2: boolean stating whether rich-argparse should color this part
+    """
+    parser = Cmd2ArgumentParser()
+    help_formatter = parser._get_formatter()
+
+    action = parser.add_argument("arg", nargs=nargs)  # type: ignore[arg-type]
+    default_metavar = help_formatter._get_default_metavar_for_positional(action)
+
+    parts = help_formatter._rich_metavar_parts(action, default_metavar)
+    assert list(parts) == expected_parts
+
+
+@pytest.mark.parametrize(
+    "nargs_tuple",
+    [
+        (),
+        ("f", 5),
+        (5, "f"),
+        (1, 2, 3),
+    ],
+)
+def test_apcustom_narg_invalid_tuples(nargs_tuple) -> None:
+    parser = Cmd2ArgumentParser()
+    expected_err = "Ranged values for nargs must be a tuple of 1 or 2 integers"
+    with pytest.raises(ValueError, match=expected_err):
+        parser.add_argument("invalid_tuple", nargs=nargs_tuple)
+
+
+def test_apcustom_narg_tuple_order() -> None:
+    parser = Cmd2ArgumentParser()
+    expected_err = "Invalid nargs range. The first value must be less than the second"
+    with pytest.raises(ValueError, match=expected_err):
+        parser.add_argument("invalid_tuple", nargs=(2, 1))
+
+
+def test_apcustom_narg_tuple_negative() -> None:
+    parser = Cmd2ArgumentParser()
+    expected_err = "Negative numbers are invalid for nargs range"
+    with pytest.raises(ValueError, match=expected_err):
+        parser.add_argument("invalid_tuple", nargs=(-1, 1))
+
+
+def test_apcustom_narg_tuple_zero_base() -> None:
+    parser = Cmd2ArgumentParser()
+    arg = parser.add_argument("arg", nargs=(0,))
+    assert arg.nargs == argparse.ZERO_OR_MORE
+    assert arg.get_nargs_range() is None
+    assert "[arg ...]" in parser.format_help()
+
+    parser = Cmd2ArgumentParser()
+    arg = parser.add_argument("arg", nargs=(0, 1))
+    assert arg.nargs == argparse.OPTIONAL
+    assert arg.get_nargs_range() is None
+    assert "[arg]" in parser.format_help()
+
+    parser = Cmd2ArgumentParser()
+    arg = parser.add_argument("arg", nargs=(0, 3))
+    assert arg.nargs == argparse.ZERO_OR_MORE
+    assert arg.get_nargs_range() == (0, 3)
+    assert "arg{0..3}" in parser.format_help()
+
+
+def test_apcustom_narg_tuple_one_base() -> None:
+    parser = Cmd2ArgumentParser()
+    arg = parser.add_argument("arg", nargs=(1,))
+    assert arg.nargs == argparse.ONE_OR_MORE
+    assert arg.get_nargs_range() is None
+    assert "arg [arg ...]" in parser.format_help()
+
+    parser = Cmd2ArgumentParser()
+    arg = parser.add_argument("arg", nargs=(1, 5))
+    assert arg.nargs == argparse.ONE_OR_MORE
+    assert arg.get_nargs_range() == (1, 5)
+    assert "arg{1..5}" in parser.format_help()
+
+
+def test_apcustom_narg_tuple_other_ranges() -> None:
+    # Test range with no upper bound on max
+    parser = Cmd2ArgumentParser()
+    arg = parser.add_argument("arg", nargs=(2,))
+    assert arg.nargs == argparse.ONE_OR_MORE
+    assert arg.get_nargs_range() == (2, constants.INFINITY)
+
+    # Test finite range
+    parser = Cmd2ArgumentParser()
+    arg = parser.add_argument("arg", nargs=(2, 5))
+    assert arg.nargs == argparse.ONE_OR_MORE
+    assert arg.get_nargs_range() == (2, 5)
+
+
+def test_apcustom_print_message(capsys) -> None:
+    test_message = "The test message"
+
+    # Specify the file
+    parser = Cmd2ArgumentParser()
+    parser._print_message(test_message, file=sys.stdout)
+    out, err = capsys.readouterr()
+    assert test_message in out
+
+    # Make sure file defaults to sys.stderr
+    parser = Cmd2ArgumentParser()
+    parser._print_message(test_message)
+    out, err = capsys.readouterr()
+    assert test_message in err
+
+
+def test_build_range_error() -> None:
+    # max is INFINITY
+    err_msg = build_range_error(1, constants.INFINITY)
+    assert err_msg == "expected at least 1 argument"
+
+    err_msg = build_range_error(2, constants.INFINITY)
+    assert err_msg == "expected at least 2 arguments"
+
+    # min and max are equal
+    err_msg = build_range_error(1, 1)
+    assert err_msg == "expected 1 argument"
+
+    err_msg = build_range_error(2, 2)
+    assert err_msg == "expected 2 arguments"
+
+    # min and max are not equal
+    err_msg = build_range_error(0, 1)
+    assert err_msg == "expected 0 to 1 argument"
+
+    err_msg = build_range_error(0, 2)
+    assert err_msg == "expected 0 to 2 arguments"
+
+
+def test_apcustom_metavar_tuple() -> None:
+    # Test the case when a tuple metavar is used with nargs an integer > 1
+    parser = Cmd2ArgumentParser()
+    parser.add_argument("--aflag", nargs=2, metavar=("foo", "bar"), help="This is a test")
+    assert "[--aflag foo bar]" in parser.format_help()
+
+
+def test_register_argparse_argument_parameter() -> None:
+    # Test successful registration
+    param_name = "test_unique_param"
+    register_argparse_argument_parameter(param_name)
+
+    assert param_name in argparse_utils._CUSTOM_ACTION_ATTRIBS
+    assert hasattr(argparse.Action, f"get_{param_name}")
+    assert hasattr(argparse.Action, f"set_{param_name}")
+
+    # Test duplicate registration
+    expected_err = "already registered"
+    with pytest.raises(KeyError, match=expected_err):
+        register_argparse_argument_parameter(param_name)
+
+    # Test invalid identifier
+    expected_err = "must be a valid Python identifier"
+    with pytest.raises(ValueError, match=expected_err):
+        register_argparse_argument_parameter("invalid name")
+
+    # Test collision with standard argparse.Action attribute
+    expected_err = "conflicts with an existing attribute on argparse.Action"
+    with pytest.raises(KeyError, match=expected_err):
+        register_argparse_argument_parameter("format_usage")
+
+    # Test collision with existing accessor methods
+    try:
+        argparse.Action.get_colliding_param = lambda self: None
+        expected_err = "Accessor methods for 'colliding_param' already exist on argparse.Action"
+        with pytest.raises(KeyError, match=expected_err):
+            register_argparse_argument_parameter("colliding_param")
+    finally:
+        del argparse.Action.get_colliding_param
+
+    # Test collision with internal attribute
+    try:
+        attr_name = constants.cmd2_private_attr_name("internal_collision")
+        setattr(argparse.Action, attr_name, None)
+        expected_err = f"The internal attribute '{attr_name}' already exists on argparse.Action"
+        with pytest.raises(KeyError, match=expected_err):
+            register_argparse_argument_parameter("internal_collision")
+    finally:
+        delattr(argparse.Action, attr_name)
+
+
+def test_subcommand_attachment() -> None:
+    """Test Cmd2ArgumentParser convenience methods for attaching and detaching subcommands."""
+
+    ###############################
+    # Set up parsers
+    ###############################
+    root_parser = Cmd2ArgumentParser(prog="root", description="root command")
+    root_subparsers = root_parser.add_subparsers()
+
+    child_parser = Cmd2ArgumentParser(prog="child", description="child command")
+    child_subparsers = child_parser.add_subparsers()  # Must have subparsers to host grandchild
+
+    grandchild_parser = Cmd2ArgumentParser(prog="grandchild", description="grandchild command")
+
+    ###############################
+    # Attach subcommands
+    ###############################
+
+    # Attach child to root
+    child_record = SubcommandRecord(
+        name="child",
+        command="root",
+        parser=child_parser,
+        help="a child command",
+        aliases=("child_alias",),
+    )
+    root_parser.attach_subcommand(child_record)
+
+    # Attach grandchild to child
+    grandchild_record = SubcommandRecord(
+        name="grandchild",
+        command="root",
+        parser=grandchild_parser,
+        help="a grandchild command",
+    )
+    root_parser.attach_subcommand(grandchild_record, subcommand_path=["child"])
+
+    ###############################
+    # Verify hierarchy navigation
+    ###############################
+
+    assert root_parser.find_parser(["child", "grandchild"]) is grandchild_parser
+    assert root_parser.find_parser(["child"]) is child_parser
+    assert root_parser.find_parser([]) is root_parser
+
+    ###############################
+    # Verify attachments
+    ###############################
+
+    # Verify child attachment and aliases
+    assert root_subparsers._name_parser_map["child"] is child_parser
+    assert root_subparsers._name_parser_map["child_alias"] is child_parser
+
+    # Verify grandchild attachment
+    assert child_subparsers._name_parser_map["grandchild"] is grandchild_parser
+
+    # Verify help entries are present
+    assert any(action.dest == "child" for action in root_subparsers._choices_actions)
+    assert any(action.dest == "grandchild" for action in child_subparsers._choices_actions)
+
+    ###############################
+    # Detach subcommands
+    ###############################
+
+    # Detach grandchild from child
+    detached_grandchild_info = root_parser.detach_subcommand(["child"], "grandchild")
+    assert detached_grandchild_info.parser is grandchild_parser
+    assert detached_grandchild_info.name == "grandchild"
+    assert "grandchild" not in child_subparsers._name_parser_map
+    assert not any(action.dest == "grandchild" for action in child_subparsers._choices_actions)
+
+    # Detach child from root
+    detached_child_info = root_parser.detach_subcommand([], "child")
+    assert detached_child_info.parser is child_parser
+    assert detached_child_info.name == "child"
+    assert "child" not in root_subparsers._name_parser_map
+    assert "child_alias" not in root_subparsers._name_parser_map
+    assert not any(action.dest == "child" for action in root_subparsers._choices_actions)
+
+
+def test_detach_subcommand_by_alias() -> None:
+    """Test detaching a subcommand using one of its alias names."""
+    root_parser = Cmd2ArgumentParser(prog="root")
+    root_subparsers = root_parser.add_subparsers()
+
+    child_parser = Cmd2ArgumentParser(prog="child")
+    child_record = SubcommandRecord(
+        name="child",
+        command="root",
+        parser=child_parser,
+        help="a child command",
+        aliases=("alias1", "alias2"),
+    )
+    root_parser.attach_subcommand(child_record)
+
+    # Verify all names map to the parser
+    assert root_subparsers._name_parser_map["child"] is child_parser
+    assert root_subparsers._name_parser_map["alias1"] is child_parser
+    assert root_subparsers._name_parser_map["alias2"] is child_parser
+
+    # Verify help entry is present
+    assert any(action.dest == "child" for action in root_subparsers._choices_actions)
+
+    # Detach using an alias
+    detached_info = root_parser.detach_subcommand([], "alias1")
+    assert detached_info.parser is child_parser
+    assert detached_info.name == "child"
+
+    # Verify all names are gone
+    assert "child" not in root_subparsers._name_parser_map
+    assert "alias1" not in root_subparsers._name_parser_map
+    assert "alias2" not in root_subparsers._name_parser_map
+
+    # Verify help entry is gone
+    assert not any(action.dest == "child" for action in root_subparsers._choices_actions)
+
+
+def test_subcommand_attachment_errors() -> None:
+    root_parser = Cmd2ArgumentParser(prog="root", description="root command")
+    child_parser = Cmd2ArgumentParser(prog="child", description="child command")
+    child_record = SubcommandRecord(name="child", command="root", parser=child_parser)
+
+    # Verify ValueError when subcommands are not supported
+    with pytest.raises(ValueError, match="Command 'root' does not support subcommands"):
+        root_parser.attach_subcommand(child_record)
+    with pytest.raises(ValueError, match="Command 'root' does not support subcommands"):
+        root_parser.detach_subcommand([], "child")
+
+    # Allow subcommands for the next tests
+    root_parser.add_subparsers()
+
+    # Verify ValueError when path is invalid (find_parser() fails)
+    with pytest.raises(ValueError, match="Subcommand 'nonexistent' does not exist for 'root'"):
+        root_parser.attach_subcommand(child_record, subcommand_path=["nonexistent"])
+    with pytest.raises(ValueError, match="Subcommand 'nonexistent' does not exist for 'root'"):
+        root_parser.detach_subcommand(["nonexistent"], "child")
+
+    # Verify ValueError when path is valid but subcommand name is wrong
+    with pytest.raises(ValueError, match="Subcommand 'fake' does not exist for 'root'"):
+        root_parser.detach_subcommand([], "fake")
+
+    # Verify TypeError when attaching a non-Cmd2ArgumentParser type
+    ap_parser = argparse.ArgumentParser(prog="non-cmd2-parser")
+    ap_record = SubcommandRecord(name="sub", command="root", parser=ap_parser)  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match=r"must be an instance of 'Cmd2ArgumentParser'"):
+        root_parser.attach_subcommand(ap_record)
+
+    # Verify ValueError when subcommand name already exists
+    sub_parser = Cmd2ArgumentParser(prog="sub")
+    sub_record = SubcommandRecord(name="sub", command="root", parser=sub_parser)
+    root_parser.attach_subcommand(sub_record)
+    with pytest.raises(ValueError, match="Subcommand 'sub' already exists for 'root'"):
+        root_parser.attach_subcommand(sub_record)
+
+
+def test_subcommand_attachment_parser_class_override() -> None:
+    class MyParser(Cmd2ArgumentParser):
+        pass
+
+    class MySubParser(MyParser):
+        pass
+
+    root_parser = Cmd2ArgumentParser(prog="root")
+
+    # Explicitly override parser_class for this subparsers action
+    root_parser.add_subparsers(parser_class=MyParser)
+
+    # Attaching a MyParser instance should succeed
+    my_parser = MyParser(prog="sub")
+    my_record = SubcommandRecord(name="sub", command="root", parser=my_parser)
+    root_parser.attach_subcommand(my_record)
+
+    # Attaching a MySubParser instance should also succeed (isinstance check)
+    my_sub_parser = MySubParser(prog="sub2")
+    my_sub_record = SubcommandRecord(name="sub2", command="root", parser=my_sub_parser)
+    root_parser.attach_subcommand(my_sub_record)
+
+    # Attaching a standard Cmd2ArgumentParser instance should fail
+    standard_parser = Cmd2ArgumentParser(prog="standard")
+    standard_record = SubcommandRecord(name="fail", command="root", parser=standard_parser)
+    with pytest.raises(TypeError, match=r"must be an instance of 'MyParser'"):
+        root_parser.attach_subcommand(standard_record)
+
+
+def test_completion_items_as_choices(capsys) -> None:
+    """Test cmd2's patch to Argparse._check_value() which supports CompletionItems as choices.
+    Choices are compared to CompletionItems.orig_value instead of the CompletionItem instance.
+    """
+
+    ##############################################################
+    # Test CompletionItems with str values
+    ##############################################################
+    choices = Choices.from_values(["1", "2"])
+    parser = Cmd2ArgumentParser()
+    parser.add_argument("choices_arg", type=str, choices=choices)
+
+    # First test valid choices. Confirm the parsed data matches the correct type of str.
+    args = parser.parse_args(["1"])
+    assert args.choices_arg == "1"
+
+    args = parser.parse_args(["2"])
+    assert args.choices_arg == "2"
+
+    # Next test invalid choice
+    with pytest.raises(SystemExit):
+        args = parser.parse_args(["3"])
+
+    # Confirm error text contains correct value type of str
+    _out, err = capsys.readouterr()
+    assert "invalid choice: '3' (choose from '1', '2')" in err
+
+    ##############################################################
+    # Test CompletionItems with int values
+    ##############################################################
+    choices = Choices.from_values([1, 2])
+    parser = Cmd2ArgumentParser()
+    parser.add_argument("choices_arg", type=int, choices=choices)
+
+    # First test valid choices. Confirm the parsed data matches the correct type of int.
+    args = parser.parse_args(["1"])
+    assert args.choices_arg == 1
+
+    args = parser.parse_args(["2"])
+    assert args.choices_arg == 2
+
+    # Next test invalid choice
+    with pytest.raises(SystemExit):
+        args = parser.parse_args(["3"])
+
+    # Confirm error text contains correct value type of int
+    _out, err = capsys.readouterr()
+    assert "invalid choice: 3 (choose from 1, 2)" in err
+
+
+def test_update_prog() -> None:
+    """Test Cmd2ArgumentParser.update_prog() across various scenarios."""
+
+    # Set up a complex parser hierarchy
+    old_app = "old_app"
+    root = Cmd2ArgumentParser(prog=old_app)
+
+    # Positionals before subcommand
+    root.add_argument("pos1")
+
+    # Mutually exclusive group with positionals
+    group = root.add_mutually_exclusive_group(required=True)
+    group.add_argument("posA", nargs="?")
+    group.add_argument("posB", nargs="?")
+
+    # Subparsers with aliases and no help text
+    root_subparsers = root.add_subparsers(dest="cmd")
+
+    # Subcommand with aliases
+    sub1 = root_subparsers.add_parser("sub1", aliases=["s1", "alias1"], help="help for sub1")
+
+    # Subcommand with no help text
+    sub2 = root_subparsers.add_parser("sub2")
+
+    # Nested subparser
+    sub2.add_argument("inner_pos")
+    sub2_subparsers = sub2.add_subparsers(dest="sub2_cmd")
+    leaf = sub2_subparsers.add_parser("leaf", help="leaf help")
+
+    # Save initial prog values
+    orig_root_prog = root.prog
+    orig_sub1_prog = sub1.prog
+    orig_sub2_prog = sub2.prog
+    orig_leaf_prog = leaf.prog
+
+    # Perform update
+    new_app = "new_app"
+    root.update_prog(new_app)
+
+    # Verify updated prog values
+    assert root.prog.startswith(new_app)
+    assert root.prog == orig_root_prog.replace(old_app, new_app, 1)
+
+    assert sub1.prog.startswith(new_app)
+    assert sub1.prog == orig_sub1_prog.replace(old_app, new_app, 1)
+
+    assert sub2.prog.startswith(new_app)
+    assert sub2.prog == orig_sub2_prog.replace(old_app, new_app, 1)
+
+    assert leaf.prog.startswith(new_app)
+    assert leaf.prog == orig_leaf_prog.replace(old_app, new_app, 1)
+
+    # Verify that action._prog_prefix was updated by adding a new subparser
+    sub3 = root_subparsers.add_parser("sub3")
+    assert sub3.prog.startswith(new_app)
+    assert sub3.prog == root_subparsers._prog_prefix + " sub3"
+
+    # Verify aliases still point to the correct parser
+    for action in root._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            assert action.choices["s1"].prog == sub1.prog
+            assert action.choices["alias1"].prog == sub1.prog
+
+
+def test_parser_output_to_context_manager() -> None:
+    """Test that output_to() correctly shadows and restores current_output_file."""
+    import io
+
+    parser = Cmd2ArgumentParser()
+    buf1 = io.StringIO()
+    buf2 = io.StringIO()
+
+    assert parser._thread_locals.current_output_file is None
+
+    with parser.output_to(buf1):
+        assert parser._thread_locals.current_output_file is buf1
+        with parser.output_to(buf2):  # type: ignore[unreachable]
+            assert parser._thread_locals.current_output_file is buf2
+        assert parser._thread_locals.current_output_file is buf1
+
+    assert parser._thread_locals.current_output_file is None  # type: ignore[unreachable]
+
+
+def test_parser_print_help_output_to(mocker: MockerFixture) -> None:
+    """Test that print_help(file=my_file) correctly sets the context for the formatter."""
+    import io
+
+    parser = Cmd2ArgumentParser(prog="test")
+    buf = io.StringIO()
+
+    # We want to verify that when print_help(buf) is called,
+    # _get_formatter() is called and its result is initialized with buf.
+    # We can mock Cmd2HelpFormatter to see what it's initialized with.
+    mock_formatter_class = mocker.patch("cmd2.argparse_utils.Cmd2HelpFormatter", autospec=True)
+    parser.formatter_class = mock_formatter_class
+
+    # argparse print_help() calls format_help() which calls formatter.format_help()
+    # It expects a string return value.
+    mock_formatter_class.return_value.format_help.return_value = "Help Text"
+
+    parser.print_help(buf)
+
+    # Verify Cmd2HelpFormatter was instantiated with file=buf
+    mock_formatter_class.assert_called_with(prog="test", file=buf)
+
+
+def test_parser_error_output_to(mocker: MockerFixture) -> None:
+    """Test that error() shadows to sys.stderr and uses it for styling."""
+    from cmd2 import rich_utils
+
+    parser = Cmd2ArgumentParser(prog="test")
+
+    # Mock exit to prevent actual exit
+    mocker.patch.object(parser, "exit")
+
+    # Mock print_usage to prevent actual printing
+    mocker.patch.object(parser, "print_usage")
+
+    # Mock _get_formatter to return a formatter with a mocked console
+    mock_formatter = mocker.Mock(spec=rich_utils.Cmd2HelpFormatter)
+    mock_console = mocker.MagicMock(spec=rich_utils.Cmd2RichArgparseConsole)
+    mock_formatter.console = mock_console
+
+    mocker.patch.object(parser, "_get_formatter", return_value=mock_formatter)
+
+    # Mock capture context manager
+    mock_capture = mocker.MagicMock()
+    mock_console.capture.return_value.__enter__.return_value = mock_capture
+    mock_capture.get.return_value = "Styled Error"
+
+    parser.error("some message")
+
+    # Verify that during error processing, current_output_file was shadowed to sys.stderr
+    # Check that print_usage was called with sys.stderr
+    parser.print_usage.assert_called_once_with(sys.stderr)  # type: ignore[unreachable]
+
+    # Check that formatter's console was used to print the error
+    mock_console.print.assert_called_once()
+    args, kwargs = mock_console.print.call_args
+    assert "Error: some message" in args[0]
+    assert kwargs["style"] == argparse_utils.Cmd2Style.ERROR
+
+
+def test_parser_implicit_output_to(mocker: MockerFixture) -> None:
+    """Test that print_help() and print_usage() use thread-local context when no file is provided."""
+    import io
+
+    parser = Cmd2ArgumentParser(prog="test")
+    buf = io.StringIO()
+
+    mock_formatter_class = mocker.patch("cmd2.argparse_utils.Cmd2HelpFormatter", autospec=True)
+    parser.formatter_class = mock_formatter_class
+    mock_formatter_class.return_value.format_help.return_value = "Help/Usage Text"
+
+    # Shadow the output file
+    with parser.output_to(buf):
+        # Call print_help without a file argument
+        parser.print_help()
+        # Verify Cmd2HelpFormatter was instantiated with file=buf (from thread-local)
+        mock_formatter_class.assert_called_with(prog="test", file=buf)
+
+        mock_formatter_class.reset_mock()
+
+        # Call print_usage without a file argument
+        parser.print_usage()
+        # Verify Cmd2HelpFormatter was instantiated with file=buf (from thread-local)
+        mock_formatter_class.assert_called_with(prog="test", file=buf)
+
+
+@with_ansi_style(ru.AllowStyle.NEVER)
+def test_argparse_output_capture(base_app: cmd2.Cmd) -> None:
+    """Test that both help code paths capture the same output."""
+
+    # First generate unstyled output
+    unstyled_help_out, help_err = run_cmd(base_app, "help alias")
+    unstyled_flag_out, flag_err = run_cmd(base_app, "alias -h")
+    assert unstyled_help_out == unstyled_flag_out
+    assert not help_err
+    assert not flag_err
+
+    # Now generate styled output
+    ru.ALLOW_STYLE = ru.AllowStyle.ALWAYS
+
+    styled_help_out, help_err = run_cmd(base_app, "help alias")
+    styled_flag_out, flag_err = run_cmd(base_app, "alias -h")
+    assert styled_help_out == styled_flag_out
+    assert not help_err
+    assert not flag_err
+
+    # Prove that the console style settings were used
+    assert styled_help_out != unstyled_help_out
+    assert su.strip_style("\n".join(styled_help_out)) == "\n".join(unstyled_help_out)
+
+
+def test_detach_all_subcommands() -> None:
+    root_parser = Cmd2ArgumentParser(prog="root")
+    root_parser.add_subparsers()
+
+    child1 = Cmd2ArgumentParser(prog="child1")
+    child2 = Cmd2ArgumentParser(prog="child2")
+
+    child1_record = SubcommandRecord(
+        name="child1",
+        command="root",
+        parser=child1,
+        help="help1",
+        aliases=("alias1",),
+    )
+    child2_record = SubcommandRecord(
+        name="child2",
+        command="root",
+        parser=child2,
+        help="help2",
+    )
+
+    root_parser.attach_subcommand(child1_record)
+    root_parser.attach_subcommand(child2_record)
+
+    removed = root_parser.detach_all_subcommands([])
+    assert len(removed) == 2
+
+    # Sort by name for consistent comparison
+    removed.sort(key=lambda x: x.name)
+
+    assert removed[0].name == "child1"
+    assert removed[0].parser is child1
+    assert removed[0].help == "help1"
+    assert removed[0].aliases == ("alias1",)
+
+    assert removed[1].name == "child2"
+    assert removed[1].parser is child2
+    assert removed[1].help == "help2"
+    assert removed[1].aliases == ()
+
+    # Verify they are gone
+    subparsers_action = root_parser.get_subparsers_action()
+    assert not subparsers_action._name_parser_map
+    assert not subparsers_action._choices_actions
+
+
+def test_subcommand_move() -> None:
+    root = Cmd2ArgumentParser(prog="root")
+    root.add_subparsers()
+
+    other = Cmd2ArgumentParser(prog="other")
+    other.add_subparsers()
+
+    child = Cmd2ArgumentParser(prog="child")
+    child_record = SubcommandRecord(name="child", command="root", parser=child)
+
+    # Attach to root
+    root.attach_subcommand(child_record)
+    assert child_record.command == "root"
+
+    # Detach from root
+    detached_info = root.detach_subcommand([], "child")
+    assert detached_info.command == "root"
+
+    # Attach to other (Move)
+    other.attach_subcommand(detached_info)
+    assert detached_info.command == "other"
+    assert child.prog == "other child"
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 13),
+    reason="deprecated subcommands require Python 3.13+",
+)
+def test_deprecated_subcommand() -> None:
+    root = Cmd2ArgumentParser(prog="root")
+    root.add_subparsers()
+
+    child = Cmd2ArgumentParser(prog="child")
+    child_record = SubcommandRecord(
+        name="old",
+        command="root",
+        parser=child,
+        deprecated=True,
+        aliases=("old_alias",),
+    )
+
+    root.attach_subcommand(child_record)
+
+    subparsers_action = root.get_subparsers_action()
+    assert "old" in subparsers_action._deprecated  # type: ignore[attr-defined]
+    assert "old_alias" in subparsers_action._deprecated  # type: ignore[attr-defined]
+
+    # Detach and verify info captures it
+    detached_info = root.detach_subcommand([], "old")
+    assert detached_info.deprecated is True
+
+    # Verify it was removed from _deprecated set
+    assert "old" not in subparsers_action._deprecated  # type: ignore[attr-defined]
+    assert "old_alias" not in subparsers_action._deprecated  # type: ignore[attr-defined]
+
+
+def test_set_default_argument_parser() -> None:
+    """Test altering the app-wide default Cmd2ArgumentParser class"""
+
+    class CustomParser(Cmd2ArgumentParser):
+        pass
+
+    try:
+        # Check the default parser type
+        assert argparse_utils.DEFAULT_ARGUMENT_PARSER is Cmd2ArgumentParser
+
+        default_app = cmd2.Cmd()
+        default_alias_parser = default_app.command_parsers.get(default_app.do_alias)
+        assert type(default_alias_parser) is Cmd2ArgumentParser
+
+        # Set a custom default parser type
+        argparse_utils.set_default_argument_parser(CustomParser)
+        assert argparse_utils.DEFAULT_ARGUMENT_PARSER is CustomParser
+
+        custom_app = cmd2.Cmd()
+        custom_alias_parser = custom_app.command_parsers.get(custom_app.do_alias)
+        assert type(custom_alias_parser) is CustomParser
+
+    finally:
+        # Restore the original parser
+        argparse_utils.set_default_argument_parser(Cmd2ArgumentParser)

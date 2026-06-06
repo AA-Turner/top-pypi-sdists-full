@@ -8,7 +8,7 @@ Compatible with Python versions >=3.9
 
 from __future__ import annotations
 
-__version__ = "3.0.10"
+__version__ = "3.0.12"
 
 import abc
 import array
@@ -133,7 +133,6 @@ class BBox(NamedTuple):
     ymin: float
     xmax: float
     ymax: float
-    # = tuple[float, float, float, float]
 
 
 def _min_not_None(m1: float | None, m2: float | None) -> float | None:
@@ -162,13 +161,10 @@ class MBox(NamedTuple):
             _max_not_None(self.mmax, other.mmax),
         )
 
-    # = tuple[float, float]
-
 
 class ZBox(NamedTuple):
     zmin: float
     zmax: float
-    # = tuple[float, float]
 
 
 class WriteableBinStream(Protocol):
@@ -720,6 +716,35 @@ def _z_from_point(point: PointT) -> float:
     return 0.0
 
 
+def _with_polygon_rings_closed(
+    parts: Iterable[PointsT],
+) -> list[PointsT]:
+    return [part if part[0] == part[-1] else part + [part[0]] for part in parts]
+
+
+def _points_and_part_indices(
+    parts: list[PointsT],
+) -> tuple[PointsT, list[int]]:
+    # Intended for Union[Polyline, Polygon, MultiPoint, MultiPatch]
+    """From a list of parts (each part a list of points) return
+    a flattened list of points, and a list of indexes into that
+    flattened list corresponding to the start of each part.
+
+    Internal method for both multipoints (formed entirely by a single part),
+    and shapes that have multiple collections of points (each one
+    a part): (poly)lines, polygons, and multipatchs.
+    """
+    part_indexes: list[int] = []
+    points: PointsT = []
+
+    for part in parts:
+        # set part index position
+        part_indexes.append(len(points))
+        points.extend(part)
+
+    return points, part_indexes
+
+
 class CanHaveBboxNoLinesKwargs(TypedDict, total=False):
     oid: int | None
     points: PointsT | None
@@ -773,47 +798,87 @@ class Shape:
             self.shapeType = shapeType
 
         if partTypes is not None:
-            self.partTypes = partTypes
+            if self.shapeType != MULTIPATCH:
+                raise ShapefileException(
+                    f"Only a Multipatch shape supports partTypes, not: {self.__class__.__name__} "
+                    f" (shape type: {self.shapeTypeName}) "
+                    f"Got: {partTypes=}"
+                )
+            self.partTypes = _Array[int]("i", partTypes)
 
         default_points: PointsT = []
         default_parts: list[int] = []
 
+        if points and lines:
+            raise ShapefileException(
+                "Constructing meaningful Shapes unambiguously from both "
+                "points and lines is not supported.  Provide one only. "
+                f" Got: {points=} and {lines=}"
+            )
+        elif not points and not lines:
+            if self.shapeType != NULL:
+                raise ShapefileException(
+                    f"Shape: {self.__class__.__name__} or shape type: {self.shapeTypeName} "
+                    "requires non-empty points or non-empty lines."
+                    f" Got: {points=} and {lines=}"
+                )
+        elif self.shapeType == NULL:
+            raise ShapefileException(
+                f"NullShape or shape type: {self.shapeTypeName} "
+                "must have zero points and zero lines (or neither set, or both None). "
+                f" Got: {points=} and {lines=}"
+            )
+        elif self.shapeType in Point_shapeTypes:
+            if not points or len(points) >= 2:
+                raise ShapefileException(
+                    f"Single point Shape: {self.__class__.__name__}, shape type: {self.shapeTypeName} "
+                    "requires one or  points (and possibly a z co-ordinate and m value), not "
+                    f"lines. Got: {points=} and {lines=}"
+                )
+            if lines:
+                raise ShapefileException(
+                    f"Single point shape: {self.__class__.__name__}, shape type: {self.shapeTypeName} "
+                    f"does not support lines. Got: {lines=}"
+                )
+        elif self.shapeType in MultiPoint_shapeTypes and lines and len(lines) >= 2:
+            raise ShapefileException(
+                f"Multipoint shape: {self.__class__.__name__}, shape type: {self.shapeTypeName} "
+                f"is a single part shape, but was given multiple parts - got {lines=}. "
+                "Point clouds can be constructed from a list of list points supplied to lines "
+                "(instead of points) but only one single 'line' is supported. "
+            )
+
         if lines is not None:
             if self.shapeType in Polygon_shapeTypes:
-                lines = list(lines)
-                self._ensure_polygon_rings_closed(lines)
+                lines = _with_polygon_rings_closed(lines)
 
-            default_points, default_parts = self._points_and_parts_indexes_from_lines(
-                lines
-            )
-        elif points and self.shapeType in _CanHaveBBox_shapeTypes:
+            default_points, default_parts = _points_and_part_indices(lines)
+
+        elif not parts and self.shapeType in _CanHaveBBox_shapeTypes:
             # TODO:  Raise issue.
             # This ensures Polylines, Polygons and Multipatches with no part information are a single
             # Polyline, Polygon or Multipatch respectively.
             #
-            # However this also allows MultiPoints shapes to have a single part index 0 as
-            # documented in README.md,also when set from points
-            # (even though this is just an artefact of initialising them as a length-1 nested
-            # list of points via _points_and_parts_indexes_from_lines).
+            # This is consistent with  MultiPoints shapes having single part index 0 as
+            # documented in README.md, also when set from points
             #
             # Alternatively single points could be given parts = [0] too, as they do if formed
             # _from_geojson.
             default_parts = [0]
 
+        # PyShp 2 API compatibility requires self.points = []
+        # on NullShapes (and self.parts = []).
         self.points: PointsT = points or default_points
+        self.parts = _Array[int]("i", parts or default_parts)
 
-        self.parts: Sequence[int] = parts or default_parts
-
-        # and a dict to silently record any errors encountered in GeoJSON
+        # and a dict to record any captured errors encountered in GeoJSON
         self._errors: dict[str, int] = {}
 
         # add oid
         self.__oid: int = -1 if oid is None else oid
 
-        if bbox is not None:
-            self.bbox: BBox = bbox
-        elif len(self.points) >= 2:
-            self.bbox = self._bbox_from_points()
+        if self.shapeType != NULL and self.shapeType not in Point_shapeTypes:
+            self.bbox: BBox = bbox or self._bbox_from_points()
 
         ms_found = True
         if m:
@@ -829,9 +894,9 @@ class Shape:
 
         zs_found = True
         if z:
-            self.z: Sequence[float] = z
+            self.z: Sequence[float] = _Array[float]("d", z)
         elif self.shapeType in _HasZ_shapeTypes:
-            self.z = [_z_from_point(p) for p in self.points]
+            self.z = _Array[float]("d", (_z_from_point(p) for p in self.points))
         elif self.shapeType == POINTZ:
             self.z = (_z_from_point(self.points[0]),)
         else:
@@ -847,36 +912,31 @@ class Shape:
         elif zs_found:
             self.zbox = self._zbox_from_zs()
 
-    @staticmethod
-    def _ensure_polygon_rings_closed(
-        parts: list[PointsT],  # Mutated
-    ) -> None:
-        for part in parts:
-            if part[0] != part[-1]:
-                part.append(part[0])
+    @property
+    def oid(self) -> int:
+        """The index position of the shape in the original shapefile"""
+        return self.__oid
 
-    @staticmethod
-    def _points_and_parts_indexes_from_lines(
-        parts: list[PointsT],
-    ) -> tuple[PointsT, list[int]]:
-        # Intended for Union[Polyline, Polygon, MultiPoint, MultiPatch]
-        """From a list of parts (each part a list of points) return
-        a flattened list of points, and a list of indexes into that
-        flattened list corresponding to the start of each part.
+    @property
+    def shapeTypeName(self) -> str:
+        return SHAPETYPE_LOOKUP[self.shapeType]
 
-        Internal method for both multipoints (formed entirely by a single part),
-        and shapes that have multiple collections of points (each one
-        a part): (poly)lines, polygons, and multipatchs.
-        """
-        part_indexes: list[int] = []
-        points: PointsT = []
+    @property
+    def points_2D(self) -> list[Point2D]:
+        return [(x, y) for (x, y, *_rest) in self.points]
 
-        for part in parts:
-            # set part index position
-            part_indexes.append(len(points))
-            points.extend(part)
+    @property
+    def points_3D(self) -> list[Point3D]:
+        zs = getattr(self, "z", None)
+        if zs is None:
+            return [(x, y, _z_from_point((x, y))) for (x, y, *_rest) in self.points]
+        return [(x, y, z) for (x, y, *_rest), z in zip(self.points, zs)]
 
-        return points, part_indexes
+    def __repr__(self) -> str:
+        class_name = self.__class__.__name__
+        if class_name == "Shape":
+            return f"Shape #{self.__oid}: {self.shapeTypeName}"
+        return f"{class_name} #{self.__oid}"
 
     def _bbox_from_points(self) -> BBox:
         xs: list[float] = []
@@ -1080,21 +1140,6 @@ still included but were encoded as GeoJSON exterior rings instead of holes."
                     index += len(ext_or_hole)
         return Shape(shapeType=shapeType, points=points, parts=parts)
 
-    @property
-    def oid(self) -> int:
-        """The index position of the shape in the original shapefile"""
-        return self.__oid
-
-    @property
-    def shapeTypeName(self) -> str:
-        return SHAPETYPE_LOOKUP[self.shapeType]
-
-    def __repr__(self) -> str:
-        class_name = self.__class__.__name__
-        if class_name == "Shape":
-            return f"Shape #{self.__oid}: {self.shapeTypeName}"
-        return f"{class_name} #{self.__oid}"
-
 
 # Need unused arguments to keep the same call signature for
 # different implementations of from_byte_stream and write_to_byte_stream
@@ -1116,6 +1161,11 @@ class NullShape(Shape):
         oid: int | None = None,
         bbox: BBox | None = None,
     ) -> NullShape:
+        """In the ESRI spec, Null shapes are defined in .shp files
+        entirely by a single integer encoding shape type 0
+        (this happens in ShpWriter._shp_record, amongst the shape
+        record header code).
+        """
         # Shape.__init__ sets self.points = points or []
         return NullShape(oid=oid)
 
@@ -1125,6 +1175,7 @@ class NullShape(Shape):
         s: Shape,
         i: int,
     ) -> int:
+        """No op (see above)."""
         return 0
 
 
@@ -1602,13 +1653,13 @@ class _HasZ(_CanHaveBBox):
             num_bytes_written = b_io.write(pack("<2d", *zbox))
         except StructError:
             raise ShapefileException(
-                f"Failed to write elevation extremes for record {i}. Expected floats."
+                f"Failed to write elevation extremes (ZBox) for record {i}. Expected floats."
             )
         try:
             num_bytes_written += b_io.write(pack(f"<{len(s.z)}d", *s.z))
         except StructError:
             raise ShapefileException(
-                f"Failed to write elevation values for record {i}. Expected floats."
+                f"Failed to write elevation values (z) for record {i}. Expected floats."
             )
 
         return num_bytes_written

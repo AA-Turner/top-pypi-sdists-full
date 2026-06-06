@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scikit-fem
-Version: 12.0.1
+Version: 12.0.2
 Summary: Simple finite element assemblers
 Author: Tom Gustafsson
 Requires-Python: >=3.10
@@ -22,6 +22,10 @@ Requires-Dist: meshio ; extra == "all"
 Project-URL: Code, https://github.com/kinnala/scikit-fem
 Project-URL: Home, https://github.com/kinnala/scikit-fem
 Provides-Extra: all
+
+<div align="center">
+<img src="https://raw.githubusercontent.com/kinnala/scikit-fem/master/logo.png" width="250px" alt="logo"></img>
+</div>
 
 # scikit-fem
 
@@ -100,10 +104,15 @@ A, b = enforce(A, b, D=mesh.boundary_nodes())
 x = solve(A, b)
 
 # plot using matplotlib
-mesh.plot(x, shading='gouraud', colorbar=True).show()
+ax = mesh.plot(x, shading='gouraud', colorbar=True)
+mesh.draw(ax=ax)
 # or, save to external file:
 # mesh.save('output.vtk', point_data={'solution': x})
 ```
+
+<div align="center">
+<img src="https://raw.githubusercontent.com/kinnala/scikit-fem/master/poisson.png" alt="Poisson equation solution"></img>
+</div>
 
 Meshes can be initialized manually, loaded from external files using
 [meshio](https://github.com/nschloe/meshio), or created with the help of special
@@ -247,6 +256,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 with respect to documented and/or tested features.
 
 ### Unreleased
+
+### [12.0.2] - 2026-06-05
+
+- Fixed: `skfem.utils.enforce` now works correctly with rows that have no nonzero entries
+- Fixed: Slightly relax the condition in `MeshTri` and `MeshTet.element_finder` to decide whether a point is on the element (due to possible float error accumulation)
+- Fixed: `models.elasticity.plane_stress` contained incorrect formula
+- Fixed: `matplotlib.visuals.plot3` now supports `MeshQuad1` by splitting
+  it into triangle mesh and using the respective plotting routine.
+- Fixed: `supermeshing.intersect` will now properly restrict the supermesh to the
+  intersection of the two meshes in 1D.
 
 ### [12.0.1] - 2026-01-19
 

@@ -13,9 +13,9 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, NamedTuple, Optional, get_origin
 
-from pyrit.identifiers.class_name_utils import class_name_to_snake_case
+from pyrit.models import class_name_to_snake_case
 from pyrit.registry.base import ClassRegistryEntry
 from pyrit.registry.class_registries.base_class_registry import (
     BaseClassRegistry,
@@ -54,6 +54,25 @@ class ScenarioMetadata(ClassRegistryEntry):
 
     # Maximum number of items per dataset.
     max_dataset_size: Optional[int] = field(kw_only=True)
+
+    # Scenario-declared custom parameters.
+    supported_parameters: tuple[ScenarioParameterMetadata, ...] = field(kw_only=True, default=())
+
+
+class ScenarioParameterMetadata(NamedTuple):
+    """
+    A scenario-declared parameter rendered for user-facing display.
+
+    NamedTuple so existing positional construction (e.g. in tests) keeps working
+    while consumers can read fields by name.
+    """
+
+    name: str
+    description: str
+    default: Any
+    param_type: str
+    choices: Optional[list[str]]
+    is_list: bool = False
 
 
 class ScenarioRegistry(BaseClassRegistry["Scenario", ScenarioMetadata]):
@@ -109,7 +128,7 @@ class ScenarioRegistry(BaseClassRegistry["Scenario", ScenarioMetadata]):
             for registry_name, scenario_class in discover_in_package(
                 package_path=package_path,
                 package_name="pyrit.scenario.scenarios",
-                base_class=Scenario,  # type: ignore[type-abstract]
+                base_class=Scenario,
                 recursive=True,
             ):
                 # Skip deprecated alias classes
@@ -117,6 +136,22 @@ class ScenarioRegistry(BaseClassRegistry["Scenario", ScenarioMetadata]):
                 if doc.startswith("Deprecated alias"):
                     logger.debug(f"Skipping deprecated alias: {scenario_class.__name__}")
                     continue
+
+                # Skip re-exported aliases: if the class was defined in a different
+                # module than the one being discovered, it's an alias (e.g.,
+                # ContentHarms in content_harms.py is really RapidResponse from
+                # rapid_response.py).
+                class_module = getattr(scenario_class, "__module__", "")
+                expected_module_suffix = registry_name.replace(".", "/")
+                if not class_module.endswith(registry_name.replace("/", ".")):
+                    # Build the full expected module name for comparison
+                    expected_module = f"pyrit.scenario.scenarios.{registry_name.replace('/', '.')}"
+                    if class_module != expected_module:
+                        logger.debug(
+                            f"Skipping alias '{scenario_class.__name__}' in '{registry_name}' "
+                            f"(defined in {class_module})"
+                        )
+                        continue
 
                 # Check for registry key collision
                 if registry_name in self._class_entries:
@@ -146,9 +181,7 @@ class ScenarioRegistry(BaseClassRegistry["Scenario", ScenarioMetadata]):
         from pyrit.scenario.core import Scenario
 
         try:
-            for _, scenario_class in discover_subclasses_in_loaded_modules(
-                base_class=Scenario  # type: ignore[type-abstract]
-            ):
+            for _, scenario_class in discover_subclasses_in_loaded_modules(base_class=Scenario):
                 # Check if this is a user-defined class (not from pyrit.scenario.scenarios)
                 if not scenario_class.__module__.startswith("pyrit.scenario.scenarios"):
                     # Convert class name to snake_case for scenario name
@@ -164,34 +197,86 @@ class ScenarioRegistry(BaseClassRegistry["Scenario", ScenarioMetadata]):
         """
         Build metadata for a Scenario class.
 
+        Instantiates the scenario with no arguments and reads the strategy/dataset
+        configuration off the instance. Every registered scenario MUST be no-arg
+        instantiable (defer required-input validation to ``initialize_async`` or
+        ``_get_atomic_attacks_async``); otherwise this raises ``TypeError``.
+
         Args:
             name: The registry name of the scenario.
             entry: The ClassEntry containing the scenario class.
 
         Returns:
             ScenarioMetadata describing the scenario class.
+
+        Raises:
+            TypeError: If ``scenario_class()`` cannot be called with no arguments.
         """
         scenario_class = entry.registered_class
 
-        # Extract description from docstring, clean up whitespace
-        doc = scenario_class.__doc__ or ""
-        description = " ".join(doc.split()) if doc else entry.description or "No description available"
+        description = entry.get_description(fallback="No description available")
 
-        # Get the strategy class for this scenario
-        strategy_class = scenario_class.get_strategy_class()
+        supported_parameters = tuple(
+            ScenarioParameterMetadata(
+                name=p.name,
+                description=p.description,
+                default=p.default,
+                param_type=_param_type_display(p.param_type),
+                choices=[str(c) for c in p.choices] if p.choices else None,
+                is_list=get_origin(p.param_type) is list,
+            )
+            for p in scenario_class.supported_parameters()
+        )
 
-        dataset_config = scenario_class.default_dataset_config()
-        default_datasets = dataset_config.get_default_dataset_names()
-        max_dataset_size = dataset_config.max_dataset_size
+        try:
+            instance = scenario_class()  # type: ignore[ty:missing-argument]
+        except TypeError as exc:
+            raise TypeError(
+                f"Scenario {scenario_class.__module__}.{scenario_class.__name__} (registered as "
+                f"{name!r}) must be instantiable with no arguments so the registry can introspect "
+                f"its strategies and default dataset config. Make all constructor parameters "
+                f"optional (defaulting to None) and defer required-input validation to "
+                f"initialize_async() or _get_atomic_attacks_async(). Original error: {exc}"
+            ) from exc
+
+        strategy_class = instance._strategy_class
+        default_strategy_value = instance._default_strategy.value
+        all_strategies = tuple(s.value for s in strategy_class.get_all_strategies())
+        aggregate_strategies = tuple(s.value for s in strategy_class.get_aggregate_strategies())
+        default_datasets = tuple(instance._default_dataset_config.get_default_dataset_names())
+        max_dataset_size = instance._default_dataset_config.max_dataset_size
 
         return ScenarioMetadata(
             class_name=scenario_class.__name__,
             class_module=scenario_class.__module__,
             class_description=description,
             registry_name=name,
-            default_strategy=scenario_class.get_default_strategy().value,
-            all_strategies=tuple(s.value for s in strategy_class.get_all_strategies()),
-            aggregate_strategies=tuple(s.value for s in strategy_class.get_aggregate_strategies()),
-            default_datasets=tuple(default_datasets),
+            default_strategy=default_strategy_value,
+            all_strategies=all_strategies,
+            aggregate_strategies=aggregate_strategies,
+            default_datasets=default_datasets,
             max_dataset_size=max_dataset_size,
+            supported_parameters=supported_parameters,
         )
+
+
+def _param_type_display(param_type: Any) -> str:
+    """
+    Render a ``Parameter.param_type`` value as a short user-facing string.
+
+    Args:
+        param_type (Any): The parameter type (None, builtin, or GenericAlias).
+
+    Returns:
+        str: Display string (e.g., ``"int"``, ``"list[str]"``, ``"any"``).
+    """
+    if param_type is None:
+        return "any"
+    # Detect parameterized generics (list[str], dict[str, int], ...) reliably across Python
+    # versions: get_origin returns the unparameterized type for GenericAlias, None otherwise.
+    # On some 3.10 builds GenericAlias passes isinstance(_, type), so we can't rely on that.
+    if get_origin(param_type) is not None:
+        return str(param_type)
+    if isinstance(param_type, type):
+        return param_type.__name__
+    return str(param_type)

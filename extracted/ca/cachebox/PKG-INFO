@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cachebox
-Version: 6.0.0
+Version: 6.1.0
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python :: 3
@@ -35,7 +35,7 @@ Project-URL: Homepage, https://github.com/awolverp/cachebox
 
 *The fastest caching Python library written in Rust*
 
-[**Documentation**](https://awolverp.github.com/cachebox) | [**Releases**](https://github.com/awolverp/cachebox/releases) | 
+[**Documentation**](https://awolverp.github.io/cachebox) | [**Releases**](https://github.com/awolverp/cachebox/releases) | 
 [**Benchmarks**](https://github.com/awolverp/cachebox-benchmark) | 
 [**Issues**](https://github.com/awolverp/cachebox/issues/new)
 

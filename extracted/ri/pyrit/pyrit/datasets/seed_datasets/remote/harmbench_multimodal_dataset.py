@@ -6,11 +6,13 @@ import uuid
 from enum import Enum
 from typing import Literal, Optional
 
-from pyrit.common.net_utility import make_request_and_raise_if_error_async
+from pyrit.datasets.seed_datasets.remote._image_cache import (
+    fetch_and_cache_image_async,
+)
 from pyrit.datasets.seed_datasets.remote.remote_dataset_loader import (
     _RemoteDatasetLoader,
 )
-from pyrit.models import SeedDataset, SeedPrompt, data_serializer_factory
+from pyrit.models import Modality, SeedDataset, SeedPrompt
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +43,11 @@ class _HarmBenchMultimodalDataset(_RemoteDatasetLoader):
     Paper: [@mazeika2024harmbench]
     """
 
+    # Metadata
+    modalities: tuple[Modality, ...] = (Modality.TEXT, Modality.IMAGE)
+    size: str = "medium"  # 220 harmful multimodal behaviors
+    tags: frozenset[str] = frozenset({"safety", "jailbreak", "multimodal"})
+
     def __init__(
         self,
         *,
@@ -50,7 +57,7 @@ class _HarmBenchMultimodalDataset(_RemoteDatasetLoader):
         ),
         source_type: Literal["public_url", "file"] = "public_url",
         categories: Optional[list[SemanticCategory]] = None,
-    ):
+    ) -> None:
         """
         Initialize the HarmBench multimodal dataset loader.
 
@@ -75,7 +82,7 @@ class _HarmBenchMultimodalDataset(_RemoteDatasetLoader):
         """Return the dataset name."""
         return "harmbench_multimodal"
 
-    async def fetch_dataset(self, *, cache: bool = True) -> SeedDataset:
+    async def fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
         """
         Fetch HarmBench multimodal examples and return as SeedDataset.
 
@@ -221,19 +228,12 @@ class _HarmBenchMultimodalDataset(_RemoteDatasetLoader):
 
         Returns:
             Local path to the saved image.
+
+        Raises:
+            RuntimeError: If the serializer memory is not properly configured.
         """
-        filename = f"harmbench_{behavior_id}.png"
-        serializer = data_serializer_factory(category="seed-prompt-entries", data_type="image_path", extension="png")
-
-        # Return existing path if image already exists for this BehaviorID
-        serializer.value = str(serializer._memory.results_path + serializer.data_sub_directory + f"/{filename}")
-        try:
-            if await serializer._memory.results_storage_io.path_exists(serializer.value):
-                return serializer.value
-        except Exception as e:
-            logger.warning(f"[HarmBench-Multimodal] Failed to check if image for {behavior_id} exists in cache: {e}")
-
-        response = await make_request_and_raise_if_error_async(endpoint_uri=image_url, method="GET")
-        await serializer.save_data(data=response.content, output_filename=filename.replace(".png", ""))
-
-        return str(serializer.value)
+        return await fetch_and_cache_image_async(
+            filename=f"harmbench_{behavior_id}.png",
+            image_url=image_url,
+            log_prefix="HarmBench-Multimodal",
+        )

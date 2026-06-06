@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastmcp-slim
-Version: 3.4.0
+Version: 3.4.2
 Summary: The dependency-slim FastMCP package.
 Project-URL: Homepage, https://gofastmcp.com
 Project-URL: Repository, https://github.com/PrefectHQ/fastmcp
@@ -37,6 +37,7 @@ Requires-Dist: httpx<1.0,>=0.28.1; extra == 'client'
 Requires-Dist: mcp<2.0,>=1.24.0; extra == 'client'
 Requires-Dist: opentelemetry-api>=1.20.0; extra == 'client'
 Requires-Dist: py-key-value-aio[filetree,keyring,memory]<0.5.0,>=0.4.4; extra == 'client'
+Requires-Dist: starlette>=1.0.1; extra == 'client'
 Provides-Extra: code-mode
 Requires-Dist: pydantic-monty==0.0.17; extra == 'code-mode'
 Provides-Extra: gemini
@@ -47,6 +48,7 @@ Requires-Dist: exceptiongroup>=1.2.2; extra == 'mcp'
 Requires-Dist: httpx<1.0,>=0.28.1; extra == 'mcp'
 Requires-Dist: mcp<2.0,>=1.24.0; extra == 'mcp'
 Requires-Dist: opentelemetry-api>=1.20.0; extra == 'mcp'
+Requires-Dist: starlette>=1.0.1; extra == 'mcp'
 Provides-Extra: openai
 Requires-Dist: openai>=1.102.0; extra == 'openai'
 Provides-Extra: server
@@ -66,6 +68,7 @@ Requires-Dist: py-key-value-aio[filetree,keyring,memory]<0.5.0,>=0.4.4; extra ==
 Requires-Dist: pyperclip>=1.9.0; extra == 'server'
 Requires-Dist: python-multipart>=0.0.26; extra == 'server'
 Requires-Dist: pyyaml<7.0,>=6.0; extra == 'server'
+Requires-Dist: starlette>=1.0.1; extra == 'server'
 Requires-Dist: uncalled-for>=0.2.0; extra == 'server'
 Requires-Dist: uvicorn>=0.35; extra == 'server'
 Requires-Dist: watchfiles>=1.0.0; extra == 'server'

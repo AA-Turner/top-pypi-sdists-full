@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-timezone-field
-Version: 7.2.1
+Version: 7.2.2
 Summary: A Django app providing DB, form, and REST framework fields for zoneinfo and pytz timezone objects.
 License: BSD-2-Clause
 License-File: LICENSE.txt
@@ -15,6 +15,7 @@ Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
@@ -27,7 +28,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Utilities
-Requires-Dist: Django (>=3.2,<6.1)
+Requires-Dist: Django (>=4.2,<6.2)
 Requires-Dist: backports.zoneinfo (>=0.2.1,<0.3.0) ; python_version < "3.9"
 Project-URL: Repository, https://github.com/mfogel/django-timezone-field/
 Description-Content-Type: text/markdown
@@ -171,6 +172,10 @@ poetry run pytest
 ```
 
 ## Changelog
+
+#### 7.2.2 (2026-06-05)
+
+- Test aginst django 6.1 pre-release
 
 #### 7.2.1 (2025-12-06)
 

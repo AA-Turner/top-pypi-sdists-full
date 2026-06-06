@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -14,6 +15,7 @@ from runlayer_cli.scan.clients import (
 )
 from runlayer_cli.scan.cursor_plugins import scan_cursor_plugins
 from runlayer_cli.scan.plugin_scanner import (
+    _CLAUDE_DESKTOP_CONFIG_PATHS,
     _collect_plugin_files,
     compute_plugin_identifier,
     scan_claude_code_plugin_artifacts,
@@ -549,6 +551,15 @@ class TestScanClaudeCodePluginArtifacts:
 
 
 class TestScanClaudeDesktopConnectors:
+    def test_config_paths_includes_linux(self):
+        assert "Linux" in _CLAUDE_DESKTOP_CONFIG_PATHS
+        assert ".config/Claude" in _CLAUDE_DESKTOP_CONFIG_PATHS["Linux"]
+
+    @mock.patch("platform.system", return_value="Linux")
+    def test_linux_resolves_config_path(self, _system, tmp_path: Path):
+        template = _CLAUDE_DESKTOP_CONFIG_PATHS.get("Linux")
+        assert template is not None
+
     def test_no_config_file(self, tmp_path: Path):
         assert (
             scan_claude_desktop_connectors(

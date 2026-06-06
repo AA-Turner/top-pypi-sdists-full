@@ -6,11 +6,14 @@ import asyncio
 import inspect
 import re
 from dataclasses import dataclass
-from typing import Any, Optional, Union, get_args
+from typing import TYPE_CHECKING, Any, ClassVar, Optional, Union, get_args
 
 from pyrit import prompt_converter
-from pyrit.identifiers import ComponentIdentifier, Identifiable
-from pyrit.models import PromptDataType
+from pyrit.models import ComponentIdentifier, Identifiable, PromptDataType
+from pyrit.prompt_target.common.target_requirements import TargetRequirements
+
+if TYPE_CHECKING:
+    from pyrit.prompt_target import PromptTarget
 
 
 @dataclass
@@ -48,6 +51,11 @@ class PromptConverter(Identifiable):
     #: Tuple of output modalities supported by this converter. Subclasses must override this.
     SUPPORTED_OUTPUT_TYPES: tuple[PromptDataType, ...] = ()
 
+    #: Capability requirements placed on the converter's target (if any).
+    #: Subclasses that use a target should override this and pass the target to
+    #: ``super().__init__(converter_target=...)`` so the base class can validate it.
+    TARGET_REQUIREMENTS: ClassVar[TargetRequirements] = TargetRequirements()
+
     _identifier: Optional[ComponentIdentifier] = None
 
     def __init_subclass__(cls, **kwargs: object) -> None:
@@ -75,11 +83,17 @@ class PromptConverter(Identifiable):
                     f"Declare the output modalities this converter produces."
                 )
 
-    def __init__(self) -> None:
+    def __init__(self, *, converter_target: Optional["PromptTarget"] = None) -> None:
         """
         Initialize the prompt converter.
+
+        Args:
+            converter_target (Optional[PromptTarget]): Target used by the converter, if any. When
+                provided, it is validated against ``TARGET_REQUIREMENTS``.
         """
         super().__init__()
+        if converter_target is not None:
+            type(self).TARGET_REQUIREMENTS.validate(target=converter_target)
 
     @abc.abstractmethod
     async def convert_async(self, *, prompt: str, input_type: PromptDataType = "text") -> ConverterResult:
@@ -153,7 +167,7 @@ class PromptConverter(Identifiable):
         if prompt.count(start_token) != prompt.count(end_token):
             raise ValueError("Uneven number of start tokens and end tokens.")
 
-        tasks = [self._replace_text_match(match) for match in matches]
+        tasks = [self._replace_text_match_async(match) for match in matches]
         converted_parts = await asyncio.gather(*tasks)
 
         for original, converted in zip(matches, converted_parts, strict=False):
@@ -161,7 +175,7 @@ class PromptConverter(Identifiable):
 
         return ConverterResult(output_text=prompt, output_type="text")
 
-    async def _replace_text_match(self, match: str) -> ConverterResult:
+    async def _replace_text_match_async(self, match: str) -> ConverterResult:
         return await self.convert_async(prompt=match, input_type="text")
 
     def _build_identifier(self) -> ComponentIdentifier:

@@ -2,9 +2,17 @@
 
 import logging
 import secrets
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from dazzle.back.runtime.auth.connections import ConnectionRecord, RewrapResult
+    from dazzle.back.runtime.auth.membership_events import (
+        EventChainResult,
+        MembershipEvent,
+    )
 
 try:
     import psycopg
@@ -19,9 +27,26 @@ except ImportError:
 from dazzle.core.db_url import normalise_postgres_scheme
 
 from .crypto import hash_password, verify_password
-from .models import AuthContext, MembershipRecord, SessionRecord, UserRecord
+from .models import (
+    AuthContext,
+    MembershipRecord,
+    OrganizationRecord,
+    SessionRecord,
+    UserRecord,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _appspec_has_tenant_root(appspec: Any) -> bool:
+    """True iff the appspec declares an ``is_tenant_root`` / archetype:tenant
+    entity (auth Plan 1d — selects the 1:1 org<->root mirror provisioning)."""
+    for e in getattr(getattr(appspec, "domain", None), "entities", []) or []:
+        if getattr(e, "is_tenant_root", False):
+            return True
+        if getattr(getattr(e, "archetype_kind", None), "name", "") == "TENANT":
+            return True
+    return False
 
 
 class UserStoreMixin:
@@ -394,6 +419,8 @@ class SessionStoreMixin:
     _execute: Any
     _execute_one: Any
     _execute_modify: Any
+    _get_connection: Any  # auth Plan 2a — used by _transaction / chain verify
+    _transaction: Any  # auth Plan 2a — atomic mutation + lifecycle event
     _user_entity_table: str  # Set by AuthStore.__init__
 
     # Cross-cutting method provided by UserStoreMixin via AuthStore.
@@ -541,6 +568,32 @@ class SessionStoreMixin:
             raise LookupError(f"cannot regenerate CSRF secret: no session {session_id!r}")
         return new_secret
 
+    def set_session_active_membership(
+        self, session_id: str, membership_id: str, *, identity_id: str
+    ) -> bool:
+        """Pin (or rotate) a session's active org membership — ownership-checked.
+
+        The membership must belong to ``identity_id`` (the session's user) and be
+        ``status="active"``; otherwise this is a no-op returning False (a user
+        must not activate another identity's org, nor a suspended membership — the
+        Phase-2 IDOR guard). The ``AND user_id = %s`` on the UPDATE is
+        defence-in-depth so a stale/foreign ``session_id`` cannot be repointed.
+        Returns True iff exactly one row moved. The RLS GUC re-binds on the next
+        request via ``validate_session`` → ``_bind_rls_tenant_id`` (Plan 1a).
+        """
+        membership = self.get_membership(membership_id)
+        if (
+            membership is None
+            or membership.identity_id != identity_id
+            or membership.status != "active"
+        ):
+            return False
+        rowcount = self._execute_modify(
+            "UPDATE sessions SET active_membership_id = %s WHERE id = %s AND user_id = %s",
+            (membership_id, session_id, identity_id),
+        )
+        return bool(rowcount == 1)
+
     def validate_session(self, session_id: str) -> AuthContext:
         """
         Validate a session and return auth context.
@@ -612,6 +665,19 @@ class SessionStoreMixin:
         """Delete all sessions for a user."""
         return int(self._execute_modify("DELETE FROM sessions WHERE user_id = %s", (str(user_id),)))
 
+    def delete_sessions_for_membership(self, membership_id: str) -> int:
+        """Delete sessions currently acting as ``membership_id`` (auth Plan 4c).
+
+        Used by SCIM deactivate/deprovision: suspending one org's membership must
+        kill the identity's *sessions in that org* — sessions where they're acting as
+        a different org's membership survive (multi-org-correct revocation).
+        """
+        return int(
+            self._execute_modify(
+                "DELETE FROM sessions WHERE active_membership_id = %s", (membership_id,)
+            )
+        )
+
     def count_active_sessions(self, user_id: UUID | None = None) -> int:
         """
         Count active (non-expired) sessions.
@@ -676,15 +742,24 @@ class SessionStoreMixin:
         roles: list[str] | None = None,
         status: str = "active",
         invited_by: str | None = None,
+        actor_id: str | None = None,
+        reason: str | None = None,
     ) -> MembershipRecord:
-        """Create a membership (identity x org x roles).
+        """Create a membership (identity x org x roles) + emit a PROVISIONED event.
 
         Raises ``ValueError`` if ``identity_id`` does not name an existing user —
         there is no DB foreign key (the auth tables are not in the Alembic chain;
         see migration 0007), so this is the integrity guard against orphan
-        memberships / a mistyped identity.
+        memberships / a mistyped identity. The membership row and its lifecycle
+        event are written in ONE transaction (auth Plan 2a — durable evidence).
         """
         import json
+
+        from dazzle.back.runtime.auth.membership_events import (
+            MEMBERSHIP_EVENTS_LOCK_KEY,
+            MembershipEventType,
+            record_membership_event,
+        )
 
         if self.get_user_by_id(UUID(identity_id)) is None:
             raise ValueError(f"cannot create membership: no user with id {identity_id!r}")
@@ -697,26 +772,193 @@ class SessionStoreMixin:
             status=status,
             invited_by=invited_by,
         )
-        self._execute(
-            """
-            INSERT INTO memberships
-                (id, tenant_id, identity_id, roles, status, invited_by,
-                 joined_at, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """,
-            (
-                membership.id,
-                membership.tenant_id,
-                membership.identity_id,
-                json.dumps(membership.roles),
-                membership.status,
-                membership.invited_by,
-                membership.joined_at.isoformat(),
-                membership.created_at.isoformat(),
-                membership.updated_at.isoformat(),
-            ),
-        )
+        with self._transaction() as cur:
+            cur.execute("SELECT pg_advisory_xact_lock(%s)", (MEMBERSHIP_EVENTS_LOCK_KEY,))
+            cur.execute(
+                """
+                INSERT INTO memberships
+                    (id, tenant_id, identity_id, roles, status, invited_by,
+                     joined_at, created_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    membership.id,
+                    membership.tenant_id,
+                    membership.identity_id,
+                    json.dumps(membership.roles),
+                    membership.status,
+                    membership.invited_by,
+                    membership.joined_at.isoformat(),
+                    membership.created_at.isoformat(),
+                    membership.updated_at.isoformat(),
+                ),
+            )
+            record_membership_event(
+                cur,
+                event_type=MembershipEventType.PROVISIONED,
+                membership_id=membership.id,
+                tenant_id=membership.tenant_id,
+                identity_id=membership.identity_id,
+                actor_id=actor_id,
+                roles_after=membership.roles,
+                status_after=membership.status,
+                reason=reason,
+            )
         return membership
+
+    def update_membership_roles(
+        self,
+        membership_id: str,
+        roles: list[str],
+        *,
+        actor_id: str | None = None,
+        reason: str | None = None,
+    ) -> MembershipRecord | None:
+        """Grant/revoke roles on a membership (mover) + emit a ROLE_CHANGED event.
+
+        Returns the updated record, or ``None`` if no such membership.
+        """
+        import json
+
+        from dazzle.back.runtime.auth.membership_events import (
+            MEMBERSHIP_EVENTS_LOCK_KEY,
+            MembershipEventType,
+            record_membership_event,
+        )
+
+        now = datetime.now(UTC).isoformat()
+        with self._transaction() as cur:
+            cur.execute("SELECT pg_advisory_xact_lock(%s)", (MEMBERSHIP_EVENTS_LOCK_KEY,))
+            cur.execute("SELECT * FROM memberships WHERE id = %s", (membership_id,))
+            row = cur.fetchone()
+            if row is None:
+                return None
+            roles_before = json.loads(row["roles"]) if row.get("roles") else []
+            cur.execute(
+                "UPDATE memberships SET roles = %s, updated_at = %s WHERE id = %s",
+                (json.dumps(roles), now, membership_id),
+            )
+            record_membership_event(
+                cur,
+                event_type=MembershipEventType.ROLE_CHANGED,
+                membership_id=membership_id,
+                tenant_id=row["tenant_id"],
+                identity_id=row["identity_id"],
+                actor_id=actor_id,
+                roles_before=roles_before,
+                roles_after=roles,
+                reason=reason,
+            )
+        return self.get_membership(membership_id)
+
+    def _transition_membership_status(
+        self,
+        membership_id: str,
+        *,
+        from_status: str,
+        to_status: str,
+        event_type: str,
+        actor_id: str | None,
+        reason: str | None,
+    ) -> MembershipRecord | None:
+        """Shared suspend/reactivate body: status transition + lifecycle event.
+
+        No-op (no event) when the membership is not in ``from_status`` — keeps the
+        evidence stream free of duplicate/contradictory transitions.
+        """
+        from dazzle.back.runtime.auth.membership_events import (
+            MEMBERSHIP_EVENTS_LOCK_KEY,
+            record_membership_event,
+        )
+
+        now = datetime.now(UTC).isoformat()
+        with self._transaction() as cur:
+            cur.execute("SELECT pg_advisory_xact_lock(%s)", (MEMBERSHIP_EVENTS_LOCK_KEY,))
+            cur.execute("SELECT * FROM memberships WHERE id = %s", (membership_id,))
+            row = cur.fetchone()
+            if row is None or row["status"] != from_status:
+                return None  # not found, or no transition → no event
+            cur.execute(
+                "UPDATE memberships SET status = %s, updated_at = %s WHERE id = %s",
+                (to_status, now, membership_id),
+            )
+            record_membership_event(
+                cur,
+                event_type=event_type,
+                membership_id=membership_id,
+                tenant_id=row["tenant_id"],
+                identity_id=row["identity_id"],
+                actor_id=actor_id,
+                status_before=from_status,
+                status_after=to_status,
+                reason=reason,
+            )
+        return self.get_membership(membership_id)
+
+    def suspend_membership(
+        self, membership_id: str, *, actor_id: str | None = None, reason: str | None = None
+    ) -> MembershipRecord | None:
+        """Suspend an active membership (leaver-ish) + emit a SUSPENDED event."""
+        from dazzle.back.runtime.auth.membership_events import MembershipEventType
+
+        return self._transition_membership_status(
+            membership_id,
+            from_status="active",
+            to_status="suspended",
+            event_type=MembershipEventType.SUSPENDED,
+            actor_id=actor_id,
+            reason=reason,
+        )
+
+    def reactivate_membership(
+        self, membership_id: str, *, actor_id: str | None = None, reason: str | None = None
+    ) -> MembershipRecord | None:
+        """Reactivate a suspended membership (mover) + emit a REACTIVATED event."""
+        from dazzle.back.runtime.auth.membership_events import MembershipEventType
+
+        return self._transition_membership_status(
+            membership_id,
+            from_status="suspended",
+            to_status="active",
+            event_type=MembershipEventType.REACTIVATED,
+            actor_id=actor_id,
+            reason=reason,
+        )
+
+    def remove_membership(
+        self, membership_id: str, *, actor_id: str | None = None, reason: str | None = None
+    ) -> bool:
+        """Delete a membership (leaver) + emit a REMOVED event.
+
+        The ``memberships`` row is deleted (current-state), but the REMOVED event
+        persists in ``membership_events`` — the leaver evidence survives. Returns
+        ``True`` if a membership was deleted, ``False`` if it did not exist.
+        """
+        from dazzle.back.runtime.auth.membership_events import (
+            MEMBERSHIP_EVENTS_LOCK_KEY,
+            MembershipEventType,
+            record_membership_event,
+        )
+
+        with self._transaction() as cur:
+            cur.execute("SELECT pg_advisory_xact_lock(%s)", (MEMBERSHIP_EVENTS_LOCK_KEY,))
+            cur.execute("SELECT * FROM memberships WHERE id = %s", (membership_id,))
+            row = cur.fetchone()
+            if row is None:
+                return False
+            cur.execute("DELETE FROM memberships WHERE id = %s", (membership_id,))
+            record_membership_event(
+                cur,
+                event_type=MembershipEventType.REMOVED,
+                membership_id=membership_id,
+                tenant_id=row["tenant_id"],
+                identity_id=row["identity_id"],
+                actor_id=actor_id,
+                status_before=row["status"],
+                status_after="removed",
+                reason=reason,
+            )
+        return True
 
     def get_membership(self, membership_id: str) -> MembershipRecord | None:
         row = self._execute_one("SELECT * FROM memberships WHERE id = %s", (membership_id,))
@@ -728,6 +970,513 @@ class SessionStoreMixin:
             (identity_id,),
         )
         return [self._row_to_membership(r) for r in rows]
+
+    def get_memberships_for_tenant(self, tenant_id: str) -> list[MembershipRecord]:
+        """Current roster: all memberships in an org (auth Plan 2b — access review)."""
+        rows = self._execute(
+            "SELECT * FROM memberships WHERE tenant_id = %s ORDER BY created_at",
+            (tenant_id,),
+        )
+        return [self._row_to_membership(r) for r in rows]
+
+    # -- Membership lifecycle events (auth Plan 2a — compliance evidence) -----
+
+    def _row_to_event(self, row: dict[str, Any]) -> "MembershipEvent":  # noqa: F821
+        import json
+
+        from dazzle.back.runtime.auth.membership_events import MembershipEvent
+
+        return MembershipEvent(
+            id=row["id"],
+            event_type=row["event_type"],
+            membership_id=row["membership_id"],
+            tenant_id=row["tenant_id"],
+            identity_id=row["identity_id"],
+            actor_id=row.get("actor_id"),
+            roles_before=json.loads(row["roles_before"]) if row.get("roles_before") else None,
+            roles_after=json.loads(row["roles_after"]) if row.get("roles_after") else None,
+            status_before=row.get("status_before"),
+            status_after=row.get("status_after"),
+            reason=row.get("reason"),
+            created_at=datetime.fromisoformat(row["created_at"]),
+            seq=row.get("seq"),
+            row_hash=row.get("row_hash"),
+        )
+
+    def get_membership_events(
+        self,
+        *,
+        tenant_id: str | None = None,
+        identity_id: str | None = None,
+        membership_id: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+    ) -> list["MembershipEvent"]:  # noqa: F821
+        """Return the JML event stream, ordered by seq, optionally filtered.
+
+        ``since``/``until`` are ISO-8601 strings compared against ``created_at``
+        (TEXT, ISO-8601 sorts lexically). All filters AND together.
+        """
+        clauses: list[str] = []
+        params: list[object] = []
+        if tenant_id is not None:
+            clauses.append("tenant_id = %s")
+            params.append(tenant_id)
+        if identity_id is not None:
+            clauses.append("identity_id = %s")
+            params.append(identity_id)
+        if membership_id is not None:
+            clauses.append("membership_id = %s")
+            params.append(membership_id)
+        if since is not None:
+            clauses.append("created_at >= %s")
+            params.append(since)
+        if until is not None:
+            clauses.append("created_at <= %s")
+            params.append(until)
+        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        # Filters are %s-parameterised; the only interpolation is the fixed
+        # clause fragments above (no user-controlled identifiers).
+        rows = self._execute(
+            f"SELECT * FROM membership_events{where} ORDER BY seq ASC",  # nosemgrep: parameterised filters
+            tuple(params),
+        )
+        return [self._row_to_event(r) for r in rows]
+
+    def verify_membership_event_chain(self) -> "EventChainResult":  # noqa: F821
+        """Verify the append-only membership_events hash-chain (tamper-evidence)."""
+        from dazzle.back.runtime.auth.membership_events import (
+            verify_membership_event_chain as _verify,
+        )
+
+        conn = self._get_connection()
+        try:
+            return _verify(conn)
+        finally:
+            conn.close()
+
+    # -- Organizations (auth Plan 1c — framework tenant root) ----------------
+
+    DEFAULT_ORG_SLUG = "default"
+
+    def _row_to_organization(self, row: dict[str, Any]) -> OrganizationRecord:
+        return OrganizationRecord(
+            id=row["id"],
+            slug=row["slug"],
+            name=row["name"],
+            status=row["status"],
+            is_test=bool(row["is_test"]),
+            created_at=datetime.fromisoformat(row["created_at"]),
+            updated_at=datetime.fromisoformat(row["updated_at"]),
+        )
+
+    def create_organization(
+        self, *, slug: str, name: str, is_test: bool = False
+    ) -> OrganizationRecord:
+        """Create an organization (raises on duplicate slug)."""
+        org = OrganizationRecord(
+            id=secrets.token_urlsafe(24), slug=slug, name=name, is_test=is_test
+        )
+        self._execute(
+            """
+            INSERT INTO organizations
+                (id, slug, name, status, is_test, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                org.id,
+                org.slug,
+                org.name,
+                org.status,
+                org.is_test,
+                org.created_at.isoformat(),
+                org.updated_at.isoformat(),
+            ),
+        )
+        return org
+
+    def get_organization_by_slug(self, slug: str) -> OrganizationRecord | None:
+        row = self._execute_one("SELECT * FROM organizations WHERE slug = %s", (slug,))
+        return self._row_to_organization(row) if row else None
+
+    def get_organization(self, org_id: str) -> OrganizationRecord | None:
+        row = self._execute_one("SELECT * FROM organizations WHERE id = %s", (org_id,))
+        return self._row_to_organization(row) if row else None
+
+    # -- Enterprise connections (auth Plan 4a — per-org OIDC/SAML/SCIM) -------
+
+    def _row_to_connection(self, row: dict[str, Any]) -> "ConnectionRecord":  # noqa: F821
+        import json
+
+        from dazzle.back.runtime.auth.connection_crypto import decrypt_secret
+        from dazzle.back.runtime.auth.connections import ConnectionRecord
+
+        enc = row.get("encrypted_secret")
+        secrets_dict = json.loads(decrypt_secret(enc)) if enc else {}
+        return ConnectionRecord(
+            id=row["id"],
+            tenant_id=row["tenant_id"],
+            type=row["type"],
+            provider=row["provider"],
+            domains=json.loads(row["domains"]) if row.get("domains") else [],
+            verified_domains=(
+                json.loads(row["verified_domains"]) if row.get("verified_domains") else []
+            ),
+            config=json.loads(row["config"]) if row.get("config") else {},
+            secrets=secrets_dict,
+            group_mapping=json.loads(row["group_mapping"]) if row.get("group_mapping") else {},
+            status=row["status"],
+            created_at=datetime.fromisoformat(row["created_at"]),
+            updated_at=datetime.fromisoformat(row["updated_at"]),
+        )
+
+    def create_connection(
+        self,
+        *,
+        tenant_id: str,
+        type: str,
+        config: dict[str, Any],
+        secrets: dict[str, Any],
+        domains: list[str],
+        provider: str = "native",
+        group_mapping: dict[str, str] | None = None,
+        status: str = "active",
+    ) -> "ConnectionRecord":  # noqa: F821
+        """Create a per-org connection; secret material is AES-GCM-encrypted at rest."""
+        import json
+        import secrets as _secrets  # the `secrets` param shadows the stdlib module here
+
+        from dazzle.back.runtime.auth.connection_crypto import encrypt_secret
+
+        conn_id = _secrets.token_urlsafe(24)
+        now = datetime.now(UTC).isoformat()
+        encrypted = encrypt_secret(json.dumps(secrets)) if secrets else None
+        self._execute_modify(
+            """
+            INSERT INTO connections
+                (id, tenant_id, type, provider, domains, verified_domains, config,
+                 encrypted_secret, group_mapping, status, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                conn_id,
+                tenant_id,
+                type,
+                provider,
+                json.dumps(domains),
+                json.dumps([]),
+                json.dumps(config),
+                encrypted,
+                json.dumps(group_mapping or {}),
+                status,
+                now,
+                now,
+            ),
+        )
+        created = self.get_connection(conn_id)
+        assert created is not None  # just inserted
+        return created
+
+    def get_connection(
+        self, connection_id: str, *, tenant_id: str | None = None
+    ) -> "ConnectionRecord | None":  # noqa: F821
+        """Fetch a connection (decrypting its secrets).
+
+        Pass ``tenant_id`` to fence the read to one org — a route serving a
+        connection by id MUST pass the caller's active org so an id from another
+        org can't leak its config + decrypted secrets (defense-in-depth; the id is
+        unguessable but the decrypt-bearing read should require tenant context).
+        """
+        if tenant_id is not None:
+            row = self._execute_one(
+                "SELECT * FROM connections WHERE id = %s AND tenant_id = %s",
+                (connection_id, tenant_id),
+            )
+        else:
+            row = self._execute_one("SELECT * FROM connections WHERE id = %s", (connection_id,))
+        return self._row_to_connection(row) if row else None
+
+    def get_connections_for_tenant(self, tenant_id: str) -> list["ConnectionRecord"]:  # noqa: F821
+        rows = self._execute(
+            "SELECT * FROM connections WHERE tenant_id = %s ORDER BY created_at", (tenant_id,)
+        )
+        return [self._row_to_connection(r) for r in rows]
+
+    def get_connection_by_verified_domain(self, domain: str) -> "ConnectionRecord | None":  # noqa: F821
+        """Route an email domain to its org's connection — VERIFIED domains only.
+
+        Matches against ``verified_domains`` (never the unverified ``domains``
+        claim) so org A cannot hijack org B's SSO by claiming its domain (spec §5).
+        Returns the first active match; verified-domain uniqueness is owned by the
+        domain-verification flow (a later slice).
+        """
+        import json
+
+        d = domain.strip().lower()
+        for row in self._execute(
+            "SELECT * FROM connections WHERE status = 'active' ORDER BY created_at"
+        ):
+            verified = [x.strip().lower() for x in json.loads(row.get("verified_domains") or "[]")]
+            if d in verified:
+                return self._row_to_connection(row)
+        return None
+
+    def get_scim_connection_by_bearer(self, token: str) -> "ConnectionRecord | None":  # noqa: F821
+        """Authenticate a SCIM request: the active SCIM connection whose stored bearer
+        matches ``token`` (auth Plan 4c), or ``None``.
+
+        Constant-time comparison (``hmac.compare_digest``) against each candidate's
+        decrypted ``secrets['scim_bearer']`` so a timing side-channel can't reveal the
+        token byte-by-byte. Fail-closed: an empty token, or a connection with no stored
+        bearer, never matches. The bearer is high-entropy, so the small per-connection
+        timing signal (how many candidates were compared) can't help forge it.
+        """
+        import hmac
+
+        if not token:
+            return None
+        match: ConnectionRecord | None = None
+        for row in self._execute(
+            "SELECT * FROM connections WHERE status = 'active' AND type = 'scim'"
+        ):
+            conn = self._row_to_connection(row)
+            stored = (conn.secrets or {}).get("scim_bearer") or ""
+            # Compare as bytes so a non-ASCII presented token fails closed (no match)
+            # instead of raising in compare_digest.
+            if stored and hmac.compare_digest(str(stored).encode("utf-8"), token.encode("utf-8")):
+                match = conn  # don't break — compare all candidates (uniform work)
+        return match
+
+    def set_connection_domains(self, connection_id: str, domains: list[str]) -> None:
+        """Set the *claimed* domain list (advisory — never routes until verified)."""
+        import json
+
+        self._execute_modify(
+            "UPDATE connections SET domains = %s, updated_at = %s WHERE id = %s",
+            (json.dumps(domains), datetime.now(UTC).isoformat(), connection_id),
+        )
+
+    def rewrap_all_connection_secrets(self) -> "RewrapResult":  # noqa: F821
+        """Re-encrypt every connection secret onto the PRIMARY key (encryption-key rotation).
+
+        Decrypts each connection's secret (trying the primary key then the optional
+        ``DAZZLE_CONNECTION_SECRET_OLD`` rotation key) and re-encrypts with the primary,
+        so after the operator sets the new key as primary + the old key as the rotation
+        key, this moves all ciphertext onto the new key. **Idempotent:** a secret already
+        on the primary key is left untouched (counted as ``already_current``); a re-run
+        after a full rotation rewraps nothing. A secret that no configured key can decrypt
+        is collected in ``failed`` (the operator must set the right ``..._OLD`` key) — it
+        is skipped, never dropped, and the rotation continues.
+        """
+        from dazzle.back.runtime.auth.connection_crypto import (
+            ConnectionSecretError,
+            decrypt_secret_with_key_index,
+            encrypt_secret,
+        )
+        from dazzle.back.runtime.auth.connections import RewrapResult
+
+        rewrapped = 0
+        already_current = 0
+        failed: list[str] = []
+        now = datetime.now(UTC).isoformat()
+        for row in self._execute(
+            "SELECT id, encrypted_secret FROM connections WHERE encrypted_secret IS NOT NULL"
+        ):
+            enc = row.get("encrypted_secret")
+            if not enc:
+                continue
+            try:
+                plaintext, key_index = decrypt_secret_with_key_index(enc)
+            except ConnectionSecretError:
+                failed.append(row["id"])
+                continue
+            if key_index == 0:
+                already_current += 1  # already on the primary key — leave it
+                continue
+            self._execute_modify(
+                "UPDATE connections SET encrypted_secret = %s, updated_at = %s WHERE id = %s",
+                (encrypt_secret(plaintext), now, row["id"]),
+            )
+            rewrapped += 1
+        return RewrapResult(rewrapped=rewrapped, already_current=already_current, failed=failed)
+
+    def update_connection_secrets(
+        self, connection_id: str, secrets: dict[str, Any], *, tenant_id: str | None = None
+    ) -> bool:
+        """Replace a connection's secret material (rotation), re-encrypting at rest.
+
+        ``secrets`` REPLACES the stored blob (an empty dict clears it). Bumps
+        ``updated_at`` — load-bearing: the OIDC provider's per-connection client cache is
+        keyed on ``updated_at``, so a rotated ``client_secret`` rebuilds the client (the
+        old secret stops working for new logins) without a process restart. Pass
+        ``tenant_id`` to fence the write to one org. Returns ``True`` if a row changed.
+        """
+        import json
+
+        from dazzle.back.runtime.auth.connection_crypto import encrypt_secret
+
+        encrypted = encrypt_secret(json.dumps(secrets)) if secrets else None
+        now = datetime.now(UTC).isoformat()
+        if tenant_id is not None:
+            rowcount = self._execute_modify(
+                "UPDATE connections SET encrypted_secret = %s, updated_at = %s "
+                "WHERE id = %s AND tenant_id = %s",
+                (encrypted, now, connection_id, tenant_id),
+            )
+        else:
+            rowcount = self._execute_modify(
+                "UPDATE connections SET encrypted_secret = %s, updated_at = %s WHERE id = %s",
+                (encrypted, now, connection_id),
+            )
+        return bool(rowcount > 0)
+
+    def set_connection_verified_domains(self, connection_id: str, verified: list[str]) -> None:
+        """Set the verified-domain list — the output of a domain-ownership check.
+
+        Low-level blind overwrite. For domain *verification* prefer
+        :meth:`claim_verified_domain`, which enforces one-owner-per-domain atomically.
+        """
+        import json
+
+        self._execute_modify(
+            "UPDATE connections SET verified_domains = %s, updated_at = %s WHERE id = %s",
+            (json.dumps(verified), datetime.now(UTC).isoformat(), connection_id),
+        )
+
+    def claim_verified_domain(self, connection_id: str, domain: str) -> bool:
+        """Atomically claim ``domain`` as verified for ``connection_id``.
+
+        Returns ``True`` when this connection owns the domain after the call (newly
+        claimed OR already its own — idempotent), ``False`` when a *different* active
+        connection already verified it (one verified owner per domain).
+
+        Serialized via a single advisory lock (mirrors the ``membership_events``
+        pattern) so concurrent verifications can neither both claim the same domain
+        (the cross-connection TOCTOU) nor lost-update a connection's domain list when
+        two domains are verified for it at once — the connection's current list is
+        re-read fresh inside the locked transaction, never trusting a caller snapshot.
+        """
+        import json
+
+        from dazzle.back.runtime.auth.domain_verification import CONNECTION_DOMAIN_LOCK_KEY
+
+        norm = domain.strip().lower().rstrip(".")
+        with self._transaction() as cur:
+            cur.execute("SELECT pg_advisory_xact_lock(%s)", (CONNECTION_DOMAIN_LOCK_KEY,))
+            # Authoritative owner scan (active connections only).
+            cur.execute("SELECT id, verified_domains FROM connections WHERE status = 'active'")
+            for row in cur.fetchall():
+                verified = [
+                    x.strip().lower() for x in json.loads(row.get("verified_domains") or "[]")
+                ]
+                if norm in verified:
+                    return bool(row["id"] == connection_id)  # ours → True (idempotent); else False
+            # Unowned — append to THIS connection's fresh list (re-read inside the txn).
+            cur.execute("SELECT verified_domains FROM connections WHERE id = %s", (connection_id,))
+            row = cur.fetchone()
+            if row is None:
+                return False  # no such connection
+            current = {x.strip().lower() for x in json.loads(row.get("verified_domains") or "[]")}
+            cur.execute(
+                "UPDATE connections SET verified_domains = %s, updated_at = %s WHERE id = %s",
+                (
+                    json.dumps(sorted(current | {norm})),
+                    datetime.now(UTC).isoformat(),
+                    connection_id,
+                ),
+            )
+            return True
+
+    def delete_connection(self, connection_id: str) -> bool:
+        return bool(
+            self._execute_modify("DELETE FROM connections WHERE id = %s", (connection_id,)) > 0
+        )
+
+    def get_or_create_default_organization(self, *, name: str = "Default") -> OrganizationRecord:
+        """Return the single default org, creating it race-safely if absent.
+
+        Concurrent first-signups converge on one row: the INSERT is a no-op on
+        slug conflict, then we SELECT the winner. The fixed ``DEFAULT_ORG_SLUG``
+        + its UNIQUE constraint is the idempotency key.
+        """
+        now = datetime.now(UTC).isoformat()
+        self._execute(
+            """
+            INSERT INTO organizations
+                (id, slug, name, status, is_test, created_at, updated_at)
+            VALUES (%s, %s, %s, 'active', false, %s, %s)
+            ON CONFLICT (slug) DO NOTHING
+            """,
+            (secrets.token_urlsafe(24), self.DEFAULT_ORG_SLUG, name, now, now),
+        )
+        existing = self.get_organization_by_slug(self.DEFAULT_ORG_SLUG)
+        if existing is None:
+            # The INSERT either created the row or was a no-op against an existing
+            # one — a missing row here means a real failure (committed-INSERT not
+            # visible / DDL drift), not a benign race. Raise loudly rather than
+            # assert (asserts are stripped under -O and would 'return None' into
+            # the login path) — anti-silent-failure.
+            raise LookupError(
+                f"default organization (slug={self.DEFAULT_ORG_SLUG!r}) absent after "
+                "get-or-create INSERT"
+            )
+        return existing
+
+    def ensure_single_org_membership(
+        self, user: UserRecord, *, name: str = "Default", appspec: Any = None
+    ) -> MembershipRecord:
+        """Ensure ``user`` has a membership in the single default org (Plan 1c/1d).
+
+        Race-safe: get-or-create the default org, then return the user's existing
+        membership in it (the 1a ``(tenant_id, identity_id)`` unique makes the
+        create idempotent — on a lost race we re-read). The membership's roles
+        mirror the user's signup roles (``user.roles``) so ``effective_roles``
+        equals what the user had before the membership model.
+
+        Plan 1d: when ``appspec`` is given and declares an ``is_tenant_root``
+        entity, the org is provisioned with a matching tenant-root row at the
+        SAME id (the 1:1 mirror) so the membership fences the canonical RLS
+        domain rows. Otherwise the framework org IS the tenant (1c behaviour).
+        """
+        if appspec is not None and _appspec_has_tenant_root(appspec):
+            from dazzle.db.provision import provision_single_org
+
+            with self._get_connection() as conn:  # concrete AuthStore provides it
+                org_id = provision_single_org(appspec, name, conn=conn)
+            org = self.get_organization(org_id)
+            if org is None:
+                raise LookupError(f"provisioned org {org_id!r} not found after mirror")
+        else:
+            org = self.get_or_create_default_organization(name=name)
+
+        def _existing() -> MembershipRecord | None:
+            for m in self.get_memberships_for_identity(str(user.id)):
+                if m.tenant_id == org.id:
+                    return m
+            return None
+
+        found = _existing()
+        if found is not None:
+            return found
+        try:
+            return self.create_membership(
+                tenant_id=org.id,
+                identity_id=str(user.id),
+                roles=list(user.roles or []),
+            )
+        except psycopg.errors.UniqueViolation:
+            # ONLY the concurrent-create race: another request inserted the same
+            # (tenant_id, identity_id) first. Re-read the winner. Any OTHER error
+            # (orphan-user ValueError from create_membership, DB outage, malformed
+            # id) must propagate — swallowing it would mask a real failure as a
+            # benign "no orgs" outcome (anti-silent-failure).
+            again = _existing()
+            if again is None:
+                raise LookupError(
+                    "membership create hit a unique-violation but no existing row "
+                    f"found for identity={user.id!r} org={org.id!r}"
+                ) from None
+            return again
 
 
 class AuthStore(UserStoreMixin, SessionStoreMixin, TwoFactorMixin):
@@ -864,6 +1613,51 @@ class AuthStore(UserStoreMixin, SessionStoreMixin, TwoFactorMixin):
                     "Schema migration for sessions.active_membership_id raised — continuing",
                     exc_info=True,
                 )
+            # auth Plan 1c: organizations (framework tenant root). Mirrors alembic
+            # 0008_organizations. organizations.id is the dazzle.tenant_id a
+            # membership carries; single-org apps use the fixed slug "default".
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS organizations (
+                    id TEXT PRIMARY KEY,
+                    slug TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'active',
+                    is_test BOOLEAN NOT NULL DEFAULT false,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    CONSTRAINT uq_organizations_slug UNIQUE (slug)
+                )
+            """)
+            # auth Plan 2a: append-only, hash-chained membership lifecycle events
+            # (compliance evidence). Mirrors alembic 0009_membership_events.
+            from dazzle.back.runtime.auth.membership_events import (
+                MEMBERSHIP_EVENTS_DDL,
+                MEMBERSHIP_EVENTS_INDEXES,
+            )
+
+            cursor.execute(MEMBERSHIP_EVENTS_DDL)
+            for _ix in MEMBERSHIP_EVENTS_INDEXES:
+                cursor.execute(_ix)
+            # auth Plan 3a: org invitation tokens (email-addressed, accept-time
+            # membership creation). Mirrors alembic 0010_invitations.
+            from dazzle.back.runtime.auth.invitations import (
+                INVITATIONS_DDL,
+                INVITATIONS_INDEXES,
+            )
+
+            cursor.execute(INVITATIONS_DDL)
+            for _ix in INVITATIONS_INDEXES:
+                cursor.execute(_ix)
+            # auth Plan 4a: per-org enterprise connections (OIDC/SAML/SCIM config;
+            # secrets encrypted at rest). Mirrors alembic 0011_connections.
+            from dazzle.back.runtime.auth.connections import (
+                CONNECTIONS_DDL,
+                CONNECTIONS_INDEXES,
+            )
+
+            cursor.execute(CONNECTIONS_DDL)
+            for _ix in CONNECTIONS_INDEXES:
+                cursor.execute(_ix)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS password_reset_tokens (
                     token TEXT PRIMARY KEY,
@@ -940,6 +1734,24 @@ class AuthStore(UserStoreMixin, SessionStoreMixin, TwoFactorMixin):
             rowcount: int = cursor.rowcount
             conn.commit()
             return rowcount
+        finally:
+            conn.close()
+
+    @contextmanager
+    def _transaction(self) -> Any:
+        """Yield a cursor in a single transaction; commit on success, rollback on error.
+
+        Used for mutations that must be atomic with their ``membership_events``
+        row (auth Plan 2a) — the mutation and the event INSERT share one commit.
+        """
+        conn = self._get_connection()
+        try:
+            cur = conn.cursor()
+            yield cur
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
         finally:
             conn.close()
 

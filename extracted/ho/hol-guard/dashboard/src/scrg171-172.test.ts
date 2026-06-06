@@ -1,4 +1,5 @@
-import { resolveView } from "./app";
+import { resolveView, viewTitle } from "./app";
+import { hubTitleForTab } from "./supply-chain-hub-workspace";
 import {
   buildDemoRuntimeSnapshot,
   loadStatusPage,
@@ -16,7 +17,7 @@ import {
 } from "./guard-api";
 import { buildSupplyChainStats } from "./supply-chain-workspace";
 import { deriveFrontendAuditResults } from "./audit-workspace";
-import { groupPoliciesByHarness, resolveSecurityModeCopy } from "./policy-workspace";
+import { groupPoliciesByHarness, resolveCloudPolicyBundleCopy, resolveSecurityModeCopy } from "./policy-workspace";
 import { resolveFeedSourceMode, resolveFeedStaleness } from "./feed-health-workspace";
 import type {
   GuardRuntimeSnapshot,
@@ -40,11 +41,14 @@ const makeProtection = (
   unprotected_managers,
   path_status: "in_path",
   path_contains_shim_dir: true,
+  restart_shell_required: false,
+  shell_profile_configured: true,
+  shell_profile_path: "/mock-home/.zshrc",
   shim_dir: "/usr/local/hol-guard/shims",
   supported_managers: [...protected_managers, ...unprotected_managers],
-  installed_managers: [...protected_managers, ...unprotected_managers],
+  installed_managers: protected_managers,
   active_managers: protected_managers,
-  missing_shims: unprotected_managers,
+  missing_shims: [],
 });
 
 const freeSnapshot: GuardRuntimeSnapshot = {
@@ -154,6 +158,12 @@ const degradedSnapshot: GuardRuntimeSnapshot = {
   },
 };
 
+const pairedPolicySnapshot: GuardRuntimeSnapshot = {
+  ...paidSnapshot,
+  cloud_policy_bundle_version: "policy-2026-06-05.1",
+  cloud_policy_rollout_state: "enforcing",
+};
+
 const makeInstall = (active: boolean): GuardManagedInstall => ({
   harness: "claude",
   active,
@@ -230,6 +240,22 @@ assert(
 );
 
 assert(
+  viewTitle("supply-chain") === "Supply Chain" &&
+    viewTitle("audit") === "Audit" &&
+    viewTitle("policy") === "Policy" &&
+    viewTitle("feed-health") === "Feed Health",
+  "SCRG171-H2: route titles stay specific inside Trust Center views",
+);
+
+assert(
+  hubTitleForTab("supply-chain") === "Supply Chain" &&
+    hubTitleForTab("audit") === "Audit" &&
+    hubTitleForTab("policy") === "Policy" &&
+    hubTitleForTab("feed-health") === "Feed Health",
+  "SCRG171-H3: hub header mirrors active Trust Center tab",
+);
+
+assert(
   typeof loadStatusPage === "function",
   "SCRG171-I: loadStatusPage is exported as a function",
 );
@@ -238,6 +264,11 @@ assert(
   typeof loadSupplyChainPage === "function",
   "SCRG171-J: loadSupplyChainPage is exported as a function",
 );
+
+const cloudBundleCopy = resolveCloudPolicyBundleCopy(pairedPolicySnapshot);
+assert(cloudBundleCopy !== null, "SCRG171-K: paired cloud bundle should expose policy workspace copy");
+assert(cloudBundleCopy!.label.includes("policy-2026-06-05.1"), "SCRG171-L: cloud bundle label includes version");
+assert(cloudBundleCopy!.detail.includes("Guard Cloud Controls"), "SCRG171-M: cloud bundle detail preserves cloud ownership");
 
 assert(
   typeof loadAuditPage === "function",

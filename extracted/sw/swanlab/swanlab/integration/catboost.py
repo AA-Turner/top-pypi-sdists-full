@@ -1,48 +1,46 @@
-try:
-    import catboost
-except ImportError:
-    raise RuntimeError(
-        "This module requires `catboost` to be installed. "
-        "Please install it with command: pip install catboost"
-    )
+from __future__ import annotations
 
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import TYPE_CHECKING
+
 import swanlab
+from swanlab import Callback
+
+if TYPE_CHECKING:
+    from typing import Any, Dict, List, NamedTuple, Optional
+
+    class IterationInfo(NamedTuple):
+        iteration: int
+        metrics: Dict[str, Dict[str, List[float]]]
 
 
-class IterationInfo(NamedTuple):
-    iteration: int
-    metrics: Dict[str, Dict[str, List[float]]]
-
-
-class SwanLabCallback:
+class SwanLabCallback(Callback):
     def __init__(self, params: Optional[Dict[str, Any]] = None):
-        """
-        Initializes the SwanLabCallback for CatBoost.
+        self._params = params
+        self._initialized = False
 
-        :params: Optional dictionary of parameters to log.
-        """
-        if swanlab.get_run() is None:
-            raise RuntimeError(
-                "You must call swanlab.init() before using SwanLabCallback."
-            )
-        swanlab.config["FRAMEWORK"] = "catboost"  # type: ignore
-        if params and isinstance(params, dict):
-            swanlab.config.update(params)
+    @property
+    def name(self) -> str:
+        return "swanlab-integration-catboost"
 
-    def update_config(self, config: Dict[str, Any]):
-        swanlab.config.update(config)
+    def _init(self) -> None:
+        if self._initialized:
+            return
+        run = swanlab.get_run()
+        if run is None:
+            return
+        self._initialized = True
+        run.config["FRAMEWORK"] = "catboost"
+        if self._params and isinstance(self._params, dict):
+            run.config.update(self._params)
 
     def after_iteration(self, info: IterationInfo) -> bool:
-        """
-        Called after each iteration. Logs metrics and handles first-time setup.
-        :return: True/False to continue training.
-        """
-        # Log metrics with data_name_metric_name format based on CatBoost JSON structure
-        if info.metrics:
-            for stage_name, metrics in info.metrics.items():
-                for metric_name, values in metrics.items():
-                    if values:
-                        swanlab.log({f"{stage_name}_{metric_name}": values[-1]})
+        self._init()
+        if not info.metrics:
+            return True
+
+        for stage_name, metrics in info.metrics.items():
+            for metric_name, values in metrics.items():
+                if values:
+                    swanlab.log({f"{stage_name}_{metric_name}": values[-1]}, step=info.iteration)
 
         return True

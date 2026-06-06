@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any, cast
 
 import pytest
@@ -39,7 +41,9 @@ def test_setup_sync_fetches_auto_synced_servers_and_plugins(
     fake_api = _FakeApiClient()
     installed: list[tuple[setup.InstallClient, list[setup.InstallServerSpec]]] = []
 
-    monkeypatch.setattr(setup, "set_credentials_in_context", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        setup, "set_credentials_in_context", lambda *args, **kwargs: None
+    )
     monkeypatch.setattr(
         setup,
         "resolve_credentials",
@@ -80,7 +84,9 @@ def test_setup_sync_skips_auto_synced_plugins_for_local_only_clients(
     fake_api = _FakeApiClient()
     installed: list[tuple[setup.InstallClient, list[setup.InstallServerSpec]]] = []
 
-    monkeypatch.setattr(setup, "set_credentials_in_context", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        setup, "set_credentials_in_context", lambda *args, **kwargs: None
+    )
     monkeypatch.setattr(
         setup,
         "resolve_credentials",
@@ -103,3 +109,77 @@ def test_setup_sync_skips_auto_synced_plugins_for_local_only_clients(
     )
 
     assert installed == []
+
+
+def test_setup_sync_auto_detects_opencode_from_config_dir(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_api = _FakeApiClient()
+    installed: list[tuple[setup.InstallClient, list[setup.InstallServerSpec]]] = []
+    opencode_dir = tmp_path / ".config" / "opencode"
+    opencode_dir.mkdir(parents=True)
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(
+        setup, "set_credentials_in_context", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        setup,
+        "resolve_credentials",
+        lambda *args, **kwargs: {"secret": "secret", "host": "https://example.com"},
+    )
+    monkeypatch.setattr(setup, "RunlayerClient", lambda *args, **kwargs: fake_api)
+    monkeypatch.setattr(
+        setup,
+        "_install_servers_to_client",
+        lambda client, specs: installed.append((client, specs)),
+    )
+
+    setup.sync(
+        ctx=cast(Any, object()),
+        client=None,
+        header=None,
+        secret=None,
+        host=None,
+        yes=True,
+    )
+
+    assert len(installed) == 1
+    assert installed[0][0] == setup.InstallClient.OPENCODE
+
+
+def test_setup_sync_auto_detects_and_updates_existing_opencode_jsonc(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_api = _FakeApiClient()
+    opencode_dir = tmp_path / ".config" / "opencode"
+    json_path = opencode_dir / "opencode.json"
+    jsonc_path = opencode_dir / "opencode.jsonc"
+    opencode_dir.mkdir(parents=True)
+    jsonc_path.write_text('{"mcp": {}}\n')
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(
+        setup, "set_credentials_in_context", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        setup,
+        "resolve_credentials",
+        lambda *args, **kwargs: {"secret": "secret", "host": "https://example.com"},
+    )
+    monkeypatch.setattr(setup, "RunlayerClient", lambda *args, **kwargs: fake_api)
+
+    setup.sync(
+        ctx=cast(Any, object()),
+        client=None,
+        header=None,
+        secret=None,
+        host=None,
+        yes=True,
+    )
+
+    config = json.loads(jsonc_path.read_text())
+    assert not json_path.exists()
+    assert set(config["mcp"]) == {"auto-sync-server", "onelayer"}

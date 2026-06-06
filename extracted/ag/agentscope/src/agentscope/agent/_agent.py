@@ -83,7 +83,7 @@ from ..permission import (
     PermissionEngine,
     PermissionDecision,
 )
-from ..workspace import Offloader
+from ..workspace import Offloader, WorkspaceBase
 
 if TYPE_CHECKING:
     from ..middleware import MiddlewareBase
@@ -180,6 +180,9 @@ class Agent:
         self._system_prompt_middlewares = [
             _ for _ in middlewares if _.is_implemented("on_system_prompt")
         ]
+        self._compress_context_middlewares = [
+            _ for _ in middlewares if _.is_implemented("on_compress_context")
+        ]
 
     # =======================================================================
     # Agent public methods
@@ -254,6 +257,47 @@ class Agent:
         await self._handle_incoming_messages(msgs)
 
     async def compress_context(
+        self,
+        context_config: ContextConfig | None = None,
+    ) -> None:
+        """Compress the agent's context if the token count exceeds the
+        threshold.
+
+        Args:
+            context_config (`ContextConfig | None`, optional):
+                If provided, compress the context with the given context
+                config. Otherwise, use the default context config in the
+                agent.
+        """
+        if not self._compress_context_middlewares:
+            await self._compress_context_impl(context_config=context_config)
+        else:
+
+            async def execute_chain(
+                index: int = 0,
+                context_config: ContextConfig | None = context_config,
+            ) -> None:
+                """Execute the compress_context middleware chain."""
+                if index >= len(self._compress_context_middlewares):
+                    await self._compress_context_impl(
+                        context_config=context_config,
+                    )
+                else:
+                    mw = self._compress_context_middlewares[index]
+                    input_kwargs = {"context_config": context_config}
+
+                    async def next_handler(**kwargs: Any) -> None:
+                        await execute_chain(index + 1, **kwargs)
+
+                    await mw.on_compress_context(
+                        agent=self,
+                        input_kwargs=input_kwargs,
+                        next_handler=next_handler,
+                    )
+
+            await execute_chain()
+
+    async def _compress_context_impl(
         self,
         context_config: ContextConfig | None = None,
     ) -> None:
@@ -435,6 +479,8 @@ class Agent:
                 f"\n<system-reminder>The compressed context is offloaded to "
                 f"'{path}', you can refer to it when needed.</system-reminder>"
             )
+
+        await self._clear_unreserved_read_cache(msgs_to_reserve)
 
         # Update the context
         self.state.context = msgs_to_reserve
@@ -629,6 +675,20 @@ class Agent:
         yield ExceedMaxItersEvent(
             reply_id=self.state.reply_id,
             name=self.name,
+        )
+        logger.warning(
+            "Agent %s exceeds the max iteration numbers %d. "
+            "Stop the react loop.",
+            self.name,
+            self.react_config.max_iters,
+        )
+
+        # Mirror the normal-exit path so subscribers (e.g. SSE clients
+        # waiting on a terminal event) don't hang when the loop bails
+        # out on max_iters.
+        yield ReplyEndEvent(
+            session_id=self.state.session_id,
+            reply_id=self.state.reply_id,
         )
 
         yield AssistantMsg(
@@ -1730,6 +1790,32 @@ class Agent:
 
         return msgs_to_compress, msgs_to_reserve
 
+    async def _clear_unreserved_read_cache(
+        self,
+        msgs_to_reserve: list[Msg],
+    ) -> None:
+        """Clean Read caches not referenced by reserved Read tool calls."""
+        reserved_paths: set[str] = set()
+        for msg in msgs_to_reserve:
+            for block in msg.get_content_blocks("tool_call"):
+                if not (
+                    isinstance(block, ToolCallBlock) and block.name == "Read"
+                ):
+                    continue
+
+                try:
+                    tool_input = _json_loads_with_repair(block.input)
+                except Exception:  # pylint: disable=broad-exception-caught
+                    continue
+
+                file_path = tool_input.get("file_path")
+                if isinstance(file_path, str):
+                    reserved_paths.add(file_path)
+
+        await self.state.tool_context.clean_file_cache(
+            reserved_file_paths=reserved_paths,
+        )
+
     async def _split_tool_result_for_compression(
         self,
         tool_result: ToolResultBlock,
@@ -1886,9 +1972,17 @@ class Agent:
         prompt = [self._system_prompt]
 
         # Skill related instructions
-        skill_instructions = await self.toolkit.get_skill_instructions()
+        skill_instructions = await self.toolkit.get_skill_instructions(
+            self.state.tool_context.activated_groups,
+        )
         if skill_instructions:
             prompt.append(skill_instructions)
+
+        # Workspace & offloader instructions
+        if isinstance(self.offloader, WorkspaceBase):
+            offload_instructions = await self.offloader.get_instructions()
+            if offload_instructions:
+                prompt.append(offload_instructions)
 
         result = "\n".join(prompt)
 
@@ -1958,8 +2052,17 @@ class Agent:
             models.append(self.model_config.fallback_model)
 
         last_exception = None
-        for model in models:
-            for _ in range(self.model_config.max_retries):
+        # ``max_retries`` is the number of retries on top of the initial
+        # call (mirrors ``ChatModelBase.max_retries``), so total attempts
+        # per model is ``max_retries + 1``.
+        for index, model in enumerate(models):
+            if index > 0:
+                logger.info(
+                    "Fallback to model '%s'",
+                    model.model,
+                )
+
+            for attempt in range(self.model_config.max_retries + 1):
                 try:
                     # Apply middleware to wrap the actual model() call
                     if not self._model_call_middlewares:
@@ -2013,15 +2116,28 @@ class Agent:
 
                         return await execute_chain()
                 except Exception as e:
-                    logger.warning(
-                        "Model %s call failed for agent %s. "
-                        "Retrying (%d/%d)...",
-                        model.model,
-                        self.name,
-                        _ + 1,
-                        self.model_config.max_retries,
-                    )
                     last_exception = e
+                    # Only log a "Retrying" message when there's actually a
+                    # next attempt left for this model. When ``max_retries=0``
+                    # or the last retry has been used, the outer loop either
+                    # falls over to the fallback or raises.
+                    if attempt < self.model_config.max_retries:
+                        logger.warning(
+                            "Model %s call failed for agent %s. "
+                            "Retrying (%d/%d)...",
+                            model.model,
+                            self.name,
+                            attempt + 1,
+                            self.model_config.max_retries,
+                        )
+                    else:
+                        logger.warning(
+                            "Model %s exhausted all %d attempt(s) "
+                            "for agent %s.",
+                            model.model,
+                            self.model_config.max_retries + 1,
+                            self.name,
+                        )
 
         if last_exception:
             raise last_exception from None

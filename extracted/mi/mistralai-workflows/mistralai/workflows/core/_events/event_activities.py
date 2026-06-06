@@ -211,8 +211,18 @@ async def _emit_task_started(task_id: str, task_type: str, state: Any) -> None:
 
 
 @activity(name=f"{INTERNAL_ACTIVITY_PREFIX}emit_task_in_progress", _allow_reserved_name=True)
-async def _emit_task_in_progress(task_id: str, task_type: str, patches: Any) -> None:
+async def _emit_task_in_progress(
+    task_id: str, task_type: str, patches: list[dict[str, Any]], encrypted_paths: list[str]
+) -> None:
+    from mistralai.workflows.core._events.json_patch import patches_to_json_patch
     from mistralai.workflows.protocol.v1.events import JSONPatchPayload
+
+    # Convert patch dicts to JSONPatch models
+    json_patches = patches_to_json_patch(patches)
+
+    # Create payload and set encrypted_paths for the encoder
+    payload = JSONPatchPayload(value=json_patches)
+    payload._encrypted_paths = set(encrypted_paths)
 
     context = EventContext.get_singleton()
     if context:
@@ -223,7 +233,7 @@ async def _emit_task_in_progress(task_id: str, task_type: str, patches: Any) -> 
                     attributes=CustomTaskInProgressAttributes(
                         custom_task_id=task_id,
                         custom_task_type=task_type,
-                        payload=JSONPatchPayload(value=patches),
+                        payload=payload,
                     ),
                 )
             )

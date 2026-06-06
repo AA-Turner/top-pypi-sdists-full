@@ -2,7 +2,7 @@
 #
 #    BitcoinLib - Python Cryptocurrency Library
 #    Unit Tests for Wallet Class
-#    © 2016 - 2026 February - 1200 Web Development <http://1200wd.com/>
+#    © 2016 - 2026 June - 1200 Web Development <http://1200wd.com/>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU Affero General Public License as
@@ -2896,13 +2896,16 @@ class TestWalletReadonlyAddress(unittest.TestCase):
         addr = Address.parse('12yuSkjKmHzXCFn39PK1XP3XyeoVw9LJdN')
         w.import_key(addr)
         self.assertEqual(len(w.accounts()), 1)
-        w.utxos_update()
+        w.utxo_add('13A1W4jLPP75pzvn2qJ5KyyqG3qPSpb9jM', 5000000000,
+                   '2d05f0c9c3e1c226e63b5fac240137687544cf631cd616fd34fd188fc9020866', 0, 952263)
+        w.utxo_add('13A1W4jLPP75pzvn2qJ5KyyqG3qPSpb9jM', 4532991,
+                   '98120f3d9834dc61839339123001717218428397ea8ab48412e53aa2bb8fbd64', 0, 484666)
         self.assertListEqual(w.addresslist(),
                              ['13A1W4jLPP75pzvn2qJ5KyyqG3qPSpb9jM', '12yuSkjKmHzXCFn39PK1XP3XyeoVw9LJdN'])
-        self.assertGreaterEqual(w.balance(), 4532991)
+        self.assertEqual(w.balance(), 5004532991)
         self.assertRaisesRegex(WalletError, "No unspent", w.send_to, '1ApcyGtcX4DUmfGqPBPY1bvKEh2irLqnhp', 50000)
         self.assertEqual(w.utxo_last('13A1W4jLPP75pzvn2qJ5KyyqG3qPSpb9jM'),
-                         '1b590ccbdeb5659772c69e8aee4bc7eeafec7573ddb1254b97a512f56162fd9c')
+                         '98120f3d9834dc61839339123001717218428397ea8ab48412e53aa2bb8fbd64')
 
     def test_wallet_address_import_public_key(self):
         wif = 'xpub661MyMwAqRbcFCwFkcko75u2VEinbG1u5U4nq8AFJq4AbLPEvwcmhZGgGcnDcEBpcfAFEP8vVhbJJvX1ieGWdoaa5AnHfyB' \

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prime
-Version: 0.6.12
+Version: 0.6.13
 Summary: Prime Intellect CLI + SDK
 Project-URL: Homepage, https://github.com/PrimeIntellect-ai/prime
 Project-URL: Documentation, https://github.com/PrimeIntellect-ai/prime#readme
@@ -28,8 +28,8 @@ Requires-Dist: cryptography>=41.0.0
 Requires-Dist: gitignore-parser>=0.1.13
 Requires-Dist: httpx>=0.25.0
 Requires-Dist: prime-evals>=0.2.3
-Requires-Dist: prime-sandboxes>=0.2.26
-Requires-Dist: prime-tunnel>=0.1.0
+Requires-Dist: prime-sandboxes>=0.2.27
+Requires-Dist: prime-tunnel>=0.1.8
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: pyyaml>=6.0.0
 Requires-Dist: rich>=13.3.1

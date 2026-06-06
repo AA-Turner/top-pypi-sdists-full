@@ -42,7 +42,7 @@ dependencies = [
   "ruamel.yaml",
   "scmrepo>=3,<4",
   "psutil",
-  "pynvml"
+  "nvidia-ml-py"
 ]
 
 [project.optional-dependencies]
@@ -53,7 +53,7 @@ markdown = ["matplotlib"]
 tests = [
   "pytest>=7.2.0,<9.0",
   "pytest-sugar>=0.9.6,<2.0",
-  "pytest-cov>=3.0.0,<7.0",
+  "pytest-cov>=3.0.0,<8.0",
   "pytest-mock>=3.8.2,<4.0",
   "dvclive[image,plots,markdown]",
   "ipython",
@@ -75,7 +75,7 @@ all = [
 ]
 dev = [
   "dvclive[image,tf,xgb,lgbm,huggingface,fastai,lightning,optuna,plots,markdown,tests]",
-  "mypy==1.17.1",
+  "mypy==1.18.2",
   "types-PyYAML"
 ]
 
@@ -139,12 +139,62 @@ files = ["src", "tests"]
 ignore-words-list = "fpr"
 
 [tool.ruff.lint]
-ignore = ["N818", "UP006", "UP007", "UP035", "UP038", "B905", "PGH003", "SIM103", "PLC0415"]
-select = ["F", "E", "W", "C90", "N", "UP", "YTT", "S", "BLE", "B", "A", "C4", "T10", "EXE", "ISC", "INP", "PIE", "T20", "PT", "Q", "RSE", "RET", "SLF", "SIM", "TID", "TCH", "INT", "ARG", "PGH", "PL", "TRY", "NPY", "RUF"]
+ignore = ["PLC0415", "G004"]
+select = [
+  "F",
+  "E",
+  "W",
+  "C90",
+  "I",
+  "N",
+  "UP",
+  "YTT",
+  "ASYNC",
+  "S",
+  "BLE",
+  "B",
+  "A",
+  "C4",
+  "DTZ",
+  "T10",
+  "EXE",
+  "ISC",
+  "ICN",
+  "LOG",
+  "G",
+  "INP",
+  "PIE",
+  "T20",
+  "PYI",
+  "PT",
+  "Q",
+  "RSE",
+  "RET",
+  "SLF",
+  "SLOT",
+  "SIM",
+  "TID",
+  "TC",
+  "TCH",
+  "INT",
+  "ARG",
+  "PGH",
+  "PLC",
+  "PLE",
+  "PLR",
+  "PLW",
+  "TRY",
+  "NPY",
+  "FLY",
+  "PERF",
+  "FURB",
+  "RUF"
+]
 
 [tool.ruff.lint.per-file-ignores]
 "noxfile.py" = ["D", "PTH"]
 "tests/*" = ["S101", "INP001", "SLF001", "ARG001", "ARG002", "ARG005", "PLR2004", "NPY002"]
+"examples/*.ipynb" = ["PERF401"]
 
 [tool.ruff.lint.pylint]
 max-args = 10

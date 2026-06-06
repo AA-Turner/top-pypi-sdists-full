@@ -52,6 +52,8 @@ _BACKEND_LABELS = {
     "bedrock": "AWS Bedrock (in-boundary; needs AWS creds + a region)",
     "claude_code": "Claude Code subscription (local `claude` CLI; no per-call billing)",
     "openai": "OpenAI API (needs OPENAI_API_KEY; gpt-5.4-mini recommended)",
+    "bedrock_openai": "OpenAI on AWS Bedrock (gpt-5.5 via Mantle; needs a region "
+    "+ AWS_BEARER_TOKEN_BEDROCK; commercial only at launch)",
 }
 
 _DEFAULT_GOVCLOUD_REGION = "us-gov-west-1"

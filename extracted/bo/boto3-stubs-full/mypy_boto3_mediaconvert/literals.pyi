@@ -274,7 +274,6 @@ __all__ = (
     "HlsAudioTrackTypeType",
     "HlsCaptionLanguageSettingType",
     "HlsCaptionSegmentLengthControlType",
-    "HlsClearLeadType",
     "HlsClientCacheType",
     "HlsCodecSpecificationType",
     "HlsDescriptiveVideoServiceFlagType",
@@ -699,7 +698,9 @@ ChromaPositionModeType = Literal["AUTO", "FORCE_CENTER", "FORCE_TOP_LEFT"]
 CmafClientCacheType = Literal["DISABLED", "ENABLED"]
 CmafCodecSpecificationType = Literal["RFC_4281", "RFC_6381"]
 CmafEncryptionTypeType = Literal["AES_CTR", "SAMPLE_AES"]
-CmafImageBasedTrickPlayType = Literal["ADVANCED", "NONE", "THUMBNAIL", "THUMBNAIL_AND_FULLFRAME"]
+CmafImageBasedTrickPlayType = Literal[
+    "ADVANCED", "NONE", "THUMBNAIL", "THUMBNAIL_AND_FULLFRAME", "VARIANTS"
+]
 CmafInitializationVectorInManifestType = Literal["EXCLUDE", "INCLUDE"]
 CmafIntervalCadenceType = Literal["FOLLOW_CUSTOM", "FOLLOW_IFRAME", "FOLLOW_SEGMENTATION"]
 CmafKeyProviderTypeType = Literal["SPEKE", "STATIC_KEY"]
@@ -744,6 +745,7 @@ CodecType = Literal[
     "HEVC",
     "JPEG2000",
     "MJPEG",
+    "MP2",
     "MP3",
     "MP4V",
     "MPEG1",
@@ -816,7 +818,9 @@ DashIsoGroupAudioChannelConfigSchemeIdUriType = Literal[
     "DOLBY_CHANNEL_CONFIGURATION", "MPEG_CHANNEL_CONFIGURATION"
 ]
 DashIsoHbbtvComplianceType = Literal["HBBTV_1_5", "NONE"]
-DashIsoImageBasedTrickPlayType = Literal["ADVANCED", "NONE", "THUMBNAIL", "THUMBNAIL_AND_FULLFRAME"]
+DashIsoImageBasedTrickPlayType = Literal[
+    "ADVANCED", "NONE", "THUMBNAIL", "THUMBNAIL_AND_FULLFRAME", "VARIANTS"
+]
 DashIsoIntervalCadenceType = Literal["FOLLOW_CUSTOM", "FOLLOW_IFRAME", "FOLLOW_SEGMENTATION"]
 DashIsoMpdManifestBandwidthTypeType = Literal["AVERAGE", "MAX"]
 DashIsoMpdProfileType = Literal["MAIN_PROFILE", "ON_DEMAND_PROFILE"]
@@ -911,7 +915,9 @@ F4vMoovPlacementType = Literal["NORMAL", "PROGRESSIVE_DOWNLOAD"]
 FileSourceConvert608To708Type = Literal["DISABLED", "UPCONVERT"]
 FileSourceTimeDeltaUnitsType = Literal["MILLISECONDS", "SECONDS"]
 FontScriptType = Literal["AUTOMATIC", "HANS", "HANT"]
-FormatType = Literal["avi", "matroska", "mp4", "mpegts", "mxf", "quicktime", "wave", "webm"]
+FormatType = Literal[
+    "avi", "matroska", "mp4", "mpegps", "mpegts", "mxf", "quicktime", "wave", "webm"
+]
 FrameControlType = Literal["NEAREST_IDRFRAME", "NEAREST_IFRAME"]
 FrameMetricTypeType = Literal["MS_SSIM", "PSNR", "PSNR_HVS", "QVBR", "SHOT_CHANGE", "SSIM", "VMAF"]
 GifFramerateControlType = Literal["INITIALIZE_FROM_SOURCE", "SPECIFIED"]
@@ -1038,14 +1044,15 @@ HlsAudioTrackTypeType = Literal[
 ]
 HlsCaptionLanguageSettingType = Literal["INSERT", "NONE", "OMIT"]
 HlsCaptionSegmentLengthControlType = Literal["LARGE_SEGMENTS", "MATCH_VIDEO"]
-HlsClearLeadType = Literal["DISABLED", "ENABLED"]
 HlsClientCacheType = Literal["DISABLED", "ENABLED"]
 HlsCodecSpecificationType = Literal["RFC_4281", "RFC_6381"]
 HlsDescriptiveVideoServiceFlagType = Literal["DONT_FLAG", "FLAG"]
 HlsDirectoryStructureType = Literal["SINGLE_DIRECTORY", "SUBDIRECTORY_PER_STREAM"]
 HlsEncryptionTypeType = Literal["AES128", "SAMPLE_AES"]
 HlsIFrameOnlyManifestType = Literal["EXCLUDE", "INCLUDE", "INCLUDE_AS_TS"]
-HlsImageBasedTrickPlayType = Literal["ADVANCED", "NONE", "THUMBNAIL", "THUMBNAIL_AND_FULLFRAME"]
+HlsImageBasedTrickPlayType = Literal[
+    "ADVANCED", "NONE", "THUMBNAIL", "THUMBNAIL_AND_FULLFRAME", "VARIANTS"
+]
 HlsInitializationVectorInManifestType = Literal["EXCLUDE", "INCLUDE"]
 HlsIntervalCadenceType = Literal["FOLLOW_CUSTOM", "FOLLOW_IFRAME", "FOLLOW_SEGMENTATION"]
 HlsKeyProviderTypeType = Literal["SPEKE", "STATIC_KEY"]

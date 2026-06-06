@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qbittorrent-api
-Version: 2026.5.3
+Version: 2026.6.0
 Summary: Python client for qBittorrent v4.1+ Web API.
 Author: Russell Martin
 Maintainer: Russell Martin
@@ -30,22 +30,6 @@ License-File: LICENSE
 Requires-Dist: packaging
 Requires-Dist: requests>=2.16.0
 Requires-Dist: urllib3>=1.24.2
-Provides-Extra: dev
-Requires-Dist: build==1.5.0; extra == "dev"
-Requires-Dist: coverage[toml]==7.14.1; extra == "dev"
-Requires-Dist: mypy==2.1.0; extra == "dev"
-Requires-Dist: pre-commit==4.6.0; extra == "dev"
-Requires-Dist: pytest==9.0.3; extra == "dev"
-Requires-Dist: tox==4.55.0; extra == "dev"
-Requires-Dist: twine==6.2.0; extra == "dev"
-Requires-Dist: types-requests==2.33.0.20260518; extra == "dev"
-Provides-Extra: docs
-Requires-Dist: furo==2025.12.19; extra == "docs"
-Requires-Dist: sphinx==8.2.1; extra == "docs"
-Requires-Dist: sphinx-autobuild==2024.10.3; extra == "docs"
-Requires-Dist: sphinx-copybutton==0.5.2; extra == "docs"
-Requires-Dist: sphinxcontrib-spelling==8.0.2; extra == "docs"
-Requires-Dist: sphinx-autodoc-typehints==3.1.0; extra == "docs"
 Dynamic: license-file
 
 <div align="center">
@@ -123,6 +107,9 @@ qbt_client.torrents.stop.all()
 
 Change Log
 ==========
+### v2026.6.0 (5 jun 2026)
+- Add support for ``app/processInfo``
+
 ### v2026.5.3 (30 may 2026)
 - Add support for API key authentication (#620)
 - Minimum Python is now 3.10 (#618)

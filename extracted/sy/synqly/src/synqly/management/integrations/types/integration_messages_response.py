@@ -10,7 +10,7 @@ from ...core.pydantic_utilities import IS_PYDANTIC_V2
 class IntegrationMessagesResponse(UncheckedBaseModel):
     problems: typing.Optional[typing.List[Problem]] = pydantic.Field(default=None)
     """
-    Warnings or issues that occurred during integration creation that did not prevent the request from returning, but may indicate a problem with the integration configuration.
+    Warnings or issues that occurred during integration creation or verification that did not prevent the request from returning, but may indicate a problem with the integration configuration.
     """
 
     if IS_PYDANTIC_V2:

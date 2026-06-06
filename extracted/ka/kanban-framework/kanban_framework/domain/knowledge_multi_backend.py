@@ -36,8 +36,11 @@ class MultiBackend:
                     seen[key] = r
 
         merged = sorted(seen.values(), key=lambda r: r.get("_rrf_score", 0), reverse=True)
+        max_rrf = merged[0]["_rrf_score"] if merged else 1.0
+        if max_rrf <= 0:
+            max_rrf = 1.0
         for r in merged:
-            r.pop("_rrf_score", None)
+            r["relevance"] = round(r.pop("_rrf_score") / max_rrf, 4)
         return merged[:limit]
 
     def search(self, keyword, limit=20, *, biz_context=None):

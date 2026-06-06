@@ -60,11 +60,11 @@ def _collect_scores(fs: Filesystem, tm: TaskManager, task_id: str) -> dict:
         mode = getattr(task, 'mode', None)
         mode_roles = [r["name"] for r in Scheduler.eval_roles(
             mode=mode, kanban_dir=fs.kanban_dir)]
-        all_roles = list(dict.fromkeys(mode_roles + [
-            "code_reviewer", "qa", "product_reviewer", "pm", "designer", "review"]))
-        for role in all_roles:
+        fallback_roles = ["code_reviewer", "qa", "product_reviewer", "pm", "designer", "review"]
+
+        # Collect from mode_roles first; only use fallback if mode_roles found nothing
+        for role in mode_roles:
             filename = f"{role}_report.json"
-            # Search multiple locations: iter reviews, iter root, task reviews
             for rf in (report_dir / "reviews" / filename,
                        report_dir / filename,
                        task_dir / "reviews" / filename):
@@ -77,6 +77,23 @@ def _collect_scores(fs: Filesystem, tm: TaskManager, task_id: str) -> dict:
                         "total": _extract_score(data),
                     })
                     break
+
+        if not any(s["iteration"] == it for s in scores):
+            # No mode-role reports found for this iteration, try fallback
+            for role in fallback_roles:
+                filename = f"{role}_report.json"
+                for rf in (report_dir / "reviews" / filename,
+                           report_dir / filename,
+                           task_dir / "reviews" / filename):
+                    searched_paths.append(str(rf))
+                    if fs.file_exists(rf):
+                        data = fs.read_json(rf)
+                        scores.append({
+                            "role": role,
+                            "iteration": it,
+                            "total": _extract_score(data),
+                        })
+                        break
 
     avg = round(sum(s["total"] for s in scores) / len(scores), 2) if scores else None
     result = {"task_id": task_id, "scores": scores, "average": avg}

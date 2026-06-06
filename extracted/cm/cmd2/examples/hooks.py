@@ -37,8 +37,6 @@ class CmdLineApp(cmd2.Cmd):
 
     """
 
-    # Setting this true makes it run a shell command if a cmd2/cmd command doesn't exist
-    # default_to_shell = True  # noqa: ERA001
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
@@ -61,14 +59,14 @@ class CmdLineApp(cmd2.Cmd):
         #  ^ - the beginning of the string
         # ([^\s\d]+) - one or more non-whitespace non-digit characters, set as capture group 1
         # (\d+) - one or more digit characters, set as capture group 2
-        command_pattern = re.compile(r'^([^\s\d]+)(\d+)')
+        command_pattern = re.compile(r"^([^\s\d]+)(\d+)")
         match = command_pattern.search(command)
         if match:
             command = match.group(1)
             first_arg = match.group(2)
             rest_args = data.statement.args
             post_command = data.statement.post_command
-            data.statement = self.statement_parser.parse(f'{command} {first_arg} {rest_args} {post_command}')
+            data.statement = self.statement_parser.parse(f"{command} {first_arg} {rest_args} {post_command}")
         return data
 
     def downcase_hook(self, data: cmd2.plugin.PostparsingData) -> cmd2.plugin.PostparsingData:
@@ -76,12 +74,12 @@ class CmdLineApp(cmd2.Cmd):
         command = data.statement.command.lower()
         args = data.statement.args
         post_command = data.statement.post_command
-        data.statement = self.statement_parser.parse(f'{command} {args} {post_command}')
+        data.statement = self.statement_parser.parse(f"{command} {args} {post_command}")
         return data
 
     def abbrev_hook(self, data: cmd2.plugin.PostparsingData) -> cmd2.plugin.PostparsingData:
         """Accept unique abbreviated commands."""
-        func = self.cmd_func(data.statement.command)
+        func = self.get_command_func(data.statement.command)
         if func is None:
             # check if the entered command might be an abbreviation
             possible_cmds = [cmd for cmd in self.get_all_commands() if cmd.startswith(data.statement.command)]
@@ -93,7 +91,7 @@ class CmdLineApp(cmd2.Cmd):
     def proof_hook(self, data: cmd2.plugin.PostcommandData) -> cmd2.plugin.PostcommandData:
         """Update the shell prompt with the new raw statement after postparsing hooks are finished."""
         if self.debug:
-            self.prompt = f'({data.statement.raw})'
+            self.prompt = f"({data.statement.raw})"
         return data
 
     @cmd2.with_argument_list
@@ -113,7 +111,7 @@ class CmdLineApp(cmd2.Cmd):
             self.poutput(str(x))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     c = CmdLineApp()

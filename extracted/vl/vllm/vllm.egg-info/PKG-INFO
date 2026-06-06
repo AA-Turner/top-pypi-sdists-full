@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vllm
-Version: 0.22.0
+Version: 0.22.1
 Summary: A high-throughput and memory-efficient inference and serving engine for LLMs
 Author: vLLM Team
 License-Expression: Apache-2.0
@@ -92,7 +92,7 @@ Requires-Dist: quack-kernels>=0.3.3
 Requires-Dist: tokenspeed-mla==0.1.2
 Requires-Dist: humming-kernels[cu13]==0.1.2
 Provides-Extra: zen
-Requires-Dist: zentorch-weekly==5.2.1.dev20260408; extra == "zen"
+Requires-Dist: zentorch==2.11.0.0; extra == "zen"
 Provides-Extra: bench
 Requires-Dist: pandas; extra == "bench"
 Requires-Dist: matplotlib; extra == "bench"

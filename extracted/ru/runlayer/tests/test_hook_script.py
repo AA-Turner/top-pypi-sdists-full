@@ -1762,6 +1762,64 @@ class TestStopEventTranscript:
             )
             assert not marker.exists()
 
+    def test_user_prompt_submit_restarts_when_completed_marker_overlaps_active(self):
+        with tempfile.TemporaryDirectory() as td:
+            hook = _setup_hook(td, client="claude_code", enforcement=False)
+            capture = Path(td) / "cap"
+            capture.mkdir()
+
+            transcript_path = Path(td) / "transcript.jsonl"
+            transcript_path.write_text("")
+            marker_dir = Path(td) / "tmp" / "runlayer-claude-transcript-stream"
+            marker_dir.mkdir(parents=True)
+            (marker_dir / "stream-s1.active").write_text(str(int(time.time())))
+            completed_marker = marker_dir / "stream-s1.completed"
+            completed_marker.write_text(str(int(time.time())))
+            hook_input = json.dumps(
+                {
+                    "hook_event_name": "UserPromptSubmit",
+                    "session_id": "stream-s1",
+                    "transcript_path": str(transcript_path),
+                }
+            )
+
+            result, _ = _run_hook(hook, hook_input, td, capture_dir=capture)
+            captured = _wait_for_captured_targets(capture, "event", "stream-transcript")
+
+            assert result.returncode == 0
+            assert captured["event"][0]["event_name"] == "UserPromptSubmit"
+            assert (
+                captured["stream-transcript"][0]["payload"]["session_id"] == "stream-s1"
+            )
+            assert not completed_marker.exists()
+
+    def test_user_prompt_submit_starts_codex_transcript_stream(self):
+        """Codex UserPromptSubmit starts the hidden transcript stream relay."""
+        with tempfile.TemporaryDirectory() as td:
+            hook = _setup_hook(td, client="codex", enforcement=False)
+            capture = Path(td) / "cap"
+            capture.mkdir()
+
+            transcript_path = Path(td) / "transcript.jsonl"
+            transcript_path.write_text("")
+            hook_input = json.dumps(
+                {
+                    "hook_event_name": "UserPromptSubmit",
+                    "session_id": "codex-stream-s1",
+                    "transcript_path": str(transcript_path),
+                }
+            )
+
+            result, _ = _run_hook(hook, hook_input, td, capture_dir=capture)
+            captured = _wait_for_captured_targets(capture, "event", "stream-transcript")
+
+            assert result.returncode == 0
+            assert captured["event"][0]["event_name"] == "UserPromptSubmit"
+            stream_request = captured["stream-transcript"][0]
+            assert stream_request["client"] == "codex"
+            assert stream_request["payload"]["session_id"] == "codex-stream-s1"
+            assert stream_request["payload"]["transcript_path"] == str(transcript_path)
+
     def test_stop_includes_transcript_content(self):
         """Stop event reads transcript file and includes content in forwarded payload."""
         with tempfile.TemporaryDirectory() as td:
@@ -1919,6 +1977,72 @@ class TestStopEventTranscript:
         """Stop does not re-send transcript when the live transcript streamer is active."""
         with tempfile.TemporaryDirectory() as td:
             hook = _setup_hook(td, client="claude_code", enforcement=False)
+            capture = Path(td) / "cap"
+            capture.mkdir()
+
+            transcript_path = Path(td) / "transcript.jsonl"
+            transcript_path.write_text('{"ready":true}\n')
+            marker_dir = Path(td) / "runlayer-claude-transcript-stream"
+            marker_dir.mkdir()
+            (marker_dir / "s1.active").write_text(str(int(time.time())))
+
+            hook_input = json.dumps(
+                {
+                    "hook_event_name": "Stop",
+                    "session_id": "s1",
+                    "transcript_path": str(transcript_path),
+                }
+            )
+
+            result, captured = _run_hook(
+                hook,
+                hook_input,
+                td,
+                capture_dir=capture,
+                extra_env={"TMPDIR": td},
+            )
+
+            assert result.returncode == 0
+            envelope = captured["event"][0]
+            assert envelope["event_name"] == "Stop"
+            assert "transcript" not in envelope
+
+    def test_stop_skips_transcript_backfill_when_stream_recently_completed(self):
+        with tempfile.TemporaryDirectory() as td:
+            hook = _setup_hook(td, client="claude_code", enforcement=False)
+            capture = Path(td) / "cap"
+            capture.mkdir()
+
+            transcript_path = Path(td) / "transcript.jsonl"
+            transcript_path.write_text('{"ready":true}\n')
+            marker_dir = Path(td) / "runlayer-claude-transcript-stream"
+            marker_dir.mkdir()
+            (marker_dir / "s1.completed").write_text(str(int(time.time())))
+
+            hook_input = json.dumps(
+                {
+                    "hook_event_name": "Stop",
+                    "session_id": "s1",
+                    "transcript_path": str(transcript_path),
+                }
+            )
+
+            result, captured = _run_hook(
+                hook,
+                hook_input,
+                td,
+                capture_dir=capture,
+                extra_env={"TMPDIR": td},
+            )
+
+            assert result.returncode == 0
+            envelope = captured["event"][0]
+            assert envelope["event_name"] == "Stop"
+            assert "transcript" not in envelope
+
+    def test_stop_skips_transcript_backfill_when_codex_stream_active(self):
+        with tempfile.TemporaryDirectory() as td:
+            hook = _setup_hook(td, client="codex", enforcement=False)
             capture = Path(td) / "cap"
             capture.mkdir()
 

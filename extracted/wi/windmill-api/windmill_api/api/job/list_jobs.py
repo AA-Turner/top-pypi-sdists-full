@@ -8,6 +8,7 @@ from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.list_jobs_response_200_item_type_0 import ListJobsResponse200ItemType0
 from ...models.list_jobs_response_200_item_type_1 import ListJobsResponse200ItemType1
+from ...models.list_jobs_status import ListJobsStatus
 from ...types import UNSET, Response, Unset
 
 
@@ -44,6 +45,7 @@ def _get_kwargs(
     is_flow_step: Union[Unset, None, bool] = UNSET,
     has_null_parent: Union[Unset, None, bool] = UNSET,
     success: Union[Unset, None, bool] = UNSET,
+    status: Union[Unset, None, ListJobsStatus] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
     excludes_entrypoint_override: Union[Unset, None, bool] = UNSET,
@@ -143,6 +145,12 @@ def _get_kwargs(
     params["has_null_parent"] = has_null_parent
 
     params["success"] = success
+
+    json_status: Union[Unset, None, str] = UNSET
+    if not isinstance(status, Unset):
+        json_status = status.value if status else None
+
+    params["status"] = json_status
 
     params["all_workspaces"] = all_workspaces
 
@@ -244,6 +252,7 @@ def sync_detailed(
     is_flow_step: Union[Unset, None, bool] = UNSET,
     has_null_parent: Union[Unset, None, bool] = UNSET,
     success: Union[Unset, None, bool] = UNSET,
+    status: Union[Unset, None, ListJobsStatus] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
     excludes_entrypoint_override: Union[Unset, None, bool] = UNSET,
@@ -283,6 +292,7 @@ def sync_detailed(
         is_flow_step (Union[Unset, None, bool]):
         has_null_parent (Union[Unset, None, bool]):
         success (Union[Unset, None, bool]):
+        status (Union[Unset, None, ListJobsStatus]):
         all_workspaces (Union[Unset, None, bool]):
         is_not_schedule (Union[Unset, None, bool]):
         excludes_entrypoint_override (Union[Unset, None, bool]):
@@ -328,6 +338,7 @@ def sync_detailed(
         is_flow_step=is_flow_step,
         has_null_parent=has_null_parent,
         success=success,
+        status=status,
         all_workspaces=all_workspaces,
         is_not_schedule=is_not_schedule,
         excludes_entrypoint_override=excludes_entrypoint_override,
@@ -375,6 +386,7 @@ def sync(
     is_flow_step: Union[Unset, None, bool] = UNSET,
     has_null_parent: Union[Unset, None, bool] = UNSET,
     success: Union[Unset, None, bool] = UNSET,
+    status: Union[Unset, None, ListJobsStatus] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
     excludes_entrypoint_override: Union[Unset, None, bool] = UNSET,
@@ -414,6 +426,7 @@ def sync(
         is_flow_step (Union[Unset, None, bool]):
         has_null_parent (Union[Unset, None, bool]):
         success (Union[Unset, None, bool]):
+        status (Union[Unset, None, ListJobsStatus]):
         all_workspaces (Union[Unset, None, bool]):
         is_not_schedule (Union[Unset, None, bool]):
         excludes_entrypoint_override (Union[Unset, None, bool]):
@@ -460,6 +473,7 @@ def sync(
         is_flow_step=is_flow_step,
         has_null_parent=has_null_parent,
         success=success,
+        status=status,
         all_workspaces=all_workspaces,
         is_not_schedule=is_not_schedule,
         excludes_entrypoint_override=excludes_entrypoint_override,
@@ -501,6 +515,7 @@ async def asyncio_detailed(
     is_flow_step: Union[Unset, None, bool] = UNSET,
     has_null_parent: Union[Unset, None, bool] = UNSET,
     success: Union[Unset, None, bool] = UNSET,
+    status: Union[Unset, None, ListJobsStatus] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
     excludes_entrypoint_override: Union[Unset, None, bool] = UNSET,
@@ -540,6 +555,7 @@ async def asyncio_detailed(
         is_flow_step (Union[Unset, None, bool]):
         has_null_parent (Union[Unset, None, bool]):
         success (Union[Unset, None, bool]):
+        status (Union[Unset, None, ListJobsStatus]):
         all_workspaces (Union[Unset, None, bool]):
         is_not_schedule (Union[Unset, None, bool]):
         excludes_entrypoint_override (Union[Unset, None, bool]):
@@ -585,6 +601,7 @@ async def asyncio_detailed(
         is_flow_step=is_flow_step,
         has_null_parent=has_null_parent,
         success=success,
+        status=status,
         all_workspaces=all_workspaces,
         is_not_schedule=is_not_schedule,
         excludes_entrypoint_override=excludes_entrypoint_override,
@@ -630,6 +647,7 @@ async def asyncio(
     is_flow_step: Union[Unset, None, bool] = UNSET,
     has_null_parent: Union[Unset, None, bool] = UNSET,
     success: Union[Unset, None, bool] = UNSET,
+    status: Union[Unset, None, ListJobsStatus] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
     excludes_entrypoint_override: Union[Unset, None, bool] = UNSET,
@@ -669,6 +687,7 @@ async def asyncio(
         is_flow_step (Union[Unset, None, bool]):
         has_null_parent (Union[Unset, None, bool]):
         success (Union[Unset, None, bool]):
+        status (Union[Unset, None, ListJobsStatus]):
         all_workspaces (Union[Unset, None, bool]):
         is_not_schedule (Union[Unset, None, bool]):
         excludes_entrypoint_override (Union[Unset, None, bool]):
@@ -716,6 +735,7 @@ async def asyncio(
             is_flow_step=is_flow_step,
             has_null_parent=has_null_parent,
             success=success,
+            status=status,
             all_workspaces=all_workspaces,
             is_not_schedule=is_not_schedule,
             excludes_entrypoint_override=excludes_entrypoint_override,

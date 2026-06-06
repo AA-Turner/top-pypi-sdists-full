@@ -17,25 +17,36 @@ DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 @typing.final
 class InvoiceLineItem(google.protobuf.message.Message):
     """This is not the same as LineItemDetails, it includes
-    items not related to the package such as tax.
+    items not related to the package such as tax. Each line item may carry an
+    optional type that classifies it (e.g. "tax") so consumers can treat it
+    specially without inspecting the description.
     """
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     AMOUNT_CENTS_FIELD_NUMBER: builtins.int
     DESCRIPTION_FIELD_NUMBER: builtins.int
+    TYPE_FIELD_NUMBER: builtins.int
     amount_cents: builtins.int
     """Intentionally not a uint (some line items could be discounts)"""
     description: builtins.str
+    type: builtins.str
+    """Optional classifier for the line item, e.g. "tax". Unset for ordinary
+    priced line items.
+    """
     def __init__(
         self,
         *,
         amount_cents: builtins.int = ...,
         description: builtins.str | None = ...,
+        type: builtins.str | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_description", b"_description", "description", b"description"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_description", b"_description", "amount_cents", b"amount_cents", "description", b"description"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_description", b"_description", "_type", b"_type", "description", b"description", "type", b"type"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_description", b"_description", "_type", b"_type", "amount_cents", b"amount_cents", "description", b"description", "type", b"type"]) -> None: ...
+    @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_description", b"_description"]) -> typing.Literal["description"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_type", b"_type"]) -> typing.Literal["type"] | None: ...
 
 global___InvoiceLineItem = InvoiceLineItem
 

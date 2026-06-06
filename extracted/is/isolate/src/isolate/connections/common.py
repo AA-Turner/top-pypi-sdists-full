@@ -35,6 +35,7 @@ class ExceptionDeserializationError(SerializationError):
     module that defines its type isn't importable here)."""
 
     original_traceback: TracebackType | None
+    original_stringized_traceback: str | None
 
 
 # NOTE: tblib's install() will search for BaseException subclasses,
@@ -94,9 +95,12 @@ def load_serialized_object(
             # We were trying to reconstruct a remote exception but its type
             # isn't importable here, so loads() failed. Surface the genuine
             # local cause along with the remote traceback.
+            # Keep both traceback forms: Traceback.from_string() preserves
+            # frames, while the string also includes the exception type/message.
             raise ExceptionDeserializationError(
                 exc.message,
                 original_traceback=_prepare_traceback(stringized_traceback),
+                original_stringized_traceback=stringized_traceback,
             ) from exc.__cause__
         raise
 

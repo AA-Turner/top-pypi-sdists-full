@@ -6,6 +6,7 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.list_filtered_jobs_uuids_status import ListFilteredJobsUuidsStatus
 from ...types import UNSET, Response, Unset
 
 
@@ -41,6 +42,7 @@ def _get_kwargs(
     is_flow_step: Union[Unset, None, bool] = UNSET,
     has_null_parent: Union[Unset, None, bool] = UNSET,
     success: Union[Unset, None, bool] = UNSET,
+    status: Union[Unset, None, ListFilteredJobsUuidsStatus] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
@@ -137,6 +139,12 @@ def _get_kwargs(
 
     params["success"] = success
 
+    json_status: Union[Unset, None, str] = UNSET
+    if not isinstance(status, Unset):
+        json_status = status.value if status else None
+
+    params["status"] = json_status
+
     params["all_workspaces"] = all_workspaces
 
     params["is_not_schedule"] = is_not_schedule
@@ -205,6 +213,7 @@ def sync_detailed(
     is_flow_step: Union[Unset, None, bool] = UNSET,
     has_null_parent: Union[Unset, None, bool] = UNSET,
     success: Union[Unset, None, bool] = UNSET,
+    status: Union[Unset, None, ListFilteredJobsUuidsStatus] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
 ) -> Response[List[str]]:
@@ -241,6 +250,7 @@ def sync_detailed(
         is_flow_step (Union[Unset, None, bool]):
         has_null_parent (Union[Unset, None, bool]):
         success (Union[Unset, None, bool]):
+        status (Union[Unset, None, ListFilteredJobsUuidsStatus]):
         all_workspaces (Union[Unset, None, bool]):
         is_not_schedule (Union[Unset, None, bool]):
 
@@ -283,6 +293,7 @@ def sync_detailed(
         is_flow_step=is_flow_step,
         has_null_parent=has_null_parent,
         success=success,
+        status=status,
         all_workspaces=all_workspaces,
         is_not_schedule=is_not_schedule,
     )
@@ -327,6 +338,7 @@ def sync(
     is_flow_step: Union[Unset, None, bool] = UNSET,
     has_null_parent: Union[Unset, None, bool] = UNSET,
     success: Union[Unset, None, bool] = UNSET,
+    status: Union[Unset, None, ListFilteredJobsUuidsStatus] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
 ) -> Optional[List[str]]:
@@ -363,6 +375,7 @@ def sync(
         is_flow_step (Union[Unset, None, bool]):
         has_null_parent (Union[Unset, None, bool]):
         success (Union[Unset, None, bool]):
+        status (Union[Unset, None, ListFilteredJobsUuidsStatus]):
         all_workspaces (Union[Unset, None, bool]):
         is_not_schedule (Union[Unset, None, bool]):
 
@@ -406,6 +419,7 @@ def sync(
         is_flow_step=is_flow_step,
         has_null_parent=has_null_parent,
         success=success,
+        status=status,
         all_workspaces=all_workspaces,
         is_not_schedule=is_not_schedule,
     ).parsed
@@ -444,6 +458,7 @@ async def asyncio_detailed(
     is_flow_step: Union[Unset, None, bool] = UNSET,
     has_null_parent: Union[Unset, None, bool] = UNSET,
     success: Union[Unset, None, bool] = UNSET,
+    status: Union[Unset, None, ListFilteredJobsUuidsStatus] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
 ) -> Response[List[str]]:
@@ -480,6 +495,7 @@ async def asyncio_detailed(
         is_flow_step (Union[Unset, None, bool]):
         has_null_parent (Union[Unset, None, bool]):
         success (Union[Unset, None, bool]):
+        status (Union[Unset, None, ListFilteredJobsUuidsStatus]):
         all_workspaces (Union[Unset, None, bool]):
         is_not_schedule (Union[Unset, None, bool]):
 
@@ -522,6 +538,7 @@ async def asyncio_detailed(
         is_flow_step=is_flow_step,
         has_null_parent=has_null_parent,
         success=success,
+        status=status,
         all_workspaces=all_workspaces,
         is_not_schedule=is_not_schedule,
     )
@@ -564,6 +581,7 @@ async def asyncio(
     is_flow_step: Union[Unset, None, bool] = UNSET,
     has_null_parent: Union[Unset, None, bool] = UNSET,
     success: Union[Unset, None, bool] = UNSET,
+    status: Union[Unset, None, ListFilteredJobsUuidsStatus] = UNSET,
     all_workspaces: Union[Unset, None, bool] = UNSET,
     is_not_schedule: Union[Unset, None, bool] = UNSET,
 ) -> Optional[List[str]]:
@@ -600,6 +618,7 @@ async def asyncio(
         is_flow_step (Union[Unset, None, bool]):
         has_null_parent (Union[Unset, None, bool]):
         success (Union[Unset, None, bool]):
+        status (Union[Unset, None, ListFilteredJobsUuidsStatus]):
         all_workspaces (Union[Unset, None, bool]):
         is_not_schedule (Union[Unset, None, bool]):
 
@@ -644,6 +663,7 @@ async def asyncio(
             is_flow_step=is_flow_step,
             has_null_parent=has_null_parent,
             success=success,
+            status=status,
             all_workspaces=all_workspaces,
             is_not_schedule=is_not_schedule,
         )

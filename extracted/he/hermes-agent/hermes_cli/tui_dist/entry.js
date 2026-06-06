@@ -101,8 +101,8 @@ var init_env = __esm({
 // src/lib/memory.ts
 import { createWriteStream } from "node:fs";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { homedir as homedir2, tmpdir } from "node:os";
+import { join as join2 } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { getHeapSnapshot, getHeapSpaceStatistics, getHeapStatistics } from "node:v8";
 async function captureMemoryDiagnostics(trigger) {
@@ -176,11 +176,11 @@ async function captureMemoryDiagnostics(trigger) {
 async function performHeapDump(trigger = "manual") {
   try {
     const diagnostics = await captureMemoryDiagnostics(trigger);
-    const dir2 = process.env.HERMES_HEAPDUMP_DIR?.trim() || join(homedir() || tmpdir(), ".hermes", "heapdumps");
+    const dir2 = process.env.HERMES_HEAPDUMP_DIR?.trim() || join2(homedir2() || tmpdir(), ".hermes", "heapdumps");
     await mkdir(dir2, { recursive: true });
     const base = `hermes-${(/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-")}-${process.pid}-${trigger}`;
-    const heapPath = join(dir2, `${base}.heapsnapshot`);
-    const diagPath = join(dir2, `${base}.diagnostics.json`);
+    const heapPath = join2(dir2, `${base}.heapsnapshot`);
+    const diagPath = join2(dir2, `${base}.diagnostics.json`);
     await writeFile(diagPath, JSON.stringify(diagnostics, null, 2), { mode: 384 });
     await pipeline(getHeapSnapshot(), createWriteStream(heapPath, { mode: 384 }));
     return { diagPath, heapPath, success: true };
@@ -212,9 +212,9 @@ var init_memory = __esm({
   }
 });
 
-// node_modules/react/cjs/react.production.js
+// ../node_modules/react/cjs/react.production.js
 var require_react_production = __commonJS({
-  "node_modules/react/cjs/react.production.js"(exports) {
+  "../node_modules/react/cjs/react.production.js"(exports) {
     "use strict";
     var REACT_ELEMENT_TYPE = /* @__PURE__ */ Symbol.for("react.transitional.element");
     var REACT_PORTAL_TYPE = /* @__PURE__ */ Symbol.for("react.portal");
@@ -653,9 +653,9 @@ var require_react_production = __commonJS({
   }
 });
 
-// node_modules/react/cjs/react.development.js
+// ../node_modules/react/cjs/react.development.js
 var require_react_development = __commonJS({
-  "node_modules/react/cjs/react.development.js"(exports, module) {
+  "../node_modules/react/cjs/react.development.js"(exports, module) {
     "use strict";
     "production" !== process.env.NODE_ENV && (function() {
       function defineDeprecationWarning(methodName, info) {
@@ -1625,9 +1625,9 @@ var require_react_development = __commonJS({
   }
 });
 
-// node_modules/react/index.js
+// ../node_modules/react/index.js
 var require_react = __commonJS({
-  "node_modules/react/index.js"(exports, module) {
+  "../node_modules/react/index.js"(exports, module) {
     "use strict";
     if (process.env.NODE_ENV === "production") {
       module.exports = require_react_production();
@@ -1673,9 +1673,9 @@ var init_use_stdout = __esm({
   }
 });
 
-// node_modules/react/cjs/react-compiler-runtime.production.js
+// ../node_modules/react/cjs/react-compiler-runtime.production.js
 var require_react_compiler_runtime_production = __commonJS({
-  "node_modules/react/cjs/react-compiler-runtime.production.js"(exports) {
+  "../node_modules/react/cjs/react-compiler-runtime.production.js"(exports) {
     "use strict";
     var ReactSharedInternals = require_react().__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
     exports.c = function(size) {
@@ -1684,9 +1684,9 @@ var require_react_compiler_runtime_production = __commonJS({
   }
 });
 
-// node_modules/react/cjs/react-compiler-runtime.development.js
+// ../node_modules/react/cjs/react-compiler-runtime.development.js
 var require_react_compiler_runtime_development = __commonJS({
-  "node_modules/react/cjs/react-compiler-runtime.development.js"(exports) {
+  "../node_modules/react/cjs/react-compiler-runtime.development.js"(exports) {
     "use strict";
     "production" !== process.env.NODE_ENV && (function() {
       var ReactSharedInternals = require_react().__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
@@ -1701,9 +1701,9 @@ var require_react_compiler_runtime_development = __commonJS({
   }
 });
 
-// node_modules/react/compiler-runtime.js
+// ../node_modules/react/compiler-runtime.js
 var require_compiler_runtime = __commonJS({
-  "node_modules/react/compiler-runtime.js"(exports, module) {
+  "../node_modules/react/compiler-runtime.js"(exports, module) {
     "use strict";
     if (process.env.NODE_ENV === "production") {
       module.exports = require_react_compiler_runtime_production();
@@ -1713,9 +1713,9 @@ var require_compiler_runtime = __commonJS({
   }
 });
 
-// node_modules/react/cjs/react-jsx-runtime.production.js
+// ../node_modules/react/cjs/react-jsx-runtime.production.js
 var require_react_jsx_runtime_production = __commonJS({
-  "node_modules/react/cjs/react-jsx-runtime.production.js"(exports) {
+  "../node_modules/react/cjs/react-jsx-runtime.production.js"(exports) {
     "use strict";
     var REACT_ELEMENT_TYPE = /* @__PURE__ */ Symbol.for("react.transitional.element");
     var REACT_FRAGMENT_TYPE = /* @__PURE__ */ Symbol.for("react.fragment");
@@ -1743,9 +1743,9 @@ var require_react_jsx_runtime_production = __commonJS({
   }
 });
 
-// node_modules/react/cjs/react-jsx-runtime.development.js
+// ../node_modules/react/cjs/react-jsx-runtime.development.js
 var require_react_jsx_runtime_development = __commonJS({
-  "node_modules/react/cjs/react-jsx-runtime.development.js"(exports) {
+  "../node_modules/react/cjs/react-jsx-runtime.development.js"(exports) {
     "use strict";
     "production" !== process.env.NODE_ENV && (function() {
       function getComponentNameFromType(type) {
@@ -2000,9 +2000,9 @@ var require_react_jsx_runtime_development = __commonJS({
   }
 });
 
-// node_modules/react/jsx-runtime.js
+// ../node_modules/react/jsx-runtime.js
 var require_jsx_runtime = __commonJS({
-  "node_modules/react/jsx-runtime.js"(exports, module) {
+  "../node_modules/react/jsx-runtime.js"(exports, module) {
     "use strict";
     if (process.env.NODE_ENV === "production") {
       module.exports = require_react_jsx_runtime_production();
@@ -3358,9 +3358,11 @@ var init_sgr = __esm({
 function createTokenizer(options) {
   let currentState = "ground";
   let currentBuffer = "";
+  let lastFlushedBuffer = "";
   const x10Mouse = options?.x10Mouse ?? false;
   return {
     feed(input) {
+      lastFlushedBuffer = "";
       const result = tokenize(input, currentState, currentBuffer, false, x10Mouse);
       currentState = result.state.state;
       currentBuffer = result.state.buffer;
@@ -3370,11 +3372,19 @@ function createTokenizer(options) {
       const result = tokenize("", currentState, currentBuffer, true, x10Mouse);
       currentState = result.state.state;
       currentBuffer = result.state.buffer;
+      if (currentBuffer && currentBuffer === lastFlushedBuffer) {
+        currentState = "ground";
+        currentBuffer = "";
+        lastFlushedBuffer = "";
+      } else {
+        lastFlushedBuffer = currentBuffer;
+      }
       return result.tokens;
     },
     reset() {
       currentState = "ground";
       currentBuffer = "";
+      lastFlushedBuffer = "";
     },
     buffer() {
       return currentBuffer;
@@ -3519,7 +3529,7 @@ function tokenize(input, initialState, initialBuffer, flush, x10Mouse) {
   }
   if (result.state === "ground") {
     flushText();
-  } else if (flush) {
+  } else if (flush && result.state === "escape") {
     const remaining = data.slice(seqStart);
     if (remaining) {
       tokens.push({ type: "sequence", value: remaining });
@@ -3677,39 +3687,39 @@ function parseCSI(rawSequence) {
     return { type: "cursor", action: { type: "style", ...styleInfo } };
   }
   if (privateMode === "?" && (finalByte === CSI.SM || finalByte === CSI.RM)) {
-    const enabled = finalByte === CSI.SM;
+    const enabled2 = finalByte === CSI.SM;
     if (p0 === DEC.CURSOR_VISIBLE) {
       return {
         type: "cursor",
-        action: enabled ? { type: "show" } : { type: "hide" }
+        action: enabled2 ? { type: "show" } : { type: "hide" }
       };
     }
     if (p0 === DEC.ALT_SCREEN_CLEAR || p0 === DEC.ALT_SCREEN) {
-      return { type: "mode", action: { type: "alternateScreen", enabled } };
+      return { type: "mode", action: { type: "alternateScreen", enabled: enabled2 } };
     }
     if (p0 === DEC.BRACKETED_PASTE) {
-      return { type: "mode", action: { type: "bracketedPaste", enabled } };
+      return { type: "mode", action: { type: "bracketedPaste", enabled: enabled2 } };
     }
     if (p0 === DEC.MOUSE_NORMAL) {
       return {
         type: "mode",
-        action: { type: "mouseTracking", mode: enabled ? "normal" : "off" }
+        action: { type: "mouseTracking", mode: enabled2 ? "normal" : "off" }
       };
     }
     if (p0 === DEC.MOUSE_BUTTON) {
       return {
         type: "mode",
-        action: { type: "mouseTracking", mode: enabled ? "button" : "off" }
+        action: { type: "mouseTracking", mode: enabled2 ? "button" : "off" }
       };
     }
     if (p0 === DEC.MOUSE_ANY) {
       return {
         type: "mode",
-        action: { type: "mouseTracking", mode: enabled ? "any" : "off" }
+        action: { type: "mouseTracking", mode: enabled2 ? "any" : "off" }
       };
     }
     if (p0 === DEC.FOCUS_EVENTS) {
-      return { type: "mode", action: { type: "focusEvents", enabled } };
+      return { type: "mode", action: { type: "focusEvents", enabled: enabled2 } };
     }
   }
   return { type: "unknown", sequence: rawSequence };
@@ -4136,7 +4146,7 @@ var init_Ansi = __esm({
   }
 });
 
-// packages/hermes-ink/node_modules/ansi-styles/index.js
+// node_modules/ansi-styles/index.js
 function assembleStyles() {
   const codes = /* @__PURE__ */ new Map();
   for (const [groupName, group] of Object.entries(styles)) {
@@ -4253,7 +4263,7 @@ function assembleStyles() {
 }
 var ANSI_BACKGROUND_OFFSET, wrapAnsi16, wrapAnsi256, wrapAnsi16m, styles, modifierNames, foregroundColorNames, backgroundColorNames, colorNames, ansiStyles, ansi_styles_default;
 var init_ansi_styles = __esm({
-  "packages/hermes-ink/node_modules/ansi-styles/index.js"() {
+  "node_modules/ansi-styles/index.js"() {
     ANSI_BACKGROUND_OFFSET = 10;
     wrapAnsi16 = (offset = 0) => (code) => `\x1B[${code + offset}m`;
     wrapAnsi256 = (offset = 0) => (code) => `\x1B[${38 + offset};5;${code}m`;
@@ -4327,7 +4337,7 @@ var init_ansi_styles = __esm({
   }
 });
 
-// packages/hermes-ink/node_modules/@alcalzone/ansi-tokenize/build/ansiCodes.js
+// node_modules/@alcalzone/ansi-tokenize/build/ansiCodes.js
 function getEndCode(code) {
   if (endCodesSet.has(code))
     return code;
@@ -4351,7 +4361,7 @@ function ansiCodesToString(codes) {
 }
 var ESCAPES, endCodesSet, endCodesMap, linkStartCodePrefix, linkStartCodePrefixCharCodes, linkCodeSuffix, linkCodeSuffixCharCode, linkEndCode;
 var init_ansiCodes = __esm({
-  "packages/hermes-ink/node_modules/@alcalzone/ansi-tokenize/build/ansiCodes.js"() {
+  "node_modules/@alcalzone/ansi-tokenize/build/ansiCodes.js"() {
     init_ansi_styles();
     ESCAPES = /* @__PURE__ */ new Set([27, 155]);
     endCodesSet = /* @__PURE__ */ new Set();
@@ -4368,7 +4378,7 @@ var init_ansiCodes = __esm({
   }
 });
 
-// packages/hermes-ink/node_modules/@alcalzone/ansi-tokenize/build/reduce.js
+// node_modules/@alcalzone/ansi-tokenize/build/reduce.js
 function reduceAnsiCodes(codes) {
   return reduceAnsiCodesIncremental([], codes);
 }
@@ -4387,13 +4397,13 @@ function reduceAnsiCodesIncremental(codes, newCodes) {
   return ret;
 }
 var init_reduce = __esm({
-  "packages/hermes-ink/node_modules/@alcalzone/ansi-tokenize/build/reduce.js"() {
+  "node_modules/@alcalzone/ansi-tokenize/build/reduce.js"() {
     init_ansi_styles();
     init_ansiCodes();
   }
 });
 
-// packages/hermes-ink/node_modules/@alcalzone/ansi-tokenize/build/undo.js
+// node_modules/@alcalzone/ansi-tokenize/build/undo.js
 function undoAnsiCodes(codes) {
   return reduceAnsiCodes(codes).reverse().map((code) => ({
     ...code,
@@ -4401,12 +4411,12 @@ function undoAnsiCodes(codes) {
   }));
 }
 var init_undo = __esm({
-  "packages/hermes-ink/node_modules/@alcalzone/ansi-tokenize/build/undo.js"() {
+  "node_modules/@alcalzone/ansi-tokenize/build/undo.js"() {
     init_reduce();
   }
 });
 
-// packages/hermes-ink/node_modules/@alcalzone/ansi-tokenize/build/diff.js
+// node_modules/@alcalzone/ansi-tokenize/build/diff.js
 function diffAnsiCodes(from, to) {
   const endCodesInTo = new Set(to.map((code) => code.endCode));
   const startCodesInFrom = new Set(from.map((code) => code.code));
@@ -4419,12 +4429,12 @@ function diffAnsiCodes(from, to) {
   ];
 }
 var init_diff = __esm({
-  "packages/hermes-ink/node_modules/@alcalzone/ansi-tokenize/build/diff.js"() {
+  "node_modules/@alcalzone/ansi-tokenize/build/diff.js"() {
     init_undo();
   }
 });
 
-// packages/hermes-ink/node_modules/@alcalzone/ansi-tokenize/build/styledChars.js
+// node_modules/@alcalzone/ansi-tokenize/build/styledChars.js
 function styledCharsFromTokens(tokens) {
   let codes = [];
   const ret = [];
@@ -4441,14 +4451,14 @@ function styledCharsFromTokens(tokens) {
   return ret;
 }
 var init_styledChars = __esm({
-  "packages/hermes-ink/node_modules/@alcalzone/ansi-tokenize/build/styledChars.js"() {
+  "node_modules/@alcalzone/ansi-tokenize/build/styledChars.js"() {
     init_ansiCodes();
     init_diff();
     init_reduce();
   }
 });
 
-// packages/hermes-ink/node_modules/is-fullwidth-code-point/index.js
+// node_modules/is-fullwidth-code-point/index.js
 function isFullwidthCodePoint(codePoint) {
   if (!Number.isInteger(codePoint)) {
     return false;
@@ -4471,11 +4481,11 @@ function isFullwidthCodePoint(codePoint) {
   131072 <= codePoint && codePoint <= 262141);
 }
 var init_is_fullwidth_code_point = __esm({
-  "packages/hermes-ink/node_modules/is-fullwidth-code-point/index.js"() {
+  "node_modules/is-fullwidth-code-point/index.js"() {
   }
 });
 
-// packages/hermes-ink/node_modules/@alcalzone/ansi-tokenize/build/tokenize.js
+// node_modules/@alcalzone/ansi-tokenize/build/tokenize.js
 function findNumberIndex(str) {
   for (let index = 0; index < str.length; index++) {
     const charCode = str.charCodeAt(index);
@@ -4542,15 +4552,15 @@ function tokenize2(str, endChar = Number.POSITIVE_INFINITY) {
   return ret;
 }
 var init_tokenize2 = __esm({
-  "packages/hermes-ink/node_modules/@alcalzone/ansi-tokenize/build/tokenize.js"() {
+  "node_modules/@alcalzone/ansi-tokenize/build/tokenize.js"() {
     init_is_fullwidth_code_point();
     init_ansiCodes();
   }
 });
 
-// packages/hermes-ink/node_modules/@alcalzone/ansi-tokenize/build/index.js
+// node_modules/@alcalzone/ansi-tokenize/build/index.js
 var init_build = __esm({
-  "packages/hermes-ink/node_modules/@alcalzone/ansi-tokenize/build/index.js"() {
+  "node_modules/@alcalzone/ansi-tokenize/build/index.js"() {
     init_ansiCodes();
     init_diff();
     init_reduce();
@@ -4585,22 +4595,26 @@ var require_emoji_regex = __commonJS({
   }
 });
 
-// node_modules/get-east-asian-width/lookup-data.js
-var ambiguousRanges, fullwidthRanges, halfwidthRanges, narrowRanges, wideRanges;
+// ../node_modules/get-east-asian-width/lookup-data.js
+var ambiguousMinimalCodePoint, ambiguousMaximumCodePoint, ambiguousRanges, fullwidthMinimalCodePoint, fullwidthMaximumCodePoint, fullwidthRanges, wideMinimalCodePoint, wideMaximumCodePoint, wideRanges;
 var init_lookup_data = __esm({
-  "node_modules/get-east-asian-width/lookup-data.js"() {
+  "../node_modules/get-east-asian-width/lookup-data.js"() {
+    ambiguousMinimalCodePoint = 161;
+    ambiguousMaximumCodePoint = 1114109;
     ambiguousRanges = [161, 161, 164, 164, 167, 168, 170, 170, 173, 174, 176, 180, 182, 186, 188, 191, 198, 198, 208, 208, 215, 216, 222, 225, 230, 230, 232, 234, 236, 237, 240, 240, 242, 243, 247, 250, 252, 252, 254, 254, 257, 257, 273, 273, 275, 275, 283, 283, 294, 295, 299, 299, 305, 307, 312, 312, 319, 322, 324, 324, 328, 331, 333, 333, 338, 339, 358, 359, 363, 363, 462, 462, 464, 464, 466, 466, 468, 468, 470, 470, 472, 472, 474, 474, 476, 476, 593, 593, 609, 609, 708, 708, 711, 711, 713, 715, 717, 717, 720, 720, 728, 731, 733, 733, 735, 735, 768, 879, 913, 929, 931, 937, 945, 961, 963, 969, 1025, 1025, 1040, 1103, 1105, 1105, 8208, 8208, 8211, 8214, 8216, 8217, 8220, 8221, 8224, 8226, 8228, 8231, 8240, 8240, 8242, 8243, 8245, 8245, 8251, 8251, 8254, 8254, 8308, 8308, 8319, 8319, 8321, 8324, 8364, 8364, 8451, 8451, 8453, 8453, 8457, 8457, 8467, 8467, 8470, 8470, 8481, 8482, 8486, 8486, 8491, 8491, 8531, 8532, 8539, 8542, 8544, 8555, 8560, 8569, 8585, 8585, 8592, 8601, 8632, 8633, 8658, 8658, 8660, 8660, 8679, 8679, 8704, 8704, 8706, 8707, 8711, 8712, 8715, 8715, 8719, 8719, 8721, 8721, 8725, 8725, 8730, 8730, 8733, 8736, 8739, 8739, 8741, 8741, 8743, 8748, 8750, 8750, 8756, 8759, 8764, 8765, 8776, 8776, 8780, 8780, 8786, 8786, 8800, 8801, 8804, 8807, 8810, 8811, 8814, 8815, 8834, 8835, 8838, 8839, 8853, 8853, 8857, 8857, 8869, 8869, 8895, 8895, 8978, 8978, 9312, 9449, 9451, 9547, 9552, 9587, 9600, 9615, 9618, 9621, 9632, 9633, 9635, 9641, 9650, 9651, 9654, 9655, 9660, 9661, 9664, 9665, 9670, 9672, 9675, 9675, 9678, 9681, 9698, 9701, 9711, 9711, 9733, 9734, 9737, 9737, 9742, 9743, 9756, 9756, 9758, 9758, 9792, 9792, 9794, 9794, 9824, 9825, 9827, 9829, 9831, 9834, 9836, 9837, 9839, 9839, 9886, 9887, 9919, 9919, 9926, 9933, 9935, 9939, 9941, 9953, 9955, 9955, 9960, 9961, 9963, 9969, 9972, 9972, 9974, 9977, 9979, 9980, 9982, 9983, 10045, 10045, 10102, 10111, 11094, 11097, 12872, 12879, 57344, 63743, 65024, 65039, 65533, 65533, 127232, 127242, 127248, 127277, 127280, 127337, 127344, 127373, 127375, 127376, 127387, 127404, 917760, 917999, 983040, 1048573, 1048576, 1114109];
+    fullwidthMinimalCodePoint = 12288;
+    fullwidthMaximumCodePoint = 65510;
     fullwidthRanges = [12288, 12288, 65281, 65376, 65504, 65510];
-    halfwidthRanges = [8361, 8361, 65377, 65470, 65474, 65479, 65482, 65487, 65490, 65495, 65498, 65500, 65512, 65518];
-    narrowRanges = [32, 126, 162, 163, 165, 166, 172, 172, 175, 175, 10214, 10221, 10629, 10630];
+    wideMinimalCodePoint = 4352;
+    wideMaximumCodePoint = 262141;
     wideRanges = [4352, 4447, 8986, 8987, 9001, 9002, 9193, 9196, 9200, 9200, 9203, 9203, 9725, 9726, 9748, 9749, 9776, 9783, 9800, 9811, 9855, 9855, 9866, 9871, 9875, 9875, 9889, 9889, 9898, 9899, 9917, 9918, 9924, 9925, 9934, 9934, 9940, 9940, 9962, 9962, 9970, 9971, 9973, 9973, 9978, 9978, 9981, 9981, 9989, 9989, 9994, 9995, 10024, 10024, 10060, 10060, 10062, 10062, 10067, 10069, 10071, 10071, 10133, 10135, 10160, 10160, 10175, 10175, 11035, 11036, 11088, 11088, 11093, 11093, 11904, 11929, 11931, 12019, 12032, 12245, 12272, 12287, 12289, 12350, 12353, 12438, 12441, 12543, 12549, 12591, 12593, 12686, 12688, 12773, 12783, 12830, 12832, 12871, 12880, 42124, 42128, 42182, 43360, 43388, 44032, 55203, 63744, 64255, 65040, 65049, 65072, 65106, 65108, 65126, 65128, 65131, 94176, 94180, 94192, 94198, 94208, 101589, 101631, 101662, 101760, 101874, 110576, 110579, 110581, 110587, 110589, 110590, 110592, 110882, 110898, 110898, 110928, 110930, 110933, 110933, 110948, 110951, 110960, 111355, 119552, 119638, 119648, 119670, 126980, 126980, 127183, 127183, 127374, 127374, 127377, 127386, 127488, 127490, 127504, 127547, 127552, 127560, 127568, 127569, 127584, 127589, 127744, 127776, 127789, 127797, 127799, 127868, 127870, 127891, 127904, 127946, 127951, 127955, 127968, 127984, 127988, 127988, 127992, 128062, 128064, 128064, 128066, 128252, 128255, 128317, 128331, 128334, 128336, 128359, 128378, 128378, 128405, 128406, 128420, 128420, 128507, 128591, 128640, 128709, 128716, 128716, 128720, 128722, 128725, 128728, 128732, 128735, 128747, 128748, 128756, 128764, 128992, 129003, 129008, 129008, 129292, 129338, 129340, 129349, 129351, 129535, 129648, 129660, 129664, 129674, 129678, 129734, 129736, 129736, 129741, 129756, 129759, 129770, 129775, 129784, 131072, 196605, 196608, 262141];
   }
 });
 
-// node_modules/get-east-asian-width/utilities.js
+// ../node_modules/get-east-asian-width/utilities.js
 var isInRange;
 var init_utilities = __esm({
-  "node_modules/get-east-asian-width/utilities.js"() {
+  "../node_modules/get-east-asian-width/utilities.js"() {
     isInRange = (ranges, codePoint) => {
       let low = 0;
       let high = Math.floor(ranges.length / 2) - 1;
@@ -4620,7 +4634,7 @@ var init_utilities = __esm({
   }
 });
 
-// node_modules/get-east-asian-width/lookup.js
+// ../node_modules/get-east-asian-width/lookup.js
 function findWideFastPathRange(ranges) {
   let fastPathStart = ranges[0];
   let fastPathEnd = ranges[1];
@@ -4637,31 +4651,21 @@ function findWideFastPathRange(ranges) {
   }
   return [fastPathStart, fastPathEnd];
 }
-var minimumAmbiguousCodePoint, maximumAmbiguousCodePoint, minimumFullWidthCodePoint, maximumFullWidthCodePoint, minimumHalfWidthCodePoint, maximumHalfWidthCodePoint, minimumNarrowCodePoint, maximumNarrowCodePoint, minimumWideCodePoint, maximumWideCodePoint, commonCjkCodePoint, wideFastPathStart, wideFastPathEnd, isAmbiguous, isFullWidth, isWide;
+var commonCjkCodePoint, wideFastPathStart, wideFastPathEnd, isAmbiguous, isFullWidth, isWide;
 var init_lookup = __esm({
-  "node_modules/get-east-asian-width/lookup.js"() {
+  "../node_modules/get-east-asian-width/lookup.js"() {
     init_lookup_data();
     init_utilities();
-    minimumAmbiguousCodePoint = ambiguousRanges[0];
-    maximumAmbiguousCodePoint = ambiguousRanges.at(-1);
-    minimumFullWidthCodePoint = fullwidthRanges[0];
-    maximumFullWidthCodePoint = fullwidthRanges.at(-1);
-    minimumHalfWidthCodePoint = halfwidthRanges[0];
-    maximumHalfWidthCodePoint = halfwidthRanges.at(-1);
-    minimumNarrowCodePoint = narrowRanges[0];
-    maximumNarrowCodePoint = narrowRanges.at(-1);
-    minimumWideCodePoint = wideRanges[0];
-    maximumWideCodePoint = wideRanges.at(-1);
     commonCjkCodePoint = 19968;
-    [wideFastPathStart, wideFastPathEnd] = findWideFastPathRange(wideRanges);
+    [wideFastPathStart, wideFastPathEnd] = /* @__PURE__ */ findWideFastPathRange(wideRanges);
     isAmbiguous = (codePoint) => {
-      if (codePoint < minimumAmbiguousCodePoint || codePoint > maximumAmbiguousCodePoint) {
+      if (codePoint < ambiguousMinimalCodePoint || codePoint > ambiguousMaximumCodePoint) {
         return false;
       }
       return isInRange(ambiguousRanges, codePoint);
     };
     isFullWidth = (codePoint) => {
-      if (codePoint < minimumFullWidthCodePoint || codePoint > maximumFullWidthCodePoint) {
+      if (codePoint < fullwidthMinimalCodePoint || codePoint > fullwidthMaximumCodePoint) {
         return false;
       }
       return isInRange(fullwidthRanges, codePoint);
@@ -4670,7 +4674,7 @@ var init_lookup = __esm({
       if (codePoint >= wideFastPathStart && codePoint <= wideFastPathEnd) {
         return true;
       }
-      if (codePoint < minimumWideCodePoint || codePoint > maximumWideCodePoint) {
+      if (codePoint < wideMinimalCodePoint || codePoint > wideMaximumCodePoint) {
         return false;
       }
       return isInRange(wideRanges, codePoint);
@@ -4678,7 +4682,7 @@ var init_lookup = __esm({
   }
 });
 
-// node_modules/get-east-asian-width/index.js
+// ../node_modules/get-east-asian-width/index.js
 function validate(codePoint) {
   if (!Number.isSafeInteger(codePoint)) {
     throw new TypeError(`Expected a code point, got \`${typeof codePoint}\`.`);
@@ -4692,7 +4696,7 @@ function eastAsianWidth(codePoint, { ambiguousAsWide = false } = {}) {
   return 1;
 }
 var init_get_east_asian_width = __esm({
-  "node_modules/get-east-asian-width/index.js"() {
+  "../node_modules/get-east-asian-width/index.js"() {
     init_lookup();
     init_lookup();
   }
@@ -5047,7 +5051,7 @@ var init_line_width_cache = __esm({
   }
 });
 
-// node_modules/wrap-ansi/node_modules/string-width/index.js
+// node_modules/string-width/index.js
 function stringWidth2(string, options = {}) {
   if (typeof string !== "string" || string.length === 0) {
     return 0;
@@ -5094,203 +5098,12 @@ function stringWidth2(string, options = {}) {
 }
 var import_emoji_regex2, segmenter, defaultIgnorableCodePointRegex;
 var init_string_width = __esm({
-  "node_modules/wrap-ansi/node_modules/string-width/index.js"() {
+  "node_modules/string-width/index.js"() {
     init_strip_ansi();
     init_get_east_asian_width();
     import_emoji_regex2 = __toESM(require_emoji_regex(), 1);
     segmenter = new Intl.Segmenter();
     defaultIgnorableCodePointRegex = new RegExp("^\\p{Default_Ignorable_Code_Point}$", "u");
-  }
-});
-
-// node_modules/wrap-ansi/node_modules/ansi-styles/index.js
-function assembleStyles2() {
-  const codes = /* @__PURE__ */ new Map();
-  for (const [groupName, group] of Object.entries(styles2)) {
-    for (const [styleName, style] of Object.entries(group)) {
-      styles2[styleName] = {
-        open: `\x1B[${style[0]}m`,
-        close: `\x1B[${style[1]}m`
-      };
-      group[styleName] = styles2[styleName];
-      codes.set(style[0], style[1]);
-    }
-    Object.defineProperty(styles2, groupName, {
-      value: group,
-      enumerable: false
-    });
-  }
-  Object.defineProperty(styles2, "codes", {
-    value: codes,
-    enumerable: false
-  });
-  styles2.color.close = "\x1B[39m";
-  styles2.bgColor.close = "\x1B[49m";
-  styles2.color.ansi = wrapAnsi162();
-  styles2.color.ansi256 = wrapAnsi2562();
-  styles2.color.ansi16m = wrapAnsi16m2();
-  styles2.bgColor.ansi = wrapAnsi162(ANSI_BACKGROUND_OFFSET2);
-  styles2.bgColor.ansi256 = wrapAnsi2562(ANSI_BACKGROUND_OFFSET2);
-  styles2.bgColor.ansi16m = wrapAnsi16m2(ANSI_BACKGROUND_OFFSET2);
-  Object.defineProperties(styles2, {
-    rgbToAnsi256: {
-      value(red, green, blue) {
-        if (red === green && green === blue) {
-          if (red < 8) {
-            return 16;
-          }
-          if (red > 248) {
-            return 231;
-          }
-          return Math.round((red - 8) / 247 * 24) + 232;
-        }
-        return 16 + 36 * Math.round(red / 255 * 5) + 6 * Math.round(green / 255 * 5) + Math.round(blue / 255 * 5);
-      },
-      enumerable: false
-    },
-    hexToRgb: {
-      value(hex) {
-        const matches = /[a-f\d]{6}|[a-f\d]{3}/i.exec(hex.toString(16));
-        if (!matches) {
-          return [0, 0, 0];
-        }
-        let [colorString] = matches;
-        if (colorString.length === 3) {
-          colorString = [...colorString].map((character) => character + character).join("");
-        }
-        const integer = Number.parseInt(colorString, 16);
-        return [
-          /* eslint-disable no-bitwise */
-          integer >> 16 & 255,
-          integer >> 8 & 255,
-          integer & 255
-          /* eslint-enable no-bitwise */
-        ];
-      },
-      enumerable: false
-    },
-    hexToAnsi256: {
-      value: (hex) => styles2.rgbToAnsi256(...styles2.hexToRgb(hex)),
-      enumerable: false
-    },
-    ansi256ToAnsi: {
-      value(code) {
-        if (code < 8) {
-          return 30 + code;
-        }
-        if (code < 16) {
-          return 90 + (code - 8);
-        }
-        let red;
-        let green;
-        let blue;
-        if (code >= 232) {
-          red = ((code - 232) * 10 + 8) / 255;
-          green = red;
-          blue = red;
-        } else {
-          code -= 16;
-          const remainder = code % 36;
-          red = Math.floor(code / 36) / 5;
-          green = Math.floor(remainder / 6) / 5;
-          blue = remainder % 6 / 5;
-        }
-        const value = Math.max(red, green, blue) * 2;
-        if (value === 0) {
-          return 30;
-        }
-        let result = 30 + (Math.round(blue) << 2 | Math.round(green) << 1 | Math.round(red));
-        if (value === 2) {
-          result += 60;
-        }
-        return result;
-      },
-      enumerable: false
-    },
-    rgbToAnsi: {
-      value: (red, green, blue) => styles2.ansi256ToAnsi(styles2.rgbToAnsi256(red, green, blue)),
-      enumerable: false
-    },
-    hexToAnsi: {
-      value: (hex) => styles2.ansi256ToAnsi(styles2.hexToAnsi256(hex)),
-      enumerable: false
-    }
-  });
-  return styles2;
-}
-var ANSI_BACKGROUND_OFFSET2, wrapAnsi162, wrapAnsi2562, wrapAnsi16m2, styles2, modifierNames2, foregroundColorNames2, backgroundColorNames2, colorNames2, ansiStyles2, ansi_styles_default2;
-var init_ansi_styles2 = __esm({
-  "node_modules/wrap-ansi/node_modules/ansi-styles/index.js"() {
-    ANSI_BACKGROUND_OFFSET2 = 10;
-    wrapAnsi162 = (offset = 0) => (code) => `\x1B[${code + offset}m`;
-    wrapAnsi2562 = (offset = 0) => (code) => `\x1B[${38 + offset};5;${code}m`;
-    wrapAnsi16m2 = (offset = 0) => (red, green, blue) => `\x1B[${38 + offset};2;${red};${green};${blue}m`;
-    styles2 = {
-      modifier: {
-        reset: [0, 0],
-        // 21 isn't widely supported and 22 does the same thing
-        bold: [1, 22],
-        dim: [2, 22],
-        italic: [3, 23],
-        underline: [4, 24],
-        overline: [53, 55],
-        inverse: [7, 27],
-        hidden: [8, 28],
-        strikethrough: [9, 29]
-      },
-      color: {
-        black: [30, 39],
-        red: [31, 39],
-        green: [32, 39],
-        yellow: [33, 39],
-        blue: [34, 39],
-        magenta: [35, 39],
-        cyan: [36, 39],
-        white: [37, 39],
-        // Bright color
-        blackBright: [90, 39],
-        gray: [90, 39],
-        // Alias of `blackBright`
-        grey: [90, 39],
-        // Alias of `blackBright`
-        redBright: [91, 39],
-        greenBright: [92, 39],
-        yellowBright: [93, 39],
-        blueBright: [94, 39],
-        magentaBright: [95, 39],
-        cyanBright: [96, 39],
-        whiteBright: [97, 39]
-      },
-      bgColor: {
-        bgBlack: [40, 49],
-        bgRed: [41, 49],
-        bgGreen: [42, 49],
-        bgYellow: [43, 49],
-        bgBlue: [44, 49],
-        bgMagenta: [45, 49],
-        bgCyan: [46, 49],
-        bgWhite: [47, 49],
-        // Bright color
-        bgBlackBright: [100, 49],
-        bgGray: [100, 49],
-        // Alias of `bgBlackBright`
-        bgGrey: [100, 49],
-        // Alias of `bgBlackBright`
-        bgRedBright: [101, 49],
-        bgGreenBright: [102, 49],
-        bgYellowBright: [103, 49],
-        bgBlueBright: [104, 49],
-        bgMagentaBright: [105, 49],
-        bgCyanBright: [106, 49],
-        bgWhiteBright: [107, 49]
-      }
-    };
-    modifierNames2 = Object.keys(styles2.modifier);
-    foregroundColorNames2 = Object.keys(styles2.color);
-    backgroundColorNames2 = Object.keys(styles2.bgColor);
-    colorNames2 = [...foregroundColorNames2, ...backgroundColorNames2];
-    ansiStyles2 = assembleStyles2();
-    ansi_styles_default2 = ansiStyles2;
   }
 });
 
@@ -5303,7 +5116,7 @@ var init_wrap_ansi = __esm({
   "node_modules/wrap-ansi/index.js"() {
     init_string_width();
     init_strip_ansi();
-    init_ansi_styles2();
+    init_ansi_styles();
     ESCAPES2 = /* @__PURE__ */ new Set([
       "\x1B",
       "\x9B"
@@ -5434,7 +5247,7 @@ var init_wrap_ansi = __esm({
             escapeUrl = groups.uri.length === 0 ? void 0 : groups.uri;
           }
         }
-        const code = ansi_styles_default2.codes.get(Number(escapeCode));
+        const code = ansi_styles_default.codes.get(Number(escapeCode));
         if (pre[index + 1] === "\n") {
           if (escapeUrl) {
             returnValue += wrapAnsiHyperlink("");
@@ -5605,9 +5418,9 @@ var init_instances = __esm({
   }
 });
 
-// node_modules/semver/internal/constants.js
+// ../node_modules/semver/internal/constants.js
 var require_constants = __commonJS({
-  "node_modules/semver/internal/constants.js"(exports, module) {
+  "../node_modules/semver/internal/constants.js"(exports, module) {
     "use strict";
     var SEMVER_SPEC_VERSION = "2.0.0";
     var MAX_LENGTH = 256;
@@ -5637,9 +5450,9 @@ var require_constants = __commonJS({
   }
 });
 
-// node_modules/semver/internal/debug.js
+// ../node_modules/semver/internal/debug.js
 var require_debug = __commonJS({
-  "node_modules/semver/internal/debug.js"(exports, module) {
+  "../node_modules/semver/internal/debug.js"(exports, module) {
     "use strict";
     var debug = typeof process === "object" && process.env && process.env.NODE_DEBUG && /\bsemver\b/i.test(process.env.NODE_DEBUG) ? (...args) => console.error("SEMVER", ...args) : () => {
     };
@@ -5647,9 +5460,9 @@ var require_debug = __commonJS({
   }
 });
 
-// node_modules/semver/internal/re.js
+// ../node_modules/semver/internal/re.js
 var require_re = __commonJS({
-  "node_modules/semver/internal/re.js"(exports, module) {
+  "../node_modules/semver/internal/re.js"(exports, module) {
     "use strict";
     var {
       MAX_SAFE_COMPONENT_LENGTH,
@@ -5735,9 +5548,9 @@ var require_re = __commonJS({
   }
 });
 
-// node_modules/semver/internal/parse-options.js
+// ../node_modules/semver/internal/parse-options.js
 var require_parse_options = __commonJS({
-  "node_modules/semver/internal/parse-options.js"(exports, module) {
+  "../node_modules/semver/internal/parse-options.js"(exports, module) {
     "use strict";
     var looseOption = Object.freeze({ loose: true });
     var emptyOpts = Object.freeze({});
@@ -5754,9 +5567,9 @@ var require_parse_options = __commonJS({
   }
 });
 
-// node_modules/semver/internal/identifiers.js
+// ../node_modules/semver/internal/identifiers.js
 var require_identifiers = __commonJS({
-  "node_modules/semver/internal/identifiers.js"(exports, module) {
+  "../node_modules/semver/internal/identifiers.js"(exports, module) {
     "use strict";
     var numeric = /^[0-9]+$/;
     var compareIdentifiers = (a, b) => {
@@ -5779,9 +5592,9 @@ var require_identifiers = __commonJS({
   }
 });
 
-// node_modules/semver/classes/semver.js
+// ../node_modules/semver/classes/semver.js
 var require_semver = __commonJS({
-  "node_modules/semver/classes/semver.js"(exports, module) {
+  "../node_modules/semver/classes/semver.js"(exports, module) {
     "use strict";
     var debug = require_debug();
     var { MAX_LENGTH, MAX_SAFE_INTEGER } = require_constants();
@@ -6058,9 +5871,9 @@ var require_semver = __commonJS({
   }
 });
 
-// node_modules/semver/functions/parse.js
+// ../node_modules/semver/functions/parse.js
 var require_parse = __commonJS({
-  "node_modules/semver/functions/parse.js"(exports, module) {
+  "../node_modules/semver/functions/parse.js"(exports, module) {
     "use strict";
     var SemVer = require_semver();
     var parse = (version, options, throwErrors = false) => {
@@ -6080,9 +5893,9 @@ var require_parse = __commonJS({
   }
 });
 
-// node_modules/semver/functions/valid.js
+// ../node_modules/semver/functions/valid.js
 var require_valid = __commonJS({
-  "node_modules/semver/functions/valid.js"(exports, module) {
+  "../node_modules/semver/functions/valid.js"(exports, module) {
     "use strict";
     var parse = require_parse();
     var valid = (version, options) => {
@@ -6093,9 +5906,9 @@ var require_valid = __commonJS({
   }
 });
 
-// node_modules/semver/functions/clean.js
+// ../node_modules/semver/functions/clean.js
 var require_clean = __commonJS({
-  "node_modules/semver/functions/clean.js"(exports, module) {
+  "../node_modules/semver/functions/clean.js"(exports, module) {
     "use strict";
     var parse = require_parse();
     var clean2 = (version, options) => {
@@ -6106,9 +5919,9 @@ var require_clean = __commonJS({
   }
 });
 
-// node_modules/semver/functions/inc.js
+// ../node_modules/semver/functions/inc.js
 var require_inc = __commonJS({
-  "node_modules/semver/functions/inc.js"(exports, module) {
+  "../node_modules/semver/functions/inc.js"(exports, module) {
     "use strict";
     var SemVer = require_semver();
     var inc = (version, release, options, identifier, identifierBase) => {
@@ -6130,9 +5943,9 @@ var require_inc = __commonJS({
   }
 });
 
-// node_modules/semver/functions/diff.js
+// ../node_modules/semver/functions/diff.js
 var require_diff = __commonJS({
-  "node_modules/semver/functions/diff.js"(exports, module) {
+  "../node_modules/semver/functions/diff.js"(exports, module) {
     "use strict";
     var parse = require_parse();
     var diff3 = (version1, version2) => {
@@ -6174,9 +5987,9 @@ var require_diff = __commonJS({
   }
 });
 
-// node_modules/semver/functions/major.js
+// ../node_modules/semver/functions/major.js
 var require_major = __commonJS({
-  "node_modules/semver/functions/major.js"(exports, module) {
+  "../node_modules/semver/functions/major.js"(exports, module) {
     "use strict";
     var SemVer = require_semver();
     var major = (a, loose) => new SemVer(a, loose).major;
@@ -6184,9 +5997,9 @@ var require_major = __commonJS({
   }
 });
 
-// node_modules/semver/functions/minor.js
+// ../node_modules/semver/functions/minor.js
 var require_minor = __commonJS({
-  "node_modules/semver/functions/minor.js"(exports, module) {
+  "../node_modules/semver/functions/minor.js"(exports, module) {
     "use strict";
     var SemVer = require_semver();
     var minor = (a, loose) => new SemVer(a, loose).minor;
@@ -6194,9 +6007,9 @@ var require_minor = __commonJS({
   }
 });
 
-// node_modules/semver/functions/patch.js
+// ../node_modules/semver/functions/patch.js
 var require_patch = __commonJS({
-  "node_modules/semver/functions/patch.js"(exports, module) {
+  "../node_modules/semver/functions/patch.js"(exports, module) {
     "use strict";
     var SemVer = require_semver();
     var patch = (a, loose) => new SemVer(a, loose).patch;
@@ -6204,9 +6017,9 @@ var require_patch = __commonJS({
   }
 });
 
-// node_modules/semver/functions/prerelease.js
+// ../node_modules/semver/functions/prerelease.js
 var require_prerelease = __commonJS({
-  "node_modules/semver/functions/prerelease.js"(exports, module) {
+  "../node_modules/semver/functions/prerelease.js"(exports, module) {
     "use strict";
     var parse = require_parse();
     var prerelease = (version, options) => {
@@ -6217,9 +6030,9 @@ var require_prerelease = __commonJS({
   }
 });
 
-// node_modules/semver/functions/compare.js
+// ../node_modules/semver/functions/compare.js
 var require_compare = __commonJS({
-  "node_modules/semver/functions/compare.js"(exports, module) {
+  "../node_modules/semver/functions/compare.js"(exports, module) {
     "use strict";
     var SemVer = require_semver();
     var compare = (a, b, loose) => new SemVer(a, loose).compare(new SemVer(b, loose));
@@ -6227,9 +6040,9 @@ var require_compare = __commonJS({
   }
 });
 
-// node_modules/semver/functions/rcompare.js
+// ../node_modules/semver/functions/rcompare.js
 var require_rcompare = __commonJS({
-  "node_modules/semver/functions/rcompare.js"(exports, module) {
+  "../node_modules/semver/functions/rcompare.js"(exports, module) {
     "use strict";
     var compare = require_compare();
     var rcompare = (a, b, loose) => compare(b, a, loose);
@@ -6237,9 +6050,9 @@ var require_rcompare = __commonJS({
   }
 });
 
-// node_modules/semver/functions/compare-loose.js
+// ../node_modules/semver/functions/compare-loose.js
 var require_compare_loose = __commonJS({
-  "node_modules/semver/functions/compare-loose.js"(exports, module) {
+  "../node_modules/semver/functions/compare-loose.js"(exports, module) {
     "use strict";
     var compare = require_compare();
     var compareLoose = (a, b) => compare(a, b, true);
@@ -6247,9 +6060,9 @@ var require_compare_loose = __commonJS({
   }
 });
 
-// node_modules/semver/functions/compare-build.js
+// ../node_modules/semver/functions/compare-build.js
 var require_compare_build = __commonJS({
-  "node_modules/semver/functions/compare-build.js"(exports, module) {
+  "../node_modules/semver/functions/compare-build.js"(exports, module) {
     "use strict";
     var SemVer = require_semver();
     var compareBuild = (a, b, loose) => {
@@ -6261,9 +6074,9 @@ var require_compare_build = __commonJS({
   }
 });
 
-// node_modules/semver/functions/sort.js
+// ../node_modules/semver/functions/sort.js
 var require_sort = __commonJS({
-  "node_modules/semver/functions/sort.js"(exports, module) {
+  "../node_modules/semver/functions/sort.js"(exports, module) {
     "use strict";
     var compareBuild = require_compare_build();
     var sort = (list, loose) => list.sort((a, b) => compareBuild(a, b, loose));
@@ -6271,9 +6084,9 @@ var require_sort = __commonJS({
   }
 });
 
-// node_modules/semver/functions/rsort.js
+// ../node_modules/semver/functions/rsort.js
 var require_rsort = __commonJS({
-  "node_modules/semver/functions/rsort.js"(exports, module) {
+  "../node_modules/semver/functions/rsort.js"(exports, module) {
     "use strict";
     var compareBuild = require_compare_build();
     var rsort = (list, loose) => list.sort((a, b) => compareBuild(b, a, loose));
@@ -6281,9 +6094,9 @@ var require_rsort = __commonJS({
   }
 });
 
-// node_modules/semver/functions/gt.js
+// ../node_modules/semver/functions/gt.js
 var require_gt = __commonJS({
-  "node_modules/semver/functions/gt.js"(exports, module) {
+  "../node_modules/semver/functions/gt.js"(exports, module) {
     "use strict";
     var compare = require_compare();
     var gt = (a, b, loose) => compare(a, b, loose) > 0;
@@ -6291,9 +6104,9 @@ var require_gt = __commonJS({
   }
 });
 
-// node_modules/semver/functions/lt.js
+// ../node_modules/semver/functions/lt.js
 var require_lt = __commonJS({
-  "node_modules/semver/functions/lt.js"(exports, module) {
+  "../node_modules/semver/functions/lt.js"(exports, module) {
     "use strict";
     var compare = require_compare();
     var lt = (a, b, loose) => compare(a, b, loose) < 0;
@@ -6301,9 +6114,9 @@ var require_lt = __commonJS({
   }
 });
 
-// node_modules/semver/functions/eq.js
+// ../node_modules/semver/functions/eq.js
 var require_eq = __commonJS({
-  "node_modules/semver/functions/eq.js"(exports, module) {
+  "../node_modules/semver/functions/eq.js"(exports, module) {
     "use strict";
     var compare = require_compare();
     var eq = (a, b, loose) => compare(a, b, loose) === 0;
@@ -6311,9 +6124,9 @@ var require_eq = __commonJS({
   }
 });
 
-// node_modules/semver/functions/neq.js
+// ../node_modules/semver/functions/neq.js
 var require_neq = __commonJS({
-  "node_modules/semver/functions/neq.js"(exports, module) {
+  "../node_modules/semver/functions/neq.js"(exports, module) {
     "use strict";
     var compare = require_compare();
     var neq = (a, b, loose) => compare(a, b, loose) !== 0;
@@ -6321,9 +6134,9 @@ var require_neq = __commonJS({
   }
 });
 
-// node_modules/semver/functions/gte.js
+// ../node_modules/semver/functions/gte.js
 var require_gte = __commonJS({
-  "node_modules/semver/functions/gte.js"(exports, module) {
+  "../node_modules/semver/functions/gte.js"(exports, module) {
     "use strict";
     var compare = require_compare();
     var gte2 = (a, b, loose) => compare(a, b, loose) >= 0;
@@ -6331,9 +6144,9 @@ var require_gte = __commonJS({
   }
 });
 
-// node_modules/semver/functions/lte.js
+// ../node_modules/semver/functions/lte.js
 var require_lte = __commonJS({
-  "node_modules/semver/functions/lte.js"(exports, module) {
+  "../node_modules/semver/functions/lte.js"(exports, module) {
     "use strict";
     var compare = require_compare();
     var lte = (a, b, loose) => compare(a, b, loose) <= 0;
@@ -6341,9 +6154,9 @@ var require_lte = __commonJS({
   }
 });
 
-// node_modules/semver/functions/cmp.js
+// ../node_modules/semver/functions/cmp.js
 var require_cmp = __commonJS({
-  "node_modules/semver/functions/cmp.js"(exports, module) {
+  "../node_modules/semver/functions/cmp.js"(exports, module) {
     "use strict";
     var eq = require_eq();
     var neq = require_neq();
@@ -6391,9 +6204,9 @@ var require_cmp = __commonJS({
   }
 });
 
-// node_modules/semver/functions/coerce.js
+// ../node_modules/semver/functions/coerce.js
 var require_coerce = __commonJS({
-  "node_modules/semver/functions/coerce.js"(exports, module) {
+  "../node_modules/semver/functions/coerce.js"(exports, module) {
     "use strict";
     var SemVer = require_semver();
     var parse = require_parse();
@@ -6437,9 +6250,9 @@ var require_coerce = __commonJS({
   }
 });
 
-// node_modules/semver/internal/lrucache.js
+// ../node_modules/semver/internal/lrucache.js
 var require_lrucache = __commonJS({
-  "node_modules/semver/internal/lrucache.js"(exports, module) {
+  "../node_modules/semver/internal/lrucache.js"(exports, module) {
     "use strict";
     var LRUCache = class {
       constructor() {
@@ -6475,9 +6288,9 @@ var require_lrucache = __commonJS({
   }
 });
 
-// node_modules/semver/classes/range.js
+// ../node_modules/semver/classes/range.js
 var require_range = __commonJS({
-  "node_modules/semver/classes/range.js"(exports, module) {
+  "../node_modules/semver/classes/range.js"(exports, module) {
     "use strict";
     var SPACE_CHARACTERS = /\s+/g;
     var Range = class _Range {
@@ -6852,9 +6665,9 @@ var require_range = __commonJS({
   }
 });
 
-// node_modules/semver/classes/comparator.js
+// ../node_modules/semver/classes/comparator.js
 var require_comparator = __commonJS({
-  "node_modules/semver/classes/comparator.js"(exports, module) {
+  "../node_modules/semver/classes/comparator.js"(exports, module) {
     "use strict";
     var ANY = /* @__PURE__ */ Symbol("SemVer ANY");
     var Comparator = class _Comparator {
@@ -6965,9 +6778,9 @@ var require_comparator = __commonJS({
   }
 });
 
-// node_modules/semver/functions/satisfies.js
+// ../node_modules/semver/functions/satisfies.js
 var require_satisfies = __commonJS({
-  "node_modules/semver/functions/satisfies.js"(exports, module) {
+  "../node_modules/semver/functions/satisfies.js"(exports, module) {
     "use strict";
     var Range = require_range();
     var satisfies = (version, range, options) => {
@@ -6982,9 +6795,9 @@ var require_satisfies = __commonJS({
   }
 });
 
-// node_modules/semver/ranges/to-comparators.js
+// ../node_modules/semver/ranges/to-comparators.js
 var require_to_comparators = __commonJS({
-  "node_modules/semver/ranges/to-comparators.js"(exports, module) {
+  "../node_modules/semver/ranges/to-comparators.js"(exports, module) {
     "use strict";
     var Range = require_range();
     var toComparators = (range, options) => new Range(range, options).set.map((comp) => comp.map((c) => c.value).join(" ").trim().split(" "));
@@ -6992,9 +6805,9 @@ var require_to_comparators = __commonJS({
   }
 });
 
-// node_modules/semver/ranges/max-satisfying.js
+// ../node_modules/semver/ranges/max-satisfying.js
 var require_max_satisfying = __commonJS({
-  "node_modules/semver/ranges/max-satisfying.js"(exports, module) {
+  "../node_modules/semver/ranges/max-satisfying.js"(exports, module) {
     "use strict";
     var SemVer = require_semver();
     var Range = require_range();
@@ -7021,9 +6834,9 @@ var require_max_satisfying = __commonJS({
   }
 });
 
-// node_modules/semver/ranges/min-satisfying.js
+// ../node_modules/semver/ranges/min-satisfying.js
 var require_min_satisfying = __commonJS({
-  "node_modules/semver/ranges/min-satisfying.js"(exports, module) {
+  "../node_modules/semver/ranges/min-satisfying.js"(exports, module) {
     "use strict";
     var SemVer = require_semver();
     var Range = require_range();
@@ -7050,9 +6863,9 @@ var require_min_satisfying = __commonJS({
   }
 });
 
-// node_modules/semver/ranges/min-version.js
+// ../node_modules/semver/ranges/min-version.js
 var require_min_version = __commonJS({
-  "node_modules/semver/ranges/min-version.js"(exports, module) {
+  "../node_modules/semver/ranges/min-version.js"(exports, module) {
     "use strict";
     var SemVer = require_semver();
     var Range = require_range();
@@ -7109,9 +6922,9 @@ var require_min_version = __commonJS({
   }
 });
 
-// node_modules/semver/ranges/valid.js
+// ../node_modules/semver/ranges/valid.js
 var require_valid2 = __commonJS({
-  "node_modules/semver/ranges/valid.js"(exports, module) {
+  "../node_modules/semver/ranges/valid.js"(exports, module) {
     "use strict";
     var Range = require_range();
     var validRange = (range, options) => {
@@ -7125,9 +6938,9 @@ var require_valid2 = __commonJS({
   }
 });
 
-// node_modules/semver/ranges/outside.js
+// ../node_modules/semver/ranges/outside.js
 var require_outside = __commonJS({
-  "node_modules/semver/ranges/outside.js"(exports, module) {
+  "../node_modules/semver/ranges/outside.js"(exports, module) {
     "use strict";
     var SemVer = require_semver();
     var Comparator = require_comparator();
@@ -7194,9 +7007,9 @@ var require_outside = __commonJS({
   }
 });
 
-// node_modules/semver/ranges/gtr.js
+// ../node_modules/semver/ranges/gtr.js
 var require_gtr = __commonJS({
-  "node_modules/semver/ranges/gtr.js"(exports, module) {
+  "../node_modules/semver/ranges/gtr.js"(exports, module) {
     "use strict";
     var outside = require_outside();
     var gtr = (version, range, options) => outside(version, range, ">", options);
@@ -7204,9 +7017,9 @@ var require_gtr = __commonJS({
   }
 });
 
-// node_modules/semver/ranges/ltr.js
+// ../node_modules/semver/ranges/ltr.js
 var require_ltr = __commonJS({
-  "node_modules/semver/ranges/ltr.js"(exports, module) {
+  "../node_modules/semver/ranges/ltr.js"(exports, module) {
     "use strict";
     var outside = require_outside();
     var ltr = (version, range, options) => outside(version, range, "<", options);
@@ -7214,9 +7027,9 @@ var require_ltr = __commonJS({
   }
 });
 
-// node_modules/semver/ranges/intersects.js
+// ../node_modules/semver/ranges/intersects.js
 var require_intersects = __commonJS({
-  "node_modules/semver/ranges/intersects.js"(exports, module) {
+  "../node_modules/semver/ranges/intersects.js"(exports, module) {
     "use strict";
     var Range = require_range();
     var intersects = (r1, r2, options) => {
@@ -7228,9 +7041,9 @@ var require_intersects = __commonJS({
   }
 });
 
-// node_modules/semver/ranges/simplify.js
+// ../node_modules/semver/ranges/simplify.js
 var require_simplify = __commonJS({
-  "node_modules/semver/ranges/simplify.js"(exports, module) {
+  "../node_modules/semver/ranges/simplify.js"(exports, module) {
     "use strict";
     var satisfies = require_satisfies();
     var compare = require_compare();
@@ -7278,9 +7091,9 @@ var require_simplify = __commonJS({
   }
 });
 
-// node_modules/semver/ranges/subset.js
+// ../node_modules/semver/ranges/subset.js
 var require_subset = __commonJS({
-  "node_modules/semver/ranges/subset.js"(exports, module) {
+  "../node_modules/semver/ranges/subset.js"(exports, module) {
     "use strict";
     var Range = require_range();
     var Comparator = require_comparator();
@@ -7440,9 +7253,9 @@ var require_subset = __commonJS({
   }
 });
 
-// node_modules/semver/index.js
+// ../node_modules/semver/index.js
 var require_semver2 = __commonJS({
-  "node_modules/semver/index.js"(exports, module) {
+  "../node_modules/semver/index.js"(exports, module) {
     "use strict";
     var internalRe = require_re();
     var constants3 = require_constants();
@@ -10739,9 +10552,9 @@ var init_dom = __esm({
   }
 });
 
-// node_modules/scheduler/cjs/scheduler.production.js
+// ../node_modules/scheduler/cjs/scheduler.production.js
 var require_scheduler_production = __commonJS({
-  "node_modules/scheduler/cjs/scheduler.production.js"(exports) {
+  "../node_modules/scheduler/cjs/scheduler.production.js"(exports) {
     "use strict";
     function push(heap, node) {
       var index = heap.length;
@@ -11012,9 +10825,9 @@ var require_scheduler_production = __commonJS({
   }
 });
 
-// node_modules/scheduler/cjs/scheduler.development.js
+// ../node_modules/scheduler/cjs/scheduler.development.js
 var require_scheduler_development = __commonJS({
-  "node_modules/scheduler/cjs/scheduler.development.js"(exports) {
+  "../node_modules/scheduler/cjs/scheduler.development.js"(exports) {
     "use strict";
     "production" !== process.env.NODE_ENV && (function() {
       function performWorkUntilDeadline() {
@@ -11271,9 +11084,9 @@ var require_scheduler_development = __commonJS({
   }
 });
 
-// node_modules/scheduler/index.js
+// ../node_modules/scheduler/index.js
 var require_scheduler = __commonJS({
-  "node_modules/scheduler/index.js"(exports, module) {
+  "../node_modules/scheduler/index.js"(exports, module) {
     "use strict";
     if (process.env.NODE_ENV === "production") {
       module.exports = require_scheduler_production();
@@ -11283,9 +11096,9 @@ var require_scheduler = __commonJS({
   }
 });
 
-// node_modules/react-reconciler/cjs/react-reconciler.production.js
+// ../node_modules/react-reconciler/cjs/react-reconciler.production.js
 var require_react_reconciler_production = __commonJS({
-  "node_modules/react-reconciler/cjs/react-reconciler.production.js"(exports, module) {
+  "../node_modules/react-reconciler/cjs/react-reconciler.production.js"(exports, module) {
     "use strict";
     module.exports = function($$$config) {
       function createFiber(tag, pendingProps, key, mode) {
@@ -19462,9 +19275,9 @@ var require_react_reconciler_production = __commonJS({
   }
 });
 
-// node_modules/react-reconciler/cjs/react-reconciler.development.js
+// ../node_modules/react-reconciler/cjs/react-reconciler.development.js
 var require_react_reconciler_development = __commonJS({
-  "node_modules/react-reconciler/cjs/react-reconciler.development.js"(exports, module) {
+  "../node_modules/react-reconciler/cjs/react-reconciler.development.js"(exports, module) {
     "use strict";
     "production" !== process.env.NODE_ENV && (module.exports = function($$$config) {
       function findHook(fiber, id) {
@@ -33235,9 +33048,9 @@ var require_react_reconciler_development = __commonJS({
   }
 });
 
-// node_modules/react-reconciler/index.js
+// ../node_modules/react-reconciler/index.js
 var require_react_reconciler = __commonJS({
-  "node_modules/react-reconciler/index.js"(exports, module) {
+  "../node_modules/react-reconciler/index.js"(exports, module) {
     "use strict";
     if (process.env.NODE_ENV === "production") {
       module.exports = require_react_reconciler_production();
@@ -33247,9 +33060,9 @@ var require_react_reconciler = __commonJS({
   }
 });
 
-// node_modules/react-reconciler/cjs/react-reconciler-constants.production.js
+// ../node_modules/react-reconciler/cjs/react-reconciler-constants.production.js
 var require_react_reconciler_constants_production = __commonJS({
-  "node_modules/react-reconciler/cjs/react-reconciler-constants.production.js"(exports) {
+  "../node_modules/react-reconciler/cjs/react-reconciler-constants.production.js"(exports) {
     "use strict";
     exports.ConcurrentRoot = 1;
     exports.ContinuousEventPriority = 8;
@@ -33261,17 +33074,17 @@ var require_react_reconciler_constants_production = __commonJS({
   }
 });
 
-// node_modules/react-reconciler/cjs/react-reconciler-constants.development.js
+// ../node_modules/react-reconciler/cjs/react-reconciler-constants.development.js
 var require_react_reconciler_constants_development = __commonJS({
-  "node_modules/react-reconciler/cjs/react-reconciler-constants.development.js"(exports) {
+  "../node_modules/react-reconciler/cjs/react-reconciler-constants.development.js"(exports) {
     "use strict";
     "production" !== process.env.NODE_ENV && (exports.ConcurrentRoot = 1, exports.ContinuousEventPriority = 8, exports.DefaultEventPriority = 32, exports.DiscreteEventPriority = 2, exports.IdleEventPriority = 268435456, exports.LegacyRoot = 0, exports.NoEventPriority = 0);
   }
 });
 
-// node_modules/react-reconciler/constants.js
+// ../node_modules/react-reconciler/constants.js
 var require_constants2 = __commonJS({
-  "node_modules/react-reconciler/constants.js"(exports, module) {
+  "../node_modules/react-reconciler/constants.js"(exports, module) {
     "use strict";
     if (process.env.NODE_ENV === "production") {
       module.exports = require_react_reconciler_constants_production();
@@ -33749,7 +33562,7 @@ function applyPositionEdge(node, edge, v) {
     node.setPosition(edge, Number.NaN);
   }
 }
-var applyPositionStyles, applyOverflowStyles, applyMarginStyles, applyPaddingStyles, applyFlexStyles, applyDimensionStyles, applyDisplayStyles, applyBorderStyles, applyGapStyles, styles3, styles_default;
+var applyPositionStyles, applyOverflowStyles, applyMarginStyles, applyPaddingStyles, applyFlexStyles, applyDimensionStyles, applyDisplayStyles, applyBorderStyles, applyGapStyles, styles2, styles_default;
 var init_styles = __esm({
   "packages/hermes-ink/src/ink/styles.ts"() {
     "use strict";
@@ -34005,7 +33818,7 @@ var init_styles = __esm({
         node.setGap(LayoutGutter.Row, style.rowGap ?? 0);
       }
     };
-    styles3 = (node, style = {}, resolvedStyle) => {
+    styles2 = (node, style = {}, resolvedStyle) => {
       applyPositionStyles(node, style);
       applyOverflowStyles(node, style);
       applyMarginStyles(node, style);
@@ -34016,7 +33829,7 @@ var init_styles = __esm({
       applyBorderStyles(node, style, resolvedStyle);
       applyGapStyles(node, style);
     };
-    styles_default = styles3;
+    styles_default = styles2;
   }
 });
 
@@ -34638,9 +34451,9 @@ var init_use_external_process = __esm({
   }
 });
 
-// node_modules/lodash.debounce/index.js
+// ../node_modules/lodash.debounce/index.js
 var require_lodash = __commonJS({
-  "node_modules/lodash.debounce/index.js"(exports, module) {
+  "../node_modules/lodash.debounce/index.js"(exports, module) {
     var FUNC_ERROR_TEXT3 = "Expected a function";
     var NAN2 = 0 / 0;
     var symbolTag2 = "[object Symbol]";
@@ -34771,7 +34584,7 @@ var require_lodash = __commonJS({
   }
 });
 
-// node_modules/usehooks-ts/dist/index.js
+// ../node_modules/usehooks-ts/dist/index.js
 function useEventCallback(fn) {
   const ref = (0, import_react15.useRef)(() => {
     throw new Error("Cannot call an event handler while rendering.");
@@ -34786,7 +34599,7 @@ function useEventCallback(fn) {
 }
 var import_react15, import_lodash, useIsomorphicLayoutEffect;
 var init_dist = __esm({
-  "node_modules/usehooks-ts/dist/index.js"() {
+  "../node_modules/usehooks-ts/dist/index.js"() {
     import_react15 = __toESM(require_react(), 1);
     import_lodash = __toESM(require_lodash(), 1);
     useIsomorphicLayoutEffect = typeof window !== "undefined" ? import_react15.useLayoutEffect : import_react15.useEffect;
@@ -34922,8 +34735,8 @@ var init_geometry = __esm({
 });
 
 // packages/hermes-ink/src/ink/screen.ts
-function hasVisibleSpaceEffect(styles13) {
-  for (const style of styles13) {
+function hasVisibleSpaceEffect(styles12) {
+  for (const style of styles12) {
     if (VISIBLE_ON_SPACE.has(style.endCode)) {
       return true;
     }
@@ -34958,7 +34771,7 @@ function isWrittenCellAt(screen, x, y) {
 function internHyperlink(screen, hyperlink) {
   return screen.hyperlinkPool.intern(hyperlink);
 }
-function createScreen(width, height, styles13, charPool, hyperlinkPool) {
+function createScreen(width, height, styles12, charPool, hyperlinkPool) {
   ifNotInteger(width, "createScreen width");
   ifNotInteger(height, "createScreen height");
   if (!Number.isInteger(width) || width < 0) {
@@ -34978,7 +34791,7 @@ function createScreen(width, height, styles13, charPool, hyperlinkPool) {
     cells64,
     charPool,
     hyperlinkPool,
-    emptyStyleId: styles13.none,
+    emptyStyleId: styles12.none,
     damage: void 0,
     noSelect: new Uint8Array(size),
     written: new Uint8Array(size),
@@ -35304,8 +35117,8 @@ function shiftRows(screen, top, bottom, n) {
     sw.fill(0, top, top - n);
   }
 }
-function extractHyperlinkFromStyles(styles13) {
-  for (const style of styles13) {
+function extractHyperlinkFromStyles(styles12) {
+  for (const style of styles12) {
     const code = style.code;
     if (code.length < 5 || !code.startsWith(OSC8_PREFIX)) {
       continue;
@@ -35317,8 +35130,8 @@ function extractHyperlinkFromStyles(styles13) {
   }
   return null;
 }
-function filterOutHyperlinkStyles(styles13) {
-  return styles13.filter((style) => !style.code.startsWith(OSC8_PREFIX) || !OSC8_REGEX.test(style.code));
+function filterOutHyperlinkStyles(styles12) {
+  return styles12.filter((style) => !style.code.startsWith(OSC8_PREFIX) || !OSC8_REGEX.test(style.code));
 }
 function diffEach(prev, next, cb) {
   const prevWidth = prev.width;
@@ -35635,13 +35448,13 @@ var init_screen = __esm({
        * on spaces get odd IDs. This lets the renderer skip invisible spaces
        * with a single bitmask check on the packed word.
        */
-      intern(styles13) {
-        const key = styles13.length === 0 ? "" : styles13.map((s) => s.code).join("\0");
+      intern(styles12) {
+        const key = styles12.length === 0 ? "" : styles12.map((s) => s.code).join("\0");
         let id = this.ids.get(key);
         if (id === void 0) {
           const rawId = this.styles.length;
-          this.styles.push(styles13.length === 0 ? [] : styles13);
-          id = rawId << 1 | (styles13.length > 0 && hasVisibleSpaceEffect(styles13) ? 1 : 0);
+          this.styles.push(styles12.length === 0 ? [] : styles12);
+          id = rawId << 1 | (styles12.length > 0 && hasVisibleSpaceEffect(styles12) ? 1 : 0);
           this.ids.set(key, id);
         }
         return id;
@@ -36673,7 +36486,7 @@ var init_measure_element = __esm({
   }
 });
 
-// node_modules/indent-string/index.js
+// ../node_modules/indent-string/index.js
 function indentString(string, count = 1, options = {}) {
   const {
     indent = " ",
@@ -36702,44 +36515,44 @@ function indentString(string, count = 1, options = {}) {
   if (count === 0) {
     return string;
   }
-  const regex2 = includeEmptyLines ? /^/gm : /^(?!\s*$)/gm;
-  return string.replace(regex2, indent.repeat(count));
+  const regex4 = includeEmptyLines ? /^/gm : /^(?!\s*$)/gm;
+  return string.replace(regex4, indent.repeat(count));
 }
 var init_indent_string = __esm({
-  "node_modules/indent-string/index.js"() {
+  "../node_modules/indent-string/index.js"() {
   }
 });
 
-// packages/hermes-ink/node_modules/chalk/source/vendor/ansi-styles/index.js
-function assembleStyles3() {
+// node_modules/chalk/source/vendor/ansi-styles/index.js
+function assembleStyles2() {
   const codes = /* @__PURE__ */ new Map();
-  for (const [groupName, group] of Object.entries(styles4)) {
+  for (const [groupName, group] of Object.entries(styles3)) {
     for (const [styleName, style] of Object.entries(group)) {
-      styles4[styleName] = {
+      styles3[styleName] = {
         open: `\x1B[${style[0]}m`,
         close: `\x1B[${style[1]}m`
       };
-      group[styleName] = styles4[styleName];
+      group[styleName] = styles3[styleName];
       codes.set(style[0], style[1]);
     }
-    Object.defineProperty(styles4, groupName, {
+    Object.defineProperty(styles3, groupName, {
       value: group,
       enumerable: false
     });
   }
-  Object.defineProperty(styles4, "codes", {
+  Object.defineProperty(styles3, "codes", {
     value: codes,
     enumerable: false
   });
-  styles4.color.close = "\x1B[39m";
-  styles4.bgColor.close = "\x1B[49m";
-  styles4.color.ansi = wrapAnsi163();
-  styles4.color.ansi256 = wrapAnsi2563();
-  styles4.color.ansi16m = wrapAnsi16m3();
-  styles4.bgColor.ansi = wrapAnsi163(ANSI_BACKGROUND_OFFSET3);
-  styles4.bgColor.ansi256 = wrapAnsi2563(ANSI_BACKGROUND_OFFSET3);
-  styles4.bgColor.ansi16m = wrapAnsi16m3(ANSI_BACKGROUND_OFFSET3);
-  Object.defineProperties(styles4, {
+  styles3.color.close = "\x1B[39m";
+  styles3.bgColor.close = "\x1B[49m";
+  styles3.color.ansi = wrapAnsi162();
+  styles3.color.ansi256 = wrapAnsi2562();
+  styles3.color.ansi16m = wrapAnsi16m2();
+  styles3.bgColor.ansi = wrapAnsi162(ANSI_BACKGROUND_OFFSET2);
+  styles3.bgColor.ansi256 = wrapAnsi2562(ANSI_BACKGROUND_OFFSET2);
+  styles3.bgColor.ansi16m = wrapAnsi16m2(ANSI_BACKGROUND_OFFSET2);
+  Object.defineProperties(styles3, {
     rgbToAnsi256: {
       value(red, green, blue) {
         if (red === green && green === blue) {
@@ -36777,7 +36590,7 @@ function assembleStyles3() {
       enumerable: false
     },
     hexToAnsi256: {
-      value: (hex) => styles4.rgbToAnsi256(...styles4.hexToRgb(hex)),
+      value: (hex) => styles3.rgbToAnsi256(...styles3.hexToRgb(hex)),
       enumerable: false
     },
     ansi256ToAnsi: {
@@ -36815,24 +36628,24 @@ function assembleStyles3() {
       enumerable: false
     },
     rgbToAnsi: {
-      value: (red, green, blue) => styles4.ansi256ToAnsi(styles4.rgbToAnsi256(red, green, blue)),
+      value: (red, green, blue) => styles3.ansi256ToAnsi(styles3.rgbToAnsi256(red, green, blue)),
       enumerable: false
     },
     hexToAnsi: {
-      value: (hex) => styles4.ansi256ToAnsi(styles4.hexToAnsi256(hex)),
+      value: (hex) => styles3.ansi256ToAnsi(styles3.hexToAnsi256(hex)),
       enumerable: false
     }
   });
-  return styles4;
+  return styles3;
 }
-var ANSI_BACKGROUND_OFFSET3, wrapAnsi163, wrapAnsi2563, wrapAnsi16m3, styles4, modifierNames3, foregroundColorNames3, backgroundColorNames3, colorNames3, ansiStyles3, ansi_styles_default3;
-var init_ansi_styles3 = __esm({
-  "packages/hermes-ink/node_modules/chalk/source/vendor/ansi-styles/index.js"() {
-    ANSI_BACKGROUND_OFFSET3 = 10;
-    wrapAnsi163 = (offset = 0) => (code) => `\x1B[${code + offset}m`;
-    wrapAnsi2563 = (offset = 0) => (code) => `\x1B[${38 + offset};5;${code}m`;
-    wrapAnsi16m3 = (offset = 0) => (red, green, blue) => `\x1B[${38 + offset};2;${red};${green};${blue}m`;
-    styles4 = {
+var ANSI_BACKGROUND_OFFSET2, wrapAnsi162, wrapAnsi2562, wrapAnsi16m2, styles3, modifierNames2, foregroundColorNames2, backgroundColorNames2, colorNames2, ansiStyles2, ansi_styles_default2;
+var init_ansi_styles2 = __esm({
+  "node_modules/chalk/source/vendor/ansi-styles/index.js"() {
+    ANSI_BACKGROUND_OFFSET2 = 10;
+    wrapAnsi162 = (offset = 0) => (code) => `\x1B[${code + offset}m`;
+    wrapAnsi2562 = (offset = 0) => (code) => `\x1B[${38 + offset};5;${code}m`;
+    wrapAnsi16m2 = (offset = 0) => (red, green, blue) => `\x1B[${38 + offset};2;${red};${green};${blue}m`;
+    styles3 = {
       modifier: {
         reset: [0, 0],
         // 21 isn't widely supported and 22 does the same thing
@@ -36892,16 +36705,16 @@ var init_ansi_styles3 = __esm({
         bgWhiteBright: [107, 49]
       }
     };
-    modifierNames3 = Object.keys(styles4.modifier);
-    foregroundColorNames3 = Object.keys(styles4.color);
-    backgroundColorNames3 = Object.keys(styles4.bgColor);
-    colorNames3 = [...foregroundColorNames3, ...backgroundColorNames3];
-    ansiStyles3 = assembleStyles3();
-    ansi_styles_default3 = ansiStyles3;
+    modifierNames2 = Object.keys(styles3.modifier);
+    foregroundColorNames2 = Object.keys(styles3.color);
+    backgroundColorNames2 = Object.keys(styles3.bgColor);
+    colorNames2 = [...foregroundColorNames2, ...backgroundColorNames2];
+    ansiStyles2 = assembleStyles2();
+    ansi_styles_default2 = ansiStyles2;
   }
 });
 
-// packages/hermes-ink/node_modules/chalk/source/vendor/supports-color/index.js
+// node_modules/chalk/source/vendor/supports-color/index.js
 import process2 from "node:process";
 import os from "node:os";
 import tty from "node:tty";
@@ -37022,7 +36835,7 @@ function createSupportsColor(stream, options = {}) {
 }
 var env2, flagForceColor, supportsColor, supports_color_default;
 var init_supports_color = __esm({
-  "packages/hermes-ink/node_modules/chalk/source/vendor/supports-color/index.js"() {
+  "node_modules/chalk/source/vendor/supports-color/index.js"() {
     ({ env: env2 } = process2);
     if (hasFlag("no-color") || hasFlag("no-colors") || hasFlag("color=false") || hasFlag("color=never")) {
       flagForceColor = 0;
@@ -37037,7 +36850,7 @@ var init_supports_color = __esm({
   }
 });
 
-// packages/hermes-ink/node_modules/chalk/source/utilities.js
+// node_modules/chalk/source/utilities.js
 function stringReplaceAll(string, substring, replacer) {
   let index = string.indexOf(substring);
   if (index === -1) {
@@ -37067,18 +36880,18 @@ function stringEncaseCRLFWithFirstIndex(string, prefix, postfix, index) {
   return returnValue;
 }
 var init_utilities2 = __esm({
-  "packages/hermes-ink/node_modules/chalk/source/utilities.js"() {
+  "node_modules/chalk/source/utilities.js"() {
   }
 });
 
-// packages/hermes-ink/node_modules/chalk/source/index.js
+// node_modules/chalk/source/index.js
 function createChalk(options) {
   return chalkFactory(options);
 }
-var stdoutColor, stderrColor, GENERATOR, STYLER, IS_EMPTY, levelMapping, styles5, applyOptions, chalkFactory, getModelAnsi, usedModels, proto, createStyler, createBuilder, applyStyle, chalk, chalkStderr, source_default;
+var stdoutColor, stderrColor, GENERATOR, STYLER, IS_EMPTY, levelMapping, styles4, applyOptions, chalkFactory, getModelAnsi, usedModels, proto, createStyler, createBuilder, applyStyle, chalk, chalkStderr, source_default;
 var init_source = __esm({
-  "packages/hermes-ink/node_modules/chalk/source/index.js"() {
-    init_ansi_styles3();
+  "node_modules/chalk/source/index.js"() {
+    init_ansi_styles2();
     init_supports_color();
     init_utilities2();
     ({ stdout: stdoutColor, stderr: stderrColor } = supports_color_default);
@@ -37091,7 +36904,7 @@ var init_source = __esm({
       "ansi256",
       "ansi16m"
     ];
-    styles5 = /* @__PURE__ */ Object.create(null);
+    styles4 = /* @__PURE__ */ Object.create(null);
     applyOptions = (object, options = {}) => {
       if (options.level && !(Number.isInteger(options.level) && options.level >= 0 && options.level <= 3)) {
         throw new Error("The `level` option should be an integer from 0 to 3");
@@ -37106,8 +36919,8 @@ var init_source = __esm({
       return chalk4;
     };
     Object.setPrototypeOf(createChalk.prototype, Function.prototype);
-    for (const [styleName, style] of Object.entries(ansi_styles_default3)) {
-      styles5[styleName] = {
+    for (const [styleName, style] of Object.entries(ansi_styles_default2)) {
+      styles4[styleName] = {
         get() {
           const builder = createBuilder(this, createStyler(style.open, style.close, this[STYLER]), this[IS_EMPTY]);
           Object.defineProperty(this, styleName, { value: builder });
@@ -37115,7 +36928,7 @@ var init_source = __esm({
         }
       };
     }
-    styles5.visible = {
+    styles4.visible = {
       get() {
         const builder = createBuilder(this, this[STYLER], true);
         Object.defineProperty(this, "visible", { value: builder });
@@ -37125,35 +36938,35 @@ var init_source = __esm({
     getModelAnsi = (model, level, type, ...arguments_) => {
       if (model === "rgb") {
         if (level === "ansi16m") {
-          return ansi_styles_default3[type].ansi16m(...arguments_);
+          return ansi_styles_default2[type].ansi16m(...arguments_);
         }
         if (level === "ansi256") {
-          return ansi_styles_default3[type].ansi256(ansi_styles_default3.rgbToAnsi256(...arguments_));
+          return ansi_styles_default2[type].ansi256(ansi_styles_default2.rgbToAnsi256(...arguments_));
         }
-        return ansi_styles_default3[type].ansi(ansi_styles_default3.rgbToAnsi(...arguments_));
+        return ansi_styles_default2[type].ansi(ansi_styles_default2.rgbToAnsi(...arguments_));
       }
       if (model === "hex") {
-        return getModelAnsi("rgb", level, type, ...ansi_styles_default3.hexToRgb(...arguments_));
+        return getModelAnsi("rgb", level, type, ...ansi_styles_default2.hexToRgb(...arguments_));
       }
-      return ansi_styles_default3[type][model](...arguments_);
+      return ansi_styles_default2[type][model](...arguments_);
     };
     usedModels = ["rgb", "hex", "ansi256"];
     for (const model of usedModels) {
-      styles5[model] = {
+      styles4[model] = {
         get() {
           const { level } = this;
           return function(...arguments_) {
-            const styler = createStyler(getModelAnsi(model, levelMapping[level], "color", ...arguments_), ansi_styles_default3.color.close, this[STYLER]);
+            const styler = createStyler(getModelAnsi(model, levelMapping[level], "color", ...arguments_), ansi_styles_default2.color.close, this[STYLER]);
             return createBuilder(this, styler, this[IS_EMPTY]);
           };
         }
       };
       const bgModel = "bg" + model[0].toUpperCase() + model.slice(1);
-      styles5[bgModel] = {
+      styles4[bgModel] = {
         get() {
           const { level } = this;
           return function(...arguments_) {
-            const styler = createStyler(getModelAnsi(model, levelMapping[level], "bgColor", ...arguments_), ansi_styles_default3.bgColor.close, this[STYLER]);
+            const styler = createStyler(getModelAnsi(model, levelMapping[level], "bgColor", ...arguments_), ansi_styles_default2.bgColor.close, this[STYLER]);
             return createBuilder(this, styler, this[IS_EMPTY]);
           };
         }
@@ -37161,7 +36974,7 @@ var init_source = __esm({
     }
     proto = Object.defineProperties(() => {
     }, {
-      ...styles5,
+      ...styles4,
       level: {
         enumerable: true,
         get() {
@@ -37219,7 +37032,7 @@ var init_source = __esm({
       }
       return openAll + string + closeAll;
     };
-    Object.defineProperties(createChalk.prototype, styles5);
+    Object.defineProperties(createChalk.prototype, styles4);
     chalk = createChalk();
     chalkStderr = createChalk({ level: stderrColor ? stderrColor.level : 0 });
     source_default = chalk;
@@ -37264,31 +37077,31 @@ function clampChalkLevelForTmux() {
   }
   return false;
 }
-function applyTextStyles(text, styles13) {
+function applyTextStyles(text, styles12) {
   let result = text;
-  if (styles13.inverse) {
+  if (styles12.inverse) {
     result = source_default.inverse(result);
   }
-  if (styles13.strikethrough) {
+  if (styles12.strikethrough) {
     result = source_default.strikethrough(result);
   }
-  if (styles13.underline) {
+  if (styles12.underline) {
     result = source_default.underline(result);
   }
-  if (styles13.italic) {
+  if (styles12.italic) {
     result = source_default.italic(result);
   }
-  if (styles13.bold) {
+  if (styles12.bold) {
     result = source_default.bold(result);
   }
-  if (styles13.dim) {
+  if (styles12.dim) {
     result = source_default.dim(result);
   }
-  if (styles13.color) {
-    result = colorize(result, styles13.color, "foreground");
+  if (styles12.color) {
+    result = colorize(result, styles12.color, "foreground");
   }
-  if (styles13.backgroundColor) {
-    result = colorize(result, styles13.backgroundColor, "background");
+  if (styles12.backgroundColor) {
+    result = colorize(result, styles12.backgroundColor, "background");
   }
   return result;
 }
@@ -37401,9 +37214,9 @@ var init_get_max_width = __esm({
   }
 });
 
-// node_modules/cli-boxes/boxes.json
+// ../node_modules/cli-boxes/boxes.json
 var require_boxes = __commonJS({
-  "node_modules/cli-boxes/boxes.json"(exports, module) {
+  "../node_modules/cli-boxes/boxes.json"(exports, module) {
     module.exports = {
       single: {
         topLeft: "\u250C",
@@ -37489,9 +37302,9 @@ var require_boxes = __commonJS({
   }
 });
 
-// node_modules/cli-boxes/index.js
+// ../node_modules/cli-boxes/index.js
 var require_cli_boxes = __commonJS({
-  "node_modules/cli-boxes/index.js"(exports, module) {
+  "../node_modules/cli-boxes/index.js"(exports, module) {
     "use strict";
     var cliBoxes3 = require_boxes();
     module.exports = cliBoxes3;
@@ -38456,7 +38269,7 @@ var init_render_node_to_output = __esm({
   }
 });
 
-// node_modules/auto-bind/index.js
+// ../node_modules/auto-bind/index.js
 function autoBind(self2, { include, exclude } = {}) {
   const filter = (key) => {
     const match = (pattern) => typeof pattern === "string" ? key === pattern : pattern.test(key);
@@ -38481,7 +38294,7 @@ function autoBind(self2, { include, exclude } = {}) {
 }
 var getAllProperties;
 var init_auto_bind = __esm({
-  "node_modules/auto-bind/index.js"() {
+  "../node_modules/auto-bind/index.js"() {
     getAllProperties = (object) => {
       const properties = /* @__PURE__ */ new Set();
       do {
@@ -38494,41 +38307,41 @@ var init_auto_bind = __esm({
   }
 });
 
-// node_modules/lodash-es/noop.js
+// ../node_modules/lodash-es/noop.js
 function noop() {
 }
 var noop_default;
 var init_noop = __esm({
-  "node_modules/lodash-es/noop.js"() {
+  "../node_modules/lodash-es/noop.js"() {
     noop_default = noop;
   }
 });
 
-// node_modules/lodash-es/isObject.js
+// ../node_modules/lodash-es/isObject.js
 function isObject(value) {
   var type = typeof value;
   return value != null && (type == "object" || type == "function");
 }
 var isObject_default;
 var init_isObject = __esm({
-  "node_modules/lodash-es/isObject.js"() {
+  "../node_modules/lodash-es/isObject.js"() {
     isObject_default = isObject;
   }
 });
 
-// node_modules/lodash-es/_freeGlobal.js
+// ../node_modules/lodash-es/_freeGlobal.js
 var freeGlobal, freeGlobal_default;
 var init_freeGlobal = __esm({
-  "node_modules/lodash-es/_freeGlobal.js"() {
+  "../node_modules/lodash-es/_freeGlobal.js"() {
     freeGlobal = typeof global == "object" && global && global.Object === Object && global;
     freeGlobal_default = freeGlobal;
   }
 });
 
-// node_modules/lodash-es/_root.js
+// ../node_modules/lodash-es/_root.js
 var freeSelf, root, root_default;
 var init_root = __esm({
-  "node_modules/lodash-es/_root.js"() {
+  "../node_modules/lodash-es/_root.js"() {
     init_freeGlobal();
     freeSelf = typeof self == "object" && self && self.Object === Object && self;
     root = freeGlobal_default || freeSelf || Function("return this")();
@@ -38536,10 +38349,10 @@ var init_root = __esm({
   }
 });
 
-// node_modules/lodash-es/now.js
+// ../node_modules/lodash-es/now.js
 var now, now_default;
 var init_now = __esm({
-  "node_modules/lodash-es/now.js"() {
+  "../node_modules/lodash-es/now.js"() {
     init_root();
     now = function() {
       return root_default.Date.now();
@@ -38548,7 +38361,7 @@ var init_now = __esm({
   }
 });
 
-// node_modules/lodash-es/_trimmedEndIndex.js
+// ../node_modules/lodash-es/_trimmedEndIndex.js
 function trimmedEndIndex(string) {
   var index = string.length;
   while (index-- && reWhitespace.test(string.charAt(index))) {
@@ -38557,36 +38370,36 @@ function trimmedEndIndex(string) {
 }
 var reWhitespace, trimmedEndIndex_default;
 var init_trimmedEndIndex = __esm({
-  "node_modules/lodash-es/_trimmedEndIndex.js"() {
+  "../node_modules/lodash-es/_trimmedEndIndex.js"() {
     reWhitespace = /\s/;
     trimmedEndIndex_default = trimmedEndIndex;
   }
 });
 
-// node_modules/lodash-es/_baseTrim.js
+// ../node_modules/lodash-es/_baseTrim.js
 function baseTrim(string) {
   return string ? string.slice(0, trimmedEndIndex_default(string) + 1).replace(reTrimStart, "") : string;
 }
 var reTrimStart, baseTrim_default;
 var init_baseTrim = __esm({
-  "node_modules/lodash-es/_baseTrim.js"() {
+  "../node_modules/lodash-es/_baseTrim.js"() {
     init_trimmedEndIndex();
     reTrimStart = /^\s+/;
     baseTrim_default = baseTrim;
   }
 });
 
-// node_modules/lodash-es/_Symbol.js
+// ../node_modules/lodash-es/_Symbol.js
 var Symbol2, Symbol_default;
 var init_Symbol = __esm({
-  "node_modules/lodash-es/_Symbol.js"() {
+  "../node_modules/lodash-es/_Symbol.js"() {
     init_root();
     Symbol2 = root_default.Symbol;
     Symbol_default = Symbol2;
   }
 });
 
-// node_modules/lodash-es/_getRawTag.js
+// ../node_modules/lodash-es/_getRawTag.js
 function getRawTag(value) {
   var isOwn = hasOwnProperty.call(value, symToStringTag), tag = value[symToStringTag];
   try {
@@ -38606,7 +38419,7 @@ function getRawTag(value) {
 }
 var objectProto, hasOwnProperty, nativeObjectToString, symToStringTag, getRawTag_default;
 var init_getRawTag = __esm({
-  "node_modules/lodash-es/_getRawTag.js"() {
+  "../node_modules/lodash-es/_getRawTag.js"() {
     init_Symbol();
     objectProto = Object.prototype;
     hasOwnProperty = objectProto.hasOwnProperty;
@@ -38616,20 +38429,20 @@ var init_getRawTag = __esm({
   }
 });
 
-// node_modules/lodash-es/_objectToString.js
+// ../node_modules/lodash-es/_objectToString.js
 function objectToString(value) {
   return nativeObjectToString2.call(value);
 }
 var objectProto2, nativeObjectToString2, objectToString_default;
 var init_objectToString = __esm({
-  "node_modules/lodash-es/_objectToString.js"() {
+  "../node_modules/lodash-es/_objectToString.js"() {
     objectProto2 = Object.prototype;
     nativeObjectToString2 = objectProto2.toString;
     objectToString_default = objectToString;
   }
 });
 
-// node_modules/lodash-es/_baseGetTag.js
+// ../node_modules/lodash-es/_baseGetTag.js
 function baseGetTag(value) {
   if (value == null) {
     return value === void 0 ? undefinedTag : nullTag;
@@ -38638,7 +38451,7 @@ function baseGetTag(value) {
 }
 var nullTag, undefinedTag, symToStringTag2, baseGetTag_default;
 var init_baseGetTag = __esm({
-  "node_modules/lodash-es/_baseGetTag.js"() {
+  "../node_modules/lodash-es/_baseGetTag.js"() {
     init_Symbol();
     init_getRawTag();
     init_objectToString();
@@ -38649,24 +38462,24 @@ var init_baseGetTag = __esm({
   }
 });
 
-// node_modules/lodash-es/isObjectLike.js
+// ../node_modules/lodash-es/isObjectLike.js
 function isObjectLike(value) {
   return value != null && typeof value == "object";
 }
 var isObjectLike_default;
 var init_isObjectLike = __esm({
-  "node_modules/lodash-es/isObjectLike.js"() {
+  "../node_modules/lodash-es/isObjectLike.js"() {
     isObjectLike_default = isObjectLike;
   }
 });
 
-// node_modules/lodash-es/isSymbol.js
+// ../node_modules/lodash-es/isSymbol.js
 function isSymbol(value) {
   return typeof value == "symbol" || isObjectLike_default(value) && baseGetTag_default(value) == symbolTag;
 }
 var symbolTag, isSymbol_default;
 var init_isSymbol = __esm({
-  "node_modules/lodash-es/isSymbol.js"() {
+  "../node_modules/lodash-es/isSymbol.js"() {
     init_baseGetTag();
     init_isObjectLike();
     symbolTag = "[object Symbol]";
@@ -38674,7 +38487,7 @@ var init_isSymbol = __esm({
   }
 });
 
-// node_modules/lodash-es/toNumber.js
+// ../node_modules/lodash-es/toNumber.js
 function toNumber(value) {
   if (typeof value == "number") {
     return value;
@@ -38695,7 +38508,7 @@ function toNumber(value) {
 }
 var NAN, reIsBadHex, reIsBinary, reIsOctal, freeParseInt, toNumber_default;
 var init_toNumber = __esm({
-  "node_modules/lodash-es/toNumber.js"() {
+  "../node_modules/lodash-es/toNumber.js"() {
     init_baseTrim();
     init_isObject();
     init_isSymbol();
@@ -38708,7 +38521,7 @@ var init_toNumber = __esm({
   }
 });
 
-// node_modules/lodash-es/debounce.js
+// ../node_modules/lodash-es/debounce.js
 function debounce2(func, wait, options) {
   var lastArgs, lastThis, maxWait, result, timerId, lastCallTime, lastInvokeTime = 0, leading = false, maxing = false, trailing = true;
   if (typeof func != "function") {
@@ -38792,7 +38605,7 @@ function debounce2(func, wait, options) {
 }
 var FUNC_ERROR_TEXT, nativeMax, nativeMin, debounce_default;
 var init_debounce = __esm({
-  "node_modules/lodash-es/debounce.js"() {
+  "../node_modules/lodash-es/debounce.js"() {
     init_isObject();
     init_now();
     init_toNumber();
@@ -38803,7 +38616,7 @@ var init_debounce = __esm({
   }
 });
 
-// node_modules/lodash-es/throttle.js
+// ../node_modules/lodash-es/throttle.js
 function throttle(func, wait, options) {
   var leading = true, trailing = true;
   if (typeof func != "function") {
@@ -38821,7 +38634,7 @@ function throttle(func, wait, options) {
 }
 var FUNC_ERROR_TEXT2, throttle_default;
 var init_throttle = __esm({
-  "node_modules/lodash-es/throttle.js"() {
+  "../node_modules/lodash-es/throttle.js"() {
     init_debounce();
     init_isObject();
     FUNC_ERROR_TEXT2 = "Expected a function";
@@ -38829,10 +38642,10 @@ var init_throttle = __esm({
   }
 });
 
-// packages/hermes-ink/node_modules/signal-exit/dist/mjs/signals.js
+// node_modules/signal-exit/dist/mjs/signals.js
 var signals;
 var init_signals = __esm({
-  "packages/hermes-ink/node_modules/signal-exit/dist/mjs/signals.js"() {
+  "node_modules/signal-exit/dist/mjs/signals.js"() {
     signals = [];
     signals.push("SIGHUP", "SIGINT", "SIGTERM");
     if (process.platform !== "win32") {
@@ -38858,10 +38671,10 @@ var init_signals = __esm({
   }
 });
 
-// packages/hermes-ink/node_modules/signal-exit/dist/mjs/index.js
+// node_modules/signal-exit/dist/mjs/index.js
 var processOk, kExitEmitter, global2, ObjectDefineProperty, Emitter, SignalExitBase, signalExitWrap, SignalExitFallback, SignalExit, process3, onExit, load, unload;
 var init_mjs = __esm({
-  "packages/hermes-ink/node_modules/signal-exit/dist/mjs/index.js"() {
+  "node_modules/signal-exit/dist/mjs/index.js"() {
     init_signals();
     processOk = (process13) => !!process13 && typeof process13 === "object" && typeof process13.removeListener === "function" && typeof process13.emit === "function" && typeof process13.reallyExit === "function" && typeof process13.listeners === "function" && typeof process13.kill === "function" && typeof process13.pid === "number" && typeof process13.on === "function";
     kExitEmitter = /* @__PURE__ */ Symbol.for("signal-exit emitter");
@@ -39245,16 +39058,11 @@ function parseMultipleKeypresses(prevState, input = "") {
     } else if (token.type === "text") {
       if (inPaste) {
         pasteBuffer += token.value;
+      } else if (/^\[M[\x60-\x7f][\x20-\uffff]{2}$/.test(token.value)) {
+        const resynthesized = "\x1B" + token.value;
+        keys.push(parseKeypress(resynthesized));
       } else {
-        const mouseFragments = parseTextWithSgrMouseFragments(token.value);
-        if (mouseFragments) {
-          keys.push(...mouseFragments);
-        } else if (/^\[M[\x60-\x7f][\x20-\uffff]{2}$/.test(token.value)) {
-          const resynthesized = "\x1B" + token.value;
-          keys.push(parseKeypress(resynthesized));
-        } else {
-          keys.push(parseKeypress(token.value));
-        }
+        keys.push(parseKeypress(token.value));
       }
     }
   }
@@ -39353,60 +39161,6 @@ function parseMouseEvent(s) {
     row: parseInt(match[3], 10),
     sequence: s
   };
-}
-function normalizeSgrMouseFragment(fragment) {
-  if (fragment.startsWith("[<")) {
-    return `\x1B${fragment}`;
-  }
-  if (fragment.startsWith("<")) {
-    return `\x1B[${fragment}`;
-  }
-  return `\x1B[<${fragment}`;
-}
-function parseSgrMouseFragment(fragment) {
-  const sequence = normalizeSgrMouseFragment(fragment);
-  return parseMouseEvent(sequence) ?? parseKeypress(sequence);
-}
-function parseTextWithSgrMouseFragments(text) {
-  SGR_MOUSE_FRAGMENT_RE.lastIndex = 0;
-  const matches = [...text.matchAll(SGR_MOUSE_FRAGMENT_RE)];
-  if (matches.length === 0) {
-    return null;
-  }
-  const parsed = [];
-  let cursor = 0;
-  let consumedAny = false;
-  for (let i = 0; i < matches.length; ) {
-    const first = matches[i];
-    const run = [first];
-    let runEnd = first.index + first[0].length;
-    i++;
-    while (i < matches.length && matches[i].index === runEnd) {
-      run.push(matches[i]);
-      runEnd = matches[i].index + matches[i][0].length;
-      i++;
-    }
-    const hasExplicitMousePrefix = run.some((match) => match[0].startsWith("[<") || match[0].startsWith("<"));
-    const isFragmentBurst = run.length > 1;
-    if (!hasExplicitMousePrefix && !isFragmentBurst) {
-      continue;
-    }
-    if (first.index > cursor) {
-      parsed.push(parseKeypress(text.slice(cursor, first.index)));
-    }
-    for (const match of run) {
-      parsed.push(parseSgrMouseFragment(match[0]));
-    }
-    cursor = runEnd;
-    consumedAny = true;
-  }
-  if (!consumedAny) {
-    return null;
-  }
-  if (cursor < text.length) {
-    parsed.push(parseKeypress(text.slice(cursor)));
-  }
-  return parsed;
 }
 function parseKeypress(s = "") {
   let parts;
@@ -39583,7 +39337,7 @@ function createWheelKey(s, name, button) {
     isPasted: false
   };
 }
-var META_KEY_CODE_RE, FN_KEY_RE, CSI_U_RE, MODIFY_OTHER_KEYS_RE, DECRPM_RE, DA1_RE, DA2_RE, KITTY_FLAGS_RE, CURSOR_POSITION_RE, OSC_RESPONSE_RE, XTVERSION_RE, SGR_MOUSE_RE, SGR_MOUSE_FRAGMENT_RE, INITIAL_STATE, keyName, nonAlphanumericKeys, isShiftKey, isCtrlKey;
+var META_KEY_CODE_RE, FN_KEY_RE, CSI_U_RE, MODIFY_OTHER_KEYS_RE, DECRPM_RE, DA1_RE, DA2_RE, KITTY_FLAGS_RE, CURSOR_POSITION_RE, OSC_RESPONSE_RE, XTVERSION_RE, SGR_MOUSE_RE, INITIAL_STATE, keyName, nonAlphanumericKeys, isShiftKey, isCtrlKey;
 var init_parse_keypress = __esm({
   "packages/hermes-ink/src/ink/parse-keypress.ts"() {
     "use strict";
@@ -39602,7 +39356,6 @@ var init_parse_keypress = __esm({
     OSC_RESPONSE_RE = /^\x1b\](\d+);(.*?)(?:\x07|\x1b\\)$/s;
     XTVERSION_RE = /^\x1bP>\|(.*?)(?:\x07|\x1b\\)$/s;
     SGR_MOUSE_RE = /^\x1b\[<(\d+);(\d+);(\d+)([Mm])$/;
-    SGR_MOUSE_FRAGMENT_RE = /(?<!\d)(?:\[<|<)?(?:[0-9]|[1-9][0-9]|1\d{2}|2[0-4]\d|25[0-5]);\d+;\d+[Mm]/g;
     INITIAL_STATE = {
       mode: "NORMAL",
       incomplete: "",
@@ -39770,9 +39523,6 @@ function parseKey(keypress) {
     input = " ";
   }
   if (keypress.code && !keypress.name) {
-    input = "";
-  }
-  if (!keypress.name && /^\[<\d+;\d+;\d+[Mm]/.test(input)) {
     input = "";
   }
   if (input.startsWith("\x1B")) {
@@ -40064,10 +39814,10 @@ var init_ClockContext = __esm({
   }
 });
 
-// node_modules/convert-to-spaces/dist/index.js
+// ../node_modules/convert-to-spaces/dist/index.js
 var convertToSpaces, dist_default;
 var init_dist2 = __esm({
-  "node_modules/convert-to-spaces/dist/index.js"() {
+  "../node_modules/convert-to-spaces/dist/index.js"() {
     convertToSpaces = (input, spaces = 2) => {
       return input.replace(/^\t+/gm, ($1) => " ".repeat($1.length * spaces));
     };
@@ -40075,10 +39825,10 @@ var init_dist2 = __esm({
   }
 });
 
-// node_modules/code-excerpt/dist/index.js
+// ../node_modules/code-excerpt/dist/index.js
 var generateLineNumbers, codeExcerpt, dist_default2;
 var init_dist3 = __esm({
-  "node_modules/code-excerpt/dist/index.js"() {
+  "../node_modules/code-excerpt/dist/index.js"() {
     init_dist2();
     generateLineNumbers = (line, around) => {
       const lineNumbers = [];
@@ -40107,9 +39857,9 @@ var init_dist3 = __esm({
   }
 });
 
-// node_modules/stack-utils/node_modules/escape-string-regexp/index.js
+// ../node_modules/stack-utils/node_modules/escape-string-regexp/index.js
 var require_escape_string_regexp = __commonJS({
-  "node_modules/stack-utils/node_modules/escape-string-regexp/index.js"(exports, module) {
+  "../node_modules/stack-utils/node_modules/escape-string-regexp/index.js"(exports, module) {
     "use strict";
     var matchOperatorsRegex = /[|\\{}()[\]^$+*?.-]/g;
     module.exports = (string) => {
@@ -40121,9 +39871,9 @@ var require_escape_string_regexp = __commonJS({
   }
 });
 
-// node_modules/stack-utils/index.js
+// ../node_modules/stack-utils/index.js
 var require_stack_utils = __commonJS({
-  "node_modules/stack-utils/index.js"(exports, module) {
+  "../node_modules/stack-utils/index.js"(exports, module) {
     "use strict";
     var escapeStringRegexp = require_escape_string_regexp();
     var cwd2 = typeof process === "object" && process && typeof process.cwd === "function" ? process.cwd() : ".";
@@ -40562,7 +40312,10 @@ function handleMouseEvent(app, m) {
           return;
         }
         void app.props.onCopySelectionNoClear().then((text) => {
-          if (!text) {
+          if (text) {
+            clearSelection(sel);
+            app.props.onSelectionChange();
+          } else {
             app.props.onMouseDownAt(col, row, baseButton);
           }
         }).catch(() => app.props.onMouseDownAt(col, row, baseButton));
@@ -41682,9 +41435,9 @@ var init_optimizer = __esm({
   }
 });
 
-// node_modules/bidi-js/dist/bidi.js
+// ../node_modules/bidi-js/dist/bidi.js
 var require_bidi = __commonJS({
-  "node_modules/bidi-js/dist/bidi.js"(exports, module) {
+  "../node_modules/bidi-js/dist/bidi.js"(exports, module) {
     (function(global3, factory) {
       typeof exports === "object" && typeof module !== "undefined" ? module.exports = factory() : typeof define === "function" && define.amd ? define(factory) : (global3 = typeof globalThis !== "undefined" ? globalThis : global3 || self, global3.bidi_js = factory());
     })(exports, (function() {
@@ -42597,23 +42350,23 @@ function styledCharsWithGraphemeClustering(chars, stylePool) {
   let bufferStyles = chars[0].styles;
   for (let i = 0; i < charCount; i++) {
     const char = chars[i];
-    const styles13 = char.styles;
-    if (bufferChars.length > 0 && !stylesEqual3(styles13, bufferStyles)) {
+    const styles12 = char.styles;
+    if (bufferChars.length > 0 && !stylesEqual3(styles12, bufferStyles)) {
       flushBuffer(bufferChars.join(""), bufferStyles, stylePool, result);
       bufferChars.length = 0;
     }
     bufferChars.push(char.value);
-    bufferStyles = styles13;
+    bufferStyles = styles12;
   }
   if (bufferChars.length > 0) {
     flushBuffer(bufferChars.join(""), bufferStyles, stylePool, result);
   }
   return result;
 }
-function flushBuffer(buffer, styles13, stylePool, out) {
-  const hyperlink = extractHyperlinkFromStyles(styles13) ?? void 0;
-  const hasOsc8Styles = hyperlink !== void 0 || styles13.some((s) => s.code.length >= OSC8_PREFIX.length && s.code.startsWith(OSC8_PREFIX));
-  const filteredStyles = hasOsc8Styles ? filterOutHyperlinkStyles(styles13) : styles13;
+function flushBuffer(buffer, styles12, stylePool, out) {
+  const hyperlink = extractHyperlinkFromStyles(styles12) ?? void 0;
+  const hasOsc8Styles = hyperlink !== void 0 || styles12.some((s) => s.code.length >= OSC8_PREFIX.length && s.code.startsWith(OSC8_PREFIX));
+  const filteredStyles = hasOsc8Styles ? filterOutHyperlinkStyles(styles12) : styles12;
   const styleId = stylePool.intern(filteredStyles);
   for (const { segment: grapheme } of getGraphemeSegmenter().segment(buffer)) {
     out.push({
@@ -45108,9 +44861,9 @@ var init_root2 = __esm({
   }
 });
 
-// node_modules/signal-exit/signals.js
+// ../node_modules/signal-exit/signals.js
 var require_signals = __commonJS({
-  "node_modules/signal-exit/signals.js"(exports, module) {
+  "../node_modules/signal-exit/signals.js"(exports, module) {
     module.exports = [
       "SIGABRT",
       "SIGALRM",
@@ -45145,9 +44898,9 @@ var require_signals = __commonJS({
   }
 });
 
-// node_modules/signal-exit/index.js
+// ../node_modules/signal-exit/index.js
 var require_signal_exit = __commonJS({
-  "node_modules/signal-exit/index.js"(exports, module) {
+  "../node_modules/signal-exit/index.js"(exports, module) {
     var process13 = global.process;
     var processOk2 = function(process14) {
       return process14 && typeof process14 === "object" && typeof process14.removeListener === "function" && typeof process14.emit === "function" && typeof process14.reallyExit === "function" && typeof process14.listeners === "function" && typeof process14.kill === "function" && typeof process14.pid === "number" && typeof process14.on === "function";
@@ -45304,16 +45057,16 @@ var require_signal_exit = __commonJS({
   }
 });
 
-// node_modules/patch-console/dist/index.js
+// ../node_modules/patch-console/dist/index.js
 var init_dist4 = __esm({
-  "node_modules/patch-console/dist/index.js"() {
+  "../node_modules/patch-console/dist/index.js"() {
   }
 });
 
-// node_modules/yoga-layout/dist/binaries/yoga-wasm-base64-esm.js
+// ../node_modules/yoga-layout/dist/binaries/yoga-wasm-base64-esm.js
 var loadYoga, yoga_wasm_base64_esm_default;
 var init_yoga_wasm_base64_esm = __esm({
-  "node_modules/yoga-layout/dist/binaries/yoga-wasm-base64-esm.js"() {
+  "../node_modules/yoga-layout/dist/binaries/yoga-wasm-base64-esm.js"() {
     loadYoga = (() => {
       var _scriptDir = import.meta.url;
       return (function(loadYoga2) {
@@ -46546,10 +46299,10 @@ var init_yoga_wasm_base64_esm = __esm({
   }
 });
 
-// node_modules/yoga-layout/dist/src/generated/YGEnums.js
+// ../node_modules/yoga-layout/dist/src/generated/YGEnums.js
 var Align2, BoxSizing2, Dimension2, Direction2, Display2, Edge2, Errata2, ExperimentalFeature2, FlexDirection2, Gutter2, Justify2, LogLevel, MeasureMode2, NodeType, Overflow2, PositionType2, Unit2, Wrap2, constants, YGEnums_default;
 var init_YGEnums = __esm({
-  "node_modules/yoga-layout/dist/src/generated/YGEnums.js"() {
+  "../node_modules/yoga-layout/dist/src/generated/YGEnums.js"() {
     Align2 = /* @__PURE__ */ (function(Align3) {
       Align3[Align3["Auto"] = 0] = "Auto";
       Align3[Align3["FlexStart"] = 1] = "FlexStart";
@@ -46754,7 +46507,7 @@ var init_YGEnums = __esm({
   }
 });
 
-// node_modules/yoga-layout/dist/src/wrapAssembly.js
+// ../node_modules/yoga-layout/dist/src/wrapAssembly.js
 function wrapAssembly(lib) {
   function patch(prototype, name, fn) {
     const original = prototype[name];
@@ -46855,16 +46608,16 @@ function wrapAssembly(lib) {
   };
 }
 var init_wrapAssembly = __esm({
-  "node_modules/yoga-layout/dist/src/wrapAssembly.js"() {
+  "../node_modules/yoga-layout/dist/src/wrapAssembly.js"() {
     init_YGEnums();
     init_YGEnums();
   }
 });
 
-// node_modules/yoga-layout/dist/src/index.js
+// ../node_modules/yoga-layout/dist/src/index.js
 var Yoga, src_default;
 var init_src = __esm({
-  async "node_modules/yoga-layout/dist/src/index.js"() {
+  async "../node_modules/yoga-layout/dist/src/index.js"() {
     init_yoga_wasm_base64_esm();
     init_wrapAssembly();
     init_YGEnums();
@@ -46873,165 +46626,132 @@ var init_src = __esm({
   }
 });
 
-// node_modules/ink/build/utils.js
-import process4 from "node:process";
-var isDev;
-var init_utils = __esm({
-  "node_modules/ink/build/utils.js"() {
-    isDev = () => process4.env["DEV"] === "true";
+// ../node_modules/ink/node_modules/ansi-regex/index.js
+function ansiRegex2({ onlyFirst = false } = {}) {
+  const ST3 = "(?:\\u0007|\\u001B\\u005C|\\u009C)";
+  const osc2 = `(?:\\u001B\\][\\s\\S]*?${ST3})`;
+  const csi2 = "[\\u001B\\u009B][[\\]()#;?]*(?:\\d{1,4}(?:[;:]\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]";
+  const pattern = `${osc2}|${csi2}`;
+  return new RegExp(pattern, onlyFirst ? void 0 : "g");
+}
+var init_ansi_regex2 = __esm({
+  "../node_modules/ink/node_modules/ansi-regex/index.js"() {
   }
 });
 
-// node_modules/string-width/index.js
-function isDoubleWidthNonRgiEmojiSequence(segment) {
-  if (segment.length > 50) {
-    return false;
+// ../node_modules/ink/node_modules/strip-ansi/index.js
+function stripAnsi2(string) {
+  if (typeof string !== "string") {
+    throw new TypeError(`Expected a \`string\`, got \`${typeof string}\``);
   }
-  if (unqualifiedKeycapRegex.test(segment)) {
-    return true;
+  if (!string.includes("\x1B") && !string.includes("\x9B")) {
+    return string;
   }
-  if (segment.includes("\u200D")) {
-    const pictographics = segment.match(extendedPictographicRegex);
-    return pictographics !== null && pictographics.length >= 2;
+  return string.replace(regex2, "");
+}
+var regex2;
+var init_strip_ansi2 = __esm({
+  "../node_modules/ink/node_modules/strip-ansi/index.js"() {
+    init_ansi_regex2();
+    regex2 = ansiRegex2();
   }
-  return false;
-}
-function baseVisible(segment) {
-  return segment.replace(leadingNonPrintingRegex, "");
-}
-function isZeroWidthCluster(segment) {
-  return zeroWidthClusterRegex.test(segment);
-}
-function trailingHalfwidthWidth(segment, eastAsianWidthOptions) {
-  let extra = 0;
-  if (segment.length > 1) {
-    for (const char of segment.slice(1)) {
-      if (char >= "\uFF00" && char <= "\uFFEF") {
-        extra += eastAsianWidth(char.codePointAt(0), eastAsianWidthOptions);
-      }
-    }
+});
+
+// ../node_modules/ink/node_modules/emoji-regex/index.js
+var require_emoji_regex2 = __commonJS({
+  "../node_modules/ink/node_modules/emoji-regex/index.js"(exports, module) {
+    module.exports = () => {
+      return /[#*0-9]\uFE0F?\u20E3|[\xA9\xAE\u203C\u2049\u2122\u2139\u2194-\u2199\u21A9\u21AA\u231A\u231B\u2328\u23CF\u23ED-\u23EF\u23F1\u23F2\u23F8-\u23FA\u24C2\u25AA\u25AB\u25B6\u25C0\u25FB\u25FC\u25FE\u2600-\u2604\u260E\u2611\u2614\u2615\u2618\u2620\u2622\u2623\u2626\u262A\u262E\u262F\u2638-\u263A\u2640\u2642\u2648-\u2653\u265F\u2660\u2663\u2665\u2666\u2668\u267B\u267E\u267F\u2692\u2694-\u2697\u2699\u269B\u269C\u26A0\u26A7\u26AA\u26B0\u26B1\u26BD\u26BE\u26C4\u26C8\u26CF\u26D1\u26E9\u26F0-\u26F5\u26F7\u26F8\u26FA\u2702\u2708\u2709\u270F\u2712\u2714\u2716\u271D\u2721\u2733\u2734\u2744\u2747\u2757\u2763\u27A1\u2934\u2935\u2B05-\u2B07\u2B1B\u2B1C\u2B55\u3030\u303D\u3297\u3299]\uFE0F?|[\u261D\u270C\u270D](?:\uD83C[\uDFFB-\uDFFF]|\uFE0F)?|[\u270A\u270B](?:\uD83C[\uDFFB-\uDFFF])?|[\u23E9-\u23EC\u23F0\u23F3\u25FD\u2693\u26A1\u26AB\u26C5\u26CE\u26D4\u26EA\u26FD\u2705\u2728\u274C\u274E\u2753-\u2755\u2795-\u2797\u27B0\u27BF\u2B50]|\u26D3\uFE0F?(?:\u200D\uD83D\uDCA5)?|\u26F9(?:\uD83C[\uDFFB-\uDFFF]|\uFE0F)?(?:\u200D[\u2640\u2642]\uFE0F?)?|\u2764\uFE0F?(?:\u200D(?:\uD83D\uDD25|\uD83E\uDE79))?|\uD83C(?:[\uDC04\uDD70\uDD71\uDD7E\uDD7F\uDE02\uDE37\uDF21\uDF24-\uDF2C\uDF36\uDF7D\uDF96\uDF97\uDF99-\uDF9B\uDF9E\uDF9F\uDFCD\uDFCE\uDFD4-\uDFDF\uDFF5\uDFF7]\uFE0F?|[\uDF85\uDFC2\uDFC7](?:\uD83C[\uDFFB-\uDFFF])?|[\uDFC4\uDFCA](?:\uD83C[\uDFFB-\uDFFF])?(?:\u200D[\u2640\u2642]\uFE0F?)?|[\uDFCB\uDFCC](?:\uD83C[\uDFFB-\uDFFF]|\uFE0F)?(?:\u200D[\u2640\u2642]\uFE0F?)?|[\uDCCF\uDD8E\uDD91-\uDD9A\uDE01\uDE1A\uDE2F\uDE32-\uDE36\uDE38-\uDE3A\uDE50\uDE51\uDF00-\uDF20\uDF2D-\uDF35\uDF37-\uDF43\uDF45-\uDF4A\uDF4C-\uDF7C\uDF7E-\uDF84\uDF86-\uDF93\uDFA0-\uDFC1\uDFC5\uDFC6\uDFC8\uDFC9\uDFCF-\uDFD3\uDFE0-\uDFF0\uDFF8-\uDFFF]|\uDDE6\uD83C[\uDDE8-\uDDEC\uDDEE\uDDF1\uDDF2\uDDF4\uDDF6-\uDDFA\uDDFC\uDDFD\uDDFF]|\uDDE7\uD83C[\uDDE6\uDDE7\uDDE9-\uDDEF\uDDF1-\uDDF4\uDDF6-\uDDF9\uDDFB\uDDFC\uDDFE\uDDFF]|\uDDE8\uD83C[\uDDE6\uDDE8\uDDE9\uDDEB-\uDDEE\uDDF0-\uDDF7\uDDFA-\uDDFF]|\uDDE9\uD83C[\uDDEA\uDDEC\uDDEF\uDDF0\uDDF2\uDDF4\uDDFF]|\uDDEA\uD83C[\uDDE6\uDDE8\uDDEA\uDDEC\uDDED\uDDF7-\uDDFA]|\uDDEB\uD83C[\uDDEE-\uDDF0\uDDF2\uDDF4\uDDF7]|\uDDEC\uD83C[\uDDE6\uDDE7\uDDE9-\uDDEE\uDDF1-\uDDF3\uDDF5-\uDDFA\uDDFC\uDDFE]|\uDDED\uD83C[\uDDF0\uDDF2\uDDF3\uDDF7\uDDF9\uDDFA]|\uDDEE\uD83C[\uDDE8-\uDDEA\uDDF1-\uDDF4\uDDF6-\uDDF9]|\uDDEF\uD83C[\uDDEA\uDDF2\uDDF4\uDDF5]|\uDDF0\uD83C[\uDDEA\uDDEC-\uDDEE\uDDF2\uDDF3\uDDF5\uDDF7\uDDFC\uDDFE\uDDFF]|\uDDF1\uD83C[\uDDE6-\uDDE8\uDDEE\uDDF0\uDDF7-\uDDFB\uDDFE]|\uDDF2\uD83C[\uDDE6\uDDE8-\uDDED\uDDF0-\uDDFF]|\uDDF3\uD83C[\uDDE6\uDDE8\uDDEA-\uDDEC\uDDEE\uDDF1\uDDF4\uDDF5\uDDF7\uDDFA\uDDFF]|\uDDF4\uD83C\uDDF2|\uDDF5\uD83C[\uDDE6\uDDEA-\uDDED\uDDF0-\uDDF3\uDDF7-\uDDF9\uDDFC\uDDFE]|\uDDF6\uD83C\uDDE6|\uDDF7\uD83C[\uDDEA\uDDF4\uDDF8\uDDFA\uDDFC]|\uDDF8\uD83C[\uDDE6-\uDDEA\uDDEC-\uDDF4\uDDF7-\uDDF9\uDDFB\uDDFD-\uDDFF]|\uDDF9\uD83C[\uDDE6\uDDE8\uDDE9\uDDEB-\uDDED\uDDEF-\uDDF4\uDDF7\uDDF9\uDDFB\uDDFC\uDDFF]|\uDDFA\uD83C[\uDDE6\uDDEC\uDDF2\uDDF3\uDDF8\uDDFE\uDDFF]|\uDDFB\uD83C[\uDDE6\uDDE8\uDDEA\uDDEC\uDDEE\uDDF3\uDDFA]|\uDDFC\uD83C[\uDDEB\uDDF8]|\uDDFD\uD83C\uDDF0|\uDDFE\uD83C[\uDDEA\uDDF9]|\uDDFF\uD83C[\uDDE6\uDDF2\uDDFC]|\uDF44(?:\u200D\uD83D\uDFEB)?|\uDF4B(?:\u200D\uD83D\uDFE9)?|\uDFC3(?:\uD83C[\uDFFB-\uDFFF])?(?:\u200D(?:[\u2640\u2642]\uFE0F?(?:\u200D\u27A1\uFE0F?)?|\u27A1\uFE0F?))?|\uDFF3\uFE0F?(?:\u200D(?:\u26A7\uFE0F?|\uD83C\uDF08))?|\uDFF4(?:\u200D\u2620\uFE0F?|\uDB40\uDC67\uDB40\uDC62\uDB40(?:\uDC65\uDB40\uDC6E\uDB40\uDC67|\uDC73\uDB40\uDC63\uDB40\uDC74|\uDC77\uDB40\uDC6C\uDB40\uDC73)\uDB40\uDC7F)?)|\uD83D(?:[\uDC3F\uDCFD\uDD49\uDD4A\uDD6F\uDD70\uDD73\uDD76-\uDD79\uDD87\uDD8A-\uDD8D\uDDA5\uDDA8\uDDB1\uDDB2\uDDBC\uDDC2-\uDDC4\uDDD1-\uDDD3\uDDDC-\uDDDE\uDDE1\uDDE3\uDDE8\uDDEF\uDDF3\uDDFA\uDECB\uDECD-\uDECF\uDEE0-\uDEE5\uDEE9\uDEF0\uDEF3]\uFE0F?|[\uDC42\uDC43\uDC46-\uDC50\uDC66\uDC67\uDC6B-\uDC6D\uDC72\uDC74-\uDC76\uDC78\uDC7C\uDC83\uDC85\uDC8F\uDC91\uDCAA\uDD7A\uDD95\uDD96\uDE4C\uDE4F\uDEC0\uDECC](?:\uD83C[\uDFFB-\uDFFF])?|[\uDC6E-\uDC71\uDC73\uDC77\uDC81\uDC82\uDC86\uDC87\uDE45-\uDE47\uDE4B\uDE4D\uDE4E\uDEA3\uDEB4\uDEB5](?:\uD83C[\uDFFB-\uDFFF])?(?:\u200D[\u2640\u2642]\uFE0F?)?|[\uDD74\uDD90](?:\uD83C[\uDFFB-\uDFFF]|\uFE0F)?|[\uDC00-\uDC07\uDC09-\uDC14\uDC16-\uDC25\uDC27-\uDC3A\uDC3C-\uDC3E\uDC40\uDC44\uDC45\uDC51-\uDC65\uDC6A\uDC79-\uDC7B\uDC7D-\uDC80\uDC84\uDC88-\uDC8E\uDC90\uDC92-\uDCA9\uDCAB-\uDCFC\uDCFF-\uDD3D\uDD4B-\uDD4E\uDD50-\uDD67\uDDA4\uDDFB-\uDE2D\uDE2F-\uDE34\uDE37-\uDE41\uDE43\uDE44\uDE48-\uDE4A\uDE80-\uDEA2\uDEA4-\uDEB3\uDEB7-\uDEBF\uDEC1-\uDEC5\uDED0-\uDED2\uDED5-\uDED8\uDEDC-\uDEDF\uDEEB\uDEEC\uDEF4-\uDEFC\uDFE0-\uDFEB\uDFF0]|\uDC08(?:\u200D\u2B1B)?|\uDC15(?:\u200D\uD83E\uDDBA)?|\uDC26(?:\u200D(?:\u2B1B|\uD83D\uDD25))?|\uDC3B(?:\u200D\u2744\uFE0F?)?|\uDC41\uFE0F?(?:\u200D\uD83D\uDDE8\uFE0F?)?|\uDC68(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D\uD83D(?:\uDC8B\u200D\uD83D)?\uDC68|\uD83C[\uDF3E\uDF73\uDF7C\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDC68\uDC69]\u200D\uD83D(?:\uDC66(?:\u200D\uD83D\uDC66)?|\uDC67(?:\u200D\uD83D[\uDC66\uDC67])?)|[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC66(?:\u200D\uD83D\uDC66)?|\uDC67(?:\u200D\uD83D[\uDC66\uDC67])?)|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3]))|\uD83C(?:\uDFFB(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D\uD83D(?:\uDC8B\u200D\uD83D)?\uDC68\uD83C[\uDFFB-\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83D\uDC68\uD83C[\uDFFC-\uDFFF])|\uD83E(?:[\uDD1D\uDEEF]\u200D\uD83D\uDC68\uD83C[\uDFFC-\uDFFF]|[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3])))?|\uDFFC(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D\uD83D(?:\uDC8B\u200D\uD83D)?\uDC68\uD83C[\uDFFB-\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83D\uDC68\uD83C[\uDFFB\uDFFD-\uDFFF])|\uD83E(?:[\uDD1D\uDEEF]\u200D\uD83D\uDC68\uD83C[\uDFFB\uDFFD-\uDFFF]|[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3])))?|\uDFFD(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D\uD83D(?:\uDC8B\u200D\uD83D)?\uDC68\uD83C[\uDFFB-\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83D\uDC68\uD83C[\uDFFB\uDFFC\uDFFE\uDFFF])|\uD83E(?:[\uDD1D\uDEEF]\u200D\uD83D\uDC68\uD83C[\uDFFB\uDFFC\uDFFE\uDFFF]|[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3])))?|\uDFFE(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D\uD83D(?:\uDC8B\u200D\uD83D)?\uDC68\uD83C[\uDFFB-\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83D\uDC68\uD83C[\uDFFB-\uDFFD\uDFFF])|\uD83E(?:[\uDD1D\uDEEF]\u200D\uD83D\uDC68\uD83C[\uDFFB-\uDFFD\uDFFF]|[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3])))?|\uDFFF(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D\uD83D(?:\uDC8B\u200D\uD83D)?\uDC68\uD83C[\uDFFB-\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83D\uDC68\uD83C[\uDFFB-\uDFFE])|\uD83E(?:[\uDD1D\uDEEF]\u200D\uD83D\uDC68\uD83C[\uDFFB-\uDFFE]|[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3])))?))?|\uDC69(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D\uD83D(?:\uDC8B\u200D\uD83D)?[\uDC68\uDC69]|\uD83C[\uDF3E\uDF73\uDF7C\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC66(?:\u200D\uD83D\uDC66)?|\uDC67(?:\u200D\uD83D[\uDC66\uDC67])?|\uDC69\u200D\uD83D(?:\uDC66(?:\u200D\uD83D\uDC66)?|\uDC67(?:\u200D\uD83D[\uDC66\uDC67])?))|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3]))|\uD83C(?:\uDFFB(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D\uD83D(?:[\uDC68\uDC69]|\uDC8B\u200D\uD83D[\uDC68\uDC69])\uD83C[\uDFFB-\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83D\uDC69\uD83C[\uDFFC-\uDFFF])|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3]|\uDD1D\u200D\uD83D[\uDC68\uDC69]\uD83C[\uDFFC-\uDFFF]|\uDEEF\u200D\uD83D\uDC69\uD83C[\uDFFC-\uDFFF])))?|\uDFFC(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D\uD83D(?:[\uDC68\uDC69]|\uDC8B\u200D\uD83D[\uDC68\uDC69])\uD83C[\uDFFB-\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83D\uDC69\uD83C[\uDFFB\uDFFD-\uDFFF])|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3]|\uDD1D\u200D\uD83D[\uDC68\uDC69]\uD83C[\uDFFB\uDFFD-\uDFFF]|\uDEEF\u200D\uD83D\uDC69\uD83C[\uDFFB\uDFFD-\uDFFF])))?|\uDFFD(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D\uD83D(?:[\uDC68\uDC69]|\uDC8B\u200D\uD83D[\uDC68\uDC69])\uD83C[\uDFFB-\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83D\uDC69\uD83C[\uDFFB\uDFFC\uDFFE\uDFFF])|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3]|\uDD1D\u200D\uD83D[\uDC68\uDC69]\uD83C[\uDFFB\uDFFC\uDFFE\uDFFF]|\uDEEF\u200D\uD83D\uDC69\uD83C[\uDFFB\uDFFC\uDFFE\uDFFF])))?|\uDFFE(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D\uD83D(?:[\uDC68\uDC69]|\uDC8B\u200D\uD83D[\uDC68\uDC69])\uD83C[\uDFFB-\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83D\uDC69\uD83C[\uDFFB-\uDFFD\uDFFF])|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3]|\uDD1D\u200D\uD83D[\uDC68\uDC69]\uD83C[\uDFFB-\uDFFD\uDFFF]|\uDEEF\u200D\uD83D\uDC69\uD83C[\uDFFB-\uDFFD\uDFFF])))?|\uDFFF(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D\uD83D(?:[\uDC68\uDC69]|\uDC8B\u200D\uD83D[\uDC68\uDC69])\uD83C[\uDFFB-\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83D\uDC69\uD83C[\uDFFB-\uDFFE])|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3]|\uDD1D\u200D\uD83D[\uDC68\uDC69]\uD83C[\uDFFB-\uDFFE]|\uDEEF\u200D\uD83D\uDC69\uD83C[\uDFFB-\uDFFE])))?))?|\uDD75(?:\uD83C[\uDFFB-\uDFFF]|\uFE0F)?(?:\u200D[\u2640\u2642]\uFE0F?)?|\uDE2E(?:\u200D\uD83D\uDCA8)?|\uDE35(?:\u200D\uD83D\uDCAB)?|\uDE36(?:\u200D\uD83C\uDF2B\uFE0F?)?|\uDE42(?:\u200D[\u2194\u2195]\uFE0F?)?|\uDEB6(?:\uD83C[\uDFFB-\uDFFF])?(?:\u200D(?:[\u2640\u2642]\uFE0F?(?:\u200D\u27A1\uFE0F?)?|\u27A1\uFE0F?))?)|\uD83E(?:[\uDD0C\uDD0F\uDD18-\uDD1F\uDD30-\uDD34\uDD36\uDD77\uDDB5\uDDB6\uDDBB\uDDD2\uDDD3\uDDD5\uDEC3-\uDEC5\uDEF0\uDEF2-\uDEF8](?:\uD83C[\uDFFB-\uDFFF])?|[\uDD26\uDD35\uDD37-\uDD39\uDD3C-\uDD3E\uDDB8\uDDB9\uDDCD\uDDCF\uDDD4\uDDD6-\uDDDD](?:\uD83C[\uDFFB-\uDFFF])?(?:\u200D[\u2640\u2642]\uFE0F?)?|[\uDDDE\uDDDF](?:\u200D[\u2640\u2642]\uFE0F?)?|[\uDD0D\uDD0E\uDD10-\uDD17\uDD20-\uDD25\uDD27-\uDD2F\uDD3A\uDD3F-\uDD45\uDD47-\uDD76\uDD78-\uDDB4\uDDB7\uDDBA\uDDBC-\uDDCC\uDDD0\uDDE0-\uDDFF\uDE70-\uDE7C\uDE80-\uDE8A\uDE8E-\uDEC2\uDEC6\uDEC8\uDECD-\uDEDC\uDEDF-\uDEEA\uDEEF]|\uDDCE(?:\uD83C[\uDFFB-\uDFFF])?(?:\u200D(?:[\u2640\u2642]\uFE0F?(?:\u200D\u27A1\uFE0F?)?|\u27A1\uFE0F?))?|\uDDD1(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\uD83C[\uDF3E\uDF73\uDF7C\uDF84\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3\uDE70]|\uDD1D\u200D\uD83E\uDDD1|\uDDD1\u200D\uD83E\uDDD2(?:\u200D\uD83E\uDDD2)?|\uDDD2(?:\u200D\uD83E\uDDD2)?))|\uD83C(?:\uDFFB(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D(?:\uD83D\uDC8B\u200D)?\uD83E\uDDD1\uD83C[\uDFFC-\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF84\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83E\uDDD1\uD83C[\uDFFC-\uDFFF])|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3\uDE70]|\uDD1D\u200D\uD83E\uDDD1\uD83C[\uDFFB-\uDFFF]|\uDEEF\u200D\uD83E\uDDD1\uD83C[\uDFFC-\uDFFF])))?|\uDFFC(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D(?:\uD83D\uDC8B\u200D)?\uD83E\uDDD1\uD83C[\uDFFB\uDFFD-\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF84\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83E\uDDD1\uD83C[\uDFFB\uDFFD-\uDFFF])|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3\uDE70]|\uDD1D\u200D\uD83E\uDDD1\uD83C[\uDFFB-\uDFFF]|\uDEEF\u200D\uD83E\uDDD1\uD83C[\uDFFB\uDFFD-\uDFFF])))?|\uDFFD(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D(?:\uD83D\uDC8B\u200D)?\uD83E\uDDD1\uD83C[\uDFFB\uDFFC\uDFFE\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF84\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83E\uDDD1\uD83C[\uDFFB\uDFFC\uDFFE\uDFFF])|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3\uDE70]|\uDD1D\u200D\uD83E\uDDD1\uD83C[\uDFFB-\uDFFF]|\uDEEF\u200D\uD83E\uDDD1\uD83C[\uDFFB\uDFFC\uDFFE\uDFFF])))?|\uDFFE(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D(?:\uD83D\uDC8B\u200D)?\uD83E\uDDD1\uD83C[\uDFFB-\uDFFD\uDFFF]|\uD83C[\uDF3E\uDF73\uDF7C\uDF84\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83E\uDDD1\uD83C[\uDFFB-\uDFFD\uDFFF])|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3\uDE70]|\uDD1D\u200D\uD83E\uDDD1\uD83C[\uDFFB-\uDFFF]|\uDEEF\u200D\uD83E\uDDD1\uD83C[\uDFFB-\uDFFD\uDFFF])))?|\uDFFF(?:\u200D(?:[\u2695\u2696\u2708]\uFE0F?|\u2764\uFE0F?\u200D(?:\uD83D\uDC8B\u200D)?\uD83E\uDDD1\uD83C[\uDFFB-\uDFFE]|\uD83C[\uDF3E\uDF73\uDF7C\uDF84\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D(?:[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uDC30\u200D\uD83E\uDDD1\uD83C[\uDFFB-\uDFFE])|\uD83E(?:[\uDDAF\uDDBC\uDDBD](?:\u200D\u27A1\uFE0F?)?|[\uDDB0-\uDDB3\uDE70]|\uDD1D\u200D\uD83E\uDDD1\uD83C[\uDFFB-\uDFFF]|\uDEEF\u200D\uD83E\uDDD1\uD83C[\uDFFB-\uDFFE])))?))?|\uDEF1(?:\uD83C(?:\uDFFB(?:\u200D\uD83E\uDEF2\uD83C[\uDFFC-\uDFFF])?|\uDFFC(?:\u200D\uD83E\uDEF2\uD83C[\uDFFB\uDFFD-\uDFFF])?|\uDFFD(?:\u200D\uD83E\uDEF2\uD83C[\uDFFB\uDFFC\uDFFE\uDFFF])?|\uDFFE(?:\u200D\uD83E\uDEF2\uD83C[\uDFFB-\uDFFD\uDFFF])?|\uDFFF(?:\u200D\uD83E\uDEF2\uD83C[\uDFFB-\uDFFE])?))?)/g;
+    };
   }
-  return extra;
-}
-function stringWidth3(input, options = {}) {
-  if (typeof input !== "string" || input.length === 0) {
+});
+
+// ../node_modules/ink/node_modules/wrap-ansi/node_modules/string-width/index.js
+function stringWidth3(string, options = {}) {
+  if (typeof string !== "string" || string.length === 0) {
     return 0;
   }
   const {
     ambiguousIsNarrow = true,
     countAnsiEscapeCodes = false
   } = options;
-  let string = input;
-  if (!countAnsiEscapeCodes && (string.includes("\x1B") || string.includes("\x9B"))) {
-    string = stripAnsi(string);
+  if (!countAnsiEscapeCodes) {
+    string = stripAnsi2(string);
   }
   if (string.length === 0) {
     return 0;
   }
-  if (/^[\u0020-\u007E]*$/.test(string)) {
-    return string.length;
-  }
   let width = 0;
   const eastAsianWidthOptions = { ambiguousAsWide: !ambiguousIsNarrow };
-  for (const { segment } of segmenter2.segment(string)) {
-    if (isZeroWidthCluster(segment)) {
+  for (const { segment: character } of segmenter2.segment(string)) {
+    const codePoint = character.codePointAt(0);
+    if (codePoint <= 31 || codePoint >= 127 && codePoint <= 159) {
       continue;
     }
-    if (rgiEmojiRegex.test(segment) || isDoubleWidthNonRgiEmojiSequence(segment)) {
+    if (codePoint >= 8203 && codePoint <= 8207 || codePoint === 65279) {
+      continue;
+    }
+    if (codePoint >= 768 && codePoint <= 879 || codePoint >= 6832 && codePoint <= 6911 || codePoint >= 7616 && codePoint <= 7679 || codePoint >= 8400 && codePoint <= 8447 || codePoint >= 65056 && codePoint <= 65071) {
+      continue;
+    }
+    if (codePoint >= 55296 && codePoint <= 57343) {
+      continue;
+    }
+    if (codePoint >= 65024 && codePoint <= 65039) {
+      continue;
+    }
+    if (defaultIgnorableCodePointRegex2.test(character)) {
+      continue;
+    }
+    if ((0, import_emoji_regex3.default)().test(character)) {
       width += 2;
       continue;
     }
-    const codePoint = baseVisible(segment).codePointAt(0);
     width += eastAsianWidth(codePoint, eastAsianWidthOptions);
-    width += trailingHalfwidthWidth(segment, eastAsianWidthOptions);
   }
   return width;
 }
-var segmenter2, zeroWidthClusterRegex, leadingNonPrintingRegex, rgiEmojiRegex, unqualifiedKeycapRegex, extendedPictographicRegex;
+var import_emoji_regex3, segmenter2, defaultIgnorableCodePointRegex2;
 var init_string_width2 = __esm({
-  "node_modules/string-width/index.js"() {
-    init_strip_ansi();
+  "../node_modules/ink/node_modules/wrap-ansi/node_modules/string-width/index.js"() {
+    init_strip_ansi2();
     init_get_east_asian_width();
+    import_emoji_regex3 = __toESM(require_emoji_regex2(), 1);
     segmenter2 = new Intl.Segmenter();
-    zeroWidthClusterRegex = new RegExp("^(?:\\p{Default_Ignorable_Code_Point}|\\p{Control}|\\p{Format}|\\p{Mark}|\\p{Surrogate})+$", "v");
-    leadingNonPrintingRegex = new RegExp("^[\\p{Default_Ignorable_Code_Point}\\p{Control}\\p{Format}\\p{Mark}\\p{Surrogate}]+", "v");
-    rgiEmojiRegex = new RegExp("^\\p{RGI_Emoji}$", "v");
-    unqualifiedKeycapRegex = /^[\d#*]\u20E3$/;
-    extendedPictographicRegex = new RegExp("\\p{Extended_Pictographic}", "gu");
+    defaultIgnorableCodePointRegex2 = new RegExp("^\\p{Default_Ignorable_Code_Point}$", "u");
   }
 });
 
-// node_modules/widest-line/index.js
-function widestLine2(string) {
-  let lineWidth2 = 0;
-  for (const line of string.split("\n")) {
-    lineWidth2 = Math.max(lineWidth2, stringWidth3(line));
-  }
-  return lineWidth2;
-}
-var init_widest_line2 = __esm({
-  "node_modules/widest-line/index.js"() {
-    init_string_width2();
-  }
-});
-
-// node_modules/ink/build/measure-text.js
-var cache2, measureText2, measure_text_default2;
-var init_measure_text2 = __esm({
-  "node_modules/ink/build/measure-text.js"() {
-    init_widest_line2();
-    cache2 = /* @__PURE__ */ new Map();
-    measureText2 = (text) => {
-      if (text.length === 0) {
-        return {
-          width: 0,
-          height: 0
-        };
-      }
-      const cachedDimensions = cache2.get(text);
-      if (cachedDimensions) {
-        return cachedDimensions;
-      }
-      const width = widestLine2(text);
-      const height = text.split("\n").length;
-      const dimensions = { width, height };
-      cache2.set(text, dimensions);
-      return dimensions;
-    };
-    measure_text_default2 = measureText2;
-  }
-});
-
-// node_modules/slice-ansi/node_modules/ansi-styles/index.js
-function assembleStyles4() {
+// ../node_modules/ink/node_modules/ansi-styles/index.js
+function assembleStyles3() {
   const codes = /* @__PURE__ */ new Map();
-  for (const [groupName, group] of Object.entries(styles6)) {
+  for (const [groupName, group] of Object.entries(styles5)) {
     for (const [styleName, style] of Object.entries(group)) {
-      styles6[styleName] = {
+      styles5[styleName] = {
         open: `\x1B[${style[0]}m`,
         close: `\x1B[${style[1]}m`
       };
-      group[styleName] = styles6[styleName];
+      group[styleName] = styles5[styleName];
       codes.set(style[0], style[1]);
     }
-    Object.defineProperty(styles6, groupName, {
+    Object.defineProperty(styles5, groupName, {
       value: group,
       enumerable: false
     });
   }
-  Object.defineProperty(styles6, "codes", {
+  Object.defineProperty(styles5, "codes", {
     value: codes,
     enumerable: false
   });
-  styles6.color.close = "\x1B[39m";
-  styles6.bgColor.close = "\x1B[49m";
-  styles6.color.ansi = wrapAnsi164();
-  styles6.color.ansi256 = wrapAnsi2564();
-  styles6.color.ansi16m = wrapAnsi16m4();
-  styles6.bgColor.ansi = wrapAnsi164(ANSI_BACKGROUND_OFFSET4);
-  styles6.bgColor.ansi256 = wrapAnsi2564(ANSI_BACKGROUND_OFFSET4);
-  styles6.bgColor.ansi16m = wrapAnsi16m4(ANSI_BACKGROUND_OFFSET4);
-  Object.defineProperties(styles6, {
+  styles5.color.close = "\x1B[39m";
+  styles5.bgColor.close = "\x1B[49m";
+  styles5.color.ansi = wrapAnsi163();
+  styles5.color.ansi256 = wrapAnsi2563();
+  styles5.color.ansi16m = wrapAnsi16m3();
+  styles5.bgColor.ansi = wrapAnsi163(ANSI_BACKGROUND_OFFSET3);
+  styles5.bgColor.ansi256 = wrapAnsi2563(ANSI_BACKGROUND_OFFSET3);
+  styles5.bgColor.ansi16m = wrapAnsi16m3(ANSI_BACKGROUND_OFFSET3);
+  Object.defineProperties(styles5, {
     rgbToAnsi256: {
       value(red, green, blue) {
         if (red === green && green === blue) {
@@ -47069,7 +46789,7 @@ function assembleStyles4() {
       enumerable: false
     },
     hexToAnsi256: {
-      value: (hex) => styles6.rgbToAnsi256(...styles6.hexToRgb(hex)),
+      value: (hex) => styles5.rgbToAnsi256(...styles5.hexToRgb(hex)),
       enumerable: false
     },
     ansi256ToAnsi: {
@@ -47107,24 +46827,24 @@ function assembleStyles4() {
       enumerable: false
     },
     rgbToAnsi: {
-      value: (red, green, blue) => styles6.ansi256ToAnsi(styles6.rgbToAnsi256(red, green, blue)),
+      value: (red, green, blue) => styles5.ansi256ToAnsi(styles5.rgbToAnsi256(red, green, blue)),
       enumerable: false
     },
     hexToAnsi: {
-      value: (hex) => styles6.ansi256ToAnsi(styles6.hexToAnsi256(hex)),
+      value: (hex) => styles5.ansi256ToAnsi(styles5.hexToAnsi256(hex)),
       enumerable: false
     }
   });
-  return styles6;
+  return styles5;
 }
-var ANSI_BACKGROUND_OFFSET4, wrapAnsi164, wrapAnsi2564, wrapAnsi16m4, styles6, modifierNames4, foregroundColorNames4, backgroundColorNames4, colorNames4, ansiStyles4, ansi_styles_default4;
-var init_ansi_styles4 = __esm({
-  "node_modules/slice-ansi/node_modules/ansi-styles/index.js"() {
-    ANSI_BACKGROUND_OFFSET4 = 10;
-    wrapAnsi164 = (offset = 0) => (code) => `\x1B[${code + offset}m`;
-    wrapAnsi2564 = (offset = 0) => (code) => `\x1B[${38 + offset};5;${code}m`;
-    wrapAnsi16m4 = (offset = 0) => (red, green, blue) => `\x1B[${38 + offset};2;${red};${green};${blue}m`;
-    styles6 = {
+var ANSI_BACKGROUND_OFFSET3, wrapAnsi163, wrapAnsi2563, wrapAnsi16m3, styles5, modifierNames3, foregroundColorNames3, backgroundColorNames3, colorNames3, ansiStyles3, ansi_styles_default3;
+var init_ansi_styles3 = __esm({
+  "../node_modules/ink/node_modules/ansi-styles/index.js"() {
+    ANSI_BACKGROUND_OFFSET3 = 10;
+    wrapAnsi163 = (offset = 0) => (code) => `\x1B[${code + offset}m`;
+    wrapAnsi2563 = (offset = 0) => (code) => `\x1B[${38 + offset};5;${code}m`;
+    wrapAnsi16m3 = (offset = 0) => (red, green, blue) => `\x1B[${38 + offset};2;${red};${green};${blue}m`;
+    styles5 = {
       modifier: {
         reset: [0, 0],
         // 21 isn't widely supported and 22 does the same thing
@@ -47184,16 +46904,392 @@ var init_ansi_styles4 = __esm({
         bgWhiteBright: [107, 49]
       }
     };
-    modifierNames4 = Object.keys(styles6.modifier);
-    foregroundColorNames4 = Object.keys(styles6.color);
-    backgroundColorNames4 = Object.keys(styles6.bgColor);
-    colorNames4 = [...foregroundColorNames4, ...backgroundColorNames4];
-    ansiStyles4 = assembleStyles4();
-    ansi_styles_default4 = ansiStyles4;
+    modifierNames3 = Object.keys(styles5.modifier);
+    foregroundColorNames3 = Object.keys(styles5.color);
+    backgroundColorNames3 = Object.keys(styles5.bgColor);
+    colorNames3 = [...foregroundColorNames3, ...backgroundColorNames3];
+    ansiStyles3 = assembleStyles3();
+    ansi_styles_default3 = ansiStyles3;
   }
 });
 
-// node_modules/is-fullwidth-code-point/index.js
+// ../node_modules/ink/node_modules/wrap-ansi/index.js
+function wrapAnsi3(string, columns, options) {
+  return String(string).normalize().replaceAll("\r\n", "\n").split("\n").map((line) => exec2(line, columns, options)).join("\n");
+}
+var ESCAPES3, END_CODE2, ANSI_ESCAPE_BELL2, ANSI_CSI2, ANSI_OSC2, ANSI_SGR_TERMINATOR2, ANSI_ESCAPE_LINK2, wrapAnsiCode2, wrapAnsiHyperlink2, wordLengths2, wrapWord2, stringVisibleTrimSpacesRight2, exec2;
+var init_wrap_ansi2 = __esm({
+  "../node_modules/ink/node_modules/wrap-ansi/index.js"() {
+    init_string_width2();
+    init_strip_ansi2();
+    init_ansi_styles3();
+    ESCAPES3 = /* @__PURE__ */ new Set([
+      "\x1B",
+      "\x9B"
+    ]);
+    END_CODE2 = 39;
+    ANSI_ESCAPE_BELL2 = "\x07";
+    ANSI_CSI2 = "[";
+    ANSI_OSC2 = "]";
+    ANSI_SGR_TERMINATOR2 = "m";
+    ANSI_ESCAPE_LINK2 = `${ANSI_OSC2}8;;`;
+    wrapAnsiCode2 = (code) => `${ESCAPES3.values().next().value}${ANSI_CSI2}${code}${ANSI_SGR_TERMINATOR2}`;
+    wrapAnsiHyperlink2 = (url) => `${ESCAPES3.values().next().value}${ANSI_ESCAPE_LINK2}${url}${ANSI_ESCAPE_BELL2}`;
+    wordLengths2 = (string) => string.split(" ").map((character) => stringWidth3(character));
+    wrapWord2 = (rows, word, columns) => {
+      const characters = [...word];
+      let isInsideEscape = false;
+      let isInsideLinkEscape = false;
+      let visible = stringWidth3(stripAnsi2(rows.at(-1)));
+      for (const [index, character] of characters.entries()) {
+        const characterLength = stringWidth3(character);
+        if (visible + characterLength <= columns) {
+          rows[rows.length - 1] += character;
+        } else {
+          rows.push(character);
+          visible = 0;
+        }
+        if (ESCAPES3.has(character)) {
+          isInsideEscape = true;
+          const ansiEscapeLinkCandidate = characters.slice(index + 1, index + 1 + ANSI_ESCAPE_LINK2.length).join("");
+          isInsideLinkEscape = ansiEscapeLinkCandidate === ANSI_ESCAPE_LINK2;
+        }
+        if (isInsideEscape) {
+          if (isInsideLinkEscape) {
+            if (character === ANSI_ESCAPE_BELL2) {
+              isInsideEscape = false;
+              isInsideLinkEscape = false;
+            }
+          } else if (character === ANSI_SGR_TERMINATOR2) {
+            isInsideEscape = false;
+          }
+          continue;
+        }
+        visible += characterLength;
+        if (visible === columns && index < characters.length - 1) {
+          rows.push("");
+          visible = 0;
+        }
+      }
+      if (!visible && rows.at(-1).length > 0 && rows.length > 1) {
+        rows[rows.length - 2] += rows.pop();
+      }
+    };
+    stringVisibleTrimSpacesRight2 = (string) => {
+      const words = string.split(" ");
+      let last = words.length;
+      while (last > 0) {
+        if (stringWidth3(words[last - 1]) > 0) {
+          break;
+        }
+        last--;
+      }
+      if (last === words.length) {
+        return string;
+      }
+      return words.slice(0, last).join(" ") + words.slice(last).join("");
+    };
+    exec2 = (string, columns, options = {}) => {
+      if (options.trim !== false && string.trim() === "") {
+        return "";
+      }
+      let returnValue = "";
+      let escapeCode;
+      let escapeUrl;
+      const lengths = wordLengths2(string);
+      let rows = [""];
+      for (const [index, word] of string.split(" ").entries()) {
+        if (options.trim !== false) {
+          rows[rows.length - 1] = rows.at(-1).trimStart();
+        }
+        let rowLength = stringWidth3(rows.at(-1));
+        if (index !== 0) {
+          if (rowLength >= columns && (options.wordWrap === false || options.trim === false)) {
+            rows.push("");
+            rowLength = 0;
+          }
+          if (rowLength > 0 || options.trim === false) {
+            rows[rows.length - 1] += " ";
+            rowLength++;
+          }
+        }
+        if (options.hard && lengths[index] > columns) {
+          const remainingColumns = columns - rowLength;
+          const breaksStartingThisLine = 1 + Math.floor((lengths[index] - remainingColumns - 1) / columns);
+          const breaksStartingNextLine = Math.floor((lengths[index] - 1) / columns);
+          if (breaksStartingNextLine < breaksStartingThisLine) {
+            rows.push("");
+          }
+          wrapWord2(rows, word, columns);
+          continue;
+        }
+        if (rowLength + lengths[index] > columns && rowLength > 0 && lengths[index] > 0) {
+          if (options.wordWrap === false && rowLength < columns) {
+            wrapWord2(rows, word, columns);
+            continue;
+          }
+          rows.push("");
+        }
+        if (rowLength + lengths[index] > columns && options.wordWrap === false) {
+          wrapWord2(rows, word, columns);
+          continue;
+        }
+        rows[rows.length - 1] += word;
+      }
+      if (options.trim !== false) {
+        rows = rows.map((row) => stringVisibleTrimSpacesRight2(row));
+      }
+      const preString = rows.join("\n");
+      const pre = [...preString];
+      let preStringIndex = 0;
+      for (const [index, character] of pre.entries()) {
+        returnValue += character;
+        if (ESCAPES3.has(character)) {
+          const { groups } = new RegExp(`(?:\\${ANSI_CSI2}(?<code>\\d+)m|\\${ANSI_ESCAPE_LINK2}(?<uri>.*)${ANSI_ESCAPE_BELL2})`).exec(preString.slice(preStringIndex)) || { groups: {} };
+          if (groups.code !== void 0) {
+            const code2 = Number.parseFloat(groups.code);
+            escapeCode = code2 === END_CODE2 ? void 0 : code2;
+          } else if (groups.uri !== void 0) {
+            escapeUrl = groups.uri.length === 0 ? void 0 : groups.uri;
+          }
+        }
+        const code = ansi_styles_default3.codes.get(Number(escapeCode));
+        if (pre[index + 1] === "\n") {
+          if (escapeUrl) {
+            returnValue += wrapAnsiHyperlink2("");
+          }
+          if (escapeCode && code) {
+            returnValue += wrapAnsiCode2(code);
+          }
+        } else if (character === "\n") {
+          if (escapeCode && code) {
+            returnValue += wrapAnsiCode2(escapeCode);
+          }
+          if (escapeUrl) {
+            returnValue += wrapAnsiHyperlink2(escapeUrl);
+          }
+        }
+        preStringIndex += character.length;
+      }
+      return returnValue;
+    };
+  }
+});
+
+// ../node_modules/ink/build/utils.js
+import process4 from "node:process";
+var isDev;
+var init_utils = __esm({
+  "../node_modules/ink/build/utils.js"() {
+    isDev = () => process4.env["DEV"] === "true";
+  }
+});
+
+// ../node_modules/widest-line/node_modules/ansi-regex/index.js
+function ansiRegex3({ onlyFirst = false } = {}) {
+  const ST3 = "(?:\\u0007|\\u001B\\u005C|\\u009C)";
+  const osc2 = `(?:\\u001B\\][\\s\\S]*?${ST3})`;
+  const csi2 = "[\\u001B\\u009B][[\\]()#;?]*(?:\\d{1,4}(?:[;:]\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]";
+  const pattern = `${osc2}|${csi2}`;
+  return new RegExp(pattern, onlyFirst ? void 0 : "g");
+}
+var init_ansi_regex3 = __esm({
+  "../node_modules/widest-line/node_modules/ansi-regex/index.js"() {
+  }
+});
+
+// ../node_modules/widest-line/node_modules/strip-ansi/index.js
+function stripAnsi3(string) {
+  if (typeof string !== "string") {
+    throw new TypeError(`Expected a \`string\`, got \`${typeof string}\``);
+  }
+  if (!string.includes("\x1B") && !string.includes("\x9B")) {
+    return string;
+  }
+  return string.replace(regex3, "");
+}
+var regex3;
+var init_strip_ansi3 = __esm({
+  "../node_modules/widest-line/node_modules/strip-ansi/index.js"() {
+    init_ansi_regex3();
+    regex3 = ansiRegex3();
+  }
+});
+
+// ../node_modules/widest-line/node_modules/string-width/index.js
+function isDoubleWidthNonRgiEmojiSequence(segment) {
+  if (segment.length > 50) {
+    return false;
+  }
+  if (unqualifiedKeycapRegex.test(segment)) {
+    return true;
+  }
+  if (segment.includes("\u200D")) {
+    const pictographics = segment.match(extendedPictographicRegex);
+    return pictographics !== null && pictographics.length >= 2;
+  }
+  return false;
+}
+function baseVisible(segment) {
+  return segment.replace(leadingNonPrintingRegex, "");
+}
+function isZeroWidthCluster(segment) {
+  return zeroWidthClusterRegex.test(segment);
+}
+function isHangulLeadingJamo(codePoint) {
+  return codePoint >= 4352 && codePoint <= 4447 || codePoint >= 43360 && codePoint <= 43388;
+}
+function isHangulVowelJamo(codePoint) {
+  return codePoint >= 4448 && codePoint <= 4519 || codePoint >= 55216 && codePoint <= 55238;
+}
+function isHangulTrailingJamo(codePoint) {
+  return codePoint >= 4520 && codePoint <= 4607 || codePoint >= 55243 && codePoint <= 55291;
+}
+function isHangulJamo(codePoint) {
+  return isHangulLeadingJamo(codePoint) || isHangulVowelJamo(codePoint) || isHangulTrailingJamo(codePoint);
+}
+function hangulClusterWidth(visibleSegment, eastAsianWidthOptions) {
+  const codePoints = [];
+  for (const character of visibleSegment) {
+    if (zeroWidthClusterRegex.test(character)) {
+      continue;
+    }
+    codePoints.push(character.codePointAt(0));
+  }
+  if (codePoints.length === 0) {
+    return void 0;
+  }
+  let width = 0;
+  for (let index = 0; index < codePoints.length; index++) {
+    const codePoint = codePoints[index];
+    if (!isHangulJamo(codePoint)) {
+      if (width === 0) {
+        return void 0;
+      }
+      for (let remaining = index; remaining < codePoints.length; remaining++) {
+        width += eastAsianWidth(codePoints[remaining], eastAsianWidthOptions);
+      }
+      return width;
+    }
+    if (isHangulLeadingJamo(codePoint) && isHangulVowelJamo(codePoints[index + 1])) {
+      width += 2;
+      index += isHangulTrailingJamo(codePoints[index + 2]) ? 2 : 1;
+      continue;
+    }
+    width += eastAsianWidth(codePoint, eastAsianWidthOptions);
+  }
+  return width;
+}
+function trailingHalfwidthWidth(visibleSegment, eastAsianWidthOptions) {
+  let extra = 0;
+  let first = true;
+  for (const character of visibleSegment) {
+    if (first) {
+      first = false;
+      continue;
+    }
+    if (character >= "\uFF00" && character <= "\uFFEF") {
+      extra += eastAsianWidth(character.codePointAt(0), eastAsianWidthOptions);
+    }
+  }
+  return extra;
+}
+function stringWidth4(input, options = {}) {
+  if (typeof input !== "string" || input.length === 0) {
+    return 0;
+  }
+  const {
+    ambiguousIsNarrow = true,
+    countAnsiEscapeCodes = false
+  } = options;
+  let string = input;
+  if (!countAnsiEscapeCodes && (string.includes("\x1B") || string.includes("\x9B"))) {
+    string = stripAnsi3(string);
+  }
+  if (string.length === 0) {
+    return 0;
+  }
+  if (/^[\u0020-\u007E]*$/.test(string)) {
+    return string.length;
+  }
+  let width = 0;
+  const eastAsianWidthOptions = { ambiguousAsWide: !ambiguousIsNarrow };
+  for (const { segment } of segmenter3.segment(string)) {
+    if (isZeroWidthCluster(segment)) {
+      continue;
+    }
+    if (rgiEmojiRegex.test(segment) || isDoubleWidthNonRgiEmojiSequence(segment)) {
+      width += 2;
+      continue;
+    }
+    const visibleSegment = baseVisible(segment);
+    const hangulWidth = hangulClusterWidth(visibleSegment, eastAsianWidthOptions);
+    if (hangulWidth !== void 0) {
+      width += hangulWidth;
+      continue;
+    }
+    const codePoint = visibleSegment.codePointAt(0);
+    width += eastAsianWidth(codePoint, eastAsianWidthOptions);
+    width += trailingHalfwidthWidth(visibleSegment, eastAsianWidthOptions);
+  }
+  return width;
+}
+var segmenter3, zeroWidthClusterRegex, leadingNonPrintingRegex, rgiEmojiRegex, unqualifiedKeycapRegex, extendedPictographicRegex;
+var init_string_width3 = __esm({
+  "../node_modules/widest-line/node_modules/string-width/index.js"() {
+    init_strip_ansi3();
+    init_get_east_asian_width();
+    segmenter3 = new Intl.Segmenter();
+    zeroWidthClusterRegex = new RegExp("^(?:\\p{Default_Ignorable_Code_Point}|\\p{Control}|\\p{Format}|\\p{Mark}|\\p{Surrogate})+$", "v");
+    leadingNonPrintingRegex = new RegExp("^[\\p{Default_Ignorable_Code_Point}\\p{Control}\\p{Format}\\p{Mark}\\p{Surrogate}]+", "v");
+    rgiEmojiRegex = new RegExp("^\\p{RGI_Emoji}$", "v");
+    unqualifiedKeycapRegex = /^[\d#*]\u20E3$/;
+    extendedPictographicRegex = new RegExp("\\p{Extended_Pictographic}", "gu");
+  }
+});
+
+// ../node_modules/widest-line/index.js
+function widestLine2(string) {
+  let lineWidth2 = 0;
+  for (const line of string.split("\n")) {
+    lineWidth2 = Math.max(lineWidth2, stringWidth4(line));
+  }
+  return lineWidth2;
+}
+var init_widest_line2 = __esm({
+  "../node_modules/widest-line/index.js"() {
+    init_string_width3();
+  }
+});
+
+// ../node_modules/ink/build/measure-text.js
+var cache2, measureText2, measure_text_default2;
+var init_measure_text2 = __esm({
+  "../node_modules/ink/build/measure-text.js"() {
+    init_widest_line2();
+    cache2 = /* @__PURE__ */ new Map();
+    measureText2 = (text) => {
+      if (text.length === 0) {
+        return {
+          width: 0,
+          height: 0
+        };
+      }
+      const cachedDimensions = cache2.get(text);
+      if (cachedDimensions) {
+        return cachedDimensions;
+      }
+      const width = widestLine2(text);
+      const height = text.split("\n").length;
+      const dimensions = { width, height };
+      cache2.set(text, dimensions);
+      return dimensions;
+    };
+    measure_text_default2 = measureText2;
+  }
+});
+
+// ../node_modules/ink/node_modules/is-fullwidth-code-point/index.js
 function isFullwidthCodePoint2(codePoint) {
   if (!Number.isInteger(codePoint)) {
     return false;
@@ -47201,12 +47297,12 @@ function isFullwidthCodePoint2(codePoint) {
   return isFullWidth(codePoint) || isWide(codePoint);
 }
 var init_is_fullwidth_code_point2 = __esm({
-  "node_modules/is-fullwidth-code-point/index.js"() {
+  "../node_modules/ink/node_modules/is-fullwidth-code-point/index.js"() {
     init_get_east_asian_width();
   }
 });
 
-// node_modules/slice-ansi/tokenize-ansi.js
+// ../node_modules/ink/node_modules/slice-ansi/tokenize-ansi.js
 function isSgrParameterCharacter(codePoint) {
   return codePoint >= CODE_POINT_0 && codePoint <= CODE_POINT_9 || codePoint === CODE_POINT_SEMICOLON || codePoint === CODE_POINT_COLON;
 }
@@ -47266,16 +47362,16 @@ function getSgrPrefix(code) {
   if (code.startsWith("\x9B")) {
     return "\x9B";
   }
-  return `${ESCAPE}${ANSI_CSI2}`;
+  return `${ESCAPE}${ANSI_CSI3}`;
 }
 function createSgrCode(prefix, values) {
-  return `${prefix}${values.join(";")}${ANSI_SGR_TERMINATOR2}`;
+  return `${prefix}${values.join(";")}${ANSI_SGR_TERMINATOR3}`;
 }
 function getSgrFragments(code) {
   const fragments = [];
   const sgrPrefix = getSgrPrefix(code);
   let parameterString;
-  if (code.startsWith(`${ESCAPE}${ANSI_CSI2}`)) {
+  if (code.startsWith(`${ESCAPE}${ANSI_CSI3}`)) {
     parameterString = code.slice(2, -1);
   } else if (code.startsWith("\x9B")) {
     parameterString = code.slice(1, -1);
@@ -47302,7 +47398,7 @@ function getSgrFragments(code) {
         fragments.push({
           type: "start",
           code: openCode3,
-          endCode: ansi_styles_default4.color.ansi(codeNumber === SGR_EXTENDED_FOREGROUND_CODE ? SGR_DEFAULT_FOREGROUND_CODE : SGR_DEFAULT_BACKGROUND_CODE)
+          endCode: ansi_styles_default3.color.ansi(codeNumber === SGR_EXTENDED_FOREGROUND_CODE ? SGR_DEFAULT_FOREGROUND_CODE : SGR_DEFAULT_BACKGROUND_CODE)
         });
         index += SGR_ANSI_256_FRAGMENT_LENGTH;
         continue;
@@ -47312,7 +47408,7 @@ function getSgrFragments(code) {
         fragments.push({
           type: "start",
           code: openCode3,
-          endCode: ansi_styles_default4.color.ansi(codeNumber === SGR_EXTENDED_FOREGROUND_CODE ? SGR_DEFAULT_FOREGROUND_CODE : SGR_DEFAULT_BACKGROUND_CODE)
+          endCode: ansi_styles_default3.color.ansi(codeNumber === SGR_EXTENDED_FOREGROUND_CODE ? SGR_DEFAULT_FOREGROUND_CODE : SGR_DEFAULT_BACKGROUND_CODE)
         });
         index += SGR_TRUECOLOR_FRAGMENT_LENGTH;
         continue;
@@ -47321,7 +47417,7 @@ function getSgrFragments(code) {
       fragments.push({
         type: "start",
         code: openCode2,
-        endCode: ansi_styles_default4.color.ansi(codeNumber === SGR_EXTENDED_FOREGROUND_CODE ? SGR_DEFAULT_FOREGROUND_CODE : SGR_DEFAULT_BACKGROUND_CODE)
+        endCode: ansi_styles_default3.color.ansi(codeNumber === SGR_EXTENDED_FOREGROUND_CODE ? SGR_DEFAULT_FOREGROUND_CODE : SGR_DEFAULT_BACKGROUND_CODE)
       });
       index++;
       continue;
@@ -47329,18 +47425,18 @@ function getSgrFragments(code) {
     if (endCodeNumbers.has(codeNumber)) {
       fragments.push({
         type: "end",
-        endCode: ansi_styles_default4.color.ansi(codeNumber)
+        endCode: ansi_styles_default3.color.ansi(codeNumber)
       });
       index++;
       continue;
     }
-    const mappedEndCode = ansi_styles_default4.codes.get(codeNumber);
+    const mappedEndCode = ansi_styles_default3.codes.get(codeNumber);
     if (mappedEndCode !== void 0) {
       const openCode2 = createSgrCode(sgrPrefix, [rawCodes[index]]);
       fragments.push({
         type: "start",
         code: openCode2,
-        endCode: ansi_styles_default4.color.ansi(mappedEndCode)
+        endCode: ansi_styles_default3.color.ansi(mappedEndCode)
       });
       index++;
       continue;
@@ -47349,7 +47445,7 @@ function getSgrFragments(code) {
     fragments.push({
       type: "start",
       code: openCode,
-      endCode: ansi_styles_default4.reset.open
+      endCode: ansi_styles_default3.reset.open
     });
     index++;
   }
@@ -47362,7 +47458,7 @@ function parseCsiCode(string, index) {
   const escapeCodePoint = string.codePointAt(index);
   let sequenceStartIndex;
   if (escapeCodePoint === ESCAPE_CODE_POINT) {
-    if (string[index + 1] !== ANSI_CSI2) {
+    if (string[index + 1] !== ANSI_CSI3) {
       return;
     }
     sequenceStartIndex = index + 2;
@@ -47376,7 +47472,7 @@ function parseCsiCode(string, index) {
     const codePoint = string.codePointAt(sequenceIndex);
     if (isCsiFinalCharacter(codePoint)) {
       const code = string.slice(index, sequenceIndex + 1);
-      if (string[sequenceIndex] !== ANSI_SGR_TERMINATOR2 || !hasCanonicalSgrParameters) {
+      if (string[sequenceIndex] !== ANSI_SGR_TERMINATOR3 || !hasCanonicalSgrParameters) {
         return createControlParseResult(code, sequenceIndex + 1);
       }
       return {
@@ -47475,7 +47571,7 @@ function parseControlStringCode(string, index) {
     case ESCAPE_CODE_POINT: {
       const command = string[index + 1];
       switch (command) {
-        case ANSI_OSC2: {
+        case ANSI_OSC3: {
           sequenceStartIndex = index + 2;
           supportsBellTerminator = true;
           break;
@@ -47545,7 +47641,7 @@ function parseAnsiCode2(string, index) {
 function appendTrailingAnsiTokens(string, index, tokens) {
   while (index < string.length) {
     const nextCodePoint = string.codePointAt(index);
-    if (!ESCAPES3.has(nextCodePoint)) {
+    if (!ESCAPES4.has(nextCodePoint)) {
       break;
     }
     const escapeCode = parseAnsiCode2(string, index);
@@ -47578,7 +47674,7 @@ function collectVisibleCharacters(string) {
   let index = 0;
   while (index < string.length) {
     const codePoint = string.codePointAt(index);
-    if (ESCAPES3.has(codePoint)) {
+    if (ESCAPES4.has(codePoint)) {
       const code = parseAnsiCode2(string, index);
       if (code) {
         index = code.endIndex;
@@ -47631,7 +47727,7 @@ function tokenizeAnsiWithVisibleSegmentation(string, { endCharacter = Number.POS
   let visibleCount = 0;
   while (index < string.length) {
     const codePoint = string.codePointAt(index);
-    if (ESCAPES3.has(codePoint)) {
+    if (ESCAPES4.has(codePoint)) {
       const code = parseAnsiCode2(string, index);
       if (code) {
         tokens.push(code.token);
@@ -47686,7 +47782,7 @@ function hasAnsiSplitContinuationAhead(string, startIndex, previousVisibleValue,
   let hasAnsiCode = false;
   while (index < string.length) {
     const codePoint = string.codePointAt(index);
-    if (ESCAPES3.has(codePoint)) {
+    if (ESCAPES4.has(codePoint)) {
       const code = parseAnsiCode2(string, index);
       if (code) {
         hasAnsiCode = true;
@@ -47714,7 +47810,7 @@ function tokenizeAnsi(string, { endCharacter = Number.POSITIVE_INFINITY } = {}) 
   let hasAnsiSinceLastVisible = false;
   while (index < string.length) {
     const codePoint = string.codePointAt(index);
-    if (ESCAPES3.has(codePoint)) {
+    if (ESCAPES4.has(codePoint)) {
       const code = parseAnsiCode2(string, index);
       if (code) {
         tokens.push(code.token);
@@ -47745,10 +47841,10 @@ function tokenizeAnsi(string, { endCharacter = Number.POSITIVE_INFINITY } = {}) 
   }
   return tokens;
 }
-var ESCAPE_CODE_POINT, C1_DCS_CODE_POINT, C1_SOS_CODE_POINT, C1_CSI_CODE_POINT, C1_ST_CODE_POINT, C1_OSC_CODE_POINT, C1_PM_CODE_POINT, C1_APC_CODE_POINT, ESCAPES3, ESCAPE, ANSI_BELL, ANSI_CSI2, ANSI_OSC2, ANSI_DCS, ANSI_SOS, ANSI_PM, ANSI_APC, ANSI_SGR_TERMINATOR2, ANSI_OSC_TERMINATOR, ANSI_STRING_TERMINATOR, C1_OSC, C1_STRING_TERMINATOR, ANSI_HYPERLINK_ESC_PREFIX, ANSI_HYPERLINK_C1_PREFIX, ANSI_HYPERLINK_ESC_CLOSE, ANSI_HYPERLINK_C1_CLOSE, CODE_POINT_0, CODE_POINT_9, CODE_POINT_SEMICOLON, CODE_POINT_COLON, CODE_POINT_CSI_PARAMETER_START, CODE_POINT_CSI_PARAMETER_END, CODE_POINT_CSI_INTERMEDIATE_START, CODE_POINT_CSI_INTERMEDIATE_END, CODE_POINT_CSI_FINAL_START, CODE_POINT_CSI_FINAL_END, REGIONAL_INDICATOR_SYMBOL_LETTER_A, REGIONAL_INDICATOR_SYMBOL_LETTER_Z, SGR_RESET_CODE, SGR_EXTENDED_FOREGROUND_CODE, SGR_DEFAULT_FOREGROUND_CODE, SGR_EXTENDED_BACKGROUND_CODE, SGR_DEFAULT_BACKGROUND_CODE, SGR_COLOR_TYPE_ANSI_256, SGR_COLOR_TYPE_TRUECOLOR, SGR_ANSI_256_FRAGMENT_LENGTH, SGR_TRUECOLOR_FRAGMENT_LENGTH, SGR_ANSI_256_LAST_PARAMETER_OFFSET, SGR_TRUECOLOR_LAST_PARAMETER_OFFSET, VARIATION_SELECTOR_16_CODE_POINT, COMBINING_ENCLOSING_KEYCAP_CODE_POINT, EMOJI_PRESENTATION_GRAPHEME_REGEX, GRAPHEME_SEGMENTER, endCodeNumbers;
+var ESCAPE_CODE_POINT, C1_DCS_CODE_POINT, C1_SOS_CODE_POINT, C1_CSI_CODE_POINT, C1_ST_CODE_POINT, C1_OSC_CODE_POINT, C1_PM_CODE_POINT, C1_APC_CODE_POINT, ESCAPES4, ESCAPE, ANSI_BELL, ANSI_CSI3, ANSI_OSC3, ANSI_DCS, ANSI_SOS, ANSI_PM, ANSI_APC, ANSI_SGR_TERMINATOR3, ANSI_OSC_TERMINATOR, ANSI_STRING_TERMINATOR, C1_OSC, C1_STRING_TERMINATOR, ANSI_HYPERLINK_ESC_PREFIX, ANSI_HYPERLINK_C1_PREFIX, ANSI_HYPERLINK_ESC_CLOSE, ANSI_HYPERLINK_C1_CLOSE, CODE_POINT_0, CODE_POINT_9, CODE_POINT_SEMICOLON, CODE_POINT_COLON, CODE_POINT_CSI_PARAMETER_START, CODE_POINT_CSI_PARAMETER_END, CODE_POINT_CSI_INTERMEDIATE_START, CODE_POINT_CSI_INTERMEDIATE_END, CODE_POINT_CSI_FINAL_START, CODE_POINT_CSI_FINAL_END, REGIONAL_INDICATOR_SYMBOL_LETTER_A, REGIONAL_INDICATOR_SYMBOL_LETTER_Z, SGR_RESET_CODE, SGR_EXTENDED_FOREGROUND_CODE, SGR_DEFAULT_FOREGROUND_CODE, SGR_EXTENDED_BACKGROUND_CODE, SGR_DEFAULT_BACKGROUND_CODE, SGR_COLOR_TYPE_ANSI_256, SGR_COLOR_TYPE_TRUECOLOR, SGR_ANSI_256_FRAGMENT_LENGTH, SGR_TRUECOLOR_FRAGMENT_LENGTH, SGR_ANSI_256_LAST_PARAMETER_OFFSET, SGR_TRUECOLOR_LAST_PARAMETER_OFFSET, VARIATION_SELECTOR_16_CODE_POINT, COMBINING_ENCLOSING_KEYCAP_CODE_POINT, EMOJI_PRESENTATION_GRAPHEME_REGEX, GRAPHEME_SEGMENTER, endCodeNumbers;
 var init_tokenize_ansi = __esm({
-  "node_modules/slice-ansi/tokenize-ansi.js"() {
-    init_ansi_styles4();
+  "../node_modules/ink/node_modules/slice-ansi/tokenize-ansi.js"() {
+    init_ansi_styles3();
     init_is_fullwidth_code_point2();
     ESCAPE_CODE_POINT = 27;
     C1_DCS_CODE_POINT = 144;
@@ -47758,7 +47854,7 @@ var init_tokenize_ansi = __esm({
     C1_OSC_CODE_POINT = 157;
     C1_PM_CODE_POINT = 158;
     C1_APC_CODE_POINT = 159;
-    ESCAPES3 = /* @__PURE__ */ new Set([
+    ESCAPES4 = /* @__PURE__ */ new Set([
       ESCAPE_CODE_POINT,
       C1_DCS_CODE_POINT,
       C1_SOS_CODE_POINT,
@@ -47770,18 +47866,18 @@ var init_tokenize_ansi = __esm({
     ]);
     ESCAPE = "\x1B";
     ANSI_BELL = "\x07";
-    ANSI_CSI2 = "[";
-    ANSI_OSC2 = "]";
+    ANSI_CSI3 = "[";
+    ANSI_OSC3 = "]";
     ANSI_DCS = "P";
     ANSI_SOS = "X";
     ANSI_PM = "^";
     ANSI_APC = "_";
-    ANSI_SGR_TERMINATOR2 = "m";
+    ANSI_SGR_TERMINATOR3 = "m";
     ANSI_OSC_TERMINATOR = "\\";
     ANSI_STRING_TERMINATOR = `${ESCAPE}${ANSI_OSC_TERMINATOR}`;
     C1_OSC = "\x9D";
     C1_STRING_TERMINATOR = "\x9C";
-    ANSI_HYPERLINK_ESC_PREFIX = `${ESCAPE}${ANSI_OSC2}8;`;
+    ANSI_HYPERLINK_ESC_PREFIX = `${ESCAPE}${ANSI_OSC3}8;`;
     ANSI_HYPERLINK_C1_PREFIX = `${C1_OSC}8;`;
     ANSI_HYPERLINK_ESC_CLOSE = `${ANSI_HYPERLINK_ESC_PREFIX};`;
     ANSI_HYPERLINK_C1_CLOSE = `${ANSI_HYPERLINK_C1_PREFIX};`;
@@ -47813,13 +47909,13 @@ var init_tokenize_ansi = __esm({
     EMOJI_PRESENTATION_GRAPHEME_REGEX = new RegExp("\\p{Emoji_Presentation}", "u");
     GRAPHEME_SEGMENTER = new Intl.Segmenter(void 0, { granularity: "grapheme" });
     endCodeNumbers = /* @__PURE__ */ new Set();
-    for (const [, end] of ansi_styles_default4.codes) {
+    for (const [, end] of ansi_styles_default3.codes) {
       endCodeNumbers.add(end);
     }
   }
 });
 
-// node_modules/slice-ansi/index.js
+// ../node_modules/ink/node_modules/slice-ansi/index.js
 function applySgrFragments(activeStyles, fragments) {
   for (const fragment of fragments) {
     switch (fragment.type) {
@@ -48017,7 +48113,7 @@ function sliceAnsi2(string, start, end) {
 }
 var tokenHandlers;
 var init_slice_ansi = __esm({
-  "node_modules/slice-ansi/index.js"() {
+  "../node_modules/ink/node_modules/slice-ansi/index.js"() {
     init_tokenize_ansi();
     tokenHandlers = {
       sgr: applySgrToken,
@@ -48028,7 +48124,139 @@ var init_slice_ansi = __esm({
   }
 });
 
-// node_modules/cli-truncate/index.js
+// ../node_modules/ink/node_modules/string-width/index.js
+function isDoubleWidthNonRgiEmojiSequence2(segment) {
+  if (segment.length > 50) {
+    return false;
+  }
+  if (unqualifiedKeycapRegex2.test(segment)) {
+    return true;
+  }
+  if (segment.includes("\u200D")) {
+    const pictographics = segment.match(extendedPictographicRegex2);
+    return pictographics !== null && pictographics.length >= 2;
+  }
+  return false;
+}
+function baseVisible2(segment) {
+  return segment.replace(leadingNonPrintingRegex2, "");
+}
+function isZeroWidthCluster2(segment) {
+  return zeroWidthClusterRegex2.test(segment);
+}
+function isHangulLeadingJamo2(codePoint) {
+  return codePoint >= 4352 && codePoint <= 4447 || codePoint >= 43360 && codePoint <= 43388;
+}
+function isHangulVowelJamo2(codePoint) {
+  return codePoint >= 4448 && codePoint <= 4519 || codePoint >= 55216 && codePoint <= 55238;
+}
+function isHangulTrailingJamo2(codePoint) {
+  return codePoint >= 4520 && codePoint <= 4607 || codePoint >= 55243 && codePoint <= 55291;
+}
+function isHangulJamo2(codePoint) {
+  return isHangulLeadingJamo2(codePoint) || isHangulVowelJamo2(codePoint) || isHangulTrailingJamo2(codePoint);
+}
+function hangulClusterWidth2(visibleSegment, eastAsianWidthOptions) {
+  const codePoints = [];
+  for (const character of visibleSegment) {
+    if (zeroWidthClusterRegex2.test(character)) {
+      continue;
+    }
+    codePoints.push(character.codePointAt(0));
+  }
+  if (codePoints.length === 0) {
+    return void 0;
+  }
+  let width = 0;
+  for (let index = 0; index < codePoints.length; index++) {
+    const codePoint = codePoints[index];
+    if (!isHangulJamo2(codePoint)) {
+      if (width === 0) {
+        return void 0;
+      }
+      for (let remaining = index; remaining < codePoints.length; remaining++) {
+        width += eastAsianWidth(codePoints[remaining], eastAsianWidthOptions);
+      }
+      return width;
+    }
+    if (isHangulLeadingJamo2(codePoint) && isHangulVowelJamo2(codePoints[index + 1])) {
+      width += 2;
+      index += isHangulTrailingJamo2(codePoints[index + 2]) ? 2 : 1;
+      continue;
+    }
+    width += eastAsianWidth(codePoint, eastAsianWidthOptions);
+  }
+  return width;
+}
+function trailingHalfwidthWidth2(visibleSegment, eastAsianWidthOptions) {
+  let extra = 0;
+  let first = true;
+  for (const character of visibleSegment) {
+    if (first) {
+      first = false;
+      continue;
+    }
+    if (character >= "\uFF00" && character <= "\uFFEF") {
+      extra += eastAsianWidth(character.codePointAt(0), eastAsianWidthOptions);
+    }
+  }
+  return extra;
+}
+function stringWidth5(input, options = {}) {
+  if (typeof input !== "string" || input.length === 0) {
+    return 0;
+  }
+  const {
+    ambiguousIsNarrow = true,
+    countAnsiEscapeCodes = false
+  } = options;
+  let string = input;
+  if (!countAnsiEscapeCodes && (string.includes("\x1B") || string.includes("\x9B"))) {
+    string = stripAnsi2(string);
+  }
+  if (string.length === 0) {
+    return 0;
+  }
+  if (/^[\u0020-\u007E]*$/.test(string)) {
+    return string.length;
+  }
+  let width = 0;
+  const eastAsianWidthOptions = { ambiguousAsWide: !ambiguousIsNarrow };
+  for (const { segment } of segmenter4.segment(string)) {
+    if (isZeroWidthCluster2(segment)) {
+      continue;
+    }
+    if (rgiEmojiRegex2.test(segment) || isDoubleWidthNonRgiEmojiSequence2(segment)) {
+      width += 2;
+      continue;
+    }
+    const visibleSegment = baseVisible2(segment);
+    const hangulWidth = hangulClusterWidth2(visibleSegment, eastAsianWidthOptions);
+    if (hangulWidth !== void 0) {
+      width += hangulWidth;
+      continue;
+    }
+    const codePoint = visibleSegment.codePointAt(0);
+    width += eastAsianWidth(codePoint, eastAsianWidthOptions);
+    width += trailingHalfwidthWidth2(visibleSegment, eastAsianWidthOptions);
+  }
+  return width;
+}
+var segmenter4, zeroWidthClusterRegex2, leadingNonPrintingRegex2, rgiEmojiRegex2, unqualifiedKeycapRegex2, extendedPictographicRegex2;
+var init_string_width4 = __esm({
+  "../node_modules/ink/node_modules/string-width/index.js"() {
+    init_strip_ansi2();
+    init_get_east_asian_width();
+    segmenter4 = new Intl.Segmenter();
+    zeroWidthClusterRegex2 = new RegExp("^(?:\\p{Default_Ignorable_Code_Point}|\\p{Control}|\\p{Format}|\\p{Mark}|\\p{Surrogate})+$", "v");
+    leadingNonPrintingRegex2 = new RegExp("^[\\p{Default_Ignorable_Code_Point}\\p{Control}\\p{Format}\\p{Mark}\\p{Surrogate}]+", "v");
+    rgiEmojiRegex2 = new RegExp("^\\p{RGI_Emoji}$", "v");
+    unqualifiedKeycapRegex2 = /^[\d#*]\u20E3$/;
+    extendedPictographicRegex2 = new RegExp("\\p{Extended_Pictographic}", "gu");
+  }
+});
+
+// ../node_modules/ink/node_modules/cli-truncate/index.js
 function getIndexOfNearestSpace(string, wantedIndex, shouldSearchRight) {
   if (string.charAt(wantedIndex) === " ") {
     return wantedIndex;
@@ -48058,7 +48286,7 @@ function cliTruncate(text, columns, options = {}) {
   if (columns < 1) {
     return "";
   }
-  const length = stringWidth3(text);
+  const length = stringWidth5(text);
   if (length <= columns) {
     return text;
   }
@@ -48124,7 +48352,7 @@ function cliTruncate(text, columns, options = {}) {
     if (space) {
       truncationCharacter += " ";
     }
-    const right = sliceAnsi2(text, length - columns + stringWidth3(truncationCharacter), length);
+    const right = sliceAnsi2(text, length - columns + stringWidth5(truncationCharacter), length);
     return prependWithInheritedStyleFromStart(truncationCharacter, right);
   }
   if (position === "middle") {
@@ -48137,7 +48365,7 @@ function cliTruncate(text, columns, options = {}) {
       const spaceNearSecondBreakPoint = getIndexOfNearestSpace(text, length - (columns - half) + 1, true);
       return sliceAnsi2(text, 0, spaceNearFirstBreakPoint) + truncationCharacter + sliceAnsi2(text, spaceNearSecondBreakPoint, length).trim();
     }
-    return sliceAnsi2(text, 0, half) + truncationCharacter + sliceAnsi2(text, length - (columns - half) + stringWidth3(truncationCharacter), length);
+    return sliceAnsi2(text, 0, half) + truncationCharacter + sliceAnsi2(text, length - (columns - half) + stringWidth5(truncationCharacter), length);
   }
   if (position === "end") {
     if (preferTruncationOnSpace) {
@@ -48148,23 +48376,23 @@ function cliTruncate(text, columns, options = {}) {
     if (space) {
       truncationCharacter = ` ${truncationCharacter}`;
     }
-    const left = sliceAnsi2(text, 0, columns - stringWidth3(truncationCharacter));
+    const left = sliceAnsi2(text, 0, columns - stringWidth5(truncationCharacter));
     return appendWithInheritedStyleFromEnd(left, truncationCharacter);
   }
   throw new Error(`Expected \`options.position\` to be either \`start\`, \`middle\` or \`end\`, got ${position}`);
 }
 var init_cli_truncate = __esm({
-  "node_modules/cli-truncate/index.js"() {
+  "../node_modules/ink/node_modules/cli-truncate/index.js"() {
     init_slice_ansi();
-    init_string_width2();
+    init_string_width4();
   }
 });
 
-// node_modules/ink/build/wrap-text.js
+// ../node_modules/ink/build/wrap-text.js
 var cache3, wrapText2, wrap_text_default;
 var init_wrap_text2 = __esm({
-  "node_modules/ink/build/wrap-text.js"() {
-    init_wrap_ansi();
+  "../node_modules/ink/build/wrap-text.js"() {
+    init_wrap_ansi2();
     init_cli_truncate();
     cache3 = {};
     wrapText2 = (text, maxWidth, wrapType) => {
@@ -48175,7 +48403,7 @@ var init_wrap_text2 = __esm({
       }
       let wrappedText = text;
       if (wrapType === "wrap") {
-        wrappedText = wrapAnsi(text, maxWidth, {
+        wrappedText = wrapAnsi3(text, maxWidth, {
           trim: false,
           hard: true
         });
@@ -48197,10 +48425,10 @@ var init_wrap_text2 = __esm({
   }
 });
 
-// node_modules/ink/build/ansi-tokenizer.js
+// ../node_modules/ink/build/ansi-tokenizer.js
 var bellCharacter, escapeCharacter, stringTerminatorCharacter, csiCharacter, oscCharacter, dcsCharacter, pmCharacter, apcCharacter, sosCharacter, isCsiParameterCharacter2, isCsiIntermediateCharacter2, isCsiFinalCharacter2, isEscapeIntermediateCharacter, isEscapeFinalCharacter, isC1ControlCharacter, readCsiSequence, findControlStringTerminatorIndex, readEscapeSequence, getControlStringFromEscapeIntroducer, getControlStringFromC1Introducer, hasAnsiControlCharacters, malformedFromIndex, tokenizeAnsi2;
 var init_ansi_tokenizer = __esm({
-  "node_modules/ink/build/ansi-tokenizer.js"() {
+  "../node_modules/ink/build/ansi-tokenizer.js"() {
     bellCharacter = "\x07";
     escapeCharacter = "\x1B";
     stringTerminatorCharacter = "\x9C";
@@ -48509,10 +48737,10 @@ var init_ansi_tokenizer = __esm({
   }
 });
 
-// node_modules/ink/build/sanitize-ansi.js
+// ../node_modules/ink/build/sanitize-ansi.js
 var sgrParametersRegex, sanitizeAnsi, sanitize_ansi_default;
 var init_sanitize_ansi = __esm({
-  "node_modules/ink/build/sanitize-ansi.js"() {
+  "../node_modules/ink/build/sanitize-ansi.js"() {
     init_ansi_tokenizer();
     sgrParametersRegex = /^[\d:;]*$/;
     sanitizeAnsi = (text) => {
@@ -48535,10 +48763,10 @@ var init_sanitize_ansi = __esm({
   }
 });
 
-// node_modules/ink/build/squash-text-nodes.js
+// ../node_modules/ink/build/squash-text-nodes.js
 var squashTextNodes2, squash_text_nodes_default2;
 var init_squash_text_nodes2 = __esm({
-  "node_modules/ink/build/squash-text-nodes.js"() {
+  "../node_modules/ink/build/squash-text-nodes.js"() {
     init_sanitize_ansi();
     squashTextNodes2 = (node) => {
       let text = "";
@@ -48566,10 +48794,10 @@ var init_squash_text_nodes2 = __esm({
   }
 });
 
-// node_modules/ink/build/dom.js
+// ../node_modules/ink/build/dom.js
 var createNode2, appendChildNode2, insertBeforeNode2, removeChildNode2, setAttribute2, setStyle2, createTextNode2, measureTextNode2, findClosestYogaNode, markNodeAsDirty, setTextNodeValue2;
 var init_dom2 = __esm({
-  async "node_modules/ink/build/dom.js"() {
+  async "../node_modules/ink/build/dom.js"() {
     await init_src();
     init_measure_text2();
     init_wrap_text2();
@@ -48691,10 +48919,10 @@ var init_dom2 = __esm({
   }
 });
 
-// node_modules/ink/build/styles.js
-var applyPositionStyles2, applyMarginStyles2, applyPaddingStyles2, applyFlexStyles2, applyDimensionStyles2, applyDisplayStyles2, applyBorderStyles2, applyGapStyles2, styles7, styles_default2;
+// ../node_modules/ink/build/styles.js
+var applyPositionStyles2, applyMarginStyles2, applyPaddingStyles2, applyFlexStyles2, applyDimensionStyles2, applyDisplayStyles2, applyBorderStyles2, applyGapStyles2, styles6, styles_default2;
 var init_styles2 = __esm({
-  async "node_modules/ink/build/styles.js"() {
+  async "../node_modules/ink/build/styles.js"() {
     await init_src();
     applyPositionStyles2 = (node, style) => {
       if ("position" in style) {
@@ -48904,7 +49132,7 @@ var init_styles2 = __esm({
         node.setGap(src_default.GUTTER_ROW, style.rowGap ?? 0);
       }
     };
-    styles7 = (node, style = {}) => {
+    styles6 = (node, style = {}) => {
       applyPositionStyles2(node, style);
       applyMarginStyles2(node, style);
       applyPaddingStyles2(node, style);
@@ -48914,13 +49142,13 @@ var init_styles2 = __esm({
       applyBorderStyles2(node, style);
       applyGapStyles2(node, style);
     };
-    styles_default2 = styles7;
+    styles_default2 = styles6;
   }
 });
 
-// node_modules/ws/lib/constants.js
+// ../node_modules/ws/lib/constants.js
 var require_constants3 = __commonJS({
-  "node_modules/ws/lib/constants.js"(exports, module) {
+  "../node_modules/ws/lib/constants.js"(exports, module) {
     "use strict";
     var BINARY_TYPES = ["nodebuffer", "arraybuffer", "fragments"];
     var hasBlob = typeof Blob !== "undefined";
@@ -48941,9 +49169,9 @@ var require_constants3 = __commonJS({
   }
 });
 
-// node_modules/ws/lib/buffer-util.js
+// ../node_modules/ws/lib/buffer-util.js
 var require_buffer_util = __commonJS({
-  "node_modules/ws/lib/buffer-util.js"(exports, module) {
+  "../node_modules/ws/lib/buffer-util.js"(exports, module) {
     "use strict";
     var { EMPTY_BUFFER } = require_constants3();
     var FastBuffer = Buffer[Symbol.species];
@@ -49016,9 +49244,9 @@ var require_buffer_util = __commonJS({
   }
 });
 
-// node_modules/ws/lib/limiter.js
+// ../node_modules/ws/lib/limiter.js
 var require_limiter = __commonJS({
-  "node_modules/ws/lib/limiter.js"(exports, module) {
+  "../node_modules/ws/lib/limiter.js"(exports, module) {
     "use strict";
     var kDone = /* @__PURE__ */ Symbol("kDone");
     var kRun = /* @__PURE__ */ Symbol("kRun");
@@ -49066,9 +49294,9 @@ var require_limiter = __commonJS({
   }
 });
 
-// node_modules/ws/lib/permessage-deflate.js
+// ../node_modules/ws/lib/permessage-deflate.js
 var require_permessage_deflate = __commonJS({
-  "node_modules/ws/lib/permessage-deflate.js"(exports, module) {
+  "../node_modules/ws/lib/permessage-deflate.js"(exports, module) {
     "use strict";
     var zlib = __require("zlib");
     var bufferUtil = require_buffer_util();
@@ -49449,9 +49677,9 @@ var require_permessage_deflate = __commonJS({
   }
 });
 
-// node_modules/ws/lib/validation.js
+// ../node_modules/ws/lib/validation.js
 var require_validation = __commonJS({
-  "node_modules/ws/lib/validation.js"(exports, module) {
+  "../node_modules/ws/lib/validation.js"(exports, module) {
     "use strict";
     var { isUtf8 } = __require("buffer");
     var { hasBlob } = require_constants3();
@@ -49650,9 +49878,9 @@ var require_validation = __commonJS({
   }
 });
 
-// node_modules/ws/lib/receiver.js
+// ../node_modules/ws/lib/receiver.js
 var require_receiver = __commonJS({
-  "node_modules/ws/lib/receiver.js"(exports, module) {
+  "../node_modules/ws/lib/receiver.js"(exports, module) {
     "use strict";
     var { Writable } = __require("stream");
     var PerMessageDeflate2 = require_permessage_deflate();
@@ -49685,6 +49913,10 @@ var require_receiver = __commonJS({
        *     extensions
        * @param {Boolean} [options.isServer=false] Specifies whether to operate in
        *     client or server mode
+       * @param {Number} [options.maxBufferedChunks=0] The maximum number of
+       *     buffered data chunks
+       * @param {Number} [options.maxFragments=0] The maximum number of message
+       *     fragments
        * @param {Number} [options.maxPayload=0] The maximum allowed message length
        * @param {Boolean} [options.skipUTF8Validation=false] Specifies whether or
        *     not to skip UTF-8 validation for text and close messages
@@ -49695,6 +49927,8 @@ var require_receiver = __commonJS({
         this._binaryType = options.binaryType || BINARY_TYPES[0];
         this._extensions = options.extensions || {};
         this._isServer = !!options.isServer;
+        this._maxBufferedChunks = options.maxBufferedChunks | 0;
+        this._maxFragments = options.maxFragments | 0;
         this._maxPayload = options.maxPayload | 0;
         this._skipUTF8Validation = !!options.skipUTF8Validation;
         this[kWebSocket] = void 0;
@@ -49724,6 +49958,18 @@ var require_receiver = __commonJS({
        */
       _write(chunk, encoding, cb) {
         if (this._opcode === 8 && this._state == GET_INFO) return cb();
+        if (this._maxBufferedChunks > 0 && this._buffers.length >= this._maxBufferedChunks) {
+          cb(
+            this.createError(
+              RangeError,
+              "Too many buffered chunks",
+              false,
+              1008,
+              "WS_ERR_TOO_MANY_BUFFERED_PARTS"
+            )
+          );
+          return;
+        }
         this._bufferedBytes += chunk.length;
         this._buffers.push(chunk);
         this.startLoop(cb);
@@ -50053,6 +50299,17 @@ var require_receiver = __commonJS({
           return;
         }
         if (data.length) {
+          if (this._maxFragments > 0 && this._fragments.length >= this._maxFragments) {
+            const error = this.createError(
+              RangeError,
+              "Too many message fragments",
+              false,
+              1008,
+              "WS_ERR_TOO_MANY_BUFFERED_PARTS"
+            );
+            cb(error);
+            return;
+          }
           this._messageLength = this._totalPayloadLength;
           this._fragments.push(data);
         }
@@ -50078,6 +50335,17 @@ var require_receiver = __commonJS({
                 false,
                 1009,
                 "WS_ERR_UNSUPPORTED_MESSAGE_LENGTH"
+              );
+              cb(error);
+              return;
+            }
+            if (this._maxFragments > 0 && this._fragments.length >= this._maxFragments) {
+              const error = this.createError(
+                RangeError,
+                "Too many message fragments",
+                false,
+                1008,
+                "WS_ERR_TOO_MANY_BUFFERED_PARTS"
               );
               cb(error);
               return;
@@ -50242,9 +50510,9 @@ var require_receiver = __commonJS({
   }
 });
 
-// node_modules/ws/lib/sender.js
+// ../node_modules/ws/lib/sender.js
 var require_sender = __commonJS({
-  "node_modules/ws/lib/sender.js"(exports, module) {
+  "../node_modules/ws/lib/sender.js"(exports, module) {
     "use strict";
     var { Duplex } = __require("stream");
     var { randomFillSync } = __require("crypto");
@@ -50735,9 +51003,9 @@ var require_sender = __commonJS({
   }
 });
 
-// node_modules/ws/lib/event-target.js
+// ../node_modules/ws/lib/event-target.js
 var require_event_target = __commonJS({
-  "node_modules/ws/lib/event-target.js"(exports, module) {
+  "../node_modules/ws/lib/event-target.js"(exports, module) {
     "use strict";
     var { kForOnEventAttribute, kListener } = require_constants3();
     var kCode = /* @__PURE__ */ Symbol("kCode");
@@ -50964,9 +51232,9 @@ var require_event_target = __commonJS({
   }
 });
 
-// node_modules/ws/lib/extension.js
+// ../node_modules/ws/lib/extension.js
 var require_extension = __commonJS({
-  "node_modules/ws/lib/extension.js"(exports, module) {
+  "../node_modules/ws/lib/extension.js"(exports, module) {
     "use strict";
     var { tokenChars } = require_validation();
     function push(dest, name, elem) {
@@ -51117,9 +51385,9 @@ var require_extension = __commonJS({
   }
 });
 
-// node_modules/ws/lib/websocket.js
+// ../node_modules/ws/lib/websocket.js
 var require_websocket = __commonJS({
-  "node_modules/ws/lib/websocket.js"(exports, module) {
+  "../node_modules/ws/lib/websocket.js"(exports, module) {
     "use strict";
     var EventEmitter5 = __require("events");
     var https = __require("https");
@@ -51288,6 +51556,10 @@ var require_websocket = __commonJS({
        *     multiple times in the same tick
        * @param {Function} [options.generateMask] The function used to generate the
        *     masking key
+       * @param {Number} [options.maxBufferedChunks=0] The maximum number of
+       *     buffered data chunks
+       * @param {Number} [options.maxFragments=0] The maximum number of message
+       *     fragments
        * @param {Number} [options.maxPayload=0] The maximum allowed message size
        * @param {Boolean} [options.skipUTF8Validation=false] Specifies whether or
        *     not to skip UTF-8 validation for text and close messages
@@ -51299,6 +51571,8 @@ var require_websocket = __commonJS({
           binaryType: this.binaryType,
           extensions: this._extensions,
           isServer: this._isServer,
+          maxBufferedChunks: options.maxBufferedChunks,
+          maxFragments: options.maxFragments,
           maxPayload: options.maxPayload,
           skipUTF8Validation: options.skipUTF8Validation
         });
@@ -51598,6 +51872,8 @@ var require_websocket = __commonJS({
         autoPong: true,
         closeTimeout: CLOSE_TIMEOUT,
         protocolVersion: protocolVersions[1],
+        maxBufferedChunks: 1024 * 1024,
+        maxFragments: 128 * 1024,
         maxPayload: 100 * 1024 * 1024,
         skipUTF8Validation: false,
         perMessageDeflate: true,
@@ -51840,6 +52116,8 @@ var require_websocket = __commonJS({
         websocket.setSocket(socket, head, {
           allowSynchronousEvents: opts.allowSynchronousEvents,
           generateMask: opts.generateMask,
+          maxBufferedChunks: opts.maxBufferedChunks,
+          maxFragments: opts.maxFragments,
           maxPayload: opts.maxPayload,
           skipUTF8Validation: opts.skipUTF8Validation
         });
@@ -52003,9 +52281,9 @@ var require_websocket = __commonJS({
   }
 });
 
-// node_modules/ws/lib/stream.js
+// ../node_modules/ws/lib/stream.js
 var require_stream = __commonJS({
-  "node_modules/ws/lib/stream.js"(exports, module) {
+  "../node_modules/ws/lib/stream.js"(exports, module) {
     "use strict";
     var WebSocket3 = require_websocket();
     var { Duplex } = __require("stream");
@@ -52101,9 +52379,9 @@ var require_stream = __commonJS({
   }
 });
 
-// node_modules/ws/lib/subprotocol.js
+// ../node_modules/ws/lib/subprotocol.js
 var require_subprotocol = __commonJS({
-  "node_modules/ws/lib/subprotocol.js"(exports, module) {
+  "../node_modules/ws/lib/subprotocol.js"(exports, module) {
     "use strict";
     var { tokenChars } = require_validation();
     function parse(header) {
@@ -52146,9 +52424,9 @@ var require_subprotocol = __commonJS({
   }
 });
 
-// node_modules/ws/lib/websocket-server.js
+// ../node_modules/ws/lib/websocket-server.js
 var require_websocket_server = __commonJS({
-  "node_modules/ws/lib/websocket-server.js"(exports, module) {
+  "../node_modules/ws/lib/websocket-server.js"(exports, module) {
     "use strict";
     var EventEmitter5 = __require("events");
     var http = __require("http");
@@ -52182,6 +52460,10 @@ var require_websocket_server = __commonJS({
        *     called
        * @param {Function} [options.handleProtocols] A hook to handle protocols
        * @param {String} [options.host] The hostname where to bind the server
+       * @param {Number} [options.maxBufferedChunks=1048576] The maximum number of
+       *     buffered data chunks
+       * @param {Number} [options.maxFragments=131072] The maximum number of message
+       *     fragments
        * @param {Number} [options.maxPayload=104857600] The maximum allowed message
        *     size
        * @param {Boolean} [options.noServer=false] Enable no server mode
@@ -52203,6 +52485,8 @@ var require_websocket_server = __commonJS({
         options = {
           allowSynchronousEvents: true,
           autoPong: true,
+          maxBufferedChunks: 1024 * 1024,
+          maxFragments: 128 * 1024,
           maxPayload: 100 * 1024 * 1024,
           skipUTF8Validation: false,
           perMessageDeflate: false,
@@ -52482,6 +52766,8 @@ var require_websocket_server = __commonJS({
         socket.removeListener("error", socketOnError);
         ws.setSocket(socket, head, {
           allowSynchronousEvents: this.options.allowSynchronousEvents,
+          maxBufferedChunks: this.options.maxBufferedChunks,
+          maxFragments: this.options.maxFragments,
           maxPayload: this.options.maxPayload,
           skipUTF8Validation: this.options.skipUTF8Validation
         });
@@ -52539,10 +52825,10 @@ var require_websocket_server = __commonJS({
   }
 });
 
-// node_modules/ws/wrapper.mjs
+// ../node_modules/ws/wrapper.mjs
 var import_stream2, import_extension, import_permessage_deflate, import_receiver, import_sender, import_subprotocol, import_websocket, import_websocket_server, wrapper_default;
 var init_wrapper = __esm({
-  "node_modules/ws/wrapper.mjs"() {
+  "../node_modules/ws/wrapper.mjs"() {
     import_stream2 = __toESM(require_stream(), 1);
     import_extension = __toESM(require_extension(), 1);
     import_permessage_deflate = __toESM(require_permessage_deflate(), 1);
@@ -52555,10 +52841,10 @@ var init_wrapper = __esm({
   }
 });
 
-// node_modules/ink/build/devtools-window-polyfill.js
+// ../node_modules/ink/build/devtools-window-polyfill.js
 var customGlobal;
 var init_devtools_window_polyfill = __esm({
-  "node_modules/ink/build/devtools-window-polyfill.js"() {
+  "../node_modules/ink/build/devtools-window-polyfill.js"() {
     init_wrapper();
     customGlobal = global;
     customGlobal.WebSocket ||= wrapper_default;
@@ -52628,10 +52914,10 @@ var init_react_devtools_core = __esm({
   }
 });
 
-// node_modules/ink/build/devtools.js
+// ../node_modules/ink/build/devtools.js
 var devtools_exports2 = {};
 var init_devtools2 = __esm({
-  "node_modules/ink/build/devtools.js"() {
+  "../node_modules/ink/build/devtools.js"() {
     init_devtools_window_polyfill();
     init_react_devtools_core();
     react_devtools_core_default.initialize();
@@ -52639,7 +52925,7 @@ var init_devtools2 = __esm({
   }
 });
 
-// node_modules/ink/build/reconciler.js
+// ../node_modules/ink/build/reconciler.js
 async function loadPackageJson() {
   const fs2 = await import("node:fs");
   const content = fs2.readFileSync(new URL("../package.json", import.meta.url), "utf8");
@@ -52647,7 +52933,7 @@ async function loadPackageJson() {
 }
 var import_react_reconciler2, import_constants6, Scheduler, import_react27, diff2, cleanupYogaNode2, currentUpdatePriority, currentRootNode, packageJson, reconciler_default2;
 var init_reconciler2 = __esm({
-  async "node_modules/ink/build/reconciler.js"() {
+  async "../node_modules/ink/build/reconciler.js"() {
     import_react_reconciler2 = __toESM(require_react_reconciler(), 1);
     import_constants6 = __toESM(require_constants2(), 1);
     Scheduler = __toESM(require_scheduler(), 1);
@@ -52912,43 +53198,43 @@ $ npm install --save-dev react-devtools-core
   }
 });
 
-// node_modules/ink/build/get-max-width.js
+// ../node_modules/ink/build/get-max-width.js
 var init_get_max_width2 = __esm({
-  async "node_modules/ink/build/get-max-width.js"() {
+  async "../node_modules/ink/build/get-max-width.js"() {
     await init_src();
   }
 });
 
-// node_modules/ink/node_modules/chalk/source/vendor/ansi-styles/index.js
-function assembleStyles5() {
+// ../node_modules/ink/node_modules/chalk/source/vendor/ansi-styles/index.js
+function assembleStyles4() {
   const codes = /* @__PURE__ */ new Map();
-  for (const [groupName, group] of Object.entries(styles8)) {
+  for (const [groupName, group] of Object.entries(styles7)) {
     for (const [styleName, style] of Object.entries(group)) {
-      styles8[styleName] = {
+      styles7[styleName] = {
         open: `\x1B[${style[0]}m`,
         close: `\x1B[${style[1]}m`
       };
-      group[styleName] = styles8[styleName];
+      group[styleName] = styles7[styleName];
       codes.set(style[0], style[1]);
     }
-    Object.defineProperty(styles8, groupName, {
+    Object.defineProperty(styles7, groupName, {
       value: group,
       enumerable: false
     });
   }
-  Object.defineProperty(styles8, "codes", {
+  Object.defineProperty(styles7, "codes", {
     value: codes,
     enumerable: false
   });
-  styles8.color.close = "\x1B[39m";
-  styles8.bgColor.close = "\x1B[49m";
-  styles8.color.ansi = wrapAnsi165();
-  styles8.color.ansi256 = wrapAnsi2565();
-  styles8.color.ansi16m = wrapAnsi16m5();
-  styles8.bgColor.ansi = wrapAnsi165(ANSI_BACKGROUND_OFFSET5);
-  styles8.bgColor.ansi256 = wrapAnsi2565(ANSI_BACKGROUND_OFFSET5);
-  styles8.bgColor.ansi16m = wrapAnsi16m5(ANSI_BACKGROUND_OFFSET5);
-  Object.defineProperties(styles8, {
+  styles7.color.close = "\x1B[39m";
+  styles7.bgColor.close = "\x1B[49m";
+  styles7.color.ansi = wrapAnsi164();
+  styles7.color.ansi256 = wrapAnsi2564();
+  styles7.color.ansi16m = wrapAnsi16m4();
+  styles7.bgColor.ansi = wrapAnsi164(ANSI_BACKGROUND_OFFSET4);
+  styles7.bgColor.ansi256 = wrapAnsi2564(ANSI_BACKGROUND_OFFSET4);
+  styles7.bgColor.ansi16m = wrapAnsi16m4(ANSI_BACKGROUND_OFFSET4);
+  Object.defineProperties(styles7, {
     rgbToAnsi256: {
       value(red, green, blue) {
         if (red === green && green === blue) {
@@ -52986,7 +53272,7 @@ function assembleStyles5() {
       enumerable: false
     },
     hexToAnsi256: {
-      value: (hex) => styles8.rgbToAnsi256(...styles8.hexToRgb(hex)),
+      value: (hex) => styles7.rgbToAnsi256(...styles7.hexToRgb(hex)),
       enumerable: false
     },
     ansi256ToAnsi: {
@@ -53024,24 +53310,24 @@ function assembleStyles5() {
       enumerable: false
     },
     rgbToAnsi: {
-      value: (red, green, blue) => styles8.ansi256ToAnsi(styles8.rgbToAnsi256(red, green, blue)),
+      value: (red, green, blue) => styles7.ansi256ToAnsi(styles7.rgbToAnsi256(red, green, blue)),
       enumerable: false
     },
     hexToAnsi: {
-      value: (hex) => styles8.ansi256ToAnsi(styles8.hexToAnsi256(hex)),
+      value: (hex) => styles7.ansi256ToAnsi(styles7.hexToAnsi256(hex)),
       enumerable: false
     }
   });
-  return styles8;
+  return styles7;
 }
-var ANSI_BACKGROUND_OFFSET5, wrapAnsi165, wrapAnsi2565, wrapAnsi16m5, styles8, modifierNames5, foregroundColorNames5, backgroundColorNames5, colorNames5, ansiStyles5, ansi_styles_default5;
-var init_ansi_styles5 = __esm({
-  "node_modules/ink/node_modules/chalk/source/vendor/ansi-styles/index.js"() {
-    ANSI_BACKGROUND_OFFSET5 = 10;
-    wrapAnsi165 = (offset = 0) => (code) => `\x1B[${code + offset}m`;
-    wrapAnsi2565 = (offset = 0) => (code) => `\x1B[${38 + offset};5;${code}m`;
-    wrapAnsi16m5 = (offset = 0) => (red, green, blue) => `\x1B[${38 + offset};2;${red};${green};${blue}m`;
-    styles8 = {
+var ANSI_BACKGROUND_OFFSET4, wrapAnsi164, wrapAnsi2564, wrapAnsi16m4, styles7, modifierNames4, foregroundColorNames4, backgroundColorNames4, colorNames4, ansiStyles4, ansi_styles_default4;
+var init_ansi_styles4 = __esm({
+  "../node_modules/ink/node_modules/chalk/source/vendor/ansi-styles/index.js"() {
+    ANSI_BACKGROUND_OFFSET4 = 10;
+    wrapAnsi164 = (offset = 0) => (code) => `\x1B[${code + offset}m`;
+    wrapAnsi2564 = (offset = 0) => (code) => `\x1B[${38 + offset};5;${code}m`;
+    wrapAnsi16m4 = (offset = 0) => (red, green, blue) => `\x1B[${38 + offset};2;${red};${green};${blue}m`;
+    styles7 = {
       modifier: {
         reset: [0, 0],
         // 21 isn't widely supported and 22 does the same thing
@@ -53101,16 +53387,16 @@ var init_ansi_styles5 = __esm({
         bgWhiteBright: [107, 49]
       }
     };
-    modifierNames5 = Object.keys(styles8.modifier);
-    foregroundColorNames5 = Object.keys(styles8.color);
-    backgroundColorNames5 = Object.keys(styles8.bgColor);
-    colorNames5 = [...foregroundColorNames5, ...backgroundColorNames5];
-    ansiStyles5 = assembleStyles5();
-    ansi_styles_default5 = ansiStyles5;
+    modifierNames4 = Object.keys(styles7.modifier);
+    foregroundColorNames4 = Object.keys(styles7.color);
+    backgroundColorNames4 = Object.keys(styles7.bgColor);
+    colorNames4 = [...foregroundColorNames4, ...backgroundColorNames4];
+    ansiStyles4 = assembleStyles4();
+    ansi_styles_default4 = ansiStyles4;
   }
 });
 
-// node_modules/ink/node_modules/chalk/source/vendor/supports-color/index.js
+// ../node_modules/ink/node_modules/chalk/source/vendor/supports-color/index.js
 import process5 from "node:process";
 import os2 from "node:os";
 import tty2 from "node:tty";
@@ -53231,7 +53517,7 @@ function createSupportsColor2(stream, options = {}) {
 }
 var env3, flagForceColor2, supportsColor2, supports_color_default2;
 var init_supports_color2 = __esm({
-  "node_modules/ink/node_modules/chalk/source/vendor/supports-color/index.js"() {
+  "../node_modules/ink/node_modules/chalk/source/vendor/supports-color/index.js"() {
     ({ env: env3 } = process5);
     if (hasFlag2("no-color") || hasFlag2("no-colors") || hasFlag2("color=false") || hasFlag2("color=never")) {
       flagForceColor2 = 0;
@@ -53246,7 +53532,7 @@ var init_supports_color2 = __esm({
   }
 });
 
-// node_modules/ink/node_modules/chalk/source/utilities.js
+// ../node_modules/ink/node_modules/chalk/source/utilities.js
 function stringReplaceAll2(string, substring, replacer) {
   let index = string.indexOf(substring);
   if (index === -1) {
@@ -53276,18 +53562,18 @@ function stringEncaseCRLFWithFirstIndex2(string, prefix, postfix, index) {
   return returnValue;
 }
 var init_utilities3 = __esm({
-  "node_modules/ink/node_modules/chalk/source/utilities.js"() {
+  "../node_modules/ink/node_modules/chalk/source/utilities.js"() {
   }
 });
 
-// node_modules/ink/node_modules/chalk/source/index.js
+// ../node_modules/ink/node_modules/chalk/source/index.js
 function createChalk2(options) {
   return chalkFactory2(options);
 }
-var stdoutColor2, stderrColor2, GENERATOR2, STYLER2, IS_EMPTY2, levelMapping2, styles9, applyOptions2, chalkFactory2, getModelAnsi2, usedModels2, proto2, createStyler2, createBuilder2, applyStyle2, chalk2, chalkStderr2, source_default2;
+var stdoutColor2, stderrColor2, GENERATOR2, STYLER2, IS_EMPTY2, levelMapping2, styles8, applyOptions2, chalkFactory2, getModelAnsi2, usedModels2, proto2, createStyler2, createBuilder2, applyStyle2, chalk2, chalkStderr2, source_default2;
 var init_source2 = __esm({
-  "node_modules/ink/node_modules/chalk/source/index.js"() {
-    init_ansi_styles5();
+  "../node_modules/ink/node_modules/chalk/source/index.js"() {
+    init_ansi_styles4();
     init_supports_color2();
     init_utilities3();
     ({ stdout: stdoutColor2, stderr: stderrColor2 } = supports_color_default2);
@@ -53300,7 +53586,7 @@ var init_source2 = __esm({
       "ansi256",
       "ansi16m"
     ];
-    styles9 = /* @__PURE__ */ Object.create(null);
+    styles8 = /* @__PURE__ */ Object.create(null);
     applyOptions2 = (object, options = {}) => {
       if (options.level && !(Number.isInteger(options.level) && options.level >= 0 && options.level <= 3)) {
         throw new Error("The `level` option should be an integer from 0 to 3");
@@ -53315,8 +53601,8 @@ var init_source2 = __esm({
       return chalk4;
     };
     Object.setPrototypeOf(createChalk2.prototype, Function.prototype);
-    for (const [styleName, style] of Object.entries(ansi_styles_default5)) {
-      styles9[styleName] = {
+    for (const [styleName, style] of Object.entries(ansi_styles_default4)) {
+      styles8[styleName] = {
         get() {
           const builder = createBuilder2(this, createStyler2(style.open, style.close, this[STYLER2]), this[IS_EMPTY2]);
           Object.defineProperty(this, styleName, { value: builder });
@@ -53324,7 +53610,7 @@ var init_source2 = __esm({
         }
       };
     }
-    styles9.visible = {
+    styles8.visible = {
       get() {
         const builder = createBuilder2(this, this[STYLER2], true);
         Object.defineProperty(this, "visible", { value: builder });
@@ -53334,35 +53620,35 @@ var init_source2 = __esm({
     getModelAnsi2 = (model, level, type, ...arguments_) => {
       if (model === "rgb") {
         if (level === "ansi16m") {
-          return ansi_styles_default5[type].ansi16m(...arguments_);
+          return ansi_styles_default4[type].ansi16m(...arguments_);
         }
         if (level === "ansi256") {
-          return ansi_styles_default5[type].ansi256(ansi_styles_default5.rgbToAnsi256(...arguments_));
+          return ansi_styles_default4[type].ansi256(ansi_styles_default4.rgbToAnsi256(...arguments_));
         }
-        return ansi_styles_default5[type].ansi(ansi_styles_default5.rgbToAnsi(...arguments_));
+        return ansi_styles_default4[type].ansi(ansi_styles_default4.rgbToAnsi(...arguments_));
       }
       if (model === "hex") {
-        return getModelAnsi2("rgb", level, type, ...ansi_styles_default5.hexToRgb(...arguments_));
+        return getModelAnsi2("rgb", level, type, ...ansi_styles_default4.hexToRgb(...arguments_));
       }
-      return ansi_styles_default5[type][model](...arguments_);
+      return ansi_styles_default4[type][model](...arguments_);
     };
     usedModels2 = ["rgb", "hex", "ansi256"];
     for (const model of usedModels2) {
-      styles9[model] = {
+      styles8[model] = {
         get() {
           const { level } = this;
           return function(...arguments_) {
-            const styler = createStyler2(getModelAnsi2(model, levelMapping2[level], "color", ...arguments_), ansi_styles_default5.color.close, this[STYLER2]);
+            const styler = createStyler2(getModelAnsi2(model, levelMapping2[level], "color", ...arguments_), ansi_styles_default4.color.close, this[STYLER2]);
             return createBuilder2(this, styler, this[IS_EMPTY2]);
           };
         }
       };
       const bgModel = "bg" + model[0].toUpperCase() + model.slice(1);
-      styles9[bgModel] = {
+      styles8[bgModel] = {
         get() {
           const { level } = this;
           return function(...arguments_) {
-            const styler = createStyler2(getModelAnsi2(model, levelMapping2[level], "bgColor", ...arguments_), ansi_styles_default5.bgColor.close, this[STYLER2]);
+            const styler = createStyler2(getModelAnsi2(model, levelMapping2[level], "bgColor", ...arguments_), ansi_styles_default4.bgColor.close, this[STYLER2]);
             return createBuilder2(this, styler, this[IS_EMPTY2]);
           };
         }
@@ -53370,7 +53656,7 @@ var init_source2 = __esm({
     }
     proto2 = Object.defineProperties(() => {
     }, {
-      ...styles9,
+      ...styles8,
       level: {
         enumerable: true,
         get() {
@@ -53428,20 +53714,20 @@ var init_source2 = __esm({
       }
       return openAll + string + closeAll;
     };
-    Object.defineProperties(createChalk2.prototype, styles9);
+    Object.defineProperties(createChalk2.prototype, styles8);
     chalk2 = createChalk2();
     chalkStderr2 = createChalk2({ level: stderrColor2 ? stderrColor2.level : 0 });
     source_default2 = chalk2;
   }
 });
 
-// node_modules/ink/build/colorize.js
-var rgbRegex, ansiRegex2, isNamedColor, colorize2, colorize_default;
+// ../node_modules/ink/build/colorize.js
+var rgbRegex, ansiRegex4, isNamedColor, colorize2, colorize_default;
 var init_colorize2 = __esm({
-  "node_modules/ink/build/colorize.js"() {
+  "../node_modules/ink/build/colorize.js"() {
     init_source2();
     rgbRegex = /^rgb\(\s?(\d+),\s?(\d+),\s?(\d+)\s?\)$/;
-    ansiRegex2 = /^ansi256\(\s?(\d+)\s?\)$/;
+    ansiRegex4 = /^ansi256\(\s?(\d+)\s?\)$/;
     isNamedColor = (color) => {
       return color in source_default2;
     };
@@ -53460,7 +53746,7 @@ var init_colorize2 = __esm({
         return type === "foreground" ? source_default2.hex(color)(str) : source_default2.bgHex(color)(str);
       }
       if (color.startsWith("ansi256")) {
-        const matches = ansiRegex2.exec(color);
+        const matches = ansiRegex4.exec(color);
         if (!matches) {
           return str;
         }
@@ -53483,25 +53769,25 @@ var init_colorize2 = __esm({
   }
 });
 
-// node_modules/ink/build/render-border.js
+// ../node_modules/ink/build/render-border.js
 var import_cli_boxes2;
 var init_render_border2 = __esm({
-  "node_modules/ink/build/render-border.js"() {
+  "../node_modules/ink/build/render-border.js"() {
     import_cli_boxes2 = __toESM(require_cli_boxes(), 1);
     init_colorize2();
   }
 });
 
-// node_modules/ink/build/render-background.js
+// ../node_modules/ink/build/render-background.js
 var init_render_background = __esm({
-  "node_modules/ink/build/render-background.js"() {
+  "../node_modules/ink/build/render-background.js"() {
     init_colorize2();
   }
 });
 
-// node_modules/ink/build/render-node-to-output.js
+// ../node_modules/ink/build/render-node-to-output.js
 var init_render_node_to_output2 = __esm({
-  async "node_modules/ink/build/render-node-to-output.js"() {
+  async "../node_modules/ink/build/render-node-to-output.js"() {
     init_indent_string();
     await init_src();
     init_wrap_text2();
@@ -53512,36 +53798,36 @@ var init_render_node_to_output2 = __esm({
   }
 });
 
-// node_modules/@alcalzone/ansi-tokenize/node_modules/ansi-styles/index.js
-function assembleStyles6() {
+// ../node_modules/@alcalzone/ansi-tokenize/node_modules/ansi-styles/index.js
+function assembleStyles5() {
   const codes = /* @__PURE__ */ new Map();
-  for (const [groupName, group] of Object.entries(styles10)) {
+  for (const [groupName, group] of Object.entries(styles9)) {
     for (const [styleName, style] of Object.entries(group)) {
-      styles10[styleName] = {
+      styles9[styleName] = {
         open: `\x1B[${style[0]}m`,
         close: `\x1B[${style[1]}m`
       };
-      group[styleName] = styles10[styleName];
+      group[styleName] = styles9[styleName];
       codes.set(style[0], style[1]);
     }
-    Object.defineProperty(styles10, groupName, {
+    Object.defineProperty(styles9, groupName, {
       value: group,
       enumerable: false
     });
   }
-  Object.defineProperty(styles10, "codes", {
+  Object.defineProperty(styles9, "codes", {
     value: codes,
     enumerable: false
   });
-  styles10.color.close = "\x1B[39m";
-  styles10.bgColor.close = "\x1B[49m";
-  styles10.color.ansi = wrapAnsi166();
-  styles10.color.ansi256 = wrapAnsi2566();
-  styles10.color.ansi16m = wrapAnsi16m6();
-  styles10.bgColor.ansi = wrapAnsi166(ANSI_BACKGROUND_OFFSET6);
-  styles10.bgColor.ansi256 = wrapAnsi2566(ANSI_BACKGROUND_OFFSET6);
-  styles10.bgColor.ansi16m = wrapAnsi16m6(ANSI_BACKGROUND_OFFSET6);
-  Object.defineProperties(styles10, {
+  styles9.color.close = "\x1B[39m";
+  styles9.bgColor.close = "\x1B[49m";
+  styles9.color.ansi = wrapAnsi165();
+  styles9.color.ansi256 = wrapAnsi2565();
+  styles9.color.ansi16m = wrapAnsi16m5();
+  styles9.bgColor.ansi = wrapAnsi165(ANSI_BACKGROUND_OFFSET5);
+  styles9.bgColor.ansi256 = wrapAnsi2565(ANSI_BACKGROUND_OFFSET5);
+  styles9.bgColor.ansi16m = wrapAnsi16m5(ANSI_BACKGROUND_OFFSET5);
+  Object.defineProperties(styles9, {
     rgbToAnsi256: {
       value(red, green, blue) {
         if (red === green && green === blue) {
@@ -53579,7 +53865,7 @@ function assembleStyles6() {
       enumerable: false
     },
     hexToAnsi256: {
-      value: (hex) => styles10.rgbToAnsi256(...styles10.hexToRgb(hex)),
+      value: (hex) => styles9.rgbToAnsi256(...styles9.hexToRgb(hex)),
       enumerable: false
     },
     ansi256ToAnsi: {
@@ -53617,24 +53903,24 @@ function assembleStyles6() {
       enumerable: false
     },
     rgbToAnsi: {
-      value: (red, green, blue) => styles10.ansi256ToAnsi(styles10.rgbToAnsi256(red, green, blue)),
+      value: (red, green, blue) => styles9.ansi256ToAnsi(styles9.rgbToAnsi256(red, green, blue)),
       enumerable: false
     },
     hexToAnsi: {
-      value: (hex) => styles10.ansi256ToAnsi(styles10.hexToAnsi256(hex)),
+      value: (hex) => styles9.ansi256ToAnsi(styles9.hexToAnsi256(hex)),
       enumerable: false
     }
   });
-  return styles10;
+  return styles9;
 }
-var ANSI_BACKGROUND_OFFSET6, wrapAnsi166, wrapAnsi2566, wrapAnsi16m6, styles10, modifierNames6, foregroundColorNames6, backgroundColorNames6, colorNames6, ansiStyles6, ansi_styles_default6;
-var init_ansi_styles6 = __esm({
-  "node_modules/@alcalzone/ansi-tokenize/node_modules/ansi-styles/index.js"() {
-    ANSI_BACKGROUND_OFFSET6 = 10;
-    wrapAnsi166 = (offset = 0) => (code) => `\x1B[${code + offset}m`;
-    wrapAnsi2566 = (offset = 0) => (code) => `\x1B[${38 + offset};5;${code}m`;
-    wrapAnsi16m6 = (offset = 0) => (red, green, blue) => `\x1B[${38 + offset};2;${red};${green};${blue}m`;
-    styles10 = {
+var ANSI_BACKGROUND_OFFSET5, wrapAnsi165, wrapAnsi2565, wrapAnsi16m5, styles9, modifierNames5, foregroundColorNames5, backgroundColorNames5, colorNames5, ansiStyles5, ansi_styles_default5;
+var init_ansi_styles5 = __esm({
+  "../node_modules/@alcalzone/ansi-tokenize/node_modules/ansi-styles/index.js"() {
+    ANSI_BACKGROUND_OFFSET5 = 10;
+    wrapAnsi165 = (offset = 0) => (code) => `\x1B[${code + offset}m`;
+    wrapAnsi2565 = (offset = 0) => (code) => `\x1B[${38 + offset};5;${code}m`;
+    wrapAnsi16m5 = (offset = 0) => (red, green, blue) => `\x1B[${38 + offset};2;${red};${green};${blue}m`;
+    styles9 = {
       modifier: {
         reset: [0, 0],
         // 21 isn't widely supported and 22 does the same thing
@@ -53694,27 +53980,27 @@ var init_ansi_styles6 = __esm({
         bgWhiteBright: [107, 49]
       }
     };
-    modifierNames6 = Object.keys(styles10.modifier);
-    foregroundColorNames6 = Object.keys(styles10.color);
-    backgroundColorNames6 = Object.keys(styles10.bgColor);
-    colorNames6 = [...foregroundColorNames6, ...backgroundColorNames6];
-    ansiStyles6 = assembleStyles6();
-    ansi_styles_default6 = ansiStyles6;
+    modifierNames5 = Object.keys(styles9.modifier);
+    foregroundColorNames5 = Object.keys(styles9.color);
+    backgroundColorNames5 = Object.keys(styles9.bgColor);
+    colorNames5 = [...foregroundColorNames5, ...backgroundColorNames5];
+    ansiStyles5 = assembleStyles5();
+    ansi_styles_default5 = ansiStyles5;
   }
 });
 
-// node_modules/@alcalzone/ansi-tokenize/build/ansiCodes.js
+// ../node_modules/@alcalzone/ansi-tokenize/build/ansiCodes.js
 var CSI2, OSC3, endCodesSet2, endCodesMap2, linkCodePrefix, linkCodePrefixCharCodes, linkCodeSuffix2, linkCodeSuffixCharCode2, linkEndCode2;
 var init_ansiCodes2 = __esm({
-  "node_modules/@alcalzone/ansi-tokenize/build/ansiCodes.js"() {
-    init_ansi_styles6();
+  "../node_modules/@alcalzone/ansi-tokenize/build/ansiCodes.js"() {
+    init_ansi_styles5();
     CSI2 = "[".codePointAt(0);
     OSC3 = "]".codePointAt(0);
     endCodesSet2 = /* @__PURE__ */ new Set();
     endCodesMap2 = /* @__PURE__ */ new Map();
-    for (const [start, end] of ansi_styles_default6.codes) {
-      endCodesSet2.add(ansi_styles_default6.color.ansi(end));
-      endCodesMap2.set(ansi_styles_default6.color.ansi(start), ansi_styles_default6.color.ansi(end));
+    for (const [start, end] of ansi_styles_default5.codes) {
+      endCodesSet2.add(ansi_styles_default5.color.ansi(end));
+      endCodesMap2.set(ansi_styles_default5.color.ansi(start), ansi_styles_default5.color.ansi(end));
     }
     linkCodePrefix = "\x1B]8;";
     linkCodePrefixCharCodes = linkCodePrefix.split("").map((char) => char.charCodeAt(0));
@@ -53724,44 +54010,44 @@ var init_ansiCodes2 = __esm({
   }
 });
 
-// node_modules/@alcalzone/ansi-tokenize/build/reduce.js
+// ../node_modules/@alcalzone/ansi-tokenize/build/reduce.js
 var init_reduce2 = __esm({
-  "node_modules/@alcalzone/ansi-tokenize/build/reduce.js"() {
-    init_ansi_styles6();
+  "../node_modules/@alcalzone/ansi-tokenize/build/reduce.js"() {
+    init_ansi_styles5();
     init_ansiCodes2();
   }
 });
 
-// node_modules/@alcalzone/ansi-tokenize/build/undo.js
+// ../node_modules/@alcalzone/ansi-tokenize/build/undo.js
 var init_undo2 = __esm({
-  "node_modules/@alcalzone/ansi-tokenize/build/undo.js"() {
+  "../node_modules/@alcalzone/ansi-tokenize/build/undo.js"() {
     init_reduce2();
   }
 });
 
-// node_modules/@alcalzone/ansi-tokenize/build/diff.js
+// ../node_modules/@alcalzone/ansi-tokenize/build/diff.js
 var init_diff2 = __esm({
-  "node_modules/@alcalzone/ansi-tokenize/build/diff.js"() {
+  "../node_modules/@alcalzone/ansi-tokenize/build/diff.js"() {
     init_ansiCodes2();
     init_undo2();
   }
 });
 
-// node_modules/@alcalzone/ansi-tokenize/build/styledChars.js
+// ../node_modules/@alcalzone/ansi-tokenize/build/styledChars.js
 var init_styledChars2 = __esm({
-  "node_modules/@alcalzone/ansi-tokenize/build/styledChars.js"() {
+  "../node_modules/@alcalzone/ansi-tokenize/build/styledChars.js"() {
     init_ansiCodes2();
     init_diff2();
     init_reduce2();
   }
 });
 
-// node_modules/@alcalzone/ansi-tokenize/build/tokenize.js
-var segmenter3, CC_0, CC_9, CC_SEMI, CC_M;
+// ../node_modules/@alcalzone/ansi-tokenize/build/tokenize.js
+var segmenter5, CC_0, CC_9, CC_SEMI, CC_M;
 var init_tokenize3 = __esm({
-  "node_modules/@alcalzone/ansi-tokenize/build/tokenize.js"() {
+  "../node_modules/@alcalzone/ansi-tokenize/build/tokenize.js"() {
     init_ansiCodes2();
-    segmenter3 = new Intl.Segmenter(void 0, { granularity: "grapheme" });
+    segmenter5 = new Intl.Segmenter(void 0, { granularity: "grapheme" });
     CC_0 = "0".charCodeAt(0);
     CC_9 = "9".charCodeAt(0);
     CC_SEMI = ";".charCodeAt(0);
@@ -53769,9 +54055,9 @@ var init_tokenize3 = __esm({
   }
 });
 
-// node_modules/@alcalzone/ansi-tokenize/build/index.js
+// ../node_modules/@alcalzone/ansi-tokenize/build/index.js
 var init_build2 = __esm({
-  "node_modules/@alcalzone/ansi-tokenize/build/index.js"() {
+  "../node_modules/@alcalzone/ansi-tokenize/build/index.js"() {
     init_ansiCodes2();
     init_diff2();
     init_reduce2();
@@ -53781,24 +54067,24 @@ var init_build2 = __esm({
   }
 });
 
-// node_modules/ink/build/output.js
+// ../node_modules/ink/build/output.js
 var init_output2 = __esm({
-  "node_modules/ink/build/output.js"() {
+  "../node_modules/ink/build/output.js"() {
     init_build2();
   }
 });
 
-// node_modules/ink/build/renderer.js
+// ../node_modules/ink/build/renderer.js
 var init_renderer2 = __esm({
-  async "node_modules/ink/build/renderer.js"() {
+  async "../node_modules/ink/build/renderer.js"() {
     await init_render_node_to_output2();
     init_output2();
   }
 });
 
-// node_modules/mimic-fn/index.js
+// ../node_modules/mimic-fn/index.js
 var require_mimic_fn = __commonJS({
-  "node_modules/mimic-fn/index.js"(exports, module) {
+  "../node_modules/mimic-fn/index.js"(exports, module) {
     "use strict";
     var mimicFn = (to, from) => {
       for (const prop of Reflect.ownKeys(from)) {
@@ -53811,9 +54097,9 @@ var require_mimic_fn = __commonJS({
   }
 });
 
-// node_modules/onetime/index.js
+// ../node_modules/onetime/index.js
 var require_onetime = __commonJS({
-  "node_modules/onetime/index.js"(exports, module) {
+  "../node_modules/onetime/index.js"(exports, module) {
     "use strict";
     var mimicFn = require_mimic_fn();
     var calledFunctions = /* @__PURE__ */ new WeakMap();
@@ -53849,11 +54135,11 @@ var require_onetime = __commonJS({
   }
 });
 
-// node_modules/restore-cursor/index.js
+// ../node_modules/restore-cursor/index.js
 import process6 from "node:process";
 var import_onetime, import_signal_exit2, restoreCursor, restore_cursor_default;
 var init_restore_cursor = __esm({
-  "node_modules/restore-cursor/index.js"() {
+  "../node_modules/restore-cursor/index.js"() {
     import_onetime = __toESM(require_onetime(), 1);
     import_signal_exit2 = __toESM(require_signal_exit(), 1);
     restoreCursor = (0, import_onetime.default)(() => {
@@ -53865,11 +54151,11 @@ var init_restore_cursor = __esm({
   }
 });
 
-// node_modules/cli-cursor/index.js
+// ../node_modules/cli-cursor/index.js
 import process7 from "node:process";
 var isHidden, cliCursor, cli_cursor_default;
 var init_cli_cursor = __esm({
-  "node_modules/cli-cursor/index.js"() {
+  "../node_modules/cli-cursor/index.js"() {
     init_restore_cursor();
     isHidden = false;
     cliCursor = {};
@@ -53902,36 +54188,36 @@ var init_cli_cursor = __esm({
   }
 });
 
-// node_modules/ink/build/cursor-helpers.js
+// ../node_modules/ink/build/cursor-helpers.js
 var init_cursor_helpers = __esm({
-  "node_modules/ink/build/cursor-helpers.js"() {
+  "../node_modules/ink/build/cursor-helpers.js"() {
   }
 });
 
-// node_modules/ink/build/log-update.js
+// ../node_modules/ink/build/log-update.js
 var init_log_update2 = __esm({
-  "node_modules/ink/build/log-update.js"() {
+  "../node_modules/ink/build/log-update.js"() {
     init_cli_cursor();
     init_cursor_helpers();
   }
 });
 
-// node_modules/ink/build/write-synchronized.js
+// ../node_modules/ink/build/write-synchronized.js
 var init_write_synchronized = __esm({
-  "node_modules/ink/build/write-synchronized.js"() {
+  "../node_modules/ink/build/write-synchronized.js"() {
   }
 });
 
-// node_modules/ink/build/instances.js
+// ../node_modules/ink/build/instances.js
 var init_instances2 = __esm({
-  "node_modules/ink/build/instances.js"() {
+  "../node_modules/ink/build/instances.js"() {
   }
 });
 
-// node_modules/ink/build/input-parser.js
+// ../node_modules/ink/build/input-parser.js
 var escape, isCsiParameterByte, isCsiIntermediateByte, isCsiFinalByte, parseCsiSequence, parseSs3Sequence, parseControlSequence, parseEscapedCodePoint, parseKeypresses, createInputParser;
 var init_input_parser = __esm({
-  "node_modules/ink/build/input-parser.js"() {
+  "../node_modules/ink/build/input-parser.js"() {
     escape = "\x1B";
     isCsiParameterByte = (byte) => {
       return byte >= 48 && byte <= 63;
@@ -54087,10 +54373,10 @@ var init_input_parser = __esm({
   }
 });
 
-// node_modules/ink/build/components/AppContext.js
+// ../node_modules/ink/build/components/AppContext.js
 var import_react28, AppContext2, AppContext_default2;
 var init_AppContext2 = __esm({
-  "node_modules/ink/build/components/AppContext.js"() {
+  "../node_modules/ink/build/components/AppContext.js"() {
     import_react28 = __toESM(require_react(), 1);
     AppContext2 = (0, import_react28.createContext)({
       exit() {
@@ -54101,12 +54387,12 @@ var init_AppContext2 = __esm({
   }
 });
 
-// node_modules/ink/build/components/StdinContext.js
+// ../node_modules/ink/build/components/StdinContext.js
 import { EventEmitter as EventEmitter3 } from "node:events";
 import process8 from "node:process";
 var import_react29, StdinContext2, StdinContext_default2;
 var init_StdinContext2 = __esm({
-  "node_modules/ink/build/components/StdinContext.js"() {
+  "../node_modules/ink/build/components/StdinContext.js"() {
     import_react29 = __toESM(require_react(), 1);
     StdinContext2 = (0, import_react29.createContext)({
       stdin: process8.stdin,
@@ -54123,11 +54409,11 @@ var init_StdinContext2 = __esm({
   }
 });
 
-// node_modules/ink/build/components/StdoutContext.js
+// ../node_modules/ink/build/components/StdoutContext.js
 import process9 from "node:process";
 var import_react30, StdoutContext, StdoutContext_default;
 var init_StdoutContext = __esm({
-  "node_modules/ink/build/components/StdoutContext.js"() {
+  "../node_modules/ink/build/components/StdoutContext.js"() {
     import_react30 = __toESM(require_react(), 1);
     StdoutContext = (0, import_react30.createContext)({
       stdout: process9.stdout,
@@ -54139,11 +54425,11 @@ var init_StdoutContext = __esm({
   }
 });
 
-// node_modules/ink/build/components/StderrContext.js
+// ../node_modules/ink/build/components/StderrContext.js
 import process10 from "node:process";
 var import_react31, StderrContext, StderrContext_default;
 var init_StderrContext = __esm({
-  "node_modules/ink/build/components/StderrContext.js"() {
+  "../node_modules/ink/build/components/StderrContext.js"() {
     import_react31 = __toESM(require_react(), 1);
     StderrContext = (0, import_react31.createContext)({
       stderr: process10.stderr,
@@ -54155,10 +54441,10 @@ var init_StderrContext = __esm({
   }
 });
 
-// node_modules/ink/build/components/FocusContext.js
+// ../node_modules/ink/build/components/FocusContext.js
 var import_react32, FocusContext, FocusContext_default;
 var init_FocusContext = __esm({
-  "node_modules/ink/build/components/FocusContext.js"() {
+  "../node_modules/ink/build/components/FocusContext.js"() {
     import_react32 = __toESM(require_react(), 1);
     FocusContext = (0, import_react32.createContext)({
       activeId: void 0,
@@ -54186,10 +54472,10 @@ var init_FocusContext = __esm({
   }
 });
 
-// node_modules/ink/build/components/CursorContext.js
+// ../node_modules/ink/build/components/CursorContext.js
 var import_react33, CursorContext, CursorContext_default;
 var init_CursorContext = __esm({
-  "node_modules/ink/build/components/CursorContext.js"() {
+  "../node_modules/ink/build/components/CursorContext.js"() {
     import_react33 = __toESM(require_react(), 1);
     CursorContext = (0, import_react33.createContext)({
       setCursorPosition() {
@@ -54200,10 +54486,10 @@ var init_CursorContext = __esm({
   }
 });
 
-// node_modules/ink/build/components/AccessibilityContext.js
+// ../node_modules/ink/build/components/AccessibilityContext.js
 var import_react34, accessibilityContext;
 var init_AccessibilityContext = __esm({
-  "node_modules/ink/build/components/AccessibilityContext.js"() {
+  "../node_modules/ink/build/components/AccessibilityContext.js"() {
     import_react34 = __toESM(require_react(), 1);
     accessibilityContext = (0, import_react34.createContext)({
       isScreenReaderEnabled: false
@@ -54211,19 +54497,19 @@ var init_AccessibilityContext = __esm({
   }
 });
 
-// node_modules/ink/build/components/BackgroundContext.js
+// ../node_modules/ink/build/components/BackgroundContext.js
 var import_react35, backgroundContext;
 var init_BackgroundContext = __esm({
-  "node_modules/ink/build/components/BackgroundContext.js"() {
+  "../node_modules/ink/build/components/BackgroundContext.js"() {
     import_react35 = __toESM(require_react(), 1);
     backgroundContext = (0, import_react35.createContext)(void 0);
   }
 });
 
-// node_modules/ink/build/components/Box.js
+// ../node_modules/ink/build/components/Box.js
 var import_react36, Box2, Box_default2;
 var init_Box2 = __esm({
-  "node_modules/ink/build/components/Box.js"() {
+  "../node_modules/ink/build/components/Box.js"() {
     import_react36 = __toESM(require_react(), 1);
     init_AccessibilityContext();
     init_BackgroundContext();
@@ -54256,7 +54542,7 @@ var init_Box2 = __esm({
   }
 });
 
-// node_modules/ink/build/components/Text.js
+// ../node_modules/ink/build/components/Text.js
 function Text2({ color, backgroundColor, dimColor = false, bold = false, italic = false, underline = false, strikethrough = false, inverse = false, wrap = "wrap", children, "aria-label": ariaLabel, "aria-hidden": ariaHidden = false }) {
   const { isScreenReaderEnabled } = (0, import_react37.useContext)(accessibilityContext);
   const inheritedBackgroundColor = (0, import_react37.useContext)(backgroundContext);
@@ -54299,7 +54585,7 @@ function Text2({ color, backgroundColor, dimColor = false, bold = false, italic 
 }
 var import_react37;
 var init_Text2 = __esm({
-  "node_modules/ink/build/components/Text.js"() {
+  "../node_modules/ink/build/components/Text.js"() {
     import_react37 = __toESM(require_react(), 1);
     init_source2();
     init_colorize2();
@@ -54308,7 +54594,7 @@ var init_Text2 = __esm({
   }
 });
 
-// node_modules/ink/build/components/ErrorOverview.js
+// ../node_modules/ink/build/components/ErrorOverview.js
 import * as fs from "node:fs";
 import { cwd } from "node:process";
 function ErrorOverview2({ error }) {
@@ -54413,7 +54699,7 @@ function ErrorOverview2({ error }) {
 }
 var import_react38, import_stack_utils2, cleanupPath2, stackUtils2;
 var init_ErrorOverview2 = __esm({
-  "node_modules/ink/build/components/ErrorOverview.js"() {
+  "../node_modules/ink/build/components/ErrorOverview.js"() {
     import_react38 = __toESM(require_react(), 1);
     import_stack_utils2 = __toESM(require_stack_utils(), 1);
     init_dist3();
@@ -54429,10 +54715,10 @@ var init_ErrorOverview2 = __esm({
   }
 });
 
-// node_modules/ink/build/components/ErrorBoundary.js
+// ../node_modules/ink/build/components/ErrorBoundary.js
 var import_react39, ErrorBoundary;
 var init_ErrorBoundary = __esm({
-  "node_modules/ink/build/components/ErrorBoundary.js"() {
+  "../node_modules/ink/build/components/ErrorBoundary.js"() {
     import_react39 = __toESM(require_react(), 1);
     init_ErrorOverview2();
     ErrorBoundary = class extends import_react39.PureComponent {
@@ -54456,7 +54742,7 @@ var init_ErrorBoundary = __esm({
   }
 });
 
-// node_modules/ink/build/components/App.js
+// ../node_modules/ink/build/components/App.js
 import { EventEmitter as EventEmitter4 } from "node:events";
 import process11 from "node:process";
 function App2({ children, stdin, stdout, stderr, writeToStdout, writeToStderr, exitOnCtrlC, onExit: onExit2, setCursorPosition }) {
@@ -54788,7 +55074,7 @@ function App2({ children, stdin, stdout, stderr, writeToStdout, writeToStderr, e
 }
 var import_react40, tab, shiftTab, escape2;
 var init_App2 = __esm({
-  "node_modules/ink/build/components/App.js"() {
+  "../node_modules/ink/build/components/App.js"() {
     import_react40 = __toESM(require_react(), 1);
     init_cli_cursor();
     init_input_parser();
@@ -54806,10 +55092,10 @@ var init_App2 = __esm({
   }
 });
 
-// node_modules/ink/build/kitty-keyboard.js
+// ../node_modules/ink/build/kitty-keyboard.js
 var kittyModifiers;
 var init_kitty_keyboard = __esm({
-  "node_modules/ink/build/kitty-keyboard.js"() {
+  "../node_modules/ink/build/kitty-keyboard.js"() {
     kittyModifiers = {
       shift: 1,
       alt: 2,
@@ -54823,17 +55109,17 @@ var init_kitty_keyboard = __esm({
   }
 });
 
-// node_modules/ink/build/ink.js
+// ../node_modules/ink/build/ink.js
 var import_react41, import_signal_exit3, import_constants7;
 var init_ink2 = __esm({
-  async "node_modules/ink/build/ink.js"() {
+  async "../node_modules/ink/build/ink.js"() {
     import_react41 = __toESM(require_react(), 1);
     init_auto_bind();
     import_signal_exit3 = __toESM(require_signal_exit(), 1);
     init_dist4();
     import_constants7 = __toESM(require_constants2(), 1);
     await init_src();
-    init_wrap_ansi();
+    init_wrap_ansi2();
     init_utils();
     await init_reconciler2();
     await init_renderer2();
@@ -54847,18 +55133,18 @@ var init_ink2 = __esm({
   }
 });
 
-// node_modules/ink/build/render.js
+// ../node_modules/ink/build/render.js
 var init_render = __esm({
-  async "node_modules/ink/build/render.js"() {
+  async "../node_modules/ink/build/render.js"() {
     await init_ink2();
     init_instances2();
   }
 });
 
-// node_modules/ink/build/render-to-string.js
+// ../node_modules/ink/build/render-to-string.js
 var import_constants8;
 var init_render_to_string = __esm({
-  async "node_modules/ink/build/render-to-string.js"() {
+  async "../node_modules/ink/build/render-to-string.js"() {
     await init_src();
     import_constants8 = __toESM(require_constants2(), 1);
     await init_reconciler2();
@@ -54867,41 +55153,41 @@ var init_render_to_string = __esm({
   }
 });
 
-// node_modules/ink/build/components/Static.js
+// ../node_modules/ink/build/components/Static.js
 var import_react42;
 var init_Static = __esm({
-  "node_modules/ink/build/components/Static.js"() {
+  "../node_modules/ink/build/components/Static.js"() {
     import_react42 = __toESM(require_react(), 1);
   }
 });
 
-// node_modules/ink/build/components/Transform.js
+// ../node_modules/ink/build/components/Transform.js
 var import_react43;
 var init_Transform = __esm({
-  "node_modules/ink/build/components/Transform.js"() {
+  "../node_modules/ink/build/components/Transform.js"() {
     import_react43 = __toESM(require_react(), 1);
     init_AccessibilityContext();
   }
 });
 
-// node_modules/ink/build/components/Newline.js
+// ../node_modules/ink/build/components/Newline.js
 var import_react44;
 var init_Newline2 = __esm({
-  "node_modules/ink/build/components/Newline.js"() {
+  "../node_modules/ink/build/components/Newline.js"() {
     import_react44 = __toESM(require_react(), 1);
   }
 });
 
-// node_modules/ink/build/components/Spacer.js
+// ../node_modules/ink/build/components/Spacer.js
 var import_react45;
 var init_Spacer2 = __esm({
-  "node_modules/ink/build/components/Spacer.js"() {
+  "../node_modules/ink/build/components/Spacer.js"() {
     import_react45 = __toESM(require_react(), 1);
     init_Box2();
   }
 });
 
-// node_modules/ink/build/parse-keypress.js
+// ../node_modules/ink/build/parse-keypress.js
 import { Buffer as Buffer4 } from "node:buffer";
 function resolveEventType(value) {
   if (value === 3)
@@ -54924,7 +55210,7 @@ function parseKittyModifiers(modifiers) {
 }
 var metaKeyCodeRe, fnKeyRe, keyName2, nonAlphanumericKeys2, isShiftKey2, isCtrlKey2, kittyKeyRe, kittySpecialKeyRe, kittySpecialLetterKeys, kittySpecialNumberKeys, kittyCodepointNames, isValidCodepoint, safeFromCodePoint, parseKittyKeypress, parseKittySpecialKey, parseKeypress2, parse_keypress_default;
 var init_parse_keypress2 = __esm({
-  "node_modules/ink/build/parse-keypress.js"() {
+  "../node_modules/ink/build/parse-keypress.js"() {
     init_kitty_keyboard();
     metaKeyCodeRe = /^(?:\x1b)([a-zA-Z0-9])$/;
     fnKeyRe = /^(?:\x1b+)(O|N|\[|\[\[)(?:(\d+)(?:;(\d+))?([~^$])|(?:1;)?(\d+)?([a-zA-Z]))/;
@@ -55336,10 +55622,10 @@ var init_parse_keypress2 = __esm({
   }
 });
 
-// node_modules/ink/build/hooks/use-stdin.js
+// ../node_modules/ink/build/hooks/use-stdin.js
 var import_react46, useStdin2, use_stdin_default2;
 var init_use_stdin2 = __esm({
-  "node_modules/ink/build/hooks/use-stdin.js"() {
+  "../node_modules/ink/build/hooks/use-stdin.js"() {
     import_react46 = __toESM(require_react(), 1);
     init_StdinContext2();
     useStdin2 = () => (0, import_react46.useContext)(StdinContext_default2);
@@ -55347,10 +55633,10 @@ var init_use_stdin2 = __esm({
   }
 });
 
-// node_modules/ink/build/hooks/use-input.js
+// ../node_modules/ink/build/hooks/use-input.js
 var import_react47, useInput2, use_input_default2;
 var init_use_input2 = __esm({
-  async "node_modules/ink/build/hooks/use-input.js"() {
+  async "../node_modules/ink/build/hooks/use-input.js"() {
     import_react47 = __toESM(require_react(), 1);
     init_parse_keypress2();
     await init_reconciler2();
@@ -55439,79 +55725,79 @@ var init_use_input2 = __esm({
   }
 });
 
-// node_modules/ink/build/hooks/use-app.js
+// ../node_modules/ink/build/hooks/use-app.js
 var import_react48;
 var init_use_app2 = __esm({
-  "node_modules/ink/build/hooks/use-app.js"() {
+  "../node_modules/ink/build/hooks/use-app.js"() {
     import_react48 = __toESM(require_react(), 1);
     init_AppContext2();
   }
 });
 
-// node_modules/ink/build/hooks/use-stdout.js
+// ../node_modules/ink/build/hooks/use-stdout.js
 var import_react49;
 var init_use_stdout2 = __esm({
-  "node_modules/ink/build/hooks/use-stdout.js"() {
+  "../node_modules/ink/build/hooks/use-stdout.js"() {
     import_react49 = __toESM(require_react(), 1);
     init_StdoutContext();
   }
 });
 
-// node_modules/ink/build/hooks/use-stderr.js
+// ../node_modules/ink/build/hooks/use-stderr.js
 var import_react50;
 var init_use_stderr2 = __esm({
-  "node_modules/ink/build/hooks/use-stderr.js"() {
+  "../node_modules/ink/build/hooks/use-stderr.js"() {
     import_react50 = __toESM(require_react(), 1);
     init_StderrContext();
   }
 });
 
-// node_modules/ink/build/hooks/use-focus.js
+// ../node_modules/ink/build/hooks/use-focus.js
 var import_react51;
 var init_use_focus = __esm({
-  "node_modules/ink/build/hooks/use-focus.js"() {
+  "../node_modules/ink/build/hooks/use-focus.js"() {
     import_react51 = __toESM(require_react(), 1);
     init_FocusContext();
     init_use_stdin2();
   }
 });
 
-// node_modules/ink/build/hooks/use-focus-manager.js
+// ../node_modules/ink/build/hooks/use-focus-manager.js
 var import_react52;
 var init_use_focus_manager = __esm({
-  "node_modules/ink/build/hooks/use-focus-manager.js"() {
+  "../node_modules/ink/build/hooks/use-focus-manager.js"() {
     import_react52 = __toESM(require_react(), 1);
     init_FocusContext();
   }
 });
 
-// node_modules/ink/build/hooks/use-is-screen-reader-enabled.js
+// ../node_modules/ink/build/hooks/use-is-screen-reader-enabled.js
 var import_react53;
 var init_use_is_screen_reader_enabled = __esm({
-  "node_modules/ink/build/hooks/use-is-screen-reader-enabled.js"() {
+  "../node_modules/ink/build/hooks/use-is-screen-reader-enabled.js"() {
     import_react53 = __toESM(require_react(), 1);
     init_AccessibilityContext();
   }
 });
 
-// node_modules/ink/build/hooks/use-cursor.js
+// ../node_modules/ink/build/hooks/use-cursor.js
 var import_react54;
 var init_use_cursor = __esm({
-  "node_modules/ink/build/hooks/use-cursor.js"() {
+  "../node_modules/ink/build/hooks/use-cursor.js"() {
     import_react54 = __toESM(require_react(), 1);
     init_CursorContext();
   }
 });
 
-// node_modules/ink/build/measure-element.js
+// ../node_modules/ink/build/measure-element.js
 var init_measure_element2 = __esm({
-  "node_modules/ink/build/measure-element.js"() {
+  "../node_modules/ink/build/measure-element.js"() {
   }
 });
 
-// node_modules/ink/build/index.js
+// ../node_modules/ink/build/index.js
 var init_build3 = __esm({
-  async "node_modules/ink/build/index.js"() {
+  async "../node_modules/ink/build/index.js"() {
     await init_render();
     await init_render_to_string();
     init_Box2();
@@ -55534,36 +55820,36 @@ var init_build3 = __esm({
   }
 });
 
-// node_modules/ink-text-input/node_modules/chalk/source/vendor/ansi-styles/index.js
-function assembleStyles7() {
+// ../node_modules/ink-text-input/node_modules/chalk/source/vendor/ansi-styles/index.js
+function assembleStyles6() {
   const codes = /* @__PURE__ */ new Map();
-  for (const [groupName, group] of Object.entries(styles11)) {
+  for (const [groupName, group] of Object.entries(styles10)) {
     for (const [styleName, style] of Object.entries(group)) {
-      styles11[styleName] = {
+      styles10[styleName] = {
         open: `\x1B[${style[0]}m`,
         close: `\x1B[${style[1]}m`
       };
-      group[styleName] = styles11[styleName];
+      group[styleName] = styles10[styleName];
       codes.set(style[0], style[1]);
     }
-    Object.defineProperty(styles11, groupName, {
+    Object.defineProperty(styles10, groupName, {
       value: group,
       enumerable: false
     });
   }
-  Object.defineProperty(styles11, "codes", {
+  Object.defineProperty(styles10, "codes", {
     value: codes,
     enumerable: false
   });
-  styles11.color.close = "\x1B[39m";
-  styles11.bgColor.close = "\x1B[49m";
-  styles11.color.ansi = wrapAnsi167();
-  styles11.color.ansi256 = wrapAnsi2567();
-  styles11.color.ansi16m = wrapAnsi16m7();
-  styles11.bgColor.ansi = wrapAnsi167(ANSI_BACKGROUND_OFFSET7);
-  styles11.bgColor.ansi256 = wrapAnsi2567(ANSI_BACKGROUND_OFFSET7);
-  styles11.bgColor.ansi16m = wrapAnsi16m7(ANSI_BACKGROUND_OFFSET7);
-  Object.defineProperties(styles11, {
+  styles10.color.close = "\x1B[39m";
+  styles10.bgColor.close = "\x1B[49m";
+  styles10.color.ansi = wrapAnsi166();
+  styles10.color.ansi256 = wrapAnsi2566();
+  styles10.color.ansi16m = wrapAnsi16m6();
+  styles10.bgColor.ansi = wrapAnsi166(ANSI_BACKGROUND_OFFSET6);
+  styles10.bgColor.ansi256 = wrapAnsi2566(ANSI_BACKGROUND_OFFSET6);
+  styles10.bgColor.ansi16m = wrapAnsi16m6(ANSI_BACKGROUND_OFFSET6);
+  Object.defineProperties(styles10, {
     rgbToAnsi256: {
       value(red, green, blue) {
         if (red === green && green === blue) {
@@ -55601,7 +55887,7 @@ function assembleStyles7() {
       enumerable: false
     },
     hexToAnsi256: {
-      value: (hex) => styles11.rgbToAnsi256(...styles11.hexToRgb(hex)),
+      value: (hex) => styles10.rgbToAnsi256(...styles10.hexToRgb(hex)),
       enumerable: false
     },
     ansi256ToAnsi: {
@@ -55639,24 +55925,24 @@ function assembleStyles7() {
       enumerable: false
     },
     rgbToAnsi: {
-      value: (red, green, blue) => styles11.ansi256ToAnsi(styles11.rgbToAnsi256(red, green, blue)),
+      value: (red, green, blue) => styles10.ansi256ToAnsi(styles10.rgbToAnsi256(red, green, blue)),
       enumerable: false
     },
     hexToAnsi: {
-      value: (hex) => styles11.ansi256ToAnsi(styles11.hexToAnsi256(hex)),
+      value: (hex) => styles10.ansi256ToAnsi(styles10.hexToAnsi256(hex)),
       enumerable: false
     }
   });
-  return styles11;
+  return styles10;
 }
-var ANSI_BACKGROUND_OFFSET7, wrapAnsi167, wrapAnsi2567, wrapAnsi16m7, styles11, modifierNames7, foregroundColorNames7, backgroundColorNames7, colorNames7, ansiStyles7, ansi_styles_default7;
-var init_ansi_styles7 = __esm({
-  "node_modules/ink-text-input/node_modules/chalk/source/vendor/ansi-styles/index.js"() {
-    ANSI_BACKGROUND_OFFSET7 = 10;
-    wrapAnsi167 = (offset = 0) => (code) => `\x1B[${code + offset}m`;
-    wrapAnsi2567 = (offset = 0) => (code) => `\x1B[${38 + offset};5;${code}m`;
-    wrapAnsi16m7 = (offset = 0) => (red, green, blue) => `\x1B[${38 + offset};2;${red};${green};${blue}m`;
-    styles11 = {
+var ANSI_BACKGROUND_OFFSET6, wrapAnsi166, wrapAnsi2566, wrapAnsi16m6, styles10, modifierNames6, foregroundColorNames6, backgroundColorNames6, colorNames6, ansiStyles6, ansi_styles_default6;
+var init_ansi_styles6 = __esm({
+  "../node_modules/ink-text-input/node_modules/chalk/source/vendor/ansi-styles/index.js"() {
+    ANSI_BACKGROUND_OFFSET6 = 10;
+    wrapAnsi166 = (offset = 0) => (code) => `\x1B[${code + offset}m`;
+    wrapAnsi2566 = (offset = 0) => (code) => `\x1B[${38 + offset};5;${code}m`;
+    wrapAnsi16m6 = (offset = 0) => (red, green, blue) => `\x1B[${38 + offset};2;${red};${green};${blue}m`;
+    styles10 = {
       modifier: {
         reset: [0, 0],
         // 21 isn't widely supported and 22 does the same thing
@@ -55716,16 +56002,16 @@ var init_ansi_styles7 = __esm({
         bgWhiteBright: [107, 49]
       }
     };
-    modifierNames7 = Object.keys(styles11.modifier);
-    foregroundColorNames7 = Object.keys(styles11.color);
-    backgroundColorNames7 = Object.keys(styles11.bgColor);
-    colorNames7 = [...foregroundColorNames7, ...backgroundColorNames7];
-    ansiStyles7 = assembleStyles7();
-    ansi_styles_default7 = ansiStyles7;
+    modifierNames6 = Object.keys(styles10.modifier);
+    foregroundColorNames6 = Object.keys(styles10.color);
+    backgroundColorNames6 = Object.keys(styles10.bgColor);
+    colorNames6 = [...foregroundColorNames6, ...backgroundColorNames6];
+    ansiStyles6 = assembleStyles6();
+    ansi_styles_default6 = ansiStyles6;
   }
 });
 
-// node_modules/ink-text-input/node_modules/chalk/source/vendor/supports-color/index.js
+// ../node_modules/ink-text-input/node_modules/chalk/source/vendor/supports-color/index.js
 import process12 from "node:process";
 import os3 from "node:os";
 import tty3 from "node:tty";
@@ -55846,7 +56132,7 @@ function createSupportsColor3(stream, options = {}) {
 }
 var env4, flagForceColor3, supportsColor3, supports_color_default3;
 var init_supports_color3 = __esm({
-  "node_modules/ink-text-input/node_modules/chalk/source/vendor/supports-color/index.js"() {
+  "../node_modules/ink-text-input/node_modules/chalk/source/vendor/supports-color/index.js"() {
     ({ env: env4 } = process12);
     if (hasFlag3("no-color") || hasFlag3("no-colors") || hasFlag3("color=false") || hasFlag3("color=never")) {
       flagForceColor3 = 0;
@@ -55861,7 +56147,7 @@ var init_supports_color3 = __esm({
   }
 });
 
-// node_modules/ink-text-input/node_modules/chalk/source/utilities.js
+// ../node_modules/ink-text-input/node_modules/chalk/source/utilities.js
 function stringReplaceAll3(string, substring, replacer) {
   let index = string.indexOf(substring);
   if (index === -1) {
@@ -55891,18 +56177,18 @@ function stringEncaseCRLFWithFirstIndex3(string, prefix, postfix, index) {
   return returnValue;
 }
 var init_utilities4 = __esm({
-  "node_modules/ink-text-input/node_modules/chalk/source/utilities.js"() {
+  "../node_modules/ink-text-input/node_modules/chalk/source/utilities.js"() {
   }
 });
 
-// node_modules/ink-text-input/node_modules/chalk/source/index.js
+// ../node_modules/ink-text-input/node_modules/chalk/source/index.js
 function createChalk3(options) {
   return chalkFactory3(options);
 }
-var stdoutColor3, stderrColor3, GENERATOR3, STYLER3, IS_EMPTY3, levelMapping3, styles12, applyOptions3, chalkFactory3, getModelAnsi3, usedModels3, proto3, createStyler3, createBuilder3, applyStyle3, chalk3, chalkStderr3, source_default3;
+var stdoutColor3, stderrColor3, GENERATOR3, STYLER3, IS_EMPTY3, levelMapping3, styles11, applyOptions3, chalkFactory3, getModelAnsi3, usedModels3, proto3, createStyler3, createBuilder3, applyStyle3, chalk3, chalkStderr3, source_default3;
 var init_source3 = __esm({
-  "node_modules/ink-text-input/node_modules/chalk/source/index.js"() {
-    init_ansi_styles7();
+  "../node_modules/ink-text-input/node_modules/chalk/source/index.js"() {
+    init_ansi_styles6();
     init_supports_color3();
     init_utilities4();
     ({ stdout: stdoutColor3, stderr: stderrColor3 } = supports_color_default3);
@@ -55915,7 +56201,7 @@ var init_source3 = __esm({
       "ansi256",
       "ansi16m"
     ];
-    styles12 = /* @__PURE__ */ Object.create(null);
+    styles11 = /* @__PURE__ */ Object.create(null);
     applyOptions3 = (object, options = {}) => {
       if (options.level && !(Number.isInteger(options.level) && options.level >= 0 && options.level <= 3)) {
         throw new Error("The `level` option should be an integer from 0 to 3");
@@ -55930,8 +56216,8 @@ var init_source3 = __esm({
       return chalk4;
     };
     Object.setPrototypeOf(createChalk3.prototype, Function.prototype);
-    for (const [styleName, style] of Object.entries(ansi_styles_default7)) {
-      styles12[styleName] = {
+    for (const [styleName, style] of Object.entries(ansi_styles_default6)) {
+      styles11[styleName] = {
         get() {
           const builder = createBuilder3(this, createStyler3(style.open, style.close, this[STYLER3]), this[IS_EMPTY3]);
           Object.defineProperty(this, styleName, { value: builder });
@@ -55939,7 +56225,7 @@ var init_source3 = __esm({
         }
       };
     }
-    styles12.visible = {
+    styles11.visible = {
       get() {
         const builder = createBuilder3(this, this[STYLER3], true);
         Object.defineProperty(this, "visible", { value: builder });
@@ -55949,35 +56235,35 @@ var init_source3 = __esm({
     getModelAnsi3 = (model, level, type, ...arguments_) => {
       if (model === "rgb") {
         if (level === "ansi16m") {
-          return ansi_styles_default7[type].ansi16m(...arguments_);
+          return ansi_styles_default6[type].ansi16m(...arguments_);
         }
         if (level === "ansi256") {
-          return ansi_styles_default7[type].ansi256(ansi_styles_default7.rgbToAnsi256(...arguments_));
+          return ansi_styles_default6[type].ansi256(ansi_styles_default6.rgbToAnsi256(...arguments_));
         }
-        return ansi_styles_default7[type].ansi(ansi_styles_default7.rgbToAnsi(...arguments_));
+        return ansi_styles_default6[type].ansi(ansi_styles_default6.rgbToAnsi(...arguments_));
       }
       if (model === "hex") {
-        return getModelAnsi3("rgb", level, type, ...ansi_styles_default7.hexToRgb(...arguments_));
+        return getModelAnsi3("rgb", level, type, ...ansi_styles_default6.hexToRgb(...arguments_));
       }
-      return ansi_styles_default7[type][model](...arguments_);
+      return ansi_styles_default6[type][model](...arguments_);
     };
     usedModels3 = ["rgb", "hex", "ansi256"];
     for (const model of usedModels3) {
-      styles12[model] = {
+      styles11[model] = {
         get() {
           const { level } = this;
           return function(...arguments_) {
-            const styler = createStyler3(getModelAnsi3(model, levelMapping3[level], "color", ...arguments_), ansi_styles_default7.color.close, this[STYLER3]);
+            const styler = createStyler3(getModelAnsi3(model, levelMapping3[level], "color", ...arguments_), ansi_styles_default6.color.close, this[STYLER3]);
             return createBuilder3(this, styler, this[IS_EMPTY3]);
           };
         }
       };
       const bgModel = "bg" + model[0].toUpperCase() + model.slice(1);
-      styles12[bgModel] = {
+      styles11[bgModel] = {
         get() {
           const { level } = this;
           return function(...arguments_) {
-            const styler = createStyler3(getModelAnsi3(model, levelMapping3[level], "bgColor", ...arguments_), ansi_styles_default7.bgColor.close, this[STYLER3]);
+            const styler = createStyler3(getModelAnsi3(model, levelMapping3[level], "bgColor", ...arguments_), ansi_styles_default6.bgColor.close, this[STYLER3]);
             return createBuilder3(this, styler, this[IS_EMPTY3]);
           };
         }
@@ -55985,7 +56271,7 @@ var init_source3 = __esm({
     }
     proto3 = Object.defineProperties(() => {
     }, {
-      ...styles12,
+      ...styles11,
       level: {
         enumerable: true,
         get() {
@@ -56043,14 +56329,14 @@ var init_source3 = __esm({
       }
       return openAll + string + closeAll;
     };
-    Object.defineProperties(createChalk3.prototype, styles12);
+    Object.defineProperties(createChalk3.prototype, styles11);
     chalk3 = createChalk3();
     chalkStderr3 = createChalk3({ level: stderrColor3 ? stderrColor3.level : 0 });
     source_default3 = chalk3;
   }
 });
 
-// node_modules/ink-text-input/build/index.js
+// ../node_modules/ink-text-input/build/index.js
 function TextInput({ value: originalValue, placeholder = "", focus = true, mask, highlightPastedText = false, showCursor = true, onChange, onSubmit }) {
   const [state, setState] = (0, import_react55.useState)({
     cursorOffset: (originalValue || "").length,
@@ -56143,7 +56429,7 @@ function UncontrolledTextInput({ initialValue = "", ...props }) {
 }
 var import_react55, build_default;
 var init_build4 = __esm({
-  async "node_modules/ink-text-input/build/index.js"() {
+  async "../node_modules/ink-text-input/build/index.js"() {
     import_react55 = __toESM(require_react(), 1);
     await init_build3();
     init_source3();
@@ -56229,23 +56515,23 @@ var init_entry_exports = __esm({
   }
 });
 
-// node_modules/nanostores/clean-stores/index.js
+// ../node_modules/nanostores/clean-stores/index.js
 var clean;
 var init_clean_stores = __esm({
-  "node_modules/nanostores/clean-stores/index.js"() {
+  "../node_modules/nanostores/clean-stores/index.js"() {
     clean = /* @__PURE__ */ Symbol("clean");
   }
 });
 
-// node_modules/nanostores/atom/index.js
-var listenerQueue, lqIndex, QUEUE_ITEMS_PER_LISTENER, epoch, atom;
+// ../node_modules/nanostores/atom/index.js
+var listenerQueue, lqIndex, QUEUE_ITEMS_PER_LISTENER, nanostoresGlobal, atom;
 var init_atom = __esm({
-  "node_modules/nanostores/atom/index.js"() {
+  "../node_modules/nanostores/atom/index.js"() {
     init_clean_stores();
     listenerQueue = [];
     lqIndex = 0;
     QUEUE_ITEMS_PER_LISTENER = 4;
-    epoch = 0;
+    nanostoresGlobal = globalThis.nanostoresGlobal ||= { epoch: 0 };
     atom = /* @__NO_SIDE_EFFECTS__ */ (initialValue) => {
       let listeners = [];
       let $atom = {
@@ -56276,7 +56562,7 @@ var init_atom = __esm({
           };
         },
         notify(oldValue, changedKey) {
-          epoch++;
+          nanostoresGlobal.epoch++;
           let runListenerQueue = !listenerQueue.length;
           for (let listener of listeners) {
             listenerQueue.push(listener, $atom.value, oldValue, changedKey);
@@ -56322,10 +56608,10 @@ var init_atom = __esm({
   }
 });
 
-// node_modules/nanostores/lifecycle/index.js
+// ../node_modules/nanostores/lifecycle/index.js
 var MOUNT, UNMOUNT, REVERT_MUTATION, on, STORE_UNMOUNT_DELAY, onMount;
 var init_lifecycle = __esm({
-  "node_modules/nanostores/lifecycle/index.js"() {
+  "../node_modules/nanostores/lifecycle/index.js"() {
     init_clean_stores();
     MOUNT = 5;
     UNMOUNT = 6;
@@ -56398,10 +56684,10 @@ var init_lifecycle = __esm({
   }
 });
 
-// node_modules/nanostores/warn/index.js
+// ../node_modules/nanostores/warn/index.js
 function warn(text) {
-  if (!warned[text]) {
-    warned[text] = true;
+  if (!warned2[text]) {
+    warned2[text] = true;
     if (typeof console !== "undefined" && console.warn) {
       console.groupCollapsed("Nano Stores: " + text);
       console.trace("Source of deprecated call");
@@ -56409,17 +56695,17 @@ function warn(text) {
     }
   }
 }
-var warned;
+var warned2;
 var init_warn2 = __esm({
-  "node_modules/nanostores/warn/index.js"() {
-    warned = {};
+  "../node_modules/nanostores/warn/index.js"() {
+    warned2 = {};
   }
 });
 
-// node_modules/nanostores/computed/index.js
+// ../node_modules/nanostores/computed/index.js
 var computedStore, computed;
 var init_computed = __esm({
-  "node_modules/nanostores/computed/index.js"() {
+  "../node_modules/nanostores/computed/index.js"() {
     init_atom();
     init_lifecycle();
     init_warn2();
@@ -56428,8 +56714,8 @@ var init_computed = __esm({
       let previousArgs;
       let currentEpoch;
       let set = () => {
-        if (currentEpoch === epoch) return;
-        currentEpoch = epoch;
+        if (currentEpoch === nanostoresGlobal.epoch) return;
+        currentEpoch = nanostoresGlobal.epoch;
         let args = stores.map(($store) => $store.get());
         if (!previousArgs || args.some((arg, i) => arg !== previousArgs[i])) {
           previousArgs = args;
@@ -56447,7 +56733,7 @@ var init_computed = __esm({
             });
           } else {
             $computed.set(value);
-            currentEpoch = epoch;
+            currentEpoch = nanostoresGlobal.epoch;
           }
         }
       };
@@ -56475,7 +56761,7 @@ var init_computed = __esm({
   }
 });
 
-// node_modules/nanostores/listen-keys/index.js
+// ../node_modules/nanostores/listen-keys/index.js
 function listenKeys($store, keys, listener) {
   let keysSet = new Set(keys).add(void 0);
   return $store.listen((value, oldValue, changed) => {
@@ -56485,20 +56771,20 @@ function listenKeys($store, keys, listener) {
   });
 }
 var init_listen_keys = __esm({
-  "node_modules/nanostores/listen-keys/index.js"() {
+  "../node_modules/nanostores/listen-keys/index.js"() {
   }
 });
 
-// node_modules/nanostores/index.js
+// ../node_modules/nanostores/index.js
 var init_nanostores = __esm({
-  "node_modules/nanostores/index.js"() {
+  "../node_modules/nanostores/index.js"() {
     init_atom();
     init_computed();
     init_listen_keys();
   }
 });
 
-// node_modules/@nanostores/react/index.js
+// ../node_modules/@nanostores/react/index.js
 function useStore(store, { keys, deps = [store, keys], ssr } = {}) {
   let snapshotRef = (0, import_react56.useRef)();
   snapshotRef.current = store.get();
@@ -56515,7 +56801,7 @@ function useStore(store, { keys, deps = [store, keys], ssr } = {}) {
 }
 var import_react56, emit;
 var init_react = __esm({
-  "node_modules/@nanostores/react/index.js"() {
+  "../node_modules/@nanostores/react/index.js"() {
     init_nanostores();
     import_react56 = __toESM(require_react(), 1);
     emit = (snapshotRef, onChange) => (value) => {
@@ -56963,12 +57249,14 @@ var init_uiStore = __esm({
 });
 
 // src/config/limits.ts
-var LIVE_RENDER_MAX_CHARS, LIVE_RENDER_MAX_LINES, LONG_MSG, MAX_HISTORY, THINKING_COT_MAX, WHEEL_SCROLL_STEP;
+var LIVE_RENDER_MAX_CHARS, LIVE_RENDER_MAX_LINES, VERBOSE_TRAIL_MAX_CHARS, VERBOSE_TRAIL_MAX_LINES, LONG_MSG, MAX_HISTORY, THINKING_COT_MAX, WHEEL_SCROLL_STEP;
 var init_limits = __esm({
   "src/config/limits.ts"() {
     "use strict";
     LIVE_RENDER_MAX_CHARS = 16e3;
     LIVE_RENDER_MAX_LINES = 240;
+    VERBOSE_TRAIL_MAX_CHARS = 800;
+    VERBOSE_TRAIL_MAX_LINES = 12;
     LONG_MSG = 300;
     MAX_HISTORY = 800;
     THINKING_COT_MAX = 160;
@@ -57005,6 +57293,67 @@ var init_details = __esm({
   }
 });
 
+// src/domain/blockLayout.ts
+var messageGroup, SELF_SPACED, PAINTS_TRAILING_GAP, hasLeadGap, trailAllHidden, blockRenders, prevRenderedMsg;
+var init_blockLayout = __esm({
+  "src/domain/blockLayout.ts"() {
+    "use strict";
+    init_details();
+    messageGroup = (msg) => {
+      switch (msg.kind) {
+        case "intro":
+        case "panel":
+          return "intro";
+        case "slash":
+          return "slash";
+        case "diff":
+          return "diff";
+        case "trail":
+          return "trail";
+      }
+      if (msg.role === "user") {
+        return "user";
+      }
+      return msg.role === "assistant" ? "model" : "note";
+    };
+    SELF_SPACED = /* @__PURE__ */ new Set(["diff", "intro", "slash", "user"]);
+    PAINTS_TRAILING_GAP = /* @__PURE__ */ new Set(["diff", "user"]);
+    hasLeadGap = (prev, cur) => {
+      const group = messageGroup(cur);
+      if (SELF_SPACED.has(group)) {
+        return false;
+      }
+      if (!prev) {
+        return false;
+      }
+      const prevGroup = messageGroup(prev);
+      return prevGroup !== group && !PAINTS_TRAILING_GAP.has(prevGroup);
+    };
+    trailAllHidden = (ctx) => sectionMode("thinking", ctx.detailsMode, ctx.sections, ctx.commandOverride) === "hidden" && sectionMode("tools", ctx.detailsMode, ctx.sections, ctx.commandOverride) === "hidden" && sectionMode("activity", ctx.detailsMode, ctx.sections, ctx.commandOverride) === "hidden";
+    blockRenders = (msg, ctx) => {
+      if (msg.kind !== "trail") {
+        return true;
+      }
+      if (msg.todos?.length) {
+        return true;
+      }
+      if (!(msg.tools?.length || msg.thinking?.trim())) {
+        return false;
+      }
+      return !trailAllHidden(ctx);
+    };
+    prevRenderedMsg = (msgAt, index, ctx) => {
+      for (let i = index - 1; i >= 0; i--) {
+        const candidate = msgAt(i);
+        if (candidate && blockRenders(candidate, ctx)) {
+          return candidate;
+        }
+      }
+      return void 0;
+    };
+  }
+});
+
 // src/content/verbs.ts
 var VERBS;
 var init_verbs = __esm({
@@ -57031,7 +57380,7 @@ var init_verbs = __esm({
 });
 
 // src/lib/text.ts
-var ESC2, BEL3, ANSI_CSI_RE, ANSI_CSI_WITH_CMD_RE, ANSI_INCOMPLETE_CSI_RE, ANSI_OSC_RE, ANSI_STRING_RE, ANSI_NON_CSI_ESC_SEQ_RE, ANSI_STRAY_ESC_RE, CONTROL_RE, WS_RE, stripAnsi2, sanitizeAnsiForRender, hasAnsi, compactPreview, estimateTokensRough, edgePreview, pasteTokenLabel, THINKING_STATUS_RE, THINKING_STATUS_CHUNK_RE, cleanThinkingText, thinkingPreview, boundedLiveRenderText, boundedRenderText, countNewlines, stripTrailingPasteNewlines, toolTrailLabel, formatToolCall, buildToolTrailLine, verboseToolBlock, buildVerboseToolTrailLine, isToolTrailResultLine, parseToolTrailResultLine, splitToolDuration, isTransientTrailLine, sameToolTrailGroup, flat, COMPACT_NUMBER, fmtK, pick, isPasteBackedText;
+var ESC2, BEL3, ANSI_CSI_RE, ANSI_CSI_WITH_CMD_RE, ANSI_INCOMPLETE_CSI_RE, ANSI_OSC_RE, ANSI_STRING_RE, ANSI_NON_CSI_ESC_SEQ_RE, ANSI_STRAY_ESC_RE, CONTROL_RE, WS_RE, stripAnsi4, sanitizeAnsiForRender, hasAnsi, compactPreview, estimateTokensRough, edgePreview, pasteTokenLabel, THINKING_STATUS_RE, THINKING_STATUS_CHUNK_RE, cleanThinkingText, thinkingPreview, boundedLiveRenderText, boundedRenderText, countNewlines, stripTrailingPasteNewlines, toolTrailLabel, formatToolCall, buildToolTrailLine, verboseToolBlock, buildVerboseToolTrailLine, isToolTrailResultLine, parseToolTrailResultLine, splitToolDuration, isTransientTrailLine, sameToolTrailGroup, formatAbandonedClarify, flat, COMPACT_NUMBER, fmtK, pick, isPasteBackedText;
 var init_text = __esm({
   "src/lib/text.ts"() {
     "use strict";
@@ -57048,7 +57397,7 @@ var init_text = __esm({
     ANSI_STRAY_ESC_RE = new RegExp(`${ESC2}(?!\\[)[\\s\\S]?`, "g");
     CONTROL_RE = /[\x00-\x08\x0B\x0C\x0D\x0E-\x1A\x1C-\x1F\x7F]/g;
     WS_RE = /\s+/g;
-    stripAnsi2 = (s) => s.replace(ANSI_OSC_RE, "").replace(ANSI_STRING_RE, "").replace(ANSI_INCOMPLETE_CSI_RE, "").replace(ANSI_CSI_RE, "").replace(ANSI_INCOMPLETE_CSI_RE, "").replace(ANSI_NON_CSI_ESC_SEQ_RE, "").replace(ANSI_STRAY_ESC_RE, "").replace(CONTROL_RE, "");
+    stripAnsi4 = (s) => s.replace(ANSI_OSC_RE, "").replace(ANSI_STRING_RE, "").replace(ANSI_INCOMPLETE_CSI_RE, "").replace(ANSI_CSI_RE, "").replace(ANSI_INCOMPLETE_CSI_RE, "").replace(ANSI_NON_CSI_ESC_SEQ_RE, "").replace(ANSI_STRAY_ESC_RE, "").replace(CONTROL_RE, "");
     sanitizeAnsiForRender = (s) => s.replace(ANSI_OSC_RE, "").replace(ANSI_STRING_RE, "").replace(ANSI_INCOMPLETE_CSI_RE, "").replace(ANSI_CSI_WITH_CMD_RE, (seq, cmd) => cmd === "m" ? seq : "").replace(ANSI_INCOMPLETE_CSI_RE, "").replace(ANSI_NON_CSI_ESC_SEQ_RE, "").replace(ANSI_STRAY_ESC_RE, "").replace(CONTROL_RE, "");
     hasAnsi = (s) => s.includes(ESC2);
     compactPreview = (s, max) => {
@@ -57130,7 +57479,10 @@ var init_text = __esm({
     verboseToolBlock = (label, text) => {
       const body = (text ?? "").trim();
       return body ? `${label}:
-${boundedLiveRenderText(body)}` : "";
+${boundedLiveRenderText(body, {
+        maxChars: VERBOSE_TRAIL_MAX_CHARS,
+        maxLines: VERBOSE_TRAIL_MAX_LINES
+      })}` : "";
     };
     buildVerboseToolTrailLine = (name, context, error, duration, argsText, resultText) => {
       const detail = [verboseToolBlock("Args", argsText), verboseToolBlock(error ? "Error" : "Result", resultText)].filter(Boolean).join("\n");
@@ -57160,6 +57512,11 @@ ${boundedLiveRenderText(body)}` : "";
     };
     isTransientTrailLine = (line) => line.startsWith("drafting ") || line === "analyzing tool output\u2026";
     sameToolTrailGroup = (label, entry) => entry === `${label} \u2713` || entry === `${label} \u2717` || entry.startsWith(`${label}(`) || entry.startsWith(`${label} ::`) || entry.startsWith(`${label}:`);
+    formatAbandonedClarify = (question, choices, reason) => {
+      const head = `ask ${question.trim()}`;
+      const opts = (choices ?? []).map((c, i) => `  ${i + 1}. ${c}`);
+      return [head, ...opts, `  (${reason} \u2014 no selection)`].join("\n");
+    };
     flat = (r) => Object.values(r).flat();
     COMPACT_NUMBER = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1, notation: "compact" });
     fmtK = (n) => COMPACT_NUMBER.format(n).replace(/[KMBT]$/, (s) => s.toLowerCase());
@@ -57977,6 +58334,13 @@ var init_rpc = __esm({
           notice: typeof o.notice === "string" ? o.notice : void 0
         };
       }
+      if (t === "prefill" && typeof o.message === "string") {
+        return {
+          type: "prefill",
+          message: o.message,
+          notice: typeof o.notice === "string" ? o.notice : void 0
+        };
+      }
       return null;
     };
     rpcErrorMessage = (err) => err instanceof Error && err.message ? err.message : typeof err === "string" && err.trim() ? err : "request failed";
@@ -57985,8 +58349,8 @@ var init_rpc = __esm({
 
 // src/lib/terminalSetup.ts
 import { copyFile, mkdir as mkdir2, readFile as readFile2, writeFile as writeFile2 } from "node:fs/promises";
-import { homedir as homedir2 } from "node:os";
-import { join as join2 } from "node:path";
+import { homedir as homedir3 } from "node:os";
+import { join as join3 } from "node:path";
 function detectVSCodeLikeTerminal(env5 = process.env) {
   const askpass = env5["VSCODE_GIT_ASKPASS_MAIN"]?.toLowerCase() ?? "";
   if (env5["CURSOR_TRACE_ID"] || askpass.includes("cursor")) {
@@ -58040,14 +58404,14 @@ function stripJsonComments(content) {
 function isRemoteShellSession(env5) {
   return Boolean(env5["SSH_CONNECTION"] || env5["SSH_TTY"] || env5["SSH_CLIENT"]);
 }
-function getVSCodeStyleConfigDir(appName, platform2 = process.platform, env5 = process.env, homeDir = homedir2()) {
+function getVSCodeStyleConfigDir(appName, platform2 = process.platform, env5 = process.env, homeDir = homedir3()) {
   if (platform2 === "darwin") {
-    return join2(homeDir, "Library", "Application Support", appName, "User");
+    return join3(homeDir, "Library", "Application Support", appName, "User");
   }
   if (platform2 === "win32") {
-    return env5["APPDATA"] ? join2(env5["APPDATA"], appName, "User") : null;
+    return env5["APPDATA"] ? join3(env5["APPDATA"], appName, "User") : null;
   }
-  return join2(homeDir, ".config", appName, "User");
+  return join3(homeDir, ".config", appName, "User");
 }
 function isKeybinding(value) {
   return typeof value === "object" && value !== null;
@@ -58115,7 +58479,7 @@ async function backupFile(filePath, ops) {
 async function configureTerminalKeybindings(terminal, options) {
   const env5 = options?.env ?? process.env;
   const platform2 = options?.platform ?? process.platform;
-  const homeDir = options?.homeDir ?? homedir2();
+  const homeDir = options?.homeDir ?? homedir3();
   const ops = { ...DEFAULT_FILE_OPS, ...options?.fileOps ?? {} };
   const meta = TERMINAL_META[terminal];
   if (isRemoteShellSession(env5)) {
@@ -58131,7 +58495,7 @@ async function configureTerminalKeybindings(terminal, options) {
       message: `Could not determine ${meta.label} settings path on this platform.`
     };
   }
-  const keybindingsFile = join2(configDir, "keybindings.json");
+  const keybindingsFile = join3(configDir, "keybindings.json");
   try {
     await ops.mkdir(configDir, { recursive: true });
     let keybindings = [];
@@ -58214,7 +58578,7 @@ async function shouldPromptForTerminalSetup(options) {
     return false;
   }
   const platform2 = options?.platform ?? process.platform;
-  const homeDir = options?.homeDir ?? homedir2();
+  const homeDir = options?.homeDir ?? homedir3();
   const ops = { ...DEFAULT_FILE_OPS, ...options?.fileOps ?? {} };
   const meta = TERMINAL_META[detected];
   const configDir = getVSCodeStyleConfigDir(meta.appName, platform2, env5, homeDir);
@@ -58222,7 +58586,7 @@ async function shouldPromptForTerminalSetup(options) {
     return false;
   }
   try {
-    const content = await ops.readFile(join2(configDir, "keybindings.json"), "utf8");
+    const content = await ops.readFile(join3(configDir, "keybindings.json"), "utf8");
     const parsed = JSON.parse(stripJsonComments(content));
     if (!Array.isArray(parsed)) {
       return true;
@@ -58384,6 +58748,7 @@ var init_virtualHeights = __esm({
     estimatedMsgHeight = (msg, cols, {
       compact,
       details,
+      leadGap = false,
       thinkingVisible = details,
       toolsVisible = details,
       userPrompt = "",
@@ -58422,6 +58787,9 @@ var init_virtualHeights = __esm({
       if (msg.role === "user" || msg.kind === "diff") {
         h += 2;
       } else if (msg.kind === "slash") {
+        h++;
+      }
+      if (leadGap) {
         h++;
       }
       if (withSeparator) {
@@ -58744,7 +59112,7 @@ var init_delegationStore = __esm({
 });
 
 // src/app/overlayStore.ts
-var buildOverlayState, $overlayState, $isBlocked, patchOverlayState, resetFlowOverlays;
+var buildOverlayState, $overlayState, $isBlocked, getOverlayState, patchOverlayState, resetFlowOverlays;
 var init_overlayStore = __esm({
   "src/app/overlayStore.ts"() {
     "use strict";
@@ -58757,7 +59125,6 @@ var init_overlayStore = __esm({
       confirm: null,
       modelPicker: false,
       pager: null,
-      picker: false,
       secret: null,
       sessions: false,
       skillsHub: false,
@@ -58766,15 +59133,15 @@ var init_overlayStore = __esm({
     $overlayState = atom(buildOverlayState());
     $isBlocked = computed(
       $overlayState,
-      ({ agents, approval, clarify, confirm, modelPicker, pager, picker, secret, sessions, skillsHub, sudo }) => Boolean(agents || approval || clarify || confirm || modelPicker || pager || picker || secret || sessions || skillsHub || sudo)
+      ({ agents, approval, clarify, confirm, modelPicker, pager, secret, sessions, skillsHub, sudo }) => Boolean(agents || approval || clarify || confirm || modelPicker || pager || secret || sessions || skillsHub || sudo)
     );
+    getOverlayState = () => $overlayState.get();
     patchOverlayState = (next) => $overlayState.set(typeof next === "function" ? next($overlayState.get()) : { ...$overlayState.get(), ...next });
     resetFlowOverlays = () => $overlayState.set({
       ...buildOverlayState(),
       agents: $overlayState.get().agents,
       agentsInitialHistoryIndex: $overlayState.get().agentsInitialHistoryIndex,
       modelPicker: $overlayState.get().modelPicker,
-      picker: $overlayState.get().picker,
       sessions: $overlayState.get().sessions,
       skillsHub: $overlayState.get().skillsHub
     });
@@ -59586,7 +59953,7 @@ ${stripped}
 // src/app/createGatewayEventHandler.ts
 function createGatewayEventHandler(ctx) {
   const { rpc } = ctx.gateway;
-  const { STARTUP_RESUME_ID: STARTUP_RESUME_ID2, newSession, resumeById, setCatalog } = ctx.session;
+  const { STARTUP_RESUME_ID: STARTUP_RESUME_ID2, newSession, recoverSidRef, resumeById, setCatalog } = ctx.session;
   const { bellOnComplete, stdout, sys } = ctx.system;
   const { appendMessage, panel, setHistoryItems } = ctx.transcript;
   const { setInput } = ctx.composer;
@@ -59595,6 +59962,19 @@ function createGatewayEventHandler(ctx) {
   let pendingThinkingStatus = "";
   let thinkingStatusTimer = null;
   let startupPromptSubmitted = false;
+  const persistedAbandonedClarify = /* @__PURE__ */ new Set();
+  const flushAbandonedClarify = () => {
+    const { clarify } = getOverlayState();
+    if (!clarify || persistedAbandonedClarify.has(clarify.requestId)) {
+      return;
+    }
+    persistedAbandonedClarify.add(clarify.requestId);
+    appendMessage({
+      role: "system",
+      text: formatAbandonedClarify(clarify.question, clarify.choices, "timed out")
+    });
+    patchOverlayState({ clarify: null });
+  };
   turnController.persistSpawnTree = async (subagents, sessionId) => {
     try {
       const startedAt = subagents.reduce((min, s) => {
@@ -59616,6 +59996,40 @@ function createGatewayEventHandler(ctx) {
     }
   };
   let lastDelegationFetchAt = 0;
+  let fullConfigPromise = null;
+  const getFullConfigOnce = () => {
+    fullConfigPromise ??= rpc("config.get", { key: "full" }).catch(() => null);
+    return fullConfigPromise;
+  };
+  let agentsNudgeEnabled = true;
+  let agentsNudgeConfigFetched = false;
+  let agentsNudgedThisTurn = false;
+  const ensureAgentsNudgeConfig = () => {
+    if (agentsNudgeConfigFetched) {
+      return;
+    }
+    agentsNudgeConfigFetched = true;
+    getFullConfigOnce().then((cfg) => {
+      if (cfg?.config?.display?.tui_agents_nudge === false) {
+        agentsNudgeEnabled = false;
+      }
+    });
+  };
+  const maybeNudgeAgents = () => {
+    ensureAgentsNudgeConfig();
+    if (!agentsNudgeEnabled || agentsNudgedThisTurn) {
+      return;
+    }
+    if (getOverlayState().agents) {
+      return;
+    }
+    agentsNudgedThisTurn = true;
+    turnController.pushActivity("subagents working \xB7 /agents to watch live", "info");
+  };
+  const resetAgentsNudgeTurnState = () => {
+    agentsNudgedThisTurn = false;
+  };
+  ensureAgentsNudgeConfig();
   const refreshDelegationStatus = (force = false) => {
     const now2 = Date.now();
     if (!force && now2 - lastDelegationFetchAt < 5e3) {
@@ -59695,13 +60109,20 @@ function createGatewayEventHandler(ctx) {
         turnController.pushActivity(String(r.warning), "warn");
       }
     }).catch((e) => turnController.pushActivity(`command catalog unavailable: ${rpcErrorMessage(e)}`, "info"));
+    const recoverSid = recoverSidRef?.current;
+    if (recoverSidRef && recoverSid) {
+      recoverSidRef.current = null;
+      resumeById(recoverSid);
+      patchUiState({ status: "recovering session\u2026" });
+      return;
+    }
     if (STARTUP_RESUME_ID2) {
       patchUiState({ status: "resuming\u2026" });
       resumeById(STARTUP_RESUME_ID2);
       scheduleStartupPrompt();
       return;
     }
-    rpc("config.get", { key: "full" }).then((cfg) => {
+    getFullConfigOnce().then((cfg) => {
       if (!cfg?.config?.display?.tui_auto_resume_recent) {
         patchUiState({ status: "forging session\u2026" });
         newSession();
@@ -59766,6 +60187,7 @@ function createGatewayEventHandler(ctx) {
         return;
       }
       case "message.start":
+        resetAgentsNudgeTurnState();
         turnController.startMessage();
         return;
       case "status.update": {
@@ -59888,12 +60310,15 @@ function createGatewayEventHandler(ctx) {
           ev.payload.tool_id,
           ev.payload.name ?? "tool",
           ev.payload.context ?? "",
-          ev.payload.args_text ? stripAnsi2(String(ev.payload.args_text)) : void 0
+          ev.payload.args_text ? stripAnsi4(String(ev.payload.args_text)) : void 0
         );
         return;
       case "tool.complete": {
-        const inlineDiffText = ev.payload.inline_diff && getUiState().inlineDiffs ? stripAnsi2(String(ev.payload.inline_diff)).trim() : "";
-        const resultText = ev.payload.result_text ? stripAnsi2(String(ev.payload.result_text)) : void 0;
+        if (ev.payload.name === "clarify") {
+          flushAbandonedClarify();
+        }
+        const inlineDiffText = ev.payload.inline_diff && getUiState().inlineDiffs ? stripAnsi4(String(ev.payload.inline_diff)).trim() : "";
+        const resultText = ev.payload.result_text ? stripAnsi4(String(ev.payload.result_text)) : void 0;
         if (inlineDiffText) {
           turnController.recordInlineDiffToolComplete(
             inlineDiffText,
@@ -59951,6 +60376,7 @@ function createGatewayEventHandler(ctx) {
       }
       case "subagent.spawn_requested":
         turnController.upsertSubagent(ev.payload, (c) => isTerminalStatus(c.status) ? {} : { status: "queued" });
+        maybeNudgeAgents();
         if (getDelegationState().maxSpawnDepth === null) {
           refreshDelegationStatus(true);
         } else {
@@ -59959,6 +60385,7 @@ function createGatewayEventHandler(ctx) {
         return;
       case "subagent.start":
         turnController.upsertSubagent(ev.payload, (c) => isTerminalStatus(c.status) ? {} : { status: "running" });
+        maybeNudgeAgents();
         return;
       case "subagent.thinking": {
         const text = String(ev.payload.text ?? "").trim();
@@ -60243,36 +60670,44 @@ async function readClipboardText(platform2 = process.platform, run = execFileAsy
   }
   return null;
 }
+function _powershellWriteScript(b64) {
+  return `Set-Clipboard -Value ([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('${b64}')))`;
+}
 function writeClipboardCommands(platform2, env5) {
   if (platform2 === "darwin") {
-    return [{ cmd: "pbcopy", args: [] }];
+    return [{ cmd: "pbcopy", args: [], stdin: true }];
   }
   if (platform2 === "win32") {
-    return [{ cmd: "powershell", args: ["-NoProfile", "-NonInteractive", "-Command", "Set-Clipboard -Value $input"] }];
+    return [{ cmd: "powershell", args: ["-NoProfile", "-NonInteractive"], stdin: false }];
   }
   const attempts = [];
   if (env5.WSL_INTEROP || env5.WSL_DISTRO_NAME) {
-    attempts.push({
-      cmd: "powershell.exe",
-      args: ["-NoProfile", "-NonInteractive", "-Command", "Set-Clipboard -Value $input"]
-    });
+    attempts.push({ cmd: "powershell.exe", args: ["-NoProfile", "-NonInteractive"], stdin: false });
   }
   if (env5.WAYLAND_DISPLAY) {
-    attempts.push({ cmd: "wl-copy", args: ["--type", "text/plain"] });
+    attempts.push({ cmd: "wl-copy", args: ["--type", "text/plain"], stdin: true });
   }
-  attempts.push({ cmd: "xclip", args: ["-selection", "clipboard", "-in"] });
-  attempts.push({ cmd: "xsel", args: ["--clipboard", "--input"] });
+  attempts.push({ cmd: "xclip", args: ["-selection", "clipboard", "-in"], stdin: true });
+  attempts.push({ cmd: "xsel", args: ["--clipboard", "--input"], stdin: true });
   return attempts;
 }
 async function writeClipboardText(text, platform2 = process.platform, start = spawn4, env5 = process.env) {
   const candidates = writeClipboardCommands(platform2, env5);
-  for (const { cmd, args } of candidates) {
+  for (const cmdEntry of candidates) {
     try {
       const ok = await new Promise((resolve3) => {
-        const child = start(cmd, [...args], { stdio: ["pipe", "ignore", "ignore"], windowsHide: true });
-        child.once("error", () => resolve3(false));
-        child.once("close", (code) => resolve3(code === 0));
-        child.stdin?.end(text);
+        if (cmdEntry.stdin) {
+          const child = start(cmdEntry.cmd, [...cmdEntry.args], { stdio: ["pipe", "ignore", "ignore"], windowsHide: true });
+          child.once("error", () => resolve3(false));
+          child.once("close", (code) => resolve3(code === 0));
+          child.stdin?.end(text);
+        } else {
+          const b64 = Buffer.from(text, "utf8").toString("base64");
+          const script = _powershellWriteScript(b64);
+          const child = start(cmdEntry.cmd, [...cmdEntry.args, "-Command", script], { stdio: ["ignore", "ignore", "ignore"], windowsHide: true });
+          child.once("error", () => resolve3(false));
+          child.once("close", (code) => resolve3(code === 0));
+        }
       });
       if (ok) {
         return true;
@@ -60505,16 +60940,6 @@ var init_core = __esm({
             return ctx.transcript.sys("no active session");
           }
           ctx.gateway.rpc("session.status", { session_id: ctx.sid }).then(ctx.guarded((r) => ctx.transcript.page(r.output || "(no status)", "Status"))).catch(ctx.guardedErr);
-        }
-      },
-      {
-        help: "resume a prior session",
-        name: "resume",
-        run: (arg, ctx) => {
-          if (ctx.session.guardBusySessionSwitch("switch sessions")) {
-            return;
-          }
-          arg ? ctx.session.resumeById(arg) : patchOverlayState({ picker: true });
         }
       },
       {
@@ -61442,12 +61867,19 @@ var init_session = __esm({
         }
       },
       {
-        aliases: ["switch"],
-        help: "switch between live TUI sessions",
+        aliases: ["switch", "session", "resume"],
+        help: "browse, switch, or resume sessions",
         name: "sessions",
         run: (arg, ctx) => {
-          if (arg.trim().toLowerCase() === "new") {
+          const trimmed = arg.trim();
+          if (trimmed.toLowerCase() === "new") {
             return ctx.session.newLiveSession();
+          }
+          if (trimmed) {
+            if (ctx.session.guardBusySessionSwitch("switch sessions")) {
+              return;
+            }
+            return ctx.session.resumeById(trimmed);
           }
           patchOverlayState({ sessions: true });
         }
@@ -61962,6 +62394,15 @@ ${body}` : body;
           }
           return d.message?.trim() ? send(d.message) : sys(`/${parsed.name}: empty message`);
         }
+        if (d.type === "prefill") {
+          if (d.notice?.trim()) {
+            sys(d.notice);
+          }
+          if (d.message) {
+            ctx.composer.setInput(d.message);
+          }
+          return;
+        }
       }).catch(guardedErr);
     });
     return true;
@@ -61975,6 +62416,22 @@ var init_createSlashHandler = __esm({
     init_rpc();
     await init_registry();
     init_uiStore();
+  }
+});
+
+// src/app/gatewayRecovery.ts
+function planGatewayRecovery(liveSid, recoverSid, attempts, now2) {
+  const sid = liveSid ?? recoverSid;
+  const recent = attempts.filter((t) => now2 - t < GATEWAY_RECOVERY_WINDOW_MS);
+  const recover = Boolean(sid) && recent.length < GATEWAY_RECOVERY_LIMIT;
+  return { attempts: recover ? [...recent, now2] : recent, recover, sid };
+}
+var GATEWAY_RECOVERY_LIMIT, GATEWAY_RECOVERY_WINDOW_MS;
+var init_gatewayRecovery = __esm({
+  "src/app/gatewayRecovery.ts"() {
+    "use strict";
+    GATEWAY_RECOVERY_LIMIT = 3;
+    GATEWAY_RECOVERY_WINDOW_MS = 6e4;
   }
 });
 
@@ -62119,9 +62576,9 @@ var init_useCompletion = __esm({
 });
 
 // src/lib/history.ts
-import { appendFileSync, existsSync as existsSync3, mkdirSync, readFileSync as readFileSync3 } from "node:fs";
-import { homedir as homedir3 } from "node:os";
-import { join as join3 } from "node:path";
+import { appendFileSync as appendFileSync2, existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync3 } from "node:fs";
+import { homedir as homedir4 } from "node:os";
+import { join as join4 } from "node:path";
 function load2() {
   if (cache5) {
     return cache5;
@@ -62165,11 +62622,11 @@ function append(line) {
   }
   try {
     if (!existsSync3(dir)) {
-      mkdirSync(dir, { recursive: true });
+      mkdirSync2(dir, { recursive: true });
     }
     const ts = (/* @__PURE__ */ new Date()).toISOString().replace("T", " ").replace("Z", "");
     const encoded = trimmed.split("\n").map((l) => `+${l}`).join("\n");
-    appendFileSync(file, `
+    appendFileSync2(file, `
 # ${ts}
 ${encoded}
 `);
@@ -62181,8 +62638,8 @@ var init_history = __esm({
   "src/lib/history.ts"() {
     "use strict";
     MAX = 1e3;
-    dir = process.env.HERMES_HOME ?? join3(homedir3(), ".hermes");
-    file = join3(dir, ".hermes_history");
+    dir = process.env.HERMES_HOME ?? join4(homedir4(), ".hermes");
+    file = join4(dir, ".hermes_history");
     cache5 = null;
   }
 });
@@ -62273,7 +62730,7 @@ var init_useQueue = __esm({
 
 // src/lib/editor.ts
 import { accessSync, constants as constants2 } from "node:fs";
-import { delimiter as delimiter2, join as join4 } from "node:path";
+import { delimiter as delimiter2, join as join5 } from "node:path";
 var FALLBACKS, isExecutable, resolveEditor;
 var init_editor = __esm({
   "src/lib/editor.ts"() {
@@ -62296,7 +62753,7 @@ var init_editor = __esm({
         return ["notepad.exe"];
       }
       const dirs = (env5.PATH ?? "").split(delimiter2).filter(Boolean);
-      const found = FALLBACKS.flatMap((name) => dirs.map((d) => join4(d, name))).find(isExecutable);
+      const found = FALLBACKS.flatMap((name) => dirs.map((d) => join5(d, name))).find(isExecutable);
       return [found ?? "vi"];
     };
   }
@@ -62306,7 +62763,7 @@ var init_editor = __esm({
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync as readFileSync4, rmSync, writeFileSync } from "node:fs";
 import { tmpdir as tmpdir2 } from "node:os";
-import { join as join5 } from "node:path";
+import { join as join6 } from "node:path";
 function insertAtCursor(value, cursor, text) {
   const lead = cursor > 0 && !/\s/.test(value[cursor - 1] ?? "") ? " " : "";
   const tail = cursor < value.length && !/\s/.test(value[cursor] ?? "") ? " " : "";
@@ -62465,8 +62922,8 @@ function useComposerState({
     [handleResolvedPaste, onClipboardPaste, querier]
   );
   const openEditor = (0, import_react65.useCallback)(async () => {
-    const dir2 = mkdtempSync(join5(tmpdir2(), "hermes-"));
-    const file2 = join5(dir2, "prompt.md");
+    const dir2 = mkdtempSync(join6(tmpdir2(), "hermes-"));
+    const file2 = join6(dir2, "prompt.md");
     const [cmd, ...args] = resolveEditor();
     writeFileSync(file2, [...inputBuf, input].join("\n"));
     let exitCode = null;
@@ -62972,8 +63429,8 @@ function useInputHandlers(ctx) {
     if (overlay.skillsHub) {
       return patchOverlayState({ skillsHub: false });
     }
-    if (overlay.picker) {
-      return patchOverlayState({ picker: false });
+    if (overlay.sessions) {
+      return patchOverlayState({ sessions: false });
     }
     if (overlay.agents) {
       return patchOverlayState({ agents: false });
@@ -63091,8 +63548,8 @@ function useInputHandlers(ctx) {
       }
       if (isCtrl(key, ch, "c")) {
         cancelOverlayFromCtrlC();
-      } else if (key.escape && overlay.picker) {
-        patchOverlayState({ picker: false });
+      } else if (key.escape && overlay.sessions) {
+        patchOverlayState({ sessions: false });
       }
       if (!fallThroughForScroll) {
         return;
@@ -63480,7 +63937,7 @@ function useSessionLifecycle(opts) {
   );
   const resumeById = (0, import_react70.useCallback)(
     (id) => {
-      patchOverlayState({ picker: false });
+      patchOverlayState({ sessions: false });
       patchUiState({ status: "resuming\u2026" });
       rpc("setup.status", {}).then((setup) => {
         if (setup?.provider_configured === false) {
@@ -63488,30 +63945,36 @@ function useSessionLifecycle(opts) {
           patchUiState({ status: "setup required" });
           return;
         }
-        closeSession(getUiState().sid === id ? null : getUiState().sid).then(
-          () => gw2.request("session.resume", { cols: colsRef.current, session_id: id }).then((raw) => {
-            const r = asRpcResult(raw);
-            if (!r) {
-              sys("error: invalid response: session.resume");
-              return patchUiState({ status: "ready" });
-            }
-            resetSession();
-            setSessionStartedAt(Date.now());
-            const resumed = toTranscriptMessages(r.messages);
-            setHistoryItems(r.info ? [introMsg(r.info), ...resumed] : resumed);
-            writeActiveSessionFile(r.resumed ?? r.session_id);
-            patchUiState({
-              info: r.info ?? null,
-              sid: r.session_id,
-              status: "ready",
-              usage: usageFrom(r.info ?? null)
-            });
-            setTimeout(() => scrollRef.current?.scrollToBottom(), 0);
-          }).catch((e) => {
-            sys(`error: ${e.message}`);
-            patchUiState({ status: "ready" });
-          })
-        );
+        const previousSid = getUiState().sid;
+        gw2.request("session.resume", { cols: colsRef.current, session_id: id }).then((raw) => {
+          const r = asRpcResult(raw);
+          if (!r) {
+            sys("error: invalid response: session.resume");
+            return patchUiState({ status: "ready" });
+          }
+          const info = r.info ?? null;
+          const running = Boolean(r.running || r.status === "working" || r.status === "waiting");
+          resetSession();
+          setSessionStartedAt(r.started_at ? r.started_at * 1e3 : Date.now());
+          const resumed = [...toTranscriptMessages(r.messages), ...liveSessionInflightMessages(r.inflight)];
+          setHistoryItems(info ? [introMsg(info), ...resumed] : resumed);
+          writeActiveSessionFile(r.resumed ?? r.session_id);
+          patchUiState({
+            busy: running,
+            info,
+            sid: r.session_id,
+            status: statusFromLiveSession(r.status, running),
+            usage: usageFrom(info)
+          });
+          hydrateLiveSessionInflight(r.inflight);
+          if (previousSid && previousSid !== r.session_id) {
+            void closeSession(previousSid);
+          }
+          setTimeout(() => scrollRef.current?.scrollToBottom(), 0);
+        }).catch((e) => {
+          sys(`error: ${e.message}`);
+          patchUiState({ status: "ready" });
+        });
       });
     },
     [closeSession, colsRef, gw2, panel, resetSession, rpc, scrollRef, setHistoryItems, setSessionStartedAt, sys]
@@ -63993,6 +64456,8 @@ function useMainApp(gw2) {
   const terminalHintsShownRef = (0, import_react73.useRef)(/* @__PURE__ */ new Set());
   const historyItemsRef = (0, import_react73.useRef)(historyItems);
   const lastUserMsgRef = (0, import_react73.useRef)(lastUserMsg);
+  const recoverSidRef = (0, import_react73.useRef)(null);
+  const recoveryAtRef = (0, import_react73.useRef)([]);
   const msgIdsRef = (0, import_react73.useRef)(/* @__PURE__ */ new WeakMap());
   const msgIdSeqRef = (0, import_react73.useRef)(0);
   const heightCachesRef = (0, import_react73.useRef)(/* @__PURE__ */ new Map());
@@ -64091,6 +64556,14 @@ function useMainApp(gw2) {
     (index) => estimatedMsgHeight(virtualRows[index].msg, cols, {
       compact: ui.compact,
       details: detailsVisible,
+      leadGap: hasLeadGap(
+        prevRenderedMsg((i) => virtualRows[i]?.msg, index, {
+          commandOverride: ui.detailsModeCommandOverride,
+          detailsMode: ui.detailsMode,
+          sections: ui.sections
+        }),
+        virtualRows[index].msg
+      ),
       thinkingVisible: thinkingDetailsVisible,
       toolsVisible: toolsDetailsVisible,
       userPrompt: ui.theme.brand.prompt,
@@ -64103,6 +64576,9 @@ function useMainApp(gw2) {
       thinkingDetailsVisible,
       toolsDetailsVisible,
       ui.compact,
+      ui.detailsMode,
+      ui.detailsModeCommandOverride,
+      ui.sections,
       ui.theme.brand.prompt,
       virtualRows
     ]
@@ -64275,12 +64751,15 @@ function useMainApp(gw2) {
           appendMessage({ role: "user", text: answer });
           patchUiState({ status: "running\u2026" });
         } else {
-          sys("prompt cancelled");
+          appendMessage({
+            role: "system",
+            text: formatAbandonedClarify(clarify.question, clarify.choices, "cancelled")
+          });
         }
         patchOverlayState({ clarify: null });
       });
     },
-    [appendMessage, overlay.clarify, rpc, sys]
+    [appendMessage, overlay.clarify, rpc]
   );
   const paste2 = (0, import_react73.useCallback)(
     (quiet = false) => rpc("clipboard.paste", { session_id: getUiState().sid }).then((r) => {
@@ -64352,6 +64831,7 @@ function useMainApp(gw2) {
         STARTUP_RESUME_ID,
         colsRef,
         newSession: session.newSession,
+        recoverSidRef,
         resetSession: session.resetSession,
         resumeById: session.resumeById,
         setCatalog
@@ -64389,7 +64869,17 @@ function useMainApp(gw2) {
     const handler = (ev) => onEventRef.current(ev);
     const exitHandler = () => {
       turnController.reset();
+      const plan = planGatewayRecovery(getUiState().sid, recoverSidRef.current, recoveryAtRef.current, Date.now());
+      recoveryAtRef.current = plan.attempts;
       patchUiState({ busy: false, sid: null, status: "gateway exited" });
+      if (plan.recover && plan.sid) {
+        recoverSidRef.current = plan.sid;
+        turnController.pushActivity("gateway exited \xB7 recovering session\u2026", "warn");
+        sys("gateway exited \u2014 recovering your session (any in-flight reply was lost)");
+        gw2.start();
+        return;
+      }
+      recoverSidRef.current = null;
       turnController.pushActivity("gateway exited \xB7 /logs to inspect", "error");
       sys("error: gateway exited");
     };
@@ -64558,7 +65048,16 @@ function useMainApp(gw2) {
       newLiveSession: () => session.newLiveSession(),
       newPromptSession,
       onModelSelect,
-      resumeById: session.resumeById,
+      // Resuming a cold session from the overlay CLOSES the current one, so it
+      // must respect the busy guard just like the `/resume` slash path.
+      // (Switching between live sessions and `+ new` keep the current session
+      // running, so those stay unguarded — that's the orchestrator's purpose.)
+      resumeById: (id) => {
+        if (session.guardBusySessionSwitch("switch sessions")) {
+          return;
+        }
+        session.resumeById(id);
+      },
       setStickyPrompt
     }),
     [
@@ -64571,6 +65070,7 @@ function useMainApp(gw2) {
       newPromptSession,
       onModelSelect,
       session.activateLiveSession,
+      session.guardBusySessionSwitch,
       session.newLiveSession,
       session.resumeById
     ]
@@ -64598,7 +65098,10 @@ function useMainApp(gw2) {
   const gitBranch = useGitBranch(cwd2);
   const appStatus = (0, import_react73.useMemo)(
     () => ({
-      cwdLabel: fmtCwdBranch(cwd2, gitBranch),
+      // Cap the status-bar cwd/branch label tighter than the shared default so
+      // it doesn't dominate the bar; the status rule reserves the left-side
+      // essentials and truncates this further on narrow terminals.
+      cwdLabel: fmtCwdBranch(cwd2, gitBranch, 28),
       goodVibesTick,
       sessionStartedAt: ui.sid ? sessionStartedAt : null,
       showStickyPrompt: !!stickyPrompt,
@@ -64638,6 +65141,7 @@ var init_useMainApp = __esm({
     import_react73 = __toESM(require_react(), 1);
     init_env();
     init_limits();
+    init_blockLayout();
     init_details();
     init_messages();
     init_paths();
@@ -64652,6 +65156,7 @@ var init_useMainApp = __esm({
     await init_virtualHeights();
     init_createGatewayEventHandler();
     await init_createSlashHandler();
+    init_gatewayRecovery();
     init_inputSelectionStore();
     init_overlayStore();
     init_scroll();
@@ -64716,9 +65221,9 @@ __export(perfPane_exports, {
   PerfPane: () => PerfPane,
   logFrameEvent: () => logFrameEvent
 });
-import { appendFileSync as appendFileSync2, mkdirSync as mkdirSync2 } from "node:fs";
-import { homedir as homedir4 } from "node:os";
-import { dirname, join as join6 } from "node:path";
+import { appendFileSync as appendFileSync3, mkdirSync as mkdirSync3 } from "node:fs";
+import { homedir as homedir5 } from "node:os";
+import { dirname, join as join7 } from "node:path";
 function PerfPane({ children, id }) {
   if (!ENABLED) {
     return children;
@@ -64734,18 +65239,18 @@ var init_perfPane = __esm({
     import_jsx_runtime17 = __toESM(require_jsx_runtime(), 1);
     ENABLED = /^(?:1|true|yes|on)$/i.test((process.env.HERMES_DEV_PERF ?? "").trim());
     THRESHOLD_MS = Number(process.env.HERMES_DEV_PERF_MS ?? "2") || 0;
-    LOG_PATH = process.env.HERMES_DEV_PERF_LOG?.trim() || join6(homedir4(), ".hermes", "perf.log");
+    LOG_PATH = process.env.HERMES_DEV_PERF_LOG?.trim() || join7(homedir5(), ".hermes", "perf.log");
     logReady = false;
     writeRow = (row) => {
       if (!logReady) {
         logReady = true;
         try {
-          mkdirSync2(dirname(LOG_PATH), { recursive: true });
+          mkdirSync3(dirname(LOG_PATH), { recursive: true });
         } catch {
         }
       }
       try {
-        appendFileSync2(LOG_PATH, `${JSON.stringify(row)}
+        appendFileSync3(LOG_PATH, `${JSON.stringify(row)}
 `);
       } catch {
       }
@@ -65516,7 +66021,7 @@ var init_agentsOverlay = __esm({
   }
 });
 
-// node_modules/unicode-animations/dist/chunk-F2BWZODB.js
+// ../node_modules/unicode-animations/dist/chunk-F2BWZODB.js
 function gridToBraille(grid) {
   const rows = grid.length;
   const cols = grid[0] ? grid[0].length : 0;
@@ -65810,7 +66315,7 @@ function genDiagonalSwipe() {
 }
 var BRAILLE_DOT_MAP, spinners, braille_default;
 var init_chunk_F2BWZODB = __esm({
-  "node_modules/unicode-animations/dist/chunk-F2BWZODB.js"() {
+  "../node_modules/unicode-animations/dist/chunk-F2BWZODB.js"() {
     BRAILLE_DOT_MAP = [
       [1, 8],
       // row 0
@@ -65878,9 +66383,9 @@ var init_chunk_F2BWZODB = __esm({
   }
 });
 
-// node_modules/unicode-animations/dist/index.js
+// ../node_modules/unicode-animations/dist/index.js
 var init_dist5 = __esm({
-  "node_modules/unicode-animations/dist/index.js"() {
+  "../node_modules/unicode-animations/dist/index.js"() {
     init_chunk_F2BWZODB();
   }
 });
@@ -66050,9 +66555,7 @@ var init_viewportStore = __esm({
 });
 
 // src/components/appChrome.tsx
-function FaceTicker({ color, startedAt }) {
-  const ui = useStore($uiState);
-  const style = ui.indicatorStyle;
+function FaceTicker({ color, startedAt, style }) {
   const [tick, setTick] = (0, import_react79.useState)(() => Math.floor(Math.random() * 1e3));
   const [verbTick, setVerbTick] = (0, import_react79.useState)(() => Math.floor(Math.random() * VERBS.length));
   const [now2, setNow] = (0, import_react79.useState)(() => Date.now());
@@ -66102,10 +66605,11 @@ function ctxBar(pct, w = 10) {
   const filled = Math.round(p / 100 * w);
   return "\u2588".repeat(filled) + "\u2591".repeat(w - filled);
 }
-function statusRuleWidths(cols, cwdLabel) {
+function statusRuleWidths(cols, cwdLabel, minLeftContent = 0) {
   const width = Math.max(1, Math.floor(cols || 1));
   const desiredSeparatorWidth = width >= 24 ? 3 : 1;
-  const minLeftWidth = width >= 24 ? 8 : 1;
+  const baseMinLeft = width >= 24 ? 8 : 1;
+  const minLeftWidth = Math.min(width, Math.max(baseMinLeft, Math.floor(minLeftContent)));
   const maxRightWidth = Math.max(0, width - desiredSeparatorWidth - minLeftWidth);
   if (!cwdLabel || maxRightWidth <= 0) {
     return { leftWidth: width, rightWidth: 0, separatorWidth: 0 };
@@ -66114,6 +66618,18 @@ function statusRuleWidths(cols, cwdLabel) {
   const separatorWidth = rightWidth > 0 ? desiredSeparatorWidth : 0;
   const leftWidth = Math.max(1, width - separatorWidth - rightWidth);
   return { leftWidth, rightWidth, separatorWidth };
+}
+function statusBarSegments(cols) {
+  const w = Math.max(1, Math.floor(cols || 1));
+  return {
+    compactCtx: w < 72,
+    bar: w >= 72,
+    duration: w >= 76,
+    compressions: w >= 80,
+    voice: w >= 84,
+    bg: w >= 88,
+    cost: w >= 96
+  };
 }
 function SpawnHud({ t }) {
   const delegation = useStore($delegationState);
@@ -66188,6 +66704,7 @@ function StatusRule({
   model,
   modelFast,
   modelReasoningEffort,
+  indicatorStyle = "kaomoji",
   usage,
   bgCount,
   liveSessionCount,
@@ -66200,34 +66717,57 @@ function StatusRule({
 }) {
   const pct = usage.context_percent;
   const barColor = ctxBarColor(pct, t);
-  const ctxLabel = usage.context_max ? `${fmtK(usage.context_used ?? 0)}/${fmtK(usage.context_max)}` : usage.total > 0 ? `${fmtK(usage.total)} tok` : "";
-  const bar = usage.context_max ? ctxBar(pct) : "";
-  const { leftWidth, rightWidth, separatorWidth } = statusRuleWidths(cols, cwdLabel);
+  const segs = statusBarSegments(cols);
+  const ctxLabel = usage.context_max ? segs.compactCtx ? `${fmtK(usage.context_used ?? 0)} tok` : `${fmtK(usage.context_used ?? 0)}/${fmtK(usage.context_max)}` : usage.total > 0 ? `${fmtK(usage.total)} tok` : "";
+  const bar = !segs.compactCtx && usage.context_max ? ctxBar(pct) : "";
+  const modelText = modelLabel(model, modelReasoningEffort, modelFast);
+  const essentialWidth = stringWidth("\u2500 ") + (busy ? busyIndicatorWidth(indicatorStyle, turnStartedAt != null) : stringWidth(status)) + stringWidth(" \u2502 ") + stringWidth(modelText) + (ctxLabel ? stringWidth(" \u2502 ") + stringWidth(ctxLabel) : 0);
+  const { leftWidth, rightWidth, separatorWidth } = statusRuleWidths(cols, cwdLabel, essentialWidth);
+  const SEP2 = stringWidth(" \u2502 ");
+  let tailBudget = Math.max(0, leftWidth - essentialWidth);
+  const fits = (w) => {
+    if (tailBudget >= w) {
+      tailBudget -= w;
+      return true;
+    }
+    return false;
+  };
   const sessionCountText = liveSessionCount > 0 ? statusSessionCountLabel(liveSessionCount) : "";
+  const compressions = typeof usage.compressions === "number" ? usage.compressions : 0;
+  const costText = typeof usage.cost_usd === "number" ? `$${usage.cost_usd.toFixed(4)}` : "";
+  const showBar = !!bar && fits(SEP2 + stringWidth(`[${bar}] ${pct != null ? `${pct}%` : ""}`));
+  const showDuration = segs.duration && !!sessionStartedAt && fits(SEP2 + MAX_DURATION_WIDTH);
+  const showCompressions = segs.compressions && compressions > 0 && fits(SEP2 + stringWidth(`cmp ${compressions}`));
+  const showVoice = segs.voice && !!voiceLabel && fits(SEP2 + stringWidth(voiceLabel));
+  const showSessionCount = !!sessionCountText && fits(SEP2 + stringWidth(sessionCountText));
+  const showBg = segs.bg && bgCount > 0 && fits(SEP2 + stringWidth(`${bgCount} bg`));
+  const showCostSeg = segs.cost && showCost && !!costText && fits(SEP2 + stringWidth(costText));
   const handleSessionCountClick = (event) => {
     event.stopImmediatePropagation?.();
     onSessionCountClick?.();
   };
-  const sessionCountNode = sessionCountText ? onSessionCountClick ? /* @__PURE__ */ (0, import_jsx_runtime19.jsx)(Box_default, { flexShrink: 0, onClick: handleSessionCountClick, children: /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(Text, { color: t.color.accent, children: [
+  const sessionCountNode = onSessionCountClick ? /* @__PURE__ */ (0, import_jsx_runtime19.jsx)(Box_default, { flexShrink: 0, onClick: handleSessionCountClick, children: /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(Text, { color: t.color.accent, children: [
     " \u2502 ",
     sessionCountText
   ] }) }) : /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(Text, { color: t.color.muted, children: [
     " \u2502 ",
     sessionCountText
-  ] }) : null;
+  ] });
   return /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(Box_default, { height: 1, children: [
     /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(Box_default, { flexDirection: "row", flexShrink: 1, overflow: "hidden", width: leftWidth, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime19.jsx)(Text, { color: t.color.border, wrap: "truncate-end", children: "\u2500 " }),
-      busy ? /* @__PURE__ */ (0, import_jsx_runtime19.jsx)(FaceTicker, { color: statusColor, startedAt: turnStartedAt }) : /* @__PURE__ */ (0, import_jsx_runtime19.jsx)(Text, { color: statusColor, wrap: "truncate-end", children: status }),
-      /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(Text, { color: t.color.muted, wrap: "truncate-end", children: [
-        " \u2502 ",
-        modelLabel(model, modelReasoningEffort, modelFast)
+      /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(Box_default, { flexDirection: "row", flexShrink: 0, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime19.jsx)(Text, { color: t.color.border, children: "\u2500 " }),
+        busy ? /* @__PURE__ */ (0, import_jsx_runtime19.jsx)(FaceTicker, { color: statusColor, startedAt: turnStartedAt, style: indicatorStyle }) : /* @__PURE__ */ (0, import_jsx_runtime19.jsx)(Text, { color: statusColor, wrap: "truncate-end", children: status }),
+        /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(Text, { color: t.color.muted, wrap: "truncate-end", children: [
+          " \u2502 ",
+          modelText
+        ] }),
+        ctxLabel ? /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(Text, { color: t.color.muted, wrap: "truncate-end", children: [
+          " \u2502 ",
+          ctxLabel
+        ] }) : null
       ] }),
-      ctxLabel ? /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(Text, { color: t.color.muted, wrap: "truncate-end", children: [
-        " \u2502 ",
-        ctxLabel
-      ] }) : null,
-      bar ? /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(Text, { color: t.color.muted, wrap: "truncate-end", children: [
+      showBar ? /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(Text, { color: t.color.muted, wrap: "truncate-end", children: [
         " \u2502 ",
         /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(Text, { color: barColor, children: [
           "[",
@@ -66237,25 +66777,18 @@ function StatusRule({
         " ",
         /* @__PURE__ */ (0, import_jsx_runtime19.jsx)(Text, { color: barColor, children: pct != null ? `${pct}%` : "" })
       ] }) : null,
-      sessionStartedAt ? /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(Text, { color: t.color.muted, wrap: "truncate-end", children: [
+      showDuration ? /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(Text, { color: t.color.muted, wrap: "truncate-end", children: [
         " \u2502 ",
         /* @__PURE__ */ (0, import_jsx_runtime19.jsx)(SessionDuration, { startedAt: sessionStartedAt })
       ] }) : null,
-      typeof usage.compressions === "number" && usage.compressions > 0 ? /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(Text, { color: t.color.muted, wrap: "truncate-end", children: [
+      showCompressions ? /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(Text, { color: t.color.muted, wrap: "truncate-end", children: [
         " \u2502 ",
-        /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(
-          Text,
-          {
-            color: usage.compressions >= 10 ? t.color.error : usage.compressions >= 5 ? t.color.warn : t.color.muted,
-            children: [
-              "cmp ",
-              usage.compressions
-            ]
-          }
-        )
+        /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(Text, { color: compressions >= 10 ? t.color.error : compressions >= 5 ? t.color.warn : t.color.muted, children: [
+          "cmp ",
+          compressions
+        ] })
       ] }) : null,
-      /* @__PURE__ */ (0, import_jsx_runtime19.jsx)(SpawnHud, { t }),
-      voiceLabel ? /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(
+      showVoice ? /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(
         Text,
         {
           color: voiceLabel.startsWith("\u25CF") ? t.color.error : voiceLabel.startsWith("\u25C9") ? t.color.warn : t.color.muted,
@@ -66266,16 +66799,17 @@ function StatusRule({
           ]
         }
       ) : null,
-      sessionCountNode,
-      bgCount > 0 ? /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(Text, { color: t.color.muted, wrap: "truncate-end", children: [
+      showSessionCount ? sessionCountNode : null,
+      showBg ? /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(Text, { color: t.color.muted, wrap: "truncate-end", children: [
         " \u2502 ",
         bgCount,
         " bg"
       ] }) : null,
-      showCost && typeof usage.cost_usd === "number" ? /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(Text, { color: t.color.muted, wrap: "truncate-end", children: [
-        " \u2502 $",
-        usage.cost_usd.toFixed(4)
-      ] }) : null
+      showCostSeg ? /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(Text, { color: t.color.muted, wrap: "truncate-end", children: [
+        " \u2502 ",
+        costText
+      ] }) : null,
+      /* @__PURE__ */ (0, import_jsx_runtime19.jsx)(SpawnHud, { t })
     ] }),
     rightWidth > 0 ? /* @__PURE__ */ (0, import_jsx_runtime19.jsxs)(import_jsx_runtime19.Fragment, { children: [
       /* @__PURE__ */ (0, import_jsx_runtime19.jsx)(Text, { color: t.color.border, children: separatorWidth >= 3 ? " \u2500 " : " " }),
@@ -66355,7 +66889,7 @@ function TranscriptScrollbar({ scrollRef, t }) {
     }
   );
 }
-var import_react79, import_jsx_runtime19, FACE_TICK_MS, VERB_PAD_LEN, padVerb, EMOJI_FRAMES, ASCII_FRAMES, SPINNER_TICK_MS, renderIndicator, effortLabel, shortModelLabel, modelLabel;
+var import_react79, import_jsx_runtime19, FACE_TICK_MS, VERB_PAD_LEN, padVerb, EMOJI_FRAMES, ASCII_FRAMES, SPINNER_TICK_MS, renderIndicator, KAOMOJI_FRAME_WIDTH, EMOJI_FRAME_WIDTH, indicatorFrameWidth, MAX_DURATION_WIDTH, busyIndicatorWidth, effortLabel, shortModelLabel, modelLabel;
 var init_appChrome = __esm({
   async "src/components/appChrome.tsx"() {
     "use strict";
@@ -66365,7 +66899,6 @@ var init_appChrome = __esm({
     init_dist5();
     init_delegationStore();
     init_turnStore();
-    init_uiStore();
     init_faces();
     init_verbs();
     init_messages();
@@ -66402,6 +66935,29 @@ var init_appChrome = __esm({
       const frame = spinner.frames[tick % spinner.frames.length] ?? "\u280B";
       return { frame, intervalMs: Math.max(SPINNER_TICK_MS, spinner.interval), showVerb: false };
     };
+    KAOMOJI_FRAME_WIDTH = FACES.reduce((max, f) => Math.max(max, stringWidth(f)), 1);
+    EMOJI_FRAME_WIDTH = EMOJI_FRAMES.reduce((max, f) => Math.max(max, stringWidth(f)), 1);
+    indicatorFrameWidth = (style) => {
+      if (style === "kaomoji") {
+        return KAOMOJI_FRAME_WIDTH;
+      }
+      if (style === "emoji") {
+        return EMOJI_FRAME_WIDTH;
+      }
+      return 1;
+    };
+    MAX_DURATION_WIDTH = Math.max(
+      stringWidth(fmtDuration(59 * 6e4 + 59e3)),
+      // "59m 59s"
+      stringWidth(fmtDuration(99 * 36e5 + 59 * 6e4))
+      // "99h 59m"
+    );
+    busyIndicatorWidth = (style, hasDuration) => {
+      const { showVerb } = renderIndicator(style, 0);
+      const verb = showVerb ? 1 + VERB_PAD_LEN : 0;
+      const duration = hasDuration ? stringWidth(" \xB7 ") + MAX_DURATION_WIDTH : 0;
+      return indicatorFrameWidth(style) + verb + duration;
+    };
     effortLabel = (effort) => {
       const value = String(effort ?? "").trim().toLowerCase();
       return value && value !== "medium" && value !== "normal" && value !== "default" ? value : "";
@@ -66425,6 +66981,100 @@ var init_providers = __esm({
         (p) => (counts.get(p.name) ?? 0) > 1 && p.slug && p.slug !== p.name ? `${p.name} (${p.slug})` : p.name
       );
     };
+  }
+});
+
+// src/lib/fuzzy.ts
+function isBoundary(target, index) {
+  if (index === 0) {
+    return true;
+  }
+  const prev = target[index - 1];
+  if (WORD_BOUNDARY.test(prev)) {
+    return true;
+  }
+  const cur = target[index];
+  return prev === prev.toLowerCase() && cur !== cur.toLowerCase() && cur === cur.toUpperCase();
+}
+function fuzzyScore(target, query) {
+  if (!query) {
+    return { score: 0, positions: [] };
+  }
+  const lowerTarget = target.toLowerCase();
+  const lowerQuery = query.toLowerCase();
+  const positions = [];
+  let score = 0;
+  let prevIndex = -1;
+  let searchFrom = 0;
+  for (const ch of lowerQuery) {
+    const idx = lowerTarget.indexOf(ch, searchFrom);
+    if (idx < 0) {
+      return null;
+    }
+    positions.push(idx);
+    score += 1;
+    if (prevIndex >= 0 && idx === prevIndex + 1) {
+      score += 5;
+    } else if (prevIndex >= 0) {
+      score -= Math.min(idx - prevIndex - 1, 3);
+    }
+    if (isBoundary(target, idx)) {
+      score += 3;
+    }
+    if (idx === 0) {
+      score += 5;
+    }
+    prevIndex = idx;
+    searchFrom = idx + 1;
+  }
+  if (positions.length && positions[0] === 0 && positions[positions.length - 1] === positions.length - 1) {
+    score += 8;
+  }
+  if (lowerTarget === lowerQuery) {
+    score += 20;
+  }
+  score -= lowerTarget.length * 0.01;
+  return { score, positions };
+}
+function fuzzyScoreMulti(target, query) {
+  const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (!tokens.length) {
+    return { score: 0, positions: [] };
+  }
+  let score = 0;
+  const positionSet = /* @__PURE__ */ new Set();
+  for (const token of tokens) {
+    const match = fuzzyScore(target, token);
+    if (!match) {
+      return null;
+    }
+    score += match.score;
+    for (const pos of match.positions) {
+      positionSet.add(pos);
+    }
+  }
+  return { score, positions: [...positionSet].sort((a, b) => a - b) };
+}
+function fuzzyRank(items, query, toText) {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    return items.map((item) => ({ item, score: 0, positions: [] }));
+  }
+  const ranked = [];
+  items.forEach((item, index) => {
+    const match = fuzzyScoreMulti(toText(item), trimmed);
+    if (match) {
+      ranked.push({ item, score: match.score, positions: match.positions, index });
+    }
+  });
+  ranked.sort((a, b) => b.score - a.score || a.index - b.index);
+  return ranked.map(({ item, score, positions }) => ({ item, score, positions }));
+}
+var WORD_BOUNDARY;
+var init_fuzzy = __esm({
+  "src/lib/fuzzy.ts"() {
+    "use strict";
+    WORD_BOUNDARY = /[-_/.\s]/;
   }
 });
 
@@ -66475,6 +67125,7 @@ function ModelPicker({ allowPersistGlobal = true, gw: gw2, onCancel, onSelect, s
   const [keyInput, setKeyInput] = (0, import_react80.useState)("");
   const [keySaving, setKeySaving] = (0, import_react80.useState)(false);
   const [keyError, setKeyError] = (0, import_react80.useState)("");
+  const [filter, setFilter] = (0, import_react80.useState)("");
   const { stdout } = useStdout();
   const width = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, (stdout?.columns ?? 80) - 6));
   (0, import_react80.useEffect)(() => {
@@ -66503,21 +67154,60 @@ function ModelPicker({ allowPersistGlobal = true, gw: gw2, onCancel, onSelect, s
       setLoading(false);
     });
   }, [gw2, sessionId]);
-  const provider = providers[providerIdx];
-  const models = provider?.models ?? [];
   const names = (0, import_react80.useMemo)(() => providerDisplayNames(providers), [providers]);
+  const providerRows = (0, import_react80.useMemo)(
+    () => providers.map((p, i) => ({ provider: p, name: names[i] ?? p.name ?? p.slug })),
+    [providers, names]
+  );
+  const filteredProviderRows = (0, import_react80.useMemo)(() => {
+    if (stage !== "provider" || !filter.trim()) {
+      return providerRows;
+    }
+    return fuzzyRank(
+      providerRows,
+      filter,
+      (row) => `${row.name} ${row.provider.slug} ${(row.provider.models ?? []).join(" ")}`
+    ).map((r) => r.item);
+  }, [providerRows, filter, stage]);
+  const provider = filteredProviderRows[providerIdx]?.provider;
+  const allModels = (0, import_react80.useMemo)(() => provider?.models ?? [], [provider]);
+  const filteredModels = (0, import_react80.useMemo)(() => {
+    if (stage !== "model" || !filter.trim()) {
+      return allModels;
+    }
+    return fuzzyRank(allModels, filter, (m) => m).map((r) => r.item);
+  }, [allModels, filter, stage]);
+  const models = filteredModels;
+  (0, import_react80.useEffect)(() => {
+    if (providerIdx >= filteredProviderRows.length && filteredProviderRows.length > 0) {
+      setProviderIdx(0);
+    }
+  }, [filteredProviderRows.length, providerIdx]);
+  (0, import_react80.useEffect)(() => {
+    if (modelIdx >= models.length && models.length > 0) {
+      setModelIdx(0);
+    }
+  }, [models.length, modelIdx]);
   const back = () => {
+    if ((stage === "provider" || stage === "model") && filter.trim()) {
+      setFilter("");
+      setProviderIdx(stage === "provider" ? 0 : providerIdx);
+      setModelIdx(0);
+      return;
+    }
     if (stage === "model" || stage === "key" || stage === "disconnect") {
       setStage("provider");
       setModelIdx(0);
       setKeyInput("");
       setKeyError("");
       setKeySaving(false);
+      setFilter("");
       return;
     }
     onCancel();
   };
-  useOverlayKeys({ onBack: back, onClose: onCancel });
+  const listStage = stage === "provider" || stage === "model";
+  useOverlayKeys({ disabled: listStage, onBack: back, onClose: onCancel });
   use_input_default((ch, key) => {
     if (stage === "key") {
       if (keySaving) {
@@ -66603,7 +67293,15 @@ function ModelPicker({ allowPersistGlobal = true, gw: gw2, onCancel, onSelect, s
       }
       return;
     }
-    const count = stage === "provider" ? providers.length : models.length;
+    if (key.escape) {
+      back();
+      return;
+    }
+    if (ch === "q" && !filter) {
+      onCancel();
+      return;
+    }
+    const count = stage === "provider" ? filteredProviderRows.length : models.length;
     const sel = stage === "provider" ? providerIdx : modelIdx;
     const setSel = stage === "provider" ? setProviderIdx : setModelIdx;
     if (key.upArrow && sel > 0) {
@@ -66624,11 +67322,13 @@ function ModelPicker({ allowPersistGlobal = true, gw: gw2, onCancel, onSelect, s
             setStage("key");
             setKeyInput("");
             setKeyError("");
+            setFilter("");
           }
           return;
         }
         setStage("model");
         setModelIdx(0);
+        setFilter("");
         return;
       }
       const model = models[modelIdx];
@@ -66641,13 +67341,27 @@ function ModelPicker({ allowPersistGlobal = true, gw: gw2, onCancel, onSelect, s
       }
       return;
     }
-    if (allowPersistGlobal && ch.toLowerCase() === "g") {
+    if (key.backspace || key.delete) {
+      setFilter((v) => v.slice(0, -1));
+      setSel(0);
+      return;
+    }
+    if (key.ctrl && ch === "u") {
+      setFilter("");
+      setSel(0);
+      return;
+    }
+    if (allowPersistGlobal && key.ctrl && ch === "g") {
       setPersistGlobal((v) => !v);
       return;
     }
-    if (ch.toLowerCase() === "d" && stage === "provider" && provider?.authenticated !== false) {
+    if (key.ctrl && ch === "d" && stage === "provider" && provider?.authenticated !== false) {
       setStage("disconnect");
       return;
+    }
+    if (ch && !key.ctrl && !key.meta && ch.length === 1 && ch >= " ") {
+      setFilter((v) => v + ch);
+      setSel(0);
     }
   });
   if (loading) {
@@ -66713,13 +67427,14 @@ function ModelPicker({ allowPersistGlobal = true, gw: gw2, onCancel, onSelect, s
     ] });
   }
   if (stage === "provider") {
-    const rows = providers.map((p, i) => {
+    const rows = filteredProviderRows.map(({ provider: p, name }) => {
       const authMark = p.authenticated === false ? "\u25CB" : p.is_current ? "*" : "\u25CF";
       const modelCount = p.total_models ?? p.models?.length ?? 0;
       const suffix = p.authenticated === false ? p.auth_type === "api_key" ? "(no key)" : "(needs setup)" : `${modelCount} models`;
-      return `${authMark} ${names[i]} \xB7 ${suffix}`;
+      return `${authMark} ${name} \xB7 ${suffix}`;
     });
     const { items: items2, offset: offset2 } = windowItems(rows, providerIdx, VISIBLE);
+    const noMatches = !!filter.trim() && rows.length === 0;
     return /* @__PURE__ */ (0, import_jsx_runtime21.jsxs)(Box_default, { flexDirection: "column", width, children: [
       /* @__PURE__ */ (0, import_jsx_runtime21.jsx)(Text, { bold: true, color: t.color.accent, wrap: "truncate-end", children: "Select provider (step 1/2)" }),
       /* @__PURE__ */ (0, import_jsx_runtime21.jsx)(Text, { color: t.color.muted, wrap: "truncate-end", children: "Full model IDs on the next step \xB7 Enter to continue" }),
@@ -66727,12 +67442,13 @@ function ModelPicker({ allowPersistGlobal = true, gw: gw2, onCancel, onSelect, s
         "Current: ",
         currentModel || "(unknown)"
       ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime21.jsx)(Text, { color: filter ? t.color.accent : t.color.muted, wrap: "truncate-end", children: filter ? `filter: ${filter}\u258E` : "type to filter \xB7 \u2191/\u2193 select" }),
       /* @__PURE__ */ (0, import_jsx_runtime21.jsx)(Text, { color: t.color.label, wrap: "truncate-end", children: provider?.warning ? `warning: ${provider.warning}` : " " }),
       /* @__PURE__ */ (0, import_jsx_runtime21.jsx)(Text, { color: t.color.muted, wrap: "truncate-end", children: offset2 > 0 ? ` \u2191 ${offset2} more` : " " }),
-      Array.from({ length: VISIBLE }, (_, i) => {
+      noMatches ? /* @__PURE__ */ (0, import_jsx_runtime21.jsx)(Text, { color: t.color.muted, wrap: "truncate-end", children: "no providers match" }) : Array.from({ length: VISIBLE }, (_, i) => {
         const row = items2[i];
         const idx = offset2 + i;
-        const p = providers[idx];
+        const p = filteredProviderRows[idx]?.provider;
         const dimmed = p?.authenticated === false;
         return row ? /* @__PURE__ */ (0, import_jsx_runtime21.jsxs)(
           Text,
@@ -66748,32 +67464,34 @@ function ModelPicker({ allowPersistGlobal = true, gw: gw2, onCancel, onSelect, s
               row
             ]
           },
-          providers[idx]?.slug ?? `row-${idx}`
+          p?.slug ?? `row-${idx}`
         ) : /* @__PURE__ */ (0, import_jsx_runtime21.jsx)(Text, { color: t.color.muted, wrap: "truncate-end", children: " " }, `pad-${i}`);
       }),
       /* @__PURE__ */ (0, import_jsx_runtime21.jsx)(Text, { color: t.color.muted, wrap: "truncate-end", children: offset2 + VISIBLE < rows.length ? ` \u2193 ${rows.length - offset2 - VISIBLE} more` : " " }),
       /* @__PURE__ */ (0, import_jsx_runtime21.jsxs)(Text, { color: t.color.muted, wrap: "truncate-end", children: [
         "persist: ",
         allowPersistGlobal ? persistGlobal ? "global" : "session" : "session",
-        allowPersistGlobal ? " \xB7 g toggle" : " only"
+        allowPersistGlobal ? " \xB7 ^g toggle" : " only"
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime21.jsx)(OverlayHint, { t, children: "\u2191/\u2193 select \xB7 Enter choose \xB7 d disconnect \xB7 Esc/q cancel" })
+      /* @__PURE__ */ (0, import_jsx_runtime21.jsx)(OverlayHint, { t, children: "\u2191/\u2193 select \xB7 Enter choose \xB7 ^d disconnect \xB7 Esc clear/back \xB7 q close" })
     ] });
   }
   const { items, offset } = windowItems(models, modelIdx, VISIBLE);
+  const noModelMatches = !!filter.trim() && models.length === 0;
   return /* @__PURE__ */ (0, import_jsx_runtime21.jsxs)(Box_default, { flexDirection: "column", width, children: [
     /* @__PURE__ */ (0, import_jsx_runtime21.jsx)(Text, { bold: true, color: t.color.accent, wrap: "truncate-end", children: "Select model (step 2/2)" }),
     /* @__PURE__ */ (0, import_jsx_runtime21.jsxs)(Text, { color: t.color.muted, wrap: "truncate-end", children: [
-      names[providerIdx] || "(unknown provider)",
+      filteredProviderRows[providerIdx]?.name || "(unknown provider)",
       " \xB7 Esc back"
     ] }),
+    /* @__PURE__ */ (0, import_jsx_runtime21.jsx)(Text, { color: filter ? t.color.accent : t.color.muted, wrap: "truncate-end", children: filter ? `filter: ${filter}\u258E` : "type to filter \xB7 \u2191/\u2193 select" }),
     /* @__PURE__ */ (0, import_jsx_runtime21.jsx)(Text, { color: t.color.label, wrap: "truncate-end", children: provider?.warning ? `warning: ${provider.warning}` : " " }),
     /* @__PURE__ */ (0, import_jsx_runtime21.jsx)(Text, { color: t.color.muted, wrap: "truncate-end", children: offset > 0 ? ` \u2191 ${offset} more` : " " }),
     Array.from({ length: VISIBLE }, (_, i) => {
       const row = items[i];
       const idx = offset + i;
       if (!row) {
-        return !models.length && i === 0 ? /* @__PURE__ */ (0, import_jsx_runtime21.jsx)(Text, { color: t.color.muted, wrap: "truncate-end", children: "no models listed for this provider" }, "empty") : /* @__PURE__ */ (0, import_jsx_runtime21.jsx)(Text, { color: t.color.muted, wrap: "truncate-end", children: " " }, `pad-${i}`);
+        return (!allModels.length || noModelMatches) && i === 0 ? /* @__PURE__ */ (0, import_jsx_runtime21.jsx)(Text, { color: t.color.muted, wrap: "truncate-end", children: noModelMatches ? "no models match filter" : "no models listed for this provider" }, "empty") : /* @__PURE__ */ (0, import_jsx_runtime21.jsx)(Text, { color: t.color.muted, wrap: "truncate-end", children: " " }, `pad-${i}`);
       }
       const prefix = modelIdx === idx ? "\u25B8 " : row === currentModel ? "* " : "  ";
       return /* @__PURE__ */ (0, import_jsx_runtime21.jsxs)(
@@ -66797,9 +67515,9 @@ function ModelPicker({ allowPersistGlobal = true, gw: gw2, onCancel, onSelect, s
     /* @__PURE__ */ (0, import_jsx_runtime21.jsxs)(Text, { color: t.color.muted, wrap: "truncate-end", children: [
       "persist: ",
       allowPersistGlobal ? persistGlobal ? "global" : "session" : "session",
-      allowPersistGlobal ? " \xB7 g toggle" : " only"
+      allowPersistGlobal ? " \xB7 ^g toggle" : " only"
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime21.jsx)(OverlayHint, { t, children: models.length ? "\u2191/\u2193 select \xB7 Enter switch \xB7 Esc back \xB7 q close" : "Enter/Esc back \xB7 q close" })
+    /* @__PURE__ */ (0, import_jsx_runtime21.jsx)(OverlayHint, { t, children: models.length ? "\u2191/\u2193 select \xB7 Enter switch \xB7 Esc clear/back \xB7 q close" : "Esc back \xB7 q close" })
   ] });
 }
 var import_react80, import_jsx_runtime21, VISIBLE, MIN_WIDTH, MAX_WIDTH;
@@ -66810,6 +67528,7 @@ var init_modelPicker = __esm({
     import_react80 = __toESM(require_react(), 1);
     init_providers();
     init_slash();
+    init_fuzzy();
     init_rpc();
     await init_overlayControls();
     import_jsx_runtime21 = __toESM(require_jsx_runtime(), 1);
@@ -66868,6 +67587,24 @@ function applyPrintableInsert(value, cursor, text, range) {
     cursor: cursor + text.length,
     value: value.slice(0, cursor) + text + value.slice(cursor)
   };
+}
+function shouldPreserveCtrlJNewline(env5 = process.env) {
+  if (env5.WT_SESSION) {
+    return true;
+  }
+  if (env5.SSH_CONNECTION || env5.SSH_CLIENT || env5.SSH_TTY) {
+    return true;
+  }
+  if (env5.GHOSTTY_RESOURCES_DIR || env5.GHOSTTY_BIN_DIR) {
+    return true;
+  }
+  if ((env5.TERM ?? "").toLowerCase() === "xterm-ghostty") {
+    return true;
+  }
+  if ((env5.TERM_PROGRAM ?? "").toLowerCase() === "ghostty") {
+    return true;
+  }
+  return (env5.WSL_DISTRO_NAME ?? "").toLowerCase().includes("microsoft");
 }
 function prevPos(s, p) {
   const pos = snapPos(s, p);
@@ -67040,7 +67777,7 @@ function TextInput2({
   const parentChangeTimer = (0, import_react81.useRef)(null);
   const pendingParentValue = (0, import_react81.useRef)(null);
   const localRenderTimer = (0, import_react81.useRef)(null);
-  const lineWidthRef = (0, import_react81.useRef)(stringWidth4(value.includes("\n") ? value.slice(value.lastIndexOf("\n") + 1) : value));
+  const lineWidthRef = (0, import_react81.useRef)(stringWidth6(value.includes("\n") ? value.slice(value.lastIndexOf("\n") + 1) : value));
   const mouseAnchorRef = (0, import_react81.useRef)(null);
   const lastClickRef = (0, import_react81.useRef)({ at: 0, offset: -1 });
   const undo = (0, import_react81.useRef)([]);
@@ -67095,7 +67832,7 @@ function TextInput2({
       curRef.current = value.length;
       selRef.current = null;
       vRef.current = value;
-      lineWidthRef.current = stringWidth4(value.includes("\n") ? value.slice(value.lastIndexOf("\n") + 1) : value);
+      lineWidthRef.current = stringWidth6(value.includes("\n") ? value.slice(value.lastIndexOf("\n") + 1) : value);
       undo.current = [];
       redo.current = [];
     }
@@ -67198,7 +67935,7 @@ function TextInput2({
     }
     curRef.current = c;
     vRef.current = next;
-    lineWidthRef.current = nextLineWidth ?? stringWidth4(next.includes("\n") ? next.slice(next.lastIndexOf("\n") + 1) : next);
+    lineWidthRef.current = nextLineWidth ?? stringWidth6(next.includes("\n") ? next.slice(next.lastIndexOf("\n") + 1) : next);
     if (next !== prev) {
       if (syncParent) {
         flushParentChange();
@@ -67390,7 +68127,9 @@ function TextInput2({
       }
       if (k.return) {
         flushKeyBurst();
-        if (k.shift || k.ctrl || (isMac ? isActionMod(k) : k.meta)) {
+        const sequence = event.keypress.sequence;
+        const preserveBareLineFeed = shouldPreserveCtrlJNewline() && sequence === "\n";
+        if (k.shift || k.ctrl || preserveBareLineFeed || (isMac ? isActionMod(k) : k.meta)) {
           commit(ins(vRef.current, curRef.current, "\n"), curRef.current + 1);
         } else {
           cbSubmit.current?.(vRef.current);
@@ -67552,7 +68291,7 @@ function TextInput2({
             if (simpleAppend) {
               stdout.write(text);
               noteCursorAdvance(text.length);
-              commit(v, c, true, false, false, lineWidthRef.current + stringWidth4(text));
+              commit(v, c, true, false, false, lineWidthRef.current + stringWidth6(text));
               return;
             }
           }
@@ -67629,7 +68368,7 @@ function decideRightClickAction(value, range) {
   }
   return { action: "paste" };
 }
-var import_react81, import_jsx_runtime22, ink, Box3, Text3, useStdin3, useInput3, useStdout2, stringWidth4, useCursorAdvance2, useDeclaredCursor2, useTerminalFocus2, ESC4, INV, INV_OFF, DIM, DIM_OFF, FWD_DEL_RE, PRINTABLE, BRACKET_PASTE, FRAME_BATCH_MS, MULTI_CLICK_MS, invert, dim, _seg2, seg2, STOP_CACHE_MAX, stopCache, shouldRouteMultiCharInputAsPaste, ASCII_PRINTABLE_RE, isPasteResultPromise, shouldPassThroughToGlobalHandler;
+var import_react81, import_jsx_runtime22, ink, Box3, Text3, useStdin3, useInput3, useStdout2, stringWidth6, useCursorAdvance2, useDeclaredCursor2, useTerminalFocus2, ESC4, INV, INV_OFF, DIM, DIM_OFF, FWD_DEL_RE, PRINTABLE, BRACKET_PASTE, FRAME_BATCH_MS, MULTI_CLICK_MS, invert, dim, _seg2, seg2, STOP_CACHE_MAX, stopCache, shouldRouteMultiCharInputAsPaste, ASCII_PRINTABLE_RE, isPasteResultPromise, shouldPassThroughToGlobalHandler;
 var init_textInput = __esm({
   async "src/components/textInput.tsx"() {
     "use strict";
@@ -67642,7 +68381,7 @@ var init_textInput = __esm({
     init_termux();
     import_jsx_runtime22 = __toESM(require_jsx_runtime(), 1);
     ink = entry_exports_exports;
-    ({ Box: Box3, Text: Text3, useStdin: useStdin3, useInput: useInput3, useStdout: useStdout2, stringWidth: stringWidth4, useCursorAdvance: useCursorAdvance2, useDeclaredCursor: useDeclaredCursor2, useTerminalFocus: useTerminalFocus2 } = ink);
+    ({ Box: Box3, Text: Text3, useStdin: useStdin3, useInput: useInput3, useStdout: useStdout2, stringWidth: stringWidth6, useCursorAdvance: useCursorAdvance2, useDeclaredCursor: useDeclaredCursor2, useTerminalFocus: useTerminalFocus2 } = ink);
     ESC4 = "\x1B";
     INV = `${ESC4}[7m`;
     INV_OFF = `${ESC4}[27m`;
@@ -67680,10 +68419,12 @@ function ActiveSessionSwitcher({
   onClose,
   onNew,
   onNewPrompt,
+  onResume,
   onSelect,
   t
 }) {
   const [items, setItems] = (0, import_react82.useState)([]);
+  const [history, setHistory] = (0, import_react82.useState)([]);
   const [err, setErr] = (0, import_react82.useState)("");
   const [sel, setSel] = (0, import_react82.useState)(0);
   const [loading, setLoading] = (0, import_react82.useState)(true);
@@ -67691,33 +68432,81 @@ function ActiveSessionSwitcher({
   const [draftModel, setDraftModel] = (0, import_react82.useState)("");
   const [pickingModel, setPickingModel] = (0, import_react82.useState)(false);
   const [closingId, setClosingId] = (0, import_react82.useState)("");
+  const [confirmDelete, setConfirmDelete] = (0, import_react82.useState)(null);
+  const [deleting, setDeleting] = (0, import_react82.useState)(false);
   const initialSelectionAppliedRef = (0, import_react82.useRef)(false);
+  const rawHistoryRef = (0, import_react82.useRef)([]);
+  const itemsRef = (0, import_react82.useRef)([]);
+  const historyDisplayRef = (0, import_react82.useRef)([]);
   const { stdout } = useStdout();
   const width = Math.max(MIN_WIDTH2, Math.min(MAX_WIDTH2, (stdout?.columns ?? 80) - 6));
   const promptColumns = Math.max(20, width - 11);
+  const liveCount = items.length;
+  const histCount = history.length;
+  const listLen = liveCount + histCount;
+  const total = listLen + 1;
+  const rowKind = (0, import_react82.useCallback)((index) => sessionRowKindAt(index, liveCount), [liveCount]);
   const load3 = (0, import_react82.useCallback)(
-    async (quiet = false) => {
+    // `quiet` skips the loading spinner (used by the live-status poll);
+    // `includeHistory` re-queries the resumable DB list (skipped on the 1.5s
+    // poll, which only needs fresh live-session status).
+    async (quiet = false, includeHistory = true) => {
       if (!quiet) {
         setLoading(true);
       }
       try {
-        const raw = await gw2.request("session.active_list", {
-          current_session_id: currentSessionId
-        });
-        const r = asRpcResult(raw);
+        const [liveRes, histRes] = await Promise.allSettled([
+          gw2.request("session.active_list", {
+            current_session_id: currentSessionId
+          }),
+          includeHistory ? gw2.request("session.list", { limit: 200 }) : Promise.resolve(null)
+        ]);
+        const r = liveRes.status === "fulfilled" ? asRpcResult(liveRes.value) : null;
         if (!r) {
           setErr("invalid response: session.active_list");
           setLoading(false);
           return [];
         }
         const next = r.sessions ?? [];
+        let histError = "";
+        if (includeHistory) {
+          if (histRes.status === "fulfilled") {
+            const parsedHist = asRpcResult(histRes.value);
+            if (parsedHist) {
+              rawHistoryRef.current = parsedHist.sessions ?? [];
+            } else {
+              histError = "invalid response: session.list";
+            }
+          } else {
+            histError = "could not load resumable sessions";
+          }
+        }
+        const hist = resumableHistory(rawHistoryRef.current, next);
         const initializeSelection = !initialSelectionAppliedRef.current;
         initialSelectionAppliedRef.current = true;
+        const maxSel = next.length + hist.length;
         setItems(next);
-        setSel(
-          (s) => initializeSelection ? clampOrchestratorSelection(currentSessionSelectionIndex(next, currentSessionId), next.length) : clampOrchestratorSelection(s, next.length)
-        );
-        setErr("");
+        setHistory(hist);
+        setSel((s) => {
+          if (initializeSelection) {
+            return next.length ? Math.min(currentSessionSelectionIndex(next, currentSessionId) + 1, maxSel) : 0;
+          }
+          if (s <= 0) {
+            return 0;
+          }
+          const prevItems = itemsRef.current;
+          const prevHist = historyDisplayRef.current;
+          const clamp2 = () => Math.max(0, Math.min(s, maxSel));
+          if (s - 1 < prevItems.length) {
+            const id2 = prevItems[s - 1]?.id;
+            const i2 = id2 ? next.findIndex((x) => x.id === id2) : -1;
+            return i2 >= 0 ? i2 + 1 : clamp2();
+          }
+          const id = prevHist[s - 1 - prevItems.length]?.id;
+          const i = id ? hist.findIndex((x) => x.id === id) : -1;
+          return i >= 0 ? 1 + next.length + i : clamp2();
+        });
+        setErr(histError);
         setLoading(false);
         return next;
       } catch (e) {
@@ -67729,8 +68518,12 @@ function ActiveSessionSwitcher({
     [currentSessionId, gw2]
   );
   (0, import_react82.useEffect)(() => {
+    itemsRef.current = items;
+    historyDisplayRef.current = history;
+  }, [items, history]);
+  (0, import_react82.useEffect)(() => {
     void load3();
-    const timer = setInterval(() => void load3(true), 1500);
+    const timer = setInterval(() => void load3(true, false), 1500);
     return () => clearInterval(timer);
   }, [load3]);
   const submitDraft = (0, import_react82.useCallback)(
@@ -67745,8 +68538,8 @@ function ActiveSessionSwitcher({
     [draftModel, onNewPrompt]
   );
   const closeSelected = (0, import_react82.useCallback)(async () => {
-    const target = items[sel];
-    if (!target || isNewSessionRow(sel, items.length) || closingId) {
+    const target = items[sel - 1];
+    if (!target || rowKind(sel) !== "live" || closingId) {
       return;
     }
     setErr("");
@@ -67765,31 +68558,74 @@ function ActiveSessionSwitcher({
       } else if (fallback.action === "new") {
         onNew();
       } else {
-        setSel((s) => clampOrchestratorSelection(s, remaining.length));
+        setSel((s) => Math.max(0, Math.min(s, remaining.length + history.length)));
       }
     } catch (e) {
       setErr(rpcErrorMessage(e));
     } finally {
       setClosingId("");
     }
-  }, [closingId, currentSessionId, items, load3, onClose, onNew, onSelect, sel]);
+  }, [closingId, currentSessionId, history.length, items, load3, onClose, onNew, onSelect, rowKind, sel]);
+  const performDelete = (0, import_react82.useCallback)(
+    (id) => {
+      const target = history.find((h) => h.id === id);
+      if (!target || deleting) {
+        return;
+      }
+      setDeleting(true);
+      gw2.request("session.delete", { session_id: target.id }).then((raw) => {
+        const r = asRpcResult(raw);
+        if (!r || r.deleted !== target.id) {
+          setErr("invalid response: session.delete");
+          setDeleting(false);
+          return;
+        }
+        rawHistoryRef.current = rawHistoryRef.current.filter((h) => h.id !== target.id);
+        setHistory((prev) => prev.filter((h) => h.id !== target.id));
+        setSel((s) => Math.max(0, Math.min(s, items.length + history.length - 1)));
+        setErr("");
+        setDeleting(false);
+      }).catch((e) => {
+        setErr(rpcErrorMessage(e));
+        setDeleting(false);
+      });
+    },
+    [deleting, gw2, history, items.length]
+  );
   const handleRowClick = (0, import_react82.useCallback)(
     (index) => (event) => {
       event.stopImmediatePropagation?.();
-      const action2 = orchestratorRowClickAction(index, items);
-      if (action2.action === "activate") {
-        setSel(clampOrchestratorSelection(index, items.length));
-        onSelect(action2.sessionId);
+      const kind = rowKind(index);
+      const clamped = Math.max(0, Math.min(index, total - 1));
+      if (kind === "live") {
+        setSel(clamped);
+        onSelect(items[index - 1].id);
         return;
       }
-      setSel(newSessionRowIndex(items.length));
+      if (kind === "history") {
+        setSel(clamped);
+        onResume(history[index - 1 - items.length].id);
+        return;
+      }
+      setSel(0);
     },
-    [items, onSelect]
+    [history, items, onResume, onSelect, rowKind, total]
   );
-  const newSelected = isNewSessionRow(sel, items.length);
+  const selectedKind = rowKind(sel);
+  const newSelected = selectedKind === "new";
   const draftHasText = Boolean(draft.trim());
   use_input_default((ch, key) => {
-    if (pickingModel) {
+    if (pickingModel || deleting) {
+      return;
+    }
+    if (confirmDelete !== null) {
+      if (ch?.toLowerCase() === "d") {
+        const id = confirmDelete;
+        setConfirmDelete(null);
+        performDelete(id);
+      } else {
+        setConfirmDelete(null);
+      }
       return;
     }
     const lower = ch?.toLowerCase() ?? "";
@@ -67811,19 +68647,23 @@ function ActiveSessionSwitcher({
       return;
     }
     if (isCtrl2("d")) {
-      if (!newSelected) {
+      if (selectedKind === "live") {
         void closeSelected();
       }
+      return;
+    }
+    if (lower === "d" && !key.ctrl && selectedKind === "history") {
+      setConfirmDelete(history[sel - 1 - items.length]?.id ?? null);
       return;
     }
     if (newSelected && draftHasText) {
       return;
     }
     if (key.upArrow && sel > 0) {
-      return setSel((s) => clampOrchestratorSelection(s - 1, items.length));
+      return setSel((s) => Math.max(0, s - 1));
     }
-    if (key.downArrow && sel < newSessionRowIndex(items.length)) {
-      return setSel((s) => clampOrchestratorSelection(s + 1, items.length));
+    if (key.downArrow && sel < total - 1) {
+      return setSel((s) => Math.min(total - 1, s + 1));
     }
     if (key.return) {
       if (newSelected) {
@@ -67832,8 +68672,11 @@ function ActiveSessionSwitcher({
         }
         return;
       }
-      if (items[sel]) {
-        return onSelect(items[sel].id);
+      if (selectedKind === "live" && items[sel - 1]) {
+        return onSelect(items[sel - 1].id);
+      }
+      if (selectedKind === "history" && history[sel - 1 - items.length]) {
+        return onResume(history[sel - 1 - items.length].id);
       }
     }
   });
@@ -67854,31 +68697,56 @@ function ActiveSessionSwitcher({
     );
   }
   if (loading) {
-    return /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Text, { color: t.color.muted, children: "loading session orchestrator\u2026" });
+    return /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Text, { color: t.color.muted, children: "loading sessions\u2026" });
   }
-  const totalRows = items.length + 1;
-  const offset = windowOffset(totalRows, sel, VISIBLE2);
-  const visibleRows = orchestratorVisibleRowIndexes(items.length, sel, VISIBLE2);
+  const listSel = sel > 0 ? sel - 1 : 0;
+  const offset = windowOffset(listLen, listSel, VISIBLE2);
+  const visibleCount = Math.max(0, Math.min(VISIBLE2, listLen - offset));
+  const visibleRows = Array.from({ length: visibleCount }, (_, k) => offset + k + 1);
+  const newSelectedRow = sel === 0;
+  const newRowStyle = newSelectedRow ? selectedSessionRowStyle(t) : null;
+  const newRowTextColor = newRowStyle?.color;
+  const newRowMarkerColor = newSessionMarkerColor(t, newSelectedRow);
+  const promptTitle = draftTitleFromPrompt(draft) || "Start a new live session";
   return /* @__PURE__ */ (0, import_jsx_runtime23.jsxs)(Box_default, { flexDirection: "column", width, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Text, { bold: true, color: t.color.accent, children: "Session Orchestrator" }),
-    /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Text, { color: t.color.muted, children: activeSessionCountLabel(items.length) }),
+    /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Text, { bold: true, color: t.color.accent, children: "Sessions" }),
+    /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Text, { color: t.color.muted, children: sessionsCountLabel(items.length, history.length) }),
     err && /* @__PURE__ */ (0, import_jsx_runtime23.jsxs)(Text, { color: t.color.label, children: [
       "error: ",
       err
     ] }),
-    !items.length && /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Text, { color: t.color.muted, children: "no live sessions \u2014 closed TUIs only leave resumable transcripts" }),
+    /* @__PURE__ */ (0, import_jsx_runtime23.jsxs)(
+      Box_default,
+      {
+        backgroundColor: newRowStyle?.backgroundColor,
+        flexDirection: "row",
+        onClick: handleRowClick(0),
+        width: "100%",
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Text, { bold: newSelectedRow, color: newRowTextColor ?? t.color.muted, children: newSelectedRow ? "\u25B8 " : "  " }),
+          /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Box_default, { ...fixedSessionColumnStyle(), width: 5, children: /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Text, { bold: newSelectedRow, color: newRowMarkerColor, children: "+".padStart(2) }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Box_default, { ...fixedSessionColumnStyle(), width: 11, children: /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Text, { bold: newSelectedRow, color: newRowMarkerColor, wrap: "truncate-end", children: "new" }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Box_default, { ...fixedSessionColumnStyle(), width: 11, children: /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Text, { color: newRowTextColor ?? t.color.muted, wrap: "truncate-end", children: "\u270E draft" }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Box_default, { ...fixedSessionColumnStyle(), width: 18, children: /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Text, { color: newRowTextColor ?? t.color.muted, wrap: "truncate-end", children: draftModelDisplayLabel(draftModel) }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Box_default, { flexGrow: 1, flexShrink: 1, minWidth: 0, children: /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Text, { bold: newSelectedRow, color: newRowTextColor ?? t.color.muted, wrap: "truncate-end", children: promptTitle }) })
+        ]
+      }
+    ),
     offset > 0 && /* @__PURE__ */ (0, import_jsx_runtime23.jsxs)(Text, { color: t.color.muted, children: [
       " \u2191 ",
       offset,
       " more"
     ] }),
+    !listLen && /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Text, { color: t.color.muted, children: "no other sessions \u2014 Enter on +new to start one" }),
     visibleRows.map((i) => {
       const selected = sel === i;
       const selectedStyle = selected ? selectedSessionRowStyle(t) : null;
       const rowTextColor = selectedStyle?.color;
-      if (isNewSessionRow(i, items.length)) {
-        const promptTitle = draftTitleFromPrompt(draft) || "Start a new live session";
-        const markerColor = newSessionMarkerColor(t, selected);
+      const kind = rowKind(i);
+      if (kind === "history") {
+        const h = history[i - 1 - items.length];
+        const pendingDelete = confirmDelete === h.id;
+        const title2 = pendingDelete ? "press d again to delete" : deleting && selected ? "deleting\u2026" : h.title || h.preview || "(untitled)";
         return /* @__PURE__ */ (0, import_jsx_runtime23.jsxs)(
           Box_default,
           {
@@ -67888,17 +68756,31 @@ function ActiveSessionSwitcher({
             width: "100%",
             children: [
               /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Text, { bold: selected, color: rowTextColor ?? t.color.muted, children: selected ? "\u25B8 " : "  " }),
-              /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Box_default, { ...fixedSessionColumnStyle(), width: 5, children: /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Text, { bold: selected, color: markerColor, children: "+" }) }),
-              /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Box_default, { ...fixedSessionColumnStyle(), width: 11, children: /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Text, { bold: selected, color: markerColor, wrap: "truncate-end", children: "new" }) }),
-              /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Box_default, { ...fixedSessionColumnStyle(), width: 11, children: /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Text, { color: rowTextColor ?? t.color.muted, wrap: "truncate-end", children: "\u270E draft" }) }),
-              /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Box_default, { ...fixedSessionColumnStyle(), width: 18, children: /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Text, { color: rowTextColor ?? t.color.muted, wrap: "truncate-end", children: draftModelDisplayLabel(draftModel) }) }),
-              /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Box_default, { flexGrow: 1, flexShrink: 1, minWidth: 0, children: /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Text, { bold: selected, color: rowTextColor ?? t.color.muted, wrap: "truncate-end", children: promptTitle }) })
+              /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Box_default, { ...fixedSessionColumnStyle(), width: 5, children: /* @__PURE__ */ (0, import_jsx_runtime23.jsxs)(Text, { bold: selected, color: rowTextColor ?? t.color.muted, children: [
+                String(i).padStart(2),
+                "."
+              ] }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Box_default, { ...fixedSessionColumnStyle(), width: 11, children: /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Text, { bold: selected, color: rowTextColor ?? t.color.muted, wrap: "truncate-end", children: h.id }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Box_default, { ...fixedSessionColumnStyle(), width: 11, children: /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Text, { color: rowTextColor ?? t.color.muted, wrap: "truncate-end", children: relativeSessionAge(h.started_at) }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Box_default, { ...fixedSessionColumnStyle(), width: 18, children: /* @__PURE__ */ (0, import_jsx_runtime23.jsxs)(Text, { color: rowTextColor ?? t.color.muted, wrap: "truncate-end", children: [
+                h.message_count,
+                " msgs"
+              ] }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Box_default, { flexGrow: 1, flexShrink: 1, minWidth: 0, children: /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(
+                Text,
+                {
+                  bold: selected,
+                  color: pendingDelete ? t.color.label : rowTextColor ?? t.color.muted,
+                  wrap: "truncate-end",
+                  children: title2
+                }
+              ) })
             ]
           },
-          "new-session"
+          h.id
         );
       }
-      const s = items[i];
+      const s = items[i - 1];
       const status = s.status ?? "idle";
       const current = s.current || s.id === currentSessionId;
       const title = closingId === s.id ? "closing\u2026" : s.title || s.preview || "(untitled)";
@@ -67912,7 +68794,7 @@ function ActiveSessionSwitcher({
           children: [
             /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Text, { bold: selected, color: rowTextColor ?? t.color.muted, children: selected ? "\u25B8 " : "  " }),
             /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Box_default, { ...fixedSessionColumnStyle(), width: 5, children: /* @__PURE__ */ (0, import_jsx_runtime23.jsxs)(Text, { bold: selected, color: rowTextColor ?? t.color.muted, children: [
-              String(i + 1).padStart(2),
+              String(i).padStart(2),
               "."
             ] }) }),
             /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Box_default, { ...fixedSessionColumnStyle(), width: 11, children: /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(
@@ -67943,9 +68825,9 @@ function ActiveSessionSwitcher({
         s.id
       );
     }),
-    offset + VISIBLE2 < totalRows && /* @__PURE__ */ (0, import_jsx_runtime23.jsxs)(Text, { color: t.color.muted, children: [
+    offset + VISIBLE2 < listLen && /* @__PURE__ */ (0, import_jsx_runtime23.jsxs)(Text, { color: t.color.muted, children: [
       " \u2193 ",
-      totalRows - offset - VISIBLE2,
+      listLen - offset - VISIBLE2,
       " more"
     ] }),
     newSelected ? /* @__PURE__ */ (0, import_jsx_runtime23.jsxs)(import_jsx_runtime23.Fragment, { children: [
@@ -67958,8 +68840,14 @@ function ActiveSessionSwitcher({
         "model: ",
         draftModelDisplayLabel(draftModel)
       ] })
-    ] }) : /* @__PURE__ */ (0, import_jsx_runtime23.jsxs)(Box_default, { marginTop: 1, flexDirection: "column", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(OrchestratorHintText, { segments: orchestratorContextHintSegments(false), t }),
+    ] }) : /* @__PURE__ */ (0, import_jsx_runtime23.jsxs)(Box_default, { flexDirection: "column", marginTop: 1, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(
+        OrchestratorHintText,
+        {
+          segments: selectedKind === "history" ? resumeRowContextHintSegments : orchestratorContextHintSegments(false),
+          t
+        }
+      ),
       /* @__PURE__ */ (0, import_jsx_runtime23.jsxs)(Text, { color: t.color.muted, wrap: "truncate-end", children: [
         "Select ",
         /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(Text, { color: newSessionMarkerColor(t, false), children: "+new" }),
@@ -67969,7 +68857,7 @@ function ActiveSessionSwitcher({
     /* @__PURE__ */ (0, import_jsx_runtime23.jsx)(OrchestratorHintText, { segments: orchestratorGlobalHotkeyHintSegments, t })
   ] });
 }
-var import_react82, import_jsx_runtime23, VISIBLE2, MIN_WIDTH2, MAX_WIDTH2, TITLE_MAX, STATUS_GLYPH2, STATUS_LABEL, CTRL_OFFSET, shortModel, ctrlChar, fixedSessionColumnStyle, activeSessionCountLabel, orchestratorContextHintSegments, orchestratorGlobalHotkeyHintSegments, hintText, orchestratorGlobalHotkeyHint, orchestratorHintSegmentColor, selectedSessionRowStyle, newSessionMarkerColor, newSessionRowIndex, isNewSessionRow, clampOrchestratorSelection, currentSessionSelectionIndex, orchestratorVisibleRowIndexes, closeFallbackAfterClose, draftModelArgFromPickerValue, draftModelNameFromArg, draftModelDisplayLabel, orchestratorRowClickAction, draftTitleFromPrompt;
+var import_react82, import_jsx_runtime23, VISIBLE2, MIN_WIDTH2, MAX_WIDTH2, TITLE_MAX, STATUS_GLYPH2, STATUS_LABEL, CTRL_OFFSET, shortModel, ctrlChar, fixedSessionColumnStyle, sessionsCountLabel, sessionRowKindAt, relativeSessionAge, resumableHistory, resumeRowContextHintSegments, orchestratorContextHintSegments, orchestratorGlobalHotkeyHintSegments, hintText, orchestratorGlobalHotkeyHint, orchestratorHintSegmentColor, selectedSessionRowStyle, newSessionMarkerColor, currentSessionSelectionIndex, closeFallbackAfterClose, draftModelArgFromPickerValue, draftModelNameFromArg, draftModelDisplayLabel, draftTitleFromPrompt;
 var init_activeSessionSwitcher = __esm({
   async "src/components/activeSessionSwitcher.tsx"() {
     "use strict";
@@ -68001,7 +68889,38 @@ var init_activeSessionSwitcher = __esm({
     shortModel = (model = "") => model.replace(/^.*\//, "") || "model?";
     ctrlChar = (letter) => String.fromCharCode(letter.charCodeAt(0) - CTRL_OFFSET);
     fixedSessionColumnStyle = () => ({ flexShrink: 0 });
-    activeSessionCountLabel = (count) => `${count} live ${count === 1 ? "session" : "sessions"}`;
+    sessionsCountLabel = (liveCount, resumableCount) => `${liveCount} live \xB7 ${resumableCount} resumable`;
+    sessionRowKindAt = (index, liveCount) => {
+      if (index <= 0) {
+        return "new";
+      }
+      return index - 1 < liveCount ? "live" : "history";
+    };
+    relativeSessionAge = (ts) => {
+      if (!ts) {
+        return "";
+      }
+      const days = (Date.now() / 1e3 - ts) / 86400;
+      if (days < 1) {
+        return "today";
+      }
+      if (days < 2) {
+        return "yesterday";
+      }
+      return `${Math.floor(days)}d ago`;
+    };
+    resumableHistory = (history, live) => {
+      const liveIds = new Set(live.map((s) => s.id));
+      return history.filter((h) => !liveIds.has(h.id));
+    };
+    resumeRowContextHintSegments = [
+      { role: "label", text: "Resumable:" },
+      { role: "text", text: " " },
+      { role: "hotkey", text: "Enter" },
+      { role: "text", text: " resume \xB7 " },
+      { role: "hotkey", text: "d" },
+      { role: "text", text: " delete" }
+    ];
     orchestratorContextHintSegments = (newSelected) => newSelected ? [
       { role: "label", text: "New row:" },
       { role: "text", text: " type prompt \xB7 " },
@@ -68043,19 +68962,9 @@ var init_activeSessionSwitcher = __esm({
       color: t.color.text
     });
     newSessionMarkerColor = (t, selected) => selected ? selectedSessionRowStyle(t).color : t.color.label;
-    newSessionRowIndex = (sessionCount) => Math.max(0, sessionCount);
-    isNewSessionRow = (index, sessionCount) => index >= newSessionRowIndex(sessionCount);
-    clampOrchestratorSelection = (index, sessionCount) => Math.max(0, Math.min(index, newSessionRowIndex(sessionCount)));
     currentSessionSelectionIndex = (sessions, currentSessionId) => {
       const index = sessions.findIndex((s) => Boolean(s.current) || !!currentSessionId && s.id === currentSessionId);
       return index >= 0 ? index : 0;
-    };
-    orchestratorVisibleRowIndexes = (sessionCount, selected, visible = VISIBLE2) => {
-      const total = Math.max(0, sessionCount) + 1;
-      const clamped = clampOrchestratorSelection(selected, sessionCount);
-      const offset = windowOffset(total, clamped, visible);
-      const count = Math.min(visible, total - offset);
-      return Array.from({ length: count }, (_, i) => offset + i);
     };
     closeFallbackAfterClose = (closedId, currentSessionId, remaining) => {
       if (!currentSessionId || closedId !== currentSessionId) {
@@ -68094,10 +69003,6 @@ var init_activeSessionSwitcher = __esm({
     draftModelDisplayLabel = (value) => {
       const modelName = draftModelNameFromArg(value);
       return modelName ? shortModel(modelName) : "current/default";
-    };
-    orchestratorRowClickAction = (index, sessions) => {
-      const target = sessions[index];
-      return target && !isNewSessionRow(index, sessions.length) ? { action: "activate", sessionId: target.id } : { action: "select-new" };
     };
     draftTitleFromPrompt = (prompt, max = TITLE_MAX) => {
       const compact = prompt.replace(/\s+/g, " ").trim();
@@ -68317,201 +69222,20 @@ var init_prompts = __esm({
   }
 });
 
-// src/components/sessionPicker.tsx
-function SessionPicker({ gw: gw2, onCancel, onSelect, t }) {
-  const [items, setItems] = (0, import_react85.useState)([]);
-  const [err, setErr] = (0, import_react85.useState)("");
-  const [sel, setSel] = (0, import_react85.useState)(0);
-  const [loading, setLoading] = (0, import_react85.useState)(true);
-  const [confirmDelete, setConfirmDelete] = (0, import_react85.useState)(null);
-  const [deleting, setDeleting] = (0, import_react85.useState)(false);
-  const { stdout } = useStdout();
-  const width = Math.max(MIN_WIDTH3, Math.min(MAX_WIDTH3, (stdout?.columns ?? 80) - 6));
-  useOverlayKeys({ onClose: onCancel });
-  (0, import_react85.useEffect)(() => {
-    gw2.request("session.list", { limit: 200 }).then((raw) => {
-      const r = asRpcResult(raw);
-      if (!r) {
-        setErr("invalid response: session.list");
-        setLoading(false);
-        return;
-      }
-      setItems(r.sessions ?? []);
-      setErr("");
-      setLoading(false);
-    }).catch((e) => {
-      setErr(rpcErrorMessage(e));
-      setLoading(false);
-    });
-  }, [gw2]);
-  const performDelete = (index) => {
-    const target = items[index];
-    if (!target || deleting) {
-      return;
-    }
-    setDeleting(true);
-    gw2.request("session.delete", { session_id: target.id }).then((raw) => {
-      const r = asRpcResult(raw);
-      if (!r || r.deleted !== target.id) {
-        setErr("invalid response: session.delete");
-        setDeleting(false);
-        return;
-      }
-      setItems((prev) => {
-        const next = prev.filter((_, i) => i !== index);
-        setSel((s) => Math.max(0, Math.min(s, next.length - 1)));
-        return next;
-      });
-      setErr("");
-      setDeleting(false);
-    }).catch((e) => {
-      setErr(rpcErrorMessage(e));
-      setDeleting(false);
-    });
-  };
-  use_input_default((ch, key) => {
-    if (deleting) {
-      return;
-    }
-    if (confirmDelete !== null) {
-      if (ch?.toLowerCase() === "d") {
-        const idx = confirmDelete;
-        setConfirmDelete(null);
-        performDelete(idx);
-      } else {
-        setConfirmDelete(null);
-      }
-      return;
-    }
-    if (key.upArrow && sel > 0) {
-      setSel((s) => s - 1);
-    }
-    if (key.downArrow && sel < items.length - 1) {
-      setSel((s) => s + 1);
-    }
-    if (key.return && items[sel]) {
-      onSelect(items[sel].id);
-      return;
-    }
-    if (ch?.toLowerCase() === "d" && items[sel]) {
-      setConfirmDelete(sel);
-      return;
-    }
-    const n = parseInt(ch);
-    if (n >= 1 && n <= Math.min(9, items.length)) {
-      onSelect(items[n - 1].id);
-    }
-  });
-  if (loading) {
-    return /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(Text, { color: t.color.muted, children: "loading sessions\u2026" });
-  }
-  if (err && !items.length) {
-    return /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(Box_default, { flexDirection: "column", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(Text, { color: t.color.label, children: [
-        "error: ",
-        err
-      ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(OverlayHint, { t, children: "Esc/q cancel" })
-    ] });
-  }
-  if (!items.length) {
-    return /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(Box_default, { flexDirection: "column", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(Text, { color: t.color.muted, children: "no previous sessions" }),
-      /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(OverlayHint, { t, children: "Esc/q cancel" })
-    ] });
-  }
-  const offset = windowOffset(items.length, sel, VISIBLE3);
-  return /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(Box_default, { flexDirection: "column", width, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(Text, { bold: true, color: t.color.accent, children: "Resume Session" }),
-    offset > 0 && /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(Text, { color: t.color.muted, children: [
-      "  \u2191 ",
-      offset,
-      " more"
-    ] }),
-    items.slice(offset, offset + VISIBLE3).map((s, vi) => {
-      const i = offset + vi;
-      const selected = sel === i;
-      const pendingDelete = confirmDelete === i;
-      return /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(Box_default, { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(Text, { bold: selected, color: selected ? t.color.accent : t.color.muted, inverse: selected, children: selected ? "\u25B8 " : "  " }),
-        /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(Box_default, { width: 30, children: /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(Text, { bold: selected, color: selected ? t.color.accent : t.color.muted, inverse: selected, children: [
-          String(i + 1).padStart(2),
-          ". [",
-          s.id,
-          "]"
-        ] }) }),
-        /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(Box_default, { width: 30, children: /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(Text, { bold: selected, color: selected ? t.color.accent : t.color.muted, inverse: selected, children: [
-          "(",
-          s.message_count,
-          " msgs, ",
-          age(s.started_at),
-          ", ",
-          s.source || "tui",
-          ")"
-        ] }) }),
-        /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(
-          Text,
-          {
-            bold: selected,
-            color: pendingDelete ? t.color.label : selected ? t.color.accent : t.color.muted,
-            inverse: selected,
-            wrap: "truncate-end",
-            children: pendingDelete ? "press d again to delete" : s.title || s.preview || "(untitled)"
-          }
-        )
-      ] }, s.id);
-    }),
-    offset + VISIBLE3 < items.length && /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(Text, { color: t.color.muted, children: [
-      "  \u2193 ",
-      items.length - offset - VISIBLE3,
-      " more"
-    ] }),
-    err && /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(Text, { color: t.color.label, children: [
-      "error: ",
-      err
-    ] }),
-    deleting ? /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(OverlayHint, { t, children: "deleting\u2026" }) : /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(OverlayHint, { t, children: "\u2191/\u2193 select \xB7 Enter resume \xB7 1-9 quick \xB7 d delete \xB7 Esc/q cancel" })
-  ] });
-}
-var import_react85, import_jsx_runtime26, VISIBLE3, MIN_WIDTH3, MAX_WIDTH3, age;
-var init_sessionPicker = __esm({
-  async "src/components/sessionPicker.tsx"() {
-    "use strict";
-    await init_entry_exports();
-    import_react85 = __toESM(require_react(), 1);
-    init_rpc();
-    await init_overlayControls();
-    import_jsx_runtime26 = __toESM(require_jsx_runtime(), 1);
-    VISIBLE3 = 15;
-    MIN_WIDTH3 = 60;
-    MAX_WIDTH3 = 120;
-    age = (ts) => {
-      const d = (Date.now() / 1e3 - ts) / 86400;
-      if (d < 1) {
-        return "today";
-      }
-      if (d < 2) {
-        return "yesterday";
-      }
-      return `${Math.floor(d)}d ago`;
-    };
-  }
-});
-
 // src/components/skillsHub.tsx
 function SkillsHub({ gw: gw2, onClose, t }) {
-  const [skillsByCat, setSkillsByCat] = (0, import_react86.useState)({});
-  const [selectedCat, setSelectedCat] = (0, import_react86.useState)("");
-  const [catIdx, setCatIdx] = (0, import_react86.useState)(0);
-  const [skillIdx, setSkillIdx] = (0, import_react86.useState)(0);
-  const [stage, setStage] = (0, import_react86.useState)("category");
-  const [info, setInfo] = (0, import_react86.useState)(null);
-  const [installing, setInstalling] = (0, import_react86.useState)(false);
-  const [err, setErr] = (0, import_react86.useState)("");
-  const [loading, setLoading] = (0, import_react86.useState)(true);
+  const [skillsByCat, setSkillsByCat] = (0, import_react85.useState)({});
+  const [selectedCat, setSelectedCat] = (0, import_react85.useState)("");
+  const [catIdx, setCatIdx] = (0, import_react85.useState)(0);
+  const [skillIdx, setSkillIdx] = (0, import_react85.useState)(0);
+  const [stage, setStage] = (0, import_react85.useState)("category");
+  const [info, setInfo] = (0, import_react85.useState)(null);
+  const [installing, setInstalling] = (0, import_react85.useState)(false);
+  const [err, setErr] = (0, import_react85.useState)("");
+  const [loading, setLoading] = (0, import_react85.useState)(true);
   const { stdout } = useStdout();
-  const width = Math.max(MIN_WIDTH4, Math.min(MAX_WIDTH4, (stdout?.columns ?? 80) - 6));
-  (0, import_react86.useEffect)(() => {
+  const width = Math.max(MIN_WIDTH3, Math.min(MAX_WIDTH3, (stdout?.columns ?? 80) - 6));
+  (0, import_react85.useEffect)(() => {
     gw2.request("skills.manage", { action: "list" }).then((r) => {
       setSkillsByCat(r?.skills ?? {});
       setErr("");
@@ -68600,7 +69324,7 @@ function SkillsHub({ gw: gw2, onClose, t }) {
     }
     const n = ch === "0" ? 10 : parseInt(ch, 10);
     if (!Number.isNaN(n) && n >= 1 && n <= Math.min(10, count)) {
-      const next = windowOffset(count, sel, VISIBLE4) + n - 1;
+      const next = windowOffset(count, sel, VISIBLE3) + n - 1;
       if (stage === "category") {
         const cat = cats[next];
         if (cat) {
@@ -68620,37 +69344,37 @@ function SkillsHub({ gw: gw2, onClose, t }) {
     }
   });
   if (loading) {
-    return /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(Text, { color: t.color.muted, children: "loading skills\u2026" });
+    return /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(Text, { color: t.color.muted, children: "loading skills\u2026" });
   }
   if (err && stage === "category") {
-    return /* @__PURE__ */ (0, import_jsx_runtime27.jsxs)(Box_default, { flexDirection: "column", width, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime27.jsxs)(Text, { color: t.color.label, children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(Box_default, { flexDirection: "column", width, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(Text, { color: t.color.label, children: [
         "error: ",
         err
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(OverlayHint, { t, children: "Esc/q cancel" })
+      /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(OverlayHint, { t, children: "Esc/q cancel" })
     ] });
   }
   if (!cats.length) {
-    return /* @__PURE__ */ (0, import_jsx_runtime27.jsxs)(Box_default, { flexDirection: "column", width, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(Text, { color: t.color.muted, children: "no skills available" }),
-      /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(OverlayHint, { t, children: "Esc/q cancel" })
+    return /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(Box_default, { flexDirection: "column", width, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(Text, { color: t.color.muted, children: "no skills available" }),
+      /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(OverlayHint, { t, children: "Esc/q cancel" })
     ] });
   }
   if (stage === "category") {
     const rows = cats.map((c) => `${c} \xB7 ${skillsByCat[c]?.length ?? 0} skills`);
-    const { items, offset } = windowItems(rows, catIdx, VISIBLE4);
-    return /* @__PURE__ */ (0, import_jsx_runtime27.jsxs)(Box_default, { flexDirection: "column", width, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(Text, { bold: true, color: t.color.accent, children: "Skills Hub" }),
-      /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(Text, { color: t.color.muted, children: "select a category" }),
-      offset > 0 && /* @__PURE__ */ (0, import_jsx_runtime27.jsxs)(Text, { color: t.color.muted, children: [
+    const { items, offset } = windowItems(rows, catIdx, VISIBLE3);
+    return /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(Box_default, { flexDirection: "column", width, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(Text, { bold: true, color: t.color.accent, children: "Skills Hub" }),
+      /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(Text, { color: t.color.muted, children: "select a category" }),
+      offset > 0 && /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(Text, { color: t.color.muted, children: [
         " \u2191 ",
         offset,
         " more"
       ] }),
       items.map((row, i) => {
         const idx = offset + i;
-        return /* @__PURE__ */ (0, import_jsx_runtime27.jsxs)(
+        return /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(
           Text,
           {
             bold: catIdx === idx,
@@ -68667,31 +69391,31 @@ function SkillsHub({ gw: gw2, onClose, t }) {
           row
         );
       }),
-      offset + VISIBLE4 < rows.length && /* @__PURE__ */ (0, import_jsx_runtime27.jsxs)(Text, { color: t.color.muted, children: [
+      offset + VISIBLE3 < rows.length && /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(Text, { color: t.color.muted, children: [
         " \u2193 ",
-        rows.length - offset - VISIBLE4,
+        rows.length - offset - VISIBLE3,
         " more"
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(OverlayHint, { t, children: "\u2191/\u2193 select \xB7 Enter open \xB7 1-9,0 quick \xB7 Esc/q cancel" })
+      /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(OverlayHint, { t, children: "\u2191/\u2193 select \xB7 Enter open \xB7 1-9,0 quick \xB7 Esc/q cancel" })
     ] });
   }
   if (stage === "skill") {
-    const { items, offset } = windowItems(skills, skillIdx, VISIBLE4);
-    return /* @__PURE__ */ (0, import_jsx_runtime27.jsxs)(Box_default, { flexDirection: "column", width, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(Text, { bold: true, color: t.color.accent, children: selectedCat }),
-      /* @__PURE__ */ (0, import_jsx_runtime27.jsxs)(Text, { color: t.color.muted, children: [
+    const { items, offset } = windowItems(skills, skillIdx, VISIBLE3);
+    return /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(Box_default, { flexDirection: "column", width, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(Text, { bold: true, color: t.color.accent, children: selectedCat }),
+      /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(Text, { color: t.color.muted, children: [
         skills.length,
         " skill(s)"
       ] }),
-      !skills.length ? /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(Text, { color: t.color.muted, children: "no skills in this category" }) : null,
-      offset > 0 && /* @__PURE__ */ (0, import_jsx_runtime27.jsxs)(Text, { color: t.color.muted, children: [
+      !skills.length ? /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(Text, { color: t.color.muted, children: "no skills in this category" }) : null,
+      offset > 0 && /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(Text, { color: t.color.muted, children: [
         " \u2191 ",
         offset,
         " more"
       ] }),
       items.map((row, i) => {
         const idx = offset + i;
-        return /* @__PURE__ */ (0, import_jsx_runtime27.jsxs)(
+        return /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(
           Text,
           {
             bold: skillIdx === idx,
@@ -68708,43 +69432,43 @@ function SkillsHub({ gw: gw2, onClose, t }) {
           row
         );
       }),
-      offset + VISIBLE4 < skills.length && /* @__PURE__ */ (0, import_jsx_runtime27.jsxs)(Text, { color: t.color.muted, children: [
+      offset + VISIBLE3 < skills.length && /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(Text, { color: t.color.muted, children: [
         " \u2193 ",
-        skills.length - offset - VISIBLE4,
+        skills.length - offset - VISIBLE3,
         " more"
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(OverlayHint, { t, children: skills.length ? "\u2191/\u2193 select \xB7 Enter open \xB7 1-9,0 quick \xB7 Esc back \xB7 q close" : "Esc back \xB7 q close" })
+      /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(OverlayHint, { t, children: skills.length ? "\u2191/\u2193 select \xB7 Enter open \xB7 1-9,0 quick \xB7 Esc back \xB7 q close" : "Esc back \xB7 q close" })
     ] });
   }
-  return /* @__PURE__ */ (0, import_jsx_runtime27.jsxs)(Box_default, { flexDirection: "column", width, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(Text, { bold: true, color: t.color.accent, children: info?.name ?? skillName }),
-    /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(Text, { color: t.color.muted, children: info?.category ?? selectedCat }),
-    info?.description ? /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(Text, { color: t.color.text, children: info.description }) : null,
-    info?.path ? /* @__PURE__ */ (0, import_jsx_runtime27.jsxs)(Text, { color: t.color.muted, children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(Box_default, { flexDirection: "column", width, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(Text, { bold: true, color: t.color.accent, children: info?.name ?? skillName }),
+    /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(Text, { color: t.color.muted, children: info?.category ?? selectedCat }),
+    info?.description ? /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(Text, { color: t.color.text, children: info.description }) : null,
+    info?.path ? /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(Text, { color: t.color.muted, children: [
       "path: ",
       info.path
     ] }) : null,
-    !info && !err ? /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(Text, { color: t.color.muted, children: "loading\u2026" }) : null,
-    err ? /* @__PURE__ */ (0, import_jsx_runtime27.jsxs)(Text, { color: t.color.label, children: [
+    !info && !err ? /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(Text, { color: t.color.muted, children: "loading\u2026" }) : null,
+    err ? /* @__PURE__ */ (0, import_jsx_runtime26.jsxs)(Text, { color: t.color.label, children: [
       "error: ",
       err
     ] }) : null,
-    installing ? /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(Text, { color: t.color.accent, children: "installing\u2026" }) : null,
-    /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(OverlayHint, { t, children: "i reinspect \xB7 x reinstall \xB7 Enter/Esc back \xB7 q close" })
+    installing ? /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(Text, { color: t.color.accent, children: "installing\u2026" }) : null,
+    /* @__PURE__ */ (0, import_jsx_runtime26.jsx)(OverlayHint, { t, children: "i reinspect \xB7 x reinstall \xB7 Enter/Esc back \xB7 q close" })
   ] });
 }
-var import_react86, import_jsx_runtime27, VISIBLE4, MIN_WIDTH4, MAX_WIDTH4;
+var import_react85, import_jsx_runtime26, VISIBLE3, MIN_WIDTH3, MAX_WIDTH3;
 var init_skillsHub = __esm({
   async "src/components/skillsHub.tsx"() {
     "use strict";
     await init_entry_exports();
-    import_react86 = __toESM(require_react(), 1);
+    import_react85 = __toESM(require_react(), 1);
     init_rpc();
     await init_overlayControls();
-    import_jsx_runtime27 = __toESM(require_jsx_runtime(), 1);
-    VISIBLE4 = 12;
-    MIN_WIDTH4 = 40;
-    MAX_WIDTH4 = 90;
+    import_jsx_runtime26 = __toESM(require_jsx_runtime(), 1);
+    VISIBLE3 = 12;
+    MIN_WIDTH3 = 40;
+    MAX_WIDTH3 = 90;
   }
 });
 
@@ -68759,7 +69483,7 @@ function PromptZone({
   const overlay = useStore($overlayState);
   const theme = useStore($uiTheme);
   if (overlay.approval) {
-    return /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Box_default, { flexDirection: "column", flexShrink: 0, paddingX: 1, paddingY: 1, children: /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(ApprovalPrompt, { onChoice: onApprovalChoice, req: overlay.approval, t: theme }) });
+    return /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(Box_default, { flexDirection: "column", flexShrink: 0, paddingX: 1, paddingY: 1, children: /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(ApprovalPrompt, { onChoice: onApprovalChoice, req: overlay.approval, t: theme }) });
   }
   if (overlay.confirm) {
     const req = overlay.confirm;
@@ -68768,10 +69492,10 @@ function PromptZone({
       req.onConfirm();
     };
     const onCancel = () => patchOverlayState({ confirm: null });
-    return /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Box_default, { flexDirection: "column", flexShrink: 0, paddingX: 1, paddingY: 1, children: /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(ConfirmPrompt, { onCancel, onConfirm, req, t: theme }) });
+    return /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(Box_default, { flexDirection: "column", flexShrink: 0, paddingX: 1, paddingY: 1, children: /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(ConfirmPrompt, { onCancel, onConfirm, req, t: theme }) });
   }
   if (overlay.clarify) {
-    return /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Box_default, { flexDirection: "column", flexShrink: 0, paddingX: 1, paddingY: 1, children: /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(
+    return /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(Box_default, { flexDirection: "column", flexShrink: 0, paddingX: 1, paddingY: 1, children: /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(
       ClarifyPrompt,
       {
         cols,
@@ -68783,10 +69507,10 @@ function PromptZone({
     ) });
   }
   if (overlay.sudo) {
-    return /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Box_default, { flexDirection: "column", flexShrink: 0, paddingX: 1, paddingY: 1, children: /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(MaskedPrompt, { cols, icon: "\u{1F510}", label: "sudo password required", onSubmit: onSudoSubmit, t: theme }) });
+    return /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(Box_default, { flexDirection: "column", flexShrink: 0, paddingX: 1, paddingY: 1, children: /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(MaskedPrompt, { cols, icon: "\u{1F510}", label: "sudo password required", onSubmit: onSudoSubmit, t: theme }) });
   }
   if (overlay.secret) {
-    return /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Box_default, { flexDirection: "column", flexShrink: 0, paddingX: 1, paddingY: 1, children: /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(
+    return /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(Box_default, { flexDirection: "column", flexShrink: 0, paddingX: 1, paddingY: 1, children: /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(
       MaskedPrompt,
       {
         cols,
@@ -68809,30 +69533,21 @@ function FloatingOverlays({
   onModelSelect,
   onNewLiveSession,
   onNewPromptSession,
-  onPickerSelect,
+  onResumeSelect,
   pagerPageSize
 }) {
   const { gw: gw2 } = useGateway();
   const overlay = useStore($overlayState);
   const sid = useStore($uiSessionId);
   const theme = useStore($uiTheme);
-  const hasAny = overlay.modelPicker || overlay.pager || overlay.picker || overlay.sessions || overlay.skillsHub || completions.length;
+  const hasAny = overlay.modelPicker || overlay.pager || overlay.sessions || overlay.skillsHub || completions.length;
   if (!hasAny) {
     return null;
   }
   const viewportSize = Math.min(COMPLETION_WINDOW, completions.length);
   const start = Math.max(0, Math.min(compIdx - Math.floor(COMPLETION_WINDOW / 2), completions.length - viewportSize));
-  return /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Box_default, { alignItems: "flex-start", bottom: "100%", flexDirection: "column", left: 0, position: "absolute", right: 0, children: [
-    overlay.picker && /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(FloatBox, { color: theme.color.border, children: /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(
-      SessionPicker,
-      {
-        gw: gw2,
-        onCancel: () => patchOverlayState({ picker: false }),
-        onSelect: onPickerSelect,
-        t: theme
-      }
-    ) }),
-    overlay.sessions && /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(FloatBox, { color: theme.color.border, children: /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(
+  return /* @__PURE__ */ (0, import_jsx_runtime27.jsxs)(Box_default, { alignItems: "flex-start", bottom: "100%", flexDirection: "column", left: 0, position: "absolute", right: 0, children: [
+    overlay.sessions && /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(FloatBox, { color: theme.color.border, children: /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(
       ActiveSessionSwitcher,
       {
         currentSessionId: sid,
@@ -68841,11 +69556,12 @@ function FloatingOverlays({
         onClose: onActiveSessionClose,
         onNew: onNewLiveSession,
         onNewPrompt: onNewPromptSession,
+        onResume: onResumeSelect,
         onSelect: onActiveSessionSelect,
         t: theme
       }
     ) }),
-    overlay.modelPicker && /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(FloatBox, { color: theme.color.border, children: /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(
+    overlay.modelPicker && /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(FloatBox, { color: theme.color.border, children: /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(
       ModelPicker,
       {
         gw: gw2,
@@ -68855,26 +69571,26 @@ function FloatingOverlays({
         t: theme
       }
     ) }),
-    overlay.skillsHub && /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(FloatBox, { color: theme.color.border, children: /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(SkillsHub, { gw: gw2, onClose: () => patchOverlayState({ skillsHub: false }), t: theme }) }),
-    overlay.pager && /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(FloatBox, { color: theme.color.border, children: /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Box_default, { flexDirection: "column", paddingX: 1, paddingY: 1, children: [
-      overlay.pager.title && /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Box_default, { justifyContent: "center", marginBottom: 1, children: /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { bold: true, color: theme.color.primary, children: overlay.pager.title }) }),
-      overlay.pager.lines.slice(overlay.pager.offset, overlay.pager.offset + pagerPageSize).map((line, i) => /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { children: line }, i)),
-      /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Box_default, { marginTop: 1, children: /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(OverlayHint, { t: theme, children: overlay.pager.offset + pagerPageSize < overlay.pager.lines.length ? `\u2191\u2193/jk line \xB7 Enter/Space/PgDn page \xB7 b/PgUp back \xB7 g/G top/bottom \xB7 Esc/q close (${Math.min(overlay.pager.offset + pagerPageSize, overlay.pager.lines.length)}/${overlay.pager.lines.length})` : `end \xB7 \u2191\u2193/jk \xB7 b/PgUp back \xB7 g top \xB7 Esc/q close (${overlay.pager.lines.length} lines)` }) })
+    overlay.skillsHub && /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(FloatBox, { color: theme.color.border, children: /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(SkillsHub, { gw: gw2, onClose: () => patchOverlayState({ skillsHub: false }), t: theme }) }),
+    overlay.pager && /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(FloatBox, { color: theme.color.border, children: /* @__PURE__ */ (0, import_jsx_runtime27.jsxs)(Box_default, { flexDirection: "column", paddingX: 1, paddingY: 1, children: [
+      overlay.pager.title && /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(Box_default, { justifyContent: "center", marginBottom: 1, children: /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(Text, { bold: true, color: theme.color.primary, children: overlay.pager.title }) }),
+      overlay.pager.lines.slice(overlay.pager.offset, overlay.pager.offset + pagerPageSize).map((line, i) => /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(Text, { children: line }, i)),
+      /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(Box_default, { marginTop: 1, children: /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(OverlayHint, { t: theme, children: overlay.pager.offset + pagerPageSize < overlay.pager.lines.length ? `\u2191\u2193/jk line \xB7 Enter/Space/PgDn page \xB7 b/PgUp back \xB7 g/G top/bottom \xB7 Esc/q close (${Math.min(overlay.pager.offset + pagerPageSize, overlay.pager.lines.length)}/${overlay.pager.lines.length})` : `end \xB7 \u2191\u2193/jk \xB7 b/PgUp back \xB7 g top \xB7 Esc/q close (${overlay.pager.lines.length} lines)` }) })
     ] }) }),
-    !!completions.length && /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(FloatBox, { color: theme.color.primary, children: /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Box_default, { flexDirection: "column", width: Math.max(28, cols - 6), children: completions.slice(start, start + viewportSize).map((item, i) => {
+    !!completions.length && /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(FloatBox, { color: theme.color.primary, children: /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(Box_default, { flexDirection: "column", width: Math.max(28, cols - 6), children: completions.slice(start, start + viewportSize).map((item, i) => {
       const active = start + i === compIdx;
-      return /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(
+      return /* @__PURE__ */ (0, import_jsx_runtime27.jsxs)(
         Box_default,
         {
           backgroundColor: active ? theme.color.completionCurrentBg : theme.color.completionBg,
           flexDirection: "row",
           width: "100%",
           children: [
-            /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Box_default, { flexShrink: 0, children: /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { bold: true, color: theme.color.label, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime27.jsx)(Box_default, { flexShrink: 0, children: /* @__PURE__ */ (0, import_jsx_runtime27.jsxs)(Text, { bold: true, color: theme.color.label, children: [
               " ",
               item.display
             ] }) }),
-            item.meta ? /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(
+            item.meta ? /* @__PURE__ */ (0, import_jsx_runtime27.jsxs)(
               Text,
               {
                 backgroundColor: active ? theme.color.completionMetaCurrentBg : theme.color.completionMetaBg,
@@ -68892,7 +69608,7 @@ function FloatingOverlays({
     }) }) })
   ] });
 }
-var import_jsx_runtime28, COMPLETION_WINDOW;
+var import_jsx_runtime27, COMPLETION_WINDOW;
 var init_appOverlays = __esm({
   async "src/components/appOverlays.tsx"() {
     "use strict";
@@ -68907,9 +69623,8 @@ var init_appOverlays = __esm({
     await init_modelPicker();
     await init_overlayControls();
     await init_prompts();
-    await init_sessionPicker();
     await init_skillsHub();
-    import_jsx_runtime28 = __toESM(require_jsx_runtime(), 1);
+    import_jsx_runtime27 = __toESM(require_jsx_runtime(), 1);
     COMPLETION_WINDOW = 16;
   }
 });
@@ -68989,28 +69704,28 @@ var init_banner = __esm({
 
 // src/components/branding.tsx
 function InlineLoader({ label, t }) {
-  const [tick, setTick] = (0, import_react88.useState)(0);
+  const [tick, setTick] = (0, import_react87.useState)(0);
   const spinner = braille_default.braille;
   const frame = spinner.frames[tick % spinner.frames.length] ?? "\u280B";
-  (0, import_react88.useEffect)(() => {
+  (0, import_react87.useEffect)(() => {
     const id = setInterval(() => setTick((n) => n + 1), Math.max(LOADER_TICK_MS, spinner.interval));
     return () => clearInterval(id);
   }, [spinner.interval]);
-  return /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { color: t.color.muted, wrap: "truncate", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.accent, children: frame }),
+  return /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { color: t.color.muted, wrap: "truncate", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.accent, children: frame }),
     " ",
     label
   ] });
 }
 function ArtLines({ lines }) {
-  return /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Box_default, { flexDirection: "column", height: lines.length, opaque: true, width: artWidth(lines), children: lines.map(([c, text], i) => /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: c, wrap: "truncate-end", children: text }, i)) });
+  return /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Box_default, { flexDirection: "column", height: lines.length, opaque: true, width: artWidth(lines), children: lines.map(([c, text], i) => /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: c, wrap: "truncate-end", children: text }, i)) });
 }
 function CompactBanner({ cols, t }) {
   const w = Math.max(28, cols - 4);
-  return /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Box_default, { flexDirection: "column", height: 3, marginBottom: 1, opaque: true, width: w, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { bold: true, color: t.color.primary, children: ruleIn(t.brand.name, w) }),
-    /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.muted, children: centerIn(TAG_FULL, w) }),
-    /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.primary, children: "\u2500".repeat(w) })
+  return /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Box_default, { flexDirection: "column", height: 3, marginBottom: 1, opaque: true, width: w, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { bold: true, color: t.color.primary, children: ruleIn(t.brand.name, w) }),
+    /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.muted, children: centerIn(TAG_FULL, w) }),
+    /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.primary, children: "\u2500".repeat(w) })
   ] });
 }
 function Banner({ maxWidth, t }) {
@@ -69022,9 +69737,9 @@ function Banner({ maxWidth, t }) {
   const logoLines = logo(t.color, t.bannerLogo || void 0);
   const logoW = t.bannerLogo ? artWidth(logoLines) : LOGO_WIDTH;
   if (cols >= logoW + 2) {
-    return /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Box_default, { flexDirection: "column", marginBottom: 1, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(ArtLines, { lines: logoLines }),
-      /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { color: t.color.muted, wrap: "truncate-end", children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Box_default, { flexDirection: "column", marginBottom: 1, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(ArtLines, { lines: logoLines }),
+      /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { color: t.color.muted, wrap: "truncate-end", children: [
         t.brand.icon,
         " ",
         TAG_FULL
@@ -69032,17 +69747,17 @@ function Banner({ maxWidth, t }) {
     ] });
   }
   if (cols >= COMPACT_FROM) {
-    return /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(CompactBanner, { cols, t });
+    return /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(CompactBanner, { cols, t });
   }
   const name = cols >= 52 ? t.brand.name : t.brand.name.split(" ")[0] ?? t.brand.name;
   const tag = cols >= 64 ? TAG_FULL : cols >= 46 ? TAG_MID : TAG_TINY;
-  return /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Box_default, { flexDirection: "column", marginBottom: 1, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { bold: true, color: t.color.primary, wrap: "truncate-end", children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Box_default, { flexDirection: "column", marginBottom: 1, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { bold: true, color: t.color.primary, wrap: "truncate-end", children: [
       t.brand.icon,
       " ",
       name
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { color: t.color.muted, wrap: "truncate-end", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { color: t.color.muted, wrap: "truncate-end", children: [
       t.brand.icon,
       " ",
       tag
@@ -69057,15 +69772,15 @@ function CollapseToggle({
   title,
   onToggle
 }) {
-  return /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Box_default, { onClick: onToggle, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.accent, children: open ? "\u25BE " : "\u25B8 " }),
-    /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { bold: true, color: t.color.accent, children: title }),
-    typeof count === "number" ? /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { color: t.color.muted, children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Box_default, { onClick: onToggle, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.accent, children: open ? "\u25BE " : "\u25B8 " }),
+    /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { bold: true, color: t.color.accent, children: title }),
+    typeof count === "number" ? /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { color: t.color.muted, children: [
       " (",
       count,
       ")"
     ] }) : null,
-    suffix ? /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { color: t.color.muted, children: [
+    suffix ? /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { color: t.color.muted, children: [
       " ",
       suffix
     ] }) : null
@@ -69080,10 +69795,10 @@ function SessionPanel({ info, maxWidth, sid, t }) {
   const w = Math.max(20, wide ? cols - leftW - 14 : cols - 12);
   const lineBudget = Math.max(12, w - 2);
   const strip = (s) => s.endsWith("_tools") ? s.slice(0, -6) : s;
-  const [toolsOpen, setToolsOpen] = (0, import_react88.useState)(true);
-  const [skillsOpen, setSkillsOpen] = (0, import_react88.useState)(false);
-  const [systemOpen, setSystemOpen] = (0, import_react88.useState)(false);
-  const [mcpOpen, setMcpOpen] = (0, import_react88.useState)(false);
+  const [toolsOpen, setToolsOpen] = (0, import_react87.useState)(true);
+  const [skillsOpen, setSkillsOpen] = (0, import_react87.useState)(false);
+  const [systemOpen, setSystemOpen] = (0, import_react87.useState)(false);
+  const [mcpOpen, setMcpOpen] = (0, import_react87.useState)(false);
   const truncLine = (pfx, items) => {
     let line = "";
     let shown = 0;
@@ -69102,19 +69817,19 @@ function SessionPanel({ info, maxWidth, sid, t }) {
   const skillsCatCount = skillEntries.length;
   const skillsBody = () => {
     if (info.lazy && skillEntries.length === 0) {
-      return /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(InlineLoader, { label: "scanning skills", t });
+      return /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(InlineLoader, { label: "scanning skills", t });
     }
     const shown = skillEntries.slice(0, SKILLS_MAX);
     const overflow = skillEntries.length - SKILLS_MAX;
-    return /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(import_jsx_runtime29.Fragment, { children: [
-      shown.map(([k, vs]) => /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { wrap: "truncate", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { color: t.color.muted, children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(import_jsx_runtime28.Fragment, { children: [
+      shown.map(([k, vs]) => /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { wrap: "truncate", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { color: t.color.muted, children: [
           strip(k),
           ": "
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.text, children: truncLine(strip(k) + ": ", vs) })
+        /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.text, children: truncLine(strip(k) + ": ", vs) })
       ] }, k)),
-      overflow > 0 && /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { color: t.color.muted, children: [
+      overflow > 0 && /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { color: t.color.muted, children: [
         "(and ",
         overflow,
         " more categories\u2026)"
@@ -69126,74 +69841,74 @@ function SessionPanel({ info, maxWidth, sid, t }) {
   const toolsBody = () => {
     const shown = toolEntries.slice(0, TOOLSETS_MAX);
     const overflow = toolEntries.length - TOOLSETS_MAX;
-    return /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(import_jsx_runtime29.Fragment, { children: [
-      shown.map(([k, vs]) => /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { wrap: "truncate", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { color: t.color.muted, children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(import_jsx_runtime28.Fragment, { children: [
+      shown.map(([k, vs]) => /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { wrap: "truncate", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { color: t.color.muted, children: [
           strip(k),
           ": "
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.text, children: truncLine(strip(k) + ": ", vs) })
+        /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.text, children: truncLine(strip(k) + ": ", vs) })
       ] }, k)),
-      overflow > 0 && /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { color: t.color.muted, children: [
+      overflow > 0 && /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { color: t.color.muted, children: [
         "(and ",
         overflow,
         " more toolsets\u2026)"
       ] })
     ] });
   };
-  const mcpBody = () => /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(import_jsx_runtime29.Fragment, { children: (info.mcp_servers ?? []).map((s) => /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { wrap: "truncate", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.muted, children: `  ${s.name} ` }),
-    /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.muted, children: `[${s.transport}]` }),
-    /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.muted, children: ": " }),
-    s.connected ? /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { color: t.color.text, children: [
+  const mcpBody = () => /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(import_jsx_runtime28.Fragment, { children: (info.mcp_servers ?? []).map((s) => /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { wrap: "truncate", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.muted, children: `  ${s.name} ` }),
+    /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.muted, children: `[${s.transport}]` }),
+    /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.muted, children: ": " }),
+    s.connected ? /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { color: t.color.text, children: [
       s.tools,
       " tool",
       s.tools === 1 ? "" : "s"
-    ] }) : /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.error, children: "failed" })
+    ] }) : /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.error, children: "failed" })
   ] }, s.name)) });
   const sysPromptLen = (info.system_prompt ?? "").length;
   const systemBody = () => {
     if (sysPromptLen === 0) {
-      return /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.muted, children: "No system prompt loaded." });
+      return /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.muted, children: "No system prompt loaded." });
     }
-    return /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.muted, children: info.system_prompt });
+    return /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.muted, children: info.system_prompt });
   };
-  return /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Box_default, { borderColor: t.color.border, borderStyle: "round", marginBottom: 1, paddingX: 2, paddingY: 1, children: [
-    wide && /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Box_default, { flexDirection: "column", marginRight: 2, width: leftW, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(ArtLines, { lines: heroLines }),
-      /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, {}),
-      /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { color: t.color.accent, children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Box_default, { borderColor: t.color.border, borderStyle: "round", marginBottom: 1, paddingX: 2, paddingY: 1, children: [
+    wide && /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Box_default, { flexDirection: "column", marginRight: 2, width: leftW, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(ArtLines, { lines: heroLines }),
+      /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, {}),
+      /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { color: t.color.accent, children: [
         info.model.split("/").pop(),
-        /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.muted, children: " \xB7 Nous Research" })
+        /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.muted, children: " \xB7 Nous Research" })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.muted, wrap: "truncate-end", children: info.cwd || process.cwd() }),
-      sid && /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.sessionLabel, children: "Session: " }),
-        /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.sessionBorder, children: sid })
+      /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.muted, wrap: "truncate-end", children: info.cwd || process.cwd() }),
+      sid && /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.sessionLabel, children: "Session: " }),
+        /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.sessionBorder, children: sid })
       ] })
     ] }),
-    /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Box_default, { flexDirection: "column", width: w, children: [
-      wide ? /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Box_default, { justifyContent: "center", marginBottom: 1, children: /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { bold: true, color: t.color.primary, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Box_default, { flexDirection: "column", width: w, children: [
+      wide ? /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Box_default, { justifyContent: "center", marginBottom: 1, children: /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { bold: true, color: t.color.primary, children: [
         t.brand.name,
         info.version ? ` v${info.version}` : "",
         info.release_date ? ` (${info.release_date})` : ""
       ] }) }) : (
         // Narrow layout hides the hero column; surface model/cwd/session
         // here so they aren't lost.
-        /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Box_default, { flexDirection: "column", marginBottom: 1, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { color: t.color.accent, wrap: "truncate-end", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Box_default, { flexDirection: "column", marginBottom: 1, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { color: t.color.accent, wrap: "truncate-end", children: [
             info.model.split("/").pop(),
-            /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.muted, children: " \xB7 Nous Research" })
+            /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.muted, children: " \xB7 Nous Research" })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.muted, wrap: "truncate-end", children: info.cwd || process.cwd() }),
-          sid && /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { wrap: "truncate-end", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.sessionLabel, children: "Session: " }),
-            /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.sessionBorder, children: sid })
+          /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.muted, wrap: "truncate-end", children: info.cwd || process.cwd() }),
+          sid && /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { wrap: "truncate-end", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.sessionLabel, children: "Session: " }),
+            /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.sessionBorder, children: sid })
           ] })
         ] })
       ),
-      /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Box_default, { flexDirection: "column", marginTop: 1, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Box_default, { flexDirection: "column", marginTop: 1, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(
           CollapseToggle,
           {
             onToggle: () => setToolsOpen((v) => !v),
@@ -69204,8 +69919,8 @@ function SessionPanel({ info, maxWidth, sid, t }) {
         ),
         toolsOpen && toolsBody()
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Box_default, { flexDirection: "column", marginTop: 1, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Box_default, { flexDirection: "column", marginTop: 1, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(
           CollapseToggle,
           {
             count: skillsTotal,
@@ -69218,8 +69933,8 @@ function SessionPanel({ info, maxWidth, sid, t }) {
         ),
         skillsOpen && skillsBody()
       ] }),
-      sysPromptLen > 0 && /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Box_default, { flexDirection: "column", marginTop: 1, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(
+      sysPromptLen > 0 && /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Box_default, { flexDirection: "column", marginTop: 1, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(
           CollapseToggle,
           {
             onToggle: () => setSystemOpen((v) => !v),
@@ -69231,8 +69946,8 @@ function SessionPanel({ info, maxWidth, sid, t }) {
         ),
         systemOpen && systemBody()
       ] }),
-      info.mcp_servers && info.mcp_servers.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Box_default, { flexDirection: "column", marginTop: 1, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(
+      info.mcp_servers && info.mcp_servers.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Box_default, { flexDirection: "column", marginTop: 1, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(
           CollapseToggle,
           {
             count: info.mcp_servers.length,
@@ -69245,8 +69960,8 @@ function SessionPanel({ info, maxWidth, sid, t }) {
         ),
         mcpOpen && mcpBody()
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, {}),
-      /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { color: t.color.text, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, {}),
+      /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { color: t.color.text, children: [
         toolsTotal,
         " tools",
         " \xB7 ",
@@ -69254,21 +69969,21 @@ function SessionPanel({ info, maxWidth, sid, t }) {
         " skills",
         info.mcp_servers?.length ? ` \xB7 ${info.mcp_servers.length} MCP` : "",
         " \xB7 ",
-        /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.muted, children: "/help for commands" })
+        /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.muted, children: "/help for commands" })
       ] }),
-      typeof info.update_behind === "number" && info.update_behind > 0 && /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { bold: true, color: t.color.warn, children: [
+      typeof info.update_behind === "number" && info.update_behind > 0 && /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { bold: true, color: t.color.warn, children: [
         "! ",
         info.update_behind,
         " ",
         info.update_behind === 1 ? "commit" : "commits",
         " behind",
-        /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { bold: false, color: t.color.warn, dimColor: true, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { bold: false, color: t.color.warn, dimColor: true, children: [
           " ",
           "- run",
           " "
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { bold: true, color: t.color.warn, children: info.update_command || "hermes update" }),
-        /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { bold: false, color: t.color.warn, dimColor: true, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { bold: true, color: t.color.warn, children: info.update_command || "hermes update" }),
+        /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { bold: false, color: t.color.warn, dimColor: true, children: [
           " ",
           "to update"
         ] })
@@ -69277,29 +69992,29 @@ function SessionPanel({ info, maxWidth, sid, t }) {
   ] });
 }
 function Panel({ sections, t, title }) {
-  return /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Box_default, { borderColor: t.color.border, borderStyle: "round", flexDirection: "column", paddingX: 2, paddingY: 1, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Box_default, { justifyContent: "center", marginBottom: 1, children: /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { bold: true, color: t.color.primary, children: title }) }),
-    sections.map((sec, si) => /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Box_default, { flexDirection: "column", marginTop: si > 0 ? 1 : 0, children: [
-      sec.title && /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { bold: true, color: t.color.accent, children: sec.title }),
-      sec.rows?.map(([k, v], ri) => /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { wrap: "truncate", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.muted, children: k.padEnd(20) }),
-        /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.text, children: v })
+  return /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Box_default, { borderColor: t.color.border, borderStyle: "round", flexDirection: "column", paddingX: 2, paddingY: 1, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Box_default, { justifyContent: "center", marginBottom: 1, children: /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { bold: true, color: t.color.primary, children: title }) }),
+    sections.map((sec, si) => /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Box_default, { flexDirection: "column", marginTop: si > 0 ? 1 : 0, children: [
+      sec.title && /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { bold: true, color: t.color.accent, children: sec.title }),
+      sec.rows?.map(([k, v], ri) => /* @__PURE__ */ (0, import_jsx_runtime28.jsxs)(Text, { wrap: "truncate", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.muted, children: k.padEnd(20) }),
+        /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.text, children: v })
       ] }, ri)),
-      sec.items?.map((item, ii) => /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.text, wrap: "truncate", children: item }, ii)),
-      sec.text && /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(Text, { color: t.color.muted, children: sec.text })
+      sec.items?.map((item, ii) => /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.text, wrap: "truncate", children: item }, ii)),
+      sec.text && /* @__PURE__ */ (0, import_jsx_runtime28.jsx)(Text, { color: t.color.muted, children: sec.text })
     ] }, si))
   ] });
 }
-var import_react88, import_jsx_runtime29, LOADER_TICK_MS, TAG_FULL, TAG_MID, TAG_TINY, HIDE_BELOW, COMPACT_FROM, clip, centerIn, ruleIn, SKILLS_MAX, TOOLSETS_MAX;
+var import_react87, import_jsx_runtime28, LOADER_TICK_MS, TAG_FULL, TAG_MID, TAG_TINY, HIDE_BELOW, COMPACT_FROM, clip, centerIn, ruleIn, SKILLS_MAX, TOOLSETS_MAX;
 var init_branding = __esm({
   async "src/components/branding.tsx"() {
     "use strict";
     await init_entry_exports();
-    import_react88 = __toESM(require_react(), 1);
+    import_react87 = __toESM(require_react(), 1);
     init_dist5();
     init_banner();
     init_text();
-    import_jsx_runtime29 = __toESM(require_jsx_runtime(), 1);
+    import_jsx_runtime28 = __toESM(require_jsx_runtime(), 1);
     LOADER_TICK_MS = 120;
     TAG_FULL = "Nous Research \xB7 Messenger of the Digital Gods";
     TAG_MID = "Messenger of the Digital Gods";
@@ -69366,11 +70081,11 @@ function FpsOverlay({ t }) {
   if (!SHOW_FPS) {
     return null;
   }
-  return /* @__PURE__ */ (0, import_jsx_runtime30.jsx)(FpsOverlayInner, { t });
+  return /* @__PURE__ */ (0, import_jsx_runtime29.jsx)(FpsOverlayInner, { t });
 }
 function FpsOverlayInner({ t }) {
   const { fps, lastDurationMs, totalFrames: totalFrames2 } = useStore($fpsState);
-  return /* @__PURE__ */ (0, import_jsx_runtime30.jsxs)(Text, { color: fpsColor(fps, t), children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime29.jsxs)(Text, { color: fpsColor(fps, t), children: [
     fps.toFixed(1).padStart(5),
     "fps \xB7 ",
     lastDurationMs.toFixed(1).padStart(5),
@@ -69378,7 +70093,7 @@ function FpsOverlayInner({ t }) {
     totalFrames2
   ] });
 }
-var import_jsx_runtime30, fpsColor;
+var import_jsx_runtime29, fpsColor;
 var init_fpsOverlay = __esm({
   async "src/components/fpsOverlay.tsx"() {
     "use strict";
@@ -69386,7 +70101,7 @@ var init_fpsOverlay = __esm({
     init_react();
     init_env();
     init_fpsStore();
-    import_jsx_runtime30 = __toESM(require_jsx_runtime(), 1);
+    import_jsx_runtime29 = __toESM(require_jsx_runtime(), 1);
     fpsColor = (fps, t) => fps >= 50 ? t.color.statusGood : fps >= 30 ? t.color.statusWarn : t.color.error;
   }
 });
@@ -69398,7 +70113,7 @@ function HelpHint({ t }) {
     ...HOTKEY_PREVIEW.map(([k]) => k.length)
   );
   const pad = (s) => s + " ".repeat(Math.max(0, labelW - s.length + 2));
-  return /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Box_default, { alignItems: "flex-start", bottom: "100%", flexDirection: "column", left: 0, position: "absolute", right: 0, children: /* @__PURE__ */ (0, import_jsx_runtime31.jsxs)(
+  return /* @__PURE__ */ (0, import_jsx_runtime30.jsx)(Box_default, { alignItems: "flex-start", bottom: "100%", flexDirection: "column", left: 0, position: "absolute", right: 0, children: /* @__PURE__ */ (0, import_jsx_runtime30.jsxs)(
     Box_default,
     {
       alignSelf: "flex-start",
@@ -69409,35 +70124,35 @@ function HelpHint({ t }) {
       opaque: true,
       paddingX: 1,
       children: [
-        /* @__PURE__ */ (0, import_jsx_runtime31.jsxs)(Text, { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { bold: true, color: t.color.primary, children: "? quick help" }),
-          /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { color: t.color.muted, children: "  \xB7  type /help for the full panel  \xB7  backspace to dismiss" })
+        /* @__PURE__ */ (0, import_jsx_runtime30.jsxs)(Text, { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime30.jsx)(Text, { bold: true, color: t.color.primary, children: "? quick help" }),
+          /* @__PURE__ */ (0, import_jsx_runtime30.jsx)(Text, { color: t.color.muted, children: "  \xB7  type /help for the full panel  \xB7  backspace to dismiss" })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Box_default, { marginTop: 1, children: /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { bold: true, color: t.color.accent, children: "Common commands" }) }),
-        COMMON_COMMANDS.map(([k, v]) => /* @__PURE__ */ (0, import_jsx_runtime31.jsxs)(Text, { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { color: t.color.label, children: pad(k) }),
-          /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { color: t.color.muted, children: v })
+        /* @__PURE__ */ (0, import_jsx_runtime30.jsx)(Box_default, { marginTop: 1, children: /* @__PURE__ */ (0, import_jsx_runtime30.jsx)(Text, { bold: true, color: t.color.accent, children: "Common commands" }) }),
+        COMMON_COMMANDS.map(([k, v]) => /* @__PURE__ */ (0, import_jsx_runtime30.jsxs)(Text, { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime30.jsx)(Text, { color: t.color.label, children: pad(k) }),
+          /* @__PURE__ */ (0, import_jsx_runtime30.jsx)(Text, { color: t.color.muted, children: v })
         ] }, k)),
-        /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Box_default, { marginTop: 1, children: /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { bold: true, color: t.color.accent, children: "Hotkeys" }) }),
-        HOTKEY_PREVIEW.map(([k, v]) => /* @__PURE__ */ (0, import_jsx_runtime31.jsxs)(Text, { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { color: t.color.label, children: pad(k) }),
-          /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { color: t.color.muted, children: v })
+        /* @__PURE__ */ (0, import_jsx_runtime30.jsx)(Box_default, { marginTop: 1, children: /* @__PURE__ */ (0, import_jsx_runtime30.jsx)(Text, { bold: true, color: t.color.accent, children: "Hotkeys" }) }),
+        HOTKEY_PREVIEW.map(([k, v]) => /* @__PURE__ */ (0, import_jsx_runtime30.jsxs)(Text, { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime30.jsx)(Text, { color: t.color.label, children: pad(k) }),
+          /* @__PURE__ */ (0, import_jsx_runtime30.jsx)(Text, { color: t.color.muted, children: v })
         ] }, k))
       ]
     }
   ) });
 }
-var import_jsx_runtime31, COMMON_COMMANDS, HOTKEY_PREVIEW;
+var import_jsx_runtime30, COMMON_COMMANDS, HOTKEY_PREVIEW;
 var init_helpHint = __esm({
   async "src/components/helpHint.tsx"() {
     "use strict";
     await init_entry_exports();
     init_hotkeys();
-    import_jsx_runtime31 = __toESM(require_jsx_runtime(), 1);
+    import_jsx_runtime30 = __toESM(require_jsx_runtime(), 1);
     COMMON_COMMANDS = [
       ["/help", "full list of commands + hotkeys"],
       ["/clear", "start a new session"],
-      ["/resume", "resume a prior session"],
+      ["/resume", "switch live or resume past sessions"],
       ["/details", "control transcript detail level"],
       ["/copy", "copy selection or last assistant message"],
       ["/quit", "exit hermes"]
@@ -69858,10 +70573,10 @@ function fetchLinkTitle(url) {
   return promise;
 }
 function useLinkTitle(url) {
-  const normalizedUrl = (0, import_react90.useMemo)(() => url ? normalizeExternalUrl(url) : "", [url]);
-  const key = (0, import_react90.useMemo)(() => normalizedUrl ? titleCacheKey(normalizedUrl) : "", [normalizedUrl]);
-  const [title, setTitle] = (0, import_react90.useState)(() => key ? titleCache.get(key) ?? "" : "");
-  (0, import_react90.useEffect)(() => {
+  const normalizedUrl = (0, import_react89.useMemo)(() => url ? normalizeExternalUrl(url) : "", [url]);
+  const key = (0, import_react89.useMemo)(() => normalizedUrl ? titleCacheKey(normalizedUrl) : "", [normalizedUrl]);
+  const [title, setTitle] = (0, import_react89.useState)(() => key ? titleCache.get(key) ?? "" : "");
+  (0, import_react89.useEffect)(() => {
     setTitle(key ? titleCache.get(key) ?? "" : "");
     if (!key || !isTitleFetchable(normalizedUrl)) {
       return;
@@ -69879,11 +70594,11 @@ function useLinkTitle(url) {
   }, [key, normalizedUrl]);
   return title;
 }
-var import_react90, titleCache, titleInflight, titleSubs, TITLE_CACHE_LIMIT, TITLE_MAX_LENGTH, TITLE_BYTE_BUDGET, TITLE_TIMEOUT_MS, TITLE_USER_AGENT, TITLE_ERROR_RE, DOMAIN_RE, SKIP_PROTO_RE, LOCAL_HOSTNAME_RE, LOCAL_HOST_SUFFIXES, STATUS_PERMALINK_HOST_RE, STATUS_PERMALINK_PATH_RE, HTML_ENTITIES;
+var import_react89, titleCache, titleInflight, titleSubs, TITLE_CACHE_LIMIT, TITLE_MAX_LENGTH, TITLE_BYTE_BUDGET, TITLE_TIMEOUT_MS, TITLE_USER_AGENT, TITLE_ERROR_RE, DOMAIN_RE, SKIP_PROTO_RE, LOCAL_HOSTNAME_RE, LOCAL_HOST_SUFFIXES, STATUS_PERMALINK_HOST_RE, STATUS_PERMALINK_PATH_RE, HTML_ENTITIES;
 var init_externalLink = __esm({
   "src/lib/externalLink.ts"() {
     "use strict";
-    import_react90 = __toESM(require_react(), 1);
+    import_react89 = __toESM(require_react(), 1);
     titleCache = /* @__PURE__ */ new Map();
     titleInflight = /* @__PURE__ */ new Map();
     titleSubs = /* @__PURE__ */ new Map();
@@ -70577,7 +71292,7 @@ var init_syntax = __esm({
 function ResolvedLink({ fallbackLabel, t, url }) {
   const fetched = useLinkTitle(url);
   const display = fetched || fallbackLabel || defaultLinkLabel(url);
-  return /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Link, { url, children: /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { color: t.color.accent, underline: true, children: display }) });
+  return /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Link, { url, children: /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { color: t.color.accent, underline: true, children: display }) });
 }
 function MdInline({ t, text }) {
   const parts = [];
@@ -70586,11 +71301,11 @@ function MdInline({ t, text }) {
     const i = m.index ?? 0;
     const k = parts.length;
     if (i > last) {
-      parts.push(/* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { children: text.slice(last, i) }, k));
+      parts.push(/* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { children: text.slice(last, i) }, k));
     }
     if (m[1] && m[2]) {
       parts.push(
-        /* @__PURE__ */ (0, import_jsx_runtime32.jsxs)(Text, { color: t.color.muted, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime31.jsxs)(Text, { color: t.color.muted, children: [
           "[image: ",
           m[1],
           "] ",
@@ -70603,27 +71318,27 @@ function MdInline({ t, text }) {
       parts.push(renderResolvedLink(parts.length, t, autolinkUrl(m[5]), m[5].replace(/^mailto:/, "")));
     } else if (m[6]) {
       parts.push(
-        /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { strikethrough: true, children: /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(MdInline, { t, text: m[6] }) }, parts.length)
+        /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { strikethrough: true, children: /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(MdInline, { t, text: m[6] }) }, parts.length)
       );
     } else if (m[7]) {
       parts.push(
-        /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { color: t.color.accent, dimColor: true, children: m[7] }, parts.length)
+        /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { color: t.color.accent, dimColor: true, children: m[7] }, parts.length)
       );
     } else if (m[8] ?? m[9]) {
       parts.push(
-        /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { bold: true, children: /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(MdInline, { t, text: m[8] ?? m[9] }) }, parts.length)
+        /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { bold: true, children: /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(MdInline, { t, text: m[8] ?? m[9] }) }, parts.length)
       );
     } else if (m[10] ?? m[11]) {
       parts.push(
-        /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { italic: true, children: /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(MdInline, { t, text: m[10] ?? m[11] }) }, parts.length)
+        /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { italic: true, children: /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(MdInline, { t, text: m[10] ?? m[11] }) }, parts.length)
       );
     } else if (m[12]) {
       parts.push(
-        /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { backgroundColor: t.color.diffAdded, color: t.color.diffAddedWord, children: /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(MdInline, { t, text: m[12] }) }, parts.length)
+        /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { backgroundColor: t.color.diffAdded, color: t.color.diffAddedWord, children: /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(MdInline, { t, text: m[12] }) }, parts.length)
       );
     } else if (m[13]) {
       parts.push(
-        /* @__PURE__ */ (0, import_jsx_runtime32.jsxs)(Text, { color: t.color.muted, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime31.jsxs)(Text, { color: t.color.muted, children: [
           "[",
           m[13],
           "]"
@@ -70631,14 +71346,14 @@ function MdInline({ t, text }) {
       );
     } else if (m[14]) {
       parts.push(
-        /* @__PURE__ */ (0, import_jsx_runtime32.jsxs)(Text, { color: t.color.muted, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime31.jsxs)(Text, { color: t.color.muted, children: [
           "^",
           m[14]
         ] }, parts.length)
       );
     } else if (m[15]) {
       parts.push(
-        /* @__PURE__ */ (0, import_jsx_runtime32.jsxs)(Text, { color: t.color.muted, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime31.jsxs)(Text, { color: t.color.muted, children: [
           "_",
           m[15]
         ] }, parts.length)
@@ -70647,22 +71362,22 @@ function MdInline({ t, text }) {
       const url = m[16].replace(/[),.;:!?]+$/g, "");
       parts.push(renderResolvedLink(parts.length, t, url));
       if (url.length < m[16].length) {
-        parts.push(/* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { children: m[16].slice(url.length) }, parts.length));
+        parts.push(/* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { children: m[16].slice(url.length) }, parts.length));
       }
     } else if (m[17] ?? m[18]) {
       parts.push(
-        /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { color: t.color.accent, italic: true, children: renderMath(texToUnicode(m[17] ?? m[18])) }, parts.length)
+        /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { color: t.color.accent, italic: true, children: renderMath(texToUnicode(m[17] ?? m[18])) }, parts.length)
       );
     }
     last = i + m[0].length;
   }
   if (last < text.length) {
-    parts.push(/* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { children: text.slice(last) }, parts.length));
+    parts.push(/* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { children: text.slice(last) }, parts.length));
   }
-  return /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { wrap: "wrap-trim", children: parts.length ? parts : text });
+  return /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { wrap: "wrap-trim", children: parts.length ? parts : text });
 }
 function MdImpl({ cols, compact, t, text }) {
-  const nodes = (0, import_react91.useMemo)(() => {
+  const nodes = (0, import_react90.useMemo)(() => {
     const bucket = cacheBucket(t);
     const cacheKey = `${compact ? "1" : "0"}|${cols ?? ""}|${text}`;
     const cached = cacheGet(bucket, cacheKey);
@@ -70675,7 +71390,7 @@ function MdImpl({ cols, compact, t, text }) {
     let i = 0;
     const gap = () => {
       if (nodes2.length && prevKind !== "blank") {
-        nodes2.push(/* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { children: " " }, `gap-${nodes2.length}`));
+        nodes2.push(/* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { children: " " }, `gap-${nodes2.length}`));
         prevKind = "blank";
       }
     };
@@ -70703,9 +71418,9 @@ function MdImpl({ cols, compact, t, text }) {
       if (media) {
         start("paragraph");
         nodes2.push(
-          /* @__PURE__ */ (0, import_jsx_runtime32.jsxs)(Text, { color: t.color.muted, wrap: "wrap-trim", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime31.jsxs)(Text, { color: t.color.muted, wrap: "wrap-trim", children: [
             "\u25B8 ",
-            /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Link, { url: /^(?:\/|[a-z]:[\\/])/i.test(media) ? `file://${media}` : media, children: /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { color: t.color.accent, underline: true, children: media }) })
+            /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Link, { url: /^(?:\/|[a-z]:[\\/])/i.test(media) ? `file://${media}` : media, children: /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { color: t.color.accent, underline: true, children: media }) })
           ] }, key)
         );
         i++;
@@ -70729,25 +71444,25 @@ function MdImpl({ cols, compact, t, text }) {
         }
         if (["md", "markdown"].includes(lang)) {
           start("paragraph");
-          nodes2.push(/* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Md, { cols, compact, t, text: block.join("\n") }, key));
+          nodes2.push(/* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Md, { cols, compact, t, text: block.join("\n") }, key));
           continue;
         }
         start("code");
         const isDiff = lang === "diff";
         const highlighted = !isDiff && isHighlightable(lang);
         nodes2.push(
-          /* @__PURE__ */ (0, import_jsx_runtime32.jsxs)(Box_default, { flexDirection: "column", paddingLeft: 2, children: [
-            lang && !isDiff && /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { color: t.color.muted, children: "\u2500 " + lang }),
+          /* @__PURE__ */ (0, import_jsx_runtime31.jsxs)(Box_default, { flexDirection: "column", paddingLeft: 2, children: [
+            lang && !isDiff && /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { color: t.color.muted, children: "\u2500 " + lang }),
             block.map((l, j) => {
               if (highlighted) {
-                return /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { children: highlightLine(l, lang, t).map(
-                  ([color, text2], kk) => color ? /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { color, children: text2 }, kk) : /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { children: text2 }, kk)
+                return /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { children: highlightLine(l, lang, t).map(
+                  ([color, text2], kk) => color ? /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { color, children: text2 }, kk) : /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { children: text2 }, kk)
                 ) }, j);
               }
               const add = isDiff && l.startsWith("+");
               const del = isDiff && l.startsWith("-");
               const hunk = isDiff && l.startsWith("@@");
-              return /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(
+              return /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(
                 Text,
                 {
                   backgroundColor: add ? t.color.diffAdded : del ? t.color.diffRemoved : void 0,
@@ -70773,7 +71488,7 @@ function MdImpl({ cols, compact, t, text }) {
           const inner = sameLineClose[1].trim();
           start("code");
           nodes2.push(
-            /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Box_default, { flexDirection: "column", paddingLeft: 2, children: inner ? /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { color: t.color.accent, children: renderMath(texToUnicode(inner)) }) : null }, key)
+            /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Box_default, { flexDirection: "column", paddingLeft: 2, children: inner ? /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { color: t.color.accent, children: renderMath(texToUnicode(inner)) }) : null }, key)
           );
           i++;
           continue;
@@ -70787,7 +71502,7 @@ function MdImpl({ cols, compact, t, text }) {
         }
         if (closeIdx < 0) {
           start("paragraph");
-          nodes2.push(/* @__PURE__ */ (0, import_jsx_runtime32.jsx)(MdInline, { t, text: line }, key));
+          nodes2.push(/* @__PURE__ */ (0, import_jsx_runtime31.jsx)(MdInline, { t, text: line }, key));
           i++;
           continue;
         }
@@ -70803,7 +71518,7 @@ function MdImpl({ cols, compact, t, text }) {
         }
         start("code");
         nodes2.push(
-          /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Box_default, { flexDirection: "column", paddingLeft: 2, children: block.map((l, j) => /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { color: t.color.accent, children: renderMath(texToUnicode(l)) }, j)) }, key)
+          /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Box_default, { flexDirection: "column", paddingLeft: 2, children: block.map((l, j) => /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { color: t.color.accent, children: renderMath(texToUnicode(l)) }, j)) }, key)
         );
         i = closeIdx + 1;
         continue;
@@ -70812,7 +71527,7 @@ function MdImpl({ cols, compact, t, text }) {
       if (heading) {
         start("heading");
         nodes2.push(
-          /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { bold: true, color: t.color.accent, wrap: "wrap-trim", children: /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(MdInline, { t, text: heading }) }, key)
+          /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { bold: true, color: t.color.accent, wrap: "wrap-trim", children: /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(MdInline, { t, text: heading }) }, key)
         );
         i++;
         continue;
@@ -70820,7 +71535,7 @@ function MdImpl({ cols, compact, t, text }) {
       if (i + 1 < lines.length && SETEXT_RE.test(lines[i + 1])) {
         start("heading");
         nodes2.push(
-          /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { bold: true, color: t.color.accent, wrap: "wrap-trim", children: /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(MdInline, { t, text: line.trim() }) }, key)
+          /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { bold: true, color: t.color.accent, wrap: "wrap-trim", children: /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(MdInline, { t, text: line.trim() }) }, key)
         );
         i += 2;
         continue;
@@ -70828,7 +71543,7 @@ function MdImpl({ cols, compact, t, text }) {
       if (HR_RE.test(line)) {
         start("rule");
         nodes2.push(
-          /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { color: t.color.muted, children: "\u2500".repeat(36) }, key)
+          /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { color: t.color.muted, children: "\u2500".repeat(36) }, key)
         );
         i++;
         continue;
@@ -70837,17 +71552,17 @@ function MdImpl({ cols, compact, t, text }) {
       if (footnote) {
         start("list");
         nodes2.push(
-          /* @__PURE__ */ (0, import_jsx_runtime32.jsxs)(Text, { color: t.color.muted, wrap: "wrap-trim", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime31.jsxs)(Text, { color: t.color.muted, wrap: "wrap-trim", children: [
             "[",
             footnote[1],
             "] ",
-            /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(MdInline, { t, text: footnote[2] ?? "" })
+            /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(MdInline, { t, text: footnote[2] ?? "" })
           ] }, key)
         );
         i++;
         while (i < lines.length && /^\s{2,}\S/.test(lines[i])) {
           nodes2.push(
-            /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Box_default, { paddingLeft: 2, children: /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { color: t.color.muted, wrap: "wrap-trim", children: /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(MdInline, { t, text: lines[i].trim() }) }) }, `${key}-cont-${i}`)
+            /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Box_default, { paddingLeft: 2, children: /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { color: t.color.muted, wrap: "wrap-trim", children: /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(MdInline, { t, text: lines[i].trim() }) }) }, `${key}-cont-${i}`)
           );
           i++;
         }
@@ -70856,7 +71571,7 @@ function MdImpl({ cols, compact, t, text }) {
       if (i + 1 < lines.length && DEF_RE.test(lines[i + 1])) {
         start("list");
         nodes2.push(
-          /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { bold: true, wrap: "wrap-trim", children: line.trim() }, key)
+          /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { bold: true, wrap: "wrap-trim", children: line.trim() }, key)
         );
         i++;
         while (i < lines.length) {
@@ -70865,9 +71580,9 @@ function MdImpl({ cols, compact, t, text }) {
             break;
           }
           nodes2.push(
-            /* @__PURE__ */ (0, import_jsx_runtime32.jsxs)(Text, { wrap: "wrap-trim", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { color: t.color.muted, children: " \xB7 " }),
-              /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(MdInline, { t, text: def })
+            /* @__PURE__ */ (0, import_jsx_runtime31.jsxs)(Text, { wrap: "wrap-trim", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { color: t.color.muted, children: " \xB7 " }),
+              /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(MdInline, { t, text: def })
             ] }, `${key}-def-${i}`)
           );
           i++;
@@ -70880,12 +71595,12 @@ function MdImpl({ cols, compact, t, text }) {
         const task = bullet[2].match(TASK_RE);
         const marker = task ? task[1].toLowerCase() === "x" ? "\u2611" : "\u2610" : "\u2022";
         nodes2.push(
-          /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Box_default, { paddingLeft: indentDepth(bullet[1]) * 2, children: /* @__PURE__ */ (0, import_jsx_runtime32.jsxs)(Text, { wrap: "wrap-trim", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime32.jsxs)(Text, { color: t.color.muted, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Box_default, { paddingLeft: indentDepth(bullet[1]) * 2, children: /* @__PURE__ */ (0, import_jsx_runtime31.jsxs)(Text, { wrap: "wrap-trim", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime31.jsxs)(Text, { color: t.color.muted, children: [
               marker,
               " "
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(MdInline, { t, text: task ? task[2] : bullet[2] })
+            /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(MdInline, { t, text: task ? task[2] : bullet[2] })
           ] }) }, key)
         );
         i++;
@@ -70895,12 +71610,12 @@ function MdImpl({ cols, compact, t, text }) {
       if (numbered) {
         start("list");
         nodes2.push(
-          /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Box_default, { paddingLeft: indentDepth(numbered[1]) * 2, children: /* @__PURE__ */ (0, import_jsx_runtime32.jsxs)(Text, { wrap: "wrap-trim", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime32.jsxs)(Text, { color: t.color.muted, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Box_default, { paddingLeft: indentDepth(numbered[1]) * 2, children: /* @__PURE__ */ (0, import_jsx_runtime31.jsxs)(Text, { wrap: "wrap-trim", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime31.jsxs)(Text, { color: t.color.muted, children: [
               numbered[2],
               ". "
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(MdInline, { t, text: numbered[3] })
+            /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(MdInline, { t, text: numbered[3] })
           ] }) }, key)
         );
         i++;
@@ -70915,9 +71630,9 @@ function MdImpl({ cols, compact, t, text }) {
           i++;
         }
         nodes2.push(
-          /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Box_default, { flexDirection: "column", children: quoteLines.map((ql, qi) => /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Box_default, { paddingLeft: Math.max(0, ql.depth - 1) * 2, children: /* @__PURE__ */ (0, import_jsx_runtime32.jsxs)(Text, { color: t.color.muted, wrap: "wrap-trim", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Box_default, { flexDirection: "column", children: quoteLines.map((ql, qi) => /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Box_default, { paddingLeft: Math.max(0, ql.depth - 1) * 2, children: /* @__PURE__ */ (0, import_jsx_runtime31.jsxs)(Text, { color: t.color.muted, wrap: "wrap-trim", children: [
             "\u2502 ",
-            /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(MdInline, { t, text: ql.text })
+            /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(MdInline, { t, text: ql.text })
           ] }) }, qi)) }, key)
         );
         continue;
@@ -70939,7 +71654,7 @@ function MdImpl({ cols, compact, t, text }) {
       if (summary) {
         start("paragraph");
         nodes2.push(
-          /* @__PURE__ */ (0, import_jsx_runtime32.jsxs)(Text, { color: t.color.muted, wrap: "wrap-trim", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime31.jsxs)(Text, { color: t.color.muted, wrap: "wrap-trim", children: [
             "\u25B6 ",
             summary
           ] }, key)
@@ -70950,7 +71665,7 @@ function MdImpl({ cols, compact, t, text }) {
       if (/^<\/?[^>]+>$/.test(line.trim())) {
         start("paragraph");
         nodes2.push(
-          /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { color: t.color.muted, wrap: "wrap-trim", children: line.trim() }, key)
+          /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { color: t.color.muted, wrap: "wrap-trim", children: line.trim() }, key)
         );
         i++;
         continue;
@@ -70971,25 +71686,25 @@ function MdImpl({ cols, compact, t, text }) {
         continue;
       }
       start("paragraph");
-      nodes2.push(/* @__PURE__ */ (0, import_jsx_runtime32.jsx)(MdInline, { t, text: line }, key));
+      nodes2.push(/* @__PURE__ */ (0, import_jsx_runtime31.jsx)(MdInline, { t, text: line }, key));
       i++;
     }
     cacheSet(bucket, cacheKey, nodes2);
     return nodes2;
   }, [cols, compact, t, text]);
-  return /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Box_default, { flexDirection: "column", children: nodes });
+  return /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Box_default, { flexDirection: "column", children: nodes });
 }
-var import_react91, import_jsx_runtime32, renderMath, FENCE_RE, FENCE_CLOSE_RE, HR_RE, HEADING_RE, SETEXT_RE, FOOTNOTE_RE, DEF_RE, BULLET_RE, TASK_RE, NUMBERED_RE, QUOTE_RE, TABLE_DIVIDER_CELL_RE, MD_URL_RE, MD_IDENTIFIER_RE, MD_DUNDER_IDENTIFIER_RE, MD_UNDERSCORE_BOLD_RE, MD_UNDERSCORE_ITALIC_RE, STRIP_UNDERSCORE_BOLD_RE, STRIP_UNDERSCORE_ITALIC_RE, MATH_BLOCK_OPEN_RE, MATH_BLOCK_CLOSE_DOLLAR_RE, MATH_BLOCK_CLOSE_BRACKET_RE, MEDIA_LINE_RE, AUDIO_DIRECTIVE_RE, INLINE_RE, indentDepth, splitRow, isTableDivider, autolinkUrl, defaultLinkLabel, pickFallbackLabel, renderResolvedLink, stripInlineMarkup, SAFETY_MARGIN, MIN_COL_WIDTH, COL_GAP, TABLE_PADDING_LEFT, renderTable, MD_CACHE_LIMIT, mdCache, cacheBucket, cacheGet, cacheSet, Md;
+var import_react90, import_jsx_runtime31, renderMath, FENCE_RE, FENCE_CLOSE_RE, HR_RE, HEADING_RE, SETEXT_RE, FOOTNOTE_RE, DEF_RE, BULLET_RE, TASK_RE, NUMBERED_RE, QUOTE_RE, TABLE_DIVIDER_CELL_RE, MD_URL_RE, MD_IDENTIFIER_RE, MD_DUNDER_IDENTIFIER_RE, MD_UNDERSCORE_BOLD_RE, MD_UNDERSCORE_ITALIC_RE, STRIP_UNDERSCORE_BOLD_RE, STRIP_UNDERSCORE_ITALIC_RE, MATH_BLOCK_OPEN_RE, MATH_BLOCK_CLOSE_DOLLAR_RE, MATH_BLOCK_CLOSE_BRACKET_RE, MEDIA_LINE_RE, AUDIO_DIRECTIVE_RE, INLINE_RE, indentDepth, splitRow, isTableDivider, autolinkUrl, defaultLinkLabel, pickFallbackLabel, renderResolvedLink, stripInlineMarkup, SAFETY_MARGIN, MIN_COL_WIDTH, COL_GAP, TABLE_PADDING_LEFT, renderTable, MD_CACHE_LIMIT, mdCache, cacheBucket, cacheGet, cacheSet, Md;
 var init_markdown = __esm({
   async "src/components/markdown.tsx"() {
     "use strict";
     await init_entry_exports();
-    import_react91 = __toESM(require_react(), 1);
+    import_react90 = __toESM(require_react(), 1);
     init_emoji();
     init_externalLink();
     init_mathUnicode();
     init_syntax();
-    import_jsx_runtime32 = __toESM(require_jsx_runtime(), 1);
+    import_jsx_runtime31 = __toESM(require_jsx_runtime(), 1);
     renderMath = (text) => {
       if (!text.includes(BOX_OPEN)) {
         return text;
@@ -71012,7 +71727,7 @@ var init_markdown = __esm({
           break;
         }
         out.push(
-          /* @__PURE__ */ (0, import_jsx_runtime32.jsxs)(Text, { bold: true, inverse: true, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime31.jsxs)(Text, { bold: true, inverse: true, children: [
             " ",
             text.slice(start + 1, end),
             " "
@@ -71104,7 +71819,7 @@ var init_markdown = __esm({
     };
     renderResolvedLink = (k, t, rawUrl, label) => {
       const target = normalizeExternalUrl(rawUrl);
-      return /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(ResolvedLink, { fallbackLabel: pickFallbackLabel(label, target), t, url: target }, k);
+      return /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(ResolvedLink, { fallbackLabel: pickFallbackLabel(label, target), t, url: target }, k);
     };
     stripInlineMarkup = (v) => v.replace(/!\[(.*?)\]\(((?:[^\s()]|\([^\s()]*\))+?)\)/g, "[image: $1] $2").replace(/\[(.+?)\]\(((?:[^\s()]|\([^\s()]*\))+?)\)/g, "$1").replace(/<((?:https?:\/\/|mailto:)[^>\s]+|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})>/g, "$1").replace(/~~(.+?)~~/g, "$1").replace(/`([^`]+)`/g, "$1").replace(/\*\*(.+?)\*\*/g, "$1").replace(STRIP_UNDERSCORE_BOLD_RE, "$1").replace(/\*(.+?)\*/g, "$1").replace(STRIP_UNDERSCORE_ITALIC_RE, "$1").replace(/==(.+?)==/g, "$1").replace(/\[\^([^\]]+)\]/g, "[$1]").replace(/\^([^^\s][^^]*?)\^/g, "^$1").replace(/~([A-Za-z0-9]{1,8})~/g, "_$1").replace(/(?<!\$)\$([^\s$](?:[^$\n]*?[^\s$])?)\$(?!\$)/g, "$1").replace(/\\\(([^\n]+?)\\\)/g, "$1");
     SAFETY_MARGIN = 4;
@@ -71172,8 +71887,8 @@ var init_markdown = __esm({
           remainder--;
         }
       }
-      const segmenter4 = typeof Intl !== "undefined" && "Segmenter" in Intl ? new Intl.Segmenter(void 0, { granularity: "grapheme" }) : null;
-      const graphemes2 = (s) => segmenter4 ? [...segmenter4.segment(s)].map((seg3) => seg3.segment) : [...s];
+      const segmenter6 = typeof Intl !== "undefined" && "Segmenter" in Intl ? new Intl.Segmenter(void 0, { granularity: "grapheme" }) : null;
+      const graphemes2 = (s) => segmenter6 ? [...segmenter6.segment(s)].map((seg3) => seg3.segment) : [...s];
       const wrapCell = (raw, width, hard) => {
         const text = stripInlineMarkup(raw);
         if (width <= 0) return [text];
@@ -71221,8 +71936,8 @@ var init_markdown = __esm({
           const gap = ci < numCols - 1 ? "  " : "";
           return text + pad + gap;
         }).join("");
-        return /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Box_default, { flexDirection: "column", paddingLeft: TABLE_PADDING_LEFT, children: normalizedRows.map((row, ri) => /* @__PURE__ */ (0, import_jsx_runtime32.jsxs)(import_react91.Fragment, { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(
+        return /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Box_default, { flexDirection: "column", paddingLeft: TABLE_PADDING_LEFT, children: normalizedRows.map((row, ri) => /* @__PURE__ */ (0, import_jsx_runtime31.jsxs)(import_react90.Fragment, { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(
             Text,
             {
               bold: ri === 0,
@@ -71231,7 +71946,7 @@ var init_markdown = __esm({
               children: buildRowString(row)
             }
           ),
-          ri === 0 && normalizedRows.length > 1 ? /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { color: t.color.muted, dimColor: true, wrap: "truncate-end", children: sep }) : null
+          ri === 0 && normalizedRows.length > 1 ? /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { color: t.color.muted, dimColor: true, wrap: "truncate-end", children: sep }) : null
         ] }, ri)) }, k);
       }
       const buildRowLines = (row) => {
@@ -71270,18 +71985,18 @@ var init_markdown = __esm({
       const useVertical = tallestBodyRow > maxRowLinesThreshold || safetyOverflow;
       if (useVertical) {
         if (normalizedRows.length <= 1) {
-          return /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Box_default, { flexDirection: "column", paddingLeft: TABLE_PADDING_LEFT, children: /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { bold: true, color: t.color.accent, wrap: "wrap-trim", children: normalizedRows[0].map((h) => stripInlineMarkup(h)).join(" \xB7 ") }) }, k);
+          return /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Box_default, { flexDirection: "column", paddingLeft: TABLE_PADDING_LEFT, children: /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { bold: true, color: t.color.accent, wrap: "wrap-trim", children: normalizedRows[0].map((h) => stripInlineMarkup(h)).join(" \xB7 ") }) }, k);
         }
         const headers = normalizedRows[0];
         const dataRows = normalizedRows.slice(1);
         const sepWidth = Math.max(1, cols ? Math.min(cols - TABLE_PADDING_LEFT - 1, 40) : 40);
-        return /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Box_default, { flexDirection: "column", paddingLeft: TABLE_PADDING_LEFT, children: dataRows.map((row, ri) => /* @__PURE__ */ (0, import_jsx_runtime32.jsxs)(import_react91.Fragment, { children: [
-          ri > 0 ? /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Text, { color: t.color.muted, dimColor: true, children: "\u2500".repeat(sepWidth) }) : null,
+        return /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Box_default, { flexDirection: "column", paddingLeft: TABLE_PADDING_LEFT, children: dataRows.map((row, ri) => /* @__PURE__ */ (0, import_jsx_runtime31.jsxs)(import_react90.Fragment, { children: [
+          ri > 0 ? /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Text, { color: t.color.muted, dimColor: true, children: "\u2500".repeat(sepWidth) }) : null,
           headers.map((header, ci) => {
             const cell = row[ci] ?? "";
             const label = stripInlineMarkup(header) || `Col ${ci + 1}`;
-            return /* @__PURE__ */ (0, import_jsx_runtime32.jsxs)(Text, { wrap: "wrap-trim", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime32.jsxs)(Text, { bold: true, color: t.color.accent, children: [
+            return /* @__PURE__ */ (0, import_jsx_runtime31.jsxs)(Text, { wrap: "wrap-trim", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime31.jsxs)(Text, { bold: true, color: t.color.accent, children: [
                 label,
                 ":"
               ] }),
@@ -71291,7 +72006,7 @@ var init_markdown = __esm({
           })
         ] }, ri)) }, k);
       }
-      return /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Box_default, { flexDirection: "column", paddingLeft: TABLE_PADDING_LEFT, children: allEntries.map((entry, i) => /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(
+      return /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(Box_default, { flexDirection: "column", paddingLeft: TABLE_PADDING_LEFT, children: allEntries.map((entry, i) => /* @__PURE__ */ (0, import_jsx_runtime31.jsx)(
         Text,
         {
           bold: entry.kind === "header",
@@ -71328,19 +72043,19 @@ var init_markdown = __esm({
         b.delete(b.keys().next().value);
       }
     };
-    Md = (0, import_react91.memo)(MdImpl);
+    Md = (0, import_react90.memo)(MdImpl);
   }
 });
 
 // src/components/streamingMarkdown.tsx
-var import_react92, import_jsx_runtime33, fenceOpenAt, findStableBoundary, StreamingMd;
+var import_react91, import_jsx_runtime32, fenceOpenAt, findStableBoundary, StreamingMd;
 var init_streamingMarkdown = __esm({
   async "src/components/streamingMarkdown.tsx"() {
     "use strict";
     await init_entry_exports();
-    import_react92 = __toESM(require_react(), 1);
+    import_react91 = __toESM(require_react(), 1);
     await init_markdown();
-    import_jsx_runtime33 = __toESM(require_jsx_runtime(), 1);
+    import_jsx_runtime32 = __toESM(require_jsx_runtime(), 1);
     fenceOpenAt = (s, end) => {
       let codeOpen = false;
       let mathOpen = false;
@@ -71395,8 +72110,8 @@ var init_streamingMarkdown = __esm({
       }
       return -1;
     };
-    StreamingMd = (0, import_react92.memo)(function StreamingMd2({ cols, compact, t, text }) {
-      const stablePrefixRef = (0, import_react92.useRef)("");
+    StreamingMd = (0, import_react91.memo)(function StreamingMd2({ cols, compact, t, text }) {
+      const stablePrefixRef = (0, import_react91.useRef)("");
       if (!text.startsWith(stablePrefixRef.current)) {
         stablePrefixRef.current = "";
       }
@@ -71407,14 +72122,14 @@ var init_streamingMarkdown = __esm({
       const stablePrefix = stablePrefixRef.current;
       const unstableSuffix = text.slice(stablePrefix.length);
       if (!stablePrefix) {
-        return /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Md, { cols, compact, t, text: unstableSuffix });
+        return /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Md, { cols, compact, t, text: unstableSuffix });
       }
       if (!unstableSuffix) {
-        return /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Md, { cols, compact, t, text: stablePrefix });
+        return /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Md, { cols, compact, t, text: stablePrefix });
       }
-      return /* @__PURE__ */ (0, import_jsx_runtime33.jsxs)(Box_default, { flexDirection: "column", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Md, { cols, compact, t, text: stablePrefix }),
-        /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Md, { cols, compact, t, text: unstableSuffix })
+      return /* @__PURE__ */ (0, import_jsx_runtime32.jsxs)(Box_default, { flexDirection: "column", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Md, { cols, compact, t, text: stablePrefix }),
+        /* @__PURE__ */ (0, import_jsx_runtime32.jsx)(Md, { cols, compact, t, text: unstableSuffix })
       ] });
     });
   }
@@ -71430,9 +72145,9 @@ function TreeRow({
   t
 }) {
   const lead = treeLead(rails, branch);
-  return /* @__PURE__ */ (0, import_jsx_runtime34.jsxs)(Box_default, { children: [
-    /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(NoSelect, { flexShrink: 0, fromLeftEdge: true, width: lead.length, children: /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Text, { color: stemColor ?? t.color.muted, dim: stemDim, children: lead }) }),
-    /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Box_default, { flexDirection: "column", flexGrow: 1, children })
+  return /* @__PURE__ */ (0, import_jsx_runtime33.jsxs)(Box_default, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(NoSelect, { flexShrink: 0, fromLeftEdge: true, width: lead.length, children: /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Text, { color: stemColor ?? t.color.muted, dim: stemDim, children: lead }) }),
+    /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Box_default, { flexDirection: "column", flexGrow: 1, children })
   ] });
 }
 function TreeTextRow({
@@ -71444,8 +72159,8 @@ function TreeTextRow({
   t,
   wrap = "wrap-trim"
 }) {
-  const text = dimColor ? /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Text, { color, dim: true, wrap, children: content }) : /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Text, { color, wrap, children: content });
-  return /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(TreeRow, { branch, rails, t, children: text });
+  const text = dimColor ? /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Text, { color, dim: true, wrap, children: content }) : /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Text, { color, wrap, children: content });
+  return /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(TreeRow, { branch, rails, t, children: text });
 }
 function TreeNode({
   branch,
@@ -71457,25 +72172,25 @@ function TreeNode({
   stemDim,
   t
 }) {
-  return /* @__PURE__ */ (0, import_jsx_runtime34.jsxs)(Box_default, { flexDirection: "column", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(TreeRow, { branch, rails, stemColor, stemDim, t, children: header }),
+  return /* @__PURE__ */ (0, import_jsx_runtime33.jsxs)(Box_default, { flexDirection: "column", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(TreeRow, { branch, rails, stemColor, stemDim, t, children: header }),
     open ? children?.(nextTreeRails(rails, branch)) : null
   ] });
 }
 function Spinner({ color, variant = "think" }) {
-  const spin = (0, import_react93.useMemo)(() => {
+  const spin = (0, import_react92.useMemo)(() => {
     const raw = braille_default[pick(variant === "tool" ? TOOL : THINK)];
     return { ...raw, frames: raw.frames.map((f) => [...f][0] ?? "\u2800") };
   }, [variant]);
-  const [frame, setFrame] = (0, import_react93.useState)(0);
-  (0, import_react93.useEffect)(() => {
+  const [frame, setFrame] = (0, import_react92.useState)(0);
+  (0, import_react92.useEffect)(() => {
     setFrame(0);
   }, [spin]);
-  (0, import_react93.useEffect)(() => {
+  (0, import_react92.useEffect)(() => {
     const id = setInterval(() => setFrame((f) => (f + 1) % spin.frames.length), spin.interval);
     return () => clearInterval(id);
   }, [spin]);
-  return /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Text, { color, children: spin.frames[frame] });
+  return /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Text, { color, children: spin.frames[frame] });
 }
 function Detail2({
   branch = "last",
@@ -71485,7 +72200,7 @@ function Detail2({
   rails = [],
   t
 }) {
-  return /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(TreeTextRow, { branch, color, content, dimColor, rails, t });
+  return /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(TreeTextRow, { branch, color, content, dimColor, rails, t });
 }
 function StreamCursor({
   color,
@@ -71493,8 +72208,8 @@ function StreamCursor({
   streaming = false,
   visible = false
 }) {
-  const [on2, setOn] = (0, import_react93.useState)(true);
-  (0, import_react93.useEffect)(() => {
+  const [on2, setOn] = (0, import_react92.useState)(true);
+  (0, import_react92.useEffect)(() => {
     if (!visible || !streaming) {
       setOn(true);
       return;
@@ -71505,7 +72220,7 @@ function StreamCursor({
   if (!visible) {
     return null;
   }
-  return dimColor ? /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Text, { color, dim: true, children: streaming && on2 ? "\u258D" : " " }) : /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Text, { color, children: streaming && on2 ? "\u258D" : " " });
+  return dimColor ? /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Text, { color, dim: true, children: streaming && on2 ? "\u258D" : " " }) : /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Text, { color, children: streaming && on2 ? "\u258D" : " " });
 }
 function Chevron({
   count,
@@ -71517,11 +72232,11 @@ function Chevron({
   tone = "dim"
 }) {
   const color = tone === "error" ? t.color.error : tone === "warn" ? t.color.warn : t.color.muted;
-  return /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Box_default, { onClick: (e) => onClick(!!e?.shiftKey || !!e?.ctrlKey), children: /* @__PURE__ */ (0, import_jsx_runtime34.jsxs)(Text, { color, dim: tone === "dim", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Text, { color: t.color.accent, children: open ? "\u25BE " : "\u25B8 " }),
+  return /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Box_default, { onClick: (e) => onClick(!!e?.shiftKey || !!e?.ctrlKey), children: /* @__PURE__ */ (0, import_jsx_runtime33.jsxs)(Text, { color, dim: tone === "dim", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Text, { color: t.color.accent, children: open ? "\u25BE " : "\u25B8 " }),
     title,
     typeof count === "number" ? ` (${count})` : "",
-    suffix ? /* @__PURE__ */ (0, import_jsx_runtime34.jsxs)(Text, { color: t.color.statusFg, dim: true, children: [
+    suffix ? /* @__PURE__ */ (0, import_jsx_runtime33.jsxs)(Text, { color: t.color.statusFg, dim: true, children: [
       "  ",
       suffix
     ] }) : null
@@ -71543,13 +72258,13 @@ function SubagentAccordion({
   rails = [],
   t
 }) {
-  const [open, setOpen] = (0, import_react93.useState)(expanded);
-  const [deep, setDeep] = (0, import_react93.useState)(expanded);
-  const [openThinking, setOpenThinking] = (0, import_react93.useState)(expanded);
-  const [openTools, setOpenTools] = (0, import_react93.useState)(expanded);
-  const [openNotes, setOpenNotes] = (0, import_react93.useState)(expanded);
-  const [openKids, setOpenKids] = (0, import_react93.useState)(expanded);
-  (0, import_react93.useEffect)(() => {
+  const [open, setOpen] = (0, import_react92.useState)(expanded);
+  const [deep, setDeep] = (0, import_react92.useState)(expanded);
+  const [openThinking, setOpenThinking] = (0, import_react92.useState)(expanded);
+  const [openTools, setOpenTools] = (0, import_react92.useState)(expanded);
+  const [openNotes, setOpenNotes] = (0, import_react92.useState)(expanded);
+  const [openKids, setOpenKids] = (0, import_react92.useState)(expanded);
+  (0, import_react92.useEffect)(() => {
     if (!expanded) {
       return;
     }
@@ -71621,7 +72336,7 @@ function SubagentAccordion({
   const sections = [];
   if (hasThinking) {
     sections.push({
-      header: /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(
+      header: /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(
         Chevron,
         {
           count: item.thinking.length,
@@ -71639,7 +72354,7 @@ function SubagentAccordion({
       ),
       key: "thinking",
       open: openThinking,
-      render: (childRails) => /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(
+      render: (childRails) => /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(
         Thinking,
         {
           active: item.status === "running",
@@ -71655,7 +72370,7 @@ function SubagentAccordion({
   }
   if (hasTools) {
     sections.push({
-      header: /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(
+      header: /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(
         Chevron,
         {
           count: item.tools.length,
@@ -71673,13 +72388,13 @@ function SubagentAccordion({
       ),
       key: "tools",
       open: openTools,
-      render: (childRails) => /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Box_default, { flexDirection: "column", children: item.tools.map((line, index) => /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(
+      render: (childRails) => /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Box_default, { flexDirection: "column", children: item.tools.map((line, index) => /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(
         TreeTextRow,
         {
           branch: index === item.tools.length - 1 ? "last" : "mid",
           color: t.color.text,
-          content: /* @__PURE__ */ (0, import_jsx_runtime34.jsxs)(import_jsx_runtime34.Fragment, { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Text, { color: t.color.accent, children: "\u25CF " }),
+          content: /* @__PURE__ */ (0, import_jsx_runtime33.jsxs)(import_jsx_runtime33.Fragment, { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Text, { color: t.color.accent, children: "\u25CF " }),
             line
           ] }),
           rails: childRails,
@@ -71691,7 +72406,7 @@ function SubagentAccordion({
   }
   if (hasNotes) {
     sections.push({
-      header: /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(
+      header: /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(
         Chevron,
         {
           count: noteRows.length,
@@ -71710,7 +72425,7 @@ function SubagentAccordion({
       ),
       key: "notes",
       open: openNotes,
-      render: (childRails) => /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Box_default, { flexDirection: "column", children: noteRows.map((line, index) => /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(
+      render: (childRails) => /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Box_default, { flexDirection: "column", children: noteRows.map((line, index) => /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(
         TreeTextRow,
         {
           branch: index === noteRows.length - 1 ? "last" : "mid",
@@ -71726,7 +72441,7 @@ function SubagentAccordion({
   }
   if (children.length > 0) {
     sections.push({
-      header: /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(
+      header: /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(
         Chevron,
         {
           count: children.length,
@@ -71745,7 +72460,7 @@ function SubagentAccordion({
       ),
       key: "subagents",
       open: openKids,
-      render: (childRails) => /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Box_default, { flexDirection: "column", children: children.map((child, i) => /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(
+      render: (childRails) => /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Box_default, { flexDirection: "column", children: children.map((child, i) => /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(
         SubagentAccordion,
         {
           branch: i === children.length - 1 ? "last" : "mid",
@@ -71760,11 +72475,11 @@ function SubagentAccordion({
     });
   }
   const stem = heatColor(node, peak, t);
-  return /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(
+  return /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(
     TreeNode,
     {
       branch,
-      header: /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(
+      header: /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(
         Chevron,
         {
           onClick: (shift) => {
@@ -71791,7 +72506,7 @@ function SubagentAccordion({
       stemColor: stem,
       stemDim: stem == null,
       t,
-      children: (childRails) => /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Box_default, { flexDirection: "column", children: sections.map((section, index) => /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(
+      children: (childRails) => /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Box_default, { flexDirection: "column", children: sections.map((section, index) => /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(
         TreeNode,
         {
           branch: index === sections.length - 1 ? "last" : "mid",
@@ -71806,19 +72521,19 @@ function SubagentAccordion({
     }
   );
 }
-var import_react93, import_jsx_runtime34, import_react94, THINK, TOOL, fmtElapsed, nextTreeRails, treeLead, Thinking, ToolTrail;
+var import_react92, import_jsx_runtime33, import_react93, THINK, TOOL, fmtElapsed, nextTreeRails, treeLead, Thinking, ToolTrail;
 var init_thinking = __esm({
   async "src/components/thinking.tsx"() {
     "use strict";
     await init_entry_exports();
-    import_react93 = __toESM(require_react(), 1);
+    import_react92 = __toESM(require_react(), 1);
     init_dist5();
     init_limits();
     init_details();
     init_subagentTree();
     init_text();
-    import_jsx_runtime34 = __toESM(require_jsx_runtime(), 1);
-    import_react94 = __toESM(require_react(), 1);
+    import_jsx_runtime33 = __toESM(require_jsx_runtime(), 1);
+    import_react93 = __toESM(require_react(), 1);
     THINK = ["helix", "breathe", "orbit", "dna", "waverows", "snake", "pulse"];
     TOOL = ["cascade", "scan", "diagswipe", "fillsweep", "rain", "columns", "sparkle"];
     fmtElapsed = (ms) => {
@@ -71827,7 +72542,7 @@ var init_thinking = __esm({
     };
     nextTreeRails = (rails, branch) => [...rails, branch === "mid"];
     treeLead = (rails, branch) => `${rails.map((on2) => on2 ? "\u2502 " : "  ").join("")}${branch === "mid" ? "\u251C\u2500 " : "\u2514\u2500 "}`;
-    Thinking = (0, import_react93.memo)(function Thinking2({
+    Thinking = (0, import_react92.memo)(function Thinking2({
       active = false,
       branch = "last",
       mode = "truncated",
@@ -71836,23 +72551,23 @@ var init_thinking = __esm({
       streaming = false,
       t
     }) {
-      const preview = (0, import_react93.useMemo)(() => {
+      const preview = (0, import_react92.useMemo)(() => {
         const raw = thinkingPreview(reasoning, mode, THINKING_COT_MAX);
         return mode === "full" ? boundedLiveRenderText(raw) : raw;
       }, [mode, reasoning]);
-      const lines = (0, import_react93.useMemo)(() => preview.split("\n").map((line) => line.replace(/\t/g, "  ")), [preview]);
+      const lines = (0, import_react92.useMemo)(() => preview.split("\n").map((line) => line.replace(/\t/g, "  ")), [preview]);
       if (!preview && !active) {
         return null;
       }
-      return /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(TreeRow, { branch, rails, t, children: /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Box_default, { flexDirection: "column", flexGrow: 1, children: preview ? mode === "full" ? lines.map((line, index) => /* @__PURE__ */ (0, import_jsx_runtime34.jsxs)(Text, { color: t.color.muted, wrap: "wrap-trim", children: [
+      return /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(TreeRow, { branch, rails, t, children: /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Box_default, { flexDirection: "column", flexGrow: 1, children: preview ? mode === "full" ? lines.map((line, index) => /* @__PURE__ */ (0, import_jsx_runtime33.jsxs)(Text, { color: t.color.muted, wrap: "wrap-trim", children: [
         line || " ",
-        index === lines.length - 1 ? /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(StreamCursor, { color: t.color.muted, streaming, visible: active }) : null
-      ] }, index)) : /* @__PURE__ */ (0, import_jsx_runtime34.jsxs)(Text, { color: t.color.muted, wrap: "truncate-end", children: [
+        index === lines.length - 1 ? /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(StreamCursor, { color: t.color.muted, streaming, visible: active }) : null
+      ] }, index)) : /* @__PURE__ */ (0, import_jsx_runtime33.jsxs)(Text, { color: t.color.muted, wrap: "truncate-end", children: [
         preview,
-        /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(StreamCursor, { color: t.color.muted, streaming, visible: active })
-      ] }) : /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Text, { color: t.color.muted, children: /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(StreamCursor, { color: t.color.muted, streaming, visible: active }) }) }) });
+        /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(StreamCursor, { color: t.color.muted, streaming, visible: active })
+      ] }) : /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Text, { color: t.color.muted, children: /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(StreamCursor, { color: t.color.muted, streaming, visible: active }) }) }) });
     });
-    ToolTrail = (0, import_react93.memo)(function ToolTrail2({
+    ToolTrail = (0, import_react92.memo)(function ToolTrail2({
       busy = false,
       commandOverride = false,
       detailsMode = "collapsed",
@@ -71869,7 +72584,7 @@ var init_thinking = __esm({
       trail = [],
       activity = []
     }) {
-      const visible = (0, import_react93.useMemo)(
+      const visible = (0, import_react92.useMemo)(
         () => ({
           thinking: sectionMode("thinking", detailsMode, sections, commandOverride),
           tools: sectionMode("tools", detailsMode, sections, commandOverride),
@@ -71878,32 +72593,32 @@ var init_thinking = __esm({
         }),
         [commandOverride, detailsMode, sections]
       );
-      const [now2, setNow] = (0, import_react93.useState)(() => Date.now());
-      const [openThinking, setOpenThinking] = (0, import_react93.useState)(visible.thinking === "expanded");
-      const [openTools, setOpenTools] = (0, import_react93.useState)(visible.tools === "expanded");
-      const [openSubagents, setOpenSubagents] = (0, import_react93.useState)(visible.subagents === "expanded");
-      const [deepSubagents, setDeepSubagents] = (0, import_react93.useState)(visible.subagents === "expanded");
-      const [openMeta, setOpenMeta] = (0, import_react93.useState)(visible.activity === "expanded");
-      (0, import_react93.useEffect)(() => {
+      const [now2, setNow] = (0, import_react92.useState)(() => Date.now());
+      const [openThinking, setOpenThinking] = (0, import_react92.useState)(visible.thinking === "expanded");
+      const [openTools, setOpenTools] = (0, import_react92.useState)(visible.tools === "expanded");
+      const [openSubagents, setOpenSubagents] = (0, import_react92.useState)(visible.subagents === "expanded");
+      const [deepSubagents, setDeepSubagents] = (0, import_react92.useState)(visible.subagents === "expanded");
+      const [openMeta, setOpenMeta] = (0, import_react92.useState)(visible.activity === "expanded");
+      (0, import_react92.useEffect)(() => {
         if (!tools.length || visible.tools !== "expanded" && !openTools) {
           return;
         }
         const id = setInterval(() => setNow(Date.now()), 500);
         return () => clearInterval(id);
       }, [openTools, tools.length, visible.tools]);
-      (0, import_react93.useEffect)(() => {
+      (0, import_react92.useEffect)(() => {
         setOpenThinking(visible.thinking === "expanded");
         setOpenTools(visible.tools === "expanded");
         setOpenSubagents(visible.subagents === "expanded");
         setOpenMeta(visible.activity === "expanded");
       }, [visible]);
-      const cot = (0, import_react93.useMemo)(() => thinkingPreview(reasoning, "full", THINKING_COT_MAX), [reasoning]);
-      const spawnTree = (0, import_react93.useMemo)(() => buildSubagentTree(subagents), [subagents]);
-      const spawnPeak = (0, import_react93.useMemo)(() => peakHotness(spawnTree), [spawnTree]);
-      const spawnTotals = (0, import_react93.useMemo)(() => treeTotals(spawnTree), [spawnTree]);
-      const spawnWidths = (0, import_react93.useMemo)(() => widthByDepth(spawnTree), [spawnTree]);
-      const spawnSpark = (0, import_react93.useMemo)(() => sparkline(spawnWidths), [spawnWidths]);
-      const spawnSummaryLabel = (0, import_react93.useMemo)(() => formatSummary(spawnTotals), [spawnTotals]);
+      const cot = (0, import_react92.useMemo)(() => thinkingPreview(reasoning, "full", THINKING_COT_MAX), [reasoning]);
+      const spawnTree = (0, import_react92.useMemo)(() => buildSubagentTree(subagents), [subagents]);
+      const spawnPeak = (0, import_react92.useMemo)(() => peakHotness(spawnTree), [spawnTree]);
+      const spawnTotals = (0, import_react92.useMemo)(() => treeTotals(spawnTree), [spawnTree]);
+      const spawnWidths = (0, import_react92.useMemo)(() => widthByDepth(spawnTree), [spawnTree]);
+      const spawnSpark = (0, import_react92.useMemo)(() => sparkline(spawnWidths), [spawnWidths]);
+      const spawnSummaryLabel = (0, import_react92.useMemo)(() => formatSummary(spawnTotals), [spawnTotals]);
       if (!busy && !trail.length && !tools.length && !subagents.length && !activity.length && !cot && !reasoningActive && !outcome) {
         return null;
       }
@@ -71946,8 +72661,8 @@ var init_thinking = __esm({
             color: t.color.muted,
             dimColor: true,
             key: `tr-${i}`,
-            content: groups.length ? /* @__PURE__ */ (0, import_jsx_runtime34.jsxs)(import_jsx_runtime34.Fragment, { children: [
-              /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Spinner, { color: t.color.accent, variant: "think" }),
+            content: groups.length ? /* @__PURE__ */ (0, import_jsx_runtime33.jsxs)(import_jsx_runtime33.Fragment, { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Spinner, { color: t.color.accent, variant: "think" }),
               " ",
               line
             ] }) : line
@@ -71971,8 +72686,8 @@ ${boundedLiveRenderText(tool.verboseArgs)}`,
               key: `${tool.id}-args`
             }
           ] : [],
-          content: /* @__PURE__ */ (0, import_jsx_runtime34.jsxs)(import_jsx_runtime34.Fragment, { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Spinner, { color: t.color.accent, variant: "tool" }),
+          content: /* @__PURE__ */ (0, import_jsx_runtime33.jsxs)(import_jsx_runtime33.Fragment, { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Spinner, { color: t.color.accent, variant: "tool" }),
             " ",
             label,
             tool.startedAt ? ` (${fmtElapsed(now2 - tool.startedAt)})` : ""
@@ -71999,15 +72714,15 @@ ${boundedLiveRenderText(tool.verboseArgs)}`,
       const inlineDelegateKey = hasSubagents && delegateGroups.length === 1 ? delegateGroups[0].key : null;
       const toolLabel = (group) => {
         const { duration, label } = splitToolDuration(String(group.content));
-        return duration ? /* @__PURE__ */ (0, import_jsx_runtime34.jsxs)(import_jsx_runtime34.Fragment, { children: [
+        return duration ? /* @__PURE__ */ (0, import_jsx_runtime33.jsxs)(import_jsx_runtime33.Fragment, { children: [
           label,
-          /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Text, { color: t.color.statusFg, dim: true, children: duration })
+          /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Text, { color: t.color.statusFg, dim: true, children: duration })
         ] }) : group.content;
       };
       const allHidden = visible.thinking === "hidden" && visible.tools === "hidden" && visible.subagents === "hidden" && visible.activity === "hidden";
       if (allHidden) {
         const alerts = activity.filter((i) => i.tone !== "info").slice(-2);
-        return alerts.length ? /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Box_default, { flexDirection: "column", children: alerts.map((i) => /* @__PURE__ */ (0, import_jsx_runtime34.jsxs)(Text, { color: i.tone === "error" ? t.color.error : t.color.warn, children: [
+        return alerts.length ? /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Box_default, { flexDirection: "column", children: alerts.map((i) => /* @__PURE__ */ (0, import_jsx_runtime33.jsxs)(Text, { color: i.tone === "error" ? t.color.error : t.color.warn, children: [
           i.tone === "error" ? "\u2717" : "!",
           " ",
           i.text
@@ -72029,7 +72744,7 @@ ${boundedLiveRenderText(tool.verboseArgs)}`,
         }
       };
       const metaTone = activity.some((i) => i.tone === "error") ? "error" : activity.some((i) => i.tone === "warn") ? "warn" : "dim";
-      const renderSubagentList = (rails) => /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Box_default, { flexDirection: "column", children: spawnTree.map((node, index) => /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(
+      const renderSubagentList = (rails) => /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Box_default, { flexDirection: "column", children: spawnTree.map((node, index) => /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(
         SubagentAccordion,
         {
           branch: index === spawnTree.length - 1 ? "last" : "mid",
@@ -72044,7 +72759,7 @@ ${boundedLiveRenderText(tool.verboseArgs)}`,
       const panels = [];
       if (hasThinking && visible.thinking !== "hidden") {
         panels.push({
-          header: /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(
+          header: /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(
             Box_default,
             {
               onClick: (e) => {
@@ -72054,10 +72769,10 @@ ${boundedLiveRenderText(tool.verboseArgs)}`,
                   setOpenThinking((v) => !v);
                 }
               },
-              children: /* @__PURE__ */ (0, import_jsx_runtime34.jsxs)(Text, { color: t.color.muted, dim: !thinkingLive, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Text, { color: t.color.accent, children: openThinking ? "\u25BE " : "\u25B8 " }),
-                thinkingLive ? /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Text, { bold: true, color: t.color.text, children: "Thinking" }) : /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Text, { color: t.color.muted, dim: true, children: "Thinking" }),
-                thinkingTokensLabel ? /* @__PURE__ */ (0, import_jsx_runtime34.jsxs)(Text, { color: t.color.statusFg, dim: true, children: [
+              children: /* @__PURE__ */ (0, import_jsx_runtime33.jsxs)(Text, { color: t.color.muted, dim: !thinkingLive, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Text, { color: t.color.accent, children: openThinking ? "\u25BE " : "\u25B8 " }),
+                thinkingLive ? /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Text, { bold: true, color: t.color.text, children: "Thinking" }) : /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Text, { color: t.color.muted, dim: true, children: "Thinking" }),
+                thinkingTokensLabel ? /* @__PURE__ */ (0, import_jsx_runtime33.jsxs)(Text, { color: t.color.statusFg, dim: true, children: [
                   "  ",
                   thinkingTokensLabel
                 ] }) : null
@@ -72066,7 +72781,7 @@ ${boundedLiveRenderText(tool.verboseArgs)}`,
           ),
           key: "thinking",
           open: openThinking,
-          render: (rails) => /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(
+          render: (rails) => /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(
             Thinking,
             {
               active: reasoningActive,
@@ -72082,7 +72797,7 @@ ${boundedLiveRenderText(tool.verboseArgs)}`,
       }
       if (hasTools && visible.tools !== "hidden") {
         panels.push({
-          header: /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(
+          header: /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(
             Chevron,
             {
               count: groups.length,
@@ -72101,25 +72816,27 @@ ${boundedLiveRenderText(tool.verboseArgs)}`,
           ),
           key: "tools",
           open: openTools,
-          render: (rails) => /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Box_default, { flexDirection: "column", children: groups.map((group, index) => {
+          render: (rails) => /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Box_default, { flexDirection: "column", children: groups.map((group, index) => {
             const branch = index === groups.length - 1 ? "last" : "mid";
             const childRails = nextTreeRails(rails, branch);
             const hasInlineSubagents = inlineDelegateKey === group.key;
-            return /* @__PURE__ */ (0, import_jsx_runtime34.jsxs)(Box_default, { flexDirection: "column", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(
+            const isDelegateGroup = group.label.startsWith("Delegate Task");
+            return /* @__PURE__ */ (0, import_jsx_runtime33.jsxs)(Box_default, { flexDirection: "column", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(
                 TreeTextRow,
                 {
                   branch,
                   color: group.color,
-                  content: /* @__PURE__ */ (0, import_jsx_runtime34.jsxs)(import_jsx_runtime34.Fragment, { children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Text, { color: t.color.accent, children: "\u25CF " }),
-                    toolLabel(group)
+                  content: /* @__PURE__ */ (0, import_jsx_runtime33.jsxs)(import_jsx_runtime33.Fragment, { children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Text, { color: t.color.accent, children: "\u25CF " }),
+                    toolLabel(group),
+                    isDelegateGroup ? /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Text, { color: t.color.statusFg, dim: true, children: "  (/agents to monitor)" }) : null
                   ] }),
                   rails,
                   t
                 }
               ),
-              group.details.map((detail, detailIndex) => /* @__PURE__ */ (0, import_react94.createElement)(
+              group.details.map((detail, detailIndex) => /* @__PURE__ */ (0, import_react93.createElement)(
                 Detail2,
                 {
                   ...detail,
@@ -72137,7 +72854,7 @@ ${boundedLiveRenderText(tool.verboseArgs)}`,
       if (hasSubagents && !inlineDelegateKey && visible.subagents !== "hidden") {
         const suffix = spawnSpark ? `${spawnSummaryLabel}  ${spawnSpark}  (/agents)` : `${spawnSummaryLabel}  (/agents)`;
         panels.push({
-          header: /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(
+          header: /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(
             Chevron,
             {
               count: spawnTotals.descendantCount,
@@ -72163,7 +72880,7 @@ ${boundedLiveRenderText(tool.verboseArgs)}`,
       }
       if (hasMeta && visible.activity !== "hidden") {
         panels.push({
-          header: /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(
+          header: /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(
             Chevron,
             {
               count: meta.length,
@@ -72182,7 +72899,7 @@ ${boundedLiveRenderText(tool.verboseArgs)}`,
           ),
           key: "meta",
           open: openMeta,
-          render: (rails) => /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Box_default, { flexDirection: "column", children: meta.map((row, index) => /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(
+          render: (rails) => /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Box_default, { flexDirection: "column", children: meta.map((row, index) => /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(
             TreeTextRow,
             {
               branch: index === meta.length - 1 ? "last" : "mid",
@@ -72197,8 +72914,8 @@ ${boundedLiveRenderText(tool.verboseArgs)}`,
         });
       }
       const topCount = panels.length + (totalTokensLabel ? 1 : 0);
-      return /* @__PURE__ */ (0, import_jsx_runtime34.jsxs)(Box_default, { flexDirection: "column", children: [
-        panels.map((panel, index) => /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(
+      return /* @__PURE__ */ (0, import_jsx_runtime33.jsxs)(Box_default, { flexDirection: "column", children: [
+        panels.map((panel, index) => /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(
           TreeNode,
           {
             branch: index === topCount - 1 ? "last" : "mid",
@@ -72209,20 +72926,20 @@ ${boundedLiveRenderText(tool.verboseArgs)}`,
           },
           panel.key
         )),
-        totalTokensLabel ? /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(
+        totalTokensLabel ? /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(
           TreeTextRow,
           {
             branch: "last",
             color: t.color.statusFg,
-            content: /* @__PURE__ */ (0, import_jsx_runtime34.jsxs)(import_jsx_runtime34.Fragment, { children: [
-              /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Text, { color: t.color.accent, children: "\u03A3 " }),
+            content: /* @__PURE__ */ (0, import_jsx_runtime33.jsxs)(import_jsx_runtime33.Fragment, { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Text, { color: t.color.accent, children: "\u03A3 " }),
               totalTokensLabel
             ] }),
             dimColor: true,
             t
           }
         ) : null,
-        outcome ? /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Box_default, { marginTop: 1, children: /* @__PURE__ */ (0, import_jsx_runtime34.jsxs)(Text, { color: t.color.muted, dim: true, children: [
+        outcome ? /* @__PURE__ */ (0, import_jsx_runtime33.jsx)(Box_default, { marginTop: 1, children: /* @__PURE__ */ (0, import_jsx_runtime33.jsxs)(Text, { color: t.color.muted, dim: true, children: [
           "\xB7 ",
           outcome
         ] }) }) : null
@@ -72242,20 +72959,20 @@ var init_todo = __esm({
 });
 
 // src/components/todoPanel.tsx
-var import_react95, import_jsx_runtime35, rowColor, TodoPanel;
+var import_react94, import_jsx_runtime34, rowColor, TodoPanel;
 var init_todoPanel = __esm({
   async "src/components/todoPanel.tsx"() {
     "use strict";
     await init_entry_exports();
-    import_react95 = __toESM(require_react(), 1);
+    import_react94 = __toESM(require_react(), 1);
     init_liveProgress();
     init_todo();
-    import_jsx_runtime35 = __toESM(require_jsx_runtime(), 1);
+    import_jsx_runtime34 = __toESM(require_jsx_runtime(), 1);
     rowColor = (t, status) => {
       const tone = todoTone(status);
       return tone === "active" ? t.color.text : tone === "body" ? t.color.statusFg : t.color.muted;
     };
-    TodoPanel = (0, import_react95.memo)(function TodoPanel2({
+    TodoPanel = (0, import_react94.memo)(function TodoPanel2({
       collapsed,
       defaultCollapsed = false,
       incomplete = false,
@@ -72263,7 +72980,7 @@ var init_todoPanel = __esm({
       t,
       todos
     }) {
-      const [localCollapsed, setLocalCollapsed] = (0, import_react95.useState)(defaultCollapsed);
+      const [localCollapsed, setLocalCollapsed] = (0, import_react94.useState)(defaultCollapsed);
       const isControlled = typeof collapsed === "boolean";
       const effectiveCollapsed = isControlled ? collapsed : localCollapsed;
       const handleToggle = () => {
@@ -72280,19 +72997,19 @@ var init_todoPanel = __esm({
       }
       const done = todos.filter((todo) => todo.status === "completed").length;
       const pending = countPendingTodos(todos);
-      return /* @__PURE__ */ (0, import_jsx_runtime35.jsxs)(Box_default, { flexDirection: "column", marginBottom: 1, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(Box_default, { onClick: handleToggle, children: /* @__PURE__ */ (0, import_jsx_runtime35.jsxs)(Text, { color: t.color.muted, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(Text, { color: t.color.accent, children: effectiveCollapsed ? "\u25B8 " : "\u25BE " }),
-          /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(Text, { bold: true, color: t.color.text, children: "Todo" }),
+      return /* @__PURE__ */ (0, import_jsx_runtime34.jsxs)(Box_default, { flexDirection: "column", marginBottom: 1, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Box_default, { onClick: handleToggle, children: /* @__PURE__ */ (0, import_jsx_runtime34.jsxs)(Text, { color: t.color.muted, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Text, { color: t.color.accent, children: effectiveCollapsed ? "\u25B8 " : "\u25BE " }),
+          /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Text, { bold: true, color: t.color.text, children: "Todo" }),
           " ",
-          /* @__PURE__ */ (0, import_jsx_runtime35.jsxs)(Text, { color: t.color.statusFg, dim: true, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime34.jsxs)(Text, { color: t.color.statusFg, dim: true, children: [
             "(",
             done,
             "/",
             todos.length,
             ")"
           ] }),
-          incomplete && pending > 0 && /* @__PURE__ */ (0, import_jsx_runtime35.jsxs)(Text, { color: t.color.muted, dim: true, children: [
+          incomplete && pending > 0 && /* @__PURE__ */ (0, import_jsx_runtime34.jsxs)(Text, { color: t.color.muted, dim: true, children: [
             " ",
             "\xB7 incomplete \xB7 ",
             pending,
@@ -72300,11 +73017,11 @@ var init_todoPanel = __esm({
             pending === 1 ? "pending" : "pending/in_progress"
           ] })
         ] }) }),
-        !effectiveCollapsed && /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(Box_default, { flexDirection: "column", marginLeft: 2, children: todos.map((todo) => {
+        !effectiveCollapsed && /* @__PURE__ */ (0, import_jsx_runtime34.jsx)(Box_default, { flexDirection: "column", marginLeft: 2, children: todos.map((todo) => {
           const tone = todoTone(todo.status);
           const color = rowColor(t, todo.status);
-          return /* @__PURE__ */ (0, import_jsx_runtime35.jsxs)(Text, { color, dim: tone === "dim", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime35.jsxs)(Text, { color, children: [
+          return /* @__PURE__ */ (0, import_jsx_runtime34.jsxs)(Text, { color, dim: tone === "dim", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime34.jsxs)(Text, { color, children: [
               todoGlyph(todo.status),
               " "
             ] }),
@@ -72317,14 +73034,15 @@ var init_todoPanel = __esm({
 });
 
 // src/components/messageLine.tsx
-var import_react96, import_jsx_runtime36, SYSTEM_COLLAPSE_CHARS, MessageLine, shouldShowResponseSeparator;
+var import_react95, import_jsx_runtime35, SYSTEM_COLLAPSE_CHARS, MessageLine, shouldShowResponseSeparator;
 var init_messageLine = __esm({
   async "src/components/messageLine.tsx"() {
     "use strict";
     await init_entry_exports();
-    import_react96 = __toESM(require_react(), 1);
+    import_react95 = __toESM(require_react(), 1);
     init_env();
     init_limits();
+    init_blockLayout();
     init_details();
     init_messages();
     init_roles();
@@ -72334,15 +73052,16 @@ var init_messageLine = __esm({
     await init_streamingMarkdown();
     await init_thinking();
     await init_todoPanel();
-    import_jsx_runtime36 = __toESM(require_jsx_runtime(), 1);
+    import_jsx_runtime35 = __toESM(require_jsx_runtime(), 1);
     SYSTEM_COLLAPSE_CHARS = 400;
-    MessageLine = (0, import_react96.memo)(function MessageLine2({
+    MessageLine = (0, import_react95.memo)(function MessageLine2({
       cols,
       compact,
       detailsMode = "collapsed",
       detailsModeCommandOverride = false,
       isStreaming = false,
       msg,
+      prev,
       sections,
       t,
       tools = []
@@ -72351,10 +73070,11 @@ var init_messageLine = __esm({
       const toolsMode = sectionMode("tools", detailsMode, sections, detailsModeCommandOverride);
       const activityMode = sectionMode("activity", detailsMode, sections, detailsModeCommandOverride);
       const thinking = msg.thinking?.trim() ?? "";
+      const leadGap = hasLeadGap(prev, msg);
       const systemIsLong = msg.role === "system" && msg.text.length > SYSTEM_COLLAPSE_CHARS;
-      const [systemOpen, setSystemOpen] = (0, import_react96.useState)(false);
+      const [systemOpen, setSystemOpen] = (0, import_react95.useState)(false);
       if (msg.kind === "trail" && msg.todos?.length) {
-        return /* @__PURE__ */ (0, import_jsx_runtime36.jsx)(
+        return /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(
           TodoPanel,
           {
             defaultCollapsed: msg.todoCollapsedByDefault,
@@ -72365,7 +73085,7 @@ var init_messageLine = __esm({
         );
       }
       if (msg.kind === "trail" && (msg.tools?.length || tools.length || thinking)) {
-        return thinkingMode !== "hidden" || toolsMode !== "hidden" || activityMode !== "hidden" ? /* @__PURE__ */ (0, import_jsx_runtime36.jsx)(Box_default, { flexDirection: "column", children: /* @__PURE__ */ (0, import_jsx_runtime36.jsx)(
+        return thinkingMode !== "hidden" || toolsMode !== "hidden" || activityMode !== "hidden" ? /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(Box_default, { flexDirection: "column", marginTop: leadGap ? 1 : 0, children: /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(
           ToolTrail,
           {
             commandOverride: detailsModeCommandOverride,
@@ -72380,12 +73100,15 @@ var init_messageLine = __esm({
           }
         ) }) : null;
       }
+      if (msg.kind === "trail") {
+        return null;
+      }
       if (msg.role === "tool") {
         const maxChars = Math.max(24, cols - 14);
-        const stripped = hasAnsi(msg.text) ? stripAnsi2(msg.text) : msg.text;
+        const stripped = hasAnsi(msg.text) ? stripAnsi4(msg.text) : msg.text;
         const safeAnsi = hasAnsi(msg.text) ? sanitizeAnsiForRender(msg.text) : msg.text;
         const preview = compactPreview(stripped, maxChars) || "(empty tool result)";
-        return /* @__PURE__ */ (0, import_jsx_runtime36.jsx)(Box_default, { alignSelf: "flex-start", borderColor: t.color.muted, borderStyle: "round", marginLeft: 3, paddingX: 1, children: hasAnsi(msg.text) ? /* @__PURE__ */ (0, import_jsx_runtime36.jsx)(Text, { wrap: "truncate-end", children: /* @__PURE__ */ (0, import_jsx_runtime36.jsx)(Ansi, { children: safeAnsi }) }) : /* @__PURE__ */ (0, import_jsx_runtime36.jsx)(Text, { color: t.color.muted, wrap: "truncate-end", children: preview }) });
+        return /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(Box_default, { alignSelf: "flex-start", borderColor: t.color.muted, borderStyle: "round", marginLeft: 3, paddingX: 1, children: hasAnsi(msg.text) ? /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(Text, { wrap: "truncate-end", children: /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(Ansi, { children: safeAnsi }) }) : /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(Text, { color: t.color.muted, wrap: "truncate-end", children: preview }) });
       }
       const { body, glyph, prefix } = ROLE[msg.role](t);
       const gutterWidth = transcriptGutterWidth(msg.role, t.brand.prompt);
@@ -72393,25 +73116,25 @@ var init_messageLine = __esm({
       const showResponseSeparator = shouldShowResponseSeparator(msg, showDetails);
       const content = (() => {
         if (msg.kind === "slash") {
-          return /* @__PURE__ */ (0, import_jsx_runtime36.jsx)(Text, { color: t.color.muted, children: msg.text });
+          return /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(Text, { color: t.color.muted, children: msg.text });
         }
         if (systemIsLong) {
           const firstLine = (msg.text.split("\n")[0] ?? "").trim().slice(0, 120) || "(system message)";
-          return /* @__PURE__ */ (0, import_jsx_runtime36.jsxs)(Box_default, { flexDirection: "column", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime36.jsxs)(Box_default, { onClick: () => setSystemOpen((v) => !v), children: [
-              /* @__PURE__ */ (0, import_jsx_runtime36.jsx)(Text, { color: t.color.accent, children: systemOpen ? "\u25BE " : "\u25B8 " }),
-              /* @__PURE__ */ (0, import_jsx_runtime36.jsx)(Text, { color: t.color.muted, children: firstLine }),
-              /* @__PURE__ */ (0, import_jsx_runtime36.jsxs)(Text, { color: t.color.muted, dimColor: true, children: [
+          return /* @__PURE__ */ (0, import_jsx_runtime35.jsxs)(Box_default, { flexDirection: "column", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime35.jsxs)(Box_default, { onClick: () => setSystemOpen((v) => !v), children: [
+              /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(Text, { color: t.color.accent, children: systemOpen ? "\u25BE " : "\u25B8 " }),
+              /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(Text, { color: t.color.muted, children: firstLine }),
+              /* @__PURE__ */ (0, import_jsx_runtime35.jsxs)(Text, { color: t.color.muted, dimColor: true, children: [
                 " \u2014 ",
                 msg.text.length.toLocaleString(),
                 " chars"
               ] })
             ] }),
-            systemOpen && /* @__PURE__ */ (0, import_jsx_runtime36.jsx)(Ansi, { children: sanitizeAnsiForRender(msg.text) })
+            systemOpen && /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(Ansi, { children: sanitizeAnsiForRender(msg.text) })
           ] });
         }
         if (msg.role !== "user" && hasAnsi(msg.text)) {
-          return /* @__PURE__ */ (0, import_jsx_runtime36.jsx)(Ansi, { children: sanitizeAnsiForRender(msg.text) });
+          return /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(Ansi, { children: sanitizeAnsiForRender(msg.text) });
         }
         if (msg.role === "assistant") {
           const bodyWidth = transcriptBodyWidth(cols, msg.role, t.brand.prompt, TERMUX_TUI_MODE);
@@ -72419,28 +73142,28 @@ var init_messageLine = __esm({
             // Incremental markdown: split at the last stable block boundary so
             // only the in-flight tail re-tokenizes per delta. See
             // streamingMarkdown.tsx for the cost model.
-            /* @__PURE__ */ (0, import_jsx_runtime36.jsx)(StreamingMd, { cols: bodyWidth, compact, t, text: boundedLiveRenderText(msg.text) })
-          ) : /* @__PURE__ */ (0, import_jsx_runtime36.jsx)(Md, { cols: bodyWidth, compact, t, text: msg.text });
+            /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(StreamingMd, { cols: bodyWidth, compact, t, text: boundedLiveRenderText(msg.text) })
+          ) : /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(Md, { cols: bodyWidth, compact, t, text: msg.text });
         }
         if (msg.role === "user" && msg.text.length > LONG_MSG && isPasteBackedText(msg.text)) {
           const [head, ...rest] = userDisplay(msg.text).split("[long message]");
-          return /* @__PURE__ */ (0, import_jsx_runtime36.jsxs)(Text, { color: body, children: [
+          return /* @__PURE__ */ (0, import_jsx_runtime35.jsxs)(Text, { color: body, children: [
             head,
-            /* @__PURE__ */ (0, import_jsx_runtime36.jsx)(Text, { color: t.color.muted, dimColor: true, children: "[long message]" }),
+            /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(Text, { color: t.color.muted, dimColor: true, children: "[long message]" }),
             rest.join("")
           ] });
         }
-        return /* @__PURE__ */ (0, import_jsx_runtime36.jsx)(Text, { ...body ? { color: body } : {}, children: msg.text });
+        return /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(Text, { ...body ? { color: body } : {}, children: msg.text });
       })();
       const isDiffSegment = msg.kind === "diff";
-      return /* @__PURE__ */ (0, import_jsx_runtime36.jsxs)(
+      return /* @__PURE__ */ (0, import_jsx_runtime35.jsxs)(
         Box_default,
         {
           flexDirection: "column",
           marginBottom: msg.role === "user" || isDiffSegment ? 1 : 0,
-          marginTop: msg.role === "user" || msg.kind === "slash" || isDiffSegment ? 1 : 0,
+          marginTop: msg.role === "user" || msg.kind === "slash" || isDiffSegment || leadGap ? 1 : 0,
           children: [
-            showDetails && /* @__PURE__ */ (0, import_jsx_runtime36.jsx)(Box_default, { flexDirection: "column", marginBottom: 1, children: /* @__PURE__ */ (0, import_jsx_runtime36.jsx)(
+            showDetails && /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(Box_default, { flexDirection: "column", marginBottom: 1, children: /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(
               ToolTrail,
               {
                 commandOverride: detailsModeCommandOverride,
@@ -72453,16 +73176,16 @@ var init_messageLine = __esm({
                 trail: msg.tools
               }
             ) }),
-            showResponseSeparator && /* @__PURE__ */ (0, import_jsx_runtime36.jsxs)(Box_default, { marginBottom: 1, children: [
-              /* @__PURE__ */ (0, import_jsx_runtime36.jsx)(NoSelect, { flexShrink: 0, fromLeftEdge: true, width: gutterWidth, children: /* @__PURE__ */ (0, import_jsx_runtime36.jsx)(Text, { color: t.color.border, children: "\u2514\u2500 " }) }),
-              /* @__PURE__ */ (0, import_jsx_runtime36.jsx)(Text, { color: t.color.muted, dim: true, children: "Response" })
+            showResponseSeparator && /* @__PURE__ */ (0, import_jsx_runtime35.jsxs)(Box_default, { marginBottom: 1, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(NoSelect, { flexShrink: 0, fromLeftEdge: true, width: gutterWidth, children: /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(Text, { color: t.color.border, children: "\u2514\u2500 " }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(Text, { color: t.color.muted, dim: true, children: "Response" })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime36.jsxs)(Box_default, { children: [
-              /* @__PURE__ */ (0, import_jsx_runtime36.jsx)(NoSelect, { flexShrink: 0, fromLeftEdge: true, width: gutterWidth, children: /* @__PURE__ */ (0, import_jsx_runtime36.jsxs)(Text, { bold: msg.role === "user", color: prefix, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime35.jsxs)(Box_default, { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(NoSelect, { flexShrink: 0, fromLeftEdge: true, width: gutterWidth, children: /* @__PURE__ */ (0, import_jsx_runtime35.jsxs)(Text, { bold: msg.role === "user", color: prefix, children: [
                 glyph,
                 " "
               ] }) }),
-              /* @__PURE__ */ (0, import_jsx_runtime36.jsx)(Box_default, { width: transcriptBodyWidth(cols, msg.role, t.brand.prompt, TERMUX_TUI_MODE), children: content })
+              /* @__PURE__ */ (0, import_jsx_runtime35.jsx)(Box_default, { width: transcriptBodyWidth(cols, msg.role, t.brand.prompt, TERMUX_TUI_MODE), children: content })
             ] })
           ]
         }
@@ -72483,16 +73206,16 @@ function QueuedMessages({ cols, queueEditIdx, queued, t }) {
     return null;
   }
   const q = getQueueWindow(queued.length, queueEditIdx);
-  return /* @__PURE__ */ (0, import_jsx_runtime37.jsxs)(Box_default, { flexDirection: "column", marginTop: 1, children: [
-    /* @__PURE__ */ (0, import_jsx_runtime37.jsx)(Text, { color: t.color.muted, dimColor: true, children: `queued (${queued.length})${queueEditIdx !== null ? ` \xB7 editing ${queueEditIdx + 1} \xB7 Ctrl+X delete \xB7 Esc cancel` : ""}` }),
-    q.showLead && /* @__PURE__ */ (0, import_jsx_runtime37.jsxs)(Text, { color: t.color.muted, dimColor: true, children: [
+  return /* @__PURE__ */ (0, import_jsx_runtime36.jsxs)(Box_default, { flexDirection: "column", marginTop: 1, children: [
+    /* @__PURE__ */ (0, import_jsx_runtime36.jsx)(Text, { color: t.color.muted, dimColor: true, children: `queued (${queued.length})${queueEditIdx !== null ? ` \xB7 editing ${queueEditIdx + 1} \xB7 Ctrl+X delete \xB7 Esc cancel` : ""}` }),
+    q.showLead && /* @__PURE__ */ (0, import_jsx_runtime36.jsxs)(Text, { color: t.color.muted, dimColor: true, children: [
       " ",
       "\u2026"
     ] }),
     queued.slice(q.start, q.end).map((item, i) => {
       const idx = q.start + i;
       const active = queueEditIdx === idx;
-      return /* @__PURE__ */ (0, import_jsx_runtime37.jsxs)(Text, { color: active ? t.color.accent : t.color.muted, dimColor: true, children: [
+      return /* @__PURE__ */ (0, import_jsx_runtime36.jsxs)(Text, { color: active ? t.color.accent : t.color.muted, dimColor: true, children: [
         active ? "\u25B8" : " ",
         " ",
         idx + 1,
@@ -72500,7 +73223,7 @@ function QueuedMessages({ cols, queueEditIdx, queued, t }) {
         compactPreview(item, Math.max(16, cols - 10))
       ] }, `${idx}-${item.slice(0, 16)}`);
     }),
-    q.showTail && /* @__PURE__ */ (0, import_jsx_runtime37.jsxs)(Text, { color: t.color.muted, dimColor: true, children: [
+    q.showTail && /* @__PURE__ */ (0, import_jsx_runtime36.jsxs)(Text, { color: t.color.muted, dimColor: true, children: [
       "  ",
       "\u2026and ",
       queued.length - q.end,
@@ -72508,36 +73231,38 @@ function QueuedMessages({ cols, queueEditIdx, queued, t }) {
     ] })
   ] });
 }
-var import_jsx_runtime37, QUEUE_WINDOW;
+var import_jsx_runtime36, QUEUE_WINDOW;
 var init_queuedMessages = __esm({
   async "src/components/queuedMessages.tsx"() {
     "use strict";
     await init_entry_exports();
     init_text();
-    import_jsx_runtime37 = __toESM(require_jsx_runtime(), 1);
+    import_jsx_runtime36 = __toESM(require_jsx_runtime(), 1);
     QUEUE_WINDOW = 3;
   }
 });
 
 // src/components/streamingAssistant.tsx
-var import_react98, import_jsx_runtime38, groupedSegments, StreamingAssistant, LiveTodoPanel;
+var import_react97, import_jsx_runtime37, groupedSegments, StreamingAssistant, LiveTodoPanel;
 var init_streamingAssistant = __esm({
   async "src/components/streamingAssistant.tsx"() {
     "use strict";
     init_react();
-    import_react98 = __toESM(require_react(), 1);
+    import_react97 = __toESM(require_react(), 1);
     init_turnStore();
     init_uiStore();
+    init_blockLayout();
     init_liveProgress();
     await init_messageLine();
     await init_todoPanel();
-    import_jsx_runtime38 = __toESM(require_jsx_runtime(), 1);
+    import_jsx_runtime37 = __toESM(require_jsx_runtime(), 1);
     groupedSegments = (segments) => segments.reduce((acc, msg) => appendToolShelfMessage(acc, msg), []);
-    StreamingAssistant = (0, import_react98.memo)(function StreamingAssistant2({
+    StreamingAssistant = (0, import_react97.memo)(function StreamingAssistant2({
       cols,
       compact,
       detailsMode,
       detailsModeCommandOverride,
+      prevMsg,
       progress,
       sections
     }) {
@@ -72550,86 +73275,68 @@ var init_streamingAssistant = __esm({
       if (!progress.showProgressArea && !showStreamingArea && !activeTools.length) {
         return null;
       }
-      return /* @__PURE__ */ (0, import_jsx_runtime38.jsxs)(import_jsx_runtime38.Fragment, { children: [
-        groupedSegments(streamSegments).map((msg, i) => /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(
+      const blocks = groupedSegments(streamSegments).map((msg, i) => ({ key: `seg:${i}`, msg }));
+      if (activeTools.length) {
+        blocks.push({ key: "active-tools", msg: { kind: "trail", role: "system", text: "" }, tools: activeTools });
+      }
+      if (showStreamingArea) {
+        blocks.push({
+          isStreaming: true,
+          key: "streaming",
+          msg: { role: "assistant", text: streaming, ...streamPendingTools.length && { tools: streamPendingTools } }
+        });
+      } else if (streamPendingTools.length) {
+        blocks.push({ key: "pending-tools", msg: { kind: "trail", role: "system", text: "", tools: streamPendingTools } });
+      }
+      const detailsCtx = { commandOverride: detailsModeCommandOverride, detailsMode, sections };
+      let prev = prevMsg;
+      return /* @__PURE__ */ (0, import_jsx_runtime37.jsx)(import_jsx_runtime37.Fragment, { children: blocks.map((block) => {
+        const node = /* @__PURE__ */ (0, import_jsx_runtime37.jsx)(
           MessageLine,
           {
             cols,
             compact,
             detailsMode,
             detailsModeCommandOverride,
-            msg,
-            sections,
-            t: ui.theme
-          },
-          `seg:${i}`
-        )),
-        !!activeTools.length && /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(
-          MessageLine,
-          {
-            cols,
-            compact,
-            detailsMode,
-            detailsModeCommandOverride,
-            msg: { kind: "trail", role: "system", text: "" },
+            isStreaming: block.isStreaming,
+            msg: block.msg,
+            prev,
             sections,
             t: ui.theme,
-            tools: activeTools
-          }
-        ),
-        showStreamingArea && /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(
-          MessageLine,
-          {
-            cols,
-            compact,
-            detailsMode,
-            detailsModeCommandOverride,
-            isStreaming: true,
-            msg: {
-              role: "assistant",
-              text: streaming,
-              ...streamPendingTools.length && { tools: streamPendingTools }
-            },
-            sections,
-            t: ui.theme
-          }
-        ),
-        !showStreamingArea && !!streamPendingTools.length && /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(
-          MessageLine,
-          {
-            cols,
-            compact,
-            detailsMode,
-            detailsModeCommandOverride,
-            msg: { kind: "trail", role: "system", text: "", tools: streamPendingTools },
-            sections,
-            t: ui.theme
-          }
-        )
-      ] });
+            ...block.tools ? { tools: block.tools } : {}
+          },
+          block.key
+        );
+        const checkMsg = block.tools?.length ? { ...block.msg, tools: block.tools.map((tool) => tool.name) } : block.msg;
+        if (blockRenders(checkMsg, detailsCtx)) {
+          prev = block.msg;
+        }
+        return node;
+      }) });
     });
-    LiveTodoPanel = (0, import_react98.memo)(function LiveTodoPanel2() {
+    LiveTodoPanel = (0, import_react97.memo)(function LiveTodoPanel2() {
       const ui = useStore($uiState);
       const todos = useTurnSelector((state) => state.todos);
       const collapsed = useTurnSelector((state) => state.todoCollapsed);
-      return /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(TodoPanel, { collapsed, onToggle: toggleTodoCollapsed, t: ui.theme, todos });
+      return /* @__PURE__ */ (0, import_jsx_runtime37.jsx)(TodoPanel, { collapsed, onToggle: toggleTodoCollapsed, t: ui.theme, todos });
     });
   }
 });
 
 // src/components/appLayout.tsx
-var import_react100, import_jsx_runtime39, PromptPrefix, TranscriptPane, ComposerPane, AgentsOverlayPane, StatusRulePane, AppLayout;
+var import_react99, import_jsx_runtime38, PromptPrefix, TranscriptPane, ComposerPane, AgentsOverlayPane, StatusRulePane, AppLayout;
 var init_appLayout = __esm({
   async "src/components/appLayout.tsx"() {
     "use strict";
     await init_entry_exports();
     init_react();
-    import_react100 = __toESM(require_react(), 1);
+    import_react99 = __toESM(require_react(), 1);
     init_gatewayContext();
     init_overlayStore();
     init_uiStore();
     init_env();
     init_placeholders();
+    init_blockLayout();
     await init_inputMetrics();
     await init_perfPane();
     init_prompt();
@@ -72643,27 +73350,27 @@ var init_appLayout = __esm({
     await init_queuedMessages();
     await init_streamingAssistant();
     await init_textInput();
-    import_jsx_runtime39 = __toESM(require_jsx_runtime(), 1);
-    PromptPrefix = (0, import_react100.memo)(function PromptPrefix2({
+    import_jsx_runtime38 = __toESM(require_jsx_runtime(), 1);
+    PromptPrefix = (0, import_react99.memo)(function PromptPrefix2({
       bold = false,
       color,
       promptText,
       width
     }) {
       const glyphWidth = Math.max(1, width - COMPOSER_PROMPT_GAP_WIDTH);
-      return /* @__PURE__ */ (0, import_jsx_runtime39.jsxs)(Box_default, { width, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(Box_default, { width: glyphWidth, children: /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(Text, { bold, color, children: promptText }) }),
-        /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(Box_default, { width: COMPOSER_PROMPT_GAP_WIDTH })
+      return /* @__PURE__ */ (0, import_jsx_runtime38.jsxs)(Box_default, { width, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(Box_default, { width: glyphWidth, children: /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(Text, { bold, color, children: promptText }) }),
+        /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(Box_default, { width: COMPOSER_PROMPT_GAP_WIDTH })
       ] });
     });
-    TranscriptPane = (0, import_react100.memo)(function TranscriptPane2({
+    TranscriptPane = (0, import_react99.memo)(function TranscriptPane2({
       actions,
       composer,
       progress,
       transcript
     }) {
       const ui = useStore($uiState);
-      const lastUserIdx = (0, import_react100.useMemo)(() => {
+      const lastUserIdx = (0, import_react99.useMemo)(() => {
         const items = transcript.historyItems;
         for (let i = items.length - 1; i >= 0; i--) {
           if (items[i].role === "user") {
@@ -72672,12 +73379,12 @@ var init_appLayout = __esm({
         }
         return -1;
       }, [transcript.historyItems]);
-      const firstUserIdx = (0, import_react100.useMemo)(
+      const firstUserIdx = (0, import_react99.useMemo)(
         () => transcript.historyItems.findIndex((m) => m.role === "user"),
         [transcript.historyItems]
       );
-      return /* @__PURE__ */ (0, import_jsx_runtime39.jsxs)(import_jsx_runtime39.Fragment, { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(
+      return /* @__PURE__ */ (0, import_jsx_runtime38.jsxs)(import_jsx_runtime38.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(
           ScrollBox_default,
           {
             flexDirection: "column",
@@ -72690,14 +73397,14 @@ var init_appLayout = __esm({
             },
             ref: transcript.scrollRef,
             stickyScroll: true,
-            children: /* @__PURE__ */ (0, import_jsx_runtime39.jsxs)(Box_default, { flexDirection: "column", paddingX: 1, children: [
-              transcript.virtualHistory.topSpacer > 0 ? /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(Box_default, { height: transcript.virtualHistory.topSpacer }) : null,
-              transcript.virtualRows.slice(transcript.virtualHistory.start, transcript.virtualHistory.end).map((row) => /* @__PURE__ */ (0, import_jsx_runtime39.jsxs)(Box_default, { flexDirection: "column", ref: transcript.virtualHistory.measureRef(row.key), children: [
-                row.msg.role === "user" && firstUserIdx >= 0 && row.index > firstUserIdx && /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(Box_default, { marginTop: 1, children: /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(Text, { color: ui.theme.color.border, children: "\u2500\u2500\u2500" }) }),
-                row.msg.kind === "intro" ? /* @__PURE__ */ (0, import_jsx_runtime39.jsxs)(Box_default, { flexDirection: "column", paddingTop: 1, children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(Banner, { maxWidth: Math.max(1, composer.cols - 2), t: ui.theme }),
-                  row.msg.info && /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(SessionPanel, { info: row.msg.info, maxWidth: Math.max(1, composer.cols - 2), sid: ui.sid, t: ui.theme })
-                ] }) : row.msg.kind === "panel" && row.msg.panelData ? /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(Panel, { sections: row.msg.panelData.sections, t: ui.theme, title: row.msg.panelData.title }) : /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(
+            children: /* @__PURE__ */ (0, import_jsx_runtime38.jsxs)(Box_default, { flexDirection: "column", paddingX: 1, children: [
+              transcript.virtualHistory.topSpacer > 0 ? /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(Box_default, { height: transcript.virtualHistory.topSpacer }) : null,
+              transcript.virtualRows.slice(transcript.virtualHistory.start, transcript.virtualHistory.end).map((row) => /* @__PURE__ */ (0, import_jsx_runtime38.jsxs)(Box_default, { flexDirection: "column", ref: transcript.virtualHistory.measureRef(row.key), children: [
+                row.msg.role === "user" && firstUserIdx >= 0 && row.index > firstUserIdx && /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(Box_default, { marginTop: 1, children: /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(Text, { color: ui.theme.color.border, children: "\u2500\u2500\u2500" }) }),
+                row.msg.kind === "intro" ? /* @__PURE__ */ (0, import_jsx_runtime38.jsxs)(Box_default, { flexDirection: "column", paddingTop: 1, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(Banner, { maxWidth: Math.max(1, composer.cols - 2), t: ui.theme }),
+                  row.msg.info && /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(SessionPanel, { info: row.msg.info, maxWidth: Math.max(1, composer.cols - 2), sid: ui.sid, t: ui.theme })
+                ] }) : row.msg.kind === "panel" && row.msg.panelData ? /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(Panel, { sections: row.msg.panelData.sections, t: ui.theme, title: row.msg.panelData.title }) : /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(
                   MessageLine,
                   {
                     cols: composer.cols,
@@ -72705,20 +73412,26 @@ var init_appLayout = __esm({
                     detailsMode: ui.detailsMode,
                     detailsModeCommandOverride: ui.detailsModeCommandOverride,
                     msg: row.msg,
+                    prev: prevRenderedMsg(
+                      (i) => transcript.virtualRows[i]?.msg,
+                      row.index,
+                      { commandOverride: ui.detailsModeCommandOverride, detailsMode: ui.detailsMode, sections: ui.sections }
+                    ),
                     sections: ui.sections,
                     t: ui.theme
                   }
                 ),
-                row.index === lastUserIdx && /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(LiveTodoPanel, {})
+                row.index === lastUserIdx && /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(LiveTodoPanel, {})
               ] }, row.key)),
-              transcript.virtualHistory.bottomSpacer > 0 ? /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(Box_default, { height: transcript.virtualHistory.bottomSpacer }) : null,
-              /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(
+              transcript.virtualHistory.bottomSpacer > 0 ? /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(Box_default, { height: transcript.virtualHistory.bottomSpacer }) : null,
+              /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(
                 StreamingAssistant,
                 {
                   cols: composer.cols,
                   compact: ui.compact,
                   detailsMode: ui.detailsMode,
                   detailsModeCommandOverride: ui.detailsModeCommandOverride,
+                  prevMsg: transcript.historyItems[transcript.historyItems.length - 1],
                   progress,
                   sections: ui.sections
                 }
@@ -72726,8 +73439,8 @@ var init_appLayout = __esm({
             ] })
           }
         ),
-        /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(NoSelect, { flexShrink: 0, marginLeft: 1, children: /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(TranscriptScrollbar, { scrollRef: transcript.scrollRef, t: ui.theme }) }),
-        /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(
+        /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(NoSelect, { flexShrink: 0, marginLeft: 1, children: /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(TranscriptScrollbar, { scrollRef: transcript.scrollRef, t: ui.theme }) }),
+        /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(
           StickyPromptTracker,
           {
             messages: transcript.historyItems,
@@ -72738,7 +73451,7 @@ var init_appLayout = __esm({
         )
       ] });
     });
-    ComposerPane = (0, import_react100.memo)(function ComposerPane2({
+    ComposerPane = (0, import_react99.memo)(function ComposerPane2({
       actions,
       composer,
       status
@@ -72751,7 +73464,7 @@ var init_appLayout = __esm({
       const promptBlank = " ".repeat(promptWidth);
       const inputColumns = stableComposerColumns(composer.cols, promptWidth, TERMUX_TUI_MODE);
       const inputHeight = inputVisualHeight(composer.input, inputColumns);
-      const inputMouseRef = (0, import_react100.useRef)(null);
+      const inputMouseRef = (0, import_react99.useRef)(null);
       const captureInputDrag = (e) => {
         if (e.button !== 0) {
           return;
@@ -72774,7 +73487,7 @@ var init_appLayout = __esm({
         inputMouseRef.current?.dragAt(0, (e.localCol ?? 0) - promptWidth);
       };
       const endInputDrag = () => inputMouseRef.current?.end();
-      return /* @__PURE__ */ (0, import_jsx_runtime39.jsxs)(
+      return /* @__PURE__ */ (0, import_jsx_runtime38.jsxs)(
         NoSelect,
         {
           flexDirection: "column",
@@ -72787,7 +73500,7 @@ var init_appLayout = __esm({
           },
           paddingX: 1,
           children: [
-            /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(
+            /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(
               QueuedMessages,
               {
                 cols: composer.cols,
@@ -72796,40 +73509,40 @@ var init_appLayout = __esm({
                 t: ui.theme
               }
             ),
-            ui.bgTasks.size > 0 && /* @__PURE__ */ (0, import_jsx_runtime39.jsxs)(Text, { color: ui.theme.color.muted, children: [
+            ui.bgTasks.size > 0 && /* @__PURE__ */ (0, import_jsx_runtime38.jsxs)(Text, { color: ui.theme.color.muted, children: [
               ui.bgTasks.size,
               " background ",
               ui.bgTasks.size === 1 ? "task" : "tasks",
               " running"
             ] }),
-            status.showStickyPrompt ? /* @__PURE__ */ (0, import_jsx_runtime39.jsxs)(Text, { color: ui.theme.color.muted, wrap: "truncate-end", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(Text, { color: ui.theme.color.label, children: "\u21B3 " }),
+            status.showStickyPrompt ? /* @__PURE__ */ (0, import_jsx_runtime38.jsxs)(Text, { color: ui.theme.color.muted, wrap: "truncate-end", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(Text, { color: ui.theme.color.label, children: "\u21B3 " }),
               status.stickyPrompt
-            ] }) : /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(Box_default, { height: 1, onMouseDown: captureInputDrag, onMouseDrag: dragFromSpacer, onMouseUp: endInputDrag }),
-            /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(StatusRulePane, { at: "top", composer, status }),
-            /* @__PURE__ */ (0, import_jsx_runtime39.jsxs)(Box_default, { flexDirection: "column", marginTop: ui.statusBar === "top" ? 0 : 1, position: "relative", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(
+            ] }) : /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(Box_default, { height: 1, onMouseDown: captureInputDrag, onMouseDrag: dragFromSpacer, onMouseUp: endInputDrag }),
+            /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(StatusRulePane, { at: "top", composer, status }),
+            /* @__PURE__ */ (0, import_jsx_runtime38.jsxs)(Box_default, { flexDirection: "column", marginTop: ui.statusBar === "top" ? 0 : 1, position: "relative", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(
                 FloatingOverlays,
                 {
                   cols: composer.cols,
                   compIdx: composer.compIdx,
                   completions: composer.completions,
-                  onActiveSessionSelect: actions.activateLiveSession,
                   onActiveSessionClose: actions.closeLiveSession,
+                  onActiveSessionSelect: actions.activateLiveSession,
                   onModelSelect: actions.onModelSelect,
                   onNewLiveSession: actions.newLiveSession,
                   onNewPromptSession: actions.newPromptSession,
-                  onPickerSelect: actions.resumeById,
+                  onResumeSelect: actions.resumeById,
                   pagerPageSize: composer.pagerPageSize
                 }
               ),
-              composer.input === "?" && !composer.inputBuf.length && /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(HelpHint, { t: ui.theme }),
-              !isBlocked && /* @__PURE__ */ (0, import_jsx_runtime39.jsxs)(import_jsx_runtime39.Fragment, { children: [
-                composer.inputBuf.map((line, i) => /* @__PURE__ */ (0, import_jsx_runtime39.jsxs)(Box_default, { children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(Box_default, { width: promptWidth, children: i === 0 ? /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(PromptPrefix, { color: ui.theme.color.muted, promptText, width: promptWidth }) : /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(Text, { color: ui.theme.color.muted, children: promptBlank }) }),
-                  /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(Text, { color: ui.theme.color.text, children: line || " " })
+              composer.input === "?" && !composer.inputBuf.length && /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(HelpHint, { t: ui.theme }),
+              !isBlocked && /* @__PURE__ */ (0, import_jsx_runtime38.jsxs)(import_jsx_runtime38.Fragment, { children: [
+                composer.inputBuf.map((line, i) => /* @__PURE__ */ (0, import_jsx_runtime38.jsxs)(Box_default, { children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(Box_default, { width: promptWidth, children: i === 0 ? /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(PromptPrefix, { color: ui.theme.color.muted, promptText, width: promptWidth }) : /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(Text, { color: ui.theme.color.muted, children: promptBlank }) }),
+                  /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(Text, { color: ui.theme.color.text, children: line || " " })
                 ] }, i)),
-                /* @__PURE__ */ (0, import_jsx_runtime39.jsxs)(
+                /* @__PURE__ */ (0, import_jsx_runtime38.jsxs)(
                   Box_default,
                   {
                     onMouseDown: captureInputDrag,
@@ -72838,8 +73551,8 @@ var init_appLayout = __esm({
                     position: "relative",
                     width: Math.max(1, composer.cols - 2),
                     children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(Box_default, { width: promptWidth, children: sh ? /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(PromptPrefix, { color: ui.theme.color.shellDollar, promptText, width: promptWidth }) : composer.inputBuf.length ? /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(Text, { color: ui.theme.color.prompt, children: promptBlank }) : /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(PromptPrefix, { bold: true, color: ui.theme.color.prompt, promptText, width: promptWidth }) }),
-                      /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(Box_default, { flexGrow: 0, flexShrink: 0, height: inputHeight, width: inputColumns, children: /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(
+                      /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(Box_default, { width: promptWidth, children: sh ? /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(PromptPrefix, { color: ui.theme.color.shellDollar, promptText, width: promptWidth }) : composer.inputBuf.length ? /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(Text, { color: ui.theme.color.prompt, children: promptBlank }) : /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(PromptPrefix, { bold: true, color: ui.theme.color.prompt, promptText, width: promptWidth }) }),
+                      /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(Box_default, { flexGrow: 0, flexShrink: 0, height: inputHeight, width: inputColumns, children: /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(
                         TextInput2,
                         {
                           columns: inputColumns,
@@ -72852,26 +73565,26 @@ var init_appLayout = __esm({
                           voiceRecordKey: composer.voiceRecordKey
                         }
                       ) }),
-                      /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(Box_default, { position: "absolute", right: 0, children: /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(GoodVibesHeart, { t: ui.theme, tick: status.goodVibesTick }) })
+                      /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(Box_default, { position: "absolute", right: 0, children: /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(GoodVibesHeart, { t: ui.theme, tick: status.goodVibesTick }) })
                     ]
                   }
                 )
               ] })
             ] }),
-            !composer.empty && !ui.sid && /* @__PURE__ */ (0, import_jsx_runtime39.jsxs)(Text, { color: ui.theme.color.muted, children: [
+            !composer.empty && !ui.sid && /* @__PURE__ */ (0, import_jsx_runtime38.jsxs)(Text, { color: ui.theme.color.muted, children: [
               "\u2695 ",
               ui.status
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(StatusRulePane, { at: "bottom", composer, status })
+            /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(StatusRulePane, { at: "bottom", composer, status })
           ]
         }
       );
     });
-    AgentsOverlayPane = (0, import_react100.memo)(function AgentsOverlayPane2() {
+    AgentsOverlayPane = (0, import_react99.memo)(function AgentsOverlayPane2() {
       const { gw: gw2 } = useGateway();
       const ui = useStore($uiState);
       const overlay = useStore($overlayState);
-      return /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(
+      return /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(
         AgentsOverlay,
         {
           gw: gw2,
@@ -72881,7 +73594,7 @@ var init_appLayout = __esm({
         }
       );
     });
-    StatusRulePane = (0, import_react100.memo)(function StatusRulePane2({
+    StatusRulePane = (0, import_react99.memo)(function StatusRulePane2({
       at,
       composer,
       status
@@ -72890,13 +73603,14 @@ var init_appLayout = __esm({
       if (ui.statusBar !== at) {
         return null;
       }
-      return /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(Box_default, { marginTop: at === "top" ? 1 : 0, children: /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(
+      return /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(Box_default, { marginTop: at === "top" ? 1 : 0, children: /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(
         StatusRule,
         {
           bgCount: ui.bgTasks.size,
           busy: ui.busy,
           cols: composer.cols,
           cwdLabel: status.cwdLabel,
+          indicatorStyle: ui.indicatorStyle,
           liveSessionCount: ui.liveSessionCount,
           model: ui.info?.model ?? "",
           modelFast: ui.info?.fast || ui.info?.service_tier === "priority",
@@ -72913,7 +73627,7 @@ var init_appLayout = __esm({
         }
       ) });
     });
-    AppLayout = (0, import_react100.memo)(function AppLayout2({
+    AppLayout = (0, import_react99.memo)(function AppLayout2({
       actions,
       composer,
       mouseTracking,
@@ -72923,12 +73637,12 @@ var init_appLayout = __esm({
     }) {
       const overlay = useStore($overlayState);
       const ui = useStore($uiState);
-      const Shell = INLINE_MODE ? import_react100.Fragment : AlternateScreen;
+      const Shell = INLINE_MODE ? import_react99.Fragment : AlternateScreen;
       const shellProps = INLINE_MODE ? {} : { mouseTracking };
-      return /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(Shell, { ...shellProps, children: /* @__PURE__ */ (0, import_jsx_runtime39.jsxs)(Box_default, { flexDirection: "column", flexGrow: 1, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(Box_default, { flexDirection: "row", flexGrow: 1, children: overlay.agents ? /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(PerfPane, { id: "agents", children: /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(AgentsOverlayPane, {}) }) : /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(PerfPane, { id: "transcript", children: /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(TranscriptPane, { actions, composer, progress, transcript }) }) }),
-        !overlay.agents && /* @__PURE__ */ (0, import_jsx_runtime39.jsxs)(import_jsx_runtime39.Fragment, { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(PerfPane, { id: "prompt", children: /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(
+      return /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(Shell, { ...shellProps, children: /* @__PURE__ */ (0, import_jsx_runtime38.jsxs)(Box_default, { flexDirection: "column", flexGrow: 1, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(Box_default, { flexDirection: "row", flexGrow: 1, children: overlay.agents ? /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(PerfPane, { id: "agents", children: /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(AgentsOverlayPane, {}) }) : /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(PerfPane, { id: "transcript", children: /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(TranscriptPane, { actions, composer, progress, transcript }) }) }),
+        !overlay.agents && /* @__PURE__ */ (0, import_jsx_runtime38.jsxs)(import_jsx_runtime38.Fragment, { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(PerfPane, { id: "prompt", children: /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(
             PromptZone,
             {
               cols: composer.cols,
@@ -72938,8 +73652,8 @@ var init_appLayout = __esm({
               onSudoSubmit: actions.answerSudo
             }
           ) }),
-          /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(PerfPane, { id: "composer", children: /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(ComposerPane, { actions, composer, status }) }),
-          SHOW_FPS && /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(Box_default, { flexShrink: 0, justifyContent: "flex-end", paddingRight: 1, children: /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(FpsOverlay, { t: ui.theme }) })
+          /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(PerfPane, { id: "composer", children: /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(ComposerPane, { actions, composer, status }) }),
+          SHOW_FPS && /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(Box_default, { flexShrink: 0, justifyContent: "flex-end", paddingRight: 1, children: /* @__PURE__ */ (0, import_jsx_runtime38.jsx)(FpsOverlay, { t: ui.theme }) })
         ] })
       ] }) });
     });
@@ -72954,7 +73668,7 @@ __export(app_exports, {
 function App3({ gw: gw2 }) {
   const { appActions, appComposer, appProgress, appStatus, appTranscript, gateway } = useMainApp(gw2);
   const { mouseTracking } = useStore($uiState);
-  return /* @__PURE__ */ (0, import_jsx_runtime40.jsx)(GatewayProvider, { value: gateway, children: /* @__PURE__ */ (0, import_jsx_runtime40.jsx)(
+  return /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(GatewayProvider, { value: gateway, children: /* @__PURE__ */ (0, import_jsx_runtime39.jsx)(
     AppLayout,
     {
       actions: appActions,
@@ -72966,7 +73680,7 @@ function App3({ gw: gw2 }) {
     }
   ) });
 }
-var import_jsx_runtime40;
+var import_jsx_runtime39;
 var init_app = __esm({
   async "src/app.tsx"() {
     "use strict";
@@ -72975,7 +73689,7 @@ var init_app = __esm({
     init_uiStore();
     await init_useMainApp();
     await init_appLayout();
-    import_jsx_runtime40 = __toESM(require_jsx_runtime(), 1);
+    import_jsx_runtime39 = __toESM(require_jsx_runtime(), 1);
   }
 });
 
@@ -73066,6 +73780,33 @@ var CircularBuffer = class {
     this.len = 0;
   }
 };
+
+// src/lib/parentLog.ts
+import { appendFileSync, mkdirSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+var logDir = join(process.env.HERMES_HOME?.trim() || join(homedir(), ".hermes"), "logs");
+var CRASH_LOG = join(logDir, "tui_gateway_crash.log");
+var enabled = !process.env.VITEST;
+var MAX_BREADCRUMB = 4096;
+var warned = false;
+function recordParentLifecycle(line) {
+  if (!enabled) {
+    return;
+  }
+  try {
+    const oneLine = line.replace(/[\r\n]+/g, " \u21B5 ");
+    const capped = oneLine.length > MAX_BREADCRUMB ? `${oneLine.slice(0, MAX_BREADCRUMB)}\u2026 [truncated ${oneLine.length} chars]` : oneLine;
+    mkdirSync(logDir, { recursive: true });
+    appendFileSync(CRASH_LOG, `[tui-parent] ${(/* @__PURE__ */ new Date()).toISOString()} ${capped}
+`);
+  } catch {
+    if (!warned) {
+      warned = true;
+      process.stderr.write("hermes-tui: parent lifecycle log unavailable\n");
+    }
+  }
+}
 
 // src/gatewayClient.ts
 var MAX_GATEWAY_LOG_LINES = 200;
@@ -73213,7 +73954,7 @@ var GatewayClient = class extends EventEmitter {
         return;
       }
       const stderrTail = this.getLogTail(20);
-      this.pushLog(`[startup] timed out waiting for gateway.ready (python=${python}, cwd=${cwd2})`);
+      this.lifecycle(`[startup] timed out waiting for gateway.ready (python=${python}, cwd=${cwd2})`);
       this.publish({
         type: "gateway.start_timeout",
         payload: { cwd: cwd2, python, stderr_tail: stderrTail }
@@ -73223,7 +73964,7 @@ var GatewayClient = class extends EventEmitter {
   handleTransportExit(code, reason) {
     this.clearReadyTimer();
     this.closeSidecarSocket();
-    this.pushLog(`[lifecycle] transport exit code=${code ?? "null"} reason=${reason ?? "none"}`);
+    this.lifecycle(`[lifecycle] transport exit code=${code ?? "null"} reason=${reason ?? "none"}`);
     this.rejectPending(new Error(reason || `gateway exited${code === null ? "" : ` (${code})`}`));
     if (this.subscribed) {
       this.emit("exit", code);
@@ -73291,7 +74032,7 @@ var GatewayClient = class extends EventEmitter {
     env5.PYTHONPATH = pyPath ? `${root2}${delimiter}${pyPath}` : root2;
     this.startReadyTimer(python, cwd2);
     this.proc = spawn(python, ["-m", "tui_gateway.entry"], { cwd: cwd2, env: env5, stdio: ["pipe", "pipe", "pipe"] });
-    this.pushLog(`[lifecycle] spawned gateway child ${describeChild(this.proc)} python=${python} cwd=${cwd2}`);
+    this.lifecycle(`[lifecycle] spawned gateway child ${describeChild(this.proc)} python=${python} cwd=${cwd2}`);
     this.stdoutRl = createInterface({ input: this.proc.stdout });
     this.stdoutRl.on("line", (raw) => {
       try {
@@ -73318,7 +74059,7 @@ var GatewayClient = class extends EventEmitter {
         return;
       }
       const line = `[spawn] ${err.message}`;
-      this.pushLog(`[lifecycle] child error ${describeChild(ownedProc)} message=${err.message}`);
+      this.lifecycle(`[lifecycle] child error ${describeChild(ownedProc)} message=${err.message}`);
       this.pushLog(line);
       this.publish({ type: "gateway.stderr", payload: { line } });
       this.proc = null;
@@ -73331,7 +74072,7 @@ var GatewayClient = class extends EventEmitter {
         );
         return;
       }
-      this.pushLog(`[lifecycle] child exit ${describeChild(ownedProc)} code=${code ?? "null"} signal=${signal ?? "null"}`);
+      this.lifecycle(`[lifecycle] child exit ${describeChild(ownedProc)} code=${code ?? "null"} signal=${signal ?? "null"}`);
       this.handleTransportExit(code);
     });
   }
@@ -73415,7 +74156,7 @@ var GatewayClient = class extends EventEmitter {
     this.sidecarUrl = sidecarUrl;
     this.resetStartupState();
     if (this.proc && !this.proc.killed && this.proc.exitCode === null) {
-      this.pushLog(`[lifecycle] replacing live gateway child ${describeChild(this.proc)}`);
+      this.lifecycle(`[lifecycle] replacing live gateway child ${describeChild(this.proc)}`);
       this.proc.kill();
     }
     this.proc = null;
@@ -73456,6 +74197,13 @@ var GatewayClient = class extends EventEmitter {
   }
   pushLog(line) {
     this.logs.push(truncateLine(line));
+  }
+  // Death-explaining breadcrumbs (spawn / exit / kill / replace) — kept in the
+  // in-memory tail for /logs AND persisted to the gateway crash log so the
+  // reason survives a parent exit and lands next to the child's SIGTERM panic.
+  lifecycle(line) {
+    this.pushLog(line);
+    recordParentLifecycle(line);
   }
   rejectPending(err) {
     for (const p of this.pending.values()) {
@@ -73573,7 +74321,7 @@ var GatewayClient = class extends EventEmitter {
   kill(reason = "requested") {
     const proc = this.proc;
     const killed = proc?.kill();
-    this.pushLog(`[lifecycle] GatewayClient.kill reason=${reason} ${describeChild(proc)} killResult=${killed ?? "none"}`);
+    this.lifecycle(`[lifecycle] GatewayClient.kill reason=${reason} ${describeChild(proc)} killResult=${killed ?? "none"}`);
     this.closeGatewaySocket();
     this.closeSidecarSocket();
     this.clearReadyTimer();
@@ -73617,7 +74365,21 @@ init_memory();
 
 // src/lib/memoryMonitor.ts
 init_memory();
+import { getHeapStatistics as getHeapStatistics2 } from "node:v8";
 var GB = 1024 ** 3;
+var MB = 1024 ** 2;
+function resolveThresholds(criticalBytes, highBytes) {
+  let limit = 0;
+  try {
+    limit = getHeapStatistics2().heap_size_limit || 0;
+  } catch {
+    limit = 0;
+  }
+  const ceiling = limit > 0 ? limit : 8 * GB;
+  const critical = criticalBytes ?? Math.max(2 * GB, Math.round(ceiling * 0.88));
+  const high = highBytes ?? Math.max(1 * GB, Math.min(critical - 256 * MB, Math.round(ceiling * 0.7)));
+  return { critical, high };
+}
 var _evictInkCaches = null;
 var _evictInkCachesPromise = null;
 async function _ensureEvictInkCaches() {
@@ -73634,17 +74396,32 @@ async function _ensureEvictInkCaches() {
   return _evictInkCachesPromise;
 }
 function startMemoryMonitor({
-  criticalBytes = 2.5 * GB,
-  highBytes = 1.5 * GB,
+  criticalBytes,
+  highBytes,
   intervalMs = 1e4,
   onCritical,
-  onHigh
+  onHigh,
+  onWarn,
+  warnBytes = 600 * MB
 } = {}) {
+  const { critical, high } = resolveThresholds(criticalBytes, highBytes);
   const dumped = /* @__PURE__ */ new Set();
   const inFlight = /* @__PURE__ */ new Set();
+  let lastHeap = -1;
+  let warned3 = false;
+  const WARN_GROWTH_STEP = 150 * MB;
   const tick = async () => {
     const { heapUsed, rss } = process.memoryUsage();
-    const level = heapUsed >= criticalBytes ? "critical" : heapUsed >= highBytes ? "high" : "normal";
+    if (heapUsed < high && lastHeap >= 0) {
+      if (!warned3 && heapUsed >= warnBytes && heapUsed - lastHeap >= WARN_GROWTH_STEP) {
+        warned3 = true;
+        onWarn?.({ heapUsed, level: "normal", rss });
+      } else if (heapUsed < warnBytes) {
+        warned3 = false;
+      }
+    }
+    lastHeap = heapUsed;
+    const level = heapUsed >= critical ? "critical" : heapUsed >= high ? "high" : "normal";
     if (level === "normal") {
       dumped.clear();
       return;
@@ -73758,7 +74535,7 @@ function resetTerminalModes(stream = process.stdout) {
 }
 
 // src/entry.tsx
-var import_jsx_runtime41 = __toESM(require_jsx_runtime(), 1);
+var import_jsx_runtime40 = __toESM(require_jsx_runtime(), 1);
 if (!process.stdin.isTTY) {
   console.log("hermes-tui: no TTY");
   process.exit(0);
@@ -73783,10 +74560,12 @@ setupGracefulExit({
   onError: (scope, err) => {
     const message = err instanceof Error ? `${err.name}: ${err.message}
 ${err.stack ?? ""}` : String(err);
+    recordParentLifecycle(`${scope}: ${message.split("\n")[0]?.slice(0, 400) ?? ""}`);
     process.stderr.write(`hermes-tui lifecycle ${scope}: ${message.slice(0, 2e3)}
 `);
   },
   onSignal: (signal) => {
+    recordParentLifecycle(`graceful-exit received signal=${signal} \u2192 killing gateway`);
     resetTerminalModes();
     process.stderr.write(`hermes-tui lifecycle: received ${signal}
 `);
@@ -73794,6 +74573,7 @@ ${err.stack ?? ""}` : String(err);
 });
 var stopMemoryMonitor = startMemoryMonitor({
   onCritical: (snap, dump) => {
+    recordParentLifecycle(`memory-critical process.exit(137) heap=${formatBytes(snap.heapUsed)} rss=${formatBytes(snap.rss)} dump=${dump?.heapPath ?? "failed"}`);
     resetTerminalModes();
     process.stderr.write(`hermes-tui lifecycle: memory critical exit heap=${formatBytes(snap.heapUsed)} rss=${formatBytes(snap.rss)}
 `);
@@ -73801,7 +74581,18 @@ var stopMemoryMonitor = startMemoryMonitor({
     process.stderr.write("hermes-tui: exiting to avoid OOM; restart to recover\n");
     process.exit(137);
   },
-  onHigh: (snap, dump) => process.stderr.write(dumpNotice(snap, dump))
+  onHigh: (snap, dump) => process.stderr.write(dumpNotice(snap, dump)),
+  // Sub-threshold abnormal heap growth (#34095). The TUI used to die silently
+  // here — Node OOMs from a render-tree blowup well below the exit threshold,
+  // so the only trace was a bare gateway `stdin EOF`. Persist a breadcrumb +
+  // stderr line so the next such death is attributable instead of silent.
+  onWarn: (snap) => {
+    recordParentLifecycle(`memory-warning fast heap growth heap=${formatBytes(snap.heapUsed)} rss=${formatBytes(snap.rss)}`);
+    process.stderr.write(
+      `hermes-tui: heap climbing fast (${formatBytes(snap.heapUsed)}) \u2014 a large tool output or long session may be straining memory
+`
+    );
+  }
 });
 if (process.env.HERMES_HEAPDUMP_ON_START === "1") {
   void performHeapDump("manual");
@@ -73817,7 +74608,7 @@ var onFrame = logFrameEvent2 || trackFrame2 ? (event) => {
   logFrameEvent2?.(event);
   trackFrame2?.(event.durationMs);
 } : void 0;
-ink2.render(/* @__PURE__ */ (0, import_jsx_runtime41.jsx)(App4, { gw }), {
+ink2.render(/* @__PURE__ */ (0, import_jsx_runtime40.jsx)(App4, { gw }), {
   exitOnCtrlC: false,
   onFrame,
   // Open URLs in the user's default browser when a link cell is clicked.

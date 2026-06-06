@@ -1528,9 +1528,12 @@ struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_1___aex
 struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_2_aclose;
 struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login;
 struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json;
-struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json;
+struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form;
+struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json;
+struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes;
+struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json;
 
-/* "opscli/seller_sprite/api/client.py":29
+/* "opscli/seller_sprite/api/client.py":31
  *     """ Web """
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -1543,8 +1546,8 @@ struct __pyx_defaults {
 };
 
 
-/* "opscli/seller_sprite/api/client.py":46
- *         )
+/* "opscli/seller_sprite/api/client.py":51
+ *         self._load_cookies()
  * 
  *     async def __aenter__(self) -> "SellerSpriteApiClient":             # <<<<<<<<<<<<<<
  *         return self
@@ -1556,7 +1559,7 @@ struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct____aent
 };
 
 
-/* "opscli/seller_sprite/api/client.py":49
+/* "opscli/seller_sprite/api/client.py":54
  *         return self
  * 
  *     async def __aexit__(self, exc_type, exc, tb) -> None:             # <<<<<<<<<<<<<<
@@ -1572,7 +1575,7 @@ struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_1___aex
 };
 
 
-/* "opscli/seller_sprite/api/client.py":52
+/* "opscli/seller_sprite/api/client.py":57
  *         await self.aclose()
  * 
  *     async def aclose(self) -> None:             # <<<<<<<<<<<<<<
@@ -1585,8 +1588,8 @@ struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_2_aclos
 };
 
 
-/* "opscli/seller_sprite/api/client.py":56
- *         await self._client.aclose()
+/* "opscli/seller_sprite/api/client.py":68
+ *         self._load_cookies()
  * 
  *     async def login(self) -> dict[str, Any]:             # <<<<<<<<<<<<<<
  *         """ cookie"""
@@ -1602,7 +1605,7 @@ struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login
 };
 
 
-/* "opscli/seller_sprite/api/client.py":97
+/* "opscli/seller_sprite/api/client.py":110
  *         }
  * 
  *     async def post_json(self, url: str, payload: dict[str, Any], *, referer: str | None = None) -> dict[str, Any]:             # <<<<<<<<<<<<<<
@@ -1619,14 +1622,66 @@ struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_
 };
 
 
-/* "opscli/seller_sprite/api/client.py":115
+/* "opscli/seller_sprite/api/client.py":128
  *         return self._parse_json_response(response)
+ * 
+ *     async def post_form(self, url: str, payload: dict[str, Any], *, referer: str | None = None) -> str:             # <<<<<<<<<<<<<<
+ *         """POST """
+ *         response = await self._client.post(
+*/
+struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form {
+  PyObject_HEAD
+  PyObject *__pyx_v_payload;
+  PyObject *__pyx_v_referer;
+  PyObject *__pyx_v_response;
+  PyObject *__pyx_v_self;
+  PyObject *__pyx_v_url;
+};
+
+
+/* "opscli/seller_sprite/api/client.py":148
+ *         return response.text
+ * 
+ *     async def get_json(self, url: str, params: dict[str, Any], *, referer: str | None = None) -> dict[str, Any]:             # <<<<<<<<<<<<<<
+ *         """GET JSON  JSON"""
+ *         response = await self._client.get(
+*/
+struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json {
+  PyObject_HEAD
+  PyObject *__pyx_v_params;
+  PyObject *__pyx_v_referer;
+  PyObject *__pyx_v_response;
+  PyObject *__pyx_v_self;
+  PyObject *__pyx_v_url;
+};
+
+
+/* "opscli/seller_sprite/api/client.py":160
+ *         return self._parse_json_response(response)
+ * 
+ *     async def category_nodes(             # <<<<<<<<<<<<<<
+ *         self,
+ *         *,
+*/
+struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes {
+  PyObject_HEAD
+  PyObject *__pyx_v_market_id;
+  PyObject *__pyx_v_node_id_path;
+  PyObject *__pyx_v_node_label_path;
+  PyObject *__pyx_v_params;
+  PyObject *__pyx_v_self;
+  PyObject *__pyx_v_table;
+};
+
+
+/* "opscli/seller_sprite/api/client.py":183
+ *         )
  * 
  *     async def request_json(self, method: str, url: str, **kwargs: Any) -> dict[str, Any]:             # <<<<<<<<<<<<<<
  *         """ JSON"""
  *         response = await self._client.request(method, _absolute_url(url), **kwargs)
 */
-struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json {
+struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json {
   PyObject_HEAD
   PyObject *__pyx_v_kwargs;
   PyObject *__pyx_v_method;
@@ -2295,6 +2350,58 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_GetSlice(
 /* RaiseUnexpectedTypeError.proto */
 static int __Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj);
 
+/* PyObjectFormatSimple.proto */
+#if CYTHON_COMPILING_IN_PYPY
+    #define __Pyx_PyObject_FormatSimple(s, f) (\
+        likely(PyUnicode_CheckExact(s)) ? (Py_INCREF(s), s) :\
+        PyObject_Format(s, f))
+#elif CYTHON_USE_TYPE_SLOTS
+    #define __Pyx_PyObject_FormatSimple(s, f) (\
+        likely(PyUnicode_CheckExact(s)) ? (Py_INCREF(s), s) :\
+        likely(PyLong_CheckExact(s)) ? PyLong_Type.tp_repr(s) :\
+        likely(PyFloat_CheckExact(s)) ? PyFloat_Type.tp_repr(s) :\
+        PyObject_Format(s, f))
+#else
+    #define __Pyx_PyObject_FormatSimple(s, f) (\
+        likely(PyUnicode_CheckExact(s)) ? (Py_INCREF(s), s) :\
+        PyObject_Format(s, f))
+#endif
+
+/* UnicodeConcatInPlace.proto */
+# if CYTHON_COMPILING_IN_CPYTHON
+    #if CYTHON_REFNANNY
+        #define __Pyx_PyUnicode_ConcatInPlace(left, right, unsafe_shared) __Pyx_PyUnicode_ConcatInPlaceImpl(&left, right, unsafe_shared, __pyx_refnanny)
+    #else
+        #define __Pyx_PyUnicode_ConcatInPlace(left, right, unsafe_shared) __Pyx_PyUnicode_ConcatInPlaceImpl(&left, right, unsafe_shared)
+    #endif
+    #define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_DefinitelyUniqueInPlace(left, right) __Pyx_PyUnicode_ConcatInPlace(left, right, __Pyx_ReferenceSharing_DefinitelyUnique)
+    #define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlace(left, right) __Pyx_PyUnicode_ConcatInPlace(left, right, __Pyx_ReferenceSharing_OwnStrongReference)
+    #define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_FunctionArgumentInPlace(left, right) __Pyx_PyUnicode_ConcatInPlace(left, right, __Pyx_ReferenceSharing_DefinitelyUnique)
+    #define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_SharedReferenceInPlace(left, right) __Pyx_PyUnicode_ConcatInPlace(left, right, __Pyx_ReferenceSharing_SharedReference)
+    static CYTHON_INLINE PyObject *__Pyx_PyUnicode_ConcatInPlaceImpl(PyObject **p_left, PyObject *right, int unsafe_shared
+        #if CYTHON_REFNANNY
+        , void* __pyx_refnanny
+        #endif
+    );
+#else
+#define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_DefinitelyUniqueInPlace __Pyx_PyUnicode_Concat
+#define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlace __Pyx_PyUnicode_Concat
+#define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_FunctionArgumentInPlace __Pyx_PyUnicode_Concat
+#define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_SharedReferenceInPlace __Pyx_PyUnicode_Concat
+#endif
+#define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_DefinitelyUniqueInPlaceSafe(left, right)\
+    ((unlikely((left) == Py_None) || unlikely((right) == Py_None)) ?\
+    PyNumber_InPlaceAdd(left, right) : __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_DefinitelyUniqueInPlace(left, right))
+#define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlaceSafe(left, right)\
+    ((unlikely((left) == Py_None) || unlikely((right) == Py_None)) ?\
+    PyNumber_InPlaceAdd(left, right) : __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlace(left, right))
+#define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_FunctionArgumentInPlaceSafe(left, right)\
+    ((unlikely((left) == Py_None) || unlikely((right) == Py_None)) ?\
+    PyNumber_InPlaceAdd(left, right) : __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_FunctionArgumentInPlace(left, right))
+#define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_SharedReferenceInPlaceSafe(left, right)\
+    ((unlikely((left) == Py_None) || unlikely((right) == Py_None)) ?\
+    PyNumber_InPlaceAdd(left, right) : __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_SharedReferenceInPlace(left, right))
+
 /* ListCompAppend.proto */
 #if CYTHON_USE_PYLIST_INTERNALS && CYTHON_ASSUME_SAFE_MACROS
 static CYTHON_INLINE int __Pyx_ListComp_Append(PyObject* list, PyObject* x) {
@@ -2340,22 +2447,11 @@ static CYTHON_INLINE int __Pyx_PyErr_GivenExceptionMatches2(PyObject *err, PyObj
   #define __Pyx_PyBaseException_Check(obj) __Pyx_TypeCheck(obj, PyExc_BaseException)
 #endif
 
-/* PyObjectFormatSimple.proto */
-#if CYTHON_COMPILING_IN_PYPY
-    #define __Pyx_PyObject_FormatSimple(s, f) (\
-        likely(PyUnicode_CheckExact(s)) ? (Py_INCREF(s), s) :\
-        PyObject_Format(s, f))
-#elif CYTHON_USE_TYPE_SLOTS
-    #define __Pyx_PyObject_FormatSimple(s, f) (\
-        likely(PyUnicode_CheckExact(s)) ? (Py_INCREF(s), s) :\
-        likely(PyLong_CheckExact(s)) ? PyLong_Type.tp_repr(s) :\
-        likely(PyFloat_CheckExact(s)) ? PyFloat_Type.tp_repr(s) :\
-        PyObject_Format(s, f))
-#else
-    #define __Pyx_PyObject_FormatSimple(s, f) (\
-        likely(PyUnicode_CheckExact(s)) ? (Py_INCREF(s), s) :\
-        PyObject_Format(s, f))
-#endif
+/* PyLongCompare.proto */
+static CYTHON_INLINE int __Pyx_PyLong_BoolEqObjC(PyObject *op1, PyObject *op2, long intval, long inplace);
+
+/* PyOSError_Check.proto */
+#define __Pyx_PyExc_OSError_Check(obj)  __Pyx_TypeCheck(obj, PyExc_OSError)
 
 /* unicode_tailmatch.proto */
 static int __Pyx_PyUnicode_Tailmatch(
@@ -2364,40 +2460,15 @@ static int __Pyx_PyUnicode_Tailmatch(
 /* PyUnicode_Unicode.proto */
 static CYTHON_INLINE PyObject* __Pyx_PyUnicode_Unicode(PyObject *obj);
 
-/* UnicodeConcatInPlace.proto */
-# if CYTHON_COMPILING_IN_CPYTHON
-    #if CYTHON_REFNANNY
-        #define __Pyx_PyUnicode_ConcatInPlace(left, right, unsafe_shared) __Pyx_PyUnicode_ConcatInPlaceImpl(&left, right, unsafe_shared, __pyx_refnanny)
-    #else
-        #define __Pyx_PyUnicode_ConcatInPlace(left, right, unsafe_shared) __Pyx_PyUnicode_ConcatInPlaceImpl(&left, right, unsafe_shared)
-    #endif
-    #define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_DefinitelyUniqueInPlace(left, right) __Pyx_PyUnicode_ConcatInPlace(left, right, __Pyx_ReferenceSharing_DefinitelyUnique)
-    #define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlace(left, right) __Pyx_PyUnicode_ConcatInPlace(left, right, __Pyx_ReferenceSharing_OwnStrongReference)
-    #define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_FunctionArgumentInPlace(left, right) __Pyx_PyUnicode_ConcatInPlace(left, right, __Pyx_ReferenceSharing_DefinitelyUnique)
-    #define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_SharedReferenceInPlace(left, right) __Pyx_PyUnicode_ConcatInPlace(left, right, __Pyx_ReferenceSharing_SharedReference)
-    static CYTHON_INLINE PyObject *__Pyx_PyUnicode_ConcatInPlaceImpl(PyObject **p_left, PyObject *right, int unsafe_shared
-        #if CYTHON_REFNANNY
-        , void* __pyx_refnanny
-        #endif
-    );
-#else
-#define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_DefinitelyUniqueInPlace __Pyx_PyUnicode_Concat
-#define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlace __Pyx_PyUnicode_Concat
-#define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_FunctionArgumentInPlace __Pyx_PyUnicode_Concat
-#define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_SharedReferenceInPlace __Pyx_PyUnicode_Concat
-#endif
-#define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_DefinitelyUniqueInPlaceSafe(left, right)\
-    ((unlikely((left) == Py_None) || unlikely((right) == Py_None)) ?\
-    PyNumber_InPlaceAdd(left, right) : __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_DefinitelyUniqueInPlace(left, right))
-#define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlaceSafe(left, right)\
-    ((unlikely((left) == Py_None) || unlikely((right) == Py_None)) ?\
-    PyNumber_InPlaceAdd(left, right) : __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlace(left, right))
-#define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_FunctionArgumentInPlaceSafe(left, right)\
-    ((unlikely((left) == Py_None) || unlikely((right) == Py_None)) ?\
-    PyNumber_InPlaceAdd(left, right) : __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_FunctionArgumentInPlace(left, right))
-#define __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_SharedReferenceInPlaceSafe(left, right)\
-    ((unlikely((left) == Py_None) || unlikely((right) == Py_None)) ?\
-    PyNumber_InPlaceAdd(left, right) : __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_SharedReferenceInPlace(left, right))
+/* PySequenceContains.proto */
+static CYTHON_INLINE int __Pyx_PySequence_ContainsTF(PyObject* item, PyObject* seq, int eq) {
+    int result = PySequence_Contains(seq, item);
+    return unlikely(result < 0) ? result : (result == (eq == Py_EQ));
+}
+
+/* JoinPyUnicode.export */
+static PyObject* __Pyx_PyUnicode_Join(PyObject** values, Py_ssize_t value_count, Py_ssize_t result_ulength,
+                                      Py_UCS4 max_char);
 
 /* AllocateExtensionType.proto */
 static PyObject *__Pyx_AllocateExtensionType(PyTypeObject *t, int is_final);
@@ -2715,28 +2786,41 @@ int __pyx_module_is_main_opscli__seller_sprite__api__client = 0;
 /* Implementation of "opscli.seller_sprite.api.client" */
 /* #### Code section: global_var ### */
 /* #### Code section: string_decls ### */
-static const char __pyx_k__6[] = "\345\215\226\345\256\266\347\262\276\347\201\265\346\216\245\345\217\243\347\233\264\350\277\236\345\256\242\346\210\267\347\253\257\343\200\202";
+static const char __pyx_k__9[] = "\345\215\226\345\256\266\347\262\276\347\201\265\346\216\245\345\217\243\347\233\264\350\277\236\345\256\242\346\210\267\347\253\257\343\200\202";
 /* #### Code section: decls ### */
-static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_4__defaults__(CYTHON_UNUSED PyObject *__pyx_self); /* proto */
-static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient___init__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_account, PyObject *__pyx_v_user_agent, double __pyx_v_timeout); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_8__defaults__(CYTHON_UNUSED PyObject *__pyx_self); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient___init__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_account, PyObject *__pyx_v_user_agent, double __pyx_v_timeout, PyObject *__pyx_v_cookie_path); /* proto */
 static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_2__aenter__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_5__aexit__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_exc_type, CYTHON_UNUSED PyObject *__pyx_v_exc, CYTHON_UNUSED PyObject *__pyx_v_tb); /* proto */
 static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_8aclose(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_11login(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_14post_json(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_url, PyObject *__pyx_v_payload, PyObject *__pyx_v_referer); /* proto */
-static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_17request_json(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_method, PyObject *__pyx_v_url, PyObject *__pyx_v_kwargs); /* proto */
-static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_20cookie_names(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_22_parse_json_response(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, PyObject *__pyx_v_response); /* proto */
-static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_24_browser_headers(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_referer); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_11switch_account(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_account); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_13login(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_16post_json(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_url, PyObject *__pyx_v_payload, PyObject *__pyx_v_referer); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_19post_form(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_url, PyObject *__pyx_v_payload, PyObject *__pyx_v_referer); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_22get_json(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_url, PyObject *__pyx_v_params, PyObject *__pyx_v_referer); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_25category_nodes(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_market_id, PyObject *__pyx_v_table, PyObject *__pyx_v_node_id_path, PyObject *__pyx_v_node_label_path); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_28request_json(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_method, PyObject *__pyx_v_url, PyObject *__pyx_v_kwargs); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_31cookie_names(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_33has_cookies(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_35has_login_cookies(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_37save_cookies(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_39_parse_json_response(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, PyObject *__pyx_v_response); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_41_browser_headers(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_referer); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_43_load_cookies(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client__absolute_url(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_url); /* proto */
 static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_2_md5(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_value); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_4_looks_like_session_expired_response(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_response); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_6_default_cookie_path(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_account); /* proto */
 static PyObject *__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_defaults(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct____aenter__(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_1___aexit__(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_2_aclose(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
-static PyObject *__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
+static PyObject *__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
+static PyObject *__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
+static PyObject *__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
+static PyObject *__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 /* #### Code section: late_includes ### */
 /* #### Code section: module_state ### */
 /* SmallCodeConfig */
@@ -2763,22 +2847,28 @@ typedef struct {
   PyObject *__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_2_aclose;
   PyObject *__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login;
   PyObject *__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json;
-  PyObject *__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json;
+  PyObject *__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form;
+  PyObject *__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json;
+  PyObject *__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes;
+  PyObject *__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json;
   PyTypeObject *__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_defaults;
   PyTypeObject *__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct____aenter__;
   PyTypeObject *__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_1___aexit__;
   PyTypeObject *__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_2_aclose;
   PyTypeObject *__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login;
   PyTypeObject *__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json;
-  PyTypeObject *__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json;
+  PyTypeObject *__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form;
+  PyTypeObject *__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json;
+  PyTypeObject *__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes;
+  PyTypeObject *__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_items;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_pop;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_values;
-  PyObject *__pyx_slice[1];
+  PyObject *__pyx_slice[2];
   PyObject *__pyx_tuple[1];
-  PyObject *__pyx_codeobj_tab[12];
-  PyObject *__pyx_string_tab[177];
-  PyObject *__pyx_number_tab[2];
+  PyObject *__pyx_codeobj_tab[22];
+  PyObject *__pyx_string_tab[259];
+  PyObject *__pyx_number_tab[11];
 /* #### Code section: module_state_contents ### */
 /* CommonTypesMetaclass.module_state_decls */
 PyTypeObject *__pyx_CommonTypesMetaclassType;
@@ -2824,8 +2914,23 @@ int __pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_po
 #endif
 
 #if CYTHON_USE_FREELISTS
-struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json *__pyx_freelist_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json[8];
-int __pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json;
+struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form *__pyx_freelist_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form[8];
+int __pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form;
+#endif
+
+#if CYTHON_USE_FREELISTS
+struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json *__pyx_freelist_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json[8];
+int __pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json;
+#endif
+
+#if CYTHON_USE_FREELISTS
+struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes *__pyx_freelist_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes[8];
+int __pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes;
+#endif
+
+#if CYTHON_USE_FREELISTS
+struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json *__pyx_freelist_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json[8];
+int __pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json;
 #endif
 /* CachedMethodType.module_state_decls */
 #if CYTHON_COMPILING_IN_LIMITED_API
@@ -2872,176 +2977,267 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_kp_u_Mozilla_5_0_Windows_NT_10_0_Win6 __pyx_string_tab[6]
 #define __pyx_kp_u_None __pyx_string_tab[7]
 #define __pyx_kp_u_Note_that_Cython_is_deliberately __pyx_string_tab[8]
-#define __pyx_kp_u_SellerSpriteApiClient_2 __pyx_string_tab[9]
-#define __pyx_kp_u_User_Agent __pyx_string_tab[10]
-#define __pyx_kp_u_Web __pyx_string_tab[11]
-#define __pyx_kp_u_Windows __pyx_string_tab[12]
-#define __pyx_kp_u__4 __pyx_string_tab[13]
-#define __pyx_kp_u__5 __pyx_string_tab[14]
-#define __pyx_kp_u__7 __pyx_string_tab[15]
-#define __pyx_kp_u__8 __pyx_string_tab[16]
-#define __pyx_kp_u_add_note __pyx_string_tab[17]
-#define __pyx_kp_u_application_json_charset_UTF_8 __pyx_string_tab[18]
-#define __pyx_kp_u_application_json_text_plain __pyx_string_tab[19]
-#define __pyx_kp_u_application_x_www_form_urlencode __pyx_string_tab[20]
-#define __pyx_kp_u_dict_str_Any __pyx_string_tab[21]
-#define __pyx_kp_u_dict_str_str __pyx_string_tab[22]
-#define __pyx_kp_u_disable __pyx_string_tab[23]
-#define __pyx_kp_u_enable __pyx_string_tab[24]
-#define __pyx_kp_u_gc __pyx_string_tab[25]
-#define __pyx_kp_u_http __pyx_string_tab[26]
-#define __pyx_kp_u_https __pyx_string_tab[27]
-#define __pyx_kp_u_https_www_sellersprite_com __pyx_string_tab[28]
-#define __pyx_kp_u_https_www_sellersprite_com_cn_w __pyx_string_tab[29]
-#define __pyx_kp_u_https_www_sellersprite_com_w_use __pyx_string_tab[30]
-#define __pyx_kp_u_httpx_Response __pyx_string_tab[31]
-#define __pyx_kp_u_isenabled __pyx_string_tab[32]
-#define __pyx_kp_u_list_str __pyx_string_tab[33]
-#define __pyx_kp_u_opscli_seller_sprite_api_client_2 __pyx_string_tab[34]
-#define __pyx_kp_u_same_origin __pyx_string_tab[35]
-#define __pyx_kp_u_sec_ch_ua __pyx_string_tab[36]
-#define __pyx_kp_u_sec_ch_ua_mobile __pyx_string_tab[37]
-#define __pyx_kp_u_sec_ch_ua_platform __pyx_string_tab[38]
-#define __pyx_kp_u_sec_fetch_dest __pyx_string_tab[39]
-#define __pyx_kp_u_sec_fetch_mode __pyx_string_tab[40]
-#define __pyx_kp_u_sec_fetch_site __pyx_string_tab[41]
-#define __pyx_kp_u_str_None __pyx_string_tab[42]
-#define __pyx_kp_u_u_1_i __pyx_string_tab[43]
-#define __pyx_kp_u_zh_CN_zh_q_0_9 __pyx_string_tab[44]
-#define __pyx_n_u_Accept __pyx_string_tab[45]
-#define __pyx_n_u_Any __pyx_string_tab[46]
-#define __pyx_n_u_AsyncClient __pyx_string_tab[47]
-#define __pyx_n_u_BASE_URL __pyx_string_tab[48]
-#define __pyx_n_u_DEFAULT_USER_AGENT __pyx_string_tab[49]
-#define __pyx_n_u_JSONDecodeError __pyx_string_tab[50]
-#define __pyx_n_u_LOGIN_PAGE_URL __pyx_string_tab[51]
-#define __pyx_n_u_None __pyx_string_tab[52]
-#define __pyx_n_u_OK __pyx_string_tab[53]
-#define __pyx_n_u_Origin __pyx_string_tab[54]
-#define __pyx_n_u_Priority __pyx_string_tab[55]
-#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[56]
-#define __pyx_n_u_Referer __pyx_string_tab[57]
-#define __pyx_n_u_SIGNIN_URL __pyx_string_tab[58]
-#define __pyx_n_u_SellerSpriteAccount __pyx_string_tab[59]
-#define __pyx_n_u_SellerSpriteApiClient __pyx_string_tab[60]
-#define __pyx_n_u_SellerSpriteApiClient___aenter __pyx_string_tab[61]
-#define __pyx_n_u_SellerSpriteApiClient___aexit __pyx_string_tab[62]
-#define __pyx_n_u_SellerSpriteApiClient___init __pyx_string_tab[63]
-#define __pyx_n_u_SellerSpriteApiClient__browser_h __pyx_string_tab[64]
-#define __pyx_n_u_SellerSpriteApiClient__parse_jso __pyx_string_tab[65]
-#define __pyx_n_u_SellerSpriteApiClient_aclose __pyx_string_tab[66]
-#define __pyx_n_u_SellerSpriteApiClient_cookie_nam __pyx_string_tab[67]
-#define __pyx_n_u_SellerSpriteApiClient_login __pyx_string_tab[68]
-#define __pyx_n_u_SellerSpriteApiClient_post_json __pyx_string_tab[69]
-#define __pyx_n_u_SellerSpriteApiClient_request_js __pyx_string_tab[70]
-#define __pyx_n_u_SellerSpriteApiError __pyx_string_tab[71]
-#define __pyx_n_u_URL __pyx_string_tab[72]
-#define __pyx_n_u_Y __pyx_string_tab[73]
-#define __pyx_n_u__2 __pyx_string_tab[74]
-#define __pyx_n_u__3 __pyx_string_tab[75]
-#define __pyx_n_u_absolute_url __pyx_string_tab[76]
-#define __pyx_n_u_account __pyx_string_tab[77]
-#define __pyx_n_u_aclose __pyx_string_tab[78]
-#define __pyx_n_u_aenter __pyx_string_tab[79]
-#define __pyx_n_u_aexit __pyx_string_tab[80]
-#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[81]
-#define __pyx_n_u_autoLogin __pyx_string_tab[82]
-#define __pyx_n_u_await __pyx_string_tab[83]
-#define __pyx_n_u_browser_headers __pyx_string_tab[84]
-#define __pyx_n_u_callback __pyx_string_tab[85]
-#define __pyx_n_u_client __pyx_string_tab[86]
-#define __pyx_n_u_cline_in_traceback __pyx_string_tab[87]
-#define __pyx_n_u_close __pyx_string_tab[88]
-#define __pyx_n_u_code __pyx_string_tab[89]
-#define __pyx_n_u_cookie __pyx_string_tab[90]
-#define __pyx_n_u_cookie_names __pyx_string_tab[91]
-#define __pyx_n_u_cookies __pyx_string_tab[92]
-#define __pyx_n_u_cors __pyx_string_tab[93]
-#define __pyx_n_u_data __pyx_string_tab[94]
-#define __pyx_n_u_doc __pyx_string_tab[95]
-#define __pyx_n_u_email __pyx_string_tab[96]
-#define __pyx_n_u_empty __pyx_string_tab[97]
-#define __pyx_n_u_exc __pyx_string_tab[98]
-#define __pyx_n_u_exc_type __pyx_string_tab[99]
-#define __pyx_n_u_float __pyx_string_tab[100]
-#define __pyx_n_u_follow_redirects __pyx_string_tab[101]
-#define __pyx_n_u_form __pyx_string_tab[102]
-#define __pyx_n_u_func __pyx_string_tab[103]
-#define __pyx_n_u_get __pyx_string_tab[104]
-#define __pyx_n_u_hashlib __pyx_string_tab[105]
-#define __pyx_n_u_headers __pyx_string_tab[106]
-#define __pyx_n_u_hexdigest __pyx_string_tab[107]
-#define __pyx_n_u_httpx __pyx_string_tab[108]
-#define __pyx_n_u_init __pyx_string_tab[109]
-#define __pyx_n_u_is_coroutine __pyx_string_tab[110]
-#define __pyx_n_u_items __pyx_string_tab[111]
-#define __pyx_n_u_jar __pyx_string_tab[112]
-#define __pyx_n_u_join __pyx_string_tab[113]
-#define __pyx_n_u_json __pyx_string_tab[114]
-#define __pyx_n_u_kwargs __pyx_string_tab[115]
-#define __pyx_n_u_location __pyx_string_tab[116]
-#define __pyx_n_u_login __pyx_string_tab[117]
-#define __pyx_n_u_login_redirect __pyx_string_tab[118]
-#define __pyx_n_u_login_status __pyx_string_tab[119]
-#define __pyx_n_u_main __pyx_string_tab[120]
-#define __pyx_n_u_md5 __pyx_string_tab[121]
-#define __pyx_n_u_md5_2 __pyx_string_tab[122]
-#define __pyx_n_u_metaclass __pyx_string_tab[123]
-#define __pyx_n_u_method __pyx_string_tab[124]
-#define __pyx_n_u_module __pyx_string_tab[125]
-#define __pyx_n_u_name __pyx_string_tab[126]
-#define __pyx_n_u_name_2 __pyx_string_tab[127]
-#define __pyx_n_u_next __pyx_string_tab[128]
-#define __pyx_n_u_opscli_seller_sprite_accounts __pyx_string_tab[129]
-#define __pyx_n_u_opscli_seller_sprite_api_client __pyx_string_tab[130]
-#define __pyx_n_u_opscli_seller_sprite_domain_exce __pyx_string_tab[131]
-#define __pyx_n_u_parse_json_response __pyx_string_tab[132]
-#define __pyx_n_u_password __pyx_string_tab[133]
-#define __pyx_n_u_password_md5 __pyx_string_tab[134]
-#define __pyx_n_u_payload __pyx_string_tab[135]
-#define __pyx_n_u_pop __pyx_string_tab[136]
-#define __pyx_n_u_post __pyx_string_tab[137]
-#define __pyx_n_u_post_json __pyx_string_tab[138]
-#define __pyx_n_u_prepare __pyx_string_tab[139]
-#define __pyx_n_u_qualname __pyx_string_tab[140]
-#define __pyx_n_u_referer __pyx_string_tab[141]
-#define __pyx_n_u_request __pyx_string_tab[142]
-#define __pyx_n_u_request_json __pyx_string_tab[143]
-#define __pyx_n_u_response __pyx_string_tab[144]
-#define __pyx_n_u_response_excerpt __pyx_string_tab[145]
-#define __pyx_n_u_return __pyx_string_tab[146]
-#define __pyx_n_u_salt __pyx_string_tab[147]
-#define __pyx_n_u_self __pyx_string_tab[148]
-#define __pyx_n_u_send __pyx_string_tab[149]
-#define __pyx_n_u_set_name __pyx_string_tab[150]
-#define __pyx_n_u_setdefault __pyx_string_tab[151]
-#define __pyx_n_u_status_code __pyx_string_tab[152]
-#define __pyx_n_u_str __pyx_string_tab[153]
-#define __pyx_n_u_tb __pyx_string_tab[154]
-#define __pyx_n_u_test __pyx_string_tab[155]
-#define __pyx_n_u_text __pyx_string_tab[156]
-#define __pyx_n_u_throw __pyx_string_tab[157]
-#define __pyx_n_u_timeout __pyx_string_tab[158]
-#define __pyx_n_u_typing __pyx_string_tab[159]
-#define __pyx_n_u_url __pyx_string_tab[160]
-#define __pyx_n_u_user_agent __pyx_string_tab[161]
-#define __pyx_n_u_username __pyx_string_tab[162]
-#define __pyx_n_u_value __pyx_string_tab[163]
-#define __pyx_n_u_values __pyx_string_tab[164]
-#define __pyx_kp_b_iso88591_1DIMccd __pyx_string_tab[165]
-#define __pyx_kp_b_iso88591_3J __pyx_string_tab[166]
-#define __pyx_kp_b_iso88591_4A __pyx_string_tab[167]
-#define __pyx_kp_b_iso88591_7_auG1IZq __pyx_string_tab[168]
-#define __pyx_kp_b_iso88591_A_Kq_N_a_KuL_A_Q_D __pyx_string_tab[169]
-#define __pyx_kp_b_iso88591_A_q_a_1_1M_q __pyx_string_tab[170]
-#define __pyx_kp_b_iso88591_Q __pyx_string_tab[171]
-#define __pyx_kp_b_iso88591__9 __pyx_string_tab[172]
-#define __pyx_kp_b_iso88591_a __pyx_string_tab[173]
-#define __pyx_kp_b_iso88591_a_q_fD_hha __pyx_string_tab[174]
-#define __pyx_kp_b_iso88591_xq_he1_t_q_a_HA_Rq_8_1_a_HA_Rq __pyx_string_tab[175]
-#define __pyx_kp_b_iso88591_xq_s_Qk_C_1_q_2Qiq_s_Qj_Ba __pyx_string_tab[176]
-#define __pyx_int_400 __pyx_number_tab[0]
-#define __pyx_int_1000 __pyx_number_tab[1]
+#define __pyx_kp_u_Path_None __pyx_string_tab[9]
+#define __pyx_kp_u_SellerSpriteApiClient_2 __pyx_string_tab[10]
+#define __pyx_kp_u_Sprite_X_Token __pyx_string_tab[11]
+#define __pyx_kp_u_User_Agent __pyx_string_tab[12]
+#define __pyx_kp_u_Web __pyx_string_tab[13]
+#define __pyx_kp_u_Windows __pyx_string_tab[14]
+#define __pyx_kp_u__10 __pyx_string_tab[15]
+#define __pyx_kp_u__11 __pyx_string_tab[16]
+#define __pyx_kp_u__6 __pyx_string_tab[17]
+#define __pyx_kp_u__7 __pyx_string_tab[18]
+#define __pyx_kp_u__8 __pyx_string_tab[19]
+#define __pyx_kp_u_add_note __pyx_string_tab[20]
+#define __pyx_kp_u_application_json_charset_UTF_8 __pyx_string_tab[21]
+#define __pyx_kp_u_application_json_text_plain __pyx_string_tab[22]
+#define __pyx_kp_u_application_x_www_form_urlencode __pyx_string_tab[23]
+#define __pyx_kp_u_cookies_json __pyx_string_tab[24]
+#define __pyx_kp_u_dict_str_Any __pyx_string_tab[25]
+#define __pyx_kp_u_dict_str_str __pyx_string_tab[26]
+#define __pyx_kp_u_disable __pyx_string_tab[27]
+#define __pyx_kp_u_enable __pyx_string_tab[28]
+#define __pyx_kp_u_gc __pyx_string_tab[29]
+#define __pyx_kp_u_http __pyx_string_tab[30]
+#define __pyx_kp_u_https __pyx_string_tab[31]
+#define __pyx_kp_u_https_www_sellersprite_com __pyx_string_tab[32]
+#define __pyx_kp_u_https_www_sellersprite_com_cn_w __pyx_string_tab[33]
+#define __pyx_kp_u_https_www_sellersprite_com_w_use __pyx_string_tab[34]
+#define __pyx_kp_u_httpx_Response __pyx_string_tab[35]
+#define __pyx_kp_u_isenabled __pyx_string_tab[36]
+#define __pyx_kp_u_list_str __pyx_string_tab[37]
+#define __pyx_kp_u_opscli_seller_sprite_api_client_2 __pyx_string_tab[38]
+#define __pyx_kp_u_rank_login_user __pyx_string_tab[39]
+#define __pyx_kp_u_rank_login_user_info __pyx_string_tab[40]
+#define __pyx_kp_u_same_origin __pyx_string_tab[41]
+#define __pyx_kp_u_sec_ch_ua __pyx_string_tab[42]
+#define __pyx_kp_u_sec_ch_ua_mobile __pyx_string_tab[43]
+#define __pyx_kp_u_sec_ch_ua_platform __pyx_string_tab[44]
+#define __pyx_kp_u_sec_fetch_dest __pyx_string_tab[45]
+#define __pyx_kp_u_sec_fetch_mode __pyx_string_tab[46]
+#define __pyx_kp_u_sec_fetch_site __pyx_string_tab[47]
+#define __pyx_kp_u_sellersprite_com __pyx_string_tab[48]
+#define __pyx_kp_u_str_None __pyx_string_tab[49]
+#define __pyx_kp_u_text_html_application_xhtml_xml __pyx_string_tab[50]
+#define __pyx_kp_u_u_1_i __pyx_string_tab[51]
+#define __pyx_kp_u_user_login __pyx_string_tab[52]
+#define __pyx_kp_u_user_login_2 __pyx_string_tab[53]
+#define __pyx_kp_u_utf_8 __pyx_string_tab[54]
+#define __pyx_kp_u_v2_competitor_lookup_nodes __pyx_string_tab[55]
+#define __pyx_kp_u_v3_product_research __pyx_string_tab[56]
+#define __pyx_kp_u_w_user_login __pyx_string_tab[57]
+#define __pyx_kp_u_zh_CN_zh_q_0_9 __pyx_string_tab[58]
+#define __pyx_n_u_Accept __pyx_string_tab[59]
+#define __pyx_n_u_Any __pyx_string_tab[60]
+#define __pyx_n_u_AsyncClient __pyx_string_tab[61]
+#define __pyx_n_u_BASE_URL __pyx_string_tab[62]
+#define __pyx_n_u_DEFAULT_OUTPUT_DIR __pyx_string_tab[63]
+#define __pyx_n_u_DEFAULT_USER_AGENT __pyx_string_tab[64]
+#define __pyx_n_u_ERR_GLOBAL_SESSION_EXPIRED __pyx_string_tab[65]
+#define __pyx_n_u_JSONDecodeError __pyx_string_tab[66]
+#define __pyx_n_u_LOGIN_PAGE_URL __pyx_string_tab[67]
+#define __pyx_n_u_None __pyx_string_tab[68]
+#define __pyx_n_u_OK __pyx_string_tab[69]
+#define __pyx_n_u_Origin __pyx_string_tab[70]
+#define __pyx_n_u_Path __pyx_string_tab[71]
+#define __pyx_n_u_Priority __pyx_string_tab[72]
+#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[73]
+#define __pyx_n_u_Referer __pyx_string_tab[74]
+#define __pyx_n_u_SIGNIN_URL __pyx_string_tab[75]
+#define __pyx_n_u_SellerSpriteAccount __pyx_string_tab[76]
+#define __pyx_n_u_SellerSpriteApiClient __pyx_string_tab[77]
+#define __pyx_n_u_SellerSpriteApiClient___aenter __pyx_string_tab[78]
+#define __pyx_n_u_SellerSpriteApiClient___aexit __pyx_string_tab[79]
+#define __pyx_n_u_SellerSpriteApiClient___init __pyx_string_tab[80]
+#define __pyx_n_u_SellerSpriteApiClient__browser_h __pyx_string_tab[81]
+#define __pyx_n_u_SellerSpriteApiClient__load_cook __pyx_string_tab[82]
+#define __pyx_n_u_SellerSpriteApiClient__parse_jso __pyx_string_tab[83]
+#define __pyx_n_u_SellerSpriteApiClient_aclose __pyx_string_tab[84]
+#define __pyx_n_u_SellerSpriteApiClient_category_n __pyx_string_tab[85]
+#define __pyx_n_u_SellerSpriteApiClient_cookie_nam __pyx_string_tab[86]
+#define __pyx_n_u_SellerSpriteApiClient_get_json __pyx_string_tab[87]
+#define __pyx_n_u_SellerSpriteApiClient_has_cookie __pyx_string_tab[88]
+#define __pyx_n_u_SellerSpriteApiClient_has_login __pyx_string_tab[89]
+#define __pyx_n_u_SellerSpriteApiClient_login __pyx_string_tab[90]
+#define __pyx_n_u_SellerSpriteApiClient_post_form __pyx_string_tab[91]
+#define __pyx_n_u_SellerSpriteApiClient_post_json __pyx_string_tab[92]
+#define __pyx_n_u_SellerSpriteApiClient_request_js __pyx_string_tab[93]
+#define __pyx_n_u_SellerSpriteApiClient_save_cooki __pyx_string_tab[94]
+#define __pyx_n_u_SellerSpriteApiClient_switch_acc __pyx_string_tab[95]
+#define __pyx_n_u_SellerSpriteApiError __pyx_string_tab[96]
+#define __pyx_n_u_URL __pyx_string_tab[97]
+#define __pyx_n_u_Y __pyx_string_tab[98]
+#define __pyx_n_u__2 __pyx_string_tab[99]
+#define __pyx_n_u__3 __pyx_string_tab[100]
+#define __pyx_n_u__4 __pyx_string_tab[101]
+#define __pyx_n_u__5 __pyx_string_tab[102]
+#define __pyx_n_u_absolute_url __pyx_string_tab[103]
+#define __pyx_n_u_account __pyx_string_tab[104]
+#define __pyx_n_u_aclose __pyx_string_tab[105]
+#define __pyx_n_u_aenter __pyx_string_tab[106]
+#define __pyx_n_u_aexit __pyx_string_tab[107]
+#define __pyx_n_u_api_code __pyx_string_tab[108]
+#define __pyx_n_u_api_message __pyx_string_tab[109]
+#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[110]
+#define __pyx_n_u_autoLogin __pyx_string_tab[111]
+#define __pyx_n_u_await __pyx_string_tab[112]
+#define __pyx_n_u_bool __pyx_string_tab[113]
+#define __pyx_n_u_browser_headers __pyx_string_tab[114]
+#define __pyx_n_u_callback __pyx_string_tab[115]
+#define __pyx_n_u_category_nodes __pyx_string_tab[116]
+#define __pyx_n_u_clear __pyx_string_tab[117]
+#define __pyx_n_u_client __pyx_string_tab[118]
+#define __pyx_n_u_cline_in_traceback __pyx_string_tab[119]
+#define __pyx_n_u_close __pyx_string_tab[120]
+#define __pyx_n_u_code __pyx_string_tab[121]
+#define __pyx_n_u_cookie __pyx_string_tab[122]
+#define __pyx_n_u_cookie_names __pyx_string_tab[123]
+#define __pyx_n_u_cookie_path __pyx_string_tab[124]
+#define __pyx_n_u_cookies __pyx_string_tab[125]
+#define __pyx_n_u_cors __pyx_string_tab[126]
+#define __pyx_n_u_data __pyx_string_tab[127]
+#define __pyx_n_u_default_cookie_path __pyx_string_tab[128]
+#define __pyx_n_u_doc __pyx_string_tab[129]
+#define __pyx_n_u_domain __pyx_string_tab[130]
+#define __pyx_n_u_dumps __pyx_string_tab[131]
+#define __pyx_n_u_email __pyx_string_tab[132]
+#define __pyx_n_u_empty __pyx_string_tab[133]
+#define __pyx_n_u_encoding __pyx_string_tab[134]
+#define __pyx_n_u_ensure_ascii __pyx_string_tab[135]
+#define __pyx_n_u_exc __pyx_string_tab[136]
+#define __pyx_n_u_exc_type __pyx_string_tab[137]
+#define __pyx_n_u_exist_ok __pyx_string_tab[138]
+#define __pyx_n_u_exists __pyx_string_tab[139]
+#define __pyx_n_u_float __pyx_string_tab[140]
+#define __pyx_n_u_follow_redirects __pyx_string_tab[141]
+#define __pyx_n_u_form __pyx_string_tab[142]
+#define __pyx_n_u_func __pyx_string_tab[143]
+#define __pyx_n_u_get __pyx_string_tab[144]
+#define __pyx_n_u_get_json __pyx_string_tab[145]
+#define __pyx_n_u_has_cookies __pyx_string_tab[146]
+#define __pyx_n_u_has_login_cookies __pyx_string_tab[147]
+#define __pyx_n_u_hashlib __pyx_string_tab[148]
+#define __pyx_n_u_headers __pyx_string_tab[149]
+#define __pyx_n_u_hexdigest __pyx_string_tab[150]
+#define __pyx_n_u_httpx __pyx_string_tab[151]
+#define __pyx_n_u_indent __pyx_string_tab[152]
+#define __pyx_n_u_init __pyx_string_tab[153]
+#define __pyx_n_u_is_coroutine __pyx_string_tab[154]
+#define __pyx_n_u_items __pyx_string_tab[155]
+#define __pyx_n_u_jar __pyx_string_tab[156]
+#define __pyx_n_u_join __pyx_string_tab[157]
+#define __pyx_n_u_json __pyx_string_tab[158]
+#define __pyx_n_u_key __pyx_string_tab[159]
+#define __pyx_n_u_kwargs __pyx_string_tab[160]
+#define __pyx_n_u_load_cookies __pyx_string_tab[161]
+#define __pyx_n_u_loads __pyx_string_tab[162]
+#define __pyx_n_u_location __pyx_string_tab[163]
+#define __pyx_n_u_login __pyx_string_tab[164]
+#define __pyx_n_u_login_redirect __pyx_string_tab[165]
+#define __pyx_n_u_login_status __pyx_string_tab[166]
+#define __pyx_n_u_looks_like_session_expired_resp __pyx_string_tab[167]
+#define __pyx_n_u_lower __pyx_string_tab[168]
+#define __pyx_n_u_main __pyx_string_tab[169]
+#define __pyx_n_u_marketId __pyx_string_tab[170]
+#define __pyx_n_u_market_id __pyx_string_tab[171]
+#define __pyx_n_u_md5 __pyx_string_tab[172]
+#define __pyx_n_u_md5_2 __pyx_string_tab[173]
+#define __pyx_n_u_message __pyx_string_tab[174]
+#define __pyx_n_u_metaclass __pyx_string_tab[175]
+#define __pyx_n_u_method __pyx_string_tab[176]
+#define __pyx_n_u_mkdir __pyx_string_tab[177]
+#define __pyx_n_u_module __pyx_string_tab[178]
+#define __pyx_n_u_msg __pyx_string_tab[179]
+#define __pyx_n_u_name __pyx_string_tab[180]
+#define __pyx_n_u_name_2 __pyx_string_tab[181]
+#define __pyx_n_u_names __pyx_string_tab[182]
+#define __pyx_n_u_next __pyx_string_tab[183]
+#define __pyx_n_u_nodeIdPath __pyx_string_tab[184]
+#define __pyx_n_u_nodeLabelPath __pyx_string_tab[185]
+#define __pyx_n_u_node_id_path __pyx_string_tab[186]
+#define __pyx_n_u_node_label_path __pyx_string_tab[187]
+#define __pyx_n_u_opscli_seller_sprite_accounts __pyx_string_tab[188]
+#define __pyx_n_u_opscli_seller_sprite_api_client __pyx_string_tab[189]
+#define __pyx_n_u_opscli_seller_sprite_config __pyx_string_tab[190]
+#define __pyx_n_u_opscli_seller_sprite_domain_exce __pyx_string_tab[191]
+#define __pyx_n_u_params __pyx_string_tab[192]
+#define __pyx_n_u_parent __pyx_string_tab[193]
+#define __pyx_n_u_parents __pyx_string_tab[194]
+#define __pyx_n_u_parse_json_response __pyx_string_tab[195]
+#define __pyx_n_u_password __pyx_string_tab[196]
+#define __pyx_n_u_password_md5 __pyx_string_tab[197]
+#define __pyx_n_u_path __pyx_string_tab[198]
+#define __pyx_n_u_pathlib __pyx_string_tab[199]
+#define __pyx_n_u_payload __pyx_string_tab[200]
+#define __pyx_n_u_pop __pyx_string_tab[201]
+#define __pyx_n_u_post __pyx_string_tab[202]
+#define __pyx_n_u_post_form __pyx_string_tab[203]
+#define __pyx_n_u_post_json __pyx_string_tab[204]
+#define __pyx_n_u_prepare __pyx_string_tab[205]
+#define __pyx_n_u_qualname __pyx_string_tab[206]
+#define __pyx_n_u_read_text __pyx_string_tab[207]
+#define __pyx_n_u_referer __pyx_string_tab[208]
+#define __pyx_n_u_request __pyx_string_tab[209]
+#define __pyx_n_u_request_json __pyx_string_tab[210]
+#define __pyx_n_u_response __pyx_string_tab[211]
+#define __pyx_n_u_response_excerpt __pyx_string_tab[212]
+#define __pyx_n_u_return __pyx_string_tab[213]
+#define __pyx_n_u_salt __pyx_string_tab[214]
+#define __pyx_n_u_save_cookies __pyx_string_tab[215]
+#define __pyx_n_u_self __pyx_string_tab[216]
+#define __pyx_n_u_send __pyx_string_tab[217]
+#define __pyx_n_u_sessions __pyx_string_tab[218]
+#define __pyx_n_u_set __pyx_string_tab[219]
+#define __pyx_n_u_set_name __pyx_string_tab[220]
+#define __pyx_n_u_setdefault __pyx_string_tab[221]
+#define __pyx_n_u_status_code __pyx_string_tab[222]
+#define __pyx_n_u_str __pyx_string_tab[223]
+#define __pyx_n_u_switch_account __pyx_string_tab[224]
+#define __pyx_n_u_table __pyx_string_tab[225]
+#define __pyx_n_u_tb __pyx_string_tab[226]
+#define __pyx_n_u_test __pyx_string_tab[227]
+#define __pyx_n_u_text __pyx_string_tab[228]
+#define __pyx_n_u_throw __pyx_string_tab[229]
+#define __pyx_n_u_timeout __pyx_string_tab[230]
+#define __pyx_n_u_typing __pyx_string_tab[231]
+#define __pyx_n_u_url __pyx_string_tab[232]
+#define __pyx_n_u_user_agent __pyx_string_tab[233]
+#define __pyx_n_u_username __pyx_string_tab[234]
+#define __pyx_n_u_value __pyx_string_tab[235]
+#define __pyx_n_u_values __pyx_string_tab[236]
+#define __pyx_n_u_write_text __pyx_string_tab[237]
+#define __pyx_kp_b_iso88591_1DIMccd __pyx_string_tab[238]
+#define __pyx_kp_b_iso88591_1_1D_Q_t1F_00H __pyx_string_tab[239]
+#define __pyx_kp_b_iso88591_33Fa_xxt1L_85_vQ_T_e5_Q_A_3a_1 __pyx_string_tab[240]
+#define __pyx_kp_b_iso88591_3J __pyx_string_tab[241]
+#define __pyx_kp_b_iso88591_4A __pyx_string_tab[242]
+#define __pyx_kp_b_iso88591_7_auG1IZq __pyx_string_tab[243]
+#define __pyx_kp_b_iso88591_A_Q_Kq_N_a_O_s_aq_KuL_A_Q_D_N __pyx_string_tab[244]
+#define __pyx_kp_b_iso88591_A_q_a_1_1M_q __pyx_string_tab[245]
+#define __pyx_kp_b_iso88591_B_Kaab __pyx_string_tab[246]
+#define __pyx_kp_b_iso88591_Q __pyx_string_tab[247]
+#define __pyx_kp_b_iso88591_Q_t1D __pyx_string_tab[248]
+#define __pyx_kp_b_iso88591__12 __pyx_string_tab[249]
+#define __pyx_kp_b_iso88591_a __pyx_string_tab[250]
+#define __pyx_kp_b_iso88591_a_2 __pyx_string_tab[251]
+#define __pyx_kp_b_iso88591_a_Kq_O_q_HHF_N __pyx_string_tab[252]
+#define __pyx_kp_b_iso88591_a_a_q_a_hha_L_vQhfIQ_L_1D_ay_WG __pyx_string_tab[253]
+#define __pyx_kp_b_iso88591_a_q_fD_hha __pyx_string_tab[254]
+#define __pyx_kp_b_iso88591_ar_Ba_XR_Baq __pyx_string_tab[255]
+#define __pyx_kp_b_iso88591_q_4t_wa_d_1IQ_Q_4z_1_Ja_t_Qha_3 __pyx_string_tab[256]
+#define __pyx_kp_b_iso88591_xq_he1_t_q_77_kkl_a_Q_HA_Rq_8_1 __pyx_string_tab[257]
+#define __pyx_kp_b_iso88591_xq_s_Qk_C_1_q_2Qiq_s_Qj_Ba __pyx_string_tab[258]
+#define __pyx_int_2 __pyx_number_tab[0]
+#define __pyx_int_16 __pyx_number_tab[1]
+#define __pyx_int_301 __pyx_number_tab[2]
+#define __pyx_int_302 __pyx_number_tab[3]
+#define __pyx_int_303 __pyx_number_tab[4]
+#define __pyx_int_307 __pyx_number_tab[5]
+#define __pyx_int_308 __pyx_number_tab[6]
+#define __pyx_int_400 __pyx_number_tab[7]
+#define __pyx_int_401 __pyx_number_tab[8]
+#define __pyx_int_403 __pyx_number_tab[9]
+#define __pyx_int_1000 __pyx_number_tab[10]
 /* #### Code section: module_state_clear ### */
 #if CYTHON_USE_MODULE_STATE
 static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
@@ -3068,13 +3264,19 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login);
   Py_CLEAR(clear_module_state->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json);
   Py_CLEAR(clear_module_state->__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json);
-  Py_CLEAR(clear_module_state->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json);
-  Py_CLEAR(clear_module_state->__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json);
-  for (int i=0; i<1; ++i) { Py_CLEAR(clear_module_state->__pyx_slice[i]); }
+  Py_CLEAR(clear_module_state->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form);
+  Py_CLEAR(clear_module_state->__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form);
+  Py_CLEAR(clear_module_state->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json);
+  Py_CLEAR(clear_module_state->__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json);
+  Py_CLEAR(clear_module_state->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes);
+  Py_CLEAR(clear_module_state->__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes);
+  Py_CLEAR(clear_module_state->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json);
+  Py_CLEAR(clear_module_state->__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json);
+  for (int i=0; i<2; ++i) { Py_CLEAR(clear_module_state->__pyx_slice[i]); }
   for (int i=0; i<1; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<12; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<177; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
-  for (int i=0; i<2; ++i) { Py_CLEAR(clear_module_state->__pyx_number_tab[i]); }
+  for (int i=0; i<22; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
+  for (int i=0; i<259; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<11; ++i) { Py_CLEAR(clear_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* CommonTypesMetaclass.module_state_clear */
 Py_CLEAR(clear_module_state->__pyx_CommonTypesMetaclassType);
@@ -3113,13 +3315,19 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login);
   Py_VISIT(traverse_module_state->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json);
   Py_VISIT(traverse_module_state->__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json);
-  Py_VISIT(traverse_module_state->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json);
-  Py_VISIT(traverse_module_state->__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json);
-  for (int i=0; i<1; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_slice[i]); }
+  Py_VISIT(traverse_module_state->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form);
+  Py_VISIT(traverse_module_state->__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form);
+  Py_VISIT(traverse_module_state->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json);
+  Py_VISIT(traverse_module_state->__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json);
+  Py_VISIT(traverse_module_state->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes);
+  Py_VISIT(traverse_module_state->__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes);
+  Py_VISIT(traverse_module_state->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json);
+  Py_VISIT(traverse_module_state->__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json);
+  for (int i=0; i<2; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_slice[i]); }
   for (int i=0; i<1; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<12; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<177; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
-  for (int i=0; i<2; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_number_tab[i]); }
+  for (int i=0; i<22; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
+  for (int i=0; i<259; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<11; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* CommonTypesMetaclass.module_state_traverse */
 Py_VISIT(traverse_module_state->__pyx_CommonTypesMetaclassType);
@@ -3137,7 +3345,7 @@ return 0;
 #endif
 /* #### Code section: module_code ### */
 
-/* "opscli/seller_sprite/api/client.py":29
+/* "opscli/seller_sprite/api/client.py":31
  *     """ Web """
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -3145,7 +3353,7 @@ return 0;
  *         *,
 */
 
-static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_4__defaults__(CYTHON_UNUSED PyObject *__pyx_self) {
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_8__defaults__(CYTHON_UNUSED PyObject *__pyx_self) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -3155,36 +3363,45 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_4__defaults__(CYT
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__defaults__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 29, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_user_agent, __Pyx_CyFunction_Defaults(struct __pyx_defaults, __pyx_self)->arg0) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_user_agent, __Pyx_CyFunction_Defaults(struct __pyx_defaults, __pyx_self)->arg0) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/api/client.py":34
+  /* "opscli/seller_sprite/api/client.py":36
  *         account: SellerSpriteAccount,
  *         user_agent: str = DEFAULT_USER_AGENT,
  *         timeout: float = 60.0,             # <<<<<<<<<<<<<<
+ *         cookie_path: Path | None = None,
+ *     ) -> None:
+*/
+  __pyx_t_2 = PyFloat_FromDouble(((double)60.0)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 36, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_timeout, __pyx_t_2) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":37
+ *         user_agent: str = DEFAULT_USER_AGENT,
+ *         timeout: float = 60.0,
+ *         cookie_path: Path | None = None,             # <<<<<<<<<<<<<<
  *     ) -> None:
  *         self.account = account
 */
-  __pyx_t_2 = PyFloat_FromDouble(((double)60.0)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 34, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_timeout, __pyx_t_2) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_cookie_path, Py_None) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/api/client.py":29
+  /* "opscli/seller_sprite/api/client.py":31
  *     """ Web """
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
  *         self,
  *         *,
 */
-  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 29, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_INCREF(Py_None);
   __Pyx_GIVEREF(Py_None);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, Py_None) != (0)) __PYX_ERR(0, 29, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, Py_None) != (0)) __PYX_ERR(0, 31, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_t_1) != (0)) __PYX_ERR(0, 29, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_t_1) != (0)) __PYX_ERR(0, 31, __pyx_L1_error);
   __pyx_t_1 = 0;
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
@@ -3222,11 +3439,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   PyObject *__pyx_v_account = 0;
   PyObject *__pyx_v_user_agent = 0;
   double __pyx_v_timeout;
+  PyObject *__pyx_v_cookie_path = 0;
   #if !CYTHON_METH_FASTCALL
   CYTHON_UNUSED Py_ssize_t __pyx_nargs;
   #endif
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  PyObject* values[4] = {0,0,0,0};
+  PyObject* values[5] = {0,0,0,0,0};
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -3242,45 +3460,55 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   #endif
   __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
   {
-    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_account,&__pyx_mstate_global->__pyx_n_u_user_agent,&__pyx_mstate_global->__pyx_n_u_timeout,0};
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_account,&__pyx_mstate_global->__pyx_n_u_user_agent,&__pyx_mstate_global->__pyx_n_u_timeout,&__pyx_mstate_global->__pyx_n_u_cookie_path,0};
     struct __pyx_defaults *__pyx_dynamic_args = __Pyx_CyFunction_Defaults(struct __pyx_defaults, __pyx_self);
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 29, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 31, __pyx_L3_error)
     if (likely(__pyx_kwds_len > 0)) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 29, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 31, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < (0)) __PYX_ERR(0, 29, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__init__", 0) < (0)) __PYX_ERR(0, 31, __pyx_L3_error)
       if (!values[2]) values[2] = __Pyx_NewRef(__pyx_dynamic_args->arg0);
+
+      /* "opscli/seller_sprite/api/client.py":37
+ *         user_agent: str = DEFAULT_USER_AGENT,
+ *         timeout: float = 60.0,
+ *         cookie_path: Path | None = None,             # <<<<<<<<<<<<<<
+ *     ) -> None:
+ *         self.account = account
+*/
+      if (!values[4]) values[4] = __Pyx_NewRef(((PyObject *)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 1, 1, i); __PYX_ERR(0, 29, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__init__", 1, 1, 1, i); __PYX_ERR(0, 31, __pyx_L3_error) }
       }
       for (Py_ssize_t i = 1; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__init__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 29, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("__init__", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 31, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
-      __Pyx_RaiseKeywordRequired("__init__", __pyx_mstate_global->__pyx_n_u_account); __PYX_ERR(0, 29, __pyx_L3_error)
+      __Pyx_RaiseKeywordRequired("__init__", __pyx_mstate_global->__pyx_n_u_account); __PYX_ERR(0, 31, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_account = values[1];
     __pyx_v_user_agent = ((PyObject*)values[2]);
     if (values[3]) {
-      __pyx_v_timeout = __Pyx_PyFloat_AsDouble(values[3]); if (unlikely((__pyx_v_timeout == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 34, __pyx_L3_error)
+      __pyx_v_timeout = __Pyx_PyFloat_AsDouble(values[3]); if (unlikely((__pyx_v_timeout == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 36, __pyx_L3_error)
     } else {
       __pyx_v_timeout = ((double)((double)60.0));
     }
+    __pyx_v_cookie_path = values[4];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 29, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 31, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3291,8 +3519,16 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_user_agent), (&PyUnicode_Type), 0, "user_agent", 2))) __PYX_ERR(0, 33, __pyx_L1_error)
-  __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient___init__(__pyx_self, __pyx_v_self, __pyx_v_account, __pyx_v_user_agent, __pyx_v_timeout);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_user_agent), (&PyUnicode_Type), 0, "user_agent", 2))) __PYX_ERR(0, 35, __pyx_L1_error)
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient___init__(__pyx_self, __pyx_v_self, __pyx_v_account, __pyx_v_user_agent, __pyx_v_timeout, __pyx_v_cookie_path);
+
+  /* "opscli/seller_sprite/api/client.py":31
+ *     """ Web """
+ * 
+ *     def __init__(             # <<<<<<<<<<<<<<
+ *         self,
+ *         *,
+*/
 
   /* function exit code */
   goto __pyx_L0;
@@ -3311,138 +3547,202 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient___init__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_account, PyObject *__pyx_v_user_agent, double __pyx_v_timeout) {
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient___init__(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_account, PyObject *__pyx_v_user_agent, double __pyx_v_timeout, PyObject *__pyx_v_cookie_path) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
-  PyObject *__pyx_t_2 = NULL;
+  int __pyx_t_2;
   PyObject *__pyx_t_3 = NULL;
   PyObject *__pyx_t_4 = NULL;
   PyObject *__pyx_t_5 = NULL;
-  PyObject *__pyx_t_6 = NULL;
-  size_t __pyx_t_7;
+  size_t __pyx_t_6;
+  PyObject *__pyx_t_7 = NULL;
+  PyObject *__pyx_t_8 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "opscli/seller_sprite/api/client.py":36
- *         timeout: float = 60.0,
+  /* "opscli/seller_sprite/api/client.py":39
+ *         cookie_path: Path | None = None,
  *     ) -> None:
  *         self.account = account             # <<<<<<<<<<<<<<
  *         self.user_agent = user_agent
  *         self.login_status: int | None = None
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_account, __pyx_v_account) < (0)) __PYX_ERR(0, 36, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_account, __pyx_v_account) < (0)) __PYX_ERR(0, 39, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/api/client.py":37
+  /* "opscli/seller_sprite/api/client.py":40
  *     ) -> None:
  *         self.account = account
  *         self.user_agent = user_agent             # <<<<<<<<<<<<<<
  *         self.login_status: int | None = None
  *         self.login_redirect = False
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_user_agent, __pyx_v_user_agent) < (0)) __PYX_ERR(0, 37, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_user_agent, __pyx_v_user_agent) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/api/client.py":38
+  /* "opscli/seller_sprite/api/client.py":41
  *         self.account = account
  *         self.user_agent = user_agent
  *         self.login_status: int | None = None             # <<<<<<<<<<<<<<
  *         self.login_redirect = False
- *         self._client = httpx.AsyncClient(
+ *         self.cookie_path = cookie_path or _default_cookie_path(account)
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_login_status, Py_None) < (0)) __PYX_ERR(0, 38, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_login_status, Py_None) < (0)) __PYX_ERR(0, 41, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/api/client.py":39
+  /* "opscli/seller_sprite/api/client.py":42
  *         self.user_agent = user_agent
  *         self.login_status: int | None = None
  *         self.login_redirect = False             # <<<<<<<<<<<<<<
+ *         self.cookie_path = cookie_path or _default_cookie_path(account)
+ *         self._client = httpx.AsyncClient(
+*/
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_login_redirect, Py_False) < (0)) __PYX_ERR(0, 42, __pyx_L1_error)
+
+  /* "opscli/seller_sprite/api/client.py":43
+ *         self.login_status: int | None = None
+ *         self.login_redirect = False
+ *         self.cookie_path = cookie_path or _default_cookie_path(account)             # <<<<<<<<<<<<<<
  *         self._client = httpx.AsyncClient(
  *             timeout=timeout,
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_login_redirect, Py_False) < (0)) __PYX_ERR(0, 39, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_cookie_path); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 43, __pyx_L1_error)
+  if (!__pyx_t_2) {
+  } else {
+    __Pyx_INCREF(__pyx_v_cookie_path);
+    __pyx_t_1 = __pyx_v_cookie_path;
+    goto __pyx_L3_bool_binop_done;
+  }
+  __pyx_t_4 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_default_cookie_path); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 43, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __pyx_t_6 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_5))) {
+    __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_5);
+    assert(__pyx_t_4);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_5);
+    __Pyx_INCREF(__pyx_t_4);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_5, __pyx__function);
+    __pyx_t_6 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_account};
+    __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 43, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+  }
+  __Pyx_INCREF(__pyx_t_3);
+  __pyx_t_1 = __pyx_t_3;
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_L3_bool_binop_done:;
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_cookie_path, __pyx_t_1) < (0)) __PYX_ERR(0, 43, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":40
- *         self.login_status: int | None = None
+  /* "opscli/seller_sprite/api/client.py":44
  *         self.login_redirect = False
+ *         self.cookie_path = cookie_path or _default_cookie_path(account)
  *         self._client = httpx.AsyncClient(             # <<<<<<<<<<<<<<
  *             timeout=timeout,
  *             follow_redirects=False,
 */
-  __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_httpx); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 40, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_AsyncClient); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 40, __pyx_L1_error)
+  __pyx_t_3 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_httpx); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 44, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_AsyncClient); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":41
- *         self.login_redirect = False
+  /* "opscli/seller_sprite/api/client.py":45
+ *         self.cookie_path = cookie_path or _default_cookie_path(account)
  *         self._client = httpx.AsyncClient(
  *             timeout=timeout,             # <<<<<<<<<<<<<<
  *             follow_redirects=False,
  *             headers=self._browser_headers(),
 */
-  __pyx_t_3 = PyFloat_FromDouble(__pyx_v_timeout); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 41, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_5 = PyFloat_FromDouble(__pyx_v_timeout); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 45, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
 
-  /* "opscli/seller_sprite/api/client.py":43
+  /* "opscli/seller_sprite/api/client.py":47
  *             timeout=timeout,
  *             follow_redirects=False,
  *             headers=self._browser_headers(),             # <<<<<<<<<<<<<<
  *         )
- * 
+ *         self._load_cookies()
 */
-  __pyx_t_6 = __pyx_v_self;
-  __Pyx_INCREF(__pyx_t_6);
-  __pyx_t_7 = 0;
+  __pyx_t_8 = __pyx_v_self;
+  __Pyx_INCREF(__pyx_t_8);
+  __pyx_t_6 = 0;
   {
-    PyObject *__pyx_callargs[2] = {__pyx_t_6, NULL};
-    __pyx_t_5 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_browser_headers, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 43, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_5);
+    PyObject *__pyx_callargs[2] = {__pyx_t_8, NULL};
+    __pyx_t_7 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_browser_headers, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 47, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
   }
-  __pyx_t_7 = 1;
+  __pyx_t_6 = 1;
   #if CYTHON_UNPACK_METHODS
   if (unlikely(PyMethod_Check(__pyx_t_4))) {
-    __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_4);
-    assert(__pyx_t_2);
+    __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_4);
+    assert(__pyx_t_3);
     PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_4);
-    __Pyx_INCREF(__pyx_t_2);
+    __Pyx_INCREF(__pyx_t_3);
     __Pyx_INCREF(__pyx__function);
     __Pyx_DECREF_SET(__pyx_t_4, __pyx__function);
-    __pyx_t_7 = 0;
+    __pyx_t_6 = 0;
   }
   #endif
   {
-    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 3 : 0)] = {__pyx_t_2, NULL};
-    __pyx_t_6 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 40, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_6);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_timeout, __pyx_t_3, __pyx_t_6, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_follow_redirects, Py_False, __pyx_t_6, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_headers, __pyx_t_5, __pyx_t_6, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
-    __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_6);
-    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 3 : 0)] = {__pyx_t_3, NULL};
+    __pyx_t_8 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 44, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_8);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_timeout, __pyx_t_5, __pyx_t_8, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 44, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_follow_redirects, Py_False, __pyx_t_8, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 44, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_headers, __pyx_t_7, __pyx_t_8, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 44, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_4, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_8);
+    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 40, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 44, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
 
-  /* "opscli/seller_sprite/api/client.py":40
- *         self.login_status: int | None = None
+  /* "opscli/seller_sprite/api/client.py":44
  *         self.login_redirect = False
+ *         self.cookie_path = cookie_path or _default_cookie_path(account)
  *         self._client = httpx.AsyncClient(             # <<<<<<<<<<<<<<
  *             timeout=timeout,
  *             follow_redirects=False,
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_client, __pyx_t_1) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_client, __pyx_t_1) < (0)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":29
+  /* "opscli/seller_sprite/api/client.py":49
+ *             headers=self._browser_headers(),
+ *         )
+ *         self._load_cookies()             # <<<<<<<<<<<<<<
+ * 
+ *     async def __aenter__(self) -> "SellerSpriteApiClient":
+*/
+  __pyx_t_4 = __pyx_v_self;
+  __Pyx_INCREF(__pyx_t_4);
+  __pyx_t_6 = 0;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
+    __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_load_cookies, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 49, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":31
  *     """ Web """
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
@@ -3455,11 +3755,11 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_XDECREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_3);
   __Pyx_XDECREF(__pyx_t_4);
   __Pyx_XDECREF(__pyx_t_5);
-  __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_XDECREF(__pyx_t_7);
+  __Pyx_XDECREF(__pyx_t_8);
   __Pyx_AddTraceback("opscli.seller_sprite.api.client.SellerSpriteApiClient.__init__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -3469,8 +3769,8 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
 }
 static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_4generator(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "opscli/seller_sprite/api/client.py":46
- *         )
+/* "opscli/seller_sprite/api/client.py":51
+ *         self._load_cookies()
  * 
  *     async def __aenter__(self) -> "SellerSpriteApiClient":             # <<<<<<<<<<<<<<
  *         return self
@@ -3516,32 +3816,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 46, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 51, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 46, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 51, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__aenter__", 0) < (0)) __PYX_ERR(0, 46, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__aenter__", 0) < (0)) __PYX_ERR(0, 51, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__aenter__", 1, 1, 1, i); __PYX_ERR(0, 46, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__aenter__", 1, 1, 1, i); __PYX_ERR(0, 51, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 46, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 51, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__aenter__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 46, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__aenter__", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 51, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3574,7 +3874,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct____aenter__ *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 46, __pyx_L1_error)
+    __PYX_ERR(0, 51, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -3582,7 +3882,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_self);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_4generator, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_aenter, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient___aenter, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client); if (unlikely(!gen)) __PYX_ERR(0, 46, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_4generator, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_aenter, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient___aenter, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client); if (unlikely(!gen)) __PYX_ERR(0, 51, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -3616,10 +3916,10 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   __pyx_L3_first_run:;
   if (unlikely(__pyx_sent_value != Py_None)) {
     if (unlikely(__pyx_sent_value)) PyErr_SetString(PyExc_TypeError, "can't send non-None value to a just-started coroutine");
-    __PYX_ERR(0, 46, __pyx_L1_error)
+    __PYX_ERR(0, 51, __pyx_L1_error)
   }
 
-  /* "opscli/seller_sprite/api/client.py":47
+  /* "opscli/seller_sprite/api/client.py":52
  * 
  *     async def __aenter__(self) -> "SellerSpriteApiClient":
  *         return self             # <<<<<<<<<<<<<<
@@ -3632,8 +3932,8 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "opscli/seller_sprite/api/client.py":46
- *         )
+  /* "opscli/seller_sprite/api/client.py":51
+ *         self._load_cookies()
  * 
  *     async def __aenter__(self) -> "SellerSpriteApiClient":             # <<<<<<<<<<<<<<
  *         return self
@@ -3658,7 +3958,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
 }
 static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_7generator1(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "opscli/seller_sprite/api/client.py":49
+/* "opscli/seller_sprite/api/client.py":54
  *         return self
  * 
  *     async def __aexit__(self, exc_type, exc, tb) -> None:             # <<<<<<<<<<<<<<
@@ -3708,44 +4008,44 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_exc_type,&__pyx_mstate_global->__pyx_n_u_exc,&__pyx_mstate_global->__pyx_n_u_tb,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 49, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 54, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 49, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 54, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 49, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 54, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 49, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 54, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 49, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 54, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__aexit__", 0) < (0)) __PYX_ERR(0, 49, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__aexit__", 0) < (0)) __PYX_ERR(0, 54, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 4; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__aexit__", 1, 4, 4, i); __PYX_ERR(0, 49, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("__aexit__", 1, 4, 4, i); __PYX_ERR(0, 54, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 4)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 49, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 54, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 49, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 54, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 49, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 54, __pyx_L3_error)
       values[3] = __Pyx_ArgRef_FASTCALL(__pyx_args, 3);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 49, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 54, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_exc_type = values[1];
@@ -3754,7 +4054,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__aexit__", 1, 4, 4, __pyx_nargs); __PYX_ERR(0, 49, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__aexit__", 1, 4, 4, __pyx_nargs); __PYX_ERR(0, 54, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3787,7 +4087,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_1___aexit__ *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 49, __pyx_L1_error)
+    __PYX_ERR(0, 54, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -3804,7 +4104,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_tb);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_tb);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_7generator1, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_aexit, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient___aexit, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client); if (unlikely(!gen)) __PYX_ERR(0, 49, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_7generator1, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_aexit, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient___aexit, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client); if (unlikely(!gen)) __PYX_ERR(0, 54, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -3843,10 +4143,10 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   __pyx_L3_first_run:;
   if (unlikely(__pyx_sent_value != Py_None)) {
     if (unlikely(__pyx_sent_value)) PyErr_SetString(PyExc_TypeError, "can't send non-None value to a just-started coroutine");
-    __PYX_ERR(0, 49, __pyx_L1_error)
+    __PYX_ERR(0, 54, __pyx_L1_error)
   }
 
-  /* "opscli/seller_sprite/api/client.py":50
+  /* "opscli/seller_sprite/api/client.py":55
  * 
  *     async def __aexit__(self, exc_type, exc, tb) -> None:
  *         await self.aclose()             # <<<<<<<<<<<<<<
@@ -3860,7 +4160,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_aclose, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 50, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 55, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_t_4 = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_1, &__pyx_r);
@@ -3874,17 +4174,17 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L4_resume_from_await:;
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 50, __pyx_L1_error)
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 55, __pyx_L1_error)
   } else if (likely(__pyx_t_4 == PYGEN_RETURN)) {
     __Pyx_GOTREF(__pyx_r);
     __Pyx_DECREF(__pyx_r); __pyx_r = 0;
   } else {
     __Pyx_XGOTREF(__pyx_r);
-    __PYX_ERR(0, 50, __pyx_L1_error)
+    __PYX_ERR(0, 55, __pyx_L1_error)
   }
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "opscli/seller_sprite/api/client.py":49
+  /* "opscli/seller_sprite/api/client.py":54
  *         return self
  * 
  *     async def __aexit__(self, exc_type, exc, tb) -> None:             # <<<<<<<<<<<<<<
@@ -3914,7 +4214,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
 }
 static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_10generator2(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "opscli/seller_sprite/api/client.py":52
+/* "opscli/seller_sprite/api/client.py":57
  *         await self.aclose()
  * 
  *     async def aclose(self) -> None:             # <<<<<<<<<<<<<<
@@ -3962,32 +4262,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 52, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 57, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 52, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 57, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "aclose", 0) < (0)) __PYX_ERR(0, 52, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "aclose", 0) < (0)) __PYX_ERR(0, 57, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("aclose", 1, 1, 1, i); __PYX_ERR(0, 52, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("aclose", 1, 1, 1, i); __PYX_ERR(0, 57, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 52, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 57, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("aclose", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 52, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("aclose", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 57, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4020,7 +4320,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_2_aclose *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 52, __pyx_L1_error)
+    __PYX_ERR(0, 57, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -4028,7 +4328,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_self);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_10generator2, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_aclose, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_aclose, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client); if (unlikely(!gen)) __PYX_ERR(0, 52, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_10generator2, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_aclose, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_aclose, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client); if (unlikely(!gen)) __PYX_ERR(0, 57, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -4068,17 +4368,17 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   __pyx_L3_first_run:;
   if (unlikely(__pyx_sent_value != Py_None)) {
     if (unlikely(__pyx_sent_value)) PyErr_SetString(PyExc_TypeError, "can't send non-None value to a just-started coroutine");
-    __PYX_ERR(0, 52, __pyx_L1_error)
+    __PYX_ERR(0, 57, __pyx_L1_error)
   }
 
-  /* "opscli/seller_sprite/api/client.py":54
+  /* "opscli/seller_sprite/api/client.py":59
  *     async def aclose(self) -> None:
  *         """ HTTP client"""
  *         await self._client.aclose()             # <<<<<<<<<<<<<<
  * 
- *     async def login(self) -> dict[str, Any]:
+ *     def switch_account(self, account: SellerSpriteAccount) -> None:
 */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_client); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 54, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_client); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 59, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
@@ -4088,7 +4388,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_aclose, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 54, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 59, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_t_5 = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_1, &__pyx_r);
@@ -4102,17 +4402,17 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L4_resume_from_await:;
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 54, __pyx_L1_error)
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 59, __pyx_L1_error)
   } else if (likely(__pyx_t_5 == PYGEN_RETURN)) {
     __Pyx_GOTREF(__pyx_r);
     __Pyx_DECREF(__pyx_r); __pyx_r = 0;
   } else {
     __Pyx_XGOTREF(__pyx_r);
-    __PYX_ERR(0, 54, __pyx_L1_error)
+    __PYX_ERR(0, 59, __pyx_L1_error)
   }
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "opscli/seller_sprite/api/client.py":52
+  /* "opscli/seller_sprite/api/client.py":57
  *         await self.aclose()
  * 
  *     async def aclose(self) -> None:             # <<<<<<<<<<<<<<
@@ -4141,10 +4441,235 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
-static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_13generator3(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "opscli/seller_sprite/api/client.py":56
+/* "opscli/seller_sprite/api/client.py":61
  *         await self._client.aclose()
+ * 
+ *     def switch_account(self, account: SellerSpriteAccount) -> None:             # <<<<<<<<<<<<<<
+ *         """ cookie """
+ *         self.account = account
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_12switch_account(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+PyDoc_STRVAR(__pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_11switch_account, "\345\210\207\346\215\242\350\264\246\345\217\267\345\271\266\345\212\240\350\275\275\345\257\271\345\272\224 cookie \347\274\223\345\255\230\343\200\202");
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_12switch_account = {"switch_account", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_12switch_account, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_11switch_account};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_12switch_account(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  PyObject *__pyx_v_self = 0;
+  PyObject *__pyx_v_account = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[2] = {0,0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("switch_account (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_account,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 61, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  2:
+        values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 61, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 61, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "switch_account", 0) < (0)) __PYX_ERR(0, 61, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("switch_account", 1, 2, 2, i); __PYX_ERR(0, 61, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 2)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 61, __pyx_L3_error)
+      values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 61, __pyx_L3_error)
+    }
+    __pyx_v_self = values[0];
+    __pyx_v_account = values[1];
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("switch_account", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 61, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_AddTraceback("opscli.seller_sprite.api.client.SellerSpriteApiClient.switch_account", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_11switch_account(__pyx_self, __pyx_v_self, __pyx_v_account);
+
+  /* function exit code */
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_11switch_account(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_account) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  size_t __pyx_t_4;
+  PyObject *__pyx_t_5 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("switch_account", 0);
+
+  /* "opscli/seller_sprite/api/client.py":63
+ *     def switch_account(self, account: SellerSpriteAccount) -> None:
+ *         """ cookie """
+ *         self.account = account             # <<<<<<<<<<<<<<
+ *         self.cookie_path = _default_cookie_path(account)
+ *         self._client.cookies.clear()
+*/
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_account, __pyx_v_account) < (0)) __PYX_ERR(0, 63, __pyx_L1_error)
+
+  /* "opscli/seller_sprite/api/client.py":64
+ *         """ cookie """
+ *         self.account = account
+ *         self.cookie_path = _default_cookie_path(account)             # <<<<<<<<<<<<<<
+ *         self._client.cookies.clear()
+ *         self._load_cookies()
+*/
+  __pyx_t_2 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_default_cookie_path); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 64, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_4 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_3))) {
+    __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_3);
+    assert(__pyx_t_2);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_3);
+    __Pyx_INCREF(__pyx_t_2);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_3, __pyx__function);
+    __pyx_t_4 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_account};
+    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 64, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_cookie_path, __pyx_t_1) < (0)) __PYX_ERR(0, 64, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":65
+ *         self.account = account
+ *         self.cookie_path = _default_cookie_path(account)
+ *         self._client.cookies.clear()             # <<<<<<<<<<<<<<
+ *         self._load_cookies()
+ * 
+*/
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_client); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 65, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_cookies); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 65, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __pyx_t_5;
+  __Pyx_INCREF(__pyx_t_3);
+  __pyx_t_4 = 0;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
+    __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_clear, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 65, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":66
+ *         self.cookie_path = _default_cookie_path(account)
+ *         self._client.cookies.clear()
+ *         self._load_cookies()             # <<<<<<<<<<<<<<
+ * 
+ *     async def login(self) -> dict[str, Any]:
+*/
+  __pyx_t_5 = __pyx_v_self;
+  __Pyx_INCREF(__pyx_t_5);
+  __pyx_t_4 = 0;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
+    __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_load_cookies, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 66, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":61
+ *         await self._client.aclose()
+ * 
+ *     def switch_account(self, account: SellerSpriteAccount) -> None:             # <<<<<<<<<<<<<<
+ *         """ cookie """
+ *         self.account = account
+*/
+
+  /* function exit code */
+  __pyx_r = Py_None; __Pyx_INCREF(Py_None);
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_5);
+  __Pyx_AddTraceback("opscli.seller_sprite.api.client.SellerSpriteApiClient.switch_account", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_15generator3(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+
+/* "opscli/seller_sprite/api/client.py":68
+ *         self._load_cookies()
  * 
  *     async def login(self) -> dict[str, Any]:             # <<<<<<<<<<<<<<
  *         """ cookie"""
@@ -4152,16 +4677,16 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_12login(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_14login(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_11login, "\347\231\273\345\275\225\345\215\226\345\256\266\347\262\276\347\201\265\345\271\266\344\277\235\347\225\231 cookie\343\200\202");
-static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_12login = {"login", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_12login, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_11login};
-static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_12login(PyObject *__pyx_self, 
+PyDoc_STRVAR(__pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_13login, "\347\231\273\345\275\225\345\215\226\345\256\266\347\262\276\347\201\265\345\271\266\344\277\235\347\225\231 cookie\343\200\202");
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_14login = {"login", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_14login, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_13login};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_14login(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -4191,32 +4716,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 56, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 68, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 56, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 68, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "login", 0) < (0)) __PYX_ERR(0, 56, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "login", 0) < (0)) __PYX_ERR(0, 68, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("login", 1, 1, 1, i); __PYX_ERR(0, 56, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("login", 1, 1, 1, i); __PYX_ERR(0, 68, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 56, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 68, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("login", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 56, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("login", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 68, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4227,7 +4752,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_11login(__pyx_self, __pyx_v_self);
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_13login(__pyx_self, __pyx_v_self);
 
   /* function exit code */
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
@@ -4237,7 +4762,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_11login(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self) {
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_13login(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self) {
   struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -4249,7 +4774,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 56, __pyx_L1_error)
+    __PYX_ERR(0, 68, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -4257,7 +4782,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_self);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_13generator3, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_login, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_login, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client); if (unlikely(!gen)) __PYX_ERR(0, 56, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_15generator3, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_login, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_login, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client); if (unlikely(!gen)) __PYX_ERR(0, 68, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -4273,7 +4798,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_13generator3(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_15generator3(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
   struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login *__pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
@@ -4306,21 +4831,21 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   __pyx_L3_first_run:;
   if (unlikely(__pyx_sent_value != Py_None)) {
     if (unlikely(__pyx_sent_value)) PyErr_SetString(PyExc_TypeError, "can't send non-None value to a just-started coroutine");
-    __PYX_ERR(0, 56, __pyx_L1_error)
+    __PYX_ERR(0, 68, __pyx_L1_error)
   }
 
-  /* "opscli/seller_sprite/api/client.py":58
+  /* "opscli/seller_sprite/api/client.py":70
  *     async def login(self) -> dict[str, Any]:
  *         """ cookie"""
  *         await self._client.get(LOGIN_PAGE_URL, headers=self._browser_headers())             # <<<<<<<<<<<<<<
  * 
  *         password_md5 = _md5(self.account.password)
 */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_client); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 58, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_client); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 70, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_LOGIN_PAGE_URL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 58, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_LOGIN_PAGE_URL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 70, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_6 = __pyx_cur_scope->__pyx_v_self;
   __Pyx_INCREF(__pyx_t_6);
@@ -4329,22 +4854,22 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     PyObject *__pyx_callargs[2] = {__pyx_t_6, NULL};
     __pyx_t_5 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_browser_headers, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 58, __pyx_L1_error)
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 70, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
   }
   __pyx_t_7 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_2, __pyx_t_4};
-    __pyx_t_6 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 58, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 70, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_headers, __pyx_t_5, __pyx_t_6, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 58, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_headers, __pyx_t_5, __pyx_t_6, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 70, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_6);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 58, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 70, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_t_8 = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_1, &__pyx_r);
@@ -4358,16 +4883,16 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L4_resume_from_await:;
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 58, __pyx_L1_error)
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 70, __pyx_L1_error)
   } else if (likely(__pyx_t_8 == PYGEN_RETURN)) {
     __Pyx_GOTREF(__pyx_r);
     __Pyx_DECREF(__pyx_r); __pyx_r = 0;
   } else {
     __Pyx_XGOTREF(__pyx_r);
-    __PYX_ERR(0, 58, __pyx_L1_error)
+    __PYX_ERR(0, 70, __pyx_L1_error)
   }
 
-  /* "opscli/seller_sprite/api/client.py":60
+  /* "opscli/seller_sprite/api/client.py":72
  *         await self._client.get(LOGIN_PAGE_URL, headers=self._browser_headers())
  * 
  *         password_md5 = _md5(self.account.password)             # <<<<<<<<<<<<<<
@@ -4375,11 +4900,11 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
  *             "callback": "",
 */
   __pyx_t_3 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_md5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 60, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_md5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 72, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_account); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 60, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_account); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 72, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_password); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 60, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_password); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 72, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_7 = 1;
@@ -4400,50 +4925,50 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 60, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 72, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_GIVEREF(__pyx_t_1);
   __pyx_cur_scope->__pyx_v_password_md5 = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":62
+  /* "opscli/seller_sprite/api/client.py":74
  *         password_md5 = _md5(self.account.password)
  *         form = {
  *             "callback": "",             # <<<<<<<<<<<<<<
  *             "password": password_md5,
  *             "email": self.account.username,
 */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 62, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 74, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_callback, __pyx_mstate_global->__pyx_kp_u_) < (0)) __PYX_ERR(0, 62, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_callback, __pyx_mstate_global->__pyx_kp_u_) < (0)) __PYX_ERR(0, 74, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/api/client.py":63
+  /* "opscli/seller_sprite/api/client.py":75
  *         form = {
  *             "callback": "",
  *             "password": password_md5,             # <<<<<<<<<<<<<<
  *             "email": self.account.username,
  *             "autoLogin": "Y",
 */
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_password, __pyx_cur_scope->__pyx_v_password_md5) < (0)) __PYX_ERR(0, 62, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_password, __pyx_cur_scope->__pyx_v_password_md5) < (0)) __PYX_ERR(0, 74, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/api/client.py":64
+  /* "opscli/seller_sprite/api/client.py":76
  *             "callback": "",
  *             "password": password_md5,
  *             "email": self.account.username,             # <<<<<<<<<<<<<<
  *             "autoLogin": "Y",
  *             "salt": _md5(self.account.username + password_md5),
 */
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_account); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 64, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_account); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 76, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_username); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 64, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_username); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 76, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_email, __pyx_t_4) < (0)) __PYX_ERR(0, 62, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_email, __pyx_t_4) < (0)) __PYX_ERR(0, 74, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_autoLogin, __pyx_mstate_global->__pyx_n_u_Y) < (0)) __PYX_ERR(0, 62, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_autoLogin, __pyx_mstate_global->__pyx_n_u_Y) < (0)) __PYX_ERR(0, 74, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/api/client.py":66
+  /* "opscli/seller_sprite/api/client.py":78
  *             "email": self.account.username,
  *             "autoLogin": "Y",
  *             "salt": _md5(self.account.username + password_md5),             # <<<<<<<<<<<<<<
@@ -4451,14 +4976,14 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
  *         response = await self._client.post(
 */
   __pyx_t_6 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_md5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 66, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_md5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 78, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_account); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 66, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_account); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 78, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_username); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 66, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_username); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 78, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = PyNumber_Add(__pyx_t_2, __pyx_cur_scope->__pyx_v_password_md5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 66, __pyx_L1_error)
+  __pyx_t_5 = PyNumber_Add(__pyx_t_2, __pyx_cur_scope->__pyx_v_password_md5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 78, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_7 = 1;
@@ -4479,38 +5004,38 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 66, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 78, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_salt, __pyx_t_4) < (0)) __PYX_ERR(0, 62, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_salt, __pyx_t_4) < (0)) __PYX_ERR(0, 74, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_GIVEREF(__pyx_t_1);
   __pyx_cur_scope->__pyx_v_form = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":68
+  /* "opscli/seller_sprite/api/client.py":80
  *             "salt": _md5(self.account.username + password_md5),
  *         }
  *         response = await self._client.post(             # <<<<<<<<<<<<<<
  *             SIGNIN_URL,
  *             data=form,
 */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_client); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_client); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 80, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_4);
 
-  /* "opscli/seller_sprite/api/client.py":69
+  /* "opscli/seller_sprite/api/client.py":81
  *         }
  *         response = await self._client.post(
  *             SIGNIN_URL,             # <<<<<<<<<<<<<<
  *             data=form,
  *             headers={
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_SIGNIN_URL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 69, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_SIGNIN_URL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 81, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
 
-  /* "opscli/seller_sprite/api/client.py":72
+  /* "opscli/seller_sprite/api/client.py":84
  *             data=form,
  *             headers={
  *                 **self._browser_headers(referer=LOGIN_PAGE_URL),             # <<<<<<<<<<<<<<
@@ -4519,24 +5044,24 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
 */
   __pyx_t_9 = __pyx_cur_scope->__pyx_v_self;
   __Pyx_INCREF(__pyx_t_9);
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LOGIN_PAGE_URL); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 72, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_LOGIN_PAGE_URL); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 84, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __pyx_t_7 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_9, NULL};
-    __pyx_t_11 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 72, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 84, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_referer, __pyx_t_10, __pyx_t_11, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 72, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_referer, __pyx_t_10, __pyx_t_11, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 84, __pyx_L1_error)
     __pyx_t_2 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_browser_headers, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_11);
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 72, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 84, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   if (unlikely(__pyx_t_2 == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-    __PYX_ERR(0, 72, __pyx_L1_error)
+    __PYX_ERR(0, 84, __pyx_L1_error)
   }
   if (likely(PyDict_CheckExact(__pyx_t_2))) {
     #if CYTHON_COMPILING_IN_CPYTHON || CYTHON_COMPILING_IN_LIMITED_API
@@ -4546,42 +5071,42 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     } else
     #endif
     {
-      __pyx_t_6 = PyDict_Copy(__pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 72, __pyx_L1_error)
+      __pyx_t_6 = PyDict_Copy(__pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 84, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     }
   } else {
-    __pyx_t_6 = __Pyx_PyObject_CallOneArg((PyObject*)&PyDict_Type, __pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 71, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_CallOneArg((PyObject*)&PyDict_Type, __pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 83, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_kp_u_Content_Type, __pyx_mstate_global->__pyx_kp_u_application_x_www_form_urlencode) < (0)) __PYX_ERR(0, 73, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_kp_u_Content_Type, __pyx_mstate_global->__pyx_kp_u_application_x_www_form_urlencode) < (0)) __PYX_ERR(0, 85, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/api/client.py":74
+  /* "opscli/seller_sprite/api/client.py":86
  *                 **self._browser_headers(referer=LOGIN_PAGE_URL),
  *                 "Content-Type": "application/x-www-form-urlencoded",
  *                 "Origin": BASE_URL,             # <<<<<<<<<<<<<<
  *             },
  *         )
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_BASE_URL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 74, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_BASE_URL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 86, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_Origin, __pyx_t_2) < (0)) __PYX_ERR(0, 74, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_Origin, __pyx_t_2) < (0)) __PYX_ERR(0, 86, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_7 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_4, __pyx_t_5};
-    __pyx_t_2 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 68, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 80, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_data, __pyx_cur_scope->__pyx_v_form, __pyx_t_2, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 68, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_headers, __pyx_t_6, __pyx_t_2, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 68, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_data, __pyx_cur_scope->__pyx_v_form, __pyx_t_2, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 80, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_headers, __pyx_t_6, __pyx_t_2, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 80, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_post, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_2);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 68, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 80, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_t_8 = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_1, &__pyx_r);
@@ -4595,86 +5120,86 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     __pyx_generator->resume_label = 2;
     return __pyx_r;
     __pyx_L5_resume_from_await:;
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 68, __pyx_L1_error)
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 80, __pyx_L1_error)
     __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
   } else if (likely(__pyx_t_8 == PYGEN_RETURN)) {
     __Pyx_GOTREF(__pyx_r);
     __pyx_t_1 = __pyx_r; __pyx_r = NULL;
   } else {
     __Pyx_XGOTREF(__pyx_r);
-    __PYX_ERR(0, 68, __pyx_L1_error)
+    __PYX_ERR(0, 80, __pyx_L1_error)
   }
   __Pyx_GIVEREF(__pyx_t_1);
   __pyx_cur_scope->__pyx_v_response = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":77
+  /* "opscli/seller_sprite/api/client.py":89
  *             },
  *         )
  *         self.login_status = response.status_code             # <<<<<<<<<<<<<<
  *         location = response.headers.get("location", "")
  *         self.login_redirect = bool(location)
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_response, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 77, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_response, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 89, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_login_status, __pyx_t_1) < (0)) __PYX_ERR(0, 77, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_login_status, __pyx_t_1) < (0)) __PYX_ERR(0, 89, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":78
+  /* "opscli/seller_sprite/api/client.py":90
  *         )
  *         self.login_status = response.status_code
  *         location = response.headers.get("location", "")             # <<<<<<<<<<<<<<
  *         self.login_redirect = bool(location)
  *         if location:
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_response, __pyx_mstate_global->__pyx_n_u_headers); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 78, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_response, __pyx_mstate_global->__pyx_n_u_headers); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 90, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 78, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 90, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_mstate_global->__pyx_tuple[0], NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 78, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_mstate_global->__pyx_tuple[0], NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 90, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_GIVEREF(__pyx_t_1);
   __pyx_cur_scope->__pyx_v_location = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":79
+  /* "opscli/seller_sprite/api/client.py":91
  *         self.login_status = response.status_code
  *         location = response.headers.get("location", "")
  *         self.login_redirect = bool(location)             # <<<<<<<<<<<<<<
  *         if location:
  *             await self._client.get(
 */
-  __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_location); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 79, __pyx_L1_error)
-  __pyx_t_1 = __Pyx_PyBool_FromLong((!(!__pyx_t_12))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 79, __pyx_L1_error)
+  __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_location); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 91, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyBool_FromLong((!(!__pyx_t_12))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 91, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_login_redirect, __pyx_t_1) < (0)) __PYX_ERR(0, 79, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_login_redirect, __pyx_t_1) < (0)) __PYX_ERR(0, 91, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":80
+  /* "opscli/seller_sprite/api/client.py":92
  *         location = response.headers.get("location", "")
  *         self.login_redirect = bool(location)
  *         if location:             # <<<<<<<<<<<<<<
  *             await self._client.get(
  *                 str(httpx.URL(BASE_URL).join(location)),
 */
-  __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_location); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 80, __pyx_L1_error)
+  __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_location); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 92, __pyx_L1_error)
   if (__pyx_t_12) {
 
-    /* "opscli/seller_sprite/api/client.py":81
+    /* "opscli/seller_sprite/api/client.py":93
  *         self.login_redirect = bool(location)
  *         if location:
  *             await self._client.get(             # <<<<<<<<<<<<<<
  *                 str(httpx.URL(BASE_URL).join(location)),
  *                 headers=self._browser_headers(referer=LOGIN_PAGE_URL),
 */
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_client); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 81, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_client); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 93, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_3 = __pyx_t_2;
     __Pyx_INCREF(__pyx_t_3);
 
-    /* "opscli/seller_sprite/api/client.py":82
+    /* "opscli/seller_sprite/api/client.py":94
  *         if location:
  *             await self._client.get(
  *                 str(httpx.URL(BASE_URL).join(location)),             # <<<<<<<<<<<<<<
@@ -4682,12 +5207,12 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
  *             )
 */
     __pyx_t_11 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_httpx); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 82, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_httpx); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 94, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_URL); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 82, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_URL); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 94, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_BASE_URL); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 82, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_BASE_URL); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 94, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
     __pyx_t_7 = 1;
     #if CYTHON_UNPACK_METHODS
@@ -4707,7 +5232,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
       __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 82, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 94, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __pyx_t_5 = __pyx_t_4;
@@ -4718,14 +5243,14 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
       __pyx_t_6 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_join, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 82, __pyx_L1_error)
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 94, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
     }
-    __pyx_t_4 = __Pyx_PyObject_Unicode(__pyx_t_6); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 82, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_Unicode(__pyx_t_6); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 94, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-    /* "opscli/seller_sprite/api/client.py":83
+    /* "opscli/seller_sprite/api/client.py":95
  *             await self._client.get(
  *                 str(httpx.URL(BASE_URL).join(location)),
  *                 headers=self._browser_headers(referer=LOGIN_PAGE_URL),             # <<<<<<<<<<<<<<
@@ -4734,34 +5259,34 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
 */
     __pyx_t_5 = __pyx_cur_scope->__pyx_v_self;
     __Pyx_INCREF(__pyx_t_5);
-    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_LOGIN_PAGE_URL); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 83, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_LOGIN_PAGE_URL); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 95, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __pyx_t_7 = 0;
     {
       PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_5, NULL};
-      __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 83, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 95, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_referer, __pyx_t_9, __pyx_t_10, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 83, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_referer, __pyx_t_9, __pyx_t_10, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 95, __pyx_L1_error)
       __pyx_t_6 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_browser_headers, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_10);
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 83, __pyx_L1_error)
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 95, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
     }
     __pyx_t_7 = 0;
     {
       PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_3, __pyx_t_4};
-      __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 81, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 93, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_10);
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_headers, __pyx_t_6, __pyx_t_10, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 81, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_headers, __pyx_t_6, __pyx_t_10, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 93, __pyx_L1_error)
       __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_10);
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 81, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 93, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __pyx_t_8 = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_1, &__pyx_r);
@@ -4775,16 +5300,16 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
       __pyx_generator->resume_label = 3;
       return __pyx_r;
       __pyx_L7_resume_from_await:;
-      if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 81, __pyx_L1_error)
+      if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 93, __pyx_L1_error)
     } else if (likely(__pyx_t_8 == PYGEN_RETURN)) {
       __Pyx_GOTREF(__pyx_r);
       __Pyx_DECREF(__pyx_r); __pyx_r = 0;
     } else {
       __Pyx_XGOTREF(__pyx_r);
-      __PYX_ERR(0, 81, __pyx_L1_error)
+      __PYX_ERR(0, 93, __pyx_L1_error)
     }
 
-    /* "opscli/seller_sprite/api/client.py":80
+    /* "opscli/seller_sprite/api/client.py":92
  *         location = response.headers.get("location", "")
  *         self.login_redirect = bool(location)
  *         if location:             # <<<<<<<<<<<<<<
@@ -4793,22 +5318,22 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
 */
   }
 
-  /* "opscli/seller_sprite/api/client.py":85
+  /* "opscli/seller_sprite/api/client.py":97
  *                 headers=self._browser_headers(referer=LOGIN_PAGE_URL),
  *             )
  *         if response.status_code >= 400:             # <<<<<<<<<<<<<<
  *             raise SellerSpriteApiError(
  *                 "",
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_response, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 85, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_response, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = PyObject_RichCompare(__pyx_t_1, __pyx_mstate_global->__pyx_int_400, Py_GE); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 85, __pyx_L1_error)
+  __pyx_t_2 = PyObject_RichCompare(__pyx_t_1, __pyx_mstate_global->__pyx_int_400, Py_GE); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 97, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 85, __pyx_L1_error)
+  __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 97, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   if (unlikely(__pyx_t_12)) {
 
-    /* "opscli/seller_sprite/api/client.py":86
+    /* "opscli/seller_sprite/api/client.py":98
  *             )
  *         if response.status_code >= 400:
  *             raise SellerSpriteApiError(             # <<<<<<<<<<<<<<
@@ -4816,29 +5341,29 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
  *                 status_code=response.status_code,
 */
     __pyx_t_1 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiError); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 86, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiError); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 98, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
 
-    /* "opscli/seller_sprite/api/client.py":88
+    /* "opscli/seller_sprite/api/client.py":100
  *             raise SellerSpriteApiError(
  *                 "",
  *                 status_code=response.status_code,             # <<<<<<<<<<<<<<
  *                 response_excerpt=response.text[:1000],
  *             )
 */
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_response, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 88, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_response, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 100, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
 
-    /* "opscli/seller_sprite/api/client.py":89
+    /* "opscli/seller_sprite/api/client.py":101
  *                 "",
  *                 status_code=response.status_code,
  *                 response_excerpt=response.text[:1000],             # <<<<<<<<<<<<<<
  *             )
- *         return {
+ *         self.save_cookies()
 */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_response, __pyx_mstate_global->__pyx_n_u_text); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 89, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_response, __pyx_mstate_global->__pyx_n_u_text); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 101, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_3 = __Pyx_PyObject_GetSlice(__pyx_t_4, 0, 0x3E8, NULL, NULL, &__pyx_mstate_global->__pyx_slice[0], 0, 1, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 89, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetSlice(__pyx_t_4, 0, 0x3E8, NULL, NULL, &__pyx_mstate_global->__pyx_slice[0], 0, 1, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 101, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_t_7 = 1;
@@ -4855,24 +5380,24 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     #endif
     {
       PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_1, __pyx_mstate_global->__pyx_n_u__2};
-      __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 86, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 98, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_status_code, __pyx_t_6, __pyx_t_4, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 86, __pyx_L1_error)
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_response_excerpt, __pyx_t_3, __pyx_t_4, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 86, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_status_code, __pyx_t_6, __pyx_t_4, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 98, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_response_excerpt, __pyx_t_3, __pyx_t_4, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 98, __pyx_L1_error)
       __pyx_t_2 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_10, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_4);
       __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 86, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 98, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_Raise(__pyx_t_2, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __PYX_ERR(0, 86, __pyx_L1_error)
+    __PYX_ERR(0, 98, __pyx_L1_error)
 
-    /* "opscli/seller_sprite/api/client.py":85
+    /* "opscli/seller_sprite/api/client.py":97
  *                 headers=self._browser_headers(referer=LOGIN_PAGE_URL),
  *             )
  *         if response.status_code >= 400:             # <<<<<<<<<<<<<<
@@ -4881,42 +5406,61 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
 */
   }
 
-  /* "opscli/seller_sprite/api/client.py":91
+  /* "opscli/seller_sprite/api/client.py":103
  *                 response_excerpt=response.text[:1000],
  *             )
+ *         self.save_cookies()             # <<<<<<<<<<<<<<
+ *         return {
+ *             "login_status": self.login_status,
+*/
+  __pyx_t_10 = __pyx_cur_scope->__pyx_v_self;
+  __Pyx_INCREF(__pyx_t_10);
+  __pyx_t_7 = 0;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_10, NULL};
+    __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_save_cookies, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 103, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+  }
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":104
+ *             )
+ *         self.save_cookies()
  *         return {             # <<<<<<<<<<<<<<
  *             "login_status": self.login_status,
  *             "login_redirect": self.login_redirect,
 */
   __Pyx_XDECREF(__pyx_r);
 
-  /* "opscli/seller_sprite/api/client.py":92
- *             )
+  /* "opscli/seller_sprite/api/client.py":105
+ *         self.save_cookies()
  *         return {
  *             "login_status": self.login_status,             # <<<<<<<<<<<<<<
  *             "login_redirect": self.login_redirect,
  *             "cookie_names": self.cookie_names(),
 */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 92, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 105, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_login_status); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 92, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_login_status); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 105, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_login_status, __pyx_t_10) < (0)) __PYX_ERR(0, 92, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_login_status, __pyx_t_10) < (0)) __PYX_ERR(0, 105, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":93
+  /* "opscli/seller_sprite/api/client.py":106
  *         return {
  *             "login_status": self.login_status,
  *             "login_redirect": self.login_redirect,             # <<<<<<<<<<<<<<
  *             "cookie_names": self.cookie_names(),
  *         }
 */
-  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_login_redirect); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 93, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_login_redirect); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 106, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_login_redirect, __pyx_t_10) < (0)) __PYX_ERR(0, 92, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_login_redirect, __pyx_t_10) < (0)) __PYX_ERR(0, 105, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":94
+  /* "opscli/seller_sprite/api/client.py":107
  *             "login_status": self.login_status,
  *             "login_redirect": self.login_redirect,
  *             "cookie_names": self.cookie_names(),             # <<<<<<<<<<<<<<
@@ -4930,18 +5474,18 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
     __pyx_t_10 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_cookie_names, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 94, __pyx_L1_error)
+    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
   }
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_cookie_names, __pyx_t_10) < (0)) __PYX_ERR(0, 92, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_cookie_names, __pyx_t_10) < (0)) __PYX_ERR(0, 105, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
   __pyx_r = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "opscli/seller_sprite/api/client.py":56
- *         await self._client.aclose()
+  /* "opscli/seller_sprite/api/client.py":68
+ *         self._load_cookies()
  * 
  *     async def login(self) -> dict[str, Any]:             # <<<<<<<<<<<<<<
  *         """ cookie"""
@@ -4973,9 +5517,9 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
-static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_16generator4(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_18generator4(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "opscli/seller_sprite/api/client.py":97
+/* "opscli/seller_sprite/api/client.py":110
  *         }
  * 
  *     async def post_json(self, url: str, payload: dict[str, Any], *, referer: str | None = None) -> dict[str, Any]:             # <<<<<<<<<<<<<<
@@ -4984,16 +5528,16 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_15post_json(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_17post_json(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_14post_json, "POST JSON \345\271\266\350\277\224\345\233\236\346\216\245\345\217\243 JSON\343\200\202");
-static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_15post_json = {"post_json", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_15post_json, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_14post_json};
-static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_15post_json(PyObject *__pyx_self, 
+PyDoc_STRVAR(__pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_16post_json, "POST JSON \345\271\266\350\277\224\345\233\236\346\216\245\345\217\243 JSON\343\200\202");
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_17post_json = {"post_json", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_17post_json, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_16post_json};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_17post_json(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -5026,39 +5570,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_url,&__pyx_mstate_global->__pyx_n_u_payload,&__pyx_mstate_global->__pyx_n_u_referer,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 97, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 110, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 97, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 110, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 97, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 110, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 97, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 110, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "post_json", 0) < (0)) __PYX_ERR(0, 97, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "post_json", 0) < (0)) __PYX_ERR(0, 110, __pyx_L3_error)
       if (!values[3]) values[3] = __Pyx_NewRef(((PyObject*)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("post_json", 1, 3, 3, i); __PYX_ERR(0, 97, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("post_json", 1, 3, 3, i); __PYX_ERR(0, 110, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 97, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 110, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 97, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 110, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 97, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 110, __pyx_L3_error)
       if (!values[3]) values[3] = __Pyx_NewRef(((PyObject*)Py_None));
     }
     __pyx_v_self = values[0];
@@ -5068,7 +5612,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("post_json", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 97, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("post_json", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 110, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5079,10 +5623,10 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_url), (&PyUnicode_Type), 0, "url", 2))) __PYX_ERR(0, 97, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_payload), (&PyDict_Type), 0, "payload", 2))) __PYX_ERR(0, 97, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_referer), (&PyUnicode_Type), 1, "referer", 2))) __PYX_ERR(0, 97, __pyx_L1_error)
-  __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_14post_json(__pyx_self, __pyx_v_self, __pyx_v_url, __pyx_v_payload, __pyx_v_referer);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_url), (&PyUnicode_Type), 0, "url", 2))) __PYX_ERR(0, 110, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_payload), (&PyDict_Type), 0, "payload", 2))) __PYX_ERR(0, 110, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_referer), (&PyUnicode_Type), 1, "referer", 2))) __PYX_ERR(0, 110, __pyx_L1_error)
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_16post_json(__pyx_self, __pyx_v_self, __pyx_v_url, __pyx_v_payload, __pyx_v_referer);
 
   /* function exit code */
   goto __pyx_L0;
@@ -5101,7 +5645,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_14post_json(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_url, PyObject *__pyx_v_payload, PyObject *__pyx_v_referer) {
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_16post_json(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_url, PyObject *__pyx_v_payload, PyObject *__pyx_v_referer) {
   struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -5113,7 +5657,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 97, __pyx_L1_error)
+    __PYX_ERR(0, 110, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -5130,7 +5674,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_referer);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_referer);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_16generator4, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_post_json, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_post_json, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client); if (unlikely(!gen)) __PYX_ERR(0, 97, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_18generator4, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_post_json, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_post_json, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client); if (unlikely(!gen)) __PYX_ERR(0, 110, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -5146,7 +5690,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_16generator4(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_18generator4(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
   struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json *__pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
@@ -5175,22 +5719,22 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   __pyx_L3_first_run:;
   if (unlikely(__pyx_sent_value != Py_None)) {
     if (unlikely(__pyx_sent_value)) PyErr_SetString(PyExc_TypeError, "can't send non-None value to a just-started coroutine");
-    __PYX_ERR(0, 97, __pyx_L1_error)
+    __PYX_ERR(0, 110, __pyx_L1_error)
   }
 
-  /* "opscli/seller_sprite/api/client.py":99
+  /* "opscli/seller_sprite/api/client.py":112
  *     async def post_json(self, url: str, payload: dict[str, Any], *, referer: str | None = None) -> dict[str, Any]:
  *         """POST JSON  JSON"""
  *         response = await self._client.post(             # <<<<<<<<<<<<<<
  *             _absolute_url(url),
  *             json=payload,
 */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_client); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 99, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_client); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 112, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = __pyx_t_3;
   __Pyx_INCREF(__pyx_t_2);
 
-  /* "opscli/seller_sprite/api/client.py":100
+  /* "opscli/seller_sprite/api/client.py":113
  *         """POST JSON  JSON"""
  *         response = await self._client.post(
  *             _absolute_url(url),             # <<<<<<<<<<<<<<
@@ -5198,7 +5742,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
  *             headers={
 */
   __pyx_t_5 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_absolute_url); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 100, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_absolute_url); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 113, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __pyx_t_7 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -5217,11 +5761,11 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 100, __pyx_L1_error)
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 113, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
   }
 
-  /* "opscli/seller_sprite/api/client.py":103
+  /* "opscli/seller_sprite/api/client.py":116
  *             json=payload,
  *             headers={
  *                 **self._browser_headers(referer=referer),             # <<<<<<<<<<<<<<
@@ -5233,18 +5777,18 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   __pyx_t_7 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_8, NULL};
-    __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 103, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 116, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_referer, __pyx_cur_scope->__pyx_v_referer, __pyx_t_9, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 103, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_referer, __pyx_cur_scope->__pyx_v_referer, __pyx_t_9, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 116, __pyx_L1_error)
     __pyx_t_5 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_browser_headers, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_9);
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 103, __pyx_L1_error)
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 116, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
   }
   if (unlikely(__pyx_t_5 == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-    __PYX_ERR(0, 103, __pyx_L1_error)
+    __PYX_ERR(0, 116, __pyx_L1_error)
   }
   if (likely(PyDict_CheckExact(__pyx_t_5))) {
     #if CYTHON_COMPILING_IN_CPYTHON || CYTHON_COMPILING_IN_LIMITED_API
@@ -5254,47 +5798,47 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     } else
     #endif
     {
-      __pyx_t_6 = PyDict_Copy(__pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 103, __pyx_L1_error)
+      __pyx_t_6 = PyDict_Copy(__pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 116, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     }
   } else {
-    __pyx_t_6 = __Pyx_PyObject_CallOneArg((PyObject*)&PyDict_Type, __pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 102, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_CallOneArg((PyObject*)&PyDict_Type, __pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 115, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   }
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_Accept, __pyx_mstate_global->__pyx_kp_u_application_json_text_plain) < (0)) __PYX_ERR(0, 104, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_kp_u_Content_Type, __pyx_mstate_global->__pyx_kp_u_application_json_charset_UTF_8) < (0)) __PYX_ERR(0, 105, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_Accept, __pyx_mstate_global->__pyx_kp_u_application_json_text_plain) < (0)) __PYX_ERR(0, 117, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_kp_u_Content_Type, __pyx_mstate_global->__pyx_kp_u_application_json_charset_UTF_8) < (0)) __PYX_ERR(0, 118, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/api/client.py":106
+  /* "opscli/seller_sprite/api/client.py":119
  *                 "Accept": "application/json, text/plain, *[inserted by cython to avoid comment closer]/[inserted by cython to avoid comment start]*",
  *                 "Content-Type": "application/json;charset=UTF-8",
  *                 "Origin": BASE_URL,             # <<<<<<<<<<<<<<
  *                 "Priority": "u=1, i",
  *                 "sec-fetch-dest": "empty",
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_BASE_URL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 106, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_BASE_URL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 119, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_Origin, __pyx_t_5) < (0)) __PYX_ERR(0, 106, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_Origin, __pyx_t_5) < (0)) __PYX_ERR(0, 119, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_Priority, __pyx_mstate_global->__pyx_kp_u_u_1_i) < (0)) __PYX_ERR(0, 107, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_kp_u_sec_fetch_dest, __pyx_mstate_global->__pyx_n_u_empty) < (0)) __PYX_ERR(0, 108, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_kp_u_sec_fetch_mode, __pyx_mstate_global->__pyx_n_u_cors) < (0)) __PYX_ERR(0, 109, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_kp_u_sec_fetch_site, __pyx_mstate_global->__pyx_kp_u_same_origin) < (0)) __PYX_ERR(0, 110, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_Priority, __pyx_mstate_global->__pyx_kp_u_u_1_i) < (0)) __PYX_ERR(0, 120, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_kp_u_sec_fetch_dest, __pyx_mstate_global->__pyx_n_u_empty) < (0)) __PYX_ERR(0, 121, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_kp_u_sec_fetch_mode, __pyx_mstate_global->__pyx_n_u_cors) < (0)) __PYX_ERR(0, 122, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_kp_u_sec_fetch_site, __pyx_mstate_global->__pyx_kp_u_same_origin) < (0)) __PYX_ERR(0, 123, __pyx_L1_error)
   __pyx_t_7 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_2, __pyx_t_4};
-    __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 99, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 112, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_json, __pyx_cur_scope->__pyx_v_payload, __pyx_t_5, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 99, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_headers, __pyx_t_6, __pyx_t_5, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 99, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_json, __pyx_cur_scope->__pyx_v_payload, __pyx_t_5, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 112, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_headers, __pyx_t_6, __pyx_t_5, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 112, __pyx_L1_error)
     __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_post, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_5);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 99, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 112, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_t_10 = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_1, &__pyx_r);
@@ -5308,25 +5852,25 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L4_resume_from_await:;
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 99, __pyx_L1_error)
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 112, __pyx_L1_error)
     __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
   } else if (likely(__pyx_t_10 == PYGEN_RETURN)) {
     __Pyx_GOTREF(__pyx_r);
     __pyx_t_1 = __pyx_r; __pyx_r = NULL;
   } else {
     __Pyx_XGOTREF(__pyx_r);
-    __PYX_ERR(0, 99, __pyx_L1_error)
+    __PYX_ERR(0, 112, __pyx_L1_error)
   }
   __Pyx_GIVEREF(__pyx_t_1);
   __pyx_cur_scope->__pyx_v_response = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":113
+  /* "opscli/seller_sprite/api/client.py":126
  *             },
  *         )
  *         return self._parse_json_response(response)             # <<<<<<<<<<<<<<
  * 
- *     async def request_json(self, method: str, url: str, **kwargs: Any) -> dict[str, Any]:
+ *     async def post_form(self, url: str, payload: dict[str, Any], *, referer: str | None = None) -> str:
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_3 = __pyx_cur_scope->__pyx_v_self;
@@ -5336,16 +5880,16 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_cur_scope->__pyx_v_response};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_parse_json_response, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 113, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 126, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_1))) __PYX_ERR(0, 113, __pyx_L1_error)
+  if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_1))) __PYX_ERR(0, 126, __pyx_L1_error)
   __pyx_r = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "opscli/seller_sprite/api/client.py":97
+  /* "opscli/seller_sprite/api/client.py":110
  *         }
  * 
  *     async def post_json(self, url: str, payload: dict[str, Any], *, referer: str | None = None) -> dict[str, Any]:             # <<<<<<<<<<<<<<
@@ -5377,10 +5921,1293 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
-static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_19generator5(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_21generator5(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "opscli/seller_sprite/api/client.py":115
+/* "opscli/seller_sprite/api/client.py":128
  *         return self._parse_json_response(response)
+ * 
+ *     async def post_form(self, url: str, payload: dict[str, Any], *, referer: str | None = None) -> str:             # <<<<<<<<<<<<<<
+ *         """POST """
+ *         response = await self._client.post(
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_20post_form(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+PyDoc_STRVAR(__pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_19post_form, "POST \350\241\250\345\215\225\345\271\266\350\277\224\345\233\236\351\241\265\351\235\242\346\226\207\346\234\254\343\200\202");
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_20post_form = {"post_form", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_20post_form, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_19post_form};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_20post_form(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  PyObject *__pyx_v_self = 0;
+  PyObject *__pyx_v_url = 0;
+  PyObject *__pyx_v_payload = 0;
+  PyObject *__pyx_v_referer = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[4] = {0,0,0,0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("post_form (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_url,&__pyx_mstate_global->__pyx_n_u_payload,&__pyx_mstate_global->__pyx_n_u_referer,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 128, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  3:
+        values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 128, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  2:
+        values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 128, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 128, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "post_form", 0) < (0)) __PYX_ERR(0, 128, __pyx_L3_error)
+      if (!values[3]) values[3] = __Pyx_NewRef(((PyObject*)Py_None));
+      for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("post_form", 1, 3, 3, i); __PYX_ERR(0, 128, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 3)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 128, __pyx_L3_error)
+      values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 128, __pyx_L3_error)
+      values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 128, __pyx_L3_error)
+      if (!values[3]) values[3] = __Pyx_NewRef(((PyObject*)Py_None));
+    }
+    __pyx_v_self = values[0];
+    __pyx_v_url = ((PyObject*)values[1]);
+    __pyx_v_payload = ((PyObject*)values[2]);
+    __pyx_v_referer = ((PyObject*)values[3]);
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("post_form", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 128, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_AddTraceback("opscli.seller_sprite.api.client.SellerSpriteApiClient.post_form", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_url), (&PyUnicode_Type), 0, "url", 2))) __PYX_ERR(0, 128, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_payload), (&PyDict_Type), 0, "payload", 2))) __PYX_ERR(0, 128, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_referer), (&PyUnicode_Type), 1, "referer", 2))) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_19post_form(__pyx_self, __pyx_v_self, __pyx_v_url, __pyx_v_payload, __pyx_v_referer);
+
+  /* function exit code */
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __pyx_r = NULL;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  goto __pyx_L7_cleaned_up;
+  __pyx_L0:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __pyx_L7_cleaned_up:;
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_19post_form(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_url, PyObject *__pyx_v_payload, PyObject *__pyx_v_referer) {
+  struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form *__pyx_cur_scope;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("post_form", 0);
+  __pyx_cur_scope = (struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form *)__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form(__pyx_mstate_global->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form, __pyx_mstate_global->__pyx_empty_tuple, NULL);
+  if (unlikely(!__pyx_cur_scope)) {
+    __pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form *)Py_None);
+    __Pyx_INCREF(Py_None);
+    __PYX_ERR(0, 128, __pyx_L1_error)
+  } else {
+    __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
+  }
+  __pyx_cur_scope->__pyx_v_self = __pyx_v_self;
+  __Pyx_INCREF(__pyx_cur_scope->__pyx_v_self);
+  __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_self);
+  __pyx_cur_scope->__pyx_v_url = __pyx_v_url;
+  __Pyx_INCREF(__pyx_cur_scope->__pyx_v_url);
+  __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_url);
+  __pyx_cur_scope->__pyx_v_payload = __pyx_v_payload;
+  __Pyx_INCREF(__pyx_cur_scope->__pyx_v_payload);
+  __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_payload);
+  __pyx_cur_scope->__pyx_v_referer = __pyx_v_referer;
+  __Pyx_INCREF(__pyx_cur_scope->__pyx_v_referer);
+  __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_referer);
+  {
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_21generator5, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_post_form, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_post_form, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client); if (unlikely(!gen)) __PYX_ERR(0, 128, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_cur_scope);
+    __Pyx_RefNannyFinishContext();
+    return (PyObject *) gen;
+  }
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_AddTraceback("opscli.seller_sprite.api.client.SellerSpriteApiClient.post_form", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __Pyx_DECREF((PyObject *)__pyx_cur_scope);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_21generator5(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+{
+  struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form *__pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form *)__pyx_generator->closure);
+  PyObject *__pyx_r = NULL;
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  PyObject *__pyx_t_4 = NULL;
+  PyObject *__pyx_t_5 = NULL;
+  PyObject *__pyx_t_6 = NULL;
+  size_t __pyx_t_7;
+  PyObject *__pyx_t_8 = NULL;
+  PyObject *__pyx_t_9 = NULL;
+  __Pyx_PySendResult __pyx_t_10;
+  int __pyx_t_11;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("post_form", 0);
+  switch (__pyx_generator->resume_label) {
+    case 0: goto __pyx_L3_first_run;
+    case 1: goto __pyx_L4_resume_from_await;
+    default: /* CPython raises the right error here */
+    __Pyx_RefNannyFinishContext();
+    return NULL;
+  }
+  __pyx_L3_first_run:;
+  if (unlikely(__pyx_sent_value != Py_None)) {
+    if (unlikely(__pyx_sent_value)) PyErr_SetString(PyExc_TypeError, "can't send non-None value to a just-started coroutine");
+    __PYX_ERR(0, 128, __pyx_L1_error)
+  }
+
+  /* "opscli/seller_sprite/api/client.py":130
+ *     async def post_form(self, url: str, payload: dict[str, Any], *, referer: str | None = None) -> str:
+ *         """POST """
+ *         response = await self._client.post(             # <<<<<<<<<<<<<<
+ *             _absolute_url(url),
+ *             data=payload,
+*/
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_client); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_2 = __pyx_t_3;
+  __Pyx_INCREF(__pyx_t_2);
+
+  /* "opscli/seller_sprite/api/client.py":131
+ *         """POST """
+ *         response = await self._client.post(
+ *             _absolute_url(url),             # <<<<<<<<<<<<<<
+ *             data=payload,
+ *             headers={
+*/
+  __pyx_t_5 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_absolute_url); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __pyx_t_7 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_6))) {
+    __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_6);
+    assert(__pyx_t_5);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_6);
+    __Pyx_INCREF(__pyx_t_5);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_6, __pyx__function);
+    __pyx_t_7 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_cur_scope->__pyx_v_url};
+    __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 131, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+  }
+
+  /* "opscli/seller_sprite/api/client.py":134
+ *             data=payload,
+ *             headers={
+ *                 **self._browser_headers(referer=referer),             # <<<<<<<<<<<<<<
+ *                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*[inserted by cython to avoid comment closer]/[inserted by cython to avoid comment start]*;q=0.8",
+ *                 "Content-Type": "application/x-www-form-urlencoded",
+*/
+  __pyx_t_8 = __pyx_cur_scope->__pyx_v_self;
+  __Pyx_INCREF(__pyx_t_8);
+  __pyx_t_7 = 0;
+  {
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_8, NULL};
+    __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 134, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_referer, __pyx_cur_scope->__pyx_v_referer, __pyx_t_9, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 134, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_browser_headers, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_9);
+    __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 134, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+  }
+  if (unlikely(__pyx_t_5 == Py_None)) {
+    PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
+    __PYX_ERR(0, 134, __pyx_L1_error)
+  }
+  if (likely(PyDict_CheckExact(__pyx_t_5))) {
+    #if CYTHON_COMPILING_IN_CPYTHON || CYTHON_COMPILING_IN_LIMITED_API
+    if (__Pyx_IS_UNIQUELY_REFERENCED(__pyx_t_5, __Pyx_ReferenceSharing_OwnStrongReference)) {
+      __pyx_t_6 = __pyx_t_5;
+      __pyx_t_5 = 0;
+    } else
+    #endif
+    {
+      __pyx_t_6 = PyDict_Copy(__pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 134, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_6);
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    }
+  } else {
+    __pyx_t_6 = __Pyx_PyObject_CallOneArg((PyObject*)&PyDict_Type, __pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 133, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  }
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_Accept, __pyx_mstate_global->__pyx_kp_u_text_html_application_xhtml_xml) < (0)) __PYX_ERR(0, 135, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_kp_u_Content_Type, __pyx_mstate_global->__pyx_kp_u_application_x_www_form_urlencode) < (0)) __PYX_ERR(0, 136, __pyx_L1_error)
+
+  /* "opscli/seller_sprite/api/client.py":137
+ *                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*[inserted by cython to avoid comment closer]/[inserted by cython to avoid comment start]*;q=0.8",
+ *                 "Content-Type": "application/x-www-form-urlencoded",
+ *                 "Origin": BASE_URL,             # <<<<<<<<<<<<<<
+ *             },
+ *         )
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_BASE_URL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 137, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_Origin, __pyx_t_5) < (0)) __PYX_ERR(0, 137, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_7 = 0;
+  {
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_2, __pyx_t_4};
+    __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 130, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_data, __pyx_cur_scope->__pyx_v_payload, __pyx_t_5, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 130, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_headers, __pyx_t_6, __pyx_t_5, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 130, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_post, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_5);
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 130, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __pyx_t_10 = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_1, &__pyx_r);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (likely(__pyx_t_10 == PYGEN_NEXT)) {
+    __Pyx_GOTREF(__pyx_r);
+    __Pyx_XGIVEREF(__pyx_r);
+    __Pyx_RefNannyFinishContext();
+    __Pyx_Coroutine_ResetAndClearException(__pyx_generator);
+    /* return from generator, awaiting value */
+    __pyx_generator->resume_label = 1;
+    return __pyx_r;
+    __pyx_L4_resume_from_await:;
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 130, __pyx_L1_error)
+    __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
+  } else if (likely(__pyx_t_10 == PYGEN_RETURN)) {
+    __Pyx_GOTREF(__pyx_r);
+    __pyx_t_1 = __pyx_r; __pyx_r = NULL;
+  } else {
+    __Pyx_XGOTREF(__pyx_r);
+    __PYX_ERR(0, 130, __pyx_L1_error)
+  }
+  __Pyx_GIVEREF(__pyx_t_1);
+  __pyx_cur_scope->__pyx_v_response = __pyx_t_1;
+  __pyx_t_1 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":140
+ *             },
+ *         )
+ *         if response.status_code >= 400:             # <<<<<<<<<<<<<<
+ *             raise SellerSpriteApiError(
+ *                 "",
+*/
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_response, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 140, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_3 = PyObject_RichCompare(__pyx_t_1, __pyx_mstate_global->__pyx_int_400, Py_GE); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 140, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 140, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  if (unlikely(__pyx_t_11)) {
+
+    /* "opscli/seller_sprite/api/client.py":141
+ *         )
+ *         if response.status_code >= 400:
+ *             raise SellerSpriteApiError(             # <<<<<<<<<<<<<<
+ *                 "",
+ *                 status_code=response.status_code,
+*/
+    __pyx_t_1 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiError); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 141, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+
+    /* "opscli/seller_sprite/api/client.py":143
+ *             raise SellerSpriteApiError(
+ *                 "",
+ *                 status_code=response.status_code,             # <<<<<<<<<<<<<<
+ *                 response_excerpt=response.text[:1000],
+ *             )
+*/
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_response, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 143, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+
+    /* "opscli/seller_sprite/api/client.py":144
+ *                 "",
+ *                 status_code=response.status_code,
+ *                 response_excerpt=response.text[:1000],             # <<<<<<<<<<<<<<
+ *             )
+ *         return response.text
+*/
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_response, __pyx_mstate_global->__pyx_n_u_text); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 144, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __pyx_t_2 = __Pyx_PyObject_GetSlice(__pyx_t_4, 0, 0x3E8, NULL, NULL, &__pyx_mstate_global->__pyx_slice[0], 0, 1, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 144, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __pyx_t_7 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_5))) {
+      __pyx_t_1 = PyMethod_GET_SELF(__pyx_t_5);
+      assert(__pyx_t_1);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_5);
+      __Pyx_INCREF(__pyx_t_1);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_5, __pyx__function);
+      __pyx_t_7 = 0;
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_1, __pyx_mstate_global->__pyx_n_u__3};
+      __pyx_t_4 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 141, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_status_code, __pyx_t_6, __pyx_t_4, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 141, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_response_excerpt, __pyx_t_2, __pyx_t_4, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 141, __pyx_L1_error)
+      __pyx_t_3 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_4);
+      __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 141, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_3);
+    }
+    __Pyx_Raise(__pyx_t_3, 0, 0, 0);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __PYX_ERR(0, 141, __pyx_L1_error)
+
+    /* "opscli/seller_sprite/api/client.py":140
+ *             },
+ *         )
+ *         if response.status_code >= 400:             # <<<<<<<<<<<<<<
+ *             raise SellerSpriteApiError(
+ *                 "",
+*/
+  }
+
+  /* "opscli/seller_sprite/api/client.py":146
+ *                 response_excerpt=response.text[:1000],
+ *             )
+ *         return response.text             # <<<<<<<<<<<<<<
+ * 
+ *     async def get_json(self, url: str, params: dict[str, Any], *, referer: str | None = None) -> dict[str, Any]:
+*/
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_response, __pyx_mstate_global->__pyx_n_u_text); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 146, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_3))) __PYX_ERR(0, 146, __pyx_L1_error)
+  __pyx_r = ((PyObject*)__pyx_t_3);
+  __pyx_t_3 = 0;
+  goto __pyx_L0;
+  CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
+
+  /* "opscli/seller_sprite/api/client.py":128
+ *         return self._parse_json_response(response)
+ * 
+ *     async def post_form(self, url: str, payload: dict[str, Any], *, referer: str | None = None) -> str:             # <<<<<<<<<<<<<<
+ *         """POST """
+ *         response = await self._client.post(
+*/
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_XDECREF(__pyx_t_5);
+  __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_XDECREF(__pyx_t_8);
+  __Pyx_XDECREF(__pyx_t_9);
+  if (__Pyx_PyErr_Occurred()) {
+    __Pyx_Generator_Replace_StopIteration(0);
+    __Pyx_AddTraceback("post_form", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  }
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  #if !CYTHON_USE_EXC_INFO_STACK
+  __Pyx_Coroutine_ResetAndClearException(__pyx_generator);
+  #endif
+  __pyx_generator->resume_label = -1;
+  __Pyx_Coroutine_clear((PyObject*)__pyx_generator);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_24generator6(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+
+/* "opscli/seller_sprite/api/client.py":148
+ *         return response.text
+ * 
+ *     async def get_json(self, url: str, params: dict[str, Any], *, referer: str | None = None) -> dict[str, Any]:             # <<<<<<<<<<<<<<
+ *         """GET JSON  JSON"""
+ *         response = await self._client.get(
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_23get_json(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+PyDoc_STRVAR(__pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_22get_json, "GET JSON \345\271\266\350\277\224\345\233\236\346\216\245\345\217\243 JSON\343\200\202");
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_23get_json = {"get_json", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_23get_json, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_22get_json};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_23get_json(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  PyObject *__pyx_v_self = 0;
+  PyObject *__pyx_v_url = 0;
+  PyObject *__pyx_v_params = 0;
+  PyObject *__pyx_v_referer = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[4] = {0,0,0,0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("get_json (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_url,&__pyx_mstate_global->__pyx_n_u_params,&__pyx_mstate_global->__pyx_n_u_referer,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 148, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  3:
+        values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 148, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  2:
+        values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 148, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 148, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "get_json", 0) < (0)) __PYX_ERR(0, 148, __pyx_L3_error)
+      if (!values[3]) values[3] = __Pyx_NewRef(((PyObject*)Py_None));
+      for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("get_json", 1, 3, 3, i); __PYX_ERR(0, 148, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 3)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 148, __pyx_L3_error)
+      values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 148, __pyx_L3_error)
+      values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 148, __pyx_L3_error)
+      if (!values[3]) values[3] = __Pyx_NewRef(((PyObject*)Py_None));
+    }
+    __pyx_v_self = values[0];
+    __pyx_v_url = ((PyObject*)values[1]);
+    __pyx_v_params = ((PyObject*)values[2]);
+    __pyx_v_referer = ((PyObject*)values[3]);
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("get_json", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 148, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_AddTraceback("opscli.seller_sprite.api.client.SellerSpriteApiClient.get_json", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_url), (&PyUnicode_Type), 0, "url", 2))) __PYX_ERR(0, 148, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_params), (&PyDict_Type), 0, "params", 2))) __PYX_ERR(0, 148, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_referer), (&PyUnicode_Type), 1, "referer", 2))) __PYX_ERR(0, 148, __pyx_L1_error)
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_22get_json(__pyx_self, __pyx_v_self, __pyx_v_url, __pyx_v_params, __pyx_v_referer);
+
+  /* function exit code */
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __pyx_r = NULL;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  goto __pyx_L7_cleaned_up;
+  __pyx_L0:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __pyx_L7_cleaned_up:;
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_22get_json(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_url, PyObject *__pyx_v_params, PyObject *__pyx_v_referer) {
+  struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json *__pyx_cur_scope;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("get_json", 0);
+  __pyx_cur_scope = (struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json *)__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json(__pyx_mstate_global->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json, __pyx_mstate_global->__pyx_empty_tuple, NULL);
+  if (unlikely(!__pyx_cur_scope)) {
+    __pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json *)Py_None);
+    __Pyx_INCREF(Py_None);
+    __PYX_ERR(0, 148, __pyx_L1_error)
+  } else {
+    __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
+  }
+  __pyx_cur_scope->__pyx_v_self = __pyx_v_self;
+  __Pyx_INCREF(__pyx_cur_scope->__pyx_v_self);
+  __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_self);
+  __pyx_cur_scope->__pyx_v_url = __pyx_v_url;
+  __Pyx_INCREF(__pyx_cur_scope->__pyx_v_url);
+  __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_url);
+  __pyx_cur_scope->__pyx_v_params = __pyx_v_params;
+  __Pyx_INCREF(__pyx_cur_scope->__pyx_v_params);
+  __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_params);
+  __pyx_cur_scope->__pyx_v_referer = __pyx_v_referer;
+  __Pyx_INCREF(__pyx_cur_scope->__pyx_v_referer);
+  __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_referer);
+  {
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_24generator6, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_get_json, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_get_json, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client); if (unlikely(!gen)) __PYX_ERR(0, 148, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_cur_scope);
+    __Pyx_RefNannyFinishContext();
+    return (PyObject *) gen;
+  }
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_AddTraceback("opscli.seller_sprite.api.client.SellerSpriteApiClient.get_json", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __Pyx_DECREF((PyObject *)__pyx_cur_scope);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_24generator6(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+{
+  struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json *__pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json *)__pyx_generator->closure);
+  PyObject *__pyx_r = NULL;
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  PyObject *__pyx_t_4 = NULL;
+  PyObject *__pyx_t_5 = NULL;
+  PyObject *__pyx_t_6 = NULL;
+  size_t __pyx_t_7;
+  PyObject *__pyx_t_8 = NULL;
+  PyObject *__pyx_t_9 = NULL;
+  __Pyx_PySendResult __pyx_t_10;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("get_json", 0);
+  switch (__pyx_generator->resume_label) {
+    case 0: goto __pyx_L3_first_run;
+    case 1: goto __pyx_L4_resume_from_await;
+    default: /* CPython raises the right error here */
+    __Pyx_RefNannyFinishContext();
+    return NULL;
+  }
+  __pyx_L3_first_run:;
+  if (unlikely(__pyx_sent_value != Py_None)) {
+    if (unlikely(__pyx_sent_value)) PyErr_SetString(PyExc_TypeError, "can't send non-None value to a just-started coroutine");
+    __PYX_ERR(0, 148, __pyx_L1_error)
+  }
+
+  /* "opscli/seller_sprite/api/client.py":150
+ *     async def get_json(self, url: str, params: dict[str, Any], *, referer: str | None = None) -> dict[str, Any]:
+ *         """GET JSON  JSON"""
+ *         response = await self._client.get(             # <<<<<<<<<<<<<<
+ *             _absolute_url(url),
+ *             params=params,
+*/
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_client); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 150, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_2 = __pyx_t_3;
+  __Pyx_INCREF(__pyx_t_2);
+
+  /* "opscli/seller_sprite/api/client.py":151
+ *         """GET JSON  JSON"""
+ *         response = await self._client.get(
+ *             _absolute_url(url),             # <<<<<<<<<<<<<<
+ *             params=params,
+ *             headers={
+*/
+  __pyx_t_5 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_absolute_url); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 151, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __pyx_t_7 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_6))) {
+    __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_6);
+    assert(__pyx_t_5);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_6);
+    __Pyx_INCREF(__pyx_t_5);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_6, __pyx__function);
+    __pyx_t_7 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_cur_scope->__pyx_v_url};
+    __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 151, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+  }
+
+  /* "opscli/seller_sprite/api/client.py":154
+ *             params=params,
+ *             headers={
+ *                 **self._browser_headers(referer=referer),             # <<<<<<<<<<<<<<
+ *                 "Accept": "application/json, text/plain, *[inserted by cython to avoid comment closer]/[inserted by cython to avoid comment start]*",
+ *             },
+*/
+  __pyx_t_8 = __pyx_cur_scope->__pyx_v_self;
+  __Pyx_INCREF(__pyx_t_8);
+  __pyx_t_7 = 0;
+  {
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_8, NULL};
+    __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 154, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_referer, __pyx_cur_scope->__pyx_v_referer, __pyx_t_9, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 154, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_browser_headers, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_9);
+    __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 154, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+  }
+  if (unlikely(__pyx_t_5 == Py_None)) {
+    PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
+    __PYX_ERR(0, 154, __pyx_L1_error)
+  }
+  if (likely(PyDict_CheckExact(__pyx_t_5))) {
+    #if CYTHON_COMPILING_IN_CPYTHON || CYTHON_COMPILING_IN_LIMITED_API
+    if (__Pyx_IS_UNIQUELY_REFERENCED(__pyx_t_5, __Pyx_ReferenceSharing_OwnStrongReference)) {
+      __pyx_t_6 = __pyx_t_5;
+      __pyx_t_5 = 0;
+    } else
+    #endif
+    {
+      __pyx_t_6 = PyDict_Copy(__pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 154, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_6);
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    }
+  } else {
+    __pyx_t_6 = __Pyx_PyObject_CallOneArg((PyObject*)&PyDict_Type, __pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 153, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  }
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_Accept, __pyx_mstate_global->__pyx_kp_u_application_json_text_plain) < (0)) __PYX_ERR(0, 155, __pyx_L1_error)
+  __pyx_t_7 = 0;
+  {
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_2, __pyx_t_4};
+    __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 150, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_params, __pyx_cur_scope->__pyx_v_params, __pyx_t_5, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 150, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_headers, __pyx_t_6, __pyx_t_5, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 150, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_5);
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 150, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __pyx_t_10 = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_1, &__pyx_r);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (likely(__pyx_t_10 == PYGEN_NEXT)) {
+    __Pyx_GOTREF(__pyx_r);
+    __Pyx_XGIVEREF(__pyx_r);
+    __Pyx_RefNannyFinishContext();
+    __Pyx_Coroutine_ResetAndClearException(__pyx_generator);
+    /* return from generator, awaiting value */
+    __pyx_generator->resume_label = 1;
+    return __pyx_r;
+    __pyx_L4_resume_from_await:;
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 150, __pyx_L1_error)
+    __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
+  } else if (likely(__pyx_t_10 == PYGEN_RETURN)) {
+    __Pyx_GOTREF(__pyx_r);
+    __pyx_t_1 = __pyx_r; __pyx_r = NULL;
+  } else {
+    __Pyx_XGOTREF(__pyx_r);
+    __PYX_ERR(0, 150, __pyx_L1_error)
+  }
+  __Pyx_GIVEREF(__pyx_t_1);
+  __pyx_cur_scope->__pyx_v_response = __pyx_t_1;
+  __pyx_t_1 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":158
+ *             },
+ *         )
+ *         return self._parse_json_response(response)             # <<<<<<<<<<<<<<
+ * 
+ *     async def category_nodes(
+*/
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_3 = __pyx_cur_scope->__pyx_v_self;
+  __Pyx_INCREF(__pyx_t_3);
+  __pyx_t_7 = 0;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_cur_scope->__pyx_v_response};
+    __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_parse_json_response, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 158, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_1))) __PYX_ERR(0, 158, __pyx_L1_error)
+  __pyx_r = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+  CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
+
+  /* "opscli/seller_sprite/api/client.py":148
+ *         return response.text
+ * 
+ *     async def get_json(self, url: str, params: dict[str, Any], *, referer: str | None = None) -> dict[str, Any]:             # <<<<<<<<<<<<<<
+ *         """GET JSON  JSON"""
+ *         response = await self._client.get(
+*/
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_XDECREF(__pyx_t_5);
+  __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_XDECREF(__pyx_t_8);
+  __Pyx_XDECREF(__pyx_t_9);
+  if (__Pyx_PyErr_Occurred()) {
+    __Pyx_Generator_Replace_StopIteration(0);
+    __Pyx_AddTraceback("get_json", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  }
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  #if !CYTHON_USE_EXC_INFO_STACK
+  __Pyx_Coroutine_ResetAndClearException(__pyx_generator);
+  #endif
+  __pyx_generator->resume_label = -1;
+  __Pyx_Coroutine_clear((PyObject*)__pyx_generator);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_27generator7(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+
+/* "opscli/seller_sprite/api/client.py":160
+ *         return self._parse_json_response(response)
+ * 
+ *     async def category_nodes(             # <<<<<<<<<<<<<<
+ *         self,
+ *         *,
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_26category_nodes(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+PyDoc_STRVAR(__pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_25category_nodes, "\350\216\267\345\217\226\345\215\226\345\256\266\347\262\276\347\201\265\347\261\273\347\233\256\350\212\202\347\202\271\343\200\202");
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_26category_nodes = {"category_nodes", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_26category_nodes, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_25category_nodes};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_26category_nodes(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  PyObject *__pyx_v_self = 0;
+  PyObject *__pyx_v_market_id = 0;
+  PyObject *__pyx_v_table = 0;
+  PyObject *__pyx_v_node_id_path = 0;
+  PyObject *__pyx_v_node_label_path = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[5] = {0,0,0,0,0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("category_nodes (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_market_id,&__pyx_mstate_global->__pyx_n_u_table,&__pyx_mstate_global->__pyx_n_u_node_id_path,&__pyx_mstate_global->__pyx_n_u_node_label_path,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 160, __pyx_L3_error)
+    if (likely(__pyx_kwds_len > 0)) {
+      switch (__pyx_nargs) {
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 160, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "category_nodes", 0) < (0)) __PYX_ERR(0, 160, __pyx_L3_error)
+
+      /* "opscli/seller_sprite/api/client.py":165
+ *         market_id: Any,
+ *         table: str,
+ *         node_id_path: str | None = None,             # <<<<<<<<<<<<<<
+ *         node_label_path: str | None = None,
+ *     ) -> dict[str, Any]:
+*/
+      if (!values[3]) values[3] = __Pyx_NewRef(((PyObject*)Py_None));
+
+      /* "opscli/seller_sprite/api/client.py":166
+ *         table: str,
+ *         node_id_path: str | None = None,
+ *         node_label_path: str | None = None,             # <<<<<<<<<<<<<<
+ *     ) -> dict[str, Any]:
+ *         """"""
+*/
+      if (!values[4]) values[4] = __Pyx_NewRef(((PyObject*)Py_None));
+      for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("category_nodes", 1, 1, 1, i); __PYX_ERR(0, 160, __pyx_L3_error) }
+      }
+      for (Py_ssize_t i = 1; i < 3; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseKeywordRequired("category_nodes", *(__pyx_pyargnames[i - 0])); __PYX_ERR(0, 160, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 1)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      __Pyx_RaiseKeywordRequired("category_nodes", __pyx_mstate_global->__pyx_n_u_market_id); __PYX_ERR(0, 160, __pyx_L3_error)
+    }
+    __pyx_v_self = values[0];
+    __pyx_v_market_id = values[1];
+    __pyx_v_table = ((PyObject*)values[2]);
+    __pyx_v_node_id_path = ((PyObject*)values[3]);
+    __pyx_v_node_label_path = ((PyObject*)values[4]);
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("category_nodes", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 160, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_AddTraceback("opscli.seller_sprite.api.client.SellerSpriteApiClient.category_nodes", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_table), (&PyUnicode_Type), 0, "table", 2))) __PYX_ERR(0, 164, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_node_id_path), (&PyUnicode_Type), 1, "node_id_path", 2))) __PYX_ERR(0, 165, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_node_label_path), (&PyUnicode_Type), 1, "node_label_path", 2))) __PYX_ERR(0, 166, __pyx_L1_error)
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_25category_nodes(__pyx_self, __pyx_v_self, __pyx_v_market_id, __pyx_v_table, __pyx_v_node_id_path, __pyx_v_node_label_path);
+
+  /* "opscli/seller_sprite/api/client.py":160
+ *         return self._parse_json_response(response)
+ * 
+ *     async def category_nodes(             # <<<<<<<<<<<<<<
+ *         self,
+ *         *,
+*/
+
+  /* function exit code */
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __pyx_r = NULL;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  goto __pyx_L7_cleaned_up;
+  __pyx_L0:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __pyx_L7_cleaned_up:;
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_25category_nodes(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_market_id, PyObject *__pyx_v_table, PyObject *__pyx_v_node_id_path, PyObject *__pyx_v_node_label_path) {
+  struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes *__pyx_cur_scope;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("category_nodes", 0);
+  __pyx_cur_scope = (struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes *)__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes(__pyx_mstate_global->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes, __pyx_mstate_global->__pyx_empty_tuple, NULL);
+  if (unlikely(!__pyx_cur_scope)) {
+    __pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes *)Py_None);
+    __Pyx_INCREF(Py_None);
+    __PYX_ERR(0, 160, __pyx_L1_error)
+  } else {
+    __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
+  }
+  __pyx_cur_scope->__pyx_v_self = __pyx_v_self;
+  __Pyx_INCREF(__pyx_cur_scope->__pyx_v_self);
+  __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_self);
+  __pyx_cur_scope->__pyx_v_market_id = __pyx_v_market_id;
+  __Pyx_INCREF(__pyx_cur_scope->__pyx_v_market_id);
+  __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_market_id);
+  __pyx_cur_scope->__pyx_v_table = __pyx_v_table;
+  __Pyx_INCREF(__pyx_cur_scope->__pyx_v_table);
+  __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_table);
+  __pyx_cur_scope->__pyx_v_node_id_path = __pyx_v_node_id_path;
+  __Pyx_INCREF(__pyx_cur_scope->__pyx_v_node_id_path);
+  __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_node_id_path);
+  __pyx_cur_scope->__pyx_v_node_label_path = __pyx_v_node_label_path;
+  __Pyx_INCREF(__pyx_cur_scope->__pyx_v_node_label_path);
+  __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_node_label_path);
+  {
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_27generator7, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_category_nodes, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_category_n, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client); if (unlikely(!gen)) __PYX_ERR(0, 160, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_cur_scope);
+    __Pyx_RefNannyFinishContext();
+    return (PyObject *) gen;
+  }
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_AddTraceback("opscli.seller_sprite.api.client.SellerSpriteApiClient.category_nodes", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __Pyx_DECREF((PyObject *)__pyx_cur_scope);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_27generator7(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+{
+  struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes *__pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes *)__pyx_generator->closure);
+  PyObject *__pyx_r = NULL;
+  PyObject *__pyx_t_1 = NULL;
+  int __pyx_t_2;
+  PyObject *__pyx_t_3 = NULL;
+  PyObject *__pyx_t_4 = NULL;
+  PyObject *__pyx_t_5 = NULL;
+  size_t __pyx_t_6;
+  __Pyx_PySendResult __pyx_t_7;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("category_nodes", 0);
+  switch (__pyx_generator->resume_label) {
+    case 0: goto __pyx_L3_first_run;
+    case 1: goto __pyx_L6_resume_from_await;
+    default: /* CPython raises the right error here */
+    __Pyx_RefNannyFinishContext();
+    return NULL;
+  }
+  __pyx_L3_first_run:;
+  if (unlikely(__pyx_sent_value != Py_None)) {
+    if (unlikely(__pyx_sent_value)) PyErr_SetString(PyExc_TypeError, "can't send non-None value to a just-started coroutine");
+    __PYX_ERR(0, 160, __pyx_L1_error)
+  }
+
+  /* "opscli/seller_sprite/api/client.py":170
+ *         """"""
+ *         params: dict[str, Any] = {
+ *             "marketId": market_id,             # <<<<<<<<<<<<<<
+ *             "table": table,
+ *         }
+*/
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 170, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_marketId, __pyx_cur_scope->__pyx_v_market_id) < (0)) __PYX_ERR(0, 170, __pyx_L1_error)
+
+  /* "opscli/seller_sprite/api/client.py":171
+ *         params: dict[str, Any] = {
+ *             "marketId": market_id,
+ *             "table": table,             # <<<<<<<<<<<<<<
+ *         }
+ *         if node_id_path:
+*/
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_table, __pyx_cur_scope->__pyx_v_table) < (0)) __PYX_ERR(0, 170, __pyx_L1_error)
+  __Pyx_GIVEREF(__pyx_t_1);
+  __pyx_cur_scope->__pyx_v_params = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":173
+ *             "table": table,
+ *         }
+ *         if node_id_path:             # <<<<<<<<<<<<<<
+ *             params["nodeIdPath"] = node_id_path
+ *         if node_label_path:
+*/
+  if (__pyx_cur_scope->__pyx_v_node_id_path == Py_None) __pyx_t_2 = 0;
+  else
+  {
+    Py_ssize_t __pyx_temp = __Pyx_PyUnicode_IS_TRUE(__pyx_cur_scope->__pyx_v_node_id_path);
+    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 173, __pyx_L1_error)
+    __pyx_t_2 = (__pyx_temp != 0);
+  }
+
+  if (__pyx_t_2) {
+
+    /* "opscli/seller_sprite/api/client.py":174
+ *         }
+ *         if node_id_path:
+ *             params["nodeIdPath"] = node_id_path             # <<<<<<<<<<<<<<
+ *         if node_label_path:
+ *             params["nodeLabelPath"] = node_label_path
+*/
+    if (unlikely((PyDict_SetItem(__pyx_cur_scope->__pyx_v_params, __pyx_mstate_global->__pyx_n_u_nodeIdPath, __pyx_cur_scope->__pyx_v_node_id_path) < 0))) __PYX_ERR(0, 174, __pyx_L1_error)
+
+    /* "opscli/seller_sprite/api/client.py":173
+ *             "table": table,
+ *         }
+ *         if node_id_path:             # <<<<<<<<<<<<<<
+ *             params["nodeIdPath"] = node_id_path
+ *         if node_label_path:
+*/
+  }
+
+  /* "opscli/seller_sprite/api/client.py":175
+ *         if node_id_path:
+ *             params["nodeIdPath"] = node_id_path
+ *         if node_label_path:             # <<<<<<<<<<<<<<
+ *             params["nodeLabelPath"] = node_label_path
+ *         return await self.get_json(
+*/
+  if (__pyx_cur_scope->__pyx_v_node_label_path == Py_None) __pyx_t_2 = 0;
+  else
+  {
+    Py_ssize_t __pyx_temp = __Pyx_PyUnicode_IS_TRUE(__pyx_cur_scope->__pyx_v_node_label_path);
+    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 175, __pyx_L1_error)
+    __pyx_t_2 = (__pyx_temp != 0);
+  }
+
+  if (__pyx_t_2) {
+
+    /* "opscli/seller_sprite/api/client.py":176
+ *             params["nodeIdPath"] = node_id_path
+ *         if node_label_path:
+ *             params["nodeLabelPath"] = node_label_path             # <<<<<<<<<<<<<<
+ *         return await self.get_json(
+ *             "/v2/competitor-lookup/nodes",
+*/
+    if (unlikely((PyDict_SetItem(__pyx_cur_scope->__pyx_v_params, __pyx_mstate_global->__pyx_n_u_nodeLabelPath, __pyx_cur_scope->__pyx_v_node_label_path) < 0))) __PYX_ERR(0, 176, __pyx_L1_error)
+
+    /* "opscli/seller_sprite/api/client.py":175
+ *         if node_id_path:
+ *             params["nodeIdPath"] = node_id_path
+ *         if node_label_path:             # <<<<<<<<<<<<<<
+ *             params["nodeLabelPath"] = node_label_path
+ *         return await self.get_json(
+*/
+  }
+
+  /* "opscli/seller_sprite/api/client.py":177
+ *         if node_label_path:
+ *             params["nodeLabelPath"] = node_label_path
+ *         return await self.get_json(             # <<<<<<<<<<<<<<
+ *             "/v2/competitor-lookup/nodes",
+ *             params,
+*/
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_3 = __pyx_cur_scope->__pyx_v_self;
+  __Pyx_INCREF(__pyx_t_3);
+
+  /* "opscli/seller_sprite/api/client.py":180
+ *             "/v2/competitor-lookup/nodes",
+ *             params,
+ *             referer=f"{BASE_URL}/v3/product-research",             # <<<<<<<<<<<<<<
+ *         )
+ * 
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_BASE_URL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 180, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 180, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_4 = __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlace(__pyx_t_5, __pyx_mstate_global->__pyx_kp_u_v3_product_research); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 180, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_6 = 0;
+  {
+    PyObject *__pyx_callargs[3 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_v2_competitor_lookup_nodes, __pyx_cur_scope->__pyx_v_params};
+    __pyx_t_5 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 177, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_referer, __pyx_t_4, __pyx_t_5, __pyx_callargs+3, 0) < (0)) __PYX_ERR(0, 177, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_get_json, __pyx_callargs+__pyx_t_6, (3-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_5);
+    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 177, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __pyx_t_7 = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_1, &__pyx_r);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (likely(__pyx_t_7 == PYGEN_NEXT)) {
+    __Pyx_GOTREF(__pyx_r);
+    __Pyx_XGIVEREF(__pyx_r);
+    __Pyx_RefNannyFinishContext();
+    __Pyx_Coroutine_ResetAndClearException(__pyx_generator);
+    /* return from generator, awaiting value */
+    __pyx_generator->resume_label = 1;
+    return __pyx_r;
+    __pyx_L6_resume_from_await:;
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 177, __pyx_L1_error)
+    __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
+  } else if (likely(__pyx_t_7 == PYGEN_RETURN)) {
+    __Pyx_GOTREF(__pyx_r);
+    __pyx_t_1 = __pyx_r; __pyx_r = NULL;
+  } else {
+    __Pyx_XGOTREF(__pyx_r);
+    __PYX_ERR(0, 177, __pyx_L1_error)
+  }
+
+  /* "opscli/seller_sprite/api/client.py":177
+ *         if node_label_path:
+ *             params["nodeLabelPath"] = node_label_path
+ *         return await self.get_json(             # <<<<<<<<<<<<<<
+ *             "/v2/competitor-lookup/nodes",
+ *             params,
+*/
+  if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_1))) __PYX_ERR(0, 177, __pyx_L1_error)
+  __pyx_r = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+  CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
+
+  /* "opscli/seller_sprite/api/client.py":160
+ *         return self._parse_json_response(response)
+ * 
+ *     async def category_nodes(             # <<<<<<<<<<<<<<
+ *         self,
+ *         *,
+*/
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_XDECREF(__pyx_t_5);
+  if (__Pyx_PyErr_Occurred()) {
+    __Pyx_Generator_Replace_StopIteration(0);
+    __Pyx_AddTraceback("category_nodes", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  }
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  #if !CYTHON_USE_EXC_INFO_STACK
+  __Pyx_Coroutine_ResetAndClearException(__pyx_generator);
+  #endif
+  __pyx_generator->resume_label = -1;
+  __Pyx_Coroutine_clear((PyObject*)__pyx_generator);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_30generator8(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+
+/* "opscli/seller_sprite/api/client.py":183
+ *         )
  * 
  *     async def request_json(self, method: str, url: str, **kwargs: Any) -> dict[str, Any]:             # <<<<<<<<<<<<<<
  *         """ JSON"""
@@ -5388,16 +7215,16 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_18request_json(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_29request_json(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_17request_json, "\345\217\221\351\200\201\351\200\232\347\224\250\350\257\267\346\261\202\345\271\266\350\277\224\345\233\236\346\216\245\345\217\243 JSON\343\200\202");
-static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_18request_json = {"request_json", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_18request_json, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_17request_json};
-static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_18request_json(PyObject *__pyx_self, 
+PyDoc_STRVAR(__pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_28request_json, "\345\217\221\351\200\201\351\200\232\347\224\250\350\257\267\346\261\202\345\271\266\350\277\224\345\233\236\346\216\245\345\217\243 JSON\343\200\202");
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_29request_json = {"request_json", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_29request_json, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_28request_json};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_29request_json(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -5432,38 +7259,38 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_method,&__pyx_mstate_global->__pyx_n_u_url,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 115, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 183, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 115, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 183, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 115, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 183, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 115, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 183, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, kwd_pos_args, __pyx_kwds_len, "request_json", 1) < (0)) __PYX_ERR(0, 115, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, __pyx_v_kwargs, values, kwd_pos_args, __pyx_kwds_len, "request_json", 1) < (0)) __PYX_ERR(0, 183, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("request_json", 1, 3, 3, i); __PYX_ERR(0, 115, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("request_json", 1, 3, 3, i); __PYX_ERR(0, 183, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 115, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 183, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 115, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 183, __pyx_L3_error)
       values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 115, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 183, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_method = ((PyObject*)values[1]);
@@ -5471,7 +7298,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("request_json", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 115, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("request_json", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 183, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5483,9 +7310,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_method), (&PyUnicode_Type), 0, "method", 2))) __PYX_ERR(0, 115, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_url), (&PyUnicode_Type), 0, "url", 2))) __PYX_ERR(0, 115, __pyx_L1_error)
-  __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_17request_json(__pyx_self, __pyx_v_self, __pyx_v_method, __pyx_v_url, __pyx_v_kwargs);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_method), (&PyUnicode_Type), 0, "method", 2))) __PYX_ERR(0, 183, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_url), (&PyUnicode_Type), 0, "url", 2))) __PYX_ERR(0, 183, __pyx_L1_error)
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_28request_json(__pyx_self, __pyx_v_self, __pyx_v_method, __pyx_v_url, __pyx_v_kwargs);
 
   /* function exit code */
   goto __pyx_L0;
@@ -5505,19 +7332,19 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_17request_json(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_method, PyObject *__pyx_v_url, PyObject *__pyx_v_kwargs) {
-  struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json *__pyx_cur_scope;
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_28request_json(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_method, PyObject *__pyx_v_url, PyObject *__pyx_v_kwargs) {
+  struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("request_json", 0);
-  __pyx_cur_scope = (struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json *)__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json(__pyx_mstate_global->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json, __pyx_mstate_global->__pyx_empty_tuple, NULL);
+  __pyx_cur_scope = (struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json *)__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json(__pyx_mstate_global->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json, __pyx_mstate_global->__pyx_empty_tuple, NULL);
   if (unlikely(!__pyx_cur_scope)) {
-    __pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json *)Py_None);
+    __pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 115, __pyx_L1_error)
+    __PYX_ERR(0, 183, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -5534,7 +7361,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_kwargs);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_kwargs);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_19generator5, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_request_json, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_request_js, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client); if (unlikely(!gen)) __PYX_ERR(0, 115, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_30generator8, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[8]), (PyObject *) __pyx_cur_scope, __pyx_mstate_global->__pyx_n_u_request_json, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_request_js, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client); if (unlikely(!gen)) __PYX_ERR(0, 183, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -5550,9 +7377,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_19generator5(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_30generator8(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
-  struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json *__pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json *)__pyx_generator->closure);
+  struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json *__pyx_cur_scope = ((struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
   PyObject *__pyx_t_1 = NULL;
   PyObject *__pyx_t_2 = NULL;
@@ -5577,10 +7404,10 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   __pyx_L3_first_run:;
   if (unlikely(__pyx_sent_value != Py_None)) {
     if (unlikely(__pyx_sent_value)) PyErr_SetString(PyExc_TypeError, "can't send non-None value to a just-started coroutine");
-    __PYX_ERR(0, 115, __pyx_L1_error)
+    __PYX_ERR(0, 183, __pyx_L1_error)
   }
 
-  /* "opscli/seller_sprite/api/client.py":117
+  /* "opscli/seller_sprite/api/client.py":185
  *     async def request_json(self, method: str, url: str, **kwargs: Any) -> dict[str, Any]:
  *         """ JSON"""
  *         response = await self._client.request(method, _absolute_url(url), **kwargs)             # <<<<<<<<<<<<<<
@@ -5588,13 +7415,13 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
  * 
 */
   __pyx_t_2 = NULL;
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_client); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 117, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self, __pyx_mstate_global->__pyx_n_u_client); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 185, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_request); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 117, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_request); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 185, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_5 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_absolute_url); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 117, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_absolute_url); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 185, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __pyx_t_7 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -5613,10 +7440,10 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 117, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 185, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
-  __pyx_t_6 = PyDict_Copy(__pyx_cur_scope->__pyx_v_kwargs); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 117, __pyx_L1_error)
+  __pyx_t_6 = PyDict_Copy(__pyx_cur_scope->__pyx_v_kwargs); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 185, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __pyx_t_7 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -5637,7 +7464,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 117, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 185, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_t_8 = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_1, &__pyx_r);
@@ -5651,20 +7478,20 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L4_resume_from_await:;
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 117, __pyx_L1_error)
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 185, __pyx_L1_error)
     __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
   } else if (likely(__pyx_t_8 == PYGEN_RETURN)) {
     __Pyx_GOTREF(__pyx_r);
     __pyx_t_1 = __pyx_r; __pyx_r = NULL;
   } else {
     __Pyx_XGOTREF(__pyx_r);
-    __PYX_ERR(0, 117, __pyx_L1_error)
+    __PYX_ERR(0, 185, __pyx_L1_error)
   }
   __Pyx_GIVEREF(__pyx_t_1);
   __pyx_cur_scope->__pyx_v_response = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":118
+  /* "opscli/seller_sprite/api/client.py":186
  *         """ JSON"""
  *         response = await self._client.request(method, _absolute_url(url), **kwargs)
  *         return self._parse_json_response(response)             # <<<<<<<<<<<<<<
@@ -5679,17 +7506,17 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_cur_scope->__pyx_v_response};
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_parse_json_response, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 118, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 186, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_1))) __PYX_ERR(0, 118, __pyx_L1_error)
+  if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_1))) __PYX_ERR(0, 186, __pyx_L1_error)
   __pyx_r = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "opscli/seller_sprite/api/client.py":115
- *         return self._parse_json_response(response)
+  /* "opscli/seller_sprite/api/client.py":183
+ *         )
  * 
  *     async def request_json(self, method: str, url: str, **kwargs: Any) -> dict[str, Any]:             # <<<<<<<<<<<<<<
  *         """ JSON"""
@@ -5719,7 +7546,7 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/api/client.py":120
+/* "opscli/seller_sprite/api/client.py":188
  *         return self._parse_json_response(response)
  * 
  *     def cookie_names(self) -> list[str]:             # <<<<<<<<<<<<<<
@@ -5728,16 +7555,16 @@ static PyObject *__pyx_gb_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_21cookie_names(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_32cookie_names(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_20cookie_names, "\350\277\224\345\233\236\345\275\223\345\211\215 cookie \345\220\215\347\247\260\343\200\202");
-static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_21cookie_names = {"cookie_names", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_21cookie_names, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_20cookie_names};
-static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_21cookie_names(PyObject *__pyx_self, 
+PyDoc_STRVAR(__pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_31cookie_names, "\350\277\224\345\233\236\345\275\223\345\211\215 cookie \345\220\215\347\247\260\343\200\202");
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_32cookie_names = {"cookie_names", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_32cookie_names, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_31cookie_names};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_32cookie_names(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -5767,32 +7594,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 120, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 188, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 120, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 188, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "cookie_names", 0) < (0)) __PYX_ERR(0, 120, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "cookie_names", 0) < (0)) __PYX_ERR(0, 188, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("cookie_names", 1, 1, 1, i); __PYX_ERR(0, 120, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("cookie_names", 1, 1, 1, i); __PYX_ERR(0, 188, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 120, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 188, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("cookie_names", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 120, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("cookie_names", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 188, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5803,7 +7630,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_20cookie_names(__pyx_self, __pyx_v_self);
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_31cookie_names(__pyx_self, __pyx_v_self);
 
   /* function exit code */
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
@@ -5813,7 +7640,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_20cookie_names(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self) {
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_31cookie_names(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self) {
   PyObject *__pyx_7genexpr__pyx_v_cookie = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -5827,23 +7654,23 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("cookie_names", 0);
 
-  /* "opscli/seller_sprite/api/client.py":122
+  /* "opscli/seller_sprite/api/client.py":190
  *     def cookie_names(self) -> list[str]:
  *         """ cookie """
  *         return [cookie.name for cookie in self._client.cookies.jar]             # <<<<<<<<<<<<<<
  * 
- *     def _parse_json_response(self, response: httpx.Response) -> dict[str, Any]:
+ *     def has_cookies(self) -> bool:
 */
   __Pyx_XDECREF(__pyx_r);
   { /* enter inner scope */
-    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 122, __pyx_L5_error)
+    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 190, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_client); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 122, __pyx_L5_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_client); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 190, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_cookies); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 122, __pyx_L5_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_cookies); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 190, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_jar); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 122, __pyx_L5_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_jar); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 190, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     if (likely(PyList_CheckExact(__pyx_t_2)) || PyTuple_CheckExact(__pyx_t_2)) {
@@ -5851,9 +7678,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
       __pyx_t_4 = 0;
       __pyx_t_5 = NULL;
     } else {
-      __pyx_t_4 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 122, __pyx_L5_error)
+      __pyx_t_4 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 190, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_5 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 122, __pyx_L5_error)
+      __pyx_t_5 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 190, __pyx_L5_error)
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     for (;;) {
@@ -5862,7 +7689,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_3);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 122, __pyx_L5_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 190, __pyx_L5_error)
             #endif
             if (__pyx_t_4 >= __pyx_temp) break;
           }
@@ -5872,7 +7699,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
           {
             Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_3);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 122, __pyx_L5_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 190, __pyx_L5_error)
             #endif
             if (__pyx_t_4 >= __pyx_temp) break;
           }
@@ -5883,13 +7710,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
           #endif
           ++__pyx_t_4;
         }
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 122, __pyx_L5_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 190, __pyx_L5_error)
       } else {
         __pyx_t_2 = __pyx_t_5(__pyx_t_3);
         if (unlikely(!__pyx_t_2)) {
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
-            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 122, __pyx_L5_error)
+            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 190, __pyx_L5_error)
             PyErr_Clear();
           }
           break;
@@ -5898,9 +7725,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_cookie, __pyx_t_2);
       __pyx_t_2 = 0;
-      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_7genexpr__pyx_v_cookie, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 122, __pyx_L5_error)
+      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_7genexpr__pyx_v_cookie, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 190, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_2);
-      if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_2))) __PYX_ERR(0, 122, __pyx_L5_error)
+      if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_2))) __PYX_ERR(0, 190, __pyx_L5_error)
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     }
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -5915,7 +7742,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/api/client.py":120
+  /* "opscli/seller_sprite/api/client.py":188
  *         return self._parse_json_response(response)
  * 
  *     def cookie_names(self) -> list[str]:             # <<<<<<<<<<<<<<
@@ -5937,8 +7764,718 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/api/client.py":124
+/* "opscli/seller_sprite/api/client.py":192
  *         return [cookie.name for cookie in self._client.cookies.jar]
+ * 
+ *     def has_cookies(self) -> bool:             # <<<<<<<<<<<<<<
+ *         """ client  cookie"""
+ *         return bool(self._client.cookies.jar)
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_34has_cookies(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+PyDoc_STRVAR(__pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_33has_cookies, "\345\210\244\346\226\255\345\275\223\345\211\215 client \346\230\257\345\220\246\345\267\262\346\234\211\347\274\223\345\255\230 cookie\343\200\202");
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_34has_cookies = {"has_cookies", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_34has_cookies, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_33has_cookies};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_34has_cookies(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  PyObject *__pyx_v_self = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[1] = {0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("has_cookies (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 192, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 192, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "has_cookies", 0) < (0)) __PYX_ERR(0, 192, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("has_cookies", 1, 1, 1, i); __PYX_ERR(0, 192, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 1)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 192, __pyx_L3_error)
+    }
+    __pyx_v_self = values[0];
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("has_cookies", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 192, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_AddTraceback("opscli.seller_sprite.api.client.SellerSpriteApiClient.has_cookies", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_33has_cookies(__pyx_self, __pyx_v_self);
+
+  /* function exit code */
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_33has_cookies(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  int __pyx_t_3;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("has_cookies", 0);
+
+  /* "opscli/seller_sprite/api/client.py":194
+ *     def has_cookies(self) -> bool:
+ *         """ client  cookie"""
+ *         return bool(self._client.cookies.jar)             # <<<<<<<<<<<<<<
+ * 
+ *     def has_login_cookies(self) -> bool:
+*/
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_client); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 194, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_cookies); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 194, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_jar); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 194, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 194, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = __Pyx_PyBool_FromLong((!(!__pyx_t_3))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 194, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* "opscli/seller_sprite/api/client.py":192
+ *         return [cookie.name for cookie in self._client.cookies.jar]
+ * 
+ *     def has_cookies(self) -> bool:             # <<<<<<<<<<<<<<
+ *         """ client  cookie"""
+ *         return bool(self._client.cookies.jar)
+*/
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_AddTraceback("opscli.seller_sprite.api.client.SellerSpriteApiClient.has_cookies", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "opscli/seller_sprite/api/client.py":196
+ *         return bool(self._client.cookies.jar)
+ * 
+ *     def has_login_cookies(self) -> bool:             # <<<<<<<<<<<<<<
+ *         """ cookie """
+ *         names = set(self.cookie_names())
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_36has_login_cookies(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+PyDoc_STRVAR(__pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_35has_login_cookies, "\345\210\244\346\226\255\345\275\223\345\211\215 cookie \346\230\257\345\220\246\345\214\205\345\220\253\345\215\226\345\256\266\347\262\276\347\201\265\347\231\273\345\275\225\346\200\201\343\200\202");
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_36has_login_cookies = {"has_login_cookies", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_36has_login_cookies, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_35has_login_cookies};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_36has_login_cookies(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  PyObject *__pyx_v_self = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[1] = {0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("has_login_cookies (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 196, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 196, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "has_login_cookies", 0) < (0)) __PYX_ERR(0, 196, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("has_login_cookies", 1, 1, 1, i); __PYX_ERR(0, 196, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 1)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 196, __pyx_L3_error)
+    }
+    __pyx_v_self = values[0];
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("has_login_cookies", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 196, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_AddTraceback("opscli.seller_sprite.api.client.SellerSpriteApiClient.has_login_cookies", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_35has_login_cookies(__pyx_self, __pyx_v_self);
+
+  /* function exit code */
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_35has_login_cookies(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self) {
+  PyObject *__pyx_v_names = NULL;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  size_t __pyx_t_3;
+  int __pyx_t_4;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("has_login_cookies", 0);
+
+  /* "opscli/seller_sprite/api/client.py":198
+ *     def has_login_cookies(self) -> bool:
+ *         """ cookie """
+ *         names = set(self.cookie_names())             # <<<<<<<<<<<<<<
+ *         return bool(names & {"rank-login-user", "rank-login-user-info", "Sprite-X-Token"})
+ * 
+*/
+  __pyx_t_2 = __pyx_v_self;
+  __Pyx_INCREF(__pyx_t_2);
+  __pyx_t_3 = 0;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
+    __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_cookie_names, __pyx_callargs+__pyx_t_3, (1-__pyx_t_3) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 198, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __pyx_t_2 = PySet_New(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 198, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_v_names = ((PyObject*)__pyx_t_2);
+  __pyx_t_2 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":199
+ *         """ cookie """
+ *         names = set(self.cookie_names())
+ *         return bool(names & {"rank-login-user", "rank-login-user-info", "Sprite-X-Token"})             # <<<<<<<<<<<<<<
+ * 
+ *     def save_cookies(self) -> None:
+*/
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_2 = PySet_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 199, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (PySet_Add(__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_rank_login_user) < (0)) __PYX_ERR(0, 199, __pyx_L1_error)
+  if (PySet_Add(__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_rank_login_user_info) < (0)) __PYX_ERR(0, 199, __pyx_L1_error)
+  if (PySet_Add(__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_Sprite_X_Token) < (0)) __PYX_ERR(0, 199, __pyx_L1_error)
+  __pyx_t_1 = PyNumber_And(__pyx_v_names, __pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 199, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  {
+    Py_ssize_t __pyx_temp = __Pyx_PySet_GET_SIZE(__pyx_t_1);
+    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 199, __pyx_L1_error)
+    __pyx_t_4 = (__pyx_temp != 0);
+  }
+
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = __Pyx_PyBool_FromLong((!(!__pyx_t_4))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 199, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* "opscli/seller_sprite/api/client.py":196
+ *         return bool(self._client.cookies.jar)
+ * 
+ *     def has_login_cookies(self) -> bool:             # <<<<<<<<<<<<<<
+ *         """ cookie """
+ *         names = set(self.cookie_names())
+*/
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_AddTraceback("opscli.seller_sprite.api.client.SellerSpriteApiClient.has_login_cookies", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_names);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "opscli/seller_sprite/api/client.py":201
+ *         return bool(names & {"rank-login-user", "rank-login-user-info", "Sprite-X-Token"})
+ * 
+ *     def save_cookies(self) -> None:             # <<<<<<<<<<<<<<
+ *         """ cookie """
+ *         cookies = [
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_38save_cookies(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+PyDoc_STRVAR(__pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_37save_cookies, "\344\277\235\345\255\230\345\275\223\345\211\215 cookie \345\210\260\346\234\254\345\234\260\347\274\223\345\255\230\343\200\202");
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_38save_cookies = {"save_cookies", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_38save_cookies, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_37save_cookies};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_38save_cookies(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  PyObject *__pyx_v_self = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[1] = {0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("save_cookies (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 201, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 201, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "save_cookies", 0) < (0)) __PYX_ERR(0, 201, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("save_cookies", 1, 1, 1, i); __PYX_ERR(0, 201, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 1)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 201, __pyx_L3_error)
+    }
+    __pyx_v_self = values[0];
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("save_cookies", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 201, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_AddTraceback("opscli.seller_sprite.api.client.SellerSpriteApiClient.save_cookies", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_37save_cookies(__pyx_self, __pyx_v_self);
+
+  /* function exit code */
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_37save_cookies(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self) {
+  PyObject *__pyx_v_cookies = NULL;
+  PyObject *__pyx_8genexpr1__pyx_v_cookie = NULL;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  Py_ssize_t __pyx_t_4;
+  PyObject *(*__pyx_t_5)(PyObject *);
+  PyObject *__pyx_t_6 = NULL;
+  size_t __pyx_t_7;
+  PyObject *__pyx_t_8 = NULL;
+  PyObject *__pyx_t_9 = NULL;
+  PyObject *__pyx_t_10 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("save_cookies", 0);
+
+  /* "opscli/seller_sprite/api/client.py":203
+ *     def save_cookies(self) -> None:
+ *         """ cookie """
+ *         cookies = [             # <<<<<<<<<<<<<<
+ *             {
+ *                 "name": cookie.name,
+*/
+  { /* enter inner scope */
+    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 203, __pyx_L5_error)
+    __Pyx_GOTREF(__pyx_t_1);
+
+    /* "opscli/seller_sprite/api/client.py":210
+ *                 "path": cookie.path,
+ *             }
+ *             for cookie in self._client.cookies.jar             # <<<<<<<<<<<<<<
+ *         ]
+ *         self.cookie_path.parent.mkdir(parents=True, exist_ok=True)
+*/
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_client); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 210, __pyx_L5_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_cookies); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 210, __pyx_L5_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_jar); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 210, __pyx_L5_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (likely(PyList_CheckExact(__pyx_t_2)) || PyTuple_CheckExact(__pyx_t_2)) {
+      __pyx_t_3 = __pyx_t_2; __Pyx_INCREF(__pyx_t_3);
+      __pyx_t_4 = 0;
+      __pyx_t_5 = NULL;
+    } else {
+      __pyx_t_4 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 210, __pyx_L5_error)
+      __Pyx_GOTREF(__pyx_t_3);
+      __pyx_t_5 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 210, __pyx_L5_error)
+    }
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    for (;;) {
+      if (likely(!__pyx_t_5)) {
+        if (likely(PyList_CheckExact(__pyx_t_3))) {
+          {
+            Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_3);
+            #if !CYTHON_ASSUME_SAFE_SIZE
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 210, __pyx_L5_error)
+            #endif
+            if (__pyx_t_4 >= __pyx_temp) break;
+          }
+          __pyx_t_2 = __Pyx_PyList_GetItemRefFast(__pyx_t_3, __pyx_t_4, __Pyx_ReferenceSharing_OwnStrongReference);
+          ++__pyx_t_4;
+        } else {
+          {
+            Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_3);
+            #if !CYTHON_ASSUME_SAFE_SIZE
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 210, __pyx_L5_error)
+            #endif
+            if (__pyx_t_4 >= __pyx_temp) break;
+          }
+          #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
+          __pyx_t_2 = __Pyx_NewRef(PyTuple_GET_ITEM(__pyx_t_3, __pyx_t_4));
+          #else
+          __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_3, __pyx_t_4);
+          #endif
+          ++__pyx_t_4;
+        }
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 210, __pyx_L5_error)
+      } else {
+        __pyx_t_2 = __pyx_t_5(__pyx_t_3);
+        if (unlikely(!__pyx_t_2)) {
+          PyObject* exc_type = PyErr_Occurred();
+          if (exc_type) {
+            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 210, __pyx_L5_error)
+            PyErr_Clear();
+          }
+          break;
+        }
+      }
+      __Pyx_GOTREF(__pyx_t_2);
+      __Pyx_XDECREF_SET(__pyx_8genexpr1__pyx_v_cookie, __pyx_t_2);
+      __pyx_t_2 = 0;
+
+      /* "opscli/seller_sprite/api/client.py":205
+ *         cookies = [
+ *             {
+ *                 "name": cookie.name,             # <<<<<<<<<<<<<<
+ *                 "value": cookie.value,
+ *                 "domain": cookie.domain,
+*/
+      __pyx_t_2 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 205, __pyx_L5_error)
+      __Pyx_GOTREF(__pyx_t_2);
+      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_8genexpr1__pyx_v_cookie, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 205, __pyx_L5_error)
+      __Pyx_GOTREF(__pyx_t_6);
+      if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_name, __pyx_t_6) < (0)) __PYX_ERR(0, 205, __pyx_L5_error)
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+
+      /* "opscli/seller_sprite/api/client.py":206
+ *             {
+ *                 "name": cookie.name,
+ *                 "value": cookie.value,             # <<<<<<<<<<<<<<
+ *                 "domain": cookie.domain,
+ *                 "path": cookie.path,
+*/
+      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_8genexpr1__pyx_v_cookie, __pyx_mstate_global->__pyx_n_u_value); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 206, __pyx_L5_error)
+      __Pyx_GOTREF(__pyx_t_6);
+      if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_value, __pyx_t_6) < (0)) __PYX_ERR(0, 205, __pyx_L5_error)
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+
+      /* "opscli/seller_sprite/api/client.py":207
+ *                 "name": cookie.name,
+ *                 "value": cookie.value,
+ *                 "domain": cookie.domain,             # <<<<<<<<<<<<<<
+ *                 "path": cookie.path,
+ *             }
+*/
+      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_8genexpr1__pyx_v_cookie, __pyx_mstate_global->__pyx_n_u_domain); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 207, __pyx_L5_error)
+      __Pyx_GOTREF(__pyx_t_6);
+      if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_domain, __pyx_t_6) < (0)) __PYX_ERR(0, 205, __pyx_L5_error)
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+
+      /* "opscli/seller_sprite/api/client.py":208
+ *                 "value": cookie.value,
+ *                 "domain": cookie.domain,
+ *                 "path": cookie.path,             # <<<<<<<<<<<<<<
+ *             }
+ *             for cookie in self._client.cookies.jar
+*/
+      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_8genexpr1__pyx_v_cookie, __pyx_mstate_global->__pyx_n_u_path); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 208, __pyx_L5_error)
+      __Pyx_GOTREF(__pyx_t_6);
+      if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_path, __pyx_t_6) < (0)) __PYX_ERR(0, 205, __pyx_L5_error)
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_2))) __PYX_ERR(0, 203, __pyx_L5_error)
+      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+      /* "opscli/seller_sprite/api/client.py":210
+ *                 "path": cookie.path,
+ *             }
+ *             for cookie in self._client.cookies.jar             # <<<<<<<<<<<<<<
+ *         ]
+ *         self.cookie_path.parent.mkdir(parents=True, exist_ok=True)
+*/
+    }
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __Pyx_XDECREF(__pyx_8genexpr1__pyx_v_cookie); __pyx_8genexpr1__pyx_v_cookie = 0;
+    goto __pyx_L9_exit_scope;
+    __pyx_L5_error:;
+    __Pyx_XDECREF(__pyx_8genexpr1__pyx_v_cookie); __pyx_8genexpr1__pyx_v_cookie = 0;
+    goto __pyx_L1_error;
+    __pyx_L9_exit_scope:;
+  } /* exit inner scope */
+  __pyx_v_cookies = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":212
+ *             for cookie in self._client.cookies.jar
+ *         ]
+ *         self.cookie_path.parent.mkdir(parents=True, exist_ok=True)             # <<<<<<<<<<<<<<
+ *         self.cookie_path.write_text(json.dumps(cookies, ensure_ascii=False, indent=2), encoding="utf-8")
+ * 
+*/
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_cookie_path); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 212, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_parent); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 212, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_3 = __pyx_t_6;
+  __Pyx_INCREF(__pyx_t_3);
+  __pyx_t_7 = 0;
+  {
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_3, NULL};
+    __pyx_t_2 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 212, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_parents, Py_True, __pyx_t_2, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 212, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_exist_ok, Py_True, __pyx_t_2, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 212, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_mkdir, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_2);
+    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 212, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":213
+ *         ]
+ *         self.cookie_path.parent.mkdir(parents=True, exist_ok=True)
+ *         self.cookie_path.write_text(json.dumps(cookies, ensure_ascii=False, indent=2), encoding="utf-8")             # <<<<<<<<<<<<<<
+ * 
+ *     def _parse_json_response(self, response: httpx.Response) -> dict[str, Any]:
+*/
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_cookie_path); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 213, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_6 = __pyx_t_2;
+  __Pyx_INCREF(__pyx_t_6);
+  __pyx_t_8 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 213, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_9);
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_dumps); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 213, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_10);
+  __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+  __pyx_t_7 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_10))) {
+    __pyx_t_8 = PyMethod_GET_SELF(__pyx_t_10);
+    assert(__pyx_t_8);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_10);
+    __Pyx_INCREF(__pyx_t_8);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_10, __pyx__function);
+    __pyx_t_7 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_8, __pyx_v_cookies};
+    __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 213, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_ensure_ascii, Py_False, __pyx_t_9, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 213, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_indent, __pyx_mstate_global->__pyx_int_2, __pyx_t_9, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 213, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_10, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_9);
+    __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 213, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+  }
+  __pyx_t_7 = 0;
+  {
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_6, __pyx_t_3};
+    __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 213, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_10);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_encoding, __pyx_mstate_global->__pyx_kp_u_utf_8, __pyx_t_10, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 213, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_write_text, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_10);
+    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 213, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":201
+ *         return bool(names & {"rank-login-user", "rank-login-user-info", "Sprite-X-Token"})
+ * 
+ *     def save_cookies(self) -> None:             # <<<<<<<<<<<<<<
+ *         """ cookie """
+ *         cookies = [
+*/
+
+  /* function exit code */
+  __pyx_r = Py_None; __Pyx_INCREF(Py_None);
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_XDECREF(__pyx_t_8);
+  __Pyx_XDECREF(__pyx_t_9);
+  __Pyx_XDECREF(__pyx_t_10);
+  __Pyx_AddTraceback("opscli.seller_sprite.api.client.SellerSpriteApiClient.save_cookies", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_cookies);
+  __Pyx_XDECREF(__pyx_8genexpr1__pyx_v_cookie);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "opscli/seller_sprite/api/client.py":215
+ *         self.cookie_path.write_text(json.dumps(cookies, ensure_ascii=False, indent=2), encoding="utf-8")
  * 
  *     def _parse_json_response(self, response: httpx.Response) -> dict[str, Any]:             # <<<<<<<<<<<<<<
  *         """"""
@@ -5946,16 +8483,16 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_23_parse_json_response(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_40_parse_json_response(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_22_parse_json_response, "\350\247\243\346\236\220\345\271\266\346\240\241\351\252\214\346\216\245\345\217\243\345\223\215\345\272\224\343\200\202");
-static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_23_parse_json_response = {"_parse_json_response", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_23_parse_json_response, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_22_parse_json_response};
-static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_23_parse_json_response(PyObject *__pyx_self, 
+PyDoc_STRVAR(__pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_39_parse_json_response, "\350\247\243\346\236\220\345\271\266\346\240\241\351\252\214\346\216\245\345\217\243\345\223\215\345\272\224\343\200\202");
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_40_parse_json_response = {"_parse_json_response", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_40_parse_json_response, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_39_parse_json_response};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_40_parse_json_response(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -5986,39 +8523,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_response,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 124, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 215, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 124, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 215, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 124, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 215, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_parse_json_response", 0) < (0)) __PYX_ERR(0, 124, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_parse_json_response", 0) < (0)) __PYX_ERR(0, 215, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_parse_json_response", 1, 2, 2, i); __PYX_ERR(0, 124, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_parse_json_response", 1, 2, 2, i); __PYX_ERR(0, 215, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 124, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 215, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 124, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 215, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
     __pyx_v_response = values[1];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_parse_json_response", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 124, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_parse_json_response", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 215, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6029,7 +8566,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_22_parse_json_response(__pyx_self, __pyx_v_self, __pyx_v_response);
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_39_parse_json_response(__pyx_self, __pyx_v_self, __pyx_v_response);
 
   /* function exit code */
   for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
@@ -6039,11 +8576,13 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_22_parse_json_response(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, PyObject *__pyx_v_response) {
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_39_parse_json_response(CYTHON_UNUSED PyObject *__pyx_self, CYTHON_UNUSED PyObject *__pyx_v_self, PyObject *__pyx_v_response) {
   PyObject *__pyx_v_text = NULL;
   PyObject *__pyx_v_payload = NULL;
   PyObject *__pyx_v_exc = NULL;
+  PyObject *__pyx_v_api_code = NULL;
   PyObject *__pyx_v_code = NULL;
+  PyObject *__pyx_v_api_message = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -6058,36 +8597,37 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   int __pyx_t_10;
   PyObject *__pyx_t_11 = NULL;
   PyObject *__pyx_t_12 = NULL;
-  PyObject *__pyx_t_13 = NULL;
+  int __pyx_t_13;
   PyObject *__pyx_t_14 = NULL;
-  int __pyx_t_15;
-  char const *__pyx_t_16;
-  PyObject *__pyx_t_17 = NULL;
-  PyObject *__pyx_t_18 = NULL;
+  PyObject *__pyx_t_15 = NULL;
+  PyObject *__pyx_t_16 = NULL;
+  int __pyx_t_17;
+  char const *__pyx_t_18;
   PyObject *__pyx_t_19 = NULL;
   PyObject *__pyx_t_20 = NULL;
   PyObject *__pyx_t_21 = NULL;
   PyObject *__pyx_t_22 = NULL;
-  int __pyx_t_23;
-  int __pyx_t_24;
+  PyObject *__pyx_t_23 = NULL;
+  PyObject *__pyx_t_24 = NULL;
+  int __pyx_t_25;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_parse_json_response", 0);
 
-  /* "opscli/seller_sprite/api/client.py":126
+  /* "opscli/seller_sprite/api/client.py":217
  *     def _parse_json_response(self, response: httpx.Response) -> dict[str, Any]:
  *         """"""
  *         text = response.text             # <<<<<<<<<<<<<<
  *         try:
  *             payload = response.json()
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_response, __pyx_mstate_global->__pyx_n_u_text); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 126, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_response, __pyx_mstate_global->__pyx_n_u_text); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 217, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_text = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":127
+  /* "opscli/seller_sprite/api/client.py":218
  *         """"""
  *         text = response.text
  *         try:             # <<<<<<<<<<<<<<
@@ -6103,12 +8643,12 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     __Pyx_XGOTREF(__pyx_t_4);
     /*try:*/ {
 
-      /* "opscli/seller_sprite/api/client.py":128
+      /* "opscli/seller_sprite/api/client.py":219
  *         text = response.text
  *         try:
  *             payload = response.json()             # <<<<<<<<<<<<<<
  *         except json.JSONDecodeError as exc:
- *             raise SellerSpriteApiError(
+ *             api_code = "ERR_GLOBAL_SESSION_EXPIRED" if _looks_like_session_expired_response(response) else None
 */
       __pyx_t_5 = __pyx_v_response;
       __Pyx_INCREF(__pyx_t_5);
@@ -6117,13 +8657,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
         PyObject *__pyx_callargs[2] = {__pyx_t_5, NULL};
         __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_json, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 128, __pyx_L3_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 219, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __pyx_v_payload = __pyx_t_1;
       __pyx_t_1 = 0;
 
-      /* "opscli/seller_sprite/api/client.py":127
+      /* "opscli/seller_sprite/api/client.py":218
  *         """"""
  *         text = response.text
  *         try:             # <<<<<<<<<<<<<<
@@ -6139,17 +8679,17 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "opscli/seller_sprite/api/client.py":129
+    /* "opscli/seller_sprite/api/client.py":220
  *         try:
  *             payload = response.json()
  *         except json.JSONDecodeError as exc:             # <<<<<<<<<<<<<<
+ *             api_code = "ERR_GLOBAL_SESSION_EXPIRED" if _looks_like_session_expired_response(response) else None
  *             raise SellerSpriteApiError(
- *                 " JSON",
 */
     __Pyx_ErrFetch(&__pyx_t_1, &__pyx_t_5, &__pyx_t_7);
-    __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 129, __pyx_L5_except_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 220, __pyx_L5_except_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_JSONDecodeError); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 129, __pyx_L5_except_error)
+    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_JSONDecodeError); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 220, __pyx_L5_except_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __pyx_t_10 = __Pyx_PyErr_GivenExceptionMatches(__pyx_t_1, __pyx_t_9);
@@ -6158,7 +8698,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     __pyx_t_1 = 0; __pyx_t_5 = 0; __pyx_t_7 = 0;
     if (__pyx_t_10) {
       __Pyx_AddTraceback("opscli.seller_sprite.api.client.SellerSpriteApiClient._parse_json_response", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_7, &__pyx_t_5, &__pyx_t_1) < 0) __PYX_ERR(0, 129, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_7, &__pyx_t_5, &__pyx_t_1) < 0) __PYX_ERR(0, 220, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_7);
       __Pyx_XGOTREF(__pyx_t_5);
       __Pyx_XGOTREF(__pyx_t_1);
@@ -6166,124 +8706,193 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
       __pyx_v_exc = __pyx_t_5;
       /*try:*/ {
 
-        /* "opscli/seller_sprite/api/client.py":130
+        /* "opscli/seller_sprite/api/client.py":221
  *             payload = response.json()
  *         except json.JSONDecodeError as exc:
- *             raise SellerSpriteApiError(             # <<<<<<<<<<<<<<
- *                 " JSON",
- *                 status_code=response.status_code,
-*/
-        __pyx_t_8 = NULL;
-        __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiError); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 130, __pyx_L14_error)
-        __Pyx_GOTREF(__pyx_t_11);
-
-        /* "opscli/seller_sprite/api/client.py":132
+ *             api_code = "ERR_GLOBAL_SESSION_EXPIRED" if _looks_like_session_expired_response(response) else None             # <<<<<<<<<<<<<<
  *             raise SellerSpriteApiError(
- *                 " JSON",
- *                 status_code=response.status_code,             # <<<<<<<<<<<<<<
- *                 response_excerpt=text[:1000],
- *             ) from exc
+ *                 "" if api_code else " JSON",
 */
-        __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_v_response, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 132, __pyx_L14_error)
+        __pyx_t_11 = NULL;
+        __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_looks_like_session_expired_resp); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 221, __pyx_L14_error)
         __Pyx_GOTREF(__pyx_t_12);
-
-        /* "opscli/seller_sprite/api/client.py":133
- *                 " JSON",
- *                 status_code=response.status_code,
- *                 response_excerpt=text[:1000],             # <<<<<<<<<<<<<<
- *             ) from exc
- *         if response.status_code >= 400:
-*/
-        __pyx_t_13 = __Pyx_PyObject_GetSlice(__pyx_v_text, 0, 0x3E8, NULL, NULL, &__pyx_mstate_global->__pyx_slice[0], 0, 1, 1); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 133, __pyx_L14_error)
-        __Pyx_GOTREF(__pyx_t_13);
         __pyx_t_6 = 1;
         #if CYTHON_UNPACK_METHODS
-        if (unlikely(PyMethod_Check(__pyx_t_11))) {
-          __pyx_t_8 = PyMethod_GET_SELF(__pyx_t_11);
-          assert(__pyx_t_8);
-          PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_11);
-          __Pyx_INCREF(__pyx_t_8);
+        if (unlikely(PyMethod_Check(__pyx_t_12))) {
+          __pyx_t_11 = PyMethod_GET_SELF(__pyx_t_12);
+          assert(__pyx_t_11);
+          PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_12);
+          __Pyx_INCREF(__pyx_t_11);
           __Pyx_INCREF(__pyx__function);
-          __Pyx_DECREF_SET(__pyx_t_11, __pyx__function);
+          __Pyx_DECREF_SET(__pyx_t_12, __pyx__function);
           __pyx_t_6 = 0;
         }
         #endif
         {
-          PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_8, __pyx_mstate_global->__pyx_kp_u_JSON};
-          __pyx_t_14 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 130, __pyx_L14_error)
-          __Pyx_GOTREF(__pyx_t_14);
-          if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_status_code, __pyx_t_12, __pyx_t_14, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 130, __pyx_L14_error)
-          if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_response_excerpt, __pyx_t_13, __pyx_t_14, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 130, __pyx_L14_error)
-          __pyx_t_9 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_11, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_14);
-          __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+          PyObject *__pyx_callargs[2] = {__pyx_t_11, __pyx_v_response};
+          __pyx_t_8 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_12, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+          __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
           __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-          __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-          __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
+          if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 221, __pyx_L14_error)
+          __Pyx_GOTREF(__pyx_t_8);
+        }
+        __pyx_t_13 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_13 < 0))) __PYX_ERR(0, 221, __pyx_L14_error)
+        __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+        if (__pyx_t_13) {
+          __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_ERR_GLOBAL_SESSION_EXPIRED);
+          __pyx_t_9 = __pyx_mstate_global->__pyx_n_u_ERR_GLOBAL_SESSION_EXPIRED;
+        } else {
+          __Pyx_INCREF(Py_None);
+          __pyx_t_9 = Py_None;
+        }
+        __pyx_v_api_code = __pyx_t_9;
+        __pyx_t_9 = 0;
+
+        /* "opscli/seller_sprite/api/client.py":222
+ *         except json.JSONDecodeError as exc:
+ *             api_code = "ERR_GLOBAL_SESSION_EXPIRED" if _looks_like_session_expired_response(response) else None
+ *             raise SellerSpriteApiError(             # <<<<<<<<<<<<<<
+ *                 "" if api_code else " JSON",
+ *                 status_code=response.status_code,
+*/
+        __pyx_t_8 = NULL;
+        __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiError); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 222, __pyx_L14_error)
+        __Pyx_GOTREF(__pyx_t_12);
+
+        /* "opscli/seller_sprite/api/client.py":223
+ *             api_code = "ERR_GLOBAL_SESSION_EXPIRED" if _looks_like_session_expired_response(response) else None
+ *             raise SellerSpriteApiError(
+ *                 "" if api_code else " JSON",             # <<<<<<<<<<<<<<
+ *                 status_code=response.status_code,
+ *                 response_excerpt=text[:1000],
+*/
+        __pyx_t_13 = __Pyx_PyObject_IsTrue(__pyx_v_api_code); if (unlikely((__pyx_t_13 < 0))) __PYX_ERR(0, 223, __pyx_L14_error)
+        if (__pyx_t_13) {
+          __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u__4);
+          __pyx_t_11 = __pyx_mstate_global->__pyx_n_u__4;
+        } else {
+          __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_JSON);
+          __pyx_t_11 = __pyx_mstate_global->__pyx_kp_u_JSON;
+        }
+
+        /* "opscli/seller_sprite/api/client.py":224
+ *             raise SellerSpriteApiError(
+ *                 "" if api_code else " JSON",
+ *                 status_code=response.status_code,             # <<<<<<<<<<<<<<
+ *                 response_excerpt=text[:1000],
+ *                 api_code=api_code,
+*/
+        __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_v_response, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 224, __pyx_L14_error)
+        __Pyx_GOTREF(__pyx_t_14);
+
+        /* "opscli/seller_sprite/api/client.py":225
+ *                 "" if api_code else " JSON",
+ *                 status_code=response.status_code,
+ *                 response_excerpt=text[:1000],             # <<<<<<<<<<<<<<
+ *                 api_code=api_code,
+ *             ) from exc
+*/
+        __pyx_t_15 = __Pyx_PyObject_GetSlice(__pyx_v_text, 0, 0x3E8, NULL, NULL, &__pyx_mstate_global->__pyx_slice[0], 0, 1, 1); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 225, __pyx_L14_error)
+        __Pyx_GOTREF(__pyx_t_15);
+
+        /* "opscli/seller_sprite/api/client.py":226
+ *                 status_code=response.status_code,
+ *                 response_excerpt=text[:1000],
+ *                 api_code=api_code,             # <<<<<<<<<<<<<<
+ *             ) from exc
+ *         if response.status_code >= 400:
+*/
+        __pyx_t_6 = 1;
+        #if CYTHON_UNPACK_METHODS
+        if (unlikely(PyMethod_Check(__pyx_t_12))) {
+          __pyx_t_8 = PyMethod_GET_SELF(__pyx_t_12);
+          assert(__pyx_t_8);
+          PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_12);
+          __Pyx_INCREF(__pyx_t_8);
+          __Pyx_INCREF(__pyx__function);
+          __Pyx_DECREF_SET(__pyx_t_12, __pyx__function);
+          __pyx_t_6 = 0;
+        }
+        #endif
+        {
+          PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 3 : 0)] = {__pyx_t_8, __pyx_t_11};
+          __pyx_t_16 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 222, __pyx_L14_error)
+          __Pyx_GOTREF(__pyx_t_16);
+          if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_status_code, __pyx_t_14, __pyx_t_16, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 222, __pyx_L14_error)
+          if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_response_excerpt, __pyx_t_15, __pyx_t_16, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 222, __pyx_L14_error)
+          if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_api_code, __pyx_v_api_code, __pyx_t_16, __pyx_callargs+2, 2) < (0)) __PYX_ERR(0, 222, __pyx_L14_error)
+          __pyx_t_9 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_12, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_16);
+          __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
           __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 130, __pyx_L14_error)
+          __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
+          __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
+          __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
+          __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 222, __pyx_L14_error)
           __Pyx_GOTREF(__pyx_t_9);
         }
 
-        /* "opscli/seller_sprite/api/client.py":134
- *                 status_code=response.status_code,
+        /* "opscli/seller_sprite/api/client.py":227
  *                 response_excerpt=text[:1000],
+ *                 api_code=api_code,
  *             ) from exc             # <<<<<<<<<<<<<<
  *         if response.status_code >= 400:
  *             raise SellerSpriteApiError(
 */
         __Pyx_Raise(__pyx_t_9, 0, 0, __pyx_v_exc);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        __PYX_ERR(0, 130, __pyx_L14_error)
+        __PYX_ERR(0, 222, __pyx_L14_error)
       }
 
-      /* "opscli/seller_sprite/api/client.py":129
+      /* "opscli/seller_sprite/api/client.py":220
  *         try:
  *             payload = response.json()
  *         except json.JSONDecodeError as exc:             # <<<<<<<<<<<<<<
+ *             api_code = "ERR_GLOBAL_SESSION_EXPIRED" if _looks_like_session_expired_response(response) else None
  *             raise SellerSpriteApiError(
- *                 " JSON",
 */
       /*finally:*/ {
         __pyx_L14_error:;
         /*exception exit:*/{
           __Pyx_PyThreadState_declare
           __Pyx_PyThreadState_assign
-          __pyx_t_17 = 0; __pyx_t_18 = 0; __pyx_t_19 = 0; __pyx_t_20 = 0; __pyx_t_21 = 0; __pyx_t_22 = 0;
+          __pyx_t_19 = 0; __pyx_t_20 = 0; __pyx_t_21 = 0; __pyx_t_22 = 0; __pyx_t_23 = 0; __pyx_t_24 = 0;
           __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
           __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
-          __Pyx_XDECREF(__pyx_t_13); __pyx_t_13 = 0;
           __Pyx_XDECREF(__pyx_t_14); __pyx_t_14 = 0;
+          __Pyx_XDECREF(__pyx_t_15); __pyx_t_15 = 0;
+          __Pyx_XDECREF(__pyx_t_16); __pyx_t_16 = 0;
           __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
           __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-           __Pyx_ExceptionSwap(&__pyx_t_20, &__pyx_t_21, &__pyx_t_22);
-          if ( unlikely(__Pyx_GetException(&__pyx_t_17, &__pyx_t_18, &__pyx_t_19) < 0)) __Pyx_ErrFetch(&__pyx_t_17, &__pyx_t_18, &__pyx_t_19);
-          __Pyx_XGOTREF(__pyx_t_17);
-          __Pyx_XGOTREF(__pyx_t_18);
+           __Pyx_ExceptionSwap(&__pyx_t_22, &__pyx_t_23, &__pyx_t_24);
+          if ( unlikely(__Pyx_GetException(&__pyx_t_19, &__pyx_t_20, &__pyx_t_21) < 0)) __Pyx_ErrFetch(&__pyx_t_19, &__pyx_t_20, &__pyx_t_21);
           __Pyx_XGOTREF(__pyx_t_19);
           __Pyx_XGOTREF(__pyx_t_20);
           __Pyx_XGOTREF(__pyx_t_21);
           __Pyx_XGOTREF(__pyx_t_22);
-          __pyx_t_10 = __pyx_lineno; __pyx_t_15 = __pyx_clineno; __pyx_t_16 = __pyx_filename;
+          __Pyx_XGOTREF(__pyx_t_23);
+          __Pyx_XGOTREF(__pyx_t_24);
+          __pyx_t_10 = __pyx_lineno; __pyx_t_17 = __pyx_clineno; __pyx_t_18 = __pyx_filename;
           {
             __Pyx_DECREF(__pyx_v_exc); __pyx_v_exc = 0;
           }
+          __Pyx_XGIVEREF(__pyx_t_22);
+          __Pyx_XGIVEREF(__pyx_t_23);
+          __Pyx_XGIVEREF(__pyx_t_24);
+          __Pyx_ExceptionReset(__pyx_t_22, __pyx_t_23, __pyx_t_24);
+          __Pyx_XGIVEREF(__pyx_t_19);
           __Pyx_XGIVEREF(__pyx_t_20);
           __Pyx_XGIVEREF(__pyx_t_21);
-          __Pyx_XGIVEREF(__pyx_t_22);
-          __Pyx_ExceptionReset(__pyx_t_20, __pyx_t_21, __pyx_t_22);
-          __Pyx_XGIVEREF(__pyx_t_17);
-          __Pyx_XGIVEREF(__pyx_t_18);
-          __Pyx_XGIVEREF(__pyx_t_19);
-          __Pyx_ErrRestore(__pyx_t_17, __pyx_t_18, __pyx_t_19);
-          __pyx_t_17 = 0; __pyx_t_18 = 0; __pyx_t_19 = 0; __pyx_t_20 = 0; __pyx_t_21 = 0; __pyx_t_22 = 0;
-          __pyx_lineno = __pyx_t_10; __pyx_clineno = __pyx_t_15; __pyx_filename = __pyx_t_16;
+          __Pyx_ErrRestore(__pyx_t_19, __pyx_t_20, __pyx_t_21);
+          __pyx_t_19 = 0; __pyx_t_20 = 0; __pyx_t_21 = 0; __pyx_t_22 = 0; __pyx_t_23 = 0; __pyx_t_24 = 0;
+          __pyx_lineno = __pyx_t_10; __pyx_clineno = __pyx_t_17; __pyx_filename = __pyx_t_18;
           goto __pyx_L5_except_error;
         }
       }
     }
     goto __pyx_L5_except_error;
 
-    /* "opscli/seller_sprite/api/client.py":127
+    /* "opscli/seller_sprite/api/client.py":218
  *         """"""
  *         text = response.text
  *         try:             # <<<<<<<<<<<<<<
@@ -6299,22 +8908,22 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     __pyx_L8_try_end:;
   }
 
-  /* "opscli/seller_sprite/api/client.py":135
- *                 response_excerpt=text[:1000],
+  /* "opscli/seller_sprite/api/client.py":228
+ *                 api_code=api_code,
  *             ) from exc
  *         if response.status_code >= 400:             # <<<<<<<<<<<<<<
  *             raise SellerSpriteApiError(
  *                 "",
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_response, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 135, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_response, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 228, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_5 = PyObject_RichCompare(__pyx_t_1, __pyx_mstate_global->__pyx_int_400, Py_GE); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 135, __pyx_L1_error)
+  __pyx_t_5 = PyObject_RichCompare(__pyx_t_1, __pyx_mstate_global->__pyx_int_400, Py_GE); __Pyx_XGOTREF(__pyx_t_5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 228, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_23 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_23 < 0))) __PYX_ERR(0, 135, __pyx_L1_error)
+  __pyx_t_13 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_13 < 0))) __PYX_ERR(0, 228, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (unlikely(__pyx_t_23)) {
+  if (unlikely(__pyx_t_13)) {
 
-    /* "opscli/seller_sprite/api/client.py":136
+    /* "opscli/seller_sprite/api/client.py":229
  *             ) from exc
  *         if response.status_code >= 400:
  *             raise SellerSpriteApiError(             # <<<<<<<<<<<<<<
@@ -6322,28 +8931,56 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
  *                 status_code=response.status_code,
 */
     __pyx_t_1 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiError); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 136, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiError); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 229, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
 
-    /* "opscli/seller_sprite/api/client.py":138
+    /* "opscli/seller_sprite/api/client.py":231
  *             raise SellerSpriteApiError(
  *                 "",
  *                 status_code=response.status_code,             # <<<<<<<<<<<<<<
  *                 response_excerpt=text[:1000],
- *             )
+ *                 api_code="ERR_GLOBAL_SESSION_EXPIRED" if response.status_code in {401, 403} else None,
 */
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_response, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 138, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_response, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 231, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
 
-    /* "opscli/seller_sprite/api/client.py":139
+    /* "opscli/seller_sprite/api/client.py":232
  *                 "",
  *                 status_code=response.status_code,
  *                 response_excerpt=text[:1000],             # <<<<<<<<<<<<<<
+ *                 api_code="ERR_GLOBAL_SESSION_EXPIRED" if response.status_code in {401, 403} else None,
+ *             )
+*/
+    __pyx_t_12 = __Pyx_PyObject_GetSlice(__pyx_v_text, 0, 0x3E8, NULL, NULL, &__pyx_mstate_global->__pyx_slice[0], 0, 1, 1); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 232, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_12);
+
+    /* "opscli/seller_sprite/api/client.py":233
+ *                 status_code=response.status_code,
+ *                 response_excerpt=text[:1000],
+ *                 api_code="ERR_GLOBAL_SESSION_EXPIRED" if response.status_code in {401, 403} else None,             # <<<<<<<<<<<<<<
  *             )
  *         code = payload.get("code") if isinstance(payload, dict) else None
 */
-    __pyx_t_11 = __Pyx_PyObject_GetSlice(__pyx_v_text, 0, 0x3E8, NULL, NULL, &__pyx_mstate_global->__pyx_slice[0], 0, 1, 1); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 139, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_11);
+    __pyx_t_15 = __Pyx_PyObject_GetAttrStr(__pyx_v_response, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 233, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_15);
+    __pyx_t_25 = (__Pyx_PyLong_BoolEqObjC(__pyx_t_15, __pyx_mstate_global->__pyx_int_401, 0x191, 0)); if (unlikely((__pyx_t_25 < 0))) __PYX_ERR(0, 233, __pyx_L1_error)
+    if (!__pyx_t_25) {
+    } else {
+      __pyx_t_13 = __pyx_t_25;
+      goto __pyx_L21_bool_binop_done;
+    }
+    __pyx_t_25 = (__Pyx_PyLong_BoolEqObjC(__pyx_t_15, __pyx_mstate_global->__pyx_int_403, 0x193, 0)); if (unlikely((__pyx_t_25 < 0))) __PYX_ERR(0, 233, __pyx_L1_error)
+    __pyx_t_13 = __pyx_t_25;
+    __pyx_L21_bool_binop_done:;
+    __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
+    __pyx_t_25 = __pyx_t_13;
+    if (__pyx_t_25) {
+      __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_ERR_GLOBAL_SESSION_EXPIRED);
+      __pyx_t_16 = __pyx_mstate_global->__pyx_n_u_ERR_GLOBAL_SESSION_EXPIRED;
+    } else {
+      __Pyx_INCREF(Py_None);
+      __pyx_t_16 = Py_None;
+    }
     __pyx_t_6 = 1;
     #if CYTHON_UNPACK_METHODS
     if (unlikely(PyMethod_Check(__pyx_t_7))) {
@@ -6357,26 +8994,28 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
     }
     #endif
     {
-      PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_1, __pyx_mstate_global->__pyx_n_u__3};
-      __pyx_t_14 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 136, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_14);
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_status_code, __pyx_t_9, __pyx_t_14, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 136, __pyx_L1_error)
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_response_excerpt, __pyx_t_11, __pyx_t_14, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 136, __pyx_L1_error)
-      __pyx_t_5 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_7, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_14);
+      PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 3 : 0)] = {__pyx_t_1, __pyx_mstate_global->__pyx_n_u__5};
+      __pyx_t_15 = __Pyx_MakeVectorcallBuilderKwds(3); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 229, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_15);
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_status_code, __pyx_t_9, __pyx_t_15, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 229, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_response_excerpt, __pyx_t_12, __pyx_t_15, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 229, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_api_code, __pyx_t_16, __pyx_t_15, __pyx_callargs+2, 2) < (0)) __PYX_ERR(0, 229, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_7, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_15);
       __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-      __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
+      __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+      __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
+      __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 136, __pyx_L1_error)
+      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 229, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
     }
     __Pyx_Raise(__pyx_t_5, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __PYX_ERR(0, 136, __pyx_L1_error)
+    __PYX_ERR(0, 229, __pyx_L1_error)
 
-    /* "opscli/seller_sprite/api/client.py":135
- *                 response_excerpt=text[:1000],
+    /* "opscli/seller_sprite/api/client.py":228
+ *                 api_code=api_code,
  *             ) from exc
  *         if response.status_code >= 400:             # <<<<<<<<<<<<<<
  *             raise SellerSpriteApiError(
@@ -6384,23 +9023,23 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
 */
   }
 
-  /* "opscli/seller_sprite/api/client.py":141
- *                 response_excerpt=text[:1000],
+  /* "opscli/seller_sprite/api/client.py":235
+ *                 api_code="ERR_GLOBAL_SESSION_EXPIRED" if response.status_code in {401, 403} else None,
  *             )
  *         code = payload.get("code") if isinstance(payload, dict) else None             # <<<<<<<<<<<<<<
  *         if code and code != "OK":
- *             raise SellerSpriteApiError(
+ *             api_message = None
 */
-  __pyx_t_23 = PyDict_Check(__pyx_v_payload); 
-  if (__pyx_t_23) {
-    __pyx_t_14 = __pyx_v_payload;
-    __Pyx_INCREF(__pyx_t_14);
+  __pyx_t_25 = PyDict_Check(__pyx_v_payload); 
+  if (__pyx_t_25) {
+    __pyx_t_15 = __pyx_v_payload;
+    __Pyx_INCREF(__pyx_t_15);
     __pyx_t_6 = 0;
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_14, __pyx_mstate_global->__pyx_n_u_code};
+      PyObject *__pyx_callargs[2] = {__pyx_t_15, __pyx_mstate_global->__pyx_n_u_code};
       __pyx_t_7 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_14); __pyx_t_14 = 0;
-      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 141, __pyx_L1_error)
+      __Pyx_XDECREF(__pyx_t_15); __pyx_t_15 = 0;
+      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 235, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
     }
     __pyx_t_5 = __pyx_t_7;
@@ -6412,110 +9051,214 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   __pyx_v_code = __pyx_t_5;
   __pyx_t_5 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":142
+  /* "opscli/seller_sprite/api/client.py":236
  *             )
  *         code = payload.get("code") if isinstance(payload, dict) else None
  *         if code and code != "OK":             # <<<<<<<<<<<<<<
+ *             api_message = None
+ *             if isinstance(payload, dict):
+*/
+  __pyx_t_13 = __Pyx_PyObject_IsTrue(__pyx_v_code); if (unlikely((__pyx_t_13 < 0))) __PYX_ERR(0, 236, __pyx_L1_error)
+  if (__pyx_t_13) {
+  } else {
+    __pyx_t_25 = __pyx_t_13;
+    goto __pyx_L24_bool_binop_done;
+  }
+  __pyx_t_13 = (__Pyx_PyUnicode_Equals(__pyx_v_code, __pyx_mstate_global->__pyx_n_u_OK, Py_NE)); if (unlikely((__pyx_t_13 < 0))) __PYX_ERR(0, 236, __pyx_L1_error)
+  __pyx_t_25 = __pyx_t_13;
+  __pyx_L24_bool_binop_done:;
+  if (__pyx_t_25) {
+
+    /* "opscli/seller_sprite/api/client.py":237
+ *         code = payload.get("code") if isinstance(payload, dict) else None
+ *         if code and code != "OK":
+ *             api_message = None             # <<<<<<<<<<<<<<
+ *             if isinstance(payload, dict):
+ *                 api_message = payload.get("message") or payload.get("msg")
+*/
+    __Pyx_INCREF(Py_None);
+    __pyx_v_api_message = Py_None;
+
+    /* "opscli/seller_sprite/api/client.py":238
+ *         if code and code != "OK":
+ *             api_message = None
+ *             if isinstance(payload, dict):             # <<<<<<<<<<<<<<
+ *                 api_message = payload.get("message") or payload.get("msg")
+ *             raise SellerSpriteApiError(
+*/
+    __pyx_t_25 = PyDict_Check(__pyx_v_payload); 
+    if (__pyx_t_25) {
+
+      /* "opscli/seller_sprite/api/client.py":239
+ *             api_message = None
+ *             if isinstance(payload, dict):
+ *                 api_message = payload.get("message") or payload.get("msg")             # <<<<<<<<<<<<<<
  *             raise SellerSpriteApiError(
  *                 f"{code}",
 */
-  __pyx_t_24 = __Pyx_PyObject_IsTrue(__pyx_v_code); if (unlikely((__pyx_t_24 < 0))) __PYX_ERR(0, 142, __pyx_L1_error)
-  if (__pyx_t_24) {
-  } else {
-    __pyx_t_23 = __pyx_t_24;
-    goto __pyx_L22_bool_binop_done;
-  }
-  __pyx_t_24 = (__Pyx_PyUnicode_Equals(__pyx_v_code, __pyx_mstate_global->__pyx_n_u_OK, Py_NE)); if (unlikely((__pyx_t_24 < 0))) __PYX_ERR(0, 142, __pyx_L1_error)
-  __pyx_t_23 = __pyx_t_24;
-  __pyx_L22_bool_binop_done:;
-  if (unlikely(__pyx_t_23)) {
+      __pyx_t_15 = __pyx_v_payload;
+      __Pyx_INCREF(__pyx_t_15);
+      __pyx_t_6 = 0;
+      {
+        PyObject *__pyx_callargs[2] = {__pyx_t_15, __pyx_mstate_global->__pyx_n_u_message};
+        __pyx_t_7 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+        __Pyx_XDECREF(__pyx_t_15); __pyx_t_15 = 0;
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 239, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_7);
+      }
+      __pyx_t_25 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_25 < 0))) __PYX_ERR(0, 239, __pyx_L1_error)
+      if (!__pyx_t_25) {
+        __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+      } else {
+        __Pyx_INCREF(__pyx_t_7);
+        __pyx_t_5 = __pyx_t_7;
+        __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+        goto __pyx_L27_bool_binop_done;
+      }
+      __pyx_t_15 = __pyx_v_payload;
+      __Pyx_INCREF(__pyx_t_15);
+      __pyx_t_6 = 0;
+      {
+        PyObject *__pyx_callargs[2] = {__pyx_t_15, __pyx_mstate_global->__pyx_n_u_msg};
+        __pyx_t_7 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+        __Pyx_XDECREF(__pyx_t_15); __pyx_t_15 = 0;
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 239, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_7);
+      }
+      __Pyx_INCREF(__pyx_t_7);
+      __pyx_t_5 = __pyx_t_7;
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+      __pyx_L27_bool_binop_done:;
+      __Pyx_DECREF_SET(__pyx_v_api_message, __pyx_t_5);
+      __pyx_t_5 = 0;
 
-    /* "opscli/seller_sprite/api/client.py":143
- *         code = payload.get("code") if isinstance(payload, dict) else None
+      /* "opscli/seller_sprite/api/client.py":238
  *         if code and code != "OK":
+ *             api_message = None
+ *             if isinstance(payload, dict):             # <<<<<<<<<<<<<<
+ *                 api_message = payload.get("message") or payload.get("msg")
+ *             raise SellerSpriteApiError(
+*/
+    }
+
+    /* "opscli/seller_sprite/api/client.py":240
+ *             if isinstance(payload, dict):
+ *                 api_message = payload.get("message") or payload.get("msg")
  *             raise SellerSpriteApiError(             # <<<<<<<<<<<<<<
  *                 f"{code}",
  *                 status_code=response.status_code,
 */
     __pyx_t_7 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiError); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 143, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_14);
+    __Pyx_GetModuleGlobalName(__pyx_t_15, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiError); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 240, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_15);
 
-    /* "opscli/seller_sprite/api/client.py":144
- *         if code and code != "OK":
+    /* "opscli/seller_sprite/api/client.py":241
+ *                 api_message = payload.get("message") or payload.get("msg")
  *             raise SellerSpriteApiError(
  *                 f"{code}",             # <<<<<<<<<<<<<<
  *                 status_code=response.status_code,
  *                 response_excerpt=text[:1000],
 */
-    __pyx_t_11 = __Pyx_PyObject_FormatSimple(__pyx_v_code, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 144, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_11);
-    __pyx_t_9 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u__4, __pyx_t_11); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 144, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_9);
-    __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+    __pyx_t_16 = __Pyx_PyObject_FormatSimple(__pyx_v_code, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 241, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_16);
+    __pyx_t_12 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u__6, __pyx_t_16); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 241, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_12);
+    __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
 
-    /* "opscli/seller_sprite/api/client.py":145
+    /* "opscli/seller_sprite/api/client.py":242
  *             raise SellerSpriteApiError(
  *                 f"{code}",
  *                 status_code=response.status_code,             # <<<<<<<<<<<<<<
  *                 response_excerpt=text[:1000],
- *             )
+ *                 api_code=str(code),
 */
-    __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_v_response, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 145, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_11);
+    __pyx_t_16 = __Pyx_PyObject_GetAttrStr(__pyx_v_response, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 242, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_16);
 
-    /* "opscli/seller_sprite/api/client.py":146
+    /* "opscli/seller_sprite/api/client.py":243
  *                 f"{code}",
  *                 status_code=response.status_code,
  *                 response_excerpt=text[:1000],             # <<<<<<<<<<<<<<
+ *                 api_code=str(code),
+ *                 api_message=str(api_message) if api_message else None,
+*/
+    __pyx_t_9 = __Pyx_PyObject_GetSlice(__pyx_v_text, 0, 0x3E8, NULL, NULL, &__pyx_mstate_global->__pyx_slice[0], 0, 1, 1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 243, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
+
+    /* "opscli/seller_sprite/api/client.py":244
+ *                 status_code=response.status_code,
+ *                 response_excerpt=text[:1000],
+ *                 api_code=str(code),             # <<<<<<<<<<<<<<
+ *                 api_message=str(api_message) if api_message else None,
+ *             )
+*/
+    __pyx_t_1 = __Pyx_PyObject_Unicode(__pyx_v_code); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 244, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+
+    /* "opscli/seller_sprite/api/client.py":245
+ *                 response_excerpt=text[:1000],
+ *                 api_code=str(code),
+ *                 api_message=str(api_message) if api_message else None,             # <<<<<<<<<<<<<<
  *             )
  *         return payload
 */
-    __pyx_t_1 = __Pyx_PyObject_GetSlice(__pyx_v_text, 0, 0x3E8, NULL, NULL, &__pyx_mstate_global->__pyx_slice[0], 0, 1, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 146, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_25 = __Pyx_PyObject_IsTrue(__pyx_v_api_message); if (unlikely((__pyx_t_25 < 0))) __PYX_ERR(0, 245, __pyx_L1_error)
+    if (__pyx_t_25) {
+      __pyx_t_11 = __Pyx_PyObject_Unicode(__pyx_v_api_message); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 245, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_11);
+      __pyx_t_14 = __pyx_t_11;
+      __pyx_t_11 = 0;
+    } else {
+      __Pyx_INCREF(Py_None);
+      __pyx_t_14 = Py_None;
+    }
     __pyx_t_6 = 1;
     #if CYTHON_UNPACK_METHODS
-    if (unlikely(PyMethod_Check(__pyx_t_14))) {
-      __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_14);
+    if (unlikely(PyMethod_Check(__pyx_t_15))) {
+      __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_15);
       assert(__pyx_t_7);
-      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_14);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_15);
       __Pyx_INCREF(__pyx_t_7);
       __Pyx_INCREF(__pyx__function);
-      __Pyx_DECREF_SET(__pyx_t_14, __pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_15, __pyx__function);
       __pyx_t_6 = 0;
     }
     #endif
     {
-      PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_7, __pyx_t_9};
-      __pyx_t_13 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 143, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_13);
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_status_code, __pyx_t_11, __pyx_t_13, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 143, __pyx_L1_error)
-      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_response_excerpt, __pyx_t_1, __pyx_t_13, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 143, __pyx_L1_error)
-      __pyx_t_5 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_14, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_13);
+      PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 4 : 0)] = {__pyx_t_7, __pyx_t_12};
+      __pyx_t_11 = __Pyx_MakeVectorcallBuilderKwds(4); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 240, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_11);
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_status_code, __pyx_t_16, __pyx_t_11, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 240, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_response_excerpt, __pyx_t_9, __pyx_t_11, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 240, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_api_code, __pyx_t_1, __pyx_t_11, __pyx_callargs+2, 2) < (0)) __PYX_ERR(0, 240, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_api_message, __pyx_t_14, __pyx_t_11, __pyx_callargs+2, 3) < (0)) __PYX_ERR(0, 240, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_15, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_11);
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+      __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+      __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
       __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 143, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+      __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
+      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 240, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
     }
     __Pyx_Raise(__pyx_t_5, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __PYX_ERR(0, 143, __pyx_L1_error)
+    __PYX_ERR(0, 240, __pyx_L1_error)
 
-    /* "opscli/seller_sprite/api/client.py":142
+    /* "opscli/seller_sprite/api/client.py":236
  *             )
  *         code = payload.get("code") if isinstance(payload, dict) else None
  *         if code and code != "OK":             # <<<<<<<<<<<<<<
- *             raise SellerSpriteApiError(
- *                 f"{code}",
+ *             api_message = None
+ *             if isinstance(payload, dict):
 */
   }
 
-  /* "opscli/seller_sprite/api/client.py":148
- *                 response_excerpt=text[:1000],
+  /* "opscli/seller_sprite/api/client.py":247
+ *                 api_message=str(api_message) if api_message else None,
  *             )
  *         return payload             # <<<<<<<<<<<<<<
  * 
@@ -6524,13 +9267,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_5 = __pyx_v_payload;
   __Pyx_INCREF(__pyx_t_5);
-  if (!(likely(PyDict_CheckExact(__pyx_t_5))||((__pyx_t_5) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_5))) __PYX_ERR(0, 148, __pyx_L1_error)
+  if (!(likely(PyDict_CheckExact(__pyx_t_5))||((__pyx_t_5) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_5))) __PYX_ERR(0, 247, __pyx_L1_error)
   __pyx_r = ((PyObject*)__pyx_t_5);
   __pyx_t_5 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/api/client.py":124
- *         return [cookie.name for cookie in self._client.cookies.jar]
+  /* "opscli/seller_sprite/api/client.py":215
+ *         self.cookie_path.write_text(json.dumps(cookies, ensure_ascii=False, indent=2), encoding="utf-8")
  * 
  *     def _parse_json_response(self, response: httpx.Response) -> dict[str, Any]:             # <<<<<<<<<<<<<<
  *         """"""
@@ -6546,21 +9289,24 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   __Pyx_XDECREF(__pyx_t_9);
   __Pyx_XDECREF(__pyx_t_11);
   __Pyx_XDECREF(__pyx_t_12);
-  __Pyx_XDECREF(__pyx_t_13);
   __Pyx_XDECREF(__pyx_t_14);
+  __Pyx_XDECREF(__pyx_t_15);
+  __Pyx_XDECREF(__pyx_t_16);
   __Pyx_AddTraceback("opscli.seller_sprite.api.client.SellerSpriteApiClient._parse_json_response", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
   __Pyx_XDECREF(__pyx_v_text);
   __Pyx_XDECREF(__pyx_v_payload);
   __Pyx_XDECREF(__pyx_v_exc);
+  __Pyx_XDECREF(__pyx_v_api_code);
   __Pyx_XDECREF(__pyx_v_code);
+  __Pyx_XDECREF(__pyx_v_api_message);
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/api/client.py":150
+/* "opscli/seller_sprite/api/client.py":249
  *         return payload
  * 
  *     def _browser_headers(self, *, referer: str | None = None) -> dict[str, str]:             # <<<<<<<<<<<<<<
@@ -6569,16 +9315,16 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
 */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_25_browser_headers(PyObject *__pyx_self, 
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_42_browser_headers(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_24_browser_headers, "\346\236\204\351\200\240\346\216\245\350\277\221 Web \346\265\217\350\247\210\345\231\250\347\232\204\350\257\267\346\261\202\345\244\264\343\200\202");
-static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_25_browser_headers = {"_browser_headers", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_25_browser_headers, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_24_browser_headers};
-static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_25_browser_headers(PyObject *__pyx_self, 
+PyDoc_STRVAR(__pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_41_browser_headers, "\346\236\204\351\200\240\346\216\245\350\277\221 Web \346\265\217\350\247\210\345\231\250\347\232\204\350\257\267\346\261\202\345\244\264\343\200\202");
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_42_browser_headers = {"_browser_headers", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_42_browser_headers, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_41_browser_headers};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_42_browser_headers(PyObject *__pyx_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -6609,27 +9355,27 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,&__pyx_mstate_global->__pyx_n_u_referer,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 150, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 249, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 150, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 249, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_browser_headers", 0) < (0)) __PYX_ERR(0, 150, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_browser_headers", 0) < (0)) __PYX_ERR(0, 249, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject*)Py_None));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_browser_headers", 1, 1, 1, i); __PYX_ERR(0, 150, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_browser_headers", 1, 1, 1, i); __PYX_ERR(0, 249, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 150, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 249, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject*)Py_None));
     }
     __pyx_v_self = values[0];
@@ -6637,7 +9383,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_browser_headers", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 150, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_browser_headers", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 249, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6648,8 +9394,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_referer), (&PyUnicode_Type), 1, "referer", 2))) __PYX_ERR(0, 150, __pyx_L1_error)
-  __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_24_browser_headers(__pyx_self, __pyx_v_self, __pyx_v_referer);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_referer), (&PyUnicode_Type), 1, "referer", 2))) __PYX_ERR(0, 249, __pyx_L1_error)
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_41_browser_headers(__pyx_self, __pyx_v_self, __pyx_v_referer);
 
   /* function exit code */
   goto __pyx_L0;
@@ -6668,7 +9414,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_24_browser_headers(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_referer) {
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_41_browser_headers(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self, PyObject *__pyx_v_referer) {
   PyObject *__pyx_v_headers = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -6680,35 +9426,35 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_browser_headers", 0);
 
-  /* "opscli/seller_sprite/api/client.py":153
+  /* "opscli/seller_sprite/api/client.py":252
  *         """ Web """
  *         headers = {
  *             "Accept-Language": "zh-CN,zh;q=0.9",             # <<<<<<<<<<<<<<
  *             "User-Agent": self.user_agent,
  *             "sec-ch-ua": '"Chromium";v="148", "Google Chrome";v="148", "Not/A)Brand";v="99"',
 */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 153, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 252, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_Accept_Language, __pyx_mstate_global->__pyx_kp_u_zh_CN_zh_q_0_9) < (0)) __PYX_ERR(0, 153, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_Accept_Language, __pyx_mstate_global->__pyx_kp_u_zh_CN_zh_q_0_9) < (0)) __PYX_ERR(0, 252, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/api/client.py":154
+  /* "opscli/seller_sprite/api/client.py":253
  *         headers = {
  *             "Accept-Language": "zh-CN,zh;q=0.9",
  *             "User-Agent": self.user_agent,             # <<<<<<<<<<<<<<
  *             "sec-ch-ua": '"Chromium";v="148", "Google Chrome";v="148", "Not/A)Brand";v="99"',
  *             "sec-ch-ua-mobile": "?0",
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_user_agent); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 154, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_user_agent); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 253, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_User_Agent, __pyx_t_2) < (0)) __PYX_ERR(0, 153, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_User_Agent, __pyx_t_2) < (0)) __PYX_ERR(0, 252, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_sec_ch_ua, __pyx_mstate_global->__pyx_kp_u_Chromium_v_148_Google_Chrome_v) < (0)) __PYX_ERR(0, 153, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_sec_ch_ua_mobile, __pyx_mstate_global->__pyx_kp_u_0) < (0)) __PYX_ERR(0, 153, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_sec_ch_ua_platform, __pyx_mstate_global->__pyx_kp_u_Windows) < (0)) __PYX_ERR(0, 153, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_sec_ch_ua, __pyx_mstate_global->__pyx_kp_u_Chromium_v_148_Google_Chrome_v) < (0)) __PYX_ERR(0, 252, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_sec_ch_ua_mobile, __pyx_mstate_global->__pyx_kp_u_0) < (0)) __PYX_ERR(0, 252, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_sec_ch_ua_platform, __pyx_mstate_global->__pyx_kp_u_Windows) < (0)) __PYX_ERR(0, 252, __pyx_L1_error)
   __pyx_v_headers = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":159
+  /* "opscli/seller_sprite/api/client.py":258
  *             "sec-ch-ua-platform": '"Windows"',
  *         }
  *         if referer:             # <<<<<<<<<<<<<<
@@ -6719,22 +9465,22 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   else
   {
     Py_ssize_t __pyx_temp = __Pyx_PyUnicode_IS_TRUE(__pyx_v_referer);
-    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 159, __pyx_L1_error)
+    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 258, __pyx_L1_error)
     __pyx_t_3 = (__pyx_temp != 0);
   }
 
   if (__pyx_t_3) {
 
-    /* "opscli/seller_sprite/api/client.py":160
+    /* "opscli/seller_sprite/api/client.py":259
  *         }
  *         if referer:
  *             headers["Referer"] = referer             # <<<<<<<<<<<<<<
  *         return headers
  * 
 */
-    if (unlikely((PyDict_SetItem(__pyx_v_headers, __pyx_mstate_global->__pyx_n_u_Referer, __pyx_v_referer) < 0))) __PYX_ERR(0, 160, __pyx_L1_error)
+    if (unlikely((PyDict_SetItem(__pyx_v_headers, __pyx_mstate_global->__pyx_n_u_Referer, __pyx_v_referer) < 0))) __PYX_ERR(0, 259, __pyx_L1_error)
 
-    /* "opscli/seller_sprite/api/client.py":159
+    /* "opscli/seller_sprite/api/client.py":258
  *             "sec-ch-ua-platform": '"Windows"',
  *         }
  *         if referer:             # <<<<<<<<<<<<<<
@@ -6743,19 +9489,19 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
 */
   }
 
-  /* "opscli/seller_sprite/api/client.py":161
+  /* "opscli/seller_sprite/api/client.py":260
  *         if referer:
  *             headers["Referer"] = referer
  *         return headers             # <<<<<<<<<<<<<<
  * 
- * 
+ *     def _load_cookies(self) -> None:
 */
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF(__pyx_v_headers);
   __pyx_r = __pyx_v_headers;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/api/client.py":150
+  /* "opscli/seller_sprite/api/client.py":249
  *         return payload
  * 
  *     def _browser_headers(self, *, referer: str | None = None) -> dict[str, str]:             # <<<<<<<<<<<<<<
@@ -6776,7 +9522,699 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApi
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/api/client.py":164
+/* "opscli/seller_sprite/api/client.py":262
+ *         return headers
+ * 
+ *     def _load_cookies(self) -> None:             # <<<<<<<<<<<<<<
+ *         if not self.cookie_path.exists():
+ *             return
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_44_load_cookies(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_44_load_cookies = {"_load_cookies", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_44_load_cookies, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_44_load_cookies(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  PyObject *__pyx_v_self = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[1] = {0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("_load_cookies (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 262, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 262, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_load_cookies", 0) < (0)) __PYX_ERR(0, 262, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_load_cookies", 1, 1, 1, i); __PYX_ERR(0, 262, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 1)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 262, __pyx_L3_error)
+    }
+    __pyx_v_self = values[0];
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("_load_cookies", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 262, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_AddTraceback("opscli.seller_sprite.api.client.SellerSpriteApiClient._load_cookies", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_43_load_cookies(__pyx_self, __pyx_v_self);
+
+  /* function exit code */
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_43_load_cookies(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_self) {
+  PyObject *__pyx_v_cookies = NULL;
+  PyObject *__pyx_v_cookie = NULL;
+  PyObject *__pyx_v_name = NULL;
+  PyObject *__pyx_v_value = NULL;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  size_t __pyx_t_4;
+  int __pyx_t_5;
+  int __pyx_t_6;
+  PyObject *__pyx_t_7 = NULL;
+  PyObject *__pyx_t_8 = NULL;
+  PyObject *__pyx_t_9 = NULL;
+  PyObject *__pyx_t_10 = NULL;
+  PyObject *__pyx_t_11 = NULL;
+  PyObject *__pyx_t_12 = NULL;
+  PyObject *__pyx_t_13 = NULL;
+  int __pyx_t_14;
+  Py_ssize_t __pyx_t_15;
+  PyObject *(*__pyx_t_16)(PyObject *);
+  int __pyx_t_17;
+  PyObject *__pyx_t_18 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("_load_cookies", 0);
+
+  /* "opscli/seller_sprite/api/client.py":263
+ * 
+ *     def _load_cookies(self) -> None:
+ *         if not self.cookie_path.exists():             # <<<<<<<<<<<<<<
+ *             return
+ *         try:
+*/
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_cookie_path); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 263, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_2 = __pyx_t_3;
+  __Pyx_INCREF(__pyx_t_2);
+  __pyx_t_4 = 0;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
+    __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_exists, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 263, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 263, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_6 = (!__pyx_t_5);
+  if (__pyx_t_6) {
+
+    /* "opscli/seller_sprite/api/client.py":264
+ *     def _load_cookies(self) -> None:
+ *         if not self.cookie_path.exists():
+ *             return             # <<<<<<<<<<<<<<
+ *         try:
+ *             cookies = json.loads(self.cookie_path.read_text(encoding="utf-8"))
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_r = Py_None; __Pyx_INCREF(Py_None);
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/api/client.py":263
+ * 
+ *     def _load_cookies(self) -> None:
+ *         if not self.cookie_path.exists():             # <<<<<<<<<<<<<<
+ *             return
+ *         try:
+*/
+  }
+
+  /* "opscli/seller_sprite/api/client.py":265
+ *         if not self.cookie_path.exists():
+ *             return
+ *         try:             # <<<<<<<<<<<<<<
+ *             cookies = json.loads(self.cookie_path.read_text(encoding="utf-8"))
+ *         except (OSError, json.JSONDecodeError):
+*/
+  {
+    __Pyx_PyThreadState_declare
+    __Pyx_PyThreadState_assign
+    __Pyx_ExceptionSave(&__pyx_t_7, &__pyx_t_8, &__pyx_t_9);
+    __Pyx_XGOTREF(__pyx_t_7);
+    __Pyx_XGOTREF(__pyx_t_8);
+    __Pyx_XGOTREF(__pyx_t_9);
+    /*try:*/ {
+
+      /* "opscli/seller_sprite/api/client.py":266
+ *             return
+ *         try:
+ *             cookies = json.loads(self.cookie_path.read_text(encoding="utf-8"))             # <<<<<<<<<<<<<<
+ *         except (OSError, json.JSONDecodeError):
+ *             return
+*/
+      __pyx_t_3 = NULL;
+      __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 266, __pyx_L4_error)
+      __Pyx_GOTREF(__pyx_t_2);
+      __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_loads); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 266, __pyx_L4_error)
+      __Pyx_GOTREF(__pyx_t_10);
+      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+      __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_cookie_path); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 266, __pyx_L4_error)
+      __Pyx_GOTREF(__pyx_t_12);
+      __pyx_t_11 = __pyx_t_12;
+      __Pyx_INCREF(__pyx_t_11);
+      __pyx_t_4 = 0;
+      {
+        PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_11, NULL};
+        __pyx_t_13 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 266, __pyx_L4_error)
+        __Pyx_GOTREF(__pyx_t_13);
+        if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_encoding, __pyx_mstate_global->__pyx_kp_u_utf_8, __pyx_t_13, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 266, __pyx_L4_error)
+        __pyx_t_2 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_read_text, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_13);
+        __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
+        __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
+        __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 266, __pyx_L4_error)
+        __Pyx_GOTREF(__pyx_t_2);
+      }
+      __pyx_t_4 = 1;
+      #if CYTHON_UNPACK_METHODS
+      if (unlikely(PyMethod_Check(__pyx_t_10))) {
+        __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_10);
+        assert(__pyx_t_3);
+        PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_10);
+        __Pyx_INCREF(__pyx_t_3);
+        __Pyx_INCREF(__pyx__function);
+        __Pyx_DECREF_SET(__pyx_t_10, __pyx__function);
+        __pyx_t_4 = 0;
+      }
+      #endif
+      {
+        PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_t_2};
+        __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_10, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+        __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+        __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+        __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 266, __pyx_L4_error)
+        __Pyx_GOTREF(__pyx_t_1);
+      }
+      __pyx_v_cookies = __pyx_t_1;
+      __pyx_t_1 = 0;
+
+      /* "opscli/seller_sprite/api/client.py":265
+ *         if not self.cookie_path.exists():
+ *             return
+ *         try:             # <<<<<<<<<<<<<<
+ *             cookies = json.loads(self.cookie_path.read_text(encoding="utf-8"))
+ *         except (OSError, json.JSONDecodeError):
+*/
+    }
+    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+    __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
+    goto __pyx_L9_try_end;
+    __pyx_L4_error:;
+    __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
+    __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
+    __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
+    __Pyx_XDECREF(__pyx_t_13); __pyx_t_13 = 0;
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+
+    /* "opscli/seller_sprite/api/client.py":267
+ *         try:
+ *             cookies = json.loads(self.cookie_path.read_text(encoding="utf-8"))
+ *         except (OSError, json.JSONDecodeError):             # <<<<<<<<<<<<<<
+ *             return
+ *         if not isinstance(cookies, list):
+*/
+    __Pyx_ErrFetch(&__pyx_t_1, &__pyx_t_10, &__pyx_t_2);
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 267, __pyx_L6_except_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_JSONDecodeError); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 267, __pyx_L6_except_error)
+    __Pyx_GOTREF(__pyx_t_12);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    __pyx_t_14 = __Pyx_PyErr_GivenExceptionMatches2(__pyx_t_1, ((PyObject *)(((PyTypeObject*)PyExc_OSError))), __pyx_t_12);
+    __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+    __Pyx_ErrRestore(__pyx_t_1, __pyx_t_10, __pyx_t_2);
+    __pyx_t_1 = 0; __pyx_t_10 = 0; __pyx_t_2 = 0;
+    if (__pyx_t_14) {
+      __Pyx_ErrRestore(0,0,0);
+
+      /* "opscli/seller_sprite/api/client.py":268
+ *             cookies = json.loads(self.cookie_path.read_text(encoding="utf-8"))
+ *         except (OSError, json.JSONDecodeError):
+ *             return             # <<<<<<<<<<<<<<
+ *         if not isinstance(cookies, list):
+ *             return
+*/
+      __Pyx_XDECREF(__pyx_r);
+      __pyx_r = Py_None; __Pyx_INCREF(Py_None);
+      goto __pyx_L7_except_return;
+    }
+    goto __pyx_L6_except_error;
+
+    /* "opscli/seller_sprite/api/client.py":265
+ *         if not self.cookie_path.exists():
+ *             return
+ *         try:             # <<<<<<<<<<<<<<
+ *             cookies = json.loads(self.cookie_path.read_text(encoding="utf-8"))
+ *         except (OSError, json.JSONDecodeError):
+*/
+    __pyx_L6_except_error:;
+    __Pyx_XGIVEREF(__pyx_t_7);
+    __Pyx_XGIVEREF(__pyx_t_8);
+    __Pyx_XGIVEREF(__pyx_t_9);
+    __Pyx_ExceptionReset(__pyx_t_7, __pyx_t_8, __pyx_t_9);
+    goto __pyx_L1_error;
+    __pyx_L7_except_return:;
+    __Pyx_XGIVEREF(__pyx_t_7);
+    __Pyx_XGIVEREF(__pyx_t_8);
+    __Pyx_XGIVEREF(__pyx_t_9);
+    __Pyx_ExceptionReset(__pyx_t_7, __pyx_t_8, __pyx_t_9);
+    goto __pyx_L0;
+    __pyx_L9_try_end:;
+  }
+
+  /* "opscli/seller_sprite/api/client.py":269
+ *         except (OSError, json.JSONDecodeError):
+ *             return
+ *         if not isinstance(cookies, list):             # <<<<<<<<<<<<<<
+ *             return
+ *         for cookie in cookies:
+*/
+  __pyx_t_6 = PyList_Check(__pyx_v_cookies); 
+  __pyx_t_5 = (!__pyx_t_6);
+  if (__pyx_t_5) {
+
+    /* "opscli/seller_sprite/api/client.py":270
+ *             return
+ *         if not isinstance(cookies, list):
+ *             return             # <<<<<<<<<<<<<<
+ *         for cookie in cookies:
+ *             if not isinstance(cookie, dict):
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_r = Py_None; __Pyx_INCREF(Py_None);
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/api/client.py":269
+ *         except (OSError, json.JSONDecodeError):
+ *             return
+ *         if not isinstance(cookies, list):             # <<<<<<<<<<<<<<
+ *             return
+ *         for cookie in cookies:
+*/
+  }
+
+  /* "opscli/seller_sprite/api/client.py":271
+ *         if not isinstance(cookies, list):
+ *             return
+ *         for cookie in cookies:             # <<<<<<<<<<<<<<
+ *             if not isinstance(cookie, dict):
+ *                 continue
+*/
+  if (likely(PyList_CheckExact(__pyx_v_cookies)) || PyTuple_CheckExact(__pyx_v_cookies)) {
+    __pyx_t_2 = __pyx_v_cookies; __Pyx_INCREF(__pyx_t_2);
+    __pyx_t_15 = 0;
+    __pyx_t_16 = NULL;
+  } else {
+    __pyx_t_15 = -1; __pyx_t_2 = PyObject_GetIter(__pyx_v_cookies); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 271, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __pyx_t_16 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_2); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 271, __pyx_L1_error)
+  }
+  for (;;) {
+    if (likely(!__pyx_t_16)) {
+      if (likely(PyList_CheckExact(__pyx_t_2))) {
+        {
+          Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_2);
+          #if !CYTHON_ASSUME_SAFE_SIZE
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 271, __pyx_L1_error)
+          #endif
+          if (__pyx_t_15 >= __pyx_temp) break;
+        }
+        __pyx_t_10 = __Pyx_PyList_GetItemRefFast(__pyx_t_2, __pyx_t_15, __Pyx_ReferenceSharing_OwnStrongReference);
+        ++__pyx_t_15;
+      } else {
+        {
+          Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_2);
+          #if !CYTHON_ASSUME_SAFE_SIZE
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 271, __pyx_L1_error)
+          #endif
+          if (__pyx_t_15 >= __pyx_temp) break;
+        }
+        #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
+        __pyx_t_10 = __Pyx_NewRef(PyTuple_GET_ITEM(__pyx_t_2, __pyx_t_15));
+        #else
+        __pyx_t_10 = __Pyx_PySequence_ITEM(__pyx_t_2, __pyx_t_15);
+        #endif
+        ++__pyx_t_15;
+      }
+      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 271, __pyx_L1_error)
+    } else {
+      __pyx_t_10 = __pyx_t_16(__pyx_t_2);
+      if (unlikely(!__pyx_t_10)) {
+        PyObject* exc_type = PyErr_Occurred();
+        if (exc_type) {
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 271, __pyx_L1_error)
+          PyErr_Clear();
+        }
+        break;
+      }
+    }
+    __Pyx_GOTREF(__pyx_t_10);
+    __Pyx_XDECREF_SET(__pyx_v_cookie, __pyx_t_10);
+    __pyx_t_10 = 0;
+
+    /* "opscli/seller_sprite/api/client.py":272
+ *             return
+ *         for cookie in cookies:
+ *             if not isinstance(cookie, dict):             # <<<<<<<<<<<<<<
+ *                 continue
+ *             name = str(cookie.get("name") or "")
+*/
+    __pyx_t_5 = PyDict_Check(__pyx_v_cookie); 
+    __pyx_t_6 = (!__pyx_t_5);
+    if (__pyx_t_6) {
+
+      /* "opscli/seller_sprite/api/client.py":273
+ *         for cookie in cookies:
+ *             if not isinstance(cookie, dict):
+ *                 continue             # <<<<<<<<<<<<<<
+ *             name = str(cookie.get("name") or "")
+ *             value = str(cookie.get("value") or "")
+*/
+      goto __pyx_L13_continue;
+
+      /* "opscli/seller_sprite/api/client.py":272
+ *             return
+ *         for cookie in cookies:
+ *             if not isinstance(cookie, dict):             # <<<<<<<<<<<<<<
+ *                 continue
+ *             name = str(cookie.get("name") or "")
+*/
+    }
+
+    /* "opscli/seller_sprite/api/client.py":274
+ *             if not isinstance(cookie, dict):
+ *                 continue
+ *             name = str(cookie.get("name") or "")             # <<<<<<<<<<<<<<
+ *             value = str(cookie.get("value") or "")
+ *             if not name or not value:
+*/
+    __pyx_t_12 = __pyx_v_cookie;
+    __Pyx_INCREF(__pyx_t_12);
+    __pyx_t_4 = 0;
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_12, __pyx_mstate_global->__pyx_n_u_name};
+      __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 274, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+    }
+    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 274, __pyx_L1_error)
+    if (!__pyx_t_6) {
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    } else {
+      __Pyx_INCREF(__pyx_t_1);
+      __pyx_t_10 = __pyx_t_1;
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+      goto __pyx_L16_bool_binop_done;
+    }
+    __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_);
+    __pyx_t_10 = __pyx_mstate_global->__pyx_kp_u_;
+    __pyx_L16_bool_binop_done:;
+    __pyx_t_1 = __Pyx_PyObject_Unicode(__pyx_t_10); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 274, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+    __Pyx_XDECREF_SET(__pyx_v_name, ((PyObject*)__pyx_t_1));
+    __pyx_t_1 = 0;
+
+    /* "opscli/seller_sprite/api/client.py":275
+ *                 continue
+ *             name = str(cookie.get("name") or "")
+ *             value = str(cookie.get("value") or "")             # <<<<<<<<<<<<<<
+ *             if not name or not value:
+ *                 continue
+*/
+    __pyx_t_12 = __pyx_v_cookie;
+    __Pyx_INCREF(__pyx_t_12);
+    __pyx_t_4 = 0;
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_12, __pyx_mstate_global->__pyx_n_u_value};
+      __pyx_t_10 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
+      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 275, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_10);
+    }
+    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_10); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 275, __pyx_L1_error)
+    if (!__pyx_t_6) {
+      __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+    } else {
+      __Pyx_INCREF(__pyx_t_10);
+      __pyx_t_1 = __pyx_t_10;
+      __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+      goto __pyx_L18_bool_binop_done;
+    }
+    __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_);
+    __pyx_t_1 = __pyx_mstate_global->__pyx_kp_u_;
+    __pyx_L18_bool_binop_done:;
+    __pyx_t_10 = __Pyx_PyObject_Unicode(__pyx_t_1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 275, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_10);
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    __Pyx_XDECREF_SET(__pyx_v_value, ((PyObject*)__pyx_t_10));
+    __pyx_t_10 = 0;
+
+    /* "opscli/seller_sprite/api/client.py":276
+ *             name = str(cookie.get("name") or "")
+ *             value = str(cookie.get("value") or "")
+ *             if not name or not value:             # <<<<<<<<<<<<<<
+ *                 continue
+ *             self._client.cookies.set(
+*/
+    {
+      Py_ssize_t __pyx_temp = __Pyx_PyUnicode_IS_TRUE(__pyx_v_name);
+      if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 276, __pyx_L1_error)
+      __pyx_t_5 = (__pyx_temp != 0);
+    }
+
+    __pyx_t_17 = (!__pyx_t_5);
+    if (!__pyx_t_17) {
+    } else {
+      __pyx_t_6 = __pyx_t_17;
+      goto __pyx_L21_bool_binop_done;
+    }
+    {
+      Py_ssize_t __pyx_temp = __Pyx_PyUnicode_IS_TRUE(__pyx_v_value);
+      if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 276, __pyx_L1_error)
+      __pyx_t_17 = (__pyx_temp != 0);
+    }
+
+    __pyx_t_5 = (!__pyx_t_17);
+    __pyx_t_6 = __pyx_t_5;
+    __pyx_L21_bool_binop_done:;
+    if (__pyx_t_6) {
+
+      /* "opscli/seller_sprite/api/client.py":277
+ *             value = str(cookie.get("value") or "")
+ *             if not name or not value:
+ *                 continue             # <<<<<<<<<<<<<<
+ *             self._client.cookies.set(
+ *                 name,
+*/
+      goto __pyx_L13_continue;
+
+      /* "opscli/seller_sprite/api/client.py":276
+ *             name = str(cookie.get("name") or "")
+ *             value = str(cookie.get("value") or "")
+ *             if not name or not value:             # <<<<<<<<<<<<<<
+ *                 continue
+ *             self._client.cookies.set(
+*/
+    }
+
+    /* "opscli/seller_sprite/api/client.py":278
+ *             if not name or not value:
+ *                 continue
+ *             self._client.cookies.set(             # <<<<<<<<<<<<<<
+ *                 name,
+ *                 value,
+*/
+    __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_client); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 278, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_12);
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_cookies); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 278, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+    __pyx_t_1 = __pyx_t_3;
+    __Pyx_INCREF(__pyx_t_1);
+
+    /* "opscli/seller_sprite/api/client.py":281
+ *                 name,
+ *                 value,
+ *                 domain=str(cookie.get("domain") or ".sellersprite.com"),             # <<<<<<<<<<<<<<
+ *                 path=str(cookie.get("path") or "/"),
+ *             )
+*/
+    __pyx_t_11 = __pyx_v_cookie;
+    __Pyx_INCREF(__pyx_t_11);
+    __pyx_t_4 = 0;
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_11, __pyx_mstate_global->__pyx_n_u_domain};
+      __pyx_t_13 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
+      if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 281, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_13);
+    }
+    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_13); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 281, __pyx_L1_error)
+    if (!__pyx_t_6) {
+      __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
+    } else {
+      __Pyx_INCREF(__pyx_t_13);
+      __pyx_t_12 = __pyx_t_13;
+      __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
+      goto __pyx_L23_bool_binop_done;
+    }
+    __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u_sellersprite_com);
+    __pyx_t_12 = __pyx_mstate_global->__pyx_kp_u_sellersprite_com;
+    __pyx_L23_bool_binop_done:;
+    __pyx_t_13 = __Pyx_PyObject_Unicode(__pyx_t_12); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 281, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_13);
+    __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+
+    /* "opscli/seller_sprite/api/client.py":282
+ *                 value,
+ *                 domain=str(cookie.get("domain") or ".sellersprite.com"),
+ *                 path=str(cookie.get("path") or "/"),             # <<<<<<<<<<<<<<
+ *             )
+ * 
+*/
+    __pyx_t_18 = __pyx_v_cookie;
+    __Pyx_INCREF(__pyx_t_18);
+    __pyx_t_4 = 0;
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_18, __pyx_mstate_global->__pyx_n_u_path};
+      __pyx_t_11 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_18); __pyx_t_18 = 0;
+      if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 282, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_11);
+    }
+    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_11); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 282, __pyx_L1_error)
+    if (!__pyx_t_6) {
+      __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+    } else {
+      __Pyx_INCREF(__pyx_t_11);
+      __pyx_t_12 = __pyx_t_11;
+      __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+      goto __pyx_L25_bool_binop_done;
+    }
+    __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__7);
+    __pyx_t_12 = __pyx_mstate_global->__pyx_kp_u__7;
+    __pyx_L25_bool_binop_done:;
+    __pyx_t_11 = __Pyx_PyObject_Unicode(__pyx_t_12); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 282, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_11);
+    __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+    __pyx_t_4 = 0;
+    {
+      PyObject *__pyx_callargs[3 + ((CYTHON_VECTORCALL) ? 2 : 0)] = {__pyx_t_1, __pyx_v_name, __pyx_v_value};
+      __pyx_t_12 = __Pyx_MakeVectorcallBuilderKwds(2); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 278, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_12);
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_domain, __pyx_t_13, __pyx_t_12, __pyx_callargs+3, 0) < (0)) __PYX_ERR(0, 278, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_path, __pyx_t_11, __pyx_t_12, __pyx_callargs+3, 1) < (0)) __PYX_ERR(0, 278, __pyx_L1_error)
+      __pyx_t_10 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_set, __pyx_callargs+__pyx_t_4, (3-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_12);
+      __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
+      __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
+      __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+      __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+      if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 278, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_10);
+    }
+    __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+
+    /* "opscli/seller_sprite/api/client.py":271
+ *         if not isinstance(cookies, list):
+ *             return
+ *         for cookie in cookies:             # <<<<<<<<<<<<<<
+ *             if not isinstance(cookie, dict):
+ *                 continue
+*/
+    __pyx_L13_continue:;
+  }
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":262
+ *         return headers
+ * 
+ *     def _load_cookies(self) -> None:             # <<<<<<<<<<<<<<
+ *         if not self.cookie_path.exists():
+ *             return
+*/
+
+  /* function exit code */
+  __pyx_r = Py_None; __Pyx_INCREF(Py_None);
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_10);
+  __Pyx_XDECREF(__pyx_t_11);
+  __Pyx_XDECREF(__pyx_t_12);
+  __Pyx_XDECREF(__pyx_t_13);
+  __Pyx_XDECREF(__pyx_t_18);
+  __Pyx_AddTraceback("opscli.seller_sprite.api.client.SellerSpriteApiClient._load_cookies", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_cookies);
+  __Pyx_XDECREF(__pyx_v_cookie);
+  __Pyx_XDECREF(__pyx_v_name);
+  __Pyx_XDECREF(__pyx_v_value);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "opscli/seller_sprite/api/client.py":286
  * 
  * 
  * def _absolute_url(url: str) -> str:             # <<<<<<<<<<<<<<
@@ -6824,32 +10262,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_url,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 164, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 286, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 164, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 286, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_absolute_url", 0) < (0)) __PYX_ERR(0, 164, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_absolute_url", 0) < (0)) __PYX_ERR(0, 286, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_absolute_url", 1, 1, 1, i); __PYX_ERR(0, 164, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_absolute_url", 1, 1, 1, i); __PYX_ERR(0, 286, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 164, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 286, __pyx_L3_error)
     }
     __pyx_v_url = ((PyObject*)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_absolute_url", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 164, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_absolute_url", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 286, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6860,7 +10298,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_url), (&PyUnicode_Type), 0, "url", 2))) __PYX_ERR(0, 164, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_url), (&PyUnicode_Type), 0, "url", 2))) __PYX_ERR(0, 286, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client__absolute_url(__pyx_self, __pyx_v_url);
 
   /* function exit code */
@@ -6893,25 +10331,25 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client__absolute_url(CYT
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_absolute_url", 0);
 
-  /* "opscli/seller_sprite/api/client.py":166
+  /* "opscli/seller_sprite/api/client.py":288
  * def _absolute_url(url: str) -> str:
  *     """ URL """
  *     if url.startswith("http://") or url.startswith("https://"):             # <<<<<<<<<<<<<<
  *         return url
  *     return f"{BASE_URL}{url if url.startswith('/') else '/' + url}"
 */
-  __pyx_t_2 = __Pyx_PyUnicode_Tailmatch(__pyx_v_url, __pyx_mstate_global->__pyx_kp_u_http, 0, PY_SSIZE_T_MAX, -1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 166, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyUnicode_Tailmatch(__pyx_v_url, __pyx_mstate_global->__pyx_kp_u_http, 0, PY_SSIZE_T_MAX, -1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 288, __pyx_L1_error)
   if (!__pyx_t_2) {
   } else {
     __pyx_t_1 = __pyx_t_2;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_2 = __Pyx_PyUnicode_Tailmatch(__pyx_v_url, __pyx_mstate_global->__pyx_kp_u_https, 0, PY_SSIZE_T_MAX, -1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 166, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyUnicode_Tailmatch(__pyx_v_url, __pyx_mstate_global->__pyx_kp_u_https, 0, PY_SSIZE_T_MAX, -1); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(0, 288, __pyx_L1_error)
   __pyx_t_1 = __pyx_t_2;
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "opscli/seller_sprite/api/client.py":167
+    /* "opscli/seller_sprite/api/client.py":289
  *     """ URL """
  *     if url.startswith("http://") or url.startswith("https://"):
  *         return url             # <<<<<<<<<<<<<<
@@ -6923,7 +10361,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client__absolute_url(CYT
     __pyx_r = __pyx_v_url;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/api/client.py":166
+    /* "opscli/seller_sprite/api/client.py":288
  * def _absolute_url(url: str) -> str:
  *     """ URL """
  *     if url.startswith("http://") or url.startswith("https://"):             # <<<<<<<<<<<<<<
@@ -6932,7 +10370,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client__absolute_url(CYT
 */
   }
 
-  /* "opscli/seller_sprite/api/client.py":168
+  /* "opscli/seller_sprite/api/client.py":290
  *     if url.startswith("http://") or url.startswith("https://"):
  *         return url
  *     return f"{BASE_URL}{url if url.startswith('/') else '/' + url}"             # <<<<<<<<<<<<<<
@@ -6940,25 +10378,25 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client__absolute_url(CYT
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_BASE_URL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 168, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_BASE_URL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 290, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_3, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 168, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_3, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 290, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_1 = __Pyx_PyUnicode_Tailmatch(__pyx_v_url, __pyx_mstate_global->__pyx_kp_u__5, 0, PY_SSIZE_T_MAX, -1); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 168, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyUnicode_Tailmatch(__pyx_v_url, __pyx_mstate_global->__pyx_kp_u__7, 0, PY_SSIZE_T_MAX, -1); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 290, __pyx_L1_error)
   if (__pyx_t_1) {
     __Pyx_INCREF(__pyx_v_url);
     __pyx_t_3 = __pyx_v_url;
   } else {
-    __pyx_t_5 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u__5, __pyx_v_url); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 168, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyUnicode_Concat(__pyx_mstate_global->__pyx_kp_u__7, __pyx_v_url); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 290, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_3 = __pyx_t_5;
     __pyx_t_5 = 0;
   }
-  __pyx_t_5 = __Pyx_PyUnicode_Unicode(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 168, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyUnicode_Unicode(__pyx_t_3); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 290, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlace(__pyx_t_4, __pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 168, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlace(__pyx_t_4, __pyx_t_5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 290, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
@@ -6966,7 +10404,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client__absolute_url(CYT
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/api/client.py":164
+  /* "opscli/seller_sprite/api/client.py":286
  * 
  * 
  * def _absolute_url(url: str) -> str:             # <<<<<<<<<<<<<<
@@ -6987,7 +10425,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client__absolute_url(CYT
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/api/client.py":171
+/* "opscli/seller_sprite/api/client.py":293
  * 
  * 
  * def _md5(value: str) -> str:             # <<<<<<<<<<<<<<
@@ -7035,32 +10473,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_value,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 171, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 293, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 171, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 293, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_md5", 0) < (0)) __PYX_ERR(0, 171, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_md5", 0) < (0)) __PYX_ERR(0, 293, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_md5", 1, 1, 1, i); __PYX_ERR(0, 171, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_md5", 1, 1, 1, i); __PYX_ERR(0, 293, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 171, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 293, __pyx_L3_error)
     }
     __pyx_v_value = ((PyObject*)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_md5", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 171, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_md5", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 293, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -7071,7 +10509,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyUnicode_Type), 0, "value", 2))) __PYX_ERR(0, 171, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyUnicode_Type), 0, "value", 2))) __PYX_ERR(0, 293, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_2_md5(__pyx_self, __pyx_v_value);
 
   /* function exit code */
@@ -7106,19 +10544,21 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_2_md5(CYTHON_UNUS
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_md5", 0);
 
-  /* "opscli/seller_sprite/api/client.py":173
+  /* "opscli/seller_sprite/api/client.py":295
  * def _md5(value: str) -> str:
  *     """ MD5 """
  *     return hashlib.md5(value.encode("utf-8")).hexdigest()             # <<<<<<<<<<<<<<
+ * 
+ * 
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_hashlib); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 173, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_hashlib); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 295, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_md5_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 173, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_md5_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 295, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = PyUnicode_AsUTF8String(__pyx_v_value); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 173, __pyx_L1_error)
+  __pyx_t_5 = PyUnicode_AsUTF8String(__pyx_v_value); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 295, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_7 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -7138,7 +10578,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_2_md5(CYTHON_UNUS
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 173, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 295, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __pyx_t_2 = __pyx_t_3;
@@ -7149,15 +10589,15 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_2_md5(CYTHON_UNUS
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_hexdigest, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 173, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 295, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_1))) __PYX_ERR(0, 173, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_1))) __PYX_ERR(0, 295, __pyx_L1_error)
   __pyx_r = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/api/client.py":171
+  /* "opscli/seller_sprite/api/client.py":293
  * 
  * 
  * def _md5(value: str) -> str:             # <<<<<<<<<<<<<<
@@ -7176,6 +10616,507 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_2_md5(CYTHON_UNUS
   __Pyx_AddTraceback("opscli.seller_sprite.api.client._md5", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "opscli/seller_sprite/api/client.py":298
+ * 
+ * 
+ * def _looks_like_session_expired_response(response: httpx.Response) -> bool:             # <<<<<<<<<<<<<<
+ *     location = response.headers.get("location", "")
+ *     text = response.text[:1000].lower()
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_5_looks_like_session_expired_response(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_3api_6client_5_looks_like_session_expired_response = {"_looks_like_session_expired_response", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_3api_6client_5_looks_like_session_expired_response, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_5_looks_like_session_expired_response(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  PyObject *__pyx_v_response = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[1] = {0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("_looks_like_session_expired_response (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_response,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 298, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 298, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_looks_like_session_expired_response", 0) < (0)) __PYX_ERR(0, 298, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_looks_like_session_expired_response", 1, 1, 1, i); __PYX_ERR(0, 298, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 1)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 298, __pyx_L3_error)
+    }
+    __pyx_v_response = values[0];
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("_looks_like_session_expired_response", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 298, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_AddTraceback("opscli.seller_sprite.api.client._looks_like_session_expired_response", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_4_looks_like_session_expired_response(__pyx_self, __pyx_v_response);
+
+  /* function exit code */
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_4_looks_like_session_expired_response(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_response) {
+  PyObject *__pyx_v_location = NULL;
+  PyObject *__pyx_v_text = NULL;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  PyObject *__pyx_t_4 = NULL;
+  size_t __pyx_t_5;
+  int __pyx_t_6;
+  int __pyx_t_7;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("_looks_like_session_expired_response", 0);
+
+  /* "opscli/seller_sprite/api/client.py":299
+ * 
+ * def _looks_like_session_expired_response(response: httpx.Response) -> bool:
+ *     location = response.headers.get("location", "")             # <<<<<<<<<<<<<<
+ *     text = response.text[:1000].lower()
+ *     return (
+*/
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_response, __pyx_mstate_global->__pyx_n_u_headers); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 299, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_get); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 299, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_mstate_global->__pyx_tuple[0], NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 299, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_v_location = __pyx_t_1;
+  __pyx_t_1 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":300
+ * def _looks_like_session_expired_response(response: httpx.Response) -> bool:
+ *     location = response.headers.get("location", "")
+ *     text = response.text[:1000].lower()             # <<<<<<<<<<<<<<
+ *     return (
+ *         response.status_code in {301, 302, 303, 307, 308}
+*/
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_response, __pyx_mstate_global->__pyx_n_u_text); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 300, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_4 = __Pyx_PyObject_GetSlice(__pyx_t_3, 0, 0x3E8, NULL, NULL, &__pyx_mstate_global->__pyx_slice[0], 0, 1, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 300, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_2 = __pyx_t_4;
+  __Pyx_INCREF(__pyx_t_2);
+  __pyx_t_5 = 0;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
+    __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_lower, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 300, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __pyx_v_text = __pyx_t_1;
+  __pyx_t_1 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":301
+ *     location = response.headers.get("location", "")
+ *     text = response.text[:1000].lower()
+ *     return (             # <<<<<<<<<<<<<<
+ *         response.status_code in {301, 302, 303, 307, 308}
+ *         or "/user/login" in location
+*/
+  __Pyx_XDECREF(__pyx_r);
+
+  /* "opscli/seller_sprite/api/client.py":302
+ *     text = response.text[:1000].lower()
+ *     return (
+ *         response.status_code in {301, 302, 303, 307, 308}             # <<<<<<<<<<<<<<
+ *         or "/user/login" in location
+ *         or "/w/user/login" in location
+*/
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_response, __pyx_mstate_global->__pyx_n_u_status_code); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 302, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_7 = (__Pyx_PyLong_BoolEqObjC(__pyx_t_4, __pyx_mstate_global->__pyx_int_301, 0x12D, 0)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 302, __pyx_L1_error)
+  if (!__pyx_t_7) {
+  } else {
+    __pyx_t_6 = __pyx_t_7;
+    goto __pyx_L5_bool_binop_done;
+  }
+  __pyx_t_7 = (__Pyx_PyLong_BoolEqObjC(__pyx_t_4, __pyx_mstate_global->__pyx_int_302, 0x12E, 0)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 302, __pyx_L1_error)
+  if (!__pyx_t_7) {
+  } else {
+    __pyx_t_6 = __pyx_t_7;
+    goto __pyx_L5_bool_binop_done;
+  }
+  __pyx_t_7 = (__Pyx_PyLong_BoolEqObjC(__pyx_t_4, __pyx_mstate_global->__pyx_int_303, 0x12F, 0)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 302, __pyx_L1_error)
+  if (!__pyx_t_7) {
+  } else {
+    __pyx_t_6 = __pyx_t_7;
+    goto __pyx_L5_bool_binop_done;
+  }
+  __pyx_t_7 = (__Pyx_PyLong_BoolEqObjC(__pyx_t_4, __pyx_mstate_global->__pyx_int_307, 0x133, 0)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 302, __pyx_L1_error)
+  if (!__pyx_t_7) {
+  } else {
+    __pyx_t_6 = __pyx_t_7;
+    goto __pyx_L5_bool_binop_done;
+  }
+  __pyx_t_7 = (__Pyx_PyLong_BoolEqObjC(__pyx_t_4, __pyx_mstate_global->__pyx_int_308, 0x134, 0)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 302, __pyx_L1_error)
+  __pyx_t_6 = __pyx_t_7;
+  __pyx_L5_bool_binop_done:;
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_7 = __pyx_t_6;
+  if (!__pyx_t_7) {
+  } else {
+    __pyx_t_4 = __Pyx_PyBool_FromLong(__pyx_t_7); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 302, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __pyx_t_1 = __pyx_t_4;
+    __pyx_t_4 = 0;
+    goto __pyx_L3_bool_binop_done;
+  }
+
+  /* "opscli/seller_sprite/api/client.py":303
+ *     return (
+ *         response.status_code in {301, 302, 303, 307, 308}
+ *         or "/user/login" in location             # <<<<<<<<<<<<<<
+ *         or "/w/user/login" in location
+ *         or "user/login" in text
+*/
+  __pyx_t_7 = (__Pyx_PySequence_ContainsTF(__pyx_mstate_global->__pyx_kp_u_user_login, __pyx_v_location, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 303, __pyx_L1_error)
+  if (!__pyx_t_7) {
+  } else {
+    __pyx_t_4 = __Pyx_PyBool_FromLong(__pyx_t_7); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 303, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __pyx_t_1 = __pyx_t_4;
+    __pyx_t_4 = 0;
+    goto __pyx_L3_bool_binop_done;
+  }
+
+  /* "opscli/seller_sprite/api/client.py":304
+ *         response.status_code in {301, 302, 303, 307, 308}
+ *         or "/user/login" in location
+ *         or "/w/user/login" in location             # <<<<<<<<<<<<<<
+ *         or "user/login" in text
+ *     )
+*/
+  __pyx_t_7 = (__Pyx_PySequence_ContainsTF(__pyx_mstate_global->__pyx_kp_u_w_user_login, __pyx_v_location, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 304, __pyx_L1_error)
+  if (!__pyx_t_7) {
+  } else {
+    __pyx_t_4 = __Pyx_PyBool_FromLong(__pyx_t_7); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 304, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __pyx_t_1 = __pyx_t_4;
+    __pyx_t_4 = 0;
+    goto __pyx_L3_bool_binop_done;
+  }
+
+  /* "opscli/seller_sprite/api/client.py":305
+ *         or "/user/login" in location
+ *         or "/w/user/login" in location
+ *         or "user/login" in text             # <<<<<<<<<<<<<<
+ *     )
+ * 
+*/
+  __pyx_t_7 = (__Pyx_PySequence_ContainsTF(__pyx_mstate_global->__pyx_kp_u_user_login_2, __pyx_v_text, Py_EQ)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 305, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyBool_FromLong(__pyx_t_7); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 305, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_1 = __pyx_t_4;
+  __pyx_t_4 = 0;
+  __pyx_L3_bool_binop_done:;
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* "opscli/seller_sprite/api/client.py":298
+ * 
+ * 
+ * def _looks_like_session_expired_response(response: httpx.Response) -> bool:             # <<<<<<<<<<<<<<
+ *     location = response.headers.get("location", "")
+ *     text = response.text[:1000].lower()
+*/
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_AddTraceback("opscli.seller_sprite.api.client._looks_like_session_expired_response", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_location);
+  __Pyx_XDECREF(__pyx_v_text);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "opscli/seller_sprite/api/client.py":309
+ * 
+ * 
+ * def _default_cookie_path(account: SellerSpriteAccount) -> Path:             # <<<<<<<<<<<<<<
+ *     key = _md5(f"{account.name}:{account.username}")[:16]
+ *     return DEFAULT_OUTPUT_DIR.parent / "sessions" / f"{key}.cookies.json"
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_7_default_cookie_path(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_3api_6client_7_default_cookie_path = {"_default_cookie_path", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_3api_6client_7_default_cookie_path, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_3api_6client_7_default_cookie_path(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  PyObject *__pyx_v_account = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[1] = {0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("_default_cookie_path (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_account,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 309, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 309, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_default_cookie_path", 0) < (0)) __PYX_ERR(0, 309, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_default_cookie_path", 1, 1, 1, i); __PYX_ERR(0, 309, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 1)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 309, __pyx_L3_error)
+    }
+    __pyx_v_account = values[0];
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("_default_cookie_path", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 309, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_AddTraceback("opscli.seller_sprite.api.client._default_cookie_path", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_3api_6client_6_default_cookie_path(__pyx_self, __pyx_v_account);
+
+  /* function exit code */
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_6opscli_13seller_sprite_3api_6client_6_default_cookie_path(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_account) {
+  PyObject *__pyx_v_key = NULL;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  PyObject *__pyx_t_4 = NULL;
+  PyObject *__pyx_t_5 = NULL;
+  PyObject *__pyx_t_6 = NULL;
+  PyObject *__pyx_t_7[3];
+  size_t __pyx_t_8;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("_default_cookie_path", 0);
+
+  /* "opscli/seller_sprite/api/client.py":310
+ * 
+ * def _default_cookie_path(account: SellerSpriteAccount) -> Path:
+ *     key = _md5(f"{account.name}:{account.username}")[:16]             # <<<<<<<<<<<<<<
+ *     return DEFAULT_OUTPUT_DIR.parent / "sessions" / f"{key}.cookies.json"
+*/
+  __pyx_t_2 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_md5); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 310, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_account, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 310, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 310, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_account, __pyx_mstate_global->__pyx_n_u_username); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 310, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 310, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_7[0] = __pyx_t_5;
+  __pyx_t_7[1] = __pyx_mstate_global->__pyx_kp_u__8;
+  __pyx_t_7[2] = __pyx_t_6;
+  __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_7, 3, __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5) + 1 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_6), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_5) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_6));
+  if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 310, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+  __pyx_t_8 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_3))) {
+    __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_3);
+    assert(__pyx_t_2);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_3);
+    __Pyx_INCREF(__pyx_t_2);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_3, __pyx__function);
+    __pyx_t_8 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_t_4};
+    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 310, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __pyx_t_3 = __Pyx_PyObject_GetSlice(__pyx_t_1, 0, 16, NULL, NULL, &__pyx_mstate_global->__pyx_slice[1], 0, 1, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 310, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_v_key = __pyx_t_3;
+  __pyx_t_3 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":311
+ * def _default_cookie_path(account: SellerSpriteAccount) -> Path:
+ *     key = _md5(f"{account.name}:{account.username}")[:16]
+ *     return DEFAULT_OUTPUT_DIR.parent / "sessions" / f"{key}.cookies.json"             # <<<<<<<<<<<<<<
+*/
+  __Pyx_XDECREF(__pyx_r);
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_DEFAULT_OUTPUT_DIR); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 311, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_parent); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 311, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_sessions); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 311, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_key, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 311, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_4 = __Pyx_PyUnicode_Concat__Pyx_ReferenceSharing_OwnStrongReferenceInPlace(__pyx_t_1, __pyx_mstate_global->__pyx_kp_u_cookies_json); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 311, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_t_3, __pyx_t_4); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 311, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* "opscli/seller_sprite/api/client.py":309
+ * 
+ * 
+ * def _default_cookie_path(account: SellerSpriteAccount) -> Path:             # <<<<<<<<<<<<<<
+ *     key = _md5(f"{account.name}:{account.username}")[:16]
+ *     return DEFAULT_OUTPUT_DIR.parent / "sessions" / f"{key}.cookies.json"
+*/
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_XDECREF(__pyx_t_5);
+  __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_AddTraceback("opscli.seller_sprite.api.client._default_cookie_path", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_key);
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
@@ -8133,16 +12074,16 @@ static PyTypeObject __pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_
 };
 #endif
 
-static PyObject *__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json(PyTypeObject *t, CYTHON_UNUSED PyObject *a, CYTHON_UNUSED PyObject *k) {
+static PyObject *__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form(PyTypeObject *t, CYTHON_UNUSED PyObject *a, CYTHON_UNUSED PyObject *k) {
   PyObject *o;
   #if CYTHON_USE_FREELISTS
-  if (likely((int)(__pyx_mstate_global->__pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json > 0) & __PYX_CHECK_FINAL_TYPE_FOR_FREELISTS(t, __pyx_mstate_global->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json, sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json))))
+  if (likely((int)(__pyx_mstate_global->__pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form > 0) & __PYX_CHECK_FINAL_TYPE_FOR_FREELISTS(t, __pyx_mstate_global->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form, sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form))))
   {
-    o = (PyObject*)__pyx_mstate_global->__pyx_freelist_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json[--__pyx_mstate_global->__pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json];
+    o = (PyObject*)__pyx_mstate_global->__pyx_freelist_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form[--__pyx_mstate_global->__pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form];
     #if CYTHON_USE_TYPE_SPECS
     Py_DECREF(Py_TYPE(o));
     #endif
-    memset(o, 0, sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json));
+    memset(o, 0, sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form));
     #if CYTHON_COMPILING_IN_LIMITED_API
     (void) PyObject_Init(o, t);
     #else
@@ -8158,25 +12099,25 @@ static PyObject *__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_s
   return o;
 }
 
-static void __pyx_tp_dealloc_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json(PyObject *o) {
-  struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json *p = (struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json *)o;
+static void __pyx_tp_dealloc_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form(PyObject *o) {
+  struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form *p = (struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form *)o;
   #if CYTHON_USE_TP_FINALIZE
   if (unlikely(__Pyx_PyObject_GetSlot(o, tp_finalize, destructor)) && !__Pyx_PyObject_GC_IsFinalized(o)) {
-    if (__Pyx_PyObject_GetSlot(o, tp_dealloc, destructor) == __pyx_tp_dealloc_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json) {
+    if (__Pyx_PyObject_GetSlot(o, tp_dealloc, destructor) == __pyx_tp_dealloc_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form) {
       if (PyObject_CallFinalizerFromDealloc(o)) return;
     }
   }
   #endif
   PyObject_GC_UnTrack(o);
-  Py_CLEAR(p->__pyx_v_kwargs);
-  Py_CLEAR(p->__pyx_v_method);
+  Py_CLEAR(p->__pyx_v_payload);
+  Py_CLEAR(p->__pyx_v_referer);
   Py_CLEAR(p->__pyx_v_response);
   Py_CLEAR(p->__pyx_v_self);
   Py_CLEAR(p->__pyx_v_url);
   #if CYTHON_USE_FREELISTS
-  if (likely((int)(__pyx_mstate_global->__pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json < 8) & __PYX_CHECK_FINAL_TYPE_FOR_FREELISTS(Py_TYPE(o), __pyx_mstate_global->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json, sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json))))
+  if (likely((int)(__pyx_mstate_global->__pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form < 8) & __PYX_CHECK_FINAL_TYPE_FOR_FREELISTS(Py_TYPE(o), __pyx_mstate_global->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form, sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form))))
   {
-    __pyx_mstate_global->__pyx_freelist_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json[__pyx_mstate_global->__pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json++] = ((struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json *)o);
+    __pyx_mstate_global->__pyx_freelist_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form[__pyx_mstate_global->__pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form++] = ((struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form *)o);
   } else
   #endif
   {
@@ -8195,15 +12136,15 @@ static void __pyx_tp_dealloc_6opscli_13seller_sprite_3api_6client___pyx_scope_st
   }
 }
 
-static int __pyx_tp_traverse_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json(PyObject *o, visitproc v, void *a) {
+static int __pyx_tp_traverse_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form(PyObject *o, visitproc v, void *a) {
   int e;
-  struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json *p = (struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json *)o;
+  struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form *p = (struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form *)o;
   {
     e = __Pyx_call_type_traverse(o, 1, v, a);
     if (e) return e;
   }
-  if (p->__pyx_v_kwargs) {
-    e = (*v)(p->__pyx_v_kwargs, a); if (e) return e;
+  if (p->__pyx_v_payload) {
+    e = (*v)(p->__pyx_v_payload, a); if (e) return e;
   }
   if (p->__pyx_v_response) {
     e = (*v)(p->__pyx_v_response, a); if (e) return e;
@@ -8214,27 +12155,27 @@ static int __pyx_tp_traverse_6opscli_13seller_sprite_3api_6client___pyx_scope_st
   return 0;
 }
 #if CYTHON_USE_TYPE_SPECS
-static PyType_Slot __pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json_slots[] = {
-  {Py_tp_dealloc, (void *)__pyx_tp_dealloc_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json},
-  {Py_tp_traverse, (void *)__pyx_tp_traverse_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json},
-  {Py_tp_new, (void *)__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json},
+static PyType_Slot __pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form_slots[] = {
+  {Py_tp_dealloc, (void *)__pyx_tp_dealloc_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form},
+  {Py_tp_traverse, (void *)__pyx_tp_traverse_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form},
+  {Py_tp_new, (void *)__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form},
   {0, 0},
 };
-static PyType_Spec __pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json_spec = {
-  "opscli.seller_sprite.api.client.__pyx_scope_struct_5_request_json",
-  sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json),
+static PyType_Spec __pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form_spec = {
+  "opscli.seller_sprite.api.client.__pyx_scope_struct_5_post_form",
+  sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form),
   0,
   Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_HAVE_GC,
-  __pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json_slots,
+  __pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form_slots,
 };
 #else
 
-static PyTypeObject __pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json = {
+static PyTypeObject __pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form = {
   PyVarObject_HEAD_INIT(0, 0)
-  "opscli.seller_sprite.api.client.""__pyx_scope_struct_5_request_json", /*tp_name*/
-  sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json), /*tp_basicsize*/
+  "opscli.seller_sprite.api.client.""__pyx_scope_struct_5_post_form", /*tp_name*/
+  sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form), /*tp_basicsize*/
   0, /*tp_itemsize*/
-  __pyx_tp_dealloc_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json, /*tp_dealloc*/
+  __pyx_tp_dealloc_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form, /*tp_dealloc*/
   0, /*tp_vectorcall_offset*/
   0, /*tp_getattr*/
   0, /*tp_setattr*/
@@ -8251,7 +12192,7 @@ static PyTypeObject __pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_
   0, /*tp_as_buffer*/
   Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_HAVE_GC, /*tp_flags*/
   0, /*tp_doc*/
-  __pyx_tp_traverse_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json, /*tp_traverse*/
+  __pyx_tp_traverse_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form, /*tp_traverse*/
   0, /*tp_clear*/
   0, /*tp_richcompare*/
   0, /*tp_weaklistoffset*/
@@ -8269,7 +12210,515 @@ static PyTypeObject __pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_
   #endif
   0, /*tp_init*/
   0, /*tp_alloc*/
-  __pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json, /*tp_new*/
+  __pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form, /*tp_new*/
+  0, /*tp_free*/
+  0, /*tp_is_gc*/
+  0, /*tp_bases*/
+  0, /*tp_mro*/
+  0, /*tp_cache*/
+  0, /*tp_subclasses*/
+  0, /*tp_weaklist*/
+  0, /*tp_del*/
+  0, /*tp_version_tag*/
+  #if CYTHON_USE_TP_FINALIZE
+  0, /*tp_finalize*/
+  #else
+  NULL, /*tp_finalize*/
+  #endif
+  #if !CYTHON_COMPILING_IN_PYPY || PYPY_VERSION_NUM >= 0x07030800
+  0, /*tp_vectorcall*/
+  #endif
+  #if __PYX_NEED_TP_PRINT_SLOT == 1
+  0, /*tp_print*/
+  #endif
+  #if PY_VERSION_HEX >= 0x030C0000
+  0, /*tp_watched*/
+  #endif
+  #if PY_VERSION_HEX >= 0x030d00A4
+  0, /*tp_versions_used*/
+  #endif
+  #if CYTHON_COMPILING_IN_PYPY && PY_VERSION_HEX >= 0x03090000 && PY_VERSION_HEX < 0x030a0000
+  0, /*tp_pypy_flags*/
+  #endif
+};
+#endif
+
+static PyObject *__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json(PyTypeObject *t, CYTHON_UNUSED PyObject *a, CYTHON_UNUSED PyObject *k) {
+  PyObject *o;
+  #if CYTHON_USE_FREELISTS
+  if (likely((int)(__pyx_mstate_global->__pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json > 0) & __PYX_CHECK_FINAL_TYPE_FOR_FREELISTS(t, __pyx_mstate_global->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json, sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json))))
+  {
+    o = (PyObject*)__pyx_mstate_global->__pyx_freelist_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json[--__pyx_mstate_global->__pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json];
+    #if CYTHON_USE_TYPE_SPECS
+    Py_DECREF(Py_TYPE(o));
+    #endif
+    memset(o, 0, sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json));
+    #if CYTHON_COMPILING_IN_LIMITED_API
+    (void) PyObject_Init(o, t);
+    #else
+    (void) PyObject_INIT(o, t);
+    #endif
+    PyObject_GC_Track(o);
+  } else
+  #endif
+  {
+    o = __Pyx_AllocateExtensionType(t, 1);
+    if (unlikely(!o)) return 0;
+  }
+  return o;
+}
+
+static void __pyx_tp_dealloc_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json(PyObject *o) {
+  struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json *p = (struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json *)o;
+  #if CYTHON_USE_TP_FINALIZE
+  if (unlikely(__Pyx_PyObject_GetSlot(o, tp_finalize, destructor)) && !__Pyx_PyObject_GC_IsFinalized(o)) {
+    if (__Pyx_PyObject_GetSlot(o, tp_dealloc, destructor) == __pyx_tp_dealloc_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json) {
+      if (PyObject_CallFinalizerFromDealloc(o)) return;
+    }
+  }
+  #endif
+  PyObject_GC_UnTrack(o);
+  Py_CLEAR(p->__pyx_v_params);
+  Py_CLEAR(p->__pyx_v_referer);
+  Py_CLEAR(p->__pyx_v_response);
+  Py_CLEAR(p->__pyx_v_self);
+  Py_CLEAR(p->__pyx_v_url);
+  #if CYTHON_USE_FREELISTS
+  if (likely((int)(__pyx_mstate_global->__pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json < 8) & __PYX_CHECK_FINAL_TYPE_FOR_FREELISTS(Py_TYPE(o), __pyx_mstate_global->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json, sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json))))
+  {
+    __pyx_mstate_global->__pyx_freelist_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json[__pyx_mstate_global->__pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json++] = ((struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json *)o);
+  } else
+  #endif
+  {
+    PyTypeObject *tp = Py_TYPE(o);
+    #if CYTHON_USE_TYPE_SLOTS
+    (*tp->tp_free)(o);
+    #else
+    {
+      freefunc tp_free = (freefunc)PyType_GetSlot(tp, Py_tp_free);
+      if (tp_free) tp_free(o);
+    }
+    #endif
+    #if CYTHON_USE_TYPE_SPECS
+    Py_DECREF(tp);
+    #endif
+  }
+}
+
+static int __pyx_tp_traverse_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json(PyObject *o, visitproc v, void *a) {
+  int e;
+  struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json *p = (struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json *)o;
+  {
+    e = __Pyx_call_type_traverse(o, 1, v, a);
+    if (e) return e;
+  }
+  if (p->__pyx_v_params) {
+    e = (*v)(p->__pyx_v_params, a); if (e) return e;
+  }
+  if (p->__pyx_v_response) {
+    e = (*v)(p->__pyx_v_response, a); if (e) return e;
+  }
+  if (p->__pyx_v_self) {
+    e = (*v)(p->__pyx_v_self, a); if (e) return e;
+  }
+  return 0;
+}
+#if CYTHON_USE_TYPE_SPECS
+static PyType_Slot __pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json_slots[] = {
+  {Py_tp_dealloc, (void *)__pyx_tp_dealloc_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json},
+  {Py_tp_traverse, (void *)__pyx_tp_traverse_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json},
+  {Py_tp_new, (void *)__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json},
+  {0, 0},
+};
+static PyType_Spec __pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json_spec = {
+  "opscli.seller_sprite.api.client.__pyx_scope_struct_6_get_json",
+  sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json),
+  0,
+  Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_HAVE_GC,
+  __pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json_slots,
+};
+#else
+
+static PyTypeObject __pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json = {
+  PyVarObject_HEAD_INIT(0, 0)
+  "opscli.seller_sprite.api.client.""__pyx_scope_struct_6_get_json", /*tp_name*/
+  sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json), /*tp_basicsize*/
+  0, /*tp_itemsize*/
+  __pyx_tp_dealloc_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json, /*tp_dealloc*/
+  0, /*tp_vectorcall_offset*/
+  0, /*tp_getattr*/
+  0, /*tp_setattr*/
+  0, /*tp_as_async*/
+  0, /*tp_repr*/
+  0, /*tp_as_number*/
+  0, /*tp_as_sequence*/
+  0, /*tp_as_mapping*/
+  0, /*tp_hash*/
+  0, /*tp_call*/
+  0, /*tp_str*/
+  0, /*tp_getattro*/
+  0, /*tp_setattro*/
+  0, /*tp_as_buffer*/
+  Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_HAVE_GC, /*tp_flags*/
+  0, /*tp_doc*/
+  __pyx_tp_traverse_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json, /*tp_traverse*/
+  0, /*tp_clear*/
+  0, /*tp_richcompare*/
+  0, /*tp_weaklistoffset*/
+  0, /*tp_iter*/
+  0, /*tp_iternext*/
+  0, /*tp_methods*/
+  0, /*tp_members*/
+  0, /*tp_getset*/
+  0, /*tp_base*/
+  0, /*tp_dict*/
+  0, /*tp_descr_get*/
+  0, /*tp_descr_set*/
+  #if !CYTHON_USE_TYPE_SPECS
+  0, /*tp_dictoffset*/
+  #endif
+  0, /*tp_init*/
+  0, /*tp_alloc*/
+  __pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json, /*tp_new*/
+  0, /*tp_free*/
+  0, /*tp_is_gc*/
+  0, /*tp_bases*/
+  0, /*tp_mro*/
+  0, /*tp_cache*/
+  0, /*tp_subclasses*/
+  0, /*tp_weaklist*/
+  0, /*tp_del*/
+  0, /*tp_version_tag*/
+  #if CYTHON_USE_TP_FINALIZE
+  0, /*tp_finalize*/
+  #else
+  NULL, /*tp_finalize*/
+  #endif
+  #if !CYTHON_COMPILING_IN_PYPY || PYPY_VERSION_NUM >= 0x07030800
+  0, /*tp_vectorcall*/
+  #endif
+  #if __PYX_NEED_TP_PRINT_SLOT == 1
+  0, /*tp_print*/
+  #endif
+  #if PY_VERSION_HEX >= 0x030C0000
+  0, /*tp_watched*/
+  #endif
+  #if PY_VERSION_HEX >= 0x030d00A4
+  0, /*tp_versions_used*/
+  #endif
+  #if CYTHON_COMPILING_IN_PYPY && PY_VERSION_HEX >= 0x03090000 && PY_VERSION_HEX < 0x030a0000
+  0, /*tp_pypy_flags*/
+  #endif
+};
+#endif
+
+static PyObject *__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes(PyTypeObject *t, CYTHON_UNUSED PyObject *a, CYTHON_UNUSED PyObject *k) {
+  PyObject *o;
+  #if CYTHON_USE_FREELISTS
+  if (likely((int)(__pyx_mstate_global->__pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes > 0) & __PYX_CHECK_FINAL_TYPE_FOR_FREELISTS(t, __pyx_mstate_global->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes, sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes))))
+  {
+    o = (PyObject*)__pyx_mstate_global->__pyx_freelist_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes[--__pyx_mstate_global->__pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes];
+    #if CYTHON_USE_TYPE_SPECS
+    Py_DECREF(Py_TYPE(o));
+    #endif
+    memset(o, 0, sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes));
+    #if CYTHON_COMPILING_IN_LIMITED_API
+    (void) PyObject_Init(o, t);
+    #else
+    (void) PyObject_INIT(o, t);
+    #endif
+    PyObject_GC_Track(o);
+  } else
+  #endif
+  {
+    o = __Pyx_AllocateExtensionType(t, 1);
+    if (unlikely(!o)) return 0;
+  }
+  return o;
+}
+
+static void __pyx_tp_dealloc_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes(PyObject *o) {
+  struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes *p = (struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes *)o;
+  #if CYTHON_USE_TP_FINALIZE
+  if (unlikely(__Pyx_PyObject_GetSlot(o, tp_finalize, destructor)) && !__Pyx_PyObject_GC_IsFinalized(o)) {
+    if (__Pyx_PyObject_GetSlot(o, tp_dealloc, destructor) == __pyx_tp_dealloc_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes) {
+      if (PyObject_CallFinalizerFromDealloc(o)) return;
+    }
+  }
+  #endif
+  PyObject_GC_UnTrack(o);
+  Py_CLEAR(p->__pyx_v_market_id);
+  Py_CLEAR(p->__pyx_v_node_id_path);
+  Py_CLEAR(p->__pyx_v_node_label_path);
+  Py_CLEAR(p->__pyx_v_params);
+  Py_CLEAR(p->__pyx_v_self);
+  Py_CLEAR(p->__pyx_v_table);
+  #if CYTHON_USE_FREELISTS
+  if (likely((int)(__pyx_mstate_global->__pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes < 8) & __PYX_CHECK_FINAL_TYPE_FOR_FREELISTS(Py_TYPE(o), __pyx_mstate_global->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes, sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes))))
+  {
+    __pyx_mstate_global->__pyx_freelist_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes[__pyx_mstate_global->__pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes++] = ((struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes *)o);
+  } else
+  #endif
+  {
+    PyTypeObject *tp = Py_TYPE(o);
+    #if CYTHON_USE_TYPE_SLOTS
+    (*tp->tp_free)(o);
+    #else
+    {
+      freefunc tp_free = (freefunc)PyType_GetSlot(tp, Py_tp_free);
+      if (tp_free) tp_free(o);
+    }
+    #endif
+    #if CYTHON_USE_TYPE_SPECS
+    Py_DECREF(tp);
+    #endif
+  }
+}
+
+static int __pyx_tp_traverse_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes(PyObject *o, visitproc v, void *a) {
+  int e;
+  struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes *p = (struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes *)o;
+  {
+    e = __Pyx_call_type_traverse(o, 1, v, a);
+    if (e) return e;
+  }
+  if (p->__pyx_v_market_id) {
+    e = (*v)(p->__pyx_v_market_id, a); if (e) return e;
+  }
+  if (p->__pyx_v_params) {
+    e = (*v)(p->__pyx_v_params, a); if (e) return e;
+  }
+  if (p->__pyx_v_self) {
+    e = (*v)(p->__pyx_v_self, a); if (e) return e;
+  }
+  return 0;
+}
+#if CYTHON_USE_TYPE_SPECS
+static PyType_Slot __pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes_slots[] = {
+  {Py_tp_dealloc, (void *)__pyx_tp_dealloc_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes},
+  {Py_tp_traverse, (void *)__pyx_tp_traverse_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes},
+  {Py_tp_new, (void *)__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes},
+  {0, 0},
+};
+static PyType_Spec __pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes_spec = {
+  "opscli.seller_sprite.api.client.__pyx_scope_struct_7_category_nodes",
+  sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes),
+  0,
+  Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_HAVE_GC,
+  __pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes_slots,
+};
+#else
+
+static PyTypeObject __pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes = {
+  PyVarObject_HEAD_INIT(0, 0)
+  "opscli.seller_sprite.api.client.""__pyx_scope_struct_7_category_nodes", /*tp_name*/
+  sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes), /*tp_basicsize*/
+  0, /*tp_itemsize*/
+  __pyx_tp_dealloc_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes, /*tp_dealloc*/
+  0, /*tp_vectorcall_offset*/
+  0, /*tp_getattr*/
+  0, /*tp_setattr*/
+  0, /*tp_as_async*/
+  0, /*tp_repr*/
+  0, /*tp_as_number*/
+  0, /*tp_as_sequence*/
+  0, /*tp_as_mapping*/
+  0, /*tp_hash*/
+  0, /*tp_call*/
+  0, /*tp_str*/
+  0, /*tp_getattro*/
+  0, /*tp_setattro*/
+  0, /*tp_as_buffer*/
+  Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_HAVE_GC, /*tp_flags*/
+  0, /*tp_doc*/
+  __pyx_tp_traverse_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes, /*tp_traverse*/
+  0, /*tp_clear*/
+  0, /*tp_richcompare*/
+  0, /*tp_weaklistoffset*/
+  0, /*tp_iter*/
+  0, /*tp_iternext*/
+  0, /*tp_methods*/
+  0, /*tp_members*/
+  0, /*tp_getset*/
+  0, /*tp_base*/
+  0, /*tp_dict*/
+  0, /*tp_descr_get*/
+  0, /*tp_descr_set*/
+  #if !CYTHON_USE_TYPE_SPECS
+  0, /*tp_dictoffset*/
+  #endif
+  0, /*tp_init*/
+  0, /*tp_alloc*/
+  __pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes, /*tp_new*/
+  0, /*tp_free*/
+  0, /*tp_is_gc*/
+  0, /*tp_bases*/
+  0, /*tp_mro*/
+  0, /*tp_cache*/
+  0, /*tp_subclasses*/
+  0, /*tp_weaklist*/
+  0, /*tp_del*/
+  0, /*tp_version_tag*/
+  #if CYTHON_USE_TP_FINALIZE
+  0, /*tp_finalize*/
+  #else
+  NULL, /*tp_finalize*/
+  #endif
+  #if !CYTHON_COMPILING_IN_PYPY || PYPY_VERSION_NUM >= 0x07030800
+  0, /*tp_vectorcall*/
+  #endif
+  #if __PYX_NEED_TP_PRINT_SLOT == 1
+  0, /*tp_print*/
+  #endif
+  #if PY_VERSION_HEX >= 0x030C0000
+  0, /*tp_watched*/
+  #endif
+  #if PY_VERSION_HEX >= 0x030d00A4
+  0, /*tp_versions_used*/
+  #endif
+  #if CYTHON_COMPILING_IN_PYPY && PY_VERSION_HEX >= 0x03090000 && PY_VERSION_HEX < 0x030a0000
+  0, /*tp_pypy_flags*/
+  #endif
+};
+#endif
+
+static PyObject *__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json(PyTypeObject *t, CYTHON_UNUSED PyObject *a, CYTHON_UNUSED PyObject *k) {
+  PyObject *o;
+  #if CYTHON_USE_FREELISTS
+  if (likely((int)(__pyx_mstate_global->__pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json > 0) & __PYX_CHECK_FINAL_TYPE_FOR_FREELISTS(t, __pyx_mstate_global->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json, sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json))))
+  {
+    o = (PyObject*)__pyx_mstate_global->__pyx_freelist_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json[--__pyx_mstate_global->__pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json];
+    #if CYTHON_USE_TYPE_SPECS
+    Py_DECREF(Py_TYPE(o));
+    #endif
+    memset(o, 0, sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json));
+    #if CYTHON_COMPILING_IN_LIMITED_API
+    (void) PyObject_Init(o, t);
+    #else
+    (void) PyObject_INIT(o, t);
+    #endif
+    PyObject_GC_Track(o);
+  } else
+  #endif
+  {
+    o = __Pyx_AllocateExtensionType(t, 1);
+    if (unlikely(!o)) return 0;
+  }
+  return o;
+}
+
+static void __pyx_tp_dealloc_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json(PyObject *o) {
+  struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json *p = (struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json *)o;
+  #if CYTHON_USE_TP_FINALIZE
+  if (unlikely(__Pyx_PyObject_GetSlot(o, tp_finalize, destructor)) && !__Pyx_PyObject_GC_IsFinalized(o)) {
+    if (__Pyx_PyObject_GetSlot(o, tp_dealloc, destructor) == __pyx_tp_dealloc_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json) {
+      if (PyObject_CallFinalizerFromDealloc(o)) return;
+    }
+  }
+  #endif
+  PyObject_GC_UnTrack(o);
+  Py_CLEAR(p->__pyx_v_kwargs);
+  Py_CLEAR(p->__pyx_v_method);
+  Py_CLEAR(p->__pyx_v_response);
+  Py_CLEAR(p->__pyx_v_self);
+  Py_CLEAR(p->__pyx_v_url);
+  #if CYTHON_USE_FREELISTS
+  if (likely((int)(__pyx_mstate_global->__pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json < 8) & __PYX_CHECK_FINAL_TYPE_FOR_FREELISTS(Py_TYPE(o), __pyx_mstate_global->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json, sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json))))
+  {
+    __pyx_mstate_global->__pyx_freelist_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json[__pyx_mstate_global->__pyx_freecount_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json++] = ((struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json *)o);
+  } else
+  #endif
+  {
+    PyTypeObject *tp = Py_TYPE(o);
+    #if CYTHON_USE_TYPE_SLOTS
+    (*tp->tp_free)(o);
+    #else
+    {
+      freefunc tp_free = (freefunc)PyType_GetSlot(tp, Py_tp_free);
+      if (tp_free) tp_free(o);
+    }
+    #endif
+    #if CYTHON_USE_TYPE_SPECS
+    Py_DECREF(tp);
+    #endif
+  }
+}
+
+static int __pyx_tp_traverse_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json(PyObject *o, visitproc v, void *a) {
+  int e;
+  struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json *p = (struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json *)o;
+  {
+    e = __Pyx_call_type_traverse(o, 1, v, a);
+    if (e) return e;
+  }
+  if (p->__pyx_v_kwargs) {
+    e = (*v)(p->__pyx_v_kwargs, a); if (e) return e;
+  }
+  if (p->__pyx_v_response) {
+    e = (*v)(p->__pyx_v_response, a); if (e) return e;
+  }
+  if (p->__pyx_v_self) {
+    e = (*v)(p->__pyx_v_self, a); if (e) return e;
+  }
+  return 0;
+}
+#if CYTHON_USE_TYPE_SPECS
+static PyType_Slot __pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json_slots[] = {
+  {Py_tp_dealloc, (void *)__pyx_tp_dealloc_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json},
+  {Py_tp_traverse, (void *)__pyx_tp_traverse_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json},
+  {Py_tp_new, (void *)__pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json},
+  {0, 0},
+};
+static PyType_Spec __pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json_spec = {
+  "opscli.seller_sprite.api.client.__pyx_scope_struct_8_request_json",
+  sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json),
+  0,
+  Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_HAVE_GC,
+  __pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json_slots,
+};
+#else
+
+static PyTypeObject __pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json = {
+  PyVarObject_HEAD_INIT(0, 0)
+  "opscli.seller_sprite.api.client.""__pyx_scope_struct_8_request_json", /*tp_name*/
+  sizeof(struct __pyx_obj_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json), /*tp_basicsize*/
+  0, /*tp_itemsize*/
+  __pyx_tp_dealloc_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json, /*tp_dealloc*/
+  0, /*tp_vectorcall_offset*/
+  0, /*tp_getattr*/
+  0, /*tp_setattr*/
+  0, /*tp_as_async*/
+  0, /*tp_repr*/
+  0, /*tp_as_number*/
+  0, /*tp_as_sequence*/
+  0, /*tp_as_mapping*/
+  0, /*tp_hash*/
+  0, /*tp_call*/
+  0, /*tp_str*/
+  0, /*tp_getattro*/
+  0, /*tp_setattro*/
+  0, /*tp_as_buffer*/
+  Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_HAVE_GC, /*tp_flags*/
+  0, /*tp_doc*/
+  __pyx_tp_traverse_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json, /*tp_traverse*/
+  0, /*tp_clear*/
+  0, /*tp_richcompare*/
+  0, /*tp_weaklistoffset*/
+  0, /*tp_iter*/
+  0, /*tp_iternext*/
+  0, /*tp_methods*/
+  0, /*tp_members*/
+  0, /*tp_getset*/
+  0, /*tp_base*/
+  0, /*tp_dict*/
+  0, /*tp_descr_get*/
+  0, /*tp_descr_set*/
+  #if !CYTHON_USE_TYPE_SPECS
+  0, /*tp_dictoffset*/
+  #endif
+  0, /*tp_init*/
+  0, /*tp_alloc*/
+  __pyx_tp_new_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json, /*tp_new*/
   0, /*tp_free*/
   0, /*tp_is_gc*/
   0, /*tp_bases*/
@@ -8356,15 +12805,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   __Pyx_RefNannySetupContext("__Pyx_modinit_type_init_code", 0);
   /*--- Type init code ---*/
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_defaults = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_defaults_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_defaults)) __PYX_ERR(0, 29, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_defaults_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_defaults) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_defaults = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_defaults_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_defaults)) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_defaults_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_defaults) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_defaults = &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_defaults;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_defaults) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_defaults) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_defaults);
@@ -8375,15 +12824,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct____aenter__ = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct____aenter___spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct____aenter__)) __PYX_ERR(0, 46, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct____aenter___spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct____aenter__) < (0)) __PYX_ERR(0, 46, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct____aenter__ = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct____aenter___spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct____aenter__)) __PYX_ERR(0, 51, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct____aenter___spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct____aenter__) < (0)) __PYX_ERR(0, 51, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct____aenter__ = &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct____aenter__;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct____aenter__) < (0)) __PYX_ERR(0, 46, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct____aenter__) < (0)) __PYX_ERR(0, 51, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct____aenter__);
@@ -8394,15 +12843,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_1___aexit__ = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_1___aexit___spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_1___aexit__)) __PYX_ERR(0, 49, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_1___aexit___spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_1___aexit__) < (0)) __PYX_ERR(0, 49, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_1___aexit__ = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_1___aexit___spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_1___aexit__)) __PYX_ERR(0, 54, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_1___aexit___spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_1___aexit__) < (0)) __PYX_ERR(0, 54, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_1___aexit__ = &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_1___aexit__;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_1___aexit__) < (0)) __PYX_ERR(0, 49, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_1___aexit__) < (0)) __PYX_ERR(0, 54, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_1___aexit__);
@@ -8413,15 +12862,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_2_aclose = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_2_aclose_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_2_aclose)) __PYX_ERR(0, 52, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_2_aclose_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_2_aclose) < (0)) __PYX_ERR(0, 52, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_2_aclose = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_2_aclose_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_2_aclose)) __PYX_ERR(0, 57, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_2_aclose_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_2_aclose) < (0)) __PYX_ERR(0, 57, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_2_aclose = &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_2_aclose;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_2_aclose) < (0)) __PYX_ERR(0, 52, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_2_aclose) < (0)) __PYX_ERR(0, 57, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_2_aclose);
@@ -8432,15 +12881,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login)) __PYX_ERR(0, 56, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login) < (0)) __PYX_ERR(0, 56, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login)) __PYX_ERR(0, 68, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login) < (0)) __PYX_ERR(0, 68, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login = &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login) < (0)) __PYX_ERR(0, 56, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login) < (0)) __PYX_ERR(0, 68, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_3_login);
@@ -8451,15 +12900,15 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json)) __PYX_ERR(0, 97, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json) < (0)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json)) __PYX_ERR(0, 110, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json) < (0)) __PYX_ERR(0, 110, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json = &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json) < (0)) __PYX_ERR(0, 97, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json) < (0)) __PYX_ERR(0, 110, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_4_post_json);
@@ -8470,22 +12919,79 @@ static int __Pyx_modinit_type_init_code(__pyx_mstatetype *__pyx_mstate) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json)) __PYX_ERR(0, 115, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json) < (0)) __PYX_ERR(0, 115, __pyx_L1_error)
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form)) __PYX_ERR(0, 128, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form) < (0)) __PYX_ERR(0, 128, __pyx_L1_error)
   #else
-  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json = &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json;
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form = &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json) < (0)) __PYX_ERR(0, 115, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form) < (0)) __PYX_ERR(0, 128, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
-  PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json);
+  PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form);
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
-  if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json->tp_dictoffset && __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json->tp_getattro == PyObject_GenericGetAttr)) {
-    __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_request_json->tp_getattro = PyObject_GenericGetAttr;
+  if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form->tp_dictoffset && __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form->tp_getattro == PyObject_GenericGetAttr)) {
+    __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_5_post_form->tp_getattro = PyObject_GenericGetAttr;
+  }
+  #endif
+  #if CYTHON_USE_TYPE_SPECS
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json)) __PYX_ERR(0, 148, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json) < (0)) __PYX_ERR(0, 148, __pyx_L1_error)
+  #else
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json = &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json;
+  #endif
+  #if !CYTHON_COMPILING_IN_LIMITED_API
+  #endif
+  #if !CYTHON_USE_TYPE_SPECS
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json) < (0)) __PYX_ERR(0, 148, __pyx_L1_error)
+  #endif
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json);
+  #endif
+  #if !CYTHON_COMPILING_IN_LIMITED_API
+  if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json->tp_dictoffset && __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json->tp_getattro == PyObject_GenericGetAttr)) {
+    __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_6_get_json->tp_getattro = PyObject_GenericGetAttr;
+  }
+  #endif
+  #if CYTHON_USE_TYPE_SPECS
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes)) __PYX_ERR(0, 160, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes) < (0)) __PYX_ERR(0, 160, __pyx_L1_error)
+  #else
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes = &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes;
+  #endif
+  #if !CYTHON_COMPILING_IN_LIMITED_API
+  #endif
+  #if !CYTHON_USE_TYPE_SPECS
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes) < (0)) __PYX_ERR(0, 160, __pyx_L1_error)
+  #endif
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes);
+  #endif
+  #if !CYTHON_COMPILING_IN_LIMITED_API
+  if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes->tp_dictoffset && __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes->tp_getattro == PyObject_GenericGetAttr)) {
+    __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_7_category_nodes->tp_getattro = PyObject_GenericGetAttr;
+  }
+  #endif
+  #if CYTHON_USE_TYPE_SPECS
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json_spec, NULL); if (unlikely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json)) __PYX_ERR(0, 183, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json_spec, __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json) < (0)) __PYX_ERR(0, 183, __pyx_L1_error)
+  #else
+  __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json = &__pyx_type_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json;
+  #endif
+  #if !CYTHON_COMPILING_IN_LIMITED_API
+  #endif
+  #if !CYTHON_USE_TYPE_SPECS
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json) < (0)) __PYX_ERR(0, 183, __pyx_L1_error)
+  #endif
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json);
+  #endif
+  #if !CYTHON_COMPILING_IN_LIMITED_API
+  if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json->tp_dictoffset && __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json->tp_getattro == PyObject_GenericGetAttr)) {
+    __pyx_mstate->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_scope_struct_8_request_json->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
   __Pyx_RefNannyFinishContext();
@@ -8547,7 +13053,7 @@ namespace {
   {
       PyModuleDef_HEAD_INIT,
       "client",
-      __pyx_k__6, /* m_doc */
+      __pyx_k__9, /* m_doc */
     #if CYTHON_USE_MODULE_STATE
       sizeof(__pyx_mstatetype), /* m_size */
     #else
@@ -8797,7 +13303,7 @@ __Pyx_RefNannySetupContext("PyInit_client", 0);
  * 
  * import hashlib             # <<<<<<<<<<<<<<
  * import json
- * from typing import Any
+ * from pathlib import Path
 */
   __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_hashlib, 0, 0, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 5, __pyx_L1_error)
   __pyx_t_2 = __pyx_t_1;
@@ -8809,8 +13315,8 @@ __Pyx_RefNannySetupContext("PyInit_client", 0);
  * 
  * import hashlib
  * import json             # <<<<<<<<<<<<<<
+ * from pathlib import Path
  * from typing import Any
- * 
 */
   __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_json, 0, 0, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 6, __pyx_L1_error)
   __pyx_t_2 = __pyx_t_1;
@@ -8821,18 +13327,18 @@ __Pyx_RefNannySetupContext("PyInit_client", 0);
   /* "opscli/seller_sprite/api/client.py":7
  * import hashlib
  * import json
- * from typing import Any             # <<<<<<<<<<<<<<
+ * from pathlib import Path             # <<<<<<<<<<<<<<
+ * from typing import Any
  * 
- * import httpx
 */
   {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Any};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_typing, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 7, __pyx_L1_error)
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Path};
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_pathlib, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 7, __pyx_L1_error)
   }
   __pyx_t_2 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_2);
   {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Any};
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Path};
     __pyx_t_3 = 0; {
       __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 7, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
@@ -8842,58 +13348,58 @@ __Pyx_RefNannySetupContext("PyInit_client", 0);
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":9
+  /* "opscli/seller_sprite/api/client.py":8
+ * import json
+ * from pathlib import Path
+ * from typing import Any             # <<<<<<<<<<<<<<
+ * 
+ * import httpx
+*/
+  {
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Any};
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_typing, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 8, __pyx_L1_error)
+  }
+  __pyx_t_2 = __pyx_t_1;
+  __Pyx_GOTREF(__pyx_t_2);
+  {
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_Any};
+    __pyx_t_3 = 0; {
+      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 8, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 8, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    }
+  }
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":10
  * from typing import Any
  * 
  * import httpx             # <<<<<<<<<<<<<<
  * 
  * from opscli.seller_sprite.accounts import SellerSpriteAccount
 */
-  __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_httpx, 0, 0, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 9, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_httpx, 0, 0, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 10, __pyx_L1_error)
   __pyx_t_2 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_httpx, __pyx_t_2) < (0)) __PYX_ERR(0, 9, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-
-  /* "opscli/seller_sprite/api/client.py":11
- * import httpx
- * 
- * from opscli.seller_sprite.accounts import SellerSpriteAccount             # <<<<<<<<<<<<<<
- * from opscli.seller_sprite.domain.exceptions import SellerSpriteApiError
- * 
-*/
-  {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_SellerSpriteAccount};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_accounts, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 11, __pyx_L1_error)
-  }
-  __pyx_t_2 = __pyx_t_1;
-  __Pyx_GOTREF(__pyx_t_2);
-  {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_SellerSpriteAccount};
-    __pyx_t_3 = 0; {
-      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 11, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_4);
-      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 11, __pyx_L1_error)
-      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    }
-  }
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_httpx, __pyx_t_2) < (0)) __PYX_ERR(0, 10, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "opscli/seller_sprite/api/client.py":12
+ * import httpx
  * 
- * from opscli.seller_sprite.accounts import SellerSpriteAccount
- * from opscli.seller_sprite.domain.exceptions import SellerSpriteApiError             # <<<<<<<<<<<<<<
- * 
- * 
+ * from opscli.seller_sprite.accounts import SellerSpriteAccount             # <<<<<<<<<<<<<<
+ * from opscli.seller_sprite.config import DEFAULT_OUTPUT_DIR
+ * from opscli.seller_sprite.domain.exceptions import SellerSpriteApiError
 */
   {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_SellerSpriteApiError};
-    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_domain_exce, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 12, __pyx_L1_error)
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_SellerSpriteAccount};
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_accounts, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 12, __pyx_L1_error)
   }
   __pyx_t_2 = __pyx_t_1;
   __Pyx_GOTREF(__pyx_t_2);
   {
-    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_SellerSpriteApiError};
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_SellerSpriteAccount};
     __pyx_t_3 = 0; {
       __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 12, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
@@ -8903,345 +13409,647 @@ __Pyx_RefNannySetupContext("PyInit_client", 0);
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":16
+  /* "opscli/seller_sprite/api/client.py":13
+ * 
+ * from opscli.seller_sprite.accounts import SellerSpriteAccount
+ * from opscli.seller_sprite.config import DEFAULT_OUTPUT_DIR             # <<<<<<<<<<<<<<
+ * from opscli.seller_sprite.domain.exceptions import SellerSpriteApiError
+ * 
+*/
+  {
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_DEFAULT_OUTPUT_DIR};
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_config, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 13, __pyx_L1_error)
+  }
+  __pyx_t_2 = __pyx_t_1;
+  __Pyx_GOTREF(__pyx_t_2);
+  {
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_DEFAULT_OUTPUT_DIR};
+    __pyx_t_3 = 0; {
+      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 13, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    }
+  }
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":14
+ * from opscli.seller_sprite.accounts import SellerSpriteAccount
+ * from opscli.seller_sprite.config import DEFAULT_OUTPUT_DIR
+ * from opscli.seller_sprite.domain.exceptions import SellerSpriteApiError             # <<<<<<<<<<<<<<
+ * 
+ * 
+*/
+  {
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_SellerSpriteApiError};
+    __pyx_t_1 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_domain_exce, __pyx_imported_names, 1, NULL, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 14, __pyx_L1_error)
+  }
+  __pyx_t_2 = __pyx_t_1;
+  __Pyx_GOTREF(__pyx_t_2);
+  {
+    PyObject* const __pyx_imported_names[] = {__pyx_mstate_global->__pyx_n_u_SellerSpriteApiError};
+    __pyx_t_3 = 0; {
+      __pyx_t_4 = __Pyx_ImportFrom(__pyx_t_2, __pyx_imported_names[__pyx_t_3]); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 14, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_imported_names[__pyx_t_3], __pyx_t_4) < (0)) __PYX_ERR(0, 14, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    }
+  }
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":18
  * 
  * DEFAULT_USER_AGENT = (
  *     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "             # <<<<<<<<<<<<<<
  *     "AppleWebKit/537.36 (KHTML, like Gecko) "
  *     "Chrome/148.0.0.0 Safari/537.36"
 */
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_DEFAULT_USER_AGENT, __pyx_mstate_global->__pyx_kp_u_Mozilla_5_0_Windows_NT_10_0_Win6) < (0)) __PYX_ERR(0, 15, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_DEFAULT_USER_AGENT, __pyx_mstate_global->__pyx_kp_u_Mozilla_5_0_Windows_NT_10_0_Win6) < (0)) __PYX_ERR(0, 17, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/api/client.py":21
+  /* "opscli/seller_sprite/api/client.py":23
  * )
  * 
  * LOGIN_PAGE_URL = "https://www.sellersprite.com/cn/w/user/login"             # <<<<<<<<<<<<<<
  * SIGNIN_URL = "https://www.sellersprite.com/w/user/signin"
  * BASE_URL = "https://www.sellersprite.com"
 */
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_LOGIN_PAGE_URL, __pyx_mstate_global->__pyx_kp_u_https_www_sellersprite_com_cn_w) < (0)) __PYX_ERR(0, 21, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_LOGIN_PAGE_URL, __pyx_mstate_global->__pyx_kp_u_https_www_sellersprite_com_cn_w) < (0)) __PYX_ERR(0, 23, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/api/client.py":22
+  /* "opscli/seller_sprite/api/client.py":24
  * 
  * LOGIN_PAGE_URL = "https://www.sellersprite.com/cn/w/user/login"
  * SIGNIN_URL = "https://www.sellersprite.com/w/user/signin"             # <<<<<<<<<<<<<<
  * BASE_URL = "https://www.sellersprite.com"
  * 
 */
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_SIGNIN_URL, __pyx_mstate_global->__pyx_kp_u_https_www_sellersprite_com_w_use) < (0)) __PYX_ERR(0, 22, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_SIGNIN_URL, __pyx_mstate_global->__pyx_kp_u_https_www_sellersprite_com_w_use) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/api/client.py":23
+  /* "opscli/seller_sprite/api/client.py":25
  * LOGIN_PAGE_URL = "https://www.sellersprite.com/cn/w/user/login"
  * SIGNIN_URL = "https://www.sellersprite.com/w/user/signin"
  * BASE_URL = "https://www.sellersprite.com"             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_BASE_URL, __pyx_mstate_global->__pyx_kp_u_https_www_sellersprite_com) < (0)) __PYX_ERR(0, 23, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_BASE_URL, __pyx_mstate_global->__pyx_kp_u_https_www_sellersprite_com) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/api/client.py":26
+  /* "opscli/seller_sprite/api/client.py":28
  * 
  * 
  * class SellerSpriteApiClient:             # <<<<<<<<<<<<<<
  *     """ Web """
  * 
 */
-  __pyx_t_2 = __Pyx_Py3MetaclassPrepare((PyObject *) NULL, __pyx_mstate_global->__pyx_empty_tuple, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_kp_u_Web); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 26, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_Py3MetaclassPrepare((PyObject *) NULL, __pyx_mstate_global->__pyx_empty_tuple, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_kp_u_Web); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
 
-  /* "opscli/seller_sprite/api/client.py":29
+  /* "opscli/seller_sprite/api/client.py":31
  *     """ Web """
  * 
  *     def __init__(             # <<<<<<<<<<<<<<
  *         self,
  *         *,
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 29, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_account, __pyx_mstate_global->__pyx_n_u_SellerSpriteAccount) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_user_agent, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_timeout, __pyx_mstate_global->__pyx_n_u_float) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_1__init__, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient___init, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 29, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_account, __pyx_mstate_global->__pyx_n_u_SellerSpriteAccount) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_user_agent, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_timeout, __pyx_mstate_global->__pyx_n_u_float) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_cookie_path, __pyx_mstate_global->__pyx_kp_u_Path_None) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_1__init__, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient___init, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[9])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
-  if (!__Pyx_CyFunction_InitDefaults(__pyx_t_5, __pyx_mstate_global->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_defaults)) __PYX_ERR(0, 29, __pyx_L1_error)
+  if (!__Pyx_CyFunction_InitDefaults(__pyx_t_5, __pyx_mstate_global->__pyx_ptype_6opscli_13seller_sprite_3api_6client___pyx_defaults)) __PYX_ERR(0, 31, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/api/client.py":33
+  /* "opscli/seller_sprite/api/client.py":35
  *         *,
  *         account: SellerSpriteAccount,
  *         user_agent: str = DEFAULT_USER_AGENT,             # <<<<<<<<<<<<<<
  *         timeout: float = 60.0,
- *     ) -> None:
+ *         cookie_path: Path | None = None,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_DEFAULT_USER_AGENT); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 33, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_DEFAULT_USER_AGENT); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 35, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (!(likely(PyUnicode_CheckExact(__pyx_t_6))||((__pyx_t_6) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_6))) __PYX_ERR(0, 33, __pyx_L1_error)
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_6))||((__pyx_t_6) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_6))) __PYX_ERR(0, 35, __pyx_L1_error)
   __Pyx_CyFunction_Defaults(struct __pyx_defaults, __pyx_t_5)->arg0 = ((PyObject*)__pyx_t_6);
   __Pyx_GIVEREF(__pyx_t_6);
   __pyx_t_6 = 0;
-  __Pyx_CyFunction_SetDefaultsGetter(__pyx_t_5, __pyx_pf_6opscli_13seller_sprite_3api_6client_4__defaults__);
+  __Pyx_CyFunction_SetDefaultsGetter(__pyx_t_5, __pyx_pf_6opscli_13seller_sprite_3api_6client_8__defaults__);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_5) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_init, __pyx_t_5) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":46
- *         )
+  /* "opscli/seller_sprite/api/client.py":51
+ *         self._load_cookies()
  * 
  *     async def __aenter__(self) -> "SellerSpriteApiClient":             # <<<<<<<<<<<<<<
  *         return self
  * 
 */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 46, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 51, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_SellerSpriteApiClient_2) < (0)) __PYX_ERR(0, 46, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_3__aenter__, __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient___aenter, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 46, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_SellerSpriteApiClient_2) < (0)) __PYX_ERR(0, 51, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_3__aenter__, __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient___aenter, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 51, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_aenter, __pyx_t_4) < (0)) __PYX_ERR(0, 46, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_aenter, __pyx_t_4) < (0)) __PYX_ERR(0, 51, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":49
+  /* "opscli/seller_sprite/api/client.py":54
  *         return self
  * 
  *     async def __aexit__(self, exc_type, exc, tb) -> None:             # <<<<<<<<<<<<<<
  *         await self.aclose()
  * 
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 49, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < (0)) __PYX_ERR(0, 49, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_6__aexit__, __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient___aexit, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 49, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < (0)) __PYX_ERR(0, 54, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_6__aexit__, __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient___aexit, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_aexit, __pyx_t_5) < (0)) __PYX_ERR(0, 49, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_aexit, __pyx_t_5) < (0)) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":52
+  /* "opscli/seller_sprite/api/client.py":57
  *         await self.aclose()
  * 
  *     async def aclose(self) -> None:             # <<<<<<<<<<<<<<
  *         """ HTTP client"""
  *         await self._client.aclose()
 */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 52, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 57, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < (0)) __PYX_ERR(0, 52, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_9aclose, __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_aclose, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 52, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < (0)) __PYX_ERR(0, 57, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_9aclose, __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_aclose, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 57, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_aclose, __pyx_t_4) < (0)) __PYX_ERR(0, 52, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_aclose, __pyx_t_4) < (0)) __PYX_ERR(0, 57, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":56
+  /* "opscli/seller_sprite/api/client.py":61
  *         await self._client.aclose()
  * 
- *     async def login(self) -> dict[str, Any]:             # <<<<<<<<<<<<<<
- *         """ cookie"""
- *         await self._client.get(LOGIN_PAGE_URL, headers=self._browser_headers())
+ *     def switch_account(self, account: SellerSpriteAccount) -> None:             # <<<<<<<<<<<<<<
+ *         """ cookie """
+ *         self.account = account
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 56, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 61, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 56, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_12login, __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_login, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 56, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_account, __pyx_mstate_global->__pyx_n_u_SellerSpriteAccount) < (0)) __PYX_ERR(0, 61, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < (0)) __PYX_ERR(0, 61, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_12switch_account, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_switch_acc, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[10])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 61, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_login, __pyx_t_5) < (0)) __PYX_ERR(0, 56, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_switch_account, __pyx_t_5) < (0)) __PYX_ERR(0, 61, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":97
+  /* "opscli/seller_sprite/api/client.py":68
+ *         self._load_cookies()
+ * 
+ *     async def login(self) -> dict[str, Any]:             # <<<<<<<<<<<<<<
+ *         """ cookie"""
+ *         await self._client.get(LOGIN_PAGE_URL, headers=self._browser_headers())
+*/
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_14login, __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_login, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
+  #endif
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_login, __pyx_t_4) < (0)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":110
  *         }
  * 
  *     async def post_json(self, url: str, payload: dict[str, Any], *, referer: str | None = None) -> dict[str, Any]:             # <<<<<<<<<<<<<<
  *         """POST JSON  JSON"""
  *         response = await self._client.post(
 */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 97, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_referer, Py_None) < (0)) __PYX_ERR(0, 97, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 110, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_url, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 97, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_payload, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 97, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_referer, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 97, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 97, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_15post_json, __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_post_json, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 97, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_referer, Py_None) < (0)) __PYX_ERR(0, 110, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 110, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_url, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 110, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_payload, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 110, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_referer, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 110, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 110, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_17post_json, __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_post_json, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 110, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_6);
   #endif
-  __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_6, __pyx_t_5);
-  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_4);
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_6, __pyx_t_4);
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_post_json, __pyx_t_6) < (0)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_post_json, __pyx_t_6) < (0)) __PYX_ERR(0, 110, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":115
+  /* "opscli/seller_sprite/api/client.py":128
  *         return self._parse_json_response(response)
+ * 
+ *     async def post_form(self, url: str, payload: dict[str, Any], *, referer: str | None = None) -> str:             # <<<<<<<<<<<<<<
+ *         """POST """
+ *         response = await self._client.post(
+*/
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_referer, Py_None) < (0)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_url, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 128, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_payload, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 128, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_referer, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 128, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_20post_form, __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_post_form, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
+  #endif
+  __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_4, __pyx_t_6);
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_post_form, __pyx_t_4) < (0)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":148
+ *         return response.text
+ * 
+ *     async def get_json(self, url: str, params: dict[str, Any], *, referer: str | None = None) -> dict[str, Any]:             # <<<<<<<<<<<<<<
+ *         """GET JSON  JSON"""
+ *         response = await self._client.get(
+*/
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 148, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_referer, Py_None) < (0)) __PYX_ERR(0, 148, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 148, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_url, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 148, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_params, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 148, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_referer, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 148, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 148, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_23get_json, __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_get_json, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 148, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_6);
+  #endif
+  __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_6, __pyx_t_4);
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_5);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_get_json, __pyx_t_6) < (0)) __PYX_ERR(0, 148, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":160
+ *         return self._parse_json_response(response)
+ * 
+ *     async def category_nodes(             # <<<<<<<<<<<<<<
+ *         self,
+ *         *,
+*/
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 160, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+
+  /* "opscli/seller_sprite/api/client.py":165
+ *         market_id: Any,
+ *         table: str,
+ *         node_id_path: str | None = None,             # <<<<<<<<<<<<<<
+ *         node_label_path: str | None = None,
+ *     ) -> dict[str, Any]:
+*/
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_node_id_path, Py_None) < (0)) __PYX_ERR(0, 160, __pyx_L1_error)
+
+  /* "opscli/seller_sprite/api/client.py":166
+ *         table: str,
+ *         node_id_path: str | None = None,
+ *         node_label_path: str | None = None,             # <<<<<<<<<<<<<<
+ *     ) -> dict[str, Any]:
+ *         """"""
+*/
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_node_label_path, Py_None) < (0)) __PYX_ERR(0, 160, __pyx_L1_error)
+
+  /* "opscli/seller_sprite/api/client.py":160
+ *         return self._parse_json_response(response)
+ * 
+ *     async def category_nodes(             # <<<<<<<<<<<<<<
+ *         self,
+ *         *,
+*/
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 160, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_market_id, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 160, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_table, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 160, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_node_id_path, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 160, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_node_label_path, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 160, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 160, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_26category_nodes, __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_category_n, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 160, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
+  #endif
+  __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_4, __pyx_t_6);
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_category_nodes, __pyx_t_4) < (0)) __PYX_ERR(0, 160, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":183
+ *         )
  * 
  *     async def request_json(self, method: str, url: str, **kwargs: Any) -> dict[str, Any]:             # <<<<<<<<<<<<<<
  *         """ JSON"""
  *         response = await self._client.request(method, _absolute_url(url), **kwargs)
 */
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 115, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_method, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 115, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_url, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 115, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 115, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 115, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_18request_json, __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_request_js, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 115, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 183, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_method, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 183, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_url, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 183, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_kwargs, __pyx_mstate_global->__pyx_n_u_Any) < (0)) __PYX_ERR(0, 183, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 183, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_29request_json, __Pyx_CYFUNCTION_COROUTINE, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_request_js, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[8])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 183, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
-  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
-  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_6);
-  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_request_json, __pyx_t_4) < (0)) __PYX_ERR(0, 115, __pyx_L1_error)
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_request_json, __pyx_t_5) < (0)) __PYX_ERR(0, 183, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":120
+  /* "opscli/seller_sprite/api/client.py":188
  *         return self._parse_json_response(response)
  * 
  *     def cookie_names(self) -> list[str]:             # <<<<<<<<<<<<<<
  *         """ cookie """
  *         return [cookie.name for cookie in self._client.cookies.jar]
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 120, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 188, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_str) < (0)) __PYX_ERR(0, 188, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_32cookie_names, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_cookie_nam, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[11])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 188, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_str) < (0)) __PYX_ERR(0, 120, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_21cookie_names, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_cookie_nam, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 120, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_6);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
-  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_6);
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_4);
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_cookie_names, __pyx_t_4) < (0)) __PYX_ERR(0, 188, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_cookie_names, __pyx_t_6) < (0)) __PYX_ERR(0, 120, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":124
+  /* "opscli/seller_sprite/api/client.py":192
  *         return [cookie.name for cookie in self._client.cookies.jar]
+ * 
+ *     def has_cookies(self) -> bool:             # <<<<<<<<<<<<<<
+ *         """ client  cookie"""
+ *         return bool(self._client.cookies.jar)
+*/
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 192, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_bool) < (0)) __PYX_ERR(0, 192, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_34has_cookies, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_has_cookie, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[12])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 192, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
+  #endif
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_has_cookies, __pyx_t_5) < (0)) __PYX_ERR(0, 192, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":196
+ *         return bool(self._client.cookies.jar)
+ * 
+ *     def has_login_cookies(self) -> bool:             # <<<<<<<<<<<<<<
+ *         """ cookie """
+ *         names = set(self.cookie_names())
+*/
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 196, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_bool) < (0)) __PYX_ERR(0, 196, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_36has_login_cookies, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_has_login, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[13])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 196, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
+  #endif
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_has_login_cookies, __pyx_t_4) < (0)) __PYX_ERR(0, 196, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":201
+ *         return bool(names & {"rank-login-user", "rank-login-user-info", "Sprite-X-Token"})
+ * 
+ *     def save_cookies(self) -> None:             # <<<<<<<<<<<<<<
+ *         """ cookie """
+ *         cookies = [
+*/
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 201, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < (0)) __PYX_ERR(0, 201, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_38save_cookies, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient_save_cooki, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[14])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 201, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
+  #endif
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_save_cookies, __pyx_t_5) < (0)) __PYX_ERR(0, 201, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":215
+ *         self.cookie_path.write_text(json.dumps(cookies, ensure_ascii=False, indent=2), encoding="utf-8")
  * 
  *     def _parse_json_response(self, response: httpx.Response) -> dict[str, Any]:             # <<<<<<<<<<<<<<
  *         """"""
  *         text = response.text
 */
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 124, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_response, __pyx_mstate_global->__pyx_kp_u_httpx_Response) < (0)) __PYX_ERR(0, 124, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 124, __pyx_L1_error)
-  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_23_parse_json_response, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient__parse_jso, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[8])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 124, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 215, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_response, __pyx_mstate_global->__pyx_kp_u_httpx_Response) < (0)) __PYX_ERR(0, 215, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 215, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_40_parse_json_response, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient__parse_jso, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[15])); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 215, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_4);
   #endif
-  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_6);
-  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_parse_json_response, __pyx_t_4) < (0)) __PYX_ERR(0, 124, __pyx_L1_error)
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_4, __pyx_t_5);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_parse_json_response, __pyx_t_4) < (0)) __PYX_ERR(0, 215, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":150
+  /* "opscli/seller_sprite/api/client.py":249
  *         return payload
  * 
  *     def _browser_headers(self, *, referer: str | None = None) -> dict[str, str]:             # <<<<<<<<<<<<<<
  *         """ Web """
  *         headers = {
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 150, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 249, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_referer, Py_None) < (0)) __PYX_ERR(0, 150, __pyx_L1_error)
-  __pyx_t_6 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 150, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_referer, Py_None) < (0)) __PYX_ERR(0, 249, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 249, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_referer, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 249, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_str) < (0)) __PYX_ERR(0, 249, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_42_browser_headers, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient__browser_h, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[16])); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 249, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_referer, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 150, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_str) < (0)) __PYX_ERR(0, 150, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_25_browser_headers, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient__browser_h, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[9])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 150, __pyx_L1_error)
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_6);
+  #endif
+  __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_6, __pyx_t_4);
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_6, __pyx_t_5);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_browser_headers, __pyx_t_6) < (0)) __PYX_ERR(0, 249, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":262
+ *         return headers
+ * 
+ *     def _load_cookies(self) -> None:             # <<<<<<<<<<<<<<
+ *         if not self.cookie_path.exists():
+ *             return
+*/
+  __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 262, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+  if (PyDict_SetItem(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_None) < (0)) __PYX_ERR(0, 262, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_21SellerSpriteApiClient_44_load_cookies, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient__load_cook, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[17])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 262, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
-  __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_5, __pyx_t_4);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_6);
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_browser_headers, __pyx_t_5) < (0)) __PYX_ERR(0, 150, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_load_cookies, __pyx_t_5) < (0)) __PYX_ERR(0, 262, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":26
+  /* "opscli/seller_sprite/api/client.py":28
  * 
  * 
  * class SellerSpriteApiClient:             # <<<<<<<<<<<<<<
  *     """ Web """
  * 
 */
-  __pyx_t_5 = __Pyx_Py3ClassCreate(((PyObject*)&PyType_Type), __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_2, NULL, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 26, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_Py3ClassCreate(((PyObject*)&PyType_Type), __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_2, NULL, 0, 0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient, __pyx_t_5) < (0)) __PYX_ERR(0, 26, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_SellerSpriteApiClient, __pyx_t_5) < (0)) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":164
+  /* "opscli/seller_sprite/api/client.py":286
  * 
  * 
  * def _absolute_url(url: str) -> str:             # <<<<<<<<<<<<<<
  *     """ URL """
  *     if url.startswith("http://") or url.startswith("https://"):
 */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 164, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 286, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_url, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 164, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 164, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_1_absolute_url, 0, __pyx_mstate_global->__pyx_n_u_absolute_url, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[10])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 164, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_url, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 286, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 286, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_1_absolute_url, 0, __pyx_mstate_global->__pyx_n_u_absolute_url, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[18])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 286, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_absolute_url, __pyx_t_5) < (0)) __PYX_ERR(0, 164, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_absolute_url, __pyx_t_5) < (0)) __PYX_ERR(0, 286, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/seller_sprite/api/client.py":171
+  /* "opscli/seller_sprite/api/client.py":293
  * 
  * 
  * def _md5(value: str) -> str:             # <<<<<<<<<<<<<<
  *     """ MD5 """
  *     return hashlib.md5(value.encode("utf-8")).hexdigest()
 */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 171, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 293, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 171, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 171, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_3_md5, 0, __pyx_mstate_global->__pyx_n_u_md5, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[11])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 171, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 293, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 293, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_3_md5, 0, __pyx_mstate_global->__pyx_n_u_md5, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[19])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 293, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_md5, __pyx_t_2) < (0)) __PYX_ERR(0, 171, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_md5, __pyx_t_2) < (0)) __PYX_ERR(0, 293, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":298
+ * 
+ * 
+ * def _looks_like_session_expired_response(response: httpx.Response) -> bool:             # <<<<<<<<<<<<<<
+ *     location = response.headers.get("location", "")
+ *     text = response.text[:1000].lower()
+*/
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 298, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_response, __pyx_mstate_global->__pyx_kp_u_httpx_Response) < (0)) __PYX_ERR(0, 298, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_bool) < (0)) __PYX_ERR(0, 298, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_5_looks_like_session_expired_response, 0, __pyx_mstate_global->__pyx_n_u_looks_like_session_expired_resp, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[20])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 298, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
+  #endif
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_2);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_looks_like_session_expired_resp, __pyx_t_5) < (0)) __PYX_ERR(0, 298, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+
+  /* "opscli/seller_sprite/api/client.py":309
+ * 
+ * 
+ * def _default_cookie_path(account: SellerSpriteAccount) -> Path:             # <<<<<<<<<<<<<<
+ *     key = _md5(f"{account.name}:{account.username}")[:16]
+ *     return DEFAULT_OUTPUT_DIR.parent / "sessions" / f"{key}.cookies.json"
+*/
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 309, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_account, __pyx_mstate_global->__pyx_n_u_SellerSpriteAccount) < (0)) __PYX_ERR(0, 309, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_Path) < (0)) __PYX_ERR(0, 309, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_3api_6client_7_default_cookie_path, 0, __pyx_mstate_global->__pyx_n_u_default_cookie_path, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_api_client, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[21])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 309, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
+  #endif
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_5);
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_default_cookie_path, __pyx_t_2) < (0)) __PYX_ERR(0, 309, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "opscli/seller_sprite/api/client.py":1
@@ -9310,27 +14118,37 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "opscli/seller_sprite/api/client.py":78
+  /* "opscli/seller_sprite/api/client.py":90
  *         )
  *         self.login_status = response.status_code
  *         location = response.headers.get("location", "")             # <<<<<<<<<<<<<<
  *         self.login_redirect = bool(location)
  *         if location:
 */
-  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_location, __pyx_mstate_global->__pyx_kp_u_); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 78, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_location, __pyx_mstate_global->__pyx_kp_u_); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 90, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[0]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[0]);
 
-  /* "opscli/seller_sprite/api/client.py":89
+  /* "opscli/seller_sprite/api/client.py":101
  *                 "",
  *                 status_code=response.status_code,
  *                 response_excerpt=response.text[:1000],             # <<<<<<<<<<<<<<
  *             )
- *         return {
+ *         self.save_cookies()
 */
-  __pyx_mstate_global->__pyx_slice[0] = PySlice_New(Py_None, __pyx_mstate_global->__pyx_int_1000, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_slice[0])) __PYX_ERR(0, 89, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_slice[0] = PySlice_New(Py_None, __pyx_mstate_global->__pyx_int_1000, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_slice[0])) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_slice[0]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_slice[0]);
+
+  /* "opscli/seller_sprite/api/client.py":310
+ * 
+ * def _default_cookie_path(account: SellerSpriteAccount) -> Path:
+ *     key = _md5(f"{account.name}:{account.username}")[:16]             # <<<<<<<<<<<<<<
+ *     return DEFAULT_OUTPUT_DIR.parent / "sessions" / f"{key}.cookies.json"
+*/
+  __pyx_mstate_global->__pyx_slice[1] = PySlice_New(Py_None, __pyx_mstate_global->__pyx_int_16, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_slice[1])) __PYX_ERR(0, 310, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_slice[1]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_slice[1]);
   #if CYTHON_IMMORTAL_CONSTANTS
   {
     PyObject **table = __pyx_mstate->__pyx_tuple;
@@ -9353,7 +14171,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   #if CYTHON_IMMORTAL_CONSTANTS
   {
     PyObject **table = __pyx_mstate->__pyx_slice;
-    for (Py_ssize_t i=0; i<1; ++i) {
+    for (Py_ssize_t i=0; i<2; ++i) {
       #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
       #if PY_VERSION_HEX < 0x030E0000
       if (_Py_IsOwnedByCurrentThread(table[i]) && Py_REFCNT(table[i]) == 1)
@@ -9380,34 +14198,34 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 8; } index[] = {{0},{2},{15},{65},{12},{32},{111},{4},{179},{23},{10},{62},{9},{33},{1},{1},{1},{8},{30},{33},{33},{14},{14},{7},{6},{2},{7},{8},{28},{44},{42},{14},{9},{9},{34},{11},{9},{16},{18},{14},{14},{14},{10},{6},{14},{6},{3},{11},{8},{18},{15},{14},{4},{2},{6},{8},{20},{7},{10},{19},{21},{32},{31},{30},{38},{42},{28},{34},{27},{31},{34},{20},{3},{1},{24},{30},{13},{7},{6},{10},{9},{18},{9},{9},{16},{8},{7},{18},{5},{4},{6},{12},{7},{4},{4},{7},{5},{5},{3},{8},{5},{16},{4},{8},{3},{7},{7},{9},{5},{8},{13},{5},{3},{4},{4},{6},{8},{5},{14},{12},{8},{4},{3},{13},{6},{10},{4},{8},{4},{29},{31},{38},{20},{8},{12},{7},{3},{4},{9},{11},{12},{7},{7},{12},{8},{16},{6},{4},{4},{4},{12},{10},{11},{3},{2},{8},{4},{5},{7},{6},{3},{10},{8},{5},{6},{16},{10},{5},{28},{81},{59},{5},{5},{5},{26},{175},{60}};
-    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (1857 bytes) */
-const char* const cstring = "BZh91AY&SY\004+ \241\000\000\326\377\377\355\374\375\367\375\377\377\373\377\377\376\272\277\377\377\374xS\307\177oI\367\357\300@@@O\340\300\000P\005\375\333\255\354\347\027mki{\263\246\321\267\203\320\322\024\32156\304\021\250\375Sz\241\223\304M1\251\223\324\364\324\362\236\246\232h\017Q\351=L\200\001\221\211\3526\201<\247\246@M\250\3204\006\203i\006\324\320\362\236Ph\210\023L&\023\324\000\247\223SL\214\232i\240\r\003OSA\243F\200\000\000\006\200\323\324\000\320\000\000\000\000\0004\322\002dj\ni\206\251\3516P\336\222\r0LFL5\014\203\023\t\220\006\000\021\204\323\0020 \031\0312\000\300\206\201\246\"\237\250\201 \006\200\000\000\000\000h\000\000\000\000\000\000\000\000\000\000h\000\003C@\014\212&4&\231'\2524\362i<\243\324\365='\244\301\036\240\000\000\000\000\000\000\000\000\000\000\000\000\000\000=R\025\204\277\220\267\366}\014\301\200U\r\237\017\3435,QB\010 \010 \010\"\033\tRAb\323\252\000p@\342\205@E@-\255\220\214\260\305!Ra$\225_\033\316hbx\013\010-\334U\261\240\013 \306jk\201\336\207\001\035c>H\336,tA\366I\315\312\253\237\023\217\212\313\206\311Q-\202\222\022K1 |\266\320\254\206Yu\306U\207^\201S\255\366X#\004a\025\227\337<+\341\213]\372\362\323r\365\255\301r\261\264\034\2700\345j\376\257\021M\263(\317g0\201\020<u}\204tbG\301\253JS\221(\216b\316\361\241\331\316\005\216{\267l{W\"\320\333@oF\210 O$\242\343.\013\000j[Os\355\333\240\206R\020,[\265\211\014\253\334\263\r{\205k\201J\365w\013V\240v\225\335\\J\n\301\361H9K-\021\332\255\304&\311\177oNU-]\000\303\277p\3279\340\016\352\266\226L\211\376\201h]\272^\271\342\255\334\306\337G\267p\346\316\2517H F\274\303yZ\335\271i3\211\001\245XY\351\020~c\241\234\010\rT\263W\027\031i`\356Tc{\216\255\320\225\224\207\n\3111&\233v5\235$\323u\206\356\236\354bY\031\343\346\235K\020\273{\004\354G\2438g\316\0277\266\213\321\250\245\221DRnCYd\006\237\213Pt\316p\022-\360\257+\022\366\225,\211Q\353\233\200\257T\0160\261\310\004T\234;-\326zI2v\035z\207#\026Xv\323511}\266\365\r\003\0202\373\004c\000\300\264`\312\3420\261\216\321\3475E\366:""\361\324\257\2374\221S\344\327\370E(D\317>ADHpUH\"\202\242\242\201X\025\220{%\351\252\202\"\002\25041\311\035\0172\267H\305\323\225\241\006\037Ri\345E6\231\2723\006\262 \201{\350/\301\302E\243\257\035ll\273\374\tx8\020]\342\244;\t\242Y\030Ri\312\236\304\302\242f$\251\217\342\254\324Ad\"%\240d\013\030\312\210\253\230B[8\r)\211^7\213w\305\341\223IC\246$\317\247\267\353\327\001a\361E\000\306\271\2177\217\031\321\025B\0000E\214Z%\320\034\006L\024\346R4S\251!\346X'\346,I\021\263\212\246\032\t8 t;&M8j\321T\026\321\3169k\002A\221\026\005\003Dh\252\360\025\244a\010M\0174X\340\236v\251a]b\371\301b\212Xt--\276\3268\332\271v\tRgPudn\006\326l\304\004\340\002J%\205\313B\245\326\212\274\th4\212\0066d0=\366\221\350\321r\253\206\267>\002\351\025\346\005\025\\\014\322\253\021^\310M\354v\214W\221\304\036\312\266\213h\352_Mh\312\271\033(\211\023\036\252\343-\013y\354\033\200\214\315L\216\264\260I\n\241tRX\202\014\321I\230j\014Tn<~\202\377)\234\252\204\024\"\230\252\335r\330\000\032\311\017\254\250\"\250\360XZ\325\0102RCK\207\202\360\260&\244)\200O>V\354\242\204\233\031\007\0374H A\210\221=\307,.\303\024\003\304\033<\225\010\0058\300C\024\242mK\221\245H\233<\233e\302\010Y\317\000\230G\2150ChPJ\224]\240\361\004F\265\253\332\327\226\215\005\204\310\310RPKY\332\0219\310\034\316K\201\0310\010\224\004r\007'\342:j\004\2222d`\t\220\030\000A\004\220A`x\221H\\\231u@\304D\034\241\013\025qL2\215%\224sA\364\023\020\274I|\"\241T\025\204\202\253\213\020\247j\264g\226\321$o\030\200M\303\240\024h\274\037\220*@\334\322\200\245\202\252\211nE\275\323\3005#\211x\370\262-\337\210\260\310_.\3173\244\2716'3\010I]\276\275\0215\204\324l\251\212D\t\003\031\024\000(\204\212\256\254\324\202\241\023\304\336\202]\001\260\"2SlA\210\3078o,\\!Ab\371\021\004\306\0240\241%\024)\0014\212\320\222\241\236h\337\243d\366\007\0210-\260&r\014\363\344\020\263.J\226-\301\2004f\203\0345\000\206\301\024\t\344\\c1U\246\260&\265\270\302\3218\356|\000P\276#\253\006\220\342\351\244\352XY1\225c'1\313\350\237(\002Q\000\232\374\320\342%;""^\013\251\267$\003Q\220\220\222\021 \227[\200Ik\325\207\345\024*\244\021h_\253[\216\366\034\013\304\004\262y\3679\314#\310\0230@\250\037\022\350\264[j4\265\350\020a,\030\350\221q\226\225\301bP\345\256\327\211\226\260E\005\273\004\203m\322R!\n\013\014H\211\222\275a\227D\252\225\207\332\224\346\244\332\316H\313aGL\263\302\231\005\265\314q\324\200\316~\t\306\230\201Q\300\304\256,\030\3044\000`a\233\310BH.\003\254\024f\245PC\204Aw\237\231jp\211O\211)\026\014I\274j-\304W\022\027\221\373\244B\307^\341\266I\016\341h\316\222ED\026\255 \016B\033_\016^\034{\354\201\037\003\2739\354\271\2567p\243oM\231N\300R\024G\274\204\325\264b\335\337\371\006\232\374nD\3427\224\274\301u\217\023Oo\300\332\215Z6\202\325y\363\304\034\234.\335\352\305\220P\260b\372\275rJ\275\363\362\324.\216L\202\213\362\372\001\\6G\324\003L\306\317\032\\Y6\326\326Cx\320\2051Cg\027WY\337\235\366\263;z\0012\010-r\033$(\250\272\267\221\246)Y@T8\251D\202\242.\304\3106\032\210\275\350u\314}\313\250\\\344`\017\231HN\326V\305\373\331\252\0058W\r\230=j\342\0309\330\"\264\3113\374*\232gQ4\210\300\004PJX$\222\304\321$X\266\330\357/\240\237`r/\245\305\343\362\305\002\037\245U\354\2035:\204?\330\2110\247P\205\313\223\314\027H\024\201\353\377\342\356H\247\n\022\000\205d\024 ";
-    PyObject *data = __Pyx_DecompressString(cstring, 1857, 2);
+    const struct { const unsigned int length: 9; } index[] = {{0},{2},{15},{65},{12},{32},{111},{4},{179},{11},{23},{14},{10},{62},{9},{1},{1},{33},{1},{1},{8},{30},{33},{33},{13},{14},{14},{7},{6},{2},{7},{8},{28},{44},{42},{14},{9},{9},{34},{15},{20},{11},{9},{16},{18},{14},{14},{14},{17},{10},{63},{6},{11},{10},{5},{27},{20},{13},{14},{6},{3},{11},{8},{18},{18},{26},{15},{14},{4},{2},{6},{4},{8},{20},{7},{10},{19},{21},{32},{31},{30},{38},{35},{42},{28},{36},{34},{30},{33},{39},{27},{31},{31},{34},{34},{36},{20},{3},{1},{24},{30},{27},{30},{13},{7},{6},{10},{9},{8},{11},{18},{9},{9},{4},{16},{8},{14},{5},{7},{18},{5},{4},{6},{12},{11},{7},{4},{4},{20},{7},{6},{5},{5},{5},{8},{12},{3},{8},{8},{6},{5},{16},{4},{8},{3},{8},{11},{17},{7},{7},{9},{5},{6},{8},{13},{5},{3},{4},{4},{3},{6},{13},{5},{8},{5},{14},{12},{36},{5},{8},{8},{9},{4},{3},{7},{13},{6},{5},{10},{3},{4},{8},{5},{4},{10},{13},{12},{15},{29},{31},{27},{38},{6},{6},{7},{20},{8},{12},{4},{7},{7},{3},{4},{9},{9},{11},{12},{9},{7},{7},{12},{8},{16},{6},{4},{12},{4},{4},{8},{3},{12},{10},{11},{3},{14},{5},{2},{8},{4},{5},{7},{6},{3},{10},{8},{5},{6},{10},{16},{37},{86},{10},{5},{28},{109},{59},{16},{5},{20},{5},{5},{23},{45},{102},{26},{53},{203},{284},{60}};
+    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (2759 bytes) */
+const char* const cstring = "BZh91AY&SY\316\264\376\303\000\001{\177\377\377\376\377\377\377\377\377\377\377\377\376\376\377\377\377\375xS\307\177oI\367\357\300@@@O\340\300\000`\t[\211\214\207St\320\241D\250$6\304\257\274\"y\r\t& 5O51556jy6\246T\336S\324y4z*o\325 \364\324\323F\2321\224\364\332\246j=OSd\233D\315#\324\330\206\223\332\241\352z\231\251\247\251\220\365\r\014\004\001\246OH4D\3213\t\251\265\036\244\332\006BM4CF\023@\320\032\001\220\000\000\000\000\0002\032\000h\000\000\000\000\000\rLL\246D\246OQ\2404h\000\r\000hh\3204\003@\000\000\320\000\003 \000h\000\001\241\240\001\220\364\201\240\t\022\020\023\"\233\004\320\232\232f\232\215\250\362)\371PyG\224\000dh\006\232\000\032\003@\000\006\200\000\320\000\000\000\000\000\200\320\3104\311\246\201\204\320\032\032d\321\246\004dd\320d2d\031\032dh\323 \321\240\006\010\323A\210h\000d\320\311\200\215\006\215\003J(\000\000d\321\220\320\320i\240\321\210\r\000\310\000\000\003@\006\200\000\000\000\r\000\000\r\006\200\000P\220\023\266C\265\341\036\232\026F\010 }\002\356\020E\265\373\020\"t\240\006[F\237\376\013\027L\370*\264\270b\033lm\014ccLmTL\266F\225zVUMD\312Q\2465[\212\322\261\244\250\323\230+\231mwlU\320P5lI+Z\002{S#u\333i\205\356R\336\033O\235Gn*\313\225\362\202\265v\375uQQ\\/P\231/h\301\204\255\024\221UD\363\221\357\002\220\242\200\322\211\251\236\001\2253R,\367\275\341H\317\"8UyT\226\264\352X\271\374\264\313\331t:\343\235:\317KY\310\2235G\002\351\276\213\222\253\326Pv\023\343,\2141\016\027A\231Y\363\205\301N\230\240\224\334E\021\355\276\237`F\262S4\243\307<]\360\325\241mA\033\246\245Rn,d\n6\214T&4Z\272i\375D\rIr\357\036\030\301\214\276\345\310\030\215\231\332\220\304\211~\270\240\346/-\025.\000\346fQ\344\264\315+\236y\313\351\222\306Zk\374\200\364\237.\214(\n1G\317>U<\233\002\241\345\003-\354m\300P\333\371\320\210\346\342\2263Y\030\252\r\n\222\366'\204\211h\235_\2027)=>\025;\203\003`}\031\373{'\226\031\257\235f\356K\324\227\255\363!\334\366T{\254\347'\203H\347\227S\260\035\020\344\251Y\345\212\252 \324Q\264'\210\002\003;\273}\375\261r\322\010^""\274R\240K@\016\355v\336R?0\323\030\357\024C6\326\025\323fr}\311\367`7\031\215\304(\264\354^.V\314\235\311j\027\247J\331s\201\312n\244y-\331{\234\036\022n+3\262\242\242\004\017\325\221\314f\212\251\034\206\300\325\351B\303dnc\354\232\027.\221\001\347\232*\034H\224F\017N\343;{n\374?\177z\246s\206|\273?\030\206k]6\375v\204eD\275\340\r\244.\213\022X\303\321\243\005b\216\230C\n#\030\347\246{m\323qT\340\361\260q}:\213\313\314!\314\243\314\007\226\032\334\344\342\273\371\335^?*\247\234y\2510M[\002zNn),\022`e\233\265\304\025?\341\306\253\272\300y\346D\010\362\204\241M\021\311\363\324\272\2459M\007\001\234\010e<\372\375\025\346\0013\364\352\342\340\005\263\026^\265\324\027&,\0062\030>t\302\024%h\"\032\225\353\n\270\006\0326B\261\030\213\244\263\336\354x\212\242#\023\332k\333\2175\334uB\326n\257I\032\276\207_Y\254\303\213z.\224\274\3450k):H\266\333\t\021\252\\\020\343m\365<\177M\322p\204\220\300!\271\tK\034~\311\204\035!1\010\323\276\246h\342NtL\321\022\256P\212\301\004\004L\222\200\201\216\253\230L\260\266\021UDf):\353\250\235\365\227w\356n\223/D\242nr\314\343s\347\367\205\334\270\354\225\230\271\337h\351\2261\322U7\3301\364\315AZ\364]7\270I[L\257\336\227\227\233x\016\000\n\261l\321\023\033{\373\267\336\350\017y\324\204s\306e\0167\203\021 z.\323\022\326\231l\273}\263kv\277\026X\230\325\021\276\331\211\261aN\267\221\354\234\275\236\023\352\371N\244\374u\245\2361\304\014e\226\311k3g\215\263\220\3445\300g\223#\246\312\205\303S\346\327\323\365w\"\256\322\264:\317\236Z\263.\302\350A\354\274\034r\332f|\304\305\335\350\317uFzYS\266\035jmNvD\244\034-\021<\310\325\244+\016\362\350o\271^_\022\254\375H\252w\275\200\035UlQ(\206\004\360p\311\031\226\024t\251w\216p\366 \324\021h\313\035\356\246g\303m\251\221r'\\ \206\2226)\223,\315\025\312\260\235\205+\256\010\330\027\\Wz\244\256\256\376\023\031\013\275\357\243%\267\235W\262P\257\312\370\374\225\007I\345.\256}\"U\365\304\210\021S\2566\263\317%<\204\264f\261\241\027=\321\340P\327\025\351P\254\222Qp\221#\232jH\315\312H\255\327\221T\0224d""\233w\302\317)J\272\347%9\232\032\202V\030p\231]\203\230\201\234\201\023P\342K\024\246\262t\272\313)\214i\276\025P\343\351A+7\014\374\372%Z\314\rb\243M%\204\234\247\256\\\034s\262\325\017\217>\213\255\304\233\001\260\311\005\246\335\306\325\236&\264\234\0207}\035\244\325\346\374H`w\311\367\\v\275\353\241\323F\006\303O.\346\330g\210\343\204\221\000tN\346\232\r\364P\004\304l\252\206\236\226\212\316~\336\347GI>\220\370\241C\002\234R\t'\224[\007\234\365\320,I\nn\020\272duN\004\361\23565\343ln\006\375`\262\001\206\000+\215E\210\334)J\2648\026\203a\330,H\274\031\220`\240\032\214\210\266\262\240\342\340\361-\014\264z\361\277r\344\347\273\033\363\350,\325\326\222Q+h\207\304X\216\340\002l\201\214\314Fi\362NDEJ%\020\257A\3321(a\313\221\006IS\212\363Y\032P\203\021z\270)9\214\234\\\336\323\365NV6\026\2659\250\231L\247D\304\252\227_|N-\243qy\r3\026\241\266\331(!\215\261\216\r\312\262\260\263M\316\242\342\333Y'\t\352dip\250\341\227\265\"P\343.\305\243\003K\253\026X\305\220\005\210\333\206\210\031#\250;\215Q\034\344oj\215\030\003MN\014\270K=K\264\320e\352\371]\251\0107\265\34412\020\331\204\363!\241\261\276@\234\022}\260\240\355\274U\010\212\221l\263\334\277\217n\206\215qc\256\220i\\\010i0\203\360\231\3311\005\214\223\013\301%\270\314\372\2464j\014w\024\221|\306\214\016\031O8\264\201\003\010\0324W\200\023\301;M\323Z\226\264t2\363\\\201\211\031.\n\"\335\245\252&d\361\253\311\324\271y;\243\216%\021\314\347\035x'\326\230\323+\2753\026\206\322C\202\027\013\320\322\224x\034\355\332N\261\3645\332\014\267\241CsL\357\270\336\262\031\301K\007\336\341\332\274\000\342\225K*\204]\024\340X\024:D\252^`d\354P\214\2227/\317Jv\3616\262\006H\024\360\270\263\227\273\221;\251Q\265\205\267&\232/\234\340A0\220\200$\017bK\354\021\237,\240_\210\004\232v\035+(\334\353\200C\021\030v8\352\222@\361v\350UWf\030\345\226\203\257j\001P\351T\t\201\200\0310$\214)\002\r\250\322\233qeR\235\236h\314\347\014\256\013u_\230\253\213\016\377\207\203\247:\256\335}V\220c\316\343*\252\221(U\030:\321*O}\2204\333v\351\225.""\241 \254\234NB\003v+R\245\254\325^\210VVM\251\215\214#\206\013\357\347\341aD\262\331\220\34030L\352Z\206\240\021\220\246d,\305\022\265!)I\251dT1\241L\241m6\350!\001\256\324\317\r\335\203OL\213\343:J\370\316\230\010#Ud6\023\301l\201#T<\303\244\221\022N\032yJ\316E\260\315QMg<+VS4fCE\003\n\226\253#ss\177\024Np\036\004\220\000\2308UV\310\357i\0074*\016\220nL;sF\321|\254^6\001b\375\236?\365\374\177d[1\367\205\007+\316\337\002\013@+]U\330\2003\230\005\231\200\030g/\331\001\324\342\001\2440U\0344\004Z88\310\345\243\315\026\020\217@e\203\315L\243\253\363\t\\\255<\273\th\356j\275\274\366G\3035\r\025\261Hx\304\317\021v@\030\266\247s\217D^\014w\331(y#@\016\3062\rL\307p\370\345\252>\003{\250\371U\005M#\326\031U\213\255\306\253\355\250\216\326y\272|s\315\353'\325~n\337VPA\224\212Z\373Xo\253\326\340\242'_\260\275\371~\236/PW\363;\335\341\325\363l\246\352\270w#;/R\211:\370\352i\337\035St\354\360z'\357u\035=x\207\205~U\360\200L\240\304\346\226\276\001\264I\336\212\220\324\370\006+\321$\261&\376\366v\200\224\017r\356\000\304\233t0\211R!\014\223\210\321!\335X\211~\312\264\001R\014\203\341c\t!&|\211\344\275=\265PV\032\261J\356\361\023\025<\246\376\235{\312\340\177\274\363\244\350\364\000\361\023\020\014\010\275\210\276\235\202c\313u\221\254\265\263\230\227\2039nt\303\225p\036\245\374i\177}\021\036\027\336\274\201\231\023\n.\005\333|.&\357\342\354\345\303\276\267\254\362^\254|\\\025u\326aM\266\267\024V\035\002}\277\223y\315\364\240\330\304\366\270\037X\356\n<\335\307Iy\273<\211c_{\332\2265\371\023n\244mW\024\024\r\366B\310\342\357\234a\363(\301\256\254G\030\263\317}\204\r\214\232\010\312\371\254M%\200\265\021\214\014\221\233r\254\312p6Q\0050`\336JL\344\3374\2113\003\"\205:\305C~\260\335+\021\342\263\255\374Z\007[l\306\243\352;\366\316q\177H\364?\242\373Z\330\036B-\215e\326>O\220\2110\245BZ\tc,<a'm?\361w$S\205\t\014\353O\3540";
+    PyObject *data = __Pyx_DecompressString(cstring, 2759, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (1643 bytes) */
-const char* const cstring = "x\332}V[o\033\307\025\266Q!Q\024\002\265,#m\214^F\214\021Y\261\270+\325\262cWPSZ\222\025\3052\255+\202\266\010\006\303\335!9\322rg93k\222n\037\334\364E\010\220d\037\234b\2236\301\006\271\200@\200X\trQ\320&\361c\036\367\221\217\002ZY\352S\373\023zf\227\226\224\2002\264\232\333w\316\2343\3379s\206\317\215\346-\213z*7O\334\262O\3124;U\021\274\312\374jv\342\346dvl\374Rv\004eg9/;\024%\020=\014\024\2702\363\303W\004q\355d\371\362\345\354\024w\025uUn\245\351\321\235W\377\272\363\361\027\273\237~\263\373\347\317\357\277\366\301\316\353\357\355}{g\347o\357\374\347\355w\320\013\3137\n\327\371-\3468\304\274`\214\242\263/2\327\346u\211\n+hl\324\030\235@\260pq|\0025.\216\017\243\274\3479\364EZ\274\306\224y\341\374\263\306\371\213\350\354\265\347W\256\317\217 \207\255S4K\255u>\334\361\320\004\357\214Q\375\207\226I\211\010\326Q)p\227\202\307\024\251\nQh\252\251*\334EL\"\233:\254H\005Q\324i\"\251\004\263\024\025Z\310E\0133\013\271\361K\343\010\016\210\004]\243\226\222H\372E\313!RR\211x\t\025}\346(\346\"\005\347\225\006\232+\241&\367\221K\251\215\024G\036\310\035VP\025\352\"I\225\036\240!\342\272\\\021\305\270\213A\235\271\345!d3\001F\330M\252\265\257\022GRch\231:\016\025\313\236`\212\346=6\3450 xhUR\221\313\227a\370\357\257\277\335\275\323\272\377\367Ww^yw\367\243\273{\237}\270\363\372\227\273o\376c\347\3537v\276\372bo\363/\200\036\016\005\002\"Q\032\217\177\335~9\333!>{d\264\356\274\271w\367\356\177\377\371\226i<Gl\033\203\317\224@<\230\225\270n\256I\356NX\025\"\340\\\223\253+Ws\227~\210\216 E\033\312\364\034\302`\374\214\371\314a\201F\256^\257\347J\\Ts\276p\250kq\233\3326\304\340\017\020\212\021\224w\233/\035\314\240\201\231$E\207RW\267e\253\242\224\367k\323\324\235<\324\303\246\206L\210\223\tq\206\305\253\017\303L\3135\353\246\017\244\232\016/3\367\241\262\035A\311\312n*\3310\226\250\364\270+)\223\251c\266\303d\342\364K\334\223\226\303\314t\023\234\356b\022\217\231V\022H\303kJR\2459.\030\230\225\324\312Y\225\234O\366\007\271*/2\207\036\314\201F\245\351\322+%\252`\321\246R\035""\314\252@\340\301L\2025\360\002\375\t\351\364\367'\307F\020\273U\311M\025FnU&j\223\243\306\345\264\002\000\317y\331t\2554\273\256\344\227g\360\352\322\374\364\314\325\374\352\374\n^]\236Y\302\371\331\231\302\212\276\267\323T\007iF\010.\346o\314\316\025\360\002@Z\\\233\270q\355Fr\222\005\301\340H\252\211\361B\263\001\377\323\020D\\\200<X\242%\370\250\200\224\236\233-\2006(~/\305-\213\373\256\352\232\365]\027\r\214\tt@.>\032o0u4\314\334\207\240E\001\267\0036\257PbC\026\034!\345\351\374\307:\333\261\350\244BwIb9\374(\314\342|\235Q\354B>\034a'\311\315\356\220\307\245J\034\350\016\013Z\363iw\211$\222\020\205\337\035.\001\235\002\362\376'{\237}\320\2454\334\375\362\376'/\247(&E\311\035_Q\014\027\230\244\321KOy\020\230\375\020\020\235d\214\303Q\005\367\241pRI|\305\347\365\261\000\254\023-\363C\312-\3428Eb\255\343\364\306@\353R\210\031V\202XT\003\2111\235\223)\201\207iL\307\320\ti\023E0\266\271\2051\255\022\270SUO5i\303\202O\327_Zr\270\276Y\216\303\353\020\303\264\022K}\3230.\371.h\225)<\n\262\002\257E\307\261\nm\330\254\014\254&5\340A\036a&\361\376\361\200\341\252\\#b\2153WS\277^'\242,\035\236V\277$\234I\263o1\235Ix\027|\2111\370\t\274\340\252}\001>\350\251f\026\336\222dX\3416\364\334\366\035`Z\237v\277\205k\226\226\035\343{e\307\350DGv\007=f\244\014w\205m\256\23514a\236\366]v\313y\375\340\325\271\260\037\364\332s\2174\201Y\333\343\236N\321\3754\305\330\023 /\250\316\216\232O\234\324w\221\326\206N\272\036\316\332\0076\036\364X\273\"<\220Q\276p%q\240\010:%\250\277\300\n\274E\035.`d\323\022\361\001M9\325y\002\033\253\"\306\2724\352\266\241\024\374r\250+V\245\020\265\364-\206\\\326E\036\023\375\304\352\221\336\356&q\374\264\221q\337S\321o\342\261\351{s\361u+\266\354\270o\270u:>\377\302w\203q\337\370f>>v\"\350\r\217o\367<\276\361lp& \201\037\316Fc\321\\\353\367\233\265\333\371\377=r\354\344@\373\324\351p\260\335\333\037\364\267\037\353k\367f6\256\0055\335\025\364j&\316\234m\035O\372_\204$E\375p\036\2262\247\202|;\363\363pQ\217\246\343\237\016\267\372\343\236l4\034\237\313\337""\353\337\356}\254\235\371eXkgN\207g@/\363d\330\337\316\240\010\324\262\321\340v\357\343\033c\355\314@0\026\\\217\372\333\275?\336\250\305}\260S\334\007`\334\007\206\342\036h\2665\020<\022\224\302\351\250\257u\246U\331\254l\001\222\213s\277\275w\\\203\r\355(\030z\"\250\2044\032\323\033\251x`(\002\263'\343\223OG\244}\242\277}\342g\341\363Q\276}b0:\025-\0014p\252\r\346/\005\223\321\217@\345hAm\240\036\330\341`8\021\255m\036\337|r\353\334\275E\255z!\350\tf\302\2010\177\240\014\276\303!\273lP\213\217\375$h\204\265\355\236Go\313\215s\301b\260\036\rDS\321\0377\0077\023\177km\210\314\2576\0267XP\013\037\ret\256\265\330Z\333\352\331\272\262E\376\017\2312z\255";
-    PyObject *data = __Pyx_DecompressString(cstring, 1643, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (2581 bytes) */
+const char* const cstring = "x\332}W\335s\023\327\025\307E\001\307\210\211\r&\004R\222\265\240\030\203%Y\261\r\006BRa\033c0\376\366@\233d6W\273W\322\242\325\356j\357]K\242\235\016I_4\235I\263\017\320\331\364#\263\2316\035\315t\246(\2354Q\247M\343G\036\367Q\217\236i\r\356S\373'\364\234]\031\313\304\366 \337\275\037\347\336s\316\357\374\316\271\227\267\007\222\222D\r\036\235\"Z\306\"\031\032\031\315\232z^\261\362\221\313\313W\"\211\241\221H\277\020\231\320\365\214J\005\177\211\266.L\353<\236\354\273j\022M\366\247/^\214\214\352\032\247\032\217.\226\r\272\366\321\257\326\376\374\325\323\277\374\363\351\007\177}\362\313\317\327>\376\375\372\267\017\326~\363\351\177~\367\251pcaf\372\226~OQU\022\037\216\r\010gn+\232\254\027\2310\275($\006b\003\227\005\2308?tY(\235\037\352\023\222\206\241\322\3334uS\341\361\341\301\013\261\301\363\302\231\233\327\027oM\365\013\252\222\243\302\004\225rz_\323\3028X\027\033\300\177\302\002I\023Sin\231\3265\n\026S\201g\t\027F\313<\253k\202\302\004\231\252J\212\232\204S\265,0n*\022\247&\ni\302\354\370lthdH\000\007\005\223\336\245\022g\002\263R\222J\030\243L\320\323B\312RT\256h\002\007\177YL\230L\013e\335\0224Je\201\353\202\001r\255\033x\226j\002\243\034;B/\3214\235\023\256\350\232\010\333\025-\323+\310\212\tJ\224e\212\273\257\021\225\321\330,\341Y\341\247\002Z\337\273@U\225\232\013\206\251p\2324\224QU\001\254{\203q\364NtQ\317Qm\211Q3\232\314\300\302\277\277\371\366\351\203\352\223\337~\264\366\213\317\236\376\351\321\372\227\177\\\373\370\353\247\237\374}\355\233\207k\177\373j\275\366sXm\215\221\000\010\013A\240\376u\377\303H3\"\221\330\333;\006\362\301'\353\217\036\375\367\037\277\216_\"\262,\2027\224@\244\024\311w*~\227\351\332e)KL\360\370\312\322\342\265\350\310\363\253\375\002\247%\0367T\242@\377l\374l\253@)Z,\026\243i\335\314G-S\245\232\244\313T\216I\272\236S\000j\334.C\250\336\201\210\365\013I\255\374\336\346\010\032\0301\222R)\325\260\315HY\316\215K\3618~X\313\0274\304\230\017*\363A\204\343\363\273\255\305%-^\214[\000q\\\3253\212\266\253lS\220)\031-\220,\305\346)3t""\215Q\205\005\206\311\252\302|\243\337\323\r&\251J<8D\014N\211\023C\211K~\220cF\031\322,\027\365\265F\361\334\347\206QEK\353\214\344iT7\025\230dT\212J\331\250E\236u\242y=\245\250ts\014\260s\204\027g\322\224\303\244L\031\337\034\345\001\360\315\021C\267\236\367\021,or\323\017d\226\347\325\376-1\304\231s\245\347g\363\352\345\302\225\201\330\305~\010\271\337\033\261\256$\372\005\245\005\331\226\036OGG\342\313o\304A\237A\271\302u\023\374\326s\226\021\327\320\302\370\362`\3340u\331\222x\324\004\203\211)e\267\004\351^6::\335\177/\033\350\014*\036\020&\311\312\232\024\244\320\325\344\302\270\2704?56~-\2714\265(\316,-\316.-\212c\223\363\0333K\013\343\363brb|zq|~^\234\230\232\271\232\234\022\027\306\027\026&g\246\305\361;\263\223\363\343cX\323\306(\322t\3344usjfbrZ\234\205Mx4b4ss\306\217\r\246\364\254\251@\240xY\024g\313%\370\033\003\366\212\323\000\342<M\303\217\232\220\347\223\023\323p\002l\336\222\367\222\244[\032\337\266\024l;\031\023E\002\037`\225\270\363zI\341;/+\332.\253)\023\212\004\034\236\245D\006j\354 \245\352D\026\233\271\273\203\210\201\205B\304\274\026\315f\232l/I$U\337i\r\030F3\272Y\026}j\354 \343\233!j\220,;Hd(\367\r\331~5K\330\356\256\240\200\317\274\335\305|\221\355\227\014\235q\021ss\227\345\235\r4i\301\242\273J0\262Lw7\216\025\025\310z\221l\3136\237\337\300\313\037\265\336\014\315\233\345\017_\254\177\371y\353\374\372gp\313<\\\177\364\365\223/>\374\356j\260\353\311\375\017`\351\311\303\3126WM\313F\221\244\230\256Z\234\212p#4M\013\330\260\311\361gl\206\342)b2\342\027\"\315\340yC0\345\025\035\030`\352\026\\\333\224\021\213\353S~\250DR$\270-\245\353\352\363\244\226\210\252\246\210\224\333\312.I\205Z#\006\365\031Z\215B\242\210\334$\022\365e\321,\324\037\300\334J\272f\337\2002\320\214\001\030\304d\302\211(\3234\261T.\266\210\210\242\254K\330\344\341\226\224\255\274\301(\364T\2327x\331\277\025\341\345@5f\231T$LR\024Z\222\340\207O\n\n@\000\r\340U\200_\226\206$\204\202\257\252z\0212,xj0$\231(\246-\rT\000\3557\230\337\302\361\357\260\031&\262\360djb\223\245%Y\311""\000\335\374\033\016,\00446J\206\250\340)M\254\201:yv\227\230wuEC\0259Z\316\025\211\231a[\212\003\366\241\tn\n_m\240{\303\340`\304\340\335d\341F=\007-<\001Ex^1|I\321\222\001r\362\263\022\002\316\"+\020;l\315\034\345\223r\360\025\025Y\314\313\303\370\013\350\001\002\024\371\004\2175\277\233\325\345|\016\324\302\000\256\027\025\327Y\006#(\212\233-\323\240h#\037&e\254\353\330\233\")\252n\014P\213\261\321Wq\305\037\006\367}l\313}\037kR\232m\277h(\261\200l\333.K\272\226V2\333.\005\324\211!1\014\204\225A\251%yl\341\260\240e\333\225_|\276\026uS\336\370\"Zh;\376\001\001\014R\306h\031\272\201\365\350Y\311zV\234D\3210)\036\217IY\260\210\032\200f\002oD|.\230\3015\327\254V\255Ek\303\200\215\257\210\246\233\006\310p\313\324\030Qyk\001\003g\323\360\236\222\233\024\2001P\017\233@\037\364\232Y\325d\r&%\350\333Z\3418>\307xJ\004\313\300\010\337>\016\377\235(r%O\201\277\301\003\035\252\016>+D\202\317k\354\241\206e\242ZA\303\212\010\267\277\327\3538\351\276\345%\306V&\275[\222'\311^\350\244\233Xm\357\264\367\332\t{\3149\350\3165\332_\252p\030\\sNz'\006\274\201\353\217\333\274=\203\336\340\265\025\322\010\275T)\331%\207\273\tw\252\326\326\010\035\250\214\330\303\316\367\234\0378\313\2601\364B\003\016:\350,\272G\\Z\035\256\275P\203\303\016T\336r\016;I\350x\007^u\006\035\202SW\234\275N\302\353\350\253\036\367\006o<\356\361:\206jIoO\247\335\356\264\255\302\241\027\354S6\261-g\002\364LV\177\\+\334O\376o\337\236C\207\033\335\307\235\236F{\227\335\325h?b\3175^\354h\264\207+7\355\002~\246q)\354\205\317T\333\374\357k\250*\\\231q\336t\231w\366\255:\251\027\002i\313\231\002\221p\267\235l\204O8s\330\033\363^\351\253v\255\006\247x\241\210\333\347\235K\256\300\304\213\215\360\353N\241\021>\356\234\202\343\302\307\234\256FXpaw\304\355Y\005G\022\215\360a\300\352\226\333\205\260\025\274\216\210\033\365\342WW\372\274\233\304#)\257\003\024x!hV\233\250\2169\355n{\265\r\005\301m\260\261\322\003\256u\037i\274\324\331h\177\331\006\223Q\307\213\035^\350\264w\032\214^\335tp\306{5^-\324\320\273\312u\373\272s""\315\355ilX\014\007\255\266\037\262{V;_q\366\201\245\235\307\234\227\301\356\316\343\316i\2606\230\\\rw\332\035\340G\326\315V\375s\247\234\375\0307\030\246k\223\365\271\206?u\0000\037\253\356\253\222j\271~p\345\366\343\to\341\266w\373}\357}\322\324\002n\332\373\354\2643\346vTOU\263\265l\235x{\"^\344R\275\247\021\352\250\234\252\220\212iw\331\275\316Q\267\315=Z\r\327\256\326\2008\020\375\023\316\035w\336\375I-\2023\265\202\027Bd\001\303!\000\346M\247\350\002\276\007\033\210\370\313\266\214f\273\335\356\273\265\343\365D}re\016\035\352\306X\035\014v\334s\272\234>7\341\217\303\225\033\200[\030\361\275\344\314\201{\340~\027\306e\020H\264\014l\354r\317TOV\375@\217\332\005\200Bv{\334\213\325\321j!\3305\014l\034B\264`\027r\260\335\r\271I\034\341\357\250\315\234\036\347<\0303\347\336\255\355\255%\032\235G\354\005\247\r\360\3054\270\216\307x\241\250\027\375\341J\033\202S\302`\371Nd\035\n\026b\334\275\303\275.\350:\352\035\275\340]x\307{\347]\357\335\234\227S\033\341C\336\241\323h\356\353\316\317\300\276\316\357;\327Qq\017(\233\207\r\235H\205\303\335\350\361\210}\305\335\213\376n\354\350\332F\332;v\261\376\312\312\211\307\2627\017!C\376\241AE@\263\307\271\014\306\267\325\216\325\317\255\37099l\207\354q?/\303\230R\000\303\006\242\235\2579\031w\261\332U=W[\250\357\257\363\225\304JrS-0\031\331\365]C\341(\307\367`\324)x\002\224\r?}0%\366\034\205\212QX\r\355\277\317*\347\3549;\347\036vG\201\006=5\037\234\002V\2217*s\025\005B\263\337a\356\271\352\\\365n=T\277Z'\377\007\331lM\034";
+    PyObject *data = __Pyx_DecompressString(cstring, 2581, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (2838 bytes) */
-const char* const bytes = "?0Accept-Language\"Chromium\";v=\"148\", \"Google Chrome\";v=\"148\", \"Not/A)Brand\";v=\"99\"Content-Type\345\215\226\345\256\266\347\262\276\347\201\265\346\216\245\345\217\243\350\277\224\345\233\236\351\235\236 JSONMozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36NoneNote that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.'SellerSpriteApiClient'User-Agent\344\275\277\347\224\250\346\234\215\345\212\241\347\253\257\350\264\246\345\217\267\347\231\273\345\275\225\345\271\266\350\260\203\347\224\250\345\215\226\345\256\266\347\262\276\347\201\265 Web \346\216\245\345\217\243\343\200\202\"Windows\"\345\215\226\345\256\266\347\262\276\347\201\265\346\216\245\345\217\243\350\277\224\345\233\236\351\224\231\350\257\257\357\274\232/.?add_noteapplication/json;charset=UTF-8application/json, text/plain, */*application/x-www-form-urlencodeddict[str, Any]dict[str, str]disableenablegchttp://https://https://www.sellersprite.comhttps://www.sellersprite.com/cn/w/user/loginhttps://www.sellersprite.com/w/user/signinhttpx.Responseisenabledlist[str]opscli/seller_sprite/api/client.pysame-originsec-ch-uasec-ch-ua-mobilesec-ch-ua-platformsec-fetch-destsec-fetch-modesec-fetch-sitestr | Noneu=1, izh-CN,zh;q=0.9AcceptAnyAsyncClientBASE_URLDEFAULT_USER_AGENTJSONDecodeErrorLOGIN_PAGE_URLNoneOKOriginPriority__Pyx_PyDict_NextRefRefererSIGNIN_URLSellerSpriteAccountSellerSpriteApiClientSellerSpriteApiClient.__aenter__SellerSpriteApiClient.__aexit__SellerSpriteApiClient.__init__SellerSpriteApiClient._browser_headersSellerSpriteApiClient._parse_json_responseSellerSpriteApiClient.acloseSellerSpriteApiClient.cookie_namesSellerSpriteApiClient.loginSellerSpriteApiClient.post_jsonSellerSpriteApiClient.request_jsonSellerSpriteApiErrorURLY\345\215\226\345\256\266\347\262\276\347\201\265\347\231\273\345\275\225\345\244""\261\350\264\245\345\215\226\345\256\266\347\262\276\347\201\265\346\216\245\345\217\243\350\257\267\346\261\202\345\244\261\350\264\245_absolute_urlaccountaclose__aenter____aexit__asyncio.coroutinesautoLogin__await___browser_headerscallback_clientcline_in_tracebackclosecodecookiecookie_namescookiescorsdata__doc__emailemptyexcexc_typefloatfollow_redirectsform__func__gethashlibheadershexdigesthttpx__init___is_coroutineitemsjarjoinjsonkwargslocationloginlogin_redirectlogin_status__main___md5md5__metaclass__method__module__name__name__nextopscli.seller_sprite.accountsopscli.seller_sprite.api.clientopscli.seller_sprite.domain.exceptions_parse_json_responsepasswordpassword_md5payloadpoppostpost_json__prepare____qualname__refererrequestrequest_jsonresponseresponse_excerptreturnsaltselfsend__set_name__setdefaultstatus_codestrtb__test__textthrowtimeouttypingurluser_agentusernamevaluevalues\320\n#\240>\3201D\300I\320Mc\320cd\320\n)\250\032\3203J\310!\320\n4\260A\320\000\020\220\010\230\001\340\004\013\2107\220$\220a\220u\230G\2401\240I\250Z\260q\200A\360\006\000\022\023\330\024\032\230!\330\010\021\220\021\330\t\n\330\010\014\210K\220q\330\010\014\210N\230!\330\010\014\320\014(\250\001\330\010\014\320\014\036\230a\330\010\014\210K\220u\230L\250\001\330\014\024\220A\330\014\035\230Q\330\014\024\220D\320\030)\250\021\320\004\"\240)\320+A\300\021\340\010\t\330\014\037\230q\330\014\032\230$\230a\330\014\031\230\021\330\014 \240\001\330\014\"\240!\340\010\013\2101\330\014\023\2201\220M\240\021\330\010\017\210q\320\n\035\230Q\320\n\"\240!\320\n\036\230a\320\004\036\230a\340\010\017\210q\220\006\220f\230D\240\n\250$\250h\260h\270a\320\004-\320-@\300\001\340\010\017\210x\220q\330\010\t\330\014\026\220h\230e\2401\330\010\017\210t\320\023'\240q\330\014\022\320\022&\240a\330\020\021\330\020\034\230H\240A\330\020!\240\024\240R\240q\330\023\024\330\010\013\2108\220=\240\003\2401\330\014\022\320\022&\240a\330\020\021\330\020\034\230H\240A\330\020!\240\024\240R\240q\340\010\017\210w\220d""\230!\230;\240j\260\001\260\031\270+\300Q\330\010\013\2105\220\004\220E\230\023\230A\330\014\022\320\022&\240a\330\020\035\230Q\230a\330\020\034\230H\240A\330\020!\240\024\240R\240q\340\010\017\210q\320\000\027\220x\230q\340\004\007\200s\210+\220Q\220k\240\023\240C\240{\260!\2601\330\010\017\210q\330\004\013\2102\210Q\210i\220q\230\007\230s\240+\250Q\250j\270\004\270B\270a";
+    #else /* compression: none (4615 bytes) */
+const char* const bytes = "?0Accept-Language\"Chromium\";v=\"148\", \"Google Chrome\";v=\"148\", \"Not/A)Brand\";v=\"99\"Content-Type\345\215\226\345\256\266\347\262\276\347\201\265\346\216\245\345\217\243\350\277\224\345\233\236\351\235\236 JSONMozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36NoneNote that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Path | None'SellerSpriteApiClient'Sprite-X-TokenUser-Agent\344\275\277\347\224\250\346\234\215\345\212\241\347\253\257\350\264\246\345\217\267\347\231\273\345\275\225\345\271\266\350\260\203\347\224\250\345\215\226\345\256\266\347\262\276\347\201\265 Web \346\216\245\345\217\243\343\200\202\"Windows\".?\345\215\226\345\256\266\347\262\276\347\201\265\346\216\245\345\217\243\350\277\224\345\233\236\351\224\231\350\257\257\357\274\232/:add_noteapplication/json;charset=UTF-8application/json, text/plain, */*application/x-www-form-urlencoded.cookies.jsondict[str, Any]dict[str, str]disableenablegchttp://https://https://www.sellersprite.comhttps://www.sellersprite.com/cn/w/user/loginhttps://www.sellersprite.com/w/user/signinhttpx.Responseisenabledlist[str]opscli/seller_sprite/api/client.pyrank-login-userrank-login-user-infosame-originsec-ch-uasec-ch-ua-mobilesec-ch-ua-platformsec-fetch-destsec-fetch-modesec-fetch-site.sellersprite.comstr | Nonetext/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8u=1, i/user/loginuser/loginutf-8/v2/competitor-lookup/nodes/v3/product-research/w/user/loginzh-CN,zh;q=0.9AcceptAnyAsyncClientBASE_URLDEFAULT_OUTPUT_DIRDEFAULT_USER_AGENTERR_GLOBAL_SESSION_EXPIREDJSONDecodeErrorLOGIN_PAGE_URLNoneOKOriginPathPriority__Pyx_PyDict_NextRefRefererSIGNIN_URLSellerSpriteAccountSellerSpriteApiClientSellerSpriteApiClient.__aenter__SellerSpriteApiClient.__aexit__SellerSpriteApiClient.__init__SellerSpriteApiClient._browser_headersSellerSpriteApiC""lient._load_cookiesSellerSpriteApiClient._parse_json_responseSellerSpriteApiClient.acloseSellerSpriteApiClient.category_nodesSellerSpriteApiClient.cookie_namesSellerSpriteApiClient.get_jsonSellerSpriteApiClient.has_cookiesSellerSpriteApiClient.has_login_cookiesSellerSpriteApiClient.loginSellerSpriteApiClient.post_formSellerSpriteApiClient.post_jsonSellerSpriteApiClient.request_jsonSellerSpriteApiClient.save_cookiesSellerSpriteApiClient.switch_accountSellerSpriteApiErrorURLY\345\215\226\345\256\266\347\262\276\347\201\265\347\231\273\345\275\225\345\244\261\350\264\245\345\215\226\345\256\266\347\262\276\347\201\265\350\241\250\345\215\225\350\257\267\346\261\202\345\244\261\350\264\245\345\215\226\345\256\266\347\262\276\347\201\265\347\231\273\345\275\225\346\200\201\345\244\261\346\225\210\345\215\226\345\256\266\347\262\276\347\201\265\346\216\245\345\217\243\350\257\267\346\261\202\345\244\261\350\264\245_absolute_urlaccountaclose__aenter____aexit__api_codeapi_messageasyncio.coroutinesautoLogin__await__bool_browser_headerscallbackcategory_nodesclear_clientcline_in_tracebackclosecodecookiecookie_namescookie_pathcookiescorsdata_default_cookie_path__doc__domaindumpsemailemptyencodingensure_asciiexcexc_typeexist_okexistsfloatfollow_redirectsform__func__getget_jsonhas_cookieshas_login_cookieshashlibheadershexdigesthttpxindent__init___is_coroutineitemsjarjoinjsonkeykwargs_load_cookiesloadslocationloginlogin_redirectlogin_status_looks_like_session_expired_responselower__main__marketIdmarket_id_md5md5message__metaclass__methodmkdir__module__msgname__name__namesnextnodeIdPathnodeLabelPathnode_id_pathnode_label_pathopscli.seller_sprite.accountsopscli.seller_sprite.api.clientopscli.seller_sprite.configopscli.seller_sprite.domain.exceptionsparamsparentparents_parse_json_responsepasswordpassword_md5pathpathlibpayloadpoppostpost_formpost_json__prepare____qualname__read_textrefererrequestrequest_jsonresponseresponse_excerptreturnsaltsave_cookiesselfsendsessionsset__set_name__s""etdefaultstatus_codestrswitch_accounttabletb__test__textthrowtimeouttypingurluser_agentusernamevaluevalueswrite_text\320\n#\240>\3201D\300I\320Mc\320cd\320\004#\2401\340\010\020\220\003\2201\220D\230\r\240Q\330\010\017\210t\2201\220F\230#\320\0350\3200H\310\001\320\0003\3203F\300a\330\004\017\210x\220x\230t\2401\240L\260\001\330\004\013\2108\2205\230\002\230%\230v\240Q\330\004\005\330\010\020\220\r\230T\240\025\240e\2505\260\005\260Q\330\010\013\210>\230\023\230A\330\010\013\320\013\033\2303\230a\330\010\013\210=\230\003\2301\320\n)\250\032\3203J\310!\320\n4\260A\320\000\020\220\010\230\001\340\004\013\2107\220$\220a\220u\230G\2401\240I\250Z\260q\200A\360\006\000\022\023\330\024\032\230!\330\010\021\220\021\330\010\025\220Q\330\t\n\330\010\014\210K\220q\330\010\014\210N\230!\330\010\014\320\014(\250\001\330\010\014\320\014\036\230a\330\010\014\210O\230<\240s\320*>\270a\270q\330\010\014\210K\220u\230L\250\001\330\014\024\220A\330\014\035\230Q\330\014\024\220D\320\030)\250\021\340\010\014\210N\230!\320\004\"\240)\320+A\300\021\340\010\t\330\014\037\230q\330\014\032\230$\230a\330\014\031\230\021\330\014 \240\001\330\014\"\240!\340\010\013\2101\330\014\023\2201\220M\240\021\330\010\017\210q\320\n\"\240-\320/B\300)\320Ka\320ab\320\n\035\230Q\320\004\035\230Q\340\010\017\210t\2201\220D\230\010\240\010\250\001\320\n\"\240!\320\n\036\230a\210!\360\006\000\024\025\330\017\020\330\010\026\220a\330\010\031\230\021\330\t\n\320\004&\320&>\270a\340\010\014\210K\220q\330\010\014\210O\320\033/\250q\260\001\330\010\014\210H\220H\230F\240!\330\010\014\210N\230!\320\004\036\230a\340\010\022\220!\340\020\030\230\006\230a\330\020\031\230\026\230q\330\020\032\230&\240\001\330\020\030\230\006\230a\340\014\020\220\n\230$\230h\240h\250a\340\010\014\210L\230\007\230v\240Q\240h\250f\260I\270Q\330\010\014\210L\230\013\2401\240D\250\006\250a\250y\270\r\300W\310G\320SW\320W`\320`a\320\004\036\230a\340\010\017\210q\220\006\220f\230D\240\n\250$\250h\260h\270a\320\000\"\320\":\270!\330\004\n\210$""\210a\210r\220\021\220'\230\027\240\001\240\027\250\014\260B\260a\330\004\013\320\013\035\230X\240R\240{\260\"\260B\260a\260q\320\004\037\230q\330\010\013\2104\210t\220<\230w\240a\330\014\r\330\010\t\330\014\026\220d\230&\240\001\240\024\240\\\260\032\2701\270I\300Q\330\020\031\230\024\230Q\330\014\r\330\010\013\2104\210z\230\021\230)\2401\330\014\r\330\010\014\210J\220a\330\014\017\210t\220:\230Q\230h\240a\330\020\021\330\014\023\2203\220a\220v\230T\240\021\240(\250#\250Q\330\014\024\220C\220q\230\006\230d\240!\2409\250C\250q\330\014\017\210t\2205\230\003\2304\230q\330\020\021\330\014\020\220\010\230\010\240\004\240A\330\020\021\330\020\021\330\020\027\220s\230!\2306\240\024\240Q\240j\260\003\2601\330\020\025\220S\230\001\230\026\230t\2401\240H\250C\250q\320\004-\320-@\300\001\340\010\017\210x\220q\330\010\t\330\014\026\220h\230e\2401\330\010\017\210t\320\023'\240q\330\014\027\320\0277\3207[\320[\\\320\\k\320kl\330\014\022\320\022&\240a\330\020\037\230~\250Q\330\020\034\230H\240A\330\020!\240\024\240R\240q\330\020\031\230\021\330\023\024\330\010\013\2108\220=\240\003\2401\330\014\022\320\022&\240a\330\020\021\330\020\034\230H\240A\330\020!\240\024\240R\240q\330\020\031\320\0319\270\030\300\035\310d\320RW\320Wa\320ab\340\010\017\210w\220d\230!\230;\240j\260\001\260\031\270+\300Q\330\010\013\2105\220\004\220E\230\023\230A\330\014\032\230!\330\014\017\210z\230\021\230)\2401\330\020\036\230g\240T\250\021\250+\260S\270\007\270t\3001\300A\330\014\022\320\022&\240a\330\020\035\230Q\230a\330\020\034\230H\240A\330\020!\240\024\240R\240q\330\020\031\230\023\230A\230Q\330\020\034\230C\230q\320 0\3200A\300\021\340\010\017\210q\320\000\027\220x\230q\340\004\007\200s\210+\220Q\220k\240\023\240C\240{\260!\2601\330\010\017\210q\330\004\013\2102\210Q\210i\220q\230\007\230s\240+\250Q\250j\270\004\270B\270a";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif
     PyObject **stringtab = __pyx_mstate->__pyx_string_tab;
     Py_ssize_t pos = 0;
-    for (int i = 0; i < 165; i++) {
+    for (int i = 0; i < 238; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyUnicode_DecodeUTF8(bytes + pos, bytes_length, NULL);
-      if (likely(string) && i >= 45) PyUnicode_InternInPlace(&string);
+      if (likely(string) && i >= 59) PyUnicode_InternInPlace(&string);
       if (unlikely(!string)) {
         Py_XDECREF(data);
         __PYX_ERR(0, 1, __pyx_L1_error)
@@ -9415,7 +14233,7 @@ const char* const bytes = "?0Accept-Language\"Chromium\";v=\"148\", \"Google Chr
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 165; i < 177; i++) {
+    for (int i = 238; i < 259; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
@@ -9426,15 +14244,15 @@ const char* const bytes = "?0Accept-Language\"Chromium\";v=\"148\", \"Google Chr
       }
     }
     Py_XDECREF(data);
-    for (Py_ssize_t i = 0; i < 177; i++) {
+    for (Py_ssize_t i = 0; i < 259; i++) {
       if (unlikely(PyObject_Hash(stringtab[i]) == -1)) {
         __PYX_ERR(0, 1, __pyx_L1_error)
       }
     }
     #if CYTHON_IMMORTAL_CONSTANTS
     {
-      PyObject **table = stringtab + 165;
-      for (Py_ssize_t i=0; i<12; ++i) {
+      PyObject **table = stringtab + 238;
+      for (Py_ssize_t i=0; i<21; ++i) {
         #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
         #if PY_VERSION_HEX < 0x030E0000
         if (_Py_IsOwnedByCurrentThread(table[i]) && Py_REFCNT(table[i]) == 1)
@@ -9453,16 +14271,17 @@ const char* const bytes = "?0Accept-Language\"Chromium\";v=\"148\", \"Google Chr
   }
   {
     PyObject **numbertab = __pyx_mstate->__pyx_number_tab + 0;
-    int16_t const cint_constants_2[] = {400,1000};
-    for (int i = 0; i < 2; i++) {
-      numbertab[i] = PyLong_FromLong(cint_constants_2[i - 0]);
+    int8_t const cint_constants_1[] = {2,16};
+    int16_t const cint_constants_2[] = {301,302,303,307,308,400,401,403,1000};
+    for (int i = 0; i < 11; i++) {
+      numbertab[i] = PyLong_FromLong((i < 2 ? cint_constants_1[i - 0] : cint_constants_2[i - 2]));
       if (unlikely(!numbertab[i])) __PYX_ERR(0, 1, __pyx_L1_error)
     }
   }
   #if CYTHON_IMMORTAL_CONSTANTS
   {
     PyObject **table = __pyx_mstate->__pyx_number_tab;
-    for (Py_ssize_t i=0; i<2; ++i) {
+    for (Py_ssize_t i=0; i<11; ++i) {
       #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
       #if PY_VERSION_HEX < 0x030E0000
       if (_Py_IsOwnedByCurrentThread(table[i]) && Py_REFCNT(table[i]) == 1)
@@ -9486,10 +14305,10 @@ const char* const bytes = "?0Accept-Language\"Chromium\";v=\"148\", \"Google Chr
 typedef struct {
     unsigned int argcount : 3;
     unsigned int num_posonly_args : 1;
-    unsigned int num_kwonly_args : 2;
-    unsigned int nlocals : 3;
+    unsigned int num_kwonly_args : 3;
+    unsigned int nlocals : 4;
     unsigned int flags : 10;
-    unsigned int first_line : 8;
+    unsigned int first_line : 9;
 } __Pyx_PyCode_New_function_description;
 /* NewCodeObj.proto */
 static PyObject* __Pyx_PyCode_New(
@@ -9506,64 +14325,114 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   PyObject* tuple_dedup_map = PyDict_New();
   if (unlikely(!tuple_dedup_map)) return -1;
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE), 46};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE), 51};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
-    __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_aenter, __pyx_mstate->__pyx_kp_b_iso88591__9, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_aenter, __pyx_mstate->__pyx_kp_b_iso88591__12, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE), 49};
+    const __Pyx_PyCode_New_function_description descr = {4, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE), 54};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_exc_type, __pyx_mstate->__pyx_n_u_exc, __pyx_mstate->__pyx_n_u_tb};
     __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_aexit, __pyx_mstate->__pyx_kp_b_iso88591_4A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE), 52};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE), 57};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
     __pyx_mstate_global->__pyx_codeobj_tab[2] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_aclose, __pyx_mstate->__pyx_kp_b_iso88591_a, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[2])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE), 56};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE), 68};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_password_md5, __pyx_mstate->__pyx_n_u_form, __pyx_mstate->__pyx_n_u_response, __pyx_mstate->__pyx_n_u_location};
     __pyx_mstate_global->__pyx_codeobj_tab[3] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_login, __pyx_mstate->__pyx_kp_b_iso88591_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[3])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 1, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE), 97};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 1, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE), 110};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_url, __pyx_mstate->__pyx_n_u_payload, __pyx_mstate->__pyx_n_u_referer, __pyx_mstate->__pyx_n_u_response};
     __pyx_mstate_global->__pyx_codeobj_tab[4] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_post_json, __pyx_mstate->__pyx_kp_b_iso88591_1DIMccd, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[4])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS|CO_COROUTINE), 115};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 1, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE), 128};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_url, __pyx_mstate->__pyx_n_u_payload, __pyx_mstate->__pyx_n_u_referer, __pyx_mstate->__pyx_n_u_response};
+    __pyx_mstate_global->__pyx_codeobj_tab[5] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_post_form, __pyx_mstate->__pyx_kp_b_iso88591_1DIMccd, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[5])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 1, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE), 148};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_url, __pyx_mstate->__pyx_n_u_params, __pyx_mstate->__pyx_n_u_referer, __pyx_mstate->__pyx_n_u_response};
+    __pyx_mstate_global->__pyx_codeobj_tab[6] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_get_json, __pyx_mstate->__pyx_kp_b_iso88591_B_Kaab, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[6])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 4, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE), 160};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_market_id, __pyx_mstate->__pyx_n_u_table, __pyx_mstate->__pyx_n_u_node_id_path, __pyx_mstate->__pyx_n_u_node_label_path, __pyx_mstate->__pyx_n_u_params};
+    __pyx_mstate_global->__pyx_codeobj_tab[7] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_category_nodes, __pyx_mstate->__pyx_kp_b_iso88591_a_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[7])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS|CO_VARKEYWORDS|CO_COROUTINE), 183};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_method, __pyx_mstate->__pyx_n_u_url, __pyx_mstate->__pyx_n_u_kwargs, __pyx_mstate->__pyx_n_u_response};
-    __pyx_mstate_global->__pyx_codeobj_tab[5] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_request_json, __pyx_mstate->__pyx_kp_b_iso88591_3J, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[5])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[8] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_request_json, __pyx_mstate->__pyx_kp_b_iso88591_3J, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[8])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 3, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 29};
-    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_account, __pyx_mstate->__pyx_n_u_user_agent, __pyx_mstate->__pyx_n_u_timeout};
-    __pyx_mstate_global->__pyx_codeobj_tab[6] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_init, __pyx_mstate->__pyx_kp_b_iso88591_A_Kq_N_a_KuL_A_Q_D, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[6])) goto bad;
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 4, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 31};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_account, __pyx_mstate->__pyx_n_u_user_agent, __pyx_mstate->__pyx_n_u_timeout, __pyx_mstate->__pyx_n_u_cookie_path};
+    __pyx_mstate_global->__pyx_codeobj_tab[9] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_init, __pyx_mstate->__pyx_kp_b_iso88591_A_Q_Kq_N_a_O_s_aq_KuL_A_Q_D_N, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[9])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 120};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 61};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_account};
+    __pyx_mstate_global->__pyx_codeobj_tab[10] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_switch_account, __pyx_mstate->__pyx_kp_b_iso88591_a_Kq_O_q_HHF_N, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[10])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 188};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_cookie};
-    __pyx_mstate_global->__pyx_codeobj_tab[7] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_cookie_names, __pyx_mstate->__pyx_kp_b_iso88591_a_q_fD_hha, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[7])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[11] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_cookie_names, __pyx_mstate->__pyx_kp_b_iso88591_a_q_fD_hha, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[11])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 124};
-    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_response, __pyx_mstate->__pyx_n_u_text, __pyx_mstate->__pyx_n_u_payload, __pyx_mstate->__pyx_n_u_exc, __pyx_mstate->__pyx_n_u_code};
-    __pyx_mstate_global->__pyx_codeobj_tab[8] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_parse_json_response, __pyx_mstate->__pyx_kp_b_iso88591_xq_he1_t_q_a_HA_Rq_8_1_a_HA_Rq, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[8])) goto bad;
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 192};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self};
+    __pyx_mstate_global->__pyx_codeobj_tab[12] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_has_cookies, __pyx_mstate->__pyx_kp_b_iso88591_Q_t1D, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[12])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 150};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 196};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_names};
+    __pyx_mstate_global->__pyx_codeobj_tab[13] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_has_login_cookies, __pyx_mstate->__pyx_kp_b_iso88591_1_1D_Q_t1F_00H, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[13])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 201};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_cookies, __pyx_mstate->__pyx_n_u_cookie};
+    __pyx_mstate_global->__pyx_codeobj_tab[14] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_save_cookies, __pyx_mstate->__pyx_kp_b_iso88591_a_a_q_a_hha_L_vQhfIQ_L_1D_ay_WG, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[14])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 8, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 215};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_response, __pyx_mstate->__pyx_n_u_text, __pyx_mstate->__pyx_n_u_payload, __pyx_mstate->__pyx_n_u_exc, __pyx_mstate->__pyx_n_u_api_code, __pyx_mstate->__pyx_n_u_code, __pyx_mstate->__pyx_n_u_api_message};
+    __pyx_mstate_global->__pyx_codeobj_tab[15] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_parse_json_response, __pyx_mstate->__pyx_kp_b_iso88591_xq_he1_t_q_77_kkl_a_Q_HA_Rq_8_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[15])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 1, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 249};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_referer, __pyx_mstate->__pyx_n_u_headers};
-    __pyx_mstate_global->__pyx_codeobj_tab[9] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_browser_headers, __pyx_mstate->__pyx_kp_b_iso88591_A_q_a_1_1M_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[9])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[16] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_browser_headers, __pyx_mstate->__pyx_kp_b_iso88591_A_q_a_1_1M_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[16])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 164};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 262};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_cookies, __pyx_mstate->__pyx_n_u_cookie, __pyx_mstate->__pyx_n_u_name, __pyx_mstate->__pyx_n_u_value};
+    __pyx_mstate_global->__pyx_codeobj_tab[17] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_load_cookies, __pyx_mstate->__pyx_kp_b_iso88591_q_4t_wa_d_1IQ_Q_4z_1_Ja_t_Qha_3, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[17])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 286};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_url};
-    __pyx_mstate_global->__pyx_codeobj_tab[10] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_absolute_url, __pyx_mstate->__pyx_kp_b_iso88591_xq_s_Qk_C_1_q_2Qiq_s_Qj_Ba, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[10])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[18] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_absolute_url, __pyx_mstate->__pyx_kp_b_iso88591_xq_s_Qk_C_1_q_2Qiq_s_Qj_Ba, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[18])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 171};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 293};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_value};
-    __pyx_mstate_global->__pyx_codeobj_tab[11] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_md5, __pyx_mstate->__pyx_kp_b_iso88591_7_auG1IZq, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[11])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[19] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_md5, __pyx_mstate->__pyx_kp_b_iso88591_7_auG1IZq, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[19])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 298};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_response, __pyx_mstate->__pyx_n_u_location, __pyx_mstate->__pyx_n_u_text};
+    __pyx_mstate_global->__pyx_codeobj_tab[20] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_looks_like_session_expired_resp, __pyx_mstate->__pyx_kp_b_iso88591_33Fa_xxt1L_85_vQ_T_e5_Q_A_3a_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[20])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 309};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_account, __pyx_mstate->__pyx_n_u_key};
+    __pyx_mstate_global->__pyx_codeobj_tab[21] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_api_client_2, __pyx_mstate->__pyx_n_u_default_cookie_path, __pyx_mstate->__pyx_kp_b_iso88591_ar_Ba_XR_Baq, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[21])) goto bad;
   }
   Py_DECREF(tuple_dedup_map);
   return 0;
@@ -13432,6 +18301,74 @@ bad:
       return 0;
   }
   
+/* UnicodeConcatInPlace */
+  # if CYTHON_COMPILING_IN_CPYTHON
+  static int
+  __Pyx_unicode_modifiable(PyObject *unicode, int unsafe_shared)
+  {
+      if (!__Pyx_IS_UNIQUELY_REFERENCED(unicode, unsafe_shared))
+          return 0;
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX > 0x030F0000
+      if (PyUnstable_Unicode_GET_CACHED_HASH(unicode) != -1)
+          return 0;
+  #endif
+      if (!PyUnicode_CheckExact(unicode))
+          return 0;
+      if (PyUnicode_CHECK_INTERNED(unicode))
+          return 0;
+      return 1;
+  }
+  static CYTHON_INLINE PyObject *__Pyx_PyUnicode_ConcatInPlaceImpl(PyObject **p_left, PyObject *right, int unsafe_shared
+          #if CYTHON_REFNANNY
+          , void* __pyx_refnanny
+          #endif
+      ) {
+      PyObject *left = *p_left;
+      Py_ssize_t left_len, right_len, new_len;
+      if (unlikely(__Pyx_PyUnicode_READY(left) == -1))
+          return NULL;
+      if (unlikely(__Pyx_PyUnicode_READY(right) == -1))
+          return NULL;
+      left_len = PyUnicode_GET_LENGTH(left);
+      if (left_len == 0) {
+          Py_INCREF(right);
+          return right;
+      }
+      right_len = PyUnicode_GET_LENGTH(right);
+      if (right_len == 0) {
+          Py_INCREF(left);
+          return left;
+      }
+      if (unlikely(left_len > PY_SSIZE_T_MAX - right_len)) {
+          PyErr_SetString(PyExc_OverflowError,
+                          "strings are too large to concat");
+          return NULL;
+      }
+      new_len = left_len + right_len;
+      if (__Pyx_unicode_modifiable(left, unsafe_shared)
+              && PyUnicode_CheckExact(right)
+              && PyUnicode_KIND(right) <= PyUnicode_KIND(left)
+              && !(PyUnicode_IS_ASCII(left) && !PyUnicode_IS_ASCII(right))) {
+          int ret;
+          __Pyx_GIVEREF(*p_left);
+          ret = PyUnicode_Resize(p_left, new_len);
+          __Pyx_GOTREF(*p_left);
+          if (unlikely(ret != 0))
+              return NULL;
+          #if PY_VERSION_HEX >= 0x030d0000
+          if (unlikely(PyUnicode_CopyCharacters(*p_left, left_len, right, 0, right_len) < 0)) return NULL;
+          #else
+          _PyUnicode_FastCopyCharacters(*p_left, left_len, right, 0, right_len);
+          #endif
+          __Pyx_INCREF(*p_left);
+          __Pyx_GIVEREF(*p_left);
+          return *p_left;
+      } else {
+          return __Pyx_PyUnicode_Concat(left, right);
+      }
+    }
+  #endif
+  
 /* FastTypeChecks */
   #if CYTHON_COMPILING_IN_CPYTHON
   static int __Pyx_InBases(PyTypeObject *a, PyTypeObject *b) {
@@ -13519,6 +18456,67 @@ bad:
   }
   #endif
   
+/* PyLongCompare */
+  static CYTHON_INLINE int __Pyx_PyLong_BoolEqObjC(PyObject *op1, PyObject *op2, long intval, long inplace) {
+      CYTHON_MAYBE_UNUSED_VAR(intval);
+      CYTHON_UNUSED_VAR(inplace);
+      if (op1 == op2) {
+          return 1;
+      }
+      #if CYTHON_USE_PYLONG_INTERNALS
+      if (likely(PyLong_CheckExact(op1))) {
+          int unequal;
+          unsigned long uintval;
+          Py_ssize_t size = __Pyx_PyLong_DigitCount(op1);
+          const digit* digits = __Pyx_PyLong_Digits(op1);
+          if (intval == 0) {
+              return (__Pyx_PyLong_IsZero(op1) == 1);
+          } else if (intval < 0) {
+              if (__Pyx_PyLong_IsNonNeg(op1))
+                  return 0;
+              intval = -intval;
+          } else {
+              if (__Pyx_PyLong_IsNeg(op1))
+                  return 0;
+          }
+          uintval = (unsigned long) intval;
+  #if PyLong_SHIFT * 4 < SIZEOF_LONG*8
+          if (uintval >> (PyLong_SHIFT * 4)) {
+              unequal = (size != 5) || (digits[0] != (uintval & (unsigned long) PyLong_MASK))
+                   | (digits[1] != ((uintval >> (1 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[2] != ((uintval >> (2 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[3] != ((uintval >> (3 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[4] != ((uintval >> (4 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK));
+          } else
+  #endif
+  #if PyLong_SHIFT * 3 < SIZEOF_LONG*8
+          if (uintval >> (PyLong_SHIFT * 3)) {
+              unequal = (size != 4) || (digits[0] != (uintval & (unsigned long) PyLong_MASK))
+                   | (digits[1] != ((uintval >> (1 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[2] != ((uintval >> (2 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[3] != ((uintval >> (3 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK));
+          } else
+  #endif
+  #if PyLong_SHIFT * 2 < SIZEOF_LONG*8
+          if (uintval >> (PyLong_SHIFT * 2)) {
+              unequal = (size != 3) || (digits[0] != (uintval & (unsigned long) PyLong_MASK))
+                   | (digits[1] != ((uintval >> (1 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK)) | (digits[2] != ((uintval >> (2 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK));
+          } else
+  #endif
+  #if PyLong_SHIFT * 1 < SIZEOF_LONG*8
+          if (uintval >> (PyLong_SHIFT * 1)) {
+              unequal = (size != 2) || (digits[0] != (uintval & (unsigned long) PyLong_MASK))
+                   | (digits[1] != ((uintval >> (1 * PyLong_SHIFT)) & (unsigned long) PyLong_MASK));
+          } else
+  #endif
+              unequal = (size != 1) || (((unsigned long) digits[0]) != (uintval & (unsigned long) PyLong_MASK));
+          return (unequal == 0);
+      }
+      #endif
+      if (PyFloat_CheckExact(op1)) {
+          const long b = intval;
+          double a = __Pyx_PyFloat_AS_DOUBLE(op1);
+          return ((double)a == (double)b);
+      }
+      return __Pyx_PyObject_IsTrueAndDecref(
+          PyObject_RichCompare(op1, op2, Py_EQ));
+  }
+  
 /* unicode_tailmatch */
   static int __Pyx_PyUnicode_TailmatchTuple(PyObject* s, PyObject* substrings,
                                             Py_ssize_t start, Py_ssize_t end, int direction) {
@@ -13558,73 +18556,83 @@ bad:
       return __Pyx_NewRef(obj);
   }
   
-/* UnicodeConcatInPlace */
-  # if CYTHON_COMPILING_IN_CPYTHON
-  static int
-  __Pyx_unicode_modifiable(PyObject *unicode, int unsafe_shared)
-  {
-      if (!__Pyx_IS_UNIQUELY_REFERENCED(unicode, unsafe_shared))
-          return 0;
-  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX > 0x030F0000
-      if (PyUnstable_Unicode_GET_CACHED_HASH(unicode) != -1)
-          return 0;
+/* JoinPyUnicode */
+  static PyObject* __Pyx_PyUnicode_Join(PyObject** values, Py_ssize_t value_count, Py_ssize_t result_ulength,
+                                        Py_UCS4 max_char) {
+  #if CYTHON_USE_UNICODE_INTERNALS && CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
+      PyObject *result_uval;
+      int result_ukind, kind_shift;
+      Py_ssize_t i, char_pos;
+      void *result_udata;
+      if (max_char > 1114111) max_char = 1114111;
+      result_uval = PyUnicode_New(result_ulength, max_char);
+      if (unlikely(!result_uval)) return NULL;
+      result_ukind = (max_char <= 255) ? PyUnicode_1BYTE_KIND : (max_char <= 65535) ? PyUnicode_2BYTE_KIND : PyUnicode_4BYTE_KIND;
+      kind_shift = (result_ukind == PyUnicode_4BYTE_KIND) ? 2 : result_ukind - 1;
+      result_udata = PyUnicode_DATA(result_uval);
+      assert(kind_shift == 2 || kind_shift == 1 || kind_shift == 0);
+      if (unlikely((PY_SSIZE_T_MAX >> kind_shift) - result_ulength < 0))
+          goto overflow;
+      char_pos = 0;
+      for (i=0; i < value_count; i++) {
+          int ukind;
+          Py_ssize_t ulength;
+          void *udata;
+          PyObject *uval = values[i];
+          #if !CYTHON_COMPILING_IN_LIMITED_API
+          if (__Pyx_PyUnicode_READY(uval) == (-1))
+              goto bad;
+          #endif
+          ulength = __Pyx_PyUnicode_GET_LENGTH(uval);
+          #if !CYTHON_ASSUME_SAFE_SIZE
+          if (unlikely(ulength < 0)) goto bad;
+          #endif
+          if (unlikely(!ulength))
+              continue;
+          if (unlikely((PY_SSIZE_T_MAX >> kind_shift) - ulength < char_pos))
+              goto overflow;
+          ukind = __Pyx_PyUnicode_KIND(uval);
+          udata = __Pyx_PyUnicode_DATA(uval);
+          if (ukind == result_ukind) {
+              memcpy((char *)result_udata + (char_pos << kind_shift), udata, (size_t) (ulength << kind_shift));
+          } else {
+              #if PY_VERSION_HEX >= 0x030d0000
+              if (unlikely(PyUnicode_CopyCharacters(result_uval, char_pos, uval, 0, ulength) < 0)) goto bad;
+              #elif CYTHON_COMPILING_IN_CPYTHON || defined(_PyUnicode_FastCopyCharacters)
+              _PyUnicode_FastCopyCharacters(result_uval, char_pos, uval, 0, ulength);
+              #else
+              Py_ssize_t j;
+              for (j=0; j < ulength; j++) {
+                  Py_UCS4 uchar = __Pyx_PyUnicode_READ(ukind, udata, j);
+                  __Pyx_PyUnicode_WRITE(result_ukind, result_udata, char_pos+j, uchar);
+              }
+              #endif
+          }
+          char_pos += ulength;
+      }
+      return result_uval;
+  overflow:
+      PyErr_SetString(PyExc_OverflowError, "join() result is too long for a Python string");
+  bad:
+      Py_DECREF(result_uval);
+      return NULL;
+  #else
+      Py_ssize_t i;
+      PyObject *result = NULL;
+      PyObject *value_tuple = PyTuple_New(value_count);
+      if (unlikely(!value_tuple)) return NULL;
+      CYTHON_UNUSED_VAR(max_char);
+      CYTHON_UNUSED_VAR(result_ulength);
+      for (i=0; i<value_count; i++) {
+          Py_INCREF(values[i]);
+          if (__Pyx_PyTuple_SET_ITEM(value_tuple, i, values[i]) != (0)) goto bad;
+      }
+      result = PyUnicode_Join(__pyx_mstate_global->__pyx_empty_unicode, value_tuple);
+  bad:
+      Py_DECREF(value_tuple);
+      return result;
   #endif
-      if (!PyUnicode_CheckExact(unicode))
-          return 0;
-      if (PyUnicode_CHECK_INTERNED(unicode))
-          return 0;
-      return 1;
   }
-  static CYTHON_INLINE PyObject *__Pyx_PyUnicode_ConcatInPlaceImpl(PyObject **p_left, PyObject *right, int unsafe_shared
-          #if CYTHON_REFNANNY
-          , void* __pyx_refnanny
-          #endif
-      ) {
-      PyObject *left = *p_left;
-      Py_ssize_t left_len, right_len, new_len;
-      if (unlikely(__Pyx_PyUnicode_READY(left) == -1))
-          return NULL;
-      if (unlikely(__Pyx_PyUnicode_READY(right) == -1))
-          return NULL;
-      left_len = PyUnicode_GET_LENGTH(left);
-      if (left_len == 0) {
-          Py_INCREF(right);
-          return right;
-      }
-      right_len = PyUnicode_GET_LENGTH(right);
-      if (right_len == 0) {
-          Py_INCREF(left);
-          return left;
-      }
-      if (unlikely(left_len > PY_SSIZE_T_MAX - right_len)) {
-          PyErr_SetString(PyExc_OverflowError,
-                          "strings are too large to concat");
-          return NULL;
-      }
-      new_len = left_len + right_len;
-      if (__Pyx_unicode_modifiable(left, unsafe_shared)
-              && PyUnicode_CheckExact(right)
-              && PyUnicode_KIND(right) <= PyUnicode_KIND(left)
-              && !(PyUnicode_IS_ASCII(left) && !PyUnicode_IS_ASCII(right))) {
-          int ret;
-          __Pyx_GIVEREF(*p_left);
-          ret = PyUnicode_Resize(p_left, new_len);
-          __Pyx_GOTREF(*p_left);
-          if (unlikely(ret != 0))
-              return NULL;
-          #if PY_VERSION_HEX >= 0x030d0000
-          if (unlikely(PyUnicode_CopyCharacters(*p_left, left_len, right, 0, right_len) < 0)) return NULL;
-          #else
-          _PyUnicode_FastCopyCharacters(*p_left, left_len, right, 0, right_len);
-          #endif
-          __Pyx_INCREF(*p_left);
-          __Pyx_GIVEREF(*p_left);
-          return *p_left;
-      } else {
-          return __Pyx_PyUnicode_Concat(left, right);
-      }
-    }
-  #endif
   
 /* AllocateExtensionType */
   static PyObject *__Pyx_AllocateExtensionType(PyTypeObject *t, int is_final) {
@@ -13992,7 +19000,7 @@ bad:
           if (unlikely(!module_name_str)) { goto modbad; }
           module_name = PyUnicode_FromString(module_name_str);
           if (unlikely(!module_name)) { goto modbad; }
-          module_dot = PyUnicode_Concat(module_name, __pyx_mstate_global->__pyx_kp_u__7);
+          module_dot = PyUnicode_Concat(module_name, __pyx_mstate_global->__pyx_kp_u__10);
           if (unlikely(!module_dot)) { goto modbad; }
           full_name = PyUnicode_Concat(module_dot, name);
           if (unlikely(!full_name)) { goto modbad; }
@@ -15597,7 +20605,7 @@ bad:
           result = name;
           name = NULL;
       } else {
-          result = __Pyx_NewRef(__pyx_mstate_global->__pyx_kp_u__8);
+          result = __Pyx_NewRef(__pyx_mstate_global->__pyx_kp_u__11);
       }
       goto done;
   }

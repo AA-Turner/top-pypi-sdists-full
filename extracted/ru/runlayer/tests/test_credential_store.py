@@ -7,8 +7,8 @@ import keyring.errors
 import pytest
 
 from runlayer_cli.credential_store import (
-    SERVICE_NAME,
     KeyringCredentialStore,
+    _service_name,
     get_keyring_store,
     reset_credential_store,
 )
@@ -69,5 +69,5 @@ class TestGetKeyringStore:
             assert get_keyring_store() is None
             assert get_keyring_store() is None
 
-        mock_get_password.assert_called_once_with(SERVICE_NAME, "__probe__")
+        mock_get_password.assert_called_once_with(_service_name(), "__probe__")
         mock_secho.assert_called_once()

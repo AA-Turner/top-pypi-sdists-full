@@ -94,6 +94,9 @@ class {name}:{"".join(map(add_indent, members))}
 """
         )
 
+    file.write(f"""    def truncate(self, field: str, length: int) -> None: ...
+""")
+
 
 primitives = {
     "Bytes32": "bytes32",
@@ -612,6 +615,7 @@ def quality_string_from_proof(plot_id: bytes32, size: int, plot_strength: int, p
             "def sign(self, msg: bytes, final_pk: Optional[G1Element] = None) -> G2Element: ...",
             "def get_g1(self) -> G1Element: ...",
             "def __str__(self) -> str: ...",
+            "def as_hex_string(self) -> str: ...",
             "def public_key(self) -> G1Element: ...",
             "def derive_hardened(self, idx: int) -> PrivateKey: ...",
             "def derive_unhardened(self, idx: int) -> PrivateKey: ...",

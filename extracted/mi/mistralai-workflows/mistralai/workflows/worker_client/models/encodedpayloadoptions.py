@@ -9,4 +9,5 @@ EncodedPayloadOptions = Literal[
     "offloaded",
     "encrypted",
     "encrypted-partial",
+    "compressed",
 ]

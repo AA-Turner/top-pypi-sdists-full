@@ -115,15 +115,85 @@ async def register_workflow(
     workflow_name: str,
     task_queue: str = "default",
     input_schema: dict[str, Any] | None = None,
+    deployment_name: str | None = None,
+    display_name: str | None = None,
 ) -> dict[str, Any]:
     if input_schema is None:
         input_schema = {"type": "object", "properties": {}, "additionalProperties": True}
-    response = await client.post(
-        "/v1/workflows/register",
-        json={"definitions": [{"name": workflow_name, "task_queue": task_queue, "input_schema": input_schema}]},
-    )
+    definition: dict[str, Any] = {
+        "name": workflow_name,
+        "task_queue": task_queue,
+        "input_schema": input_schema,
+    }
+    if display_name is not None:
+        definition["display_name"] = display_name
+    body: dict[str, Any] = {"definitions": [definition]}
+    if deployment_name is not None:
+        body["deployment_name"] = deployment_name
+    response = await client.post("/v1/workflows/register", json=body)
     response.raise_for_status()
     return cast(dict[str, Any], response.json())
+
+
+def unique_name(prefix: str) -> str:
+    return f"{prefix}-{uuid.uuid4().hex[:8]}"
+
+
+async def list_workflows(
+    client: httpx.AsyncClient,
+    **params: Any,
+) -> dict[str, Any]:
+    response = await client.get("/v1/workflows", params=params)
+    response.raise_for_status()
+    return cast(dict[str, Any], response.json())
+
+
+async def list_internal_workflows(
+    client: httpx.AsyncClient,
+    **params: Any,
+) -> dict[str, Any]:
+    response = await client.get("/v1/internals/workflows", params=params)
+    response.raise_for_status()
+    return cast(dict[str, Any], response.json())
+
+
+async def paginate_workflows(
+    list_fn: Any,
+    client: httpx.AsyncClient,
+    *,
+    limit: int,
+    **params: Any,
+) -> list[dict[str, Any]]:
+    all_rows: list[dict[str, Any]] = []
+    cursor: str | None = None
+    for _ in range(200):
+        result = await list_fn(client=client, limit=limit, cursor=cursor, **params)
+        all_rows.extend(result["workflows"])
+        cursor = result.get("next_cursor")
+        if cursor is None:
+            break
+    return all_rows
+
+
+async def paginate_workflows_all(
+    list_fn: Any,
+    client: httpx.AsyncClient,
+    *,
+    limits: list[int] | None = None,
+    **params: Any,
+) -> list[dict[str, Any]]:
+    if limits is None:
+        limits = [1, 2, 4, 8, 20]
+
+    reference = await paginate_workflows(list_fn, client, limit=limits[0], **params)
+    reference_ids = [w["id"] for w in reference]
+
+    for limit in limits[1:]:
+        rows = await paginate_workflows(list_fn, client, limit=limit, **params)
+        ids = [w["id"] for w in rows]
+        assert ids == reference_ids, f"Pagination with limit={limit} returned different results than limit={limits[0]}"
+
+    return reference
 
 
 async def archive_workflow(client: httpx.AsyncClient, workflow_identifier: str) -> httpx.Response:

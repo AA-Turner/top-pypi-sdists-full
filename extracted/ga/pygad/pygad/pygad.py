@@ -4,11 +4,14 @@ from pygad import utils
 from pygad import helper
 from pygad import visualize
 
-# Extend all the classes so that they can be referenced by just the `self` object of the `pygad.GA` class.
+# Inherit from all these classes so that their methods can be accessed through the `self` object of the `pygad.GA` class.
 class GA(utils.parent_selection.ParentSelection,
          utils.crossover.Crossover,
          utils.mutation.Mutation,
+         utils.nsga.NSGA,
          utils.nsga2.NSGA2,
+         utils.nsga3.NSGA3,
+         utils.report.Report,
          utils.validation.Validation,
          utils.engine.GAEngine,
          helper.unique.Unique,
@@ -34,13 +37,16 @@ class GA(utils.parent_selection.ParentSelection,
                  init_range_high=4,
                  gene_type=float,
                  parent_selection_type="sss",
-                 keep_parents=-1,
+                 keep_parents=None,
                  keep_elitism=1,
                  K_tournament=3,
+                 nsga3_num_divisions=None,
                  crossover_type="single_point",
                  crossover_probability=None,
+                 sbx_crossover_eta=30,
                  mutation_type="random",
                  mutation_probability=None,
+                 polynomial_mutation_eta=20,
                  mutation_by_replacement=False,
                  mutation_percent_genes='default',
                  mutation_num_genes=None,
@@ -78,22 +84,25 @@ class GA(utils.parent_selection.ParentSelection,
         num_genes: Number of genes in the solution.
 
         init_range_low: The lower value of the random range from which the gene values in the initial population are selected. It defaults to -4. Available in PyGAD 1.0.20 and higher.
-        init_range_high: The upper value of the random range from which the gene values in the initial population are selected. It defaults to -4. Available in PyGAD 1.0.20.
-        # It is OK to set the value of the 2 parameters ('init_range_low' and 'init_range_high') to be equal, higher or lower than the other parameter (i.e. init_range_low is not needed to be lower than init_range_high).
+        init_range_high: The upper value of the random range from which the gene values in the initial population are selected. It defaults to 4. Available in PyGAD 1.0.20.
+        It is OK for the 2 parameters ('init_range_low' and 'init_range_high') to be equal, or for one to be higher or lower than the other (i.e. 'init_range_low' does not need to be lower than 'init_range_high').
 
         gene_type: The type of the gene. It is assigned to any of these types (int, numpy.int8, numpy.int16, numpy.int32, numpy.int64, numpy.uint, numpy.uint8, numpy.uint16, numpy.uint32, numpy.uint64, float, numpy.float16, numpy.float32, numpy.float64) and forces all the genes to be of that type.
 
         parent_selection_type: Type of parent selection.
-        keep_parents: If 0, this means no parent in the current population will be used in the next population. If -1, this means all parents in the current population will be used in the next population. If set to a value > 0, then the specified value refers to the number of parents in the current population to be used in the next population. Some parent selection operators such as rank selection, favor population diversity and therefore keeping the parents in the next generation can be beneficial. However, some other parent selection operators, such as roulette wheel selection (RWS), have higher selection pressure and keeping more than one parent in the next generation can seriously harm population diversity. This parameter has an effect only when the keep_elitism parameter is 0. Thanks to Prof. Fernando Jiménez (http://webs.um.es/fernan) for editing this sentence.
+        keep_parents: It defaults to None, which is treated as -1 (keep all selected parents). If 0, this means no parent in the current population will be used in the next population. If -1, this means all parents in the current population will be used in the next population. If set to a value > 0, then the specified value refers to the number of parents in the current population to be used in the next population. Some parent selection operators such as rank selection, favor population diversity and therefore keeping the parents in the next generation can be beneficial. However, some other parent selection operators, such as roulette wheel selection (RWS), have higher selection pressure and keeping more than one parent in the next generation can seriously harm population diversity. IMPORTANT: This parameter has an effect only when the keep_elitism parameter is 0. Because keep_elitism defaults to 1, keep_parents is ignored unless you also set keep_elitism=0. If you explicitly set keep_parents while keep_elitism is greater than 0, a warning is raised to flag that keep_parents will have no effect. Thanks to Prof. Fernando Jiménez (http://webs.um.es/fernan) for editing this sentence.
         K_tournament: When the value of 'parent_selection_type' is 'tournament', the 'K_tournament' parameter specifies the number of solutions from which a parent is selected randomly.
+        nsga3_num_divisions: Only used when 'parent_selection_type' is 'nsga3' or 'tournament_nsga3'. It is the number of divisions per objective axis used to build the structured reference points (the 'p' parameter from Deb & Jain 2014). The total number of reference points is C(M + p - 1, p) where M is the number of objectives. Must be a positive integer. Defaults to None.
 
-        keep_elitism: Added in PyGAD 2.18.0. It can take the value 0 or a positive integer that satisfies (0 <= keep_elitism <= sol_per_pop). It defaults to 1 which means only the best solution in the current generation is kept in the next generation. If assigned 0, this means it has no effect. If assigned a positive integer K, then the best K solutions are kept in the next generation. It cannot be assigned a value greater than the value assigned to the sol_per_pop parameter. If this parameter has a value different from 0, then the keep_parents parameter will have no effect.
+        keep_elitism: Added in PyGAD 2.18.0. It can take the value 0 or a positive integer that satisfies (0 <= keep_elitism <= sol_per_pop). It defaults to 1 which means only the best solution in the current generation is kept in the next generation. If assigned 0, this means it has no effect. If assigned a positive integer K, then the best K solutions are kept in the next generation. It cannot be assigned a value greater than the value assigned to the sol_per_pop parameter. If this parameter has a value different from 0, then it takes precedence over the keep_parents parameter, which will have no effect (a warning is raised if keep_parents was explicitly set in this case). To use keep_parents instead, set keep_elitism=0.
 
         crossover_type: Type of the crossover operator. If  crossover_type=None, then the crossover step is bypassed which means no crossover is applied and thus no offspring will be created in the next generations. The next generation will use the solutions in the current population.
         crossover_probability: The probability of selecting a solution for the crossover operation. If the solution probability is <= crossover_probability, the solution is selected. The value must be between 0 and 1 inclusive.
+        sbx_crossover_eta: Only used when 'crossover_type' is 'sbx'. The distribution index that controls how close the children stay to the parents (higher value = closer). Defaults to 30.
 
         mutation_type: Type of the mutation operator. If mutation_type=None, then the mutation step is bypassed which means no mutation is applied and thus no changes are applied to the offspring created using the crossover operation. The offspring will be used unchanged in the next generation.
         mutation_probability: The probability of selecting a gene for the mutation operation. If the gene probability is <= mutation_probability, the gene is selected. It accepts either a single value for fixed mutation or a list/tuple/numpy.ndarray of 2 values for adaptive mutation. The values must be between 0 and 1 inclusive. If specified, then no need for the 2 parameters mutation_percent_genes and mutation_num_genes.
+        polynomial_mutation_eta: Only used when 'mutation_type' is 'polynomial'. The distribution index that controls how small the mutation step is (higher value = smaller step). Defaults to 20.
 
         mutation_by_replacement: An optional bool parameter. It works only when the selected type of mutation is random (mutation_type="random"). In this case, setting mutation_by_replacement=True means replace the gene by the randomly generated value. If False, then it has no effect and random mutation works by adding the random value to the gene.
 
@@ -102,7 +111,7 @@ class GA(utils.parent_selection.ParentSelection,
         random_mutation_min_val: The minimum value of the range from which a random value is selected to be added to the selected gene(s) to mutate. It defaults to -1.0.
         random_mutation_max_val: The maximum value of the range from which a random value is selected to be added to the selected gene(s) to mutate. It defaults to 1.0.
 
-        gene_space: It accepts a list of all possible values of the gene. This list is used in the mutation step. Should be used only if the gene space is a set of discrete values. No need for the 2 parameters (random_mutation_min_val and random_mutation_max_val) if the parameter gene_space exists. Added in PyGAD 2.5.0. In PyGAD 2.11.0, the gene_space can be assigned a dict.
+        gene_space: It accepts a list of all possible values of the gene. This list is used in the mutation step. It should be used only if the gene space is a set of discrete values. No need for the 2 parameters (random_mutation_min_val and random_mutation_max_val) if the parameter gene_space exists. Added in PyGAD 2.5.0. In PyGAD 2.11.0, the gene_space can be assigned a dict.
 
         gene_constraint: It accepts a list of constraints for the genes. Each constraint is a Python function. Added in PyGAD 3.5.0.
         sample_size: To select a gene value that respects a constraint, this variable defines the size of the sample from which a value is selected randomly. Useful if either allow_duplicate_genes or gene_constraint is used. Added in PyGAD 3.5.0.
@@ -145,10 +154,13 @@ class GA(utils.parent_selection.ParentSelection,
                                      keep_parents=keep_parents,
                                      keep_elitism=keep_elitism,
                                      K_tournament=K_tournament,
+                                     nsga3_num_divisions=nsga3_num_divisions,
                                      crossover_type=crossover_type,
                                      crossover_probability=crossover_probability,
+                                     sbx_crossover_eta=sbx_crossover_eta,
                                      mutation_type=mutation_type,
                                      mutation_probability=mutation_probability,
+                                     polynomial_mutation_eta=polynomial_mutation_eta,
                                      mutation_by_replacement=mutation_by_replacement,
                                      mutation_percent_genes=mutation_percent_genes,
                                      mutation_num_genes=mutation_num_genes,
@@ -179,8 +191,13 @@ class GA(utils.parent_selection.ParentSelection,
 
     def save(self, filename):
         """
-        Saves the genetic algorithm instance:
-            -filename: Name of the file to save the instance. No extension is needed.
+        Serialise the GA instance to disk with ``cloudpickle``. The
+        file extension ``.pkl`` is added automatically.
+
+        Parameters
+        ----------
+        filename : str
+            Path (without extension) where the pickle file is written.
         """
 
         cloudpickle_serialized_object = cloudpickle.dumps(self)
@@ -188,11 +205,77 @@ class GA(utils.parent_selection.ParentSelection,
             file.write(cloudpickle_serialized_object)
             cloudpickle.dump(self, file)
 
+    def push_to_vilvik(self, *, api_key=None, **overrides):
+        """
+        Push this GA run to Vilvik (https://vilvik.com) as an
+        editable, continuable cloud record. Thin convenience wrapper
+        over the Vilvik SDK, which must be installed separately::
+
+            pip install vilvik
+
+        Call after ``ga.run()``. Sign in first with ``vilvik login``
+        or set the ``VILVIK_API_KEY`` environment variable.
+
+        Parameters
+        ----------
+        api_key : str, optional
+            Explicit API key. When None, the SDK falls back to the
+            CLI login or the ``VILVIK_API_KEY`` environment variable.
+        **overrides
+            Forwarded to ``vilvik.push``. Common keys include
+            ``name``, ``fitness_source``, ``callbacks``,
+            ``preamble``, and ``dry_run``.
+
+        Returns
+        -------
+        record : object
+            The created Vilvik record, or a capture report when
+            ``dry_run=True``.
+
+        Raises
+        ------
+        ImportError
+            If the ``vilvik`` package is not installed.
+        """
+        try:
+            import vilvik
+        except ImportError as exc:
+            raise ImportError(
+                "push_to_vilvik requires the Vilvik SDK. Install it with: "
+                "pip install vilvik"
+            ) from exc
+
+        import pygad
+        return vilvik.push(
+            self,
+            api_key=api_key,
+            origin_overrides={"client": "pygad_wrapper", "pygad_version": pygad.__version__},
+            **overrides,
+        )
+
 def load(filename):
     """
-    Reads a saved instance of the genetic algorithm:
-        -filename: Name of the file to read the instance. No extension is needed.
-    Returns the genetic algorithm instance.
+    Load a GA instance from a ``cloudpickle`` file written by
+    ``pygad.GA.save``. The file extension ``.pkl`` is added
+    automatically.
+
+    Parameters
+    ----------
+    filename : str
+        Path (without extension) where the pickle file is read from.
+
+    Returns
+    -------
+    ga_in : pygad.GA
+        The restored GA instance.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the file does not exist.
+    BaseException
+        If the file exists but cannot be unpickled (for example when
+        the original fitness function is not importable).
     """
 
     try:

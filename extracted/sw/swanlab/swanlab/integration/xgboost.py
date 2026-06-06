@@ -1,76 +1,66 @@
-"""
-https://docs.swanlab.cn/guide_cloud/integration/integration-xgboost.html
-"""
+from __future__ import annotations
 
 import json
-from typing import cast, Any, Dict
-import xgboost as xgb  # type: ignore
-from xgboost import Booster
+from typing import TYPE_CHECKING, cast
+
 import swanlab
+import swanlab.vendor
+from swanlab import Callback
+
+if TYPE_CHECKING:
+    from typing import Any
 
 
-class SwanLabCallback(xgb.callback.TrainingCallback):
+class SwanLabCallback(Callback, swanlab.vendor.xgboost.callback.TrainingCallback):
     def __init__(
         self,
         log_feature_importance: bool = True,
         importance_type: str = "gain",
-        ):
-        self.log_feature_importance = log_feature_importance
-        self.importance_type = importance_type
-        # 如果没有注册过实验
-        swanlab.config["FRAMEWORK"] = "xgboost"
-        if swanlab.get_run() is None:
-            raise RuntimeError("You must call swanlab.init() before SwanLabCallback(). 你必须在SwanLabCallback()之前，调用swanlab.init().")
-    
-    def update_config(self, config: Dict[str, Any]):
-        swanlab.config.update(config)
-        
-    def before_training(self, model: Booster) -> Booster:
-        """Run before training is finished."""
-        # Update SwanLab config
-        config = model.save_config()
-        swanlab.config.update(json.loads(config))
+    ):
+        self._log_feature_importance = log_feature_importance
+        self._importance_type = importance_type
 
+    @property
+    def name(self) -> str:
+        return "swanlab-integration-xgboost"
+
+    def before_training(self, model: Any) -> Any:
+        run = swanlab.get_run()
+        if run is None:
+            return model
+        run.config["FRAMEWORK"] = "xgboost"
+        config = model.save_config()
+        run.config.update(json.loads(config))
         return model
 
-    def after_training(self, model: Booster) -> Booster:
-        """Run after training is finished."""
+    def after_training(self, model: Any) -> Any:
+        if self._log_feature_importance:
+            self._log_feature_importance_chart(model)
 
-        if self.log_feature_importance:
-            self._log_feature_importance(model)
-        
-        # Log the best score and best iteration
         if model.attr("best_score") is not None:
             swanlab.log(
                 {
                     "best_score": float(cast(str, model.attr("best_score"))),
                     "best_iteration": int(cast(str, model.attr("best_iteration"))),
-                }
+                },
             )
 
         return model
 
-    def after_iteration(self, model: Booster, epoch: int, evals_log: dict) -> bool:
-        """Run after each iteration. Return True when training should stop."""
-        # Log metrics
+    def after_iteration(self, model: Any, epoch: int, evals_log: dict) -> bool:
         for data, metric in evals_log.items():
             for metric_name, log in metric.items():
-                    swanlab.log({f"{data}-{metric_name}": log[-1]})
-
-        swanlab.log({"epoch": epoch})
+                swanlab.log({f"{data}-{metric_name}": log[-1]}, step=epoch)
 
         return False
 
-    def _log_feature_importance(self, model: Booster) -> None:
-        fi = model.get_score(importance_type=self.importance_type)
+    def _log_feature_importance_chart(self, model: Any) -> None:
+        fi = model.get_score(importance_type=self._importance_type)
+        if not fi:
+            return
         x = list(fi.keys())
-        y = list(fi.values())
-        y = [round(i, 2) for i in y]  # 保留两位小数
+        y = [round(v, 2) for v in fi.values()]
         bar = swanlab.echarts.Bar()
         bar.add_xaxis(x)
         bar.add_yaxis("Importance", y)
-        swanlab.log(
-            {
-                "Feature Importance": bar
-            }
-        )
+        swanlab.log({"Feature Importance": bar})

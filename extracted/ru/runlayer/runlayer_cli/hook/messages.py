@@ -1,8 +1,4 @@
-"""Single source of truth for all deny / agent messages.
-
-Originally ported from the bash heredocs in runlayer-hook.sh — these strings
-are part of the user/agent contract and must not be changed without coordination.
-"""
+"""Single source of truth for deny / agent messages (user/agent contract — coordinate before changing)."""
 
 AGENT_GUARDRAILS = (
     "**If you are an AI Agent:**\n"
@@ -68,18 +64,6 @@ def auth_required(*, tool_name: str = "") -> tuple[str, str]:
             "Runlayer credentials are not configured on this machine. Your organization's policy requires all MCP tool use to be verified, which requires valid credentials.",
             tool_name=tool_name,
             footer="Run 'runlayer login' to set up authentication, then retry.",
-        ),
-    )
-
-
-def cli_not_found(*, tool_name: str = "") -> tuple[str, str]:
-    return (
-        "Runlayer CLI not found on hook PATH",
-        _violation_with_tool(
-            "Infrastructure",
-            "Neither 'runlayer' nor 'uvx' could be found on the hook's PATH. The relay binary was never executed \u2014 no network call was attempted. This typically happens when an AI coding client launches hooks with a minimal (launchd) PATH that does not include user-installed tools.",
-            tool_name=tool_name,
-            footer="Install the Runlayer CLI ('pip install runlayer' or 'uvx runlayer') and ensure it is available in one of: $HOME/.local/bin, /opt/homebrew/bin, /usr/local/bin, or another directory on PATH.",
         ),
     )
 

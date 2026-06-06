@@ -214,6 +214,10 @@ experiment_data_base_app = typer.Typer(help="Data base experiment")
 experiment_data_unified_app = typer.Typer(help="Data unified (multi-sim) experiment")
 experiment_check_app = typer.Typer(help="Sim-checker experiments")
 experiment_check_base_app = typer.Typer(help="Sim-checker base experiment")
+experiment_blank_app = typer.Typer(help="Blankdata pipeline experiments")
+experiment_blank_base_app = typer.Typer(
+    help="Simcreator-blank base experiment (used by `start blank` and by env-create/env-fix's chain step)"
+)
 experiment_agent_app = typer.Typer(help="AgentSession experiments")
 experiment_agent_data_load_app = typer.Typer(help="Agent data-load experiment")
 
@@ -225,12 +229,14 @@ pm_app.add_typer(experiment_app, name="experiment")
 experiment_app.add_typer(experiment_env_app, name="env")
 experiment_app.add_typer(experiment_data_app, name="data")
 experiment_app.add_typer(experiment_check_app, name="check")
+experiment_app.add_typer(experiment_blank_app, name="blank")
 experiment_app.add_typer(experiment_agent_app, name="agent")
 experiment_env_app.add_typer(experiment_env_base_app, name="base")
 experiment_env_app.add_typer(experiment_env_fix_app, name="fix")
 experiment_data_app.add_typer(experiment_data_base_app, name="base")
 experiment_data_app.add_typer(experiment_data_unified_app, name="unified")
 experiment_check_app.add_typer(experiment_check_base_app, name="base")
+experiment_blank_app.add_typer(experiment_blank_base_app, name="base")
 experiment_agent_app.add_typer(experiment_agent_data_load_app, name="data-load")
 
 
@@ -387,6 +393,65 @@ def _get_latest_rejected_data_review_comments(reviews: list[dict]) -> list[str]:
         return []
 
     return _extract_review_comment_texts(rejected_data_reviews[0])
+
+
+def _render_data_artifact_section(data_artifact_id: str | None) -> str:
+    """Build the prose block injected as {data_artifact_section} into env-fix's `fix` step.
+
+    Two variants — populated (reference available, agent can spin it up on demand)
+    and empty (no data artifact attached, sim never went through datagen or hasn't
+    yet). Rendered at CLI time rather than via runtime template logic so the agent
+    never sees a literal {placeholder} or an awkward "if empty" branch.
+    """
+    if data_artifact_id:
+        return (
+            "## Two Environments — Diagnose on Data, Fix on Base\n\n"
+            f"**Reference (data) artifact:** `{data_artifact_id}`\n\n"
+            "The reviewer's feedback above describes what they saw on the **data artifact**, not on the empty base. "
+            "Default workflow:\n\n"
+            "1. **Reproduce the symptom on the data artifact** (read-only reference sandbox).\n"
+            "2. **Once you have conviction about the cause, switch to the base sandbox and patch it there.**\n"
+            "3. Two distinct VMs with distinct DB + filesystem state — don't mix them up.\n\n"
+            "### Reproduce on the data ref\n\n"
+            "```\n"
+            f"plato sandbox start -a {data_artifact_id} -w /tmp/data-ref --json\n"
+            "# every command targeting this sandbox needs -w /tmp/data-ref. Commands without it hit your base /workspace sandbox.\n"
+            "plato sandbox state -w /tmp/data-ref --json | jq '.results[].state.db'\n"
+            "plato sandbox flow -w /tmp/data-ref --headless --flow-name login\n"
+            "ssh -F /tmp/data-ref/.plato/ssh_config sandbox   # for DB queries\n"
+            "```\n\n"
+            "Don't move on until you can describe the cause concretely. Then stop the ref so you don't "
+            "accidentally run fix commands against it:\n\n"
+            "```\n"
+            "plato sandbox stop -w /tmp/data-ref\n"
+            "```\n\n"
+            "### Patch the base\n\n"
+            "Apply the fix in /workspace as usual. All subsequent steps in this session (audit_verify, "
+            "mutation_test, snapshot, cleanup) operate on /workspace.\n\n"
+            "### When to skip the data ref\n\n"
+            "If the reviewer feedback is unambiguously about something visible in base config files (e.g. "
+            '"plato-config.yml is malformed", "wrong credentials in flows.yml") and you can see it '
+            "immediately, skip. For any runtime symptom (login behavior, mutation patterns, endpoint "
+            "errors, rendering bugs), boot the ref first.\n\n"
+            "### Hard rules\n\n"
+            "- The data ref is **READ-ONLY**. Don't snapshot it, don't modify it, don't run cleanup against it.\n"
+            "- Every command on the ref uses `-w /tmp/data-ref`. Without that flag, commands hit the base — mixing them up is the most common way to waste an hour.\n"
+            "- The output of THIS session is the **base** artifact only. The ref gets discarded."
+        )
+    return (
+        "## Reference Data Artifact\n\n"
+        "None — this sim has no data artifact attached. The fix runs against the base /workspace sandbox only."
+    )
+
+
+def _render_operator_message_section(message: str | None) -> str:
+    """Build the prose block injected as {operator_message_section} into simcreator-blank's
+    `plan` step. Empty string when no -m message was passed (omits the section entirely).
+    """
+    msg = (message or "").strip()
+    if not msg:
+        return ""
+    return f"## Operator note\n\n{msg}\n\nHint, not spec. Trust your observations if they conflict.\n\n"
 
 
 def _build_datagen_review_prompt(simulator_name: str, comments: list[str], base_prompt: str) -> str:
@@ -624,6 +689,7 @@ _EXPERIMENT_NAMES: dict[tuple[str, str], str] = {
     ("data", "base"): "datagen-launch",
     ("data", "unified"): "datagen-unified-launch",
     ("check", "base"): "sim-checker-launch",
+    ("blank", "base"): "simcreator-blank-launch",
     # AgentSession experiments — drop the legacy ``-launch`` suffix; these
     # are long-lived session configs, not one-shot launch templates.
     ("agent", "data-load"): "agent-data-load",
@@ -634,9 +700,11 @@ def _render_step_instructions(world_config: dict, **substitutions: str) -> None:
     """Replace ``{key}`` placeholders in each step's instruction in place.
 
     Templates live in structured_execution_world and use ``{sim_name}``,
-    ``{github_url}``, ``{feedback}``, ``{artifact_id}``, etc. We render them
-    here at launch time so the world receives plain strings — no runtime
-    substitution engine required.
+    ``{github_url}``, ``{feedback}``, ``{artifact_id}``, ``{data_artifact_section}``,
+    etc. We render them here at launch time so the world receives plain strings — no
+    runtime substitution engine required. Unknown placeholders are left intact; if
+    a step's instruction doesn't reference a substitution, that's fine (only
+    env-fix's ``fix`` step uses ``{data_artifact_section}``, for example).
     """
     for step in world_config.get("steps", []):
         instr = step.get("instruction", "")
@@ -816,6 +884,7 @@ async def _launch_env_world(
             if not base_artifact_id:
                 console.print("[red]Simulator has no base_artifact_id. Cannot launch fix.[/red]")
                 return None
+            data_artifact_id = current_config.get("data_artifact_id") or ""
 
             resume_from = inputs.get("resume_from", "")
 
@@ -827,6 +896,7 @@ async def _launch_env_world(
                 sim_name=simulator_name,
                 feedback=feedback,
                 artifact_id=base_artifact_id,
+                data_artifact_section=_render_data_artifact_section(data_artifact_id),
                 workspace="/workspace",
             )
             cred_key, cred_val = _get_claude_credentials()
@@ -1203,17 +1273,21 @@ async def _handle_env_level_reject(
     console.print(f"[cyan]Status:[/cyan] {status_walk_str}")
 
     if env_action:
-        # Extension semantics: env-level fix starts from the data artifact (the one
-        # under review), not the base artifact. Override base_artifact_id so
-        # _launch_env_world's fix branch uses our data artifact.
-        launch_config = {**current_config, "base_artifact_id": artifact_id} if env_action == "fix" else current_config
+        # env-fix uses the sim's actual base_artifact_id as the artifact to
+        # fix-and-snapshot, with the data artifact (the one the reviewer was
+        # looking at, also the sim's current data_artifact_id) made available
+        # to the agent as a read-only reference. This matches the policy:
+        # output is always the base artifact, with cleared data and any fixes
+        # baked in; the data artifact is for diagnosing data-shaped symptoms
+        # only. _launch_env_world reads both fields from current_config — no
+        # override needed.
         launched_session = await _launch_env_world(
             action=env_action,
             simulator_name=simulator_name,
             artifact_id=artifact_id,
             feedback=message,
             api_key=api_key,
-            current_config=launch_config,
+            current_config=current_config,
             action_inputs=env_action_inputs,
         )
         if launched_session:
@@ -1950,11 +2024,13 @@ def start_env(
                     template, version_id = _fetch_experiment_config("env", "fix", api_key)
                     config = template["world"]["config"]
                     config["sim_name"] = s["name"]
+                    data_artifact_id = s.get("current_config", {}).get("data_artifact_id") or ""
                     _render_step_instructions(
                         config,
                         sim_name=s["name"],
                         feedback=s.get("feedback", ""),
                         artifact_id=s["base_artifact_id"],
+                        data_artifact_section=_render_data_artifact_section(data_artifact_id),
                         workspace="/workspace",
                     )
                     config["plato_api_key"] = datagen_api_key
@@ -2263,6 +2339,77 @@ def start_checker(
     handle_async(_start())
 
 
+async def _launch_simcreator_blank_world(
+    simulator_name: str,
+    artifact_id: str,
+    api_key: str,
+    operator_message: str | None = None,
+) -> str | None:
+    """Launch a simcreator-blank session, fetching the template from Chronos.
+
+    Same template shape as the legacy `_launch_from_template_world` path
+    (root-level `mcps_required`, structured-execution world.config), but the
+    config is pulled from the `simcreator-blank-launch` experiment version
+    instead of a local JSON file. That removes the "ship a new SDK to the
+    box launching this" dependency — you push the experiment once, every
+    caller (manual + the simcreator chain step) picks it up.
+    """
+    datagen_api_key = DEFAULT_DATAGEN_API_KEY
+
+    if not DEFAULT_ANCHOR_KEY:
+        console.print("[yellow]⚠️  ANCHOR_API_KEY is not set. The session will fail to launch a browser.[/yellow]")
+        console.print("[yellow]   Set it with: export ANCHOR_API_KEY=<your-key>[/yellow]")
+
+    try:
+        template, version_id = _fetch_experiment_config("blank", "base", api_key)
+
+        mcps_required = template.pop("mcps_required", ["browser"])
+        mcps = await _build_mcps_for_sim(mcps_required, simulator_name, artifact_id, api_key)
+
+        config = template["world"]["config"]
+        cred_key, cred_val = _get_claude_credentials()
+        _set_claude_credentials(config, cred_key, cred_val)
+        agent_config = config.get("agent", {}).get("config")
+        if agent_config is not None:
+            _set_claude_credentials(agent_config, cred_key, cred_val)
+        config["plato_api_key"] = datagen_api_key
+        config["anchor_api_key"] = DEFAULT_ANCHOR_KEY
+        config["browserbase_api_key"] = DEFAULT_BROWSERBASE_KEY
+        config["envs"] = [
+            {
+                "env": {"artifact_id": artifact_id, "alias": simulator_name},
+                "mcps": mcps,
+                "default": True,
+            }
+        ]
+        config["sim_name"] = simulator_name
+        config["artifact_id"] = artifact_id
+
+        plato_base_url = _get_base_url()
+        subs: dict[str, str] = {
+            "sim_name": simulator_name,
+            "artifact_id": artifact_id,
+            "plato_api_key": datagen_api_key,
+            "plato_base_url": plato_base_url,
+            "workspace": "/workspace",
+            "mutation_threshold": str(config.get("mutation_threshold", 40)),
+            "operator_message_section": _render_operator_message_section(operator_message),
+        }
+        _render_step_instructions(config, **subs)
+        _render_step_verify(config, **subs)
+
+        template.setdefault("tags", []).append(simulator_name)
+
+        console.print(f"[cyan]Launching simcreator-blank on Chronos for {simulator_name}...[/cyan]")
+        session_id = _launch_on_chronos(template, api_key)
+        _attach_session_to_experiment(version_id, session_id, api_key)
+        return session_id
+
+    except Exception as e:
+        console.print(f"[red]❌ simcreator-blank launch failed: {e}[/red]")
+        return None
+
+
 @start_app.command(name="blank")
 def start_blank(
     simulators: list[str] = typer.Argument(..., help="Simulator name(s)"),
@@ -2275,37 +2422,128 @@ def start_blank(
     use_base: bool = typer.Option(
         False,
         "--base",
-        help="Use base_artifact_id (pre-datagen snapshot).",
+        help="Use base_artifact_id (pre-datagen snapshot). This is the default for `start blank`.",
     ),
     use_data: bool = typer.Option(
         False,
         "--data",
-        help="Use data_artifact_id (post-datagen snapshot). Default behavior already falls back to base if missing.",
+        help="Use data_artifact_id (post-datagen snapshot). Opt in when you specifically want to clean the data-side artifact (rare for manual blank).",
+    ),
+    yes: bool = typer.Option(
+        False,
+        "-y",
+        "--yes",
+        help="Skip the interactive confirmation prompt (for non-interactive callers like the simcreator chain).",
+    ),
+    message: str = typer.Option(
+        "",
+        "-m",
+        "--message",
+        help="Optional operator note injected into the agent's plan step (e.g. 'leftover Test Company LLC in clients'). Hint, not spec.",
     ),
 ):
-    """Run the blankdata pipeline on one or more simulators.
+    """Run the simcreator-blank pipeline on one or more simulators.
 
     Strips synthetic data from a sim's artifact, leaving the app in a
     "fresh deploy + admin user" state, and promotes the cleaned artifact
-    as the new base_artifact_id.
+    as the new base_artifact_id. Also walks any first-run wizard exposed
+    by the clear and does the snapshot-hygiene pass (clear audit_log via
+    clear-audit, leaving the audit triggers and audit_log table in place)
+    so the artifact stays clean across reset() with audit infra intact.
 
-    Thin wrapper around ``start from-template`` with the bundled
-    ``datagen-blank-launch.json`` template.
+    Fetches the launch config from the ``simcreator-blank-launch`` Chronos
+    experiment. Push a new version with ``plato pm experiment blank base push``.
 
     Examples:
         plato pm start blank espocrm
         plato pm start blank espocrm memos --base
         plato pm start blank espocrm -a 56f85a14-8e82-4053-a7df-8490c31a14e3
+        plato pm start blank espocrm -m "two leftover rows in clients table"
     """
-    template_path = _find_templates_dir() / "datagen-blank-launch.json"
-    start_from_template(
-        template=str(template_path),
-        simulators=simulators,
-        artifact=artifact,
-        use_base=use_base,
-        use_data=use_data,
-        unified=False,
-    )
+    if use_base and use_data:
+        console.print("[red]❌ --base and --data are mutually exclusive.[/red]")
+        raise typer.Exit(1)
+
+    api_key = require_api_key()
+
+    if artifact and len(simulators) != 1:
+        console.print("[red]❌ --artifact-id can only be used with exactly one simulator name[/red]")
+        raise typer.Exit(1)
+
+    async def _start():
+        base_url = _get_base_url()
+
+        to_launch = []
+        for raw in simulators:
+            if UUID_PATTERN.match(raw):
+                to_launch.append({"name": f"artifact-{raw[:8]}", "artifact_id": raw, "source": "raw_artifact_uuid"})
+                continue
+
+            sim_name, colon_artifact = _split_sim_colon_arg(raw, command_name="start blank")
+            if colon_artifact:
+                to_launch.append({"name": sim_name, "artifact_id": colon_artifact, "source": "colon_notation"})
+                continue
+
+            if artifact and raw == simulators[0] and len(simulators) == 1:
+                to_launch.append({"name": sim_name, "artifact_id": artifact, "source": "override"})
+                continue
+
+            try:
+                async with httpx.AsyncClient(base_url=base_url, timeout=60.0) as client:
+                    sim = await get_simulator_by_name.asyncio(client=client, name=sim_name, x_api_key=api_key)
+                current_config = sim.config or {}
+                base_artifact_id = current_config.get("base_artifact_id", "")
+                data_artifact_id = current_config.get("data_artifact_id", "")
+
+                if use_data:
+                    artifact_id = data_artifact_id
+                    source = "data_artifact_id"
+                else:
+                    # Default: prefer base (the clean env-approved snapshot). The
+                    # data artifact often has datagen-induced state that breaks
+                    # cleanup heuristics (e.g. permission rows wiped, broken
+                    # admin nav). Opt into --data only when you specifically
+                    # want to clean the data-side artifact.
+                    artifact_id = base_artifact_id
+                    source = "base_artifact_id"
+
+                if not artifact_id:
+                    missing = "data_artifact_id" if use_data else "base_artifact_id"
+                    console.print(f"[yellow]⚠️  {sim_name}: no {missing}, skipping[/yellow]")
+                    continue
+
+                to_launch.append({"name": sim_name, "artifact_id": artifact_id, "source": source})
+            except Exception as e:
+                console.print(f"[red]❌ {sim_name}: {e}[/red]")
+
+        if not to_launch:
+            console.print("[yellow]Nothing to launch.[/yellow]")
+            return
+
+        console.print(f"\n[bold]Will launch simcreator-blank (one session per {len(to_launch)} simulator(s)):[/bold]")
+        for s in to_launch:
+            console.print(f"  {s['name']} — artifact {s['artifact_id'][:8]}... ({s['source']})")
+
+        if not yes and not typer.confirm("\nProceed?", default=True):
+            console.print("[yellow]Cancelled.[/yellow]")
+            return
+
+        for s in to_launch:
+            try:
+                launched = await _launch_simcreator_blank_world(
+                    simulator_name=s["name"],
+                    artifact_id=s["artifact_id"],
+                    api_key=api_key,
+                    operator_message=message,
+                )
+                if launched:
+                    console.print(f"[green]✅ {s['name']}:[/green] {launched}")
+                else:
+                    console.print(f"[red]❌ {s['name']}: launch returned None[/red]")
+            except Exception as e:
+                console.print(f"[red]❌ {s['name']}: {e}[/red]")
+
+    handle_async(_start())
 
 
 @start_app.command(name="from-template")
@@ -2334,6 +2572,12 @@ def start_from_template(
         False,
         "--unified",
         help="Launch ONE session with all sims attached as envs (mirrors datagen unified mode). The template must be written to handle multiple envs (reference config.sim_names).",
+    ),
+    yes: bool = typer.Option(
+        False,
+        "-y",
+        "--yes",
+        help="Skip the interactive confirmation prompt (for non-interactive callers).",
     ),
 ):
     """Launch Chronos session(s) from a local JSON template.
@@ -2435,7 +2679,7 @@ def start_from_template(
         for s in to_launch:
             console.print(f"  {s['name']} — artifact {s['artifact_id'][:8]}... ({s['source']})")
 
-        if not typer.confirm("\nProceed?", default=True):
+        if not yes and not typer.confirm("\nProceed?", default=True):
             console.print("[yellow]Cancelled.[/yellow]")
             return
 
@@ -4286,6 +4530,7 @@ def _push_experiment(pipeline: str, mode: str, api_key: str) -> None:
         ("data", "base"): "datagen-launch.json",
         ("data", "unified"): "datagen-unified-launch.json",
         ("check", "base"): "sim-checker-launch.json",
+        ("blank", "base"): "simcreator-blank-launch.json",
         ("agent", "data-load"): "agent-data-load.json",
     }[(pipeline, mode)]
     description = {
@@ -4294,6 +4539,10 @@ def _push_experiment(pipeline: str, mode: str, api_key: str) -> None:
         ("data", "base"): "Run via: plato pm start data <sim>",
         ("data", "unified"): "Run via: plato pm start data --unified <sim1> <sim2> ...",
         ("check", "base"): "Run via: plato pm start checker <sim>",
+        (
+            "blank",
+            "base",
+        ): "Run via: plato pm start blank <sim> (also chained automatically by simcreator's env-create / env-fix as their terminal phase)",
         ("agent", "data-load"): "AgentSession recipe for loading user-supplied source data into a sim",
     }[(pipeline, mode)]
     world_key = {
@@ -4302,6 +4551,7 @@ def _push_experiment(pipeline: str, mode: str, api_key: str) -> None:
         ("data", "base"): "interactive",
         ("data", "unified"): "structured-execution",
         ("check", "base"): "structured-execution",
+        ("blank", "base"): "structured-execution",
         ("agent", "data-load"): "structured-execution",
     }[(pipeline, mode)]
     config_json = _load_template(template_file)
@@ -4379,6 +4629,13 @@ def experiment_check_base_push() -> None:
     """Push local sim-checker-launch.json to Chronos as a new experiment version."""
     api_key = require_api_key()
     _push_experiment("check", "base", api_key)
+
+
+@experiment_blank_base_app.command(name="push")
+def experiment_blank_base_push() -> None:
+    """Push local simcreator-blank-launch.json to Chronos as a new experiment version."""
+    api_key = require_api_key()
+    _push_experiment("blank", "base", api_key)
 
 
 @experiment_agent_data_load_app.command(name="push")

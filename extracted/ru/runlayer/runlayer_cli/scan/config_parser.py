@@ -403,7 +403,7 @@ def _parse_codex_mcp_server(
     return server
 
 
-def _parse_server_entry(name: str, config: dict[str, Any]) -> MCPServerConfig:
+def parse_server_entry(name: str, config: dict[str, Any]) -> MCPServerConfig:
     """Parse a single server entry from config file.
 
     Handles two formats:
@@ -612,7 +612,7 @@ def parse_config_file(
                     if server is not None:
                         servers.append(server)
                 else:
-                    server = _parse_server_entry(name, server_config)
+                    server = parse_server_entry(name, server_config)
                     servers.append(server)
             except Exception as e:
                 logger.warning(

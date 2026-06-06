@@ -2,8 +2,7 @@
 # Licensed under the MIT license.
 
 
-from pyrit.identifiers import ComponentIdentifier
-from pyrit.models import PromptDataType
+from pyrit.models import ComponentIdentifier, PromptDataType
 from pyrit.prompt_converter.prompt_converter import ConverterResult, PromptConverter
 
 
@@ -18,7 +17,7 @@ class SuffixAppendConverter(PromptConverter):
     SUPPORTED_INPUT_TYPES = ("text",)
     SUPPORTED_OUTPUT_TYPES = ("text",)
 
-    def __init__(self, *, suffix: str):
+    def __init__(self, *, suffix: str) -> None:
         """
         Initialize the converter with the specified suffix.
 

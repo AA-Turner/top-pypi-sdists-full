@@ -1,4 +1,4 @@
-// Cross-block identifiability canonicalisation — fail-closed safety gate.
+// Cross-block identifiability canonicalisation.
 //
 // The pre-fit `audit_identifiability` (see `identifiability_audit.rs`)
 // runs a joint RRQR on `[X_block_0 | X_block_1 | ...]` and reports per-
@@ -19,19 +19,19 @@
 // blockwise inner-solve callers unwrap via `.expect(...)` — a panic
 // later in the pipeline, masking the audit's diagnostic.
 //
-// Until the family contract is updated to consume reduced specs
-// (Phase 4b of `identifiability_compiler` — see
-// `src/families/identifiability_compiler.rs`), this module's
-// `canonicalize_for_identifiability` is a **fail-closed audit gate**:
-//   - clean audit (`!fatal`)             → identity transforms, raw specs returned as-is;
-//   - fatal audit (any cause)            → `CustomFamilyError::IdentifiabilityFailure`.
+// This module has two safe behaviors:
+//   - plain single-channel dense blocks may be exactly orthogonalized with a
+//     per-block transform, then lifted back to raw coordinates after fitting;
+//   - callback-owned blocks keep raw block widths even when the audit attributes
+//     weak columns, because their effective geometry is owned by the family
+//     callback rather than by the placeholder `ParameterBlockSpec.design`.
 //
-// The identity-on-clean path keeps `lift_block_states_to_raw` and
-// `lift_fit_geometry_to_raw` cheap no-ops in the outer-fit code path
-// without altering its surface API. The fail-closed-on-fatal path
-// converts what was a latent panic into an immediate, actionable
-// `Err` naming the offending blocks and a reparameterisation hint —
-// in milliseconds rather than minutes of singular Newton.
+// Fatal audit results still fail closed with an immediate
+// `CustomFamilyError::IdentifiabilityFailure`, naming the offending blocks and a
+// reparameterization hint in milliseconds rather than after a singular Newton
+// solve. Clean or safely canonicalized results carry explicit per-block
+// transforms so `lift_block_states_to_raw` and `lift_fit_geometry_to_raw` map
+// the fit back to the raw coordinate system.
 
 use std::sync::Arc;
 
@@ -41,7 +41,9 @@ use crate::families::custom_family::{
     BlockEffectiveJacobian, CustomFamilyError, FamilyLinearizationState, ParameterBlockSpec,
     PenaltyMatrix,
 };
-use crate::families::identifiability_compiler::{IdentityRowHessian, RowJacobianOperator};
+use crate::families::identifiability_compiler::{
+    IdentityRowHessian, RowJacobianOperator, orthogonalize_design_blocks,
+};
 use crate::linalg::faer_ndarray::{default_rrqr_rank_alpha, rrqr_with_permutation};
 use crate::linalg::matrix::{CoefficientTransformOperator, DenseDesignMatrix, DesignMatrix};
 use crate::solver::identifiability_audit::{
@@ -310,6 +312,49 @@ impl CanonicalSpecs {
 pub fn canonicalize_for_identifiability(
     specs: &[ParameterBlockSpec],
 ) -> Result<CanonicalSpecs, CustomFamilyError> {
+    // Robustness is unconditional: always attempt the exact W-metric
+    // orthogonalisation pass before the fail-closed audit. `try_orthogonalize_
+    // blocks` is self-gating (it returns `None` — and the audit runs unchanged —
+    // unless there are ≥2 plain single-channel dense blocks with an actual
+    // structural overlap to remove, deferring on any family-owned-geometry block
+    // and on clean designs), so this is byte-identical wherever there is nothing
+    // to orthogonalise.
+    canonicalize_for_identifiability_inner(specs, true)
+}
+
+/// Core canonicalisation worker.
+///
+/// `orthogonalize` is an INTERNAL recursion-control flag (NOT a user knob): the
+/// public entry passes `true` to attempt the exact orthogonalisation pass; the
+/// post-orthogonalisation recursion below passes `false` so the already-reduced
+/// specs are audited without re-orthogonalising.
+///
+/// When orthogonalisation runs, a general exact W-metric pass reparameterises
+/// overlapping design blocks (e.g. a logslope surface confounded with the
+/// marginal surface) so the lower-priority block's overlap with the
+/// higher-priority anchor is removed exactly, rather than being penalised by a
+/// hand-tuned ridge. The reparam `V_b` is folded into each block's design via
+/// [`CoefficientTransformOperator`], penalties are pulled back as `V_bᵀ S V_b`,
+/// and `per_block_transform[b] = V_b` so the existing
+/// [`CanonicalSpecs::lift_block_betas_to_raw`] /
+/// [`CanonicalSpecs::lift_joint_matrix_to_raw`] machinery maps the reduced
+/// fit back to raw coordinates unchanged (the lift is `β_raw = V_b · θ`,
+/// already supported for dense transforms).
+fn canonicalize_for_identifiability_inner(
+    specs: &[ParameterBlockSpec],
+    orthogonalize: bool,
+) -> Result<CanonicalSpecs, CustomFamilyError> {
+    // Exact orthogonalisation of structural confounds. Runs only on the top-
+    // level entry AND only where the design is single-channel dense (the general
+    // multi-channel coupled path is handled by the Tier-B joint-Newton Jeffreys
+    // term, not by a per-block design reparam). On any structural condition that
+    // the orthogonaliser cannot express as a per-block transform, it falls
+    // through to the unmodified audit gate below — never worse than today.
+    if orthogonalize {
+        if let Some(canon) = try_orthogonalize_blocks(specs)? {
+            return Ok(canon);
+        }
+    }
     if specs.is_empty() {
         return Ok(CanonicalSpecs {
             reduced_specs: Vec::new(),
@@ -532,6 +577,32 @@ pub fn canonicalize_for_identifiability(
 
     if audit.fatal {
         return Err(CustomFamilyError::IdentifiabilityFailure { audit });
+    }
+
+    let family_owned_geometry = specs.iter().any(|spec| spec.jacobian_callback.is_some());
+    if family_owned_geometry && !audit.dropped_columns.is_empty() {
+        let per_block_transform: Vec<Array2<f64>> = specs
+            .iter()
+            .map(|spec| Array2::<f64>::eye(spec.design.ncols()))
+            .collect();
+        let dropped_summary = audit
+            .dropped_columns
+            .iter()
+            .map(|drop| format!("{}[{}]", drop.block, drop.column))
+            .collect::<Vec<_>>()
+            .join(", ");
+        log::info!(
+            "[CANON] width-preserving callback-owned geometry path: audit attributed \
+             dropped columns [{dropped_summary}], but at least one block owns its \
+             effective geometry via jacobian_callback; keeping raw block widths and \
+             deferring curvature on the weak directions to the robust/Firth path"
+        );
+        return Ok(CanonicalSpecs {
+            reduced_specs: specs.to_vec(),
+            per_block_transform,
+            audit,
+            used_channel_aware_audit: use_channel_aware,
+        });
     }
 
     let mut per_block_transform: Vec<Array2<f64>> = Vec::with_capacity(specs.len());
@@ -835,6 +906,242 @@ pub fn canonicalize_for_identifiability(
     })
 }
 
+/// Flag-gated exact orthogonalisation of structural confounds across blocks.
+///
+/// Returns `Ok(Some(canon))` when an overlap was found and removed by exact
+/// W-metric reparameterisation; `Ok(None)` when orthogonalisation is not
+/// applicable (multi-channel families, sparse/operator-backed designs, or no
+/// cross-block overlap detected) so the caller falls through to the unmodified
+/// audit gate. Never returns a *worse* result than today: a clean design
+/// yields `None` (byte-identical fall-through), and an unrepresentable
+/// structural condition also yields `None`.
+fn try_orthogonalize_blocks(
+    specs: &[ParameterBlockSpec],
+) -> Result<Option<CanonicalSpecs>, CustomFamilyError> {
+    if specs.len() < 2 {
+        return Ok(None);
+    }
+    // Families whose blocks carry a `jacobian_callback` (BMS marginal-slope,
+    // survival LS, …) own their effective geometry: the family reconstructs the
+    // additive predictor from internal full-width designs (e.g. BMS reads its
+    // own `marginal_design`/`logslope_design` per row), and the block `design`
+    // here is only the *raw* basis the callback consumes. A per-block reparam
+    // `X_b · V_b` that drops the callback does NOT change what the family
+    // computes, but it shrinks the block coefficient width below the family's
+    // internal design width — leaving the inner solve's reduced β (e.g. 8) out
+    // of sync with the family's full design (e.g. 12) and tripping the family's
+    // own shape validation. Such families are robustified by the Tier-B
+    // joint-Newton Jeffreys/Firth term, which adds curvature on the
+    // under-identified span WITHOUT any design surgery and keeps every block β at
+    // full width. Defer here so they take that path. (Single-channel, plain-design
+    // blocks — `jacobian_callback: None` — are reparam'd here; a clean design with
+    // no overlap to remove falls through to the audit gate byte-identically.)
+    let family_owned_geometry = specs.iter().any(|s| s.jacobian_callback.is_some());
+    if family_owned_geometry {
+        return Ok(None);
+    }
+
+    // Densify every block design. Any non-densifiable (large/lazy operator)
+    // block makes the per-block reparam non-representable here → defer.
+    let n_rows = specs[0].design.nrows();
+    let mut block_designs: Vec<Array2<f64>> = Vec::with_capacity(specs.len());
+    for spec in specs.iter() {
+        if spec.design.nrows() != n_rows {
+            return Ok(None);
+        }
+        let dense = match spec
+            .design
+            .try_to_dense_arc("orthogonalize_design_blocks densify")
+        {
+            Ok(arc) => arc.as_ref().clone(),
+            Err(_) => return Ok(None),
+        };
+        block_designs.push(dense);
+    }
+
+    // Pilot W-metric: the released structural audit runs in the unweighted
+    // (Euclidean) row metric, and structural rank-overlap removal is exact in
+    // that metric. Use uniform weights so the reparam matches the audit's
+    // geometry; the family-curvature W-metric refinement belongs to the
+    // Tier-B coupled path.
+    let weight = vec![1.0_f64; n_rows];
+    let priority: Vec<u32> = specs.iter().map(|s| s.gauge_priority as u32).collect();
+
+    let ortho = orthogonalize_design_blocks(&block_designs, &priority, &weight).map_err(|e| {
+        CustomFamilyError::DimensionMismatch {
+            reason: format!("orthogonalize_design_blocks failed: {e}"),
+        }
+    })?;
+
+    // No overlap removed ⇒ nothing to do; fall through to the standard gate so
+    // behaviour is byte-identical to today on clean / square-rotation designs.
+    if ortho.dropped.is_empty() {
+        return Ok(None);
+    }
+
+    for annotation in ortho
+        .direction_annotations
+        .iter()
+        .filter(|annotation| annotation.absorbed_width > 0)
+    {
+        log::info!(
+            "[IDENT] structural direction annotation: block={} raw_width={} kept_width={} absorbed_width={} kind={:?}",
+            annotation.block_idx,
+            annotation.raw_width,
+            annotation.kept_width,
+            annotation.absorbed_width,
+            annotation.kind,
+        );
+    }
+
+    // Build orthogonalised specs: design ← X_b · V_b (via
+    // CoefficientTransformOperator), penalties ← V_bᵀ S V_b, initial_beta ←
+    // V_bᵀ β₀ (least-squares image; V_b has orthonormal columns so V_bᵀ is the
+    // pseudo-inverse), and remember V_b for the round-trip composition.
+    let mut ortho_specs: Vec<ParameterBlockSpec> = Vec::with_capacity(specs.len());
+    for (spec, v_b) in specs.iter().zip(ortho.block_transforms.iter()) {
+        let p_b = spec.design.ncols();
+        if v_b.nrows() != p_b {
+            return Err(CustomFamilyError::DimensionMismatch {
+                reason: format!(
+                    "orthogonalize: block '{}' transform has {} rows but design has {p_b} columns",
+                    spec.name,
+                    v_b.nrows(),
+                ),
+            });
+        }
+        let inner_dense = match &spec.design {
+            DesignMatrix::Dense(d) => d.clone(),
+            DesignMatrix::Sparse(_) => {
+                let dense = spec
+                    .design
+                    .try_to_dense_arc("orthogonalize reduced-design densify")
+                    .map_err(|reason| CustomFamilyError::DimensionMismatch {
+                        reason: format!(
+                            "orthogonalize: densify block '{}' failed: {reason}",
+                            spec.name,
+                        ),
+                    })?;
+                DenseDesignMatrix::from(dense)
+            }
+        };
+        let op = CoefficientTransformOperator::new(inner_dense, v_b.clone()).map_err(|reason| {
+            CustomFamilyError::DimensionMismatch {
+                reason: format!(
+                    "orthogonalize: build CoefficientTransformOperator for block '{}': {reason}",
+                    spec.name,
+                ),
+            }
+        })?;
+        let reduced_design = DesignMatrix::Dense(DenseDesignMatrix::from(Arc::new(op)));
+
+        let reduced_penalties: Vec<PenaltyMatrix> = spec
+            .penalties
+            .iter()
+            .map(|p| pull_back_penalty_dense(p, v_b))
+            .collect();
+
+        let reduced_initial_beta = match &spec.initial_beta {
+            Some(beta_raw) => {
+                if beta_raw.len() != p_b {
+                    return Err(CustomFamilyError::DimensionMismatch {
+                        reason: format!(
+                            "orthogonalize: block '{}' initial_beta length {} != design ncols {p_b}",
+                            spec.name,
+                            beta_raw.len(),
+                        ),
+                    });
+                }
+                Some(v_b.t().dot(beta_raw))
+            }
+            None => None,
+        };
+
+        // The orthogonalised design no longer matches the raw-width
+        // jacobian_callback / stacked_design; single-channel blocks here carry
+        // neither (multi-channel was deferred above), so drop them defensively.
+        ortho_specs.push(ParameterBlockSpec {
+            name: spec.name.clone(),
+            design: reduced_design,
+            offset: spec.offset.clone(),
+            penalties: reduced_penalties,
+            nullspace_dims: Vec::new(),
+            initial_log_lambdas: spec.initial_log_lambdas.clone(),
+            initial_beta: reduced_initial_beta,
+            gauge_priority: spec.gauge_priority,
+            jacobian_callback: None,
+            stacked_design: None,
+            stacked_offset: None,
+        });
+    }
+
+    // Run the standard (non-orthogonalising) audit + post-T invariant + MAP
+    // uniqueness checks on the orthogonalised specs. With the overlap removed,
+    // this should produce a clean (identity-T) verdict; if a *residual* rank
+    // deficiency survives orthogonalisation, the fail-closed gate still
+    // refuses with an actionable diagnostic.
+    let inner = canonicalize_for_identifiability_inner(&ortho_specs, false)?;
+
+    // Compose the round-trip transform: β_raw = V_b · (T_inner · θ).
+    // `inner.per_block_transform[b]` is T_inner (selection/identity from the
+    // audit gate); the full raw lift is `V_b · T_inner`.
+    let mut composed_transform: Vec<Array2<f64>> = Vec::with_capacity(specs.len());
+    for (v_b, t_inner) in ortho
+        .block_transforms
+        .iter()
+        .zip(inner.per_block_transform.iter())
+    {
+        if v_b.ncols() != t_inner.nrows() {
+            return Err(CustomFamilyError::DimensionMismatch {
+                reason: format!(
+                    "orthogonalize: transform composition shape mismatch — V_b is {:?}, \
+                     T_inner is {:?}",
+                    v_b.dim(),
+                    t_inner.dim(),
+                ),
+            });
+        }
+        composed_transform.push(v_b.dot(t_inner));
+    }
+
+    log::info!(
+        "[CANON] orthogonalisation applied: {} block(s) shed overlap directions {:?}; \
+         p_raw={} → p_reduced={}",
+        ortho.dropped.len(),
+        ortho.dropped,
+        specs.iter().map(|s| s.design.ncols()).sum::<usize>(),
+        composed_transform.iter().map(|t| t.ncols()).sum::<usize>(),
+    );
+
+    Ok(Some(CanonicalSpecs {
+        reduced_specs: inner.reduced_specs,
+        per_block_transform: composed_transform,
+        audit: inner.audit,
+        used_channel_aware_audit: inner.used_channel_aware_audit,
+    }))
+}
+
+/// Pull a penalty back through a dense reparam `V` as `Vᵀ S V`, preserving the
+/// precision label and fixed-λ pin. Companion to [`pull_back_penalty`] (which
+/// pulls back through a column *selection*); this handles the dense
+/// orthogonalisation transform.
+fn pull_back_penalty_dense(penalty: &PenaltyMatrix, v: &Array2<f64>) -> PenaltyMatrix {
+    let label = penalty.precision_label().map(|s| s.to_string());
+    let fixed_log_lambda = penalty.fixed_log_lambda();
+    let dense = penalty.as_dense_cow();
+    // Vᵀ S V  (r × r).
+    let s_v = dense.dot(v);
+    let reduced = v.t().dot(&s_v);
+    let mut base = PenaltyMatrix::Dense(reduced);
+    if let Some(lbl) = label {
+        base = base.with_precision_label(lbl);
+    }
+    if let Some(value) = fixed_log_lambda {
+        base = base.with_fixed_log_lambda(value);
+    }
+    base
+}
+
 fn build_reduced_design(
     raw: &DesignMatrix,
     kept: &[usize],
@@ -898,6 +1205,7 @@ fn pull_back_penalty(penalty: &PenaltyMatrix, kept: &[usize]) -> PenaltyMatrix {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::families::custom_family::AdditiveBlockJacobian;
     use crate::linalg::matrix::DenseDesignMatrix;
     use ndarray::Array2;
 
@@ -1149,5 +1457,213 @@ mod tests {
                 assert_eq!(t_smooth[[i, j]], expected, "T_smooth must be identity");
             }
         }
+    }
+
+    fn spec_from_dense_with_priority(
+        name: &str,
+        design: Array2<f64>,
+        gauge_priority: u8,
+    ) -> ParameterBlockSpec {
+        let mut s = spec_from_dense(name, design);
+        s.gauge_priority = gauge_priority;
+        s
+    }
+
+    #[test]
+    fn callback_owned_geometry_keeps_raw_width_after_audit_drop() {
+        let n = 48;
+        let x = linspace(n);
+        let mut anchor = Array2::<f64>::zeros((n, 2));
+        let mut callback_owned = Array2::<f64>::zeros((n, 2));
+        for i in 0..n {
+            anchor[[i, 0]] = 1.0;
+            anchor[[i, 1]] = x[i];
+            callback_owned[[i, 0]] = x[i];
+            callback_owned[[i, 1]] = x[i] * x[i];
+        }
+
+        let anchor_spec = spec_from_dense_with_priority("marginal_surface", anchor, 150);
+        let mut callback_spec =
+            spec_from_dense_with_priority("logslope_surface", callback_owned.clone(), 120);
+        callback_spec.jacobian_callback = Some(Arc::new(AdditiveBlockJacobian {
+            design: callback_owned,
+            own_output: 0,
+            n_family_outputs: 1,
+        }));
+        let specs = [anchor_spec, callback_spec];
+
+        let canon = canonicalize_for_identifiability(&specs).expect(
+            "callback-owned overlap should be audit-attributed but width-preserving (#772)",
+        );
+
+        assert!(
+            !canon.audit.fatal,
+            "priority-owned overlap should be non-fatal; got {}",
+            canon.audit.summary,
+        );
+        assert!(
+            canon
+                .audit
+                .dropped_columns
+                .iter()
+                .any(|drop| drop.block == "logslope_surface"),
+            "test must exercise an attributed logslope drop; got {:?}",
+            canon.audit.dropped_columns,
+        );
+        assert_eq!(
+            canon.reduced_specs[0].design.ncols(),
+            2,
+            "anchor block keeps raw width"
+        );
+        assert_eq!(
+            canon.reduced_specs[1].design.ncols(),
+            2,
+            "callback-owned block keeps raw width instead of applying design-column surgery"
+        );
+        for (block, transform) in canon.per_block_transform.iter().enumerate() {
+            assert_eq!(
+                transform.dim(),
+                (2, 2),
+                "block {block} transform must be raw-width identity"
+            );
+            for row in 0..2 {
+                for col in 0..2 {
+                    let expected = if row == col { 1.0 } else { 0.0 };
+                    assert_eq!(
+                        transform[[row, col]],
+                        expected,
+                        "block {block} transform must be identity"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Two single-channel blocks with an exact shared column (anchor block
+    /// `a` has column [1, x]; block `b` has [x, x²]). The `x` direction is
+    /// shared. Orthogonalisation is unconditional, so block `b` (lower priority)
+    /// must shed exactly one direction, the joint reduced design must be
+    /// full-rank, and the round-trip lift must reproduce the raw prediction.
+    #[test]
+    fn orthogonalize_removes_exact_cross_block_overlap_and_round_trips() {
+        let n = 48;
+        let x = linspace(n);
+        // Block a (high priority): [1, x].
+        let mut a = Array2::<f64>::zeros((n, 2));
+        // Block b (low priority): [x, x²]  → its first column aliases a's x.
+        let mut b = Array2::<f64>::zeros((n, 2));
+        for i in 0..n {
+            a[[i, 0]] = 1.0;
+            a[[i, 1]] = x[i];
+            b[[i, 0]] = x[i];
+            b[[i, 1]] = x[i] * x[i];
+        }
+        let specs = [
+            spec_from_dense_with_priority("anchor", a.clone(), 150),
+            spec_from_dense_with_priority("overlap", b.clone(), 120),
+        ];
+        let canon = canonicalize_for_identifiability(&specs)
+            .expect("orthogonalisation must resolve the overlap, not refuse");
+
+        // Block b shed exactly one direction (the x alias): V_b is 2×1.
+        let v_b = &canon.per_block_transform[1];
+        assert_eq!(
+            v_b.ncols(),
+            1,
+            "overlap block must keep exactly one direction"
+        );
+        assert_eq!(
+            v_b.nrows(),
+            2,
+            "overlap block transform maps from raw width 2"
+        );
+        // Anchor block keeps both directions (square rotation).
+        assert_eq!(canon.per_block_transform[0].ncols(), 2);
+
+        // Round-trip: a reduced fit θ lifts to raw β = V·θ and predicts
+        // identically through the raw designs.
+        let theta = vec![Array1::from(vec![0.7, -0.3]), Array1::from(vec![1.4])];
+        let raw = canon.lift_block_betas_to_raw(&theta);
+        assert_eq!(raw[0].len(), 2);
+        assert_eq!(raw[1].len(), 2);
+        // Raw prediction = a·β_a + b·β_b.
+        let pred_a = a.dot(&raw[0]);
+        let pred_b = b.dot(&raw[1]);
+        // Reduced prediction = (a·V_a)·θ_a + (b·V_b)·θ_b must equal it.
+        let v_a = &canon.per_block_transform[0];
+        let red_a = a.dot(v_a).dot(&theta[0]);
+        let red_b = b.dot(v_b).dot(&theta[1]);
+        for i in 0..n {
+            let raw_pred = pred_a[i] + pred_b[i];
+            let red_pred = red_a[i] + red_b[i];
+            assert!(
+                (raw_pred - red_pred).abs() < 1e-9,
+                "row {i}: raw prediction {raw_pred} != reduced prediction {red_pred}",
+            );
+        }
+    }
+
+    /// A clean (non-overlapping) two-block design must canonicalise to identity
+    /// transforms even though orthogonalisation runs unconditionally: with no
+    /// cross-block overlap to remove, `try_orthogonalize_blocks` finds nothing to
+    /// drop and the audit gate produces raw-width identity transforms.
+    #[test]
+    fn orthogonalize_clean_design_yields_identity_transforms() {
+        let n = 32;
+        let x = linspace(n);
+        let mut p = Array2::<f64>::zeros((n, 2));
+        let mut s = Array2::<f64>::zeros((n, 2));
+        for i in 0..n {
+            p[[i, 0]] = 1.0;
+            p[[i, 1]] = x[i];
+            s[[i, 0]] = x[i] * x[i];
+            s[[i, 1]] = x[i] * x[i] * x[i];
+        }
+        let specs = [
+            spec_from_dense_with_priority("p", p, 150),
+            spec_from_dense_with_priority("s", s, 120),
+        ];
+        let canon = canonicalize_for_identifiability(&specs).expect("clean design canonicalises");
+        // Identity transforms (nothing to orthogonalise) on the clean design.
+        assert_eq!(canon.per_block_transform[0].dim(), (2, 2));
+        assert_eq!(canon.per_block_transform[1].dim(), (2, 2));
+    }
+
+    /// Direct unit test of the compiler primitive: a block whose columns are
+    /// fully spanned by a higher-priority anchor must shed all overlapping
+    /// directions, and a non-overlapping configuration must keep full width.
+    #[test]
+    fn orthogonalize_design_blocks_drops_only_overlap() {
+        use crate::families::identifiability_compiler::orthogonalize_design_blocks;
+        let n = 40;
+        let x = linspace(n);
+        let mut anchor = Array2::<f64>::zeros((n, 2));
+        let mut overlap = Array2::<f64>::zeros((n, 2));
+        for i in 0..n {
+            anchor[[i, 0]] = 1.0;
+            anchor[[i, 1]] = x[i];
+            // First column is exactly anchor's x; second is genuinely new.
+            overlap[[i, 0]] = x[i];
+            overlap[[i, 1]] = x[i] * x[i] * x[i];
+        }
+        let weight = vec![1.0_f64; n];
+        let res =
+            orthogonalize_design_blocks(&[anchor.clone(), overlap.clone()], &[150, 120], &weight)
+                .expect("orthogonalisation must succeed");
+        assert_eq!(
+            res.block_transforms[0].ncols(),
+            2,
+            "anchor keeps full width"
+        );
+        assert_eq!(
+            res.block_transforms[1].ncols(),
+            1,
+            "overlap block sheds exactly the aliased direction",
+        );
+        assert_eq!(
+            res.dropped,
+            vec![(1, 1)],
+            "one direction dropped from block 1"
+        );
     }
 }

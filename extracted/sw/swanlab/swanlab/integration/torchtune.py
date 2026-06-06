@@ -1,37 +1,52 @@
 """
-Docs:https://docs.swanlab.cn/guide_cloud/integration/integration-pytorch-torchtune.html
+Docs: https://docs.swanlab.cn/guide_cloud/integration/integration-pytorch-torchtune.html
+
+Usage:
+------
+# In torchtune config:
+metric_logger:
+    _component_: swanlab.integration.torchtune.SwanLabLogger
+    project: "gemma-lora-finetune"
+    experiment_name: "gemma-2b"
+    log_dir: ${output_dir}
+
+# Or programmatically:
+from swanlab.integration.torchtune import SwanLabLogger
+
+logger = SwanLabLogger(project="my-project")
+# logger.log("loss", 0.5, step=100)
+# logger.close()
+------
 """
 
-from torchtune.utils._distributed import get_world_size_and_rank
-from torchtune.utils.metric_logging import MetricLoggerInterface
-from typing import Mapping, Optional, Union, Any, Dict, List
+from __future__ import annotations
 
-from numpy import ndarray
-from omegaconf import DictConfig, OmegaConf
-from torch import Tensor
+from typing import Any, Dict, List, Mapping, Optional, Union
 
-Scalar = Union[Tensor, ndarray, int, float]
+import swanlab
+import swanlab.vendor
+
+_MetricLoggerInterface = swanlab.vendor.torchtune.utils.metric_logging.MetricLoggerInterface
+_get_world_size_and_rank = swanlab.vendor.torchtune.utils._distributed.get_world_size_and_rank
+
+Scalar = Union[Any, int, float]
 
 
-class SwanLabLogger(MetricLoggerInterface):
+class SwanLabLogger(_MetricLoggerInterface):
     """
+    TorchTune metric logger implementing ``torchtune.utils.metric_logging.MetricLoggerInterface``.
+
+    This logger internally calls ``swanlab.init()`` on construction (rank 0 only)
+    and ``swanlab.finish()`` on ``close()`` / ``__del__`` for backward compatibility
+    with torchtune's lifecycle.
+
     Example:
         In torchtune config:
-        >>> # Logging
         >>> metric_logger:
-        >>>     _component_: swanlab.integration.huggingface.SwanLabLogger
+        >>>     _component_: swanlab.integration.torchtune.SwanLabLogger
         >>>     project: "gemma-lora-finetune"
         >>>     experiment_name: "gemma-2b"
         >>>     log_dir: ${output_dir}
-
-    Raises:
-        ImportError: If ``swanlab`` package is not installed.
-
-    Note:
-        This logger requires the swanlab package to be installed.
-        You can install it with `pip install swanlab`.
-        In order to use the logger, you need to login to your SwanLab account.
-        You can do this by running `swanlab login` in your terminal.
     """
 
     def __init__(
@@ -42,60 +57,109 @@ class SwanLabLogger(MetricLoggerInterface):
         description: Optional[str] = None,
         mode: Optional[str] = None,
         log_dir: Optional[str] = None,
+        logdir: Optional[str] = None,
         tags: Optional[List[str]] = None,
-        **kwargs,
-    ):
-        try:
-            import swanlab
-        except ImportError as e:
-            raise ImportError(
-                "``swanlab`` package not found. Please install swanlab using `pip install swanlab` to use SwanLabLogger."
-            ) from e
-        self._swanlab = swanlab
-        swanlab.config["FRAMEWORK"] = "torchtune"
+        **kwargs: Any,
+    ) -> None:
+        if logdir is not None:
+            import warnings
 
-        tags = tags or []
-        tags.append("torchtune") if "torchtune" not in tags else None
+            warnings.warn(
+                "The `logdir` parameter is deprecated, use `log_dir` instead.", DeprecationWarning, stacklevel=2
+            )
+            log_dir = logdir
 
         # Use dir if specified, otherwise use log_dir.
         self.log_dir = kwargs.pop("dir", log_dir)
 
-        _, self.rank = get_world_size_and_rank()
+        tags = list(tags) if tags else []
+        if "torchtune" not in tags:
+            tags.append("torchtune")
 
-        if self._swanlab.get_run() is None and self.rank == 0:
-            run = self._swanlab.init(
-                project=project,
-                workspace=workspace,
-                name=experiment_name,
-                description=description,
-                mode=mode,
-                logdir=self.log_dir,
-                tags=tags,
-                **kwargs,
-            )
+        _, self.rank = _get_world_size_and_rank()
+
+        if self.rank == 0:
+            init_kwargs: Dict[str, Any] = {
+                "project": project,
+                "workspace": workspace,
+                "name": experiment_name,
+                "description": description,
+                "mode": mode,
+                "logdir": self.log_dir,
+                "tags": tags,
+            }
+            init_kwargs.update(kwargs)
+            # Remove None values so swanlab.init uses defaults
+            init_kwargs = {k: v for k, v in init_kwargs.items() if v is not None}
+            swanlab.init(**init_kwargs)
+            swanlab.config["FRAMEWORK"] = "torchtune"
 
         self.config_allow_val_change = kwargs.get("allow_val_change", False)
 
-    def update_config(self, config: Dict[str, Any]):
-        self._swanlab.config.update(config)
+    def update_config(self, config: Dict[str, Any]) -> None:
+        if self.rank == 0:
+            swanlab.config.update(config)
 
-    def log_config(self, config: DictConfig) -> None:
-        if self._swanlab.get_run():
-            resolved = OmegaConf.to_container(config, resolve=True)
-            self._swanlab.config.update(resolved, allow_val_change=self.config_allow_val_change)
+    def log_config(self, config: Any) -> None:
+        if self.rank != 0:
+            return
+        run = _get_active_run()
+        if run is None:
+            return
+        resolved = _resolve_config(config)
+        if resolved is not None:
+            run.config.update(resolved, allow_val_change=self.config_allow_val_change)
 
     def log(self, name: str, data: Scalar, step: int) -> None:
-        if self._swanlab.get_run():
-            self._swanlab.log({name: data}, step=step)
+        if self.rank == 0:
+            swanlab.log({name: data}, step=step)
 
     def log_dict(self, payload: Mapping[str, Scalar], step: int) -> None:
-        if self._swanlab.get_run():
-            self._swanlab.log({**payload}, step=step)
-
-    def __del__(self) -> None:
-        if self._swanlab.get_run():
-            self._swanlab.finish()
+        if self.rank == 0:
+            swanlab.log(dict(payload), step=step)
 
     def close(self) -> None:
-        if self._swanlab.get_run():
-            self._swanlab.finish()
+        if self.rank == 0:
+            run = _get_active_run()
+            if run is not None:
+                swanlab.finish()
+
+
+# --- helpers ---
+
+
+def _get_active_run():
+    try:
+        return swanlab.get_run()
+    except RuntimeError:
+        return None
+
+
+def _resolve_config(config: Any) -> Optional[Dict[str, Any]]:
+    """Resolve OmegaConf DictConfig or plain dict to a plain dict."""
+    if config is None:
+        return None
+    if isinstance(config, dict):
+        return dict(config)
+    # Handle OmegaConf DictConfig
+    to_container = getattr(config, "to_container", None)
+    if callable(to_container):
+        try:
+            resolved = to_container(config, resolve=True)
+            if isinstance(resolved, dict):
+                return dict(resolved)
+        except Exception:
+            pass
+    # Fallback: try omegaconf.OmegaConf.to_container
+    try:
+        import omegaconf
+
+        resolved = omegaconf.OmegaConf.to_container(config, resolve=True)
+        if isinstance(resolved, dict):
+            return {str(k): v for k, v in resolved.items()}
+    except Exception:
+        pass
+    return None
+
+
+__all__ = ["SwanLabLogger"]

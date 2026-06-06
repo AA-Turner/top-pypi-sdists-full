@@ -328,6 +328,12 @@ class WorkflowExecutionWithoutResultResponse(BaseModel):
 WorkflowRunWithoutResultResponse = WorkflowExecutionWithoutResultResponse
 
 
+class RunSummary(BaseModel):
+    status: WorkflowExecutionStatus = Field(description="Execution status")
+    duration_ms: int | None = Field(description="Execution duration in milliseconds")
+    start_time: datetime = Field(description="When the execution started")
+
+
 class WorkflowBasicDefinitionWithMetadata(WorkflowBasicDefinition):
     run_count: int | float = Field(description="The number of times the workflow has been run")
     last_run: WorkflowExecutionWithoutResultResponse | None = Field(
@@ -337,6 +343,13 @@ class WorkflowBasicDefinitionWithMetadata(WorkflowBasicDefinition):
     available_in_chat_assistant: bool = Field(description="Whether the workflow is available in the chat assistant")
     # None when favorite status is not computed (e.g. public API), False/True when resolved for a specific user
     is_favorite: bool | None = Field(default=None, description="Whether the workflow is favorited by the current user")
+
+
+class RunMetricsResponse(BaseModel):
+    stats: dict[str, list[RunSummary]] = Field(description="Mapping of workflow ID to its recent run summaries")
+    reliability: dict[str, float | None] = Field(
+        description="Mapping of workflow ID to overall success rate (0.0–1.0), null if no runs"
+    )
 
 
 class WorkflowListResponseInternal(BaseModel):

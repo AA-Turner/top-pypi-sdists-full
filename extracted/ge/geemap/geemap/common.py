@@ -1699,34 +1699,6 @@ def clone_repo(out_dir: str = ".", unzip: bool = True) -> None:
     download_from_url(url, out_file_name=filename, out_dir=out_dir, unzip=unzip)
 
 
-def install_from_github(url: str) -> None:
-    """Install a package from a GitHub repository.
-
-    Args:
-        url: The URL of the GitHub repository.
-    """
-    download_dir = os.path.join(os.path.expanduser("~"), "Downloads")
-    if not os.path.exists(download_dir):
-        os.makedirs(download_dir)
-
-    repo_name = os.path.basename(url)
-    zip_url = os.path.join(url, "archive/master.zip")
-    filename = repo_name + "-master.zip"
-    download_from_url(
-        url=zip_url, out_file_name=filename, out_dir=download_dir, unzip=True
-    )
-
-    pkg_dir = os.path.join(download_dir, repo_name + "-master")
-    pkg_name = os.path.basename(url)
-    work_dir = os.getcwd()
-    os.chdir(pkg_dir)
-    print(f"Installing {pkg_name}...")
-    cmd = "pip install ."
-    os.system(cmd)
-    os.chdir(work_dir)
-    print(f"{pkg_name} has been installed successfully.")
-
-
 def check_git_install() -> bool:
     """Checks if Git is installed.
 
@@ -2961,8 +2933,11 @@ def ee_to_xarray(
     **kwargs,
 ):
     """Open an Earth Engine ImageCollection as an Xarray Dataset. This function is a wrapper for
-        xee. EarthEngineBackendEntrypoint.open_dataset().
-        See https://github.com/google/Xee/blob/main/xee/ext.py#L886
+        xee. Supports both legacy (v0.0.x) and new (v0.1.0+) xee API syntax.
+
+    For xee v0.1.0+, the grid parameters (crs, crs_transform, shape_2d) are required.
+    This function automatically converts legacy parameters to the new format for backward
+    compatibility. See https://xee.readthedocs.io/en/latest/migration-guide-v0.1.0.html
 
     Args:
         dataset: An asset ID for an ImageCollection, or an
@@ -3001,21 +2976,18 @@ def ee_to_xarray(
             or individual variables as coordinate variables. - "all": Set variables
             referred to in  `'grid_mapping'`, `'bounds'` and other attributes as
             coordinate variables.
-        crs (optional): The coordinate reference system (a CRS code or WKT
-            string). This defines the frame of reference to coalesce all variables
-            upon opening. By default, data is opened with `EPSG:4326'.
-        scale (optional): The scale in the `crs` or `projection`'s units of
-            measure -- either meters or degrees. This defines the scale that all
-            data is represented in upon opening. By default, the scale is 1° when
-            the CRS is in degrees or 10,000 when in meters.
-        projection (optional): Specify an `ee.Projection` object to define the
-            `scale` and `crs` (or other coordinate reference system) with which to
-            coalesce all variables upon opening. By default, the scale and reference
-            system is set by the the `crs` and `scale` arguments.
-        geometry (optional): Specify an `ee.Geometry` to define the regional
-            bounds when opening the data. When not set, the bounds are defined by
-            the CRS's 'area_of_use` boundaries. If those aren't present, the bounds
-            are derived from the geometry of the first image of the collection.
+        crs (optional): The coordinate reference system (EPSG code or WKT string).
+            For backward compatibility with xee v0.0.x, when used with `scale`,
+            creates a grid at the specified scale. For xee v0.1.0+, use this with
+            the new grid parameter system.
+        scale (optional): The pixel scale in CRS units (degrees or meters).
+            Legacy API (xee v0.0.x): When provided with `crs`, defines the spatial
+            resolution. This is automatically converted to the new grid parameters.
+        projection (optional): An `ee.Projection` object (legacy API, xee v0.0.x).
+            Automatically converted to `crs` and `scale` for the new API.
+        geometry (optional): An `ee.Geometry` or shapely geometry to define the
+            region of interest. Converted to the new grid system for xee v0.1.0+.
+            Shapely geometries are assumed to be in EPSG:4326 lon/lat coordinates.
         primary_dim_name (optional): Override the name of the primary dimension of
             the output Dataset. By default, the name is 'time'.
         primary_dim_property (optional): Override the `ee.Image` property for
@@ -3023,26 +2995,29 @@ def ee_to_xarray(
             'system:time_start'.
         ee_mask_value (optional): Value to mask to EE nodata values. By default,
             this is 'np.iinfo(np.int32).max' i.e. 2147483647.
-        request_byte_limit: the max allowed bytes to request at a time from Earth
-            Engine. By default, it is 48MBs.
         ee_initialize (optional): Whether to initialize (or reinitialize) Earth Engine.
             Defaults to True. If True and Earth Engine is already initialized, it will
-            reinitialize with the current project to switch to the specified opt_url
-            (high-volume endpoint by default). If True and Earth Engine is not initialized,
-            a project parameter must be provided. If False, uses the current Earth Engine
-            initialization state.
-        project (optional): The Google Cloud Project ID to use for Earth Engine
-            initialization. Required if ee_initialize is True and Earth Engine is
-            not already initialized. If Earth Engine is already initialized and
-            ee_initialize is True, the current project will be used automatically.
-        opt_url (optional): The Earth Engine API URL to use. Defaults to the
-            high-volume endpoint 'https://earthengine-highvolume.googleapis.com'.
-            Used when ee_initialize is True to initialize or reinitialize Earth Engine.
+            reinitialize with the current project to switch to the specified opt_url.
+        project (optional): The Google Cloud Project ID to use for Earth Engine.
+        opt_url (optional): The Earth Engine API URL (defaults to high-volume endpoint).
+        **kwargs (optional): Additional backend_kwargs (e.g., request_byte_limit).
 
     Returns:
       An xarray.Dataset that streams in remote data from Earth Engine.
     """
+    import warnings
+
     import xee
+    from xee import helpers
+
+    try:
+        from shapely.geometry import box as shapely_box
+        from shapely.geometry import shape as shapely_shape
+        from shapely.geometry.base import BaseGeometry
+    except ImportError:
+        shapely_box = None
+        shapely_shape = None
+        BaseGeometry = None
 
     kwargs["drop_variables"] = drop_variables
     kwargs["io_chunks"] = io_chunks
@@ -3053,10 +3028,6 @@ def ee_to_xarray(
     kwargs["use_cftime"] = use_cftime
     kwargs["concat_characters"] = concat_characters
     kwargs["decode_coords"] = decode_coords
-    kwargs["crs"] = crs
-    kwargs["scale"] = scale
-    kwargs["projection"] = projection
-    kwargs["geometry"] = geometry
     kwargs["primary_dim_name"] = primary_dim_name
     kwargs["primary_dim_property"] = primary_dim_property
     kwargs["ee_mask_value"] = ee_mask_value
@@ -3122,6 +3093,148 @@ def ee_to_xarray(
         raise ValueError(
             "The dataset must be an ee.Image, ee.ImageCollection, or a list of ee.Image."
         )
+
+    # Convert legacy API parameters (xee v0.0.x) to new grid parameters (xee v0.1.0+)
+    grid_params = {}
+
+    # Handle projection parameter (legacy API)
+    if projection is not None:
+        if hasattr(projection, "crs") and hasattr(projection, "nominalScale"):
+            # Extract CRS and scale from ee.Projection
+            proj_crs = projection.getInfo().get("crs")
+            proj_scale = projection.nominalScale().getInfo()
+            if proj_crs:
+                crs = proj_crs
+            if proj_scale:
+                scale = proj_scale
+
+    explicit_grid_crs = kwargs.get("crs", crs)
+    has_explicit_grid_params = (
+        explicit_grid_crs is not None
+        and kwargs.get("crs_transform") is not None
+        and kwargs.get("shape_2d") is not None
+    )
+
+    has_legacy_grid_params = (
+        projection is not None
+        or scale is not None
+        or geometry is not None
+        or (crs is not None and not has_explicit_grid_params)
+    )
+
+    # Determine if we need to convert legacy parameters to grid_params.
+    # Also handle no-grid input by defaulting to source/native grid.
+    if has_legacy_grid_params:
+        # Legacy API usage detected - convert to new grid system
+        try:
+            if shapely_box is None or shapely_shape is None or BaseGeometry is None:
+                raise ImportError(
+                    "shapely is required to convert legacy grid parameters "
+                    "for xee>=0.1.0"
+                )
+
+            # Default CRS is EPSG:4326 if not specified.
+            if isinstance(crs, ee.Projection):
+                target_crs = crs.getInfo().get("crs", "EPSG:4326")
+            else:
+                target_crs = crs or "EPSG:4326"
+
+            # Determine the geometry to use
+            if geometry is not None:
+                # Convert EE geometry to shapely if needed
+                if isinstance(geometry, ee.Geometry):
+                    geom_shapely = shapely_shape(geometry.getInfo())
+                elif isinstance(geometry, BaseGeometry):
+                    geom_shapely = geometry
+                elif hasattr(geometry, "getInfo"):
+                    # Allow geometry-like test doubles that implement getInfo().
+                    geom_shapely = shapely_shape(geometry.getInfo())
+                else:
+                    raise TypeError(
+                        f"geometry must be an ee.Geometry or shapely geometry, "
+                        f"got {type(geometry)}"
+                    )
+            else:
+                # No geometry specified - use global extent
+                geom_shapely = shapely_box(-180, -90, 180, 90)
+
+            # Convert scale to (x_scale, y_scale) tuple
+            if scale is not None:
+                grid_scale = (scale, -scale)
+            else:
+                # If no scale provided, use default based on CRS
+                if "EPSG:4326" in target_crs or "WGS" in target_crs.upper():
+                    grid_scale = (1.0, -1.0)  # 1 degree
+                else:
+                    grid_scale = (10000, -10000)  # 10km
+
+            # Use fit_geometry to create grid parameters
+            grid_params = helpers.fit_geometry(
+                geometry=geom_shapely,
+                geometry_crs="EPSG:4326",
+                grid_crs=target_crs,
+                grid_scale=grid_scale,
+            )
+        except Exception as e:
+            warnings.warn(
+                f"Failed to convert legacy API parameters to new grid format: {e}. "
+                "Attempting to use legacy parameters with xee. "
+                "If this fails, consider using the new grid parameter API.",
+                UserWarning,
+            )
+    elif not has_explicit_grid_params:
+        # No grid args provided. For xee>=0.1.0, infer native grid from source.
+        try:
+            dataset_for_grid = dataset
+            if isinstance(dataset_for_grid, str):
+                asset_id = (
+                    dataset_for_grid[5:]
+                    if dataset_for_grid.startswith("ee://")
+                    else dataset_for_grid
+                )
+                dataset_for_grid = ee.ImageCollection(asset_id)
+            elif isinstance(dataset_for_grid, ee.Image):
+                dataset_for_grid = ee.ImageCollection(dataset_for_grid)
+            elif isinstance(dataset_for_grid, list) and len(dataset_for_grid) > 0:
+                first_item = dataset_for_grid[0]
+                if isinstance(first_item, str):
+                    asset_id = (
+                        first_item[5:] if first_item.startswith("ee://") else first_item
+                    )
+                    dataset_for_grid = ee.ImageCollection(asset_id)
+                elif isinstance(first_item, ee.Image):
+                    dataset_for_grid = ee.ImageCollection(first_item)
+                else:
+                    dataset_for_grid = None
+
+            if dataset_for_grid is not None:
+                grid_params = helpers.extract_grid_params(dataset_for_grid)
+        except Exception as e:
+            warnings.warn(
+                f"Could not infer source grid parameters automatically: {e}. "
+                "If using xee>=0.1.0, pass either legacy (crs/scale[/geometry]) "
+                "or explicit grid params (crs/crs_transform/shape_2d).",
+                UserWarning,
+            )
+
+    # If we successfully created grid_params, use them and remove conflicting old params
+    if grid_params:
+        kwargs.update(grid_params)
+        # Remove old parameters that xee v0.1.0 doesn't understand
+        kwargs.pop("scale", None)
+        kwargs.pop("projection", None)
+        kwargs.pop("geometry", None)
+    else:
+        # Fallback to legacy API params (for backward compatibility or if conversion failed)
+        # These will be passed as-is and may work with older xee versions
+        if crs is not None:
+            kwargs["crs"] = crs
+        if scale is not None:
+            kwargs["scale"] = scale
+        if projection is not None:
+            kwargs["projection"] = projection
+        if geometry is not None:
+            kwargs["geometry"] = geometry
 
     if isinstance(dataset, list):
         ds = xr.open_mfdataset(dataset, **kwargs)
@@ -3320,35 +3433,34 @@ def create_colorbar(
     def gaussian(x: float, a: float, b: float, c: float, d: float = 0) -> float:
         return a * math.exp(-((x - b) ** 2) / (2 * c**2)) + d
 
-    # TODO: Rename map to something that doesn't clash with Python's `map`.
     def pixel(
-        x, width: float = 100, map=None, spread: float = 1
+        x, width: float = 100, color_map=None, spread: float = 1
     ) -> tuple[float, float, float]:
-        map = map or []
+        color_map = color_map or []
 
         width = float(width)
         r = sum(
             [
-                gaussian(x, p[1][0], p[0] * width, width / (spread * len(map)))
-                for p in map
+                gaussian(x, p[1][0], p[0] * width, width / (spread * len(color_map)))
+                for p in color_map
             ]
         )
         g = sum(
             [
-                gaussian(x, p[1][1], p[0] * width, width / (spread * len(map)))
-                for p in map
+                gaussian(x, p[1][1], p[0] * width, width / (spread * len(color_map)))
+                for p in color_map
             ]
         )
         b = sum(
             [
-                gaussian(x, p[1][2], p[0] * width, width / (spread * len(map)))
-                for p in map
+                gaussian(x, p[1][2], p[0] * width, width / (spread * len(color_map)))
+                for p in color_map
             ]
         )
         return min(1.0, r), min(1.0, g), min(1.0, b)
 
     for x in range(im.size[0]):
-        r, g, b = pixel(x, width=width, map=heatmap)
+        r, g, b = pixel(x, width=width, color_map=heatmap)
         r, g, b = (int(256 * v) for v in (r, g, b))
         for y in range(im.size[1]):
             ld[x, y] = r, g, b
@@ -3892,24 +4004,36 @@ def ee_data_html(asset: dict[str, Any]) -> str | None:
             coder_url = code_url
 
         # ee datasets always have a asset_url, and should have a thumbnail.
-        catalog = bool(asset_url) * f"""
+        catalog = (
+            f"""
                     <h4>Data Catalog</h4>
                         <p style="margin-left: 40px"><a href="{asset_url.replace('terms-of-use','description')}" target="_blank">Description</a></p>
                         <p style="margin-left: 40px"><a href="{asset_url.replace('terms-of-use','bands')}" target="_blank">Bands</a></p>
                         <p style="margin-left: 40px"><a href="{asset_url.replace('terms-of-use','image-properties')}" target="_blank">Properties</a></p>
                         <p style="margin-left: 40px"><a href="{coder_url}" target="_blank">Example</a></p>
                     """
-        thumbnail = bool(thumbnail_url) * f"""
+            if asset_url
+            else ""
+        )
+        thumbnail = (
+            f"""
                     <h4>Dataset Thumbnail</h4>
                     <img src="{thumbnail_url}">
                     """
+            if thumbnail_url
+            else ""
+        )
         # Only community datasets have a code_url.
-        alternative = bool(code_url) * f"""
+        alternative = (
+            f"""
                     <h4>Community Catalog</h4>
                         <p style="margin-left: 40px">{asset.get('provider','Provider unknown')}</p>
                         <p style="margin-left: 40px">{asset.get('tags','Tags unknown')}</p>
                         <p style="margin-left: 40px"><a href="{coder_url}" target="_blank">Example</a></p>
                     """
+            if thumbnail_url
+            else ""
+        )
 
         return f"""
             <html>
@@ -4028,14 +4152,20 @@ def ee_api_to_csv(
                 ]
             )
 
-            for i in range(len(names)):
-                name = names[i]
-                description = descriptions[i]
-                function = functions[i]
-                return_type = returns[i]
-                argument = "|".join(arguments[i])
-                argu_type = "|".join(types[i])
-                detail = "|".join(details[i])
+            for (
+                name,
+                description,
+                function,
+                return_type,
+                args,
+                tps,
+                dtls,
+            ) in zip(
+                names, descriptions, functions, returns, arguments, types, details
+            ):
+                argument = "|".join(args)
+                argu_type = "|".join(tps)
+                detail = "|".join(dtls)
 
                 csv_writer.writerow(
                     [
@@ -12278,7 +12408,8 @@ def download_ee_image_tiles(
     if column is not None:
         names = features.aggregate_array(column).getInfo()
     else:
-        names = [str(i + 1).zfill(len(str(count))) for i in range(count)]
+        count_len = len(str(count))
+        names = [str(i + 1).zfill(count_len) for i in range(count)]
 
     for i in range(count):
         region = ee.Feature(collection.get(i)).geometry()
@@ -12387,7 +12518,8 @@ def download_ee_image_tiles_parallel(
     if column is not None:
         names = features.aggregate_array(column).getInfo()
     else:
-        names = [str(i + 1).zfill(len(str(count))) for i in range(count)]
+        count_len = len(str(count))
+        names = [str(i + 1).zfill(count_len) for i in range(count)]
     collection = features.toList(count)
 
     def download_data(index: int) -> None:
@@ -14529,7 +14661,7 @@ def tif_to_jp2(
 def ee_to_geotiff(
     ee_object,
     output: str,
-    bbox=None,
+    bbox: list[float] | tuple[float, float, float, float] | None = None,
     vis_params: dict[str, Any] | None = None,
     zoom: int | None = None,
     resolution: float | None = None,
@@ -14543,7 +14675,6 @@ def ee_to_geotiff(
     Args:
         ee_object (ee.Image | ee.FeatureCollection): The Earth Engine object to download.
         output: The output path for the GeoTIFF.
-        # TODO: What is the proper type for bbox?
         bbox: The bounding box in the format [xmin, ymin, xmax, ymax]. Defaults to None,
             which is the bounding box of the Earth Engine object.
         vis_params: Visualization parameters. Defaults to {}.

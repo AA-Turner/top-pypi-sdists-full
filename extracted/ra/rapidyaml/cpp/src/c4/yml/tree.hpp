@@ -49,10 +49,12 @@ namespace yml {
 template<class T> inline auto read(Tree const* C4_RESTRICT tree, id_type id, T *v) -> typename std::enable_if<!std::is_arithmetic<T>::value, bool>::type;
 template<class T> inline auto read(Tree const* C4_RESTRICT tree, id_type id, T *v) -> typename std::enable_if<std::is_arithmetic<T>::value && !std::is_floating_point<T>::value, bool>::type;
 template<class T> inline auto read(Tree const* C4_RESTRICT tree, id_type id, T *v) -> typename std::enable_if<std::is_floating_point<T>::value, bool>::type;
+template<class T> bool read(Tree const* C4_RESTRICT tree, id_type id, T const& wrapper);
 
 template<class T> inline auto readkey(Tree const* C4_RESTRICT tree, id_type id, T *v) -> typename std::enable_if<!std::is_arithmetic<T>::value, bool>::type;
 template<class T> inline auto readkey(Tree const* C4_RESTRICT tree, id_type id, T *v) -> typename std::enable_if<std::is_arithmetic<T>::value && !std::is_floating_point<T>::value, bool>::type;
 template<class T> inline auto readkey(Tree const* C4_RESTRICT tree, id_type id, T *v) -> typename std::enable_if<std::is_floating_point<T>::value, bool>::type;
+template<class T> bool readkey(Tree const* C4_RESTRICT tree, id_type id, T const& wrapper);
 /** @endcond */
 
 
@@ -1356,6 +1358,18 @@ public:
  * @{
  */
 
+template<class T>
+bool read(Tree const* C4_RESTRICT tree, id_type id, T const& wrapper)
+{
+    return C4_LIKELY(!(tree->type(id) & VALNIL)) ? from_chars(tree->val(id), wrapper) : false;
+}
+template<class T>
+bool readkey(Tree const* C4_RESTRICT tree, id_type id, T const& wrapper)
+{
+    return C4_LIKELY(!(tree->type(id) & KEYNIL)) ? from_chars(tree->key(id), wrapper) : false;
+}
+
+
 
 // NON-ARITHMETIC -------------------------------------------------------------
 
@@ -1442,7 +1456,7 @@ template<class T>
 size_t to_chars_float(substr buf, T val)
 {
     static_assert(std::is_floating_point<T>::value, "must be floating point");
-    C4_SUPPRESS_WARNING_GCC_CLANG_WITH_PUSH("-Wfloat-equal");
+    C4_SUPPRESS_WARNING_GCC_CLANG_WITH_PUSH("-Wfloat-equal")
     if(C4_UNLIKELY(std::isnan(val)))
         return to_chars(buf, csubstr(".nan"));
     else if(C4_UNLIKELY(val == std::numeric_limits<T>::infinity()))

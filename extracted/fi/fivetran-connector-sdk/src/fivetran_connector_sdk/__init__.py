@@ -27,7 +27,8 @@ from fivetran_connector_sdk.operations import Operations
 from fivetran_connector_sdk import constants
 from fivetran_connector_sdk.constants import (
     TESTER_VERSION, VERSION_FILENAME, UTF_8,
-    VALID_COMMANDS, DEFAULT_PYTHON_VERSION, SUPPORTED_PYTHON_VERSIONS, TABLES, TEMPLATE_CONNECTOR_PATH, PYPROJECT_TOML
+    VALID_COMMANDS, FORCE_DEPRECATION_WARNING_COMMANDS, DEPRECATED_FORCE_FLAG_WARNING,
+    DEFAULT_PYTHON_VERSION, SUPPORTED_PYTHON_VERSIONS, TABLES, TEMPLATE_CONNECTOR_PATH, PYPROJECT_TOML
 )
 from fivetran_connector_sdk.helpers import (
     print_library_log, reset_local_file_directory, find_connector_object, suggest_correct_command,
@@ -41,27 +42,27 @@ from fivetran_connector_sdk.connector_helper import (
     update_base_url_if_required, exit_check,
     get_available_port, tester_root_dir_helper,
     check_dict, check_newer_version, cleanup_uploaded_project,
-    get_destination_group, get_connection_name, get_api_key, get_state,
+    get_destination_group, get_connection_name, get_api_key, get_state, get_naming,
     get_python_version, get_hd_agent_id, get_configuration,
     handle_connection_response, apply_memory_limit
 )
 
 # Version format: <major_version>.<minor_version>.<patch_version>
 # (where Major Version = 2, Minor Version is incremental MM from Aug 25 onwards, Patch Version is incremental within a month)
-__version__ = "2.9.0"
+__version__ = "2.9.1"
 MAX_MESSAGE_LENGTH = 128 * 1024 * 1024 # 128MB
 
 __all__ = [cls.__name__ for cls in [Logging, Operations]]
 
 
-def package(project_path: str, force: bool = False):
+def package(project_path: str, non_interactive: bool = False):
     """Packages the connector project into a distributable zip file.
 
     Args:
         project_path (str): The path to the connector project directory.
-        force (bool): If True, skip dependency validation. Defaults to False.
+        non_interactive (bool): If True, skip dependency validation. Defaults to False.
     """
-    if not force:
+    if not non_interactive:
         pyproject_path = os.path.join(project_path, PYPROJECT_TOML)
         if os.path.exists(pyproject_path):
             validate_pyproject_file(project_path, True)
@@ -69,7 +70,7 @@ def package(project_path: str, force: bool = False):
             validate_requirements_file(project_path, True, __version__)
     else:
         print_library_log(
-            "skipping dependency validation; --force is set")
+            "skipping dependency validation; --non-interactive is set")
 
     package_path = create_package(project_path)
     print_library_log(f"package created at: {package_path}", log_icon=Logging.LogIcon.SUCCESS)
@@ -94,8 +95,8 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
 
     # Call this method to deploy the connector to Fivetran platform
     def deploy(self, project_path: str, deploy_key: str, group: str, connection: str, hd_agent_id: str,
-               configuration: dict = None, config_path = None, python_version: str = None, force: bool = False,
-               naming: str = None):
+               configuration: dict = None, config_path = None, python_version: str = None,
+               non_interactive: bool = False, naming: str = None):
         """Deploys the connector to the Fivetran platform.
 
         Args:
@@ -107,8 +108,8 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
             configuration (dict): The configuration dictionary.
             config_path (str): The path to the configuration file.
             python_version (str): The Python version to use.
-            force (bool): Whether to force the deployment.
-            naming (str): This is the naming strategy. options: FIVETRAN/SOURCE
+            non_interactive (bool): Whether to run non-interactive deployment behavior.
+            naming (str): The formatted naming strategy (e.g., "FIVETRAN_NAMING" or "SOURCE_NAMING").
         """
         print_library_log("executing deploy:")
         deploy_cmd = f"fivetran deploy --destination {group} --connection {connection} --api-key {deploy_key[0:8]}******** "
@@ -120,8 +121,8 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
             deploy_cmd += f"--hd-agent-id {hd_agent_id} "
         if naming:
             deploy_cmd += f"--naming {naming} "
-        if force:
-            deploy_cmd += "--force"
+        if non_interactive:
+            deploy_cmd += "--non-interactive"
         print_library_log(deploy_cmd)
 
         constants.EXECUTED_VIA_CLI = True
@@ -140,7 +141,7 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
         if python_version:
             connection_config["python_version"] = python_version
 
-        if not force:
+        if not non_interactive:
             pyproject_path = os.path.join(project_path, PYPROJECT_TOML)
             if os.path.exists(pyproject_path):
                 validate_pyproject_file(project_path, True)
@@ -148,20 +149,20 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
                 validate_requirements_file(project_path, True, __version__)
         else:
             print_library_log(
-                "skipping dependency validation; --force is set")
+                "skipping dependency validation; --non-interactive is set")
 
         group_id, group_name = get_group_info(group, deploy_key)
         connection_id, service = get_connection_details(connection, group, group_id, deploy_key) or (None, None)
 
         if connection_id:
             if naming:
-                print_library_log("ignored --naming flag; naming strategy cannot be changed after the first sync", Logging.Level.WARNING)
+                print_library_log("ignored --naming flag; naming strategy cannot be changed after connection creation", Logging.Level.WARNING)
             if service != 'connector_sdk':
                 print_library_log(
                     f"cannot update connection '{connection}'; not a Connector SDK connection", level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
                 sys.exit(1)
             else:
-                if force:
+                if non_interactive:
                     confirm = "y"
                     if configuration:
                         confirm_config = "y"
@@ -193,7 +194,7 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
                 print_library_log(
                     "set --python-version <version> in the deploy command or update it in your Fivetran dashboard")
             package_id = package_project(project_path, deploy_key)
-            response = create_connection(deploy_key, group_id, connection_config, hd_agent_id, package_id)
+            response = create_connection(deploy_key, group_id, connection_config, hd_agent_id, package_id, naming)
             handle_connection_response(response, package_id, deploy_key, HTTPStatus.CREATED.value, is_new_connection=True)
 
     # Call this method to run the connector in production
@@ -256,7 +257,7 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
             configuration (dict): The configuration dictionary, same as configuration.json if present.
             state (dict): The state dictionary, same as state.json if present.
             log_level (Logging.Level): The logging level.
-            naming (str): This is the naming strategy. options: FIVETRAN/SOURCE
+            naming (str): The formatted naming strategy (e.g., "FIVETRAN_NAMING" or "SOURCE_NAMING").
         """
         constants.DEBUGGING = True
 
@@ -344,7 +345,7 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
             print_library_log("starting connector tester", log_icon=Logging.LogIcon.STEP)
             for log_msg in run_tester(
                 java_exe, tester_root_dir, project_path, available_port,
-                json.dumps(self.state), self.configuration):
+                json.dumps(self.state), self.configuration, naming):
                 print(log_msg, end="")
         except subprocess.CalledProcessError as e:
             print(traceback.format_exc())
@@ -507,7 +508,8 @@ Commands:
 
     general_group = parser.add_argument_group('General Options')
     general_group.add_argument("--version", action="store_true", help="Print the version of the fivetran_connector_sdk and exit")
-    general_group.add_argument("-f", "--force", action="store_true", help="Force update an existing connection")
+    general_group.add_argument("--non-interactive", action="store_true", help="Use non-interactive mode")
+    general_group.add_argument("-f", "--force", action="store_true", help="Deprecated; use --non-interactive")
     general_group.add_argument("--state", type=str, default=None, metavar="<state>", help="Path to state JSON file")
     general_group.add_argument("--configuration", type=str, default=None, metavar="<configuration>", help="Path to configuration JSON file")
     general_group.add_argument("--api-key", type=str, default=None, metavar="<api-key>", help="Provide your base64-encoded API key for deployment")
@@ -515,6 +517,7 @@ Commands:
     general_group.add_argument("--connection", type=str, default=None, metavar="<connection>", help="Connection name (aka 'destination schema')")
     general_group.add_argument("--python-version", "--python", type=str, metavar="<python-version>", help=f"Supported Python versions you can use: {SUPPORTED_PYTHON_VERSIONS}. Defaults to {DEFAULT_PYTHON_VERSION}")
     general_group.add_argument("--hybrid-deployment-agent-id", type=str, metavar="<hybrid-deployment-agent-id>", help="Hybrid Deployment agent ID. Defaults to the destination's default agent.")
+    general_group.add_argument("--naming", type=str, default=None, metavar="<naming>", help="Naming strategy for the connection schema. Options: FIVETRAN | SOURCE. Defaults to FIVETRAN.")
     general_group.add_argument("--template", type=str, default=TEMPLATE_CONNECTOR_PATH, metavar="<template>", help="Initialize a sample connector project from repository path")
     return parser
 
@@ -525,6 +528,9 @@ def main():
     constants.EXECUTED_VIA_CLI = True
     parser = _create_argument_parser()
     args = parser.parse_args()
+    if args.force and args.command and args.command.lower() in FORCE_DEPRECATION_WARNING_COMMANDS:
+        print_library_log(DEPRECATED_FORCE_FLAG_WARNING, Logging.Level.WARNING)
+    args.non_interactive = args.force or args.non_interactive
 
     if args.version:
         print_version()
@@ -544,7 +550,7 @@ def main():
         reset_local_file_directory(args)
         sys.exit(0)
     elif args.command.lower() == "init":
-        init(args.project_path, args.template, args.force)
+        init(args.project_path, args.template, args.non_interactive)
     elif args.command.lower() == "help":
         parser.print_help()
         sys.exit(0)
@@ -555,7 +561,7 @@ def main():
         sys.exit(1)
 
     if args.command.lower() == "package":
-        package(args.project_path, args.force)
+        package(args.project_path, args.non_interactive)
 
     if args.command.lower() == "deploy":
         ft_group = get_destination_group(args)
@@ -565,19 +571,21 @@ def main():
         hd_agent_id = get_hd_agent_id(args)
         configuration, config_path = get_configuration(args)
         get_state(args)
+        naming = get_naming(args)
 
         connector_object.deploy(args.project_path, ft_deploy_key, ft_group, ft_connection, hd_agent_id,
-                                configuration, config_path, python_version, args.force)
+                                configuration, config_path, python_version, args.non_interactive, naming)
 
     elif args.command.lower() == "debug":
         configuration, config_path = get_configuration(args)
         state = get_state(args)
+        naming = get_naming(args)
         try:
             os.environ["FIVETRAN_CONNECTION_ID"] = "test_connection_id"
             os.environ["FIVETRAN_DEPLOYMENT_MODEL"] = "local_debug"
             os.environ["FIVETRAN_GROUP_ID"] = "test_group_id"
             os.environ["FIVETRAN_CONNECTION_NAME"] = "test_connection_name"
-            connector_object.debug(args.project_path, configuration, state)
+            connector_object.debug(args.project_path, configuration, state, naming)
         except subprocess.CalledProcessError as e:
             print_library_log(f"connector tester failed with exit code: {e.returncode}", level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
             sys.exit(e.returncode)

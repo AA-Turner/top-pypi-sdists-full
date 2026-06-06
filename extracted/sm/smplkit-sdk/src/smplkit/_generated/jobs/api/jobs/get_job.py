@@ -53,7 +53,7 @@ def sync_detailed(
 ) -> Response[JobResponse]:
     """Get Job
 
-     Retrieve a single job by its id (slug).
+     Retrieve a single job by its id.
 
     Args:
         job_id (str):
@@ -84,7 +84,7 @@ def sync(
 ) -> JobResponse | None:
     """Get Job
 
-     Retrieve a single job by its id (slug).
+     Retrieve a single job by its id.
 
     Args:
         job_id (str):
@@ -110,7 +110,7 @@ async def asyncio_detailed(
 ) -> Response[JobResponse]:
     """Get Job
 
-     Retrieve a single job by its id (slug).
+     Retrieve a single job by its id.
 
     Args:
         job_id (str):
@@ -139,7 +139,7 @@ async def asyncio(
 ) -> JobResponse | None:
     """Get Job
 
-     Retrieve a single job by its id (slug).
+     Retrieve a single job by its id.
 
     Args:
         job_id (str):

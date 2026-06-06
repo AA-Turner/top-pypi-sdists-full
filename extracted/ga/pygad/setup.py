@@ -5,10 +5,14 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(  
     name="pygad",  
-    version="3.6.0",
     author="Ahmed Fawzy Gad",
-    install_requires=["numpy", "matplotlib", "cloudpickle",],
-    author_email="ahmed.f.gad@gmail.com",  
+    install_requires=["numpy", "cloudpickle",],
+    extras_require={
+        "deep_learning": ["keras", "tensorflow", "torch"],
+        "visualize": ["matplotlib"],
+    },
+    author_email="ahmed.f.gad@gmail.com",
+  
     description="PyGAD: A Python Library for Building the Genetic Algorithm and Training Machine Learning Algoithms (Keras & PyTorch).",
     long_description=long_description,
     long_description_content_type="text/markdown",

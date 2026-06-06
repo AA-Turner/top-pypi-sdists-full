@@ -2,6 +2,7 @@ mod base_client;
 mod client;
 mod commands;
 mod config;
+mod config_agent;
 mod config_command_ui;
 mod config_wizard;
 mod error;
@@ -89,17 +90,13 @@ impl CliContext {
     }
 
     pub fn get_client_with_timeout(&self, timeout_secs: Option<f64>) -> client::HttpClient {
-        let api_key = if self.sudo {
-            self.config.root_api_key.clone()
-        } else {
-            self.config.api_key.clone()
-        };
+        let auth = self.config.effective_auth(self.sudo);
         client::HttpClient::new(
             &self.config.url,
-            api_key,
+            auth.api_key,
             self.config.agent_id.clone(),
-            self.config.account.clone(),
-            self.config.user.clone(),
+            auth.account,
+            auth.user,
             timeout_secs.unwrap_or(self.config.timeout),
             self.profile.unwrap_or(self.config.profile),
             self.config.extra_headers.clone(),
@@ -361,17 +358,17 @@ enum Commands {
         /// Viking URI to get metadata for
         uri: String,
     },
-    /// [Data] Read file content (L2)
+    /// [Data] Read file content (Level 2)
     Read {
         /// Viking URI
         uri: String,
     },
-    /// [Data] Read abstract content (L0)
+    /// [Data] Read abstract content (Level 0)
     Abstract {
         /// Directory URI
         uri: String,
     },
-    /// [Data] Read overview content (L1)
+    /// [Data] Read overview content (Level 1)
     Overview {
         /// Directory URI
         uri: String,
@@ -682,10 +679,10 @@ enum Commands {
 impl Commands {
     /// Returns true if this is an admin command that supports --sudo
     fn is_admin_command(&self) -> bool {
-        match self {
-            Self::Admin { .. } | Self::System { .. } | Self::Reindex { .. } => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Self::Admin { .. } | Self::System { .. } | Self::Reindex { .. }
+        )
     }
 
     fn supports_upload_options(&self) -> bool {
@@ -699,7 +696,7 @@ fn legacy_upload_option_error(
 ) -> Option<&'static str> {
     if options.is_set() && !command.supports_upload_options() {
         Some(
-            "--progress, --no-progress, and --verbose are only supported for add-resource and add-skill",
+            "--progress, --no-progress, and --verbose are only supported for add-resource and add-skill.",
         )
     } else {
         None
@@ -1021,7 +1018,14 @@ impl Commands {
         !matches!(
             self,
             Commands::Config {
-                action: None | Some(ConfigCommands::Switch),
+                action: None
+                    | Some(
+                        ConfigCommands::Switch { .. }
+                            | ConfigCommands::Add { .. }
+                            | ConfigCommands::Edit(_)
+                            | ConfigCommands::Delete(_)
+                            | ConfigCommands::List,
+                    ),
             } | Commands::Version
         )
     }
@@ -1034,7 +1038,139 @@ enum ConfigCommands {
     /// Validate configuration file
     Validate,
     /// Switch between saved configs
-    Switch,
+    Switch {
+        /// Saved config name to activate. Omit to open the interactive selector.
+        name: Option<String>,
+    },
+    /// List saved configs
+    List,
+    /// Delete a saved config
+    Delete(ConfigDeleteArgs),
+    /// Add a saved config without opening the interactive wizard
+    Add {
+        #[command(subcommand)]
+        target: ConfigAddTarget,
+    },
+    /// Edit a saved config without opening the interactive wizard
+    Edit(ConfigEditArgs),
+}
+
+#[derive(Subcommand)]
+enum ConfigAddTarget {
+    /// Add a Volcengine Cloud config
+    Cloud(ConfigAddCloudArgs),
+    /// Add a self-managed config
+    SelfManaged(ConfigAddSelfManagedArgs),
+}
+
+#[derive(Args, Debug, Clone)]
+struct ConfigAddCloudArgs {
+    /// Saved config name. Agents should pass this for idempotent retries; generated when omitted.
+    #[arg(long)]
+    name: Option<String>,
+    /// Read API key from stdin
+    #[arg(long, conflicts_with = "api_key_env")]
+    api_key_stdin: bool,
+    /// Read API key from an environment variable
+    #[arg(long, conflicts_with = "api_key_stdin")]
+    api_key_env: Option<String>,
+    /// Account identifier to send as X-OpenViking-Account
+    #[arg(long)]
+    account: Option<String>,
+    /// User identifier to send as X-OpenViking-User
+    #[arg(long)]
+    user: Option<String>,
+    /// Make the saved config active after validation
+    #[arg(long)]
+    activate: bool,
+    /// Replace an existing saved config
+    #[arg(long)]
+    force: bool,
+}
+
+#[derive(Args, Debug, Clone)]
+struct ConfigAddSelfManagedArgs {
+    /// Saved config name. Agents should pass this for idempotent retries; generated when omitted.
+    #[arg(long)]
+    name: Option<String>,
+    /// OpenViking server URL
+    #[arg(long)]
+    url: Option<String>,
+    /// Read API key from stdin
+    #[arg(long, conflicts_with_all = ["api_key_env", "root_api_key_stdin"])]
+    api_key_stdin: bool,
+    /// Read API key from an environment variable
+    #[arg(long, conflicts_with = "api_key_stdin")]
+    api_key_env: Option<String>,
+    /// Read root API key from stdin
+    #[arg(long, conflicts_with_all = ["root_api_key_env", "api_key_stdin"])]
+    root_api_key_stdin: bool,
+    /// Read root API key from an environment variable
+    #[arg(long, conflicts_with = "root_api_key_stdin")]
+    root_api_key_env: Option<String>,
+    /// Account identifier to send as X-OpenViking-Account
+    #[arg(long)]
+    account: Option<String>,
+    /// User identifier to send as X-OpenViking-User
+    #[arg(long)]
+    user: Option<String>,
+    /// Make the saved config active after validation
+    #[arg(long)]
+    activate: bool,
+    /// Replace an existing saved config
+    #[arg(long)]
+    force: bool,
+}
+
+#[derive(Args, Debug, Clone)]
+struct ConfigEditArgs {
+    /// Saved config name to edit
+    name: String,
+    /// Rename the saved config
+    #[arg(long)]
+    new_name: Option<String>,
+    /// New server URL. Volcengine Cloud configs use a fixed URL.
+    #[arg(long)]
+    url: Option<String>,
+    /// Read replacement API key from stdin
+    #[arg(long, conflicts_with_all = ["api_key_env", "clear_api_key", "root_api_key_stdin"])]
+    api_key_stdin: bool,
+    /// Read replacement API key from an environment variable
+    #[arg(long, conflicts_with_all = ["api_key_stdin", "clear_api_key"])]
+    api_key_env: Option<String>,
+    /// Remove the API key
+    #[arg(long, conflicts_with_all = ["api_key_stdin", "api_key_env"])]
+    clear_api_key: bool,
+    /// Read replacement root API key from stdin
+    #[arg(long, conflicts_with_all = ["root_api_key_env", "clear_root_api_key", "api_key_stdin"])]
+    root_api_key_stdin: bool,
+    /// Read replacement root API key from an environment variable
+    #[arg(long, conflicts_with_all = ["root_api_key_stdin", "clear_root_api_key"])]
+    root_api_key_env: Option<String>,
+    /// Remove the root API key
+    #[arg(long, conflicts_with_all = ["root_api_key_stdin", "root_api_key_env"])]
+    clear_root_api_key: bool,
+    /// Account identifier to send as X-OpenViking-Account
+    #[arg(long)]
+    account: Option<String>,
+    /// User identifier to send as X-OpenViking-User
+    #[arg(long)]
+    user: Option<String>,
+    /// Make the saved config active after validation
+    #[arg(long)]
+    activate: bool,
+    /// Replace an existing saved config when renaming
+    #[arg(long)]
+    force: bool,
+}
+
+#[derive(Args, Debug, Clone)]
+struct ConfigDeleteArgs {
+    /// Saved config name to delete
+    name: String,
+    /// Delete even when the saved file cannot be parsed
+    #[arg(long)]
+    force: bool,
 }
 
 fn find_command_index(args: &[OsString]) -> Option<usize> {
@@ -1055,6 +1191,413 @@ fn find_command_index(args: &[OsString]) -> Option<usize> {
         }
     }
     None
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PlainHelpMisuse {
+    help_command: String,
+}
+
+fn plain_help_misuse(args: &[OsString]) -> Option<PlainHelpMisuse> {
+    let tokens = command_tokens_for_plain_help(args);
+    let help_index = tokens.iter().position(|token| token == "help")?;
+    if help_index == 0 {
+        return Some(PlainHelpMisuse {
+            help_command: "ov --help".to_string(),
+        });
+    }
+
+    let command = tokens
+        .first()
+        .map(|token| canonical_plain_help_token(token))?;
+    if allows_plain_help_as_user_input(command) {
+        return None;
+    }
+
+    let mut path = vec![command.to_string()];
+    if is_plain_help_group(command) {
+        if help_index == 1 {
+            return Some(PlainHelpMisuse {
+                help_command: prefixed_help_command(&path),
+            });
+        }
+        if let Some(subcommand) = tokens.get(1).map(|token| canonical_plain_help_token(token)) {
+            path.push(subcommand.to_string());
+        }
+        if command == "task"
+            && path.get(1).is_some_and(|token| token == "watch")
+            && let Some(watch_subcommand) =
+                tokens.get(2).map(|token| canonical_plain_help_token(token))
+            && watch_subcommand != "help"
+        {
+            path.push(watch_subcommand.to_string());
+        }
+        return Some(PlainHelpMisuse {
+            help_command: prefixed_help_command(&path),
+        });
+    }
+
+    Some(PlainHelpMisuse {
+        help_command: prefixed_help_command(&path),
+    })
+}
+
+fn command_tokens_for_plain_help(args: &[OsString]) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let mut i = 1;
+    while i < args.len() {
+        let token = args[i].to_string_lossy();
+        let token_ref = token.as_ref();
+        if consumes_plain_help_value(token_ref) {
+            i += if token_ref.contains('=') { 1 } else { 2 };
+            continue;
+        }
+        if token_ref.starts_with('-') {
+            i += 1;
+            continue;
+        }
+        tokens.push(token.into_owned());
+        i += 1;
+    }
+    tokens
+}
+
+fn consumes_plain_help_value(token: &str) -> bool {
+    matches!(
+        token,
+        "-o" | "--output"
+            | "-c"
+            | "--compact"
+            | "--account"
+            | "--user"
+            | "--agent-id"
+            | "-u"
+            | "--uri"
+            | "-x"
+            | "--exclude-uri"
+            | "--to"
+            | "--parent"
+            | "-p"
+            | "--parent-auto-create"
+            | "--reason"
+            | "--instruction"
+            | "--timeout"
+            | "--ignore-dirs"
+            | "--include"
+            | "--exclude"
+            | "-n"
+            | "--node-limit"
+            | "--limit"
+            | "-l"
+            | "--abs-limit"
+            | "-L"
+            | "--level"
+            | "--level-limit"
+            | "-s"
+            | "--session"
+            | "--sender"
+            | "--message"
+            | "--role"
+            | "--content"
+            | "--mode"
+            | "--on-conflict"
+            | "--vector-mode"
+            | "--token-budget"
+            | "--interval"
+            | "--active"
+    ) || token.starts_with("--output=")
+        || token.starts_with("--compact=")
+        || token.starts_with("--account=")
+        || token.starts_with("--user=")
+        || token.starts_with("--agent-id=")
+        || token.starts_with("--uri=")
+        || token.starts_with("--exclude-uri=")
+        || token.starts_with("--to=")
+        || token.starts_with("--parent=")
+        || token.starts_with("--parent-auto-create=")
+        || token.starts_with("--reason=")
+        || token.starts_with("--instruction=")
+        || token.starts_with("--timeout=")
+        || token.starts_with("--ignore-dirs=")
+        || token.starts_with("--include=")
+        || token.starts_with("--exclude=")
+        || token.starts_with("--node-limit=")
+        || token.starts_with("--limit=")
+        || token.starts_with("--abs-limit=")
+        || token.starts_with("--level=")
+        || token.starts_with("--level-limit=")
+        || token.starts_with("--session=")
+        || token.starts_with("--sender=")
+        || token.starts_with("--message=")
+        || token.starts_with("--role=")
+        || token.starts_with("--content=")
+        || token.starts_with("--mode=")
+        || token.starts_with("--on-conflict=")
+        || token.starts_with("--vector-mode=")
+        || token.starts_with("--token-budget=")
+        || token.starts_with("--interval=")
+        || token.starts_with("--active=")
+}
+
+fn canonical_plain_help_token(token: &str) -> &str {
+    match token {
+        "list" => "ls",
+        "del" | "delete" => "rm",
+        "rename" => "mv",
+        "lang" => "language",
+        other => other,
+    }
+}
+
+fn allows_plain_help_as_user_input(command: &str) -> bool {
+    matches!(
+        command,
+        "add-resource" | "add-skill" | "find" | "search" | "grep" | "glob" | "add-memory"
+    )
+}
+
+fn is_plain_help_group(command: &str) -> bool {
+    matches!(
+        command,
+        "config" | "task" | "admin" | "system" | "session" | "privacy" | "observer"
+    )
+}
+
+fn prefixed_help_command(path: &[String]) -> String {
+    if path.is_empty() {
+        "ov --help".to_string()
+    } else {
+        format!("ov {} --help", path.join(" "))
+    }
+}
+
+fn pre_parse_requires_cli_config_file(args: &[OsString]) -> bool {
+    let tokens = command_tokens_for_config_gate(args);
+    let Some(command) = tokens
+        .first()
+        .map(|token| canonical_plain_help_token(token))
+    else {
+        return false;
+    };
+
+    match command {
+        "config" => config_command_requires_cli_config_file(&tokens),
+        "language" | "version" => false,
+        "task" => known_task_command_requires_config(&tokens),
+        "admin" => tokens
+            .get(1)
+            .map(|token| is_admin_subcommand(token))
+            .unwrap_or(false),
+        "system" => known_system_command_requires_config(&tokens),
+        "session" => tokens
+            .get(1)
+            .map(|token| is_session_subcommand(token))
+            .unwrap_or(false),
+        "privacy" => tokens
+            .get(1)
+            .map(|token| is_privacy_subcommand(token))
+            .unwrap_or(false),
+        "observer" => tokens
+            .get(1)
+            .map(|token| is_observer_subcommand(token))
+            .unwrap_or(false),
+        _ => is_top_level_server_command(command),
+    }
+}
+
+fn config_command_requires_cli_config_file(tokens: &[String]) -> bool {
+    matches!(tokens.get(1).map(String::as_str), Some("show" | "validate"))
+}
+
+fn is_config_agent_command_request(args: &[OsString]) -> bool {
+    let tokens = command_tokens_for_config_gate(args);
+    if tokens.first().map(String::as_str) != Some("config") {
+        return false;
+    }
+
+    match tokens.get(1).map(String::as_str) {
+        Some("add" | "edit" | "delete" | "list") => true,
+        Some("switch") => tokens.get(2).is_some(),
+        _ => false,
+    }
+}
+
+fn command_tokens_for_config_gate(args: &[OsString]) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let mut seen_command = false;
+    let mut i = 1;
+
+    while i < args.len() {
+        let token = args[i].to_string_lossy();
+        let token_ref = token.as_ref();
+
+        if token_ref == "--" {
+            tokens.extend(
+                args.iter()
+                    .skip(i + 1)
+                    .map(|arg| arg.to_string_lossy().to_string()),
+            );
+            break;
+        }
+
+        if !seen_command {
+            if token_ref == "--compact" || token_ref == "-c" {
+                i += if args
+                    .get(i + 1)
+                    .is_some_and(|value| is_bool_arg(&value.to_string_lossy()))
+                {
+                    2
+                } else {
+                    1
+                };
+                continue;
+            }
+            if token_ref.starts_with("--") {
+                i += if global_option_takes_value(token_ref) && !token_ref.contains('=') {
+                    2
+                } else {
+                    1
+                };
+                continue;
+            }
+            if token_ref.starts_with('-') {
+                i += if global_short_option_takes_value(token_ref) {
+                    2
+                } else {
+                    1
+                };
+                continue;
+            }
+            seen_command = true;
+            tokens.push(token.into_owned());
+            i += 1;
+            continue;
+        }
+
+        if token_ref == "--compact" || token_ref == "-c" {
+            i += if args
+                .get(i + 1)
+                .is_some_and(|value| is_bool_arg(&value.to_string_lossy()))
+            {
+                2
+            } else {
+                1
+            };
+            continue;
+        }
+        if consumes_plain_help_value(token_ref) {
+            i += if token_ref.contains('=') { 1 } else { 2 };
+            continue;
+        }
+        if token_ref.starts_with('-') {
+            i += 1;
+            continue;
+        }
+        tokens.push(token.into_owned());
+        i += 1;
+    }
+
+    tokens
+}
+
+fn known_task_command_requires_config(tokens: &[String]) -> bool {
+    match tokens.get(1).map(String::as_str) {
+        Some("status" | "list") => true,
+        Some("watch") => match tokens.get(2).map(String::as_str) {
+            None => true,
+            Some(token) => is_watch_subcommand(token),
+        },
+        _ => false,
+    }
+}
+
+fn known_system_command_requires_config(tokens: &[String]) -> bool {
+    match tokens.get(1).map(String::as_str) {
+        Some("wait" | "status" | "health" | "consistency") => true,
+        Some("crypto") => matches!(tokens.get(2).map(String::as_str), None | Some("init-key")),
+        _ => false,
+    }
+}
+
+fn is_top_level_server_command(command: &str) -> bool {
+    matches!(
+        command,
+        "add-resource"
+            | "add-skill"
+            | "ls"
+            | "tree"
+            | "mkdir"
+            | "rm"
+            | "mv"
+            | "stat"
+            | "read"
+            | "abstract"
+            | "overview"
+            | "write"
+            | "get"
+            | "find"
+            | "search"
+            | "grep"
+            | "glob"
+            | "add-memory"
+            | "relations"
+            | "link"
+            | "unlink"
+            | "export"
+            | "backup"
+            | "import"
+            | "restore"
+            | "tui"
+            | "chat"
+            | "wait"
+            | "status"
+            | "health"
+            | "reindex"
+    )
+}
+
+fn is_watch_subcommand(token: &str) -> bool {
+    matches!(
+        token,
+        "ls" | "show" | "rm" | "pause" | "resume" | "update" | "trigger"
+    )
+}
+
+fn is_admin_subcommand(token: &str) -> bool {
+    matches!(
+        token,
+        "create-account"
+            | "list-accounts"
+            | "delete-account"
+            | "register-user"
+            | "list-users"
+            | "list-agents"
+            | "remove-user"
+            | "set-role"
+            | "regenerate-key"
+    )
+}
+
+fn is_observer_subcommand(token: &str) -> bool {
+    matches!(
+        token,
+        "queue" | "vikingdb" | "models" | "transaction" | "retrieval" | "filesystem" | "system"
+    )
+}
+
+fn is_session_subcommand(token: &str) -> bool {
+    matches!(
+        token,
+        "new"
+            | "list"
+            | "get"
+            | "get-session-context"
+            | "get-session-archive"
+            | "delete"
+            | "add-message"
+            | "add-messages"
+            | "commit"
+    )
 }
 
 fn is_privacy_subcommand(token: &str) -> bool {
@@ -1164,7 +1707,10 @@ fn language_gate_action(
     has_saved_language: bool,
     is_interactive: bool,
 ) -> LanguageGateAction {
-    if has_saved_language || is_language_command_request(args) {
+    if has_saved_language
+        || is_language_command_request(args)
+        || is_config_agent_command_request(args)
+    {
         LanguageGateAction::Continue
     } else if is_interactive {
         LanguageGateAction::Prompt
@@ -1293,6 +1839,24 @@ async fn main() {
         print!("{help}");
         return;
     }
+    if let Some(misuse) = plain_help_misuse(&args) {
+        let report = error_ui::report_for_plain_help_error(&command_display, misuse.help_command);
+        error_ui::print_report(&report, false);
+        std::process::exit(2);
+    }
+
+    let mut preloaded_required_config = if pre_parse_requires_cli_config_file(&args) {
+        match Config::load_required() {
+            Ok(config) => Some(config),
+            Err(e) => {
+                let report = error_ui::report_for_runtime_error(&command_display, &e);
+                error_ui::print_report(&report, false);
+                std::process::exit(2);
+            }
+        }
+    } else {
+        None
+    };
 
     let cli = match Cli::try_parse_from(args.clone()) {
         Ok(cli) => cli,
@@ -1372,11 +1936,15 @@ async fn main() {
         return;
     }
 
-    let config = match if cli.command.requires_cli_config_file() {
-        Config::load_required()
+    let config_result = if cli.command.requires_cli_config_file() {
+        match preloaded_required_config.take() {
+            Some(config) => Ok(config),
+            None => Config::load_required(),
+        }
     } else {
         Config::load_default()
-    } {
+    };
+    let config = match config_result {
         Ok(config) => config,
         Err(e) => {
             let report = error_ui::report_for_runtime_error(&command_display, &e);
@@ -1757,9 +2325,10 @@ async fn main() {
 #[cfg(test)]
 mod tests {
     use super::{
-        Cli, CliContext, Commands, LanguageGateAction, PrivacyCommands, UploadCliOptions,
-        first_command_token, is_language_command_request, language_command_can_run_picker,
-        language_gate_action, language_required_message, legacy_upload_option_error,
+        Cli, CliContext, Commands, ConfigAddTarget, ConfigCommands, LanguageGateAction,
+        PrivacyCommands, UploadCliOptions, first_command_token, is_language_command_request,
+        language_command_can_run_picker, language_gate_action, language_required_message,
+        legacy_upload_option_error, plain_help_misuse, pre_parse_requires_cli_config_file,
         preprocess_privacy_args,
     };
     use crate::config::{Config, DEFAULT_SELF_MANAGED_URL};
@@ -1805,11 +2374,281 @@ mod tests {
         let setup = Cli::try_parse_from(["ov", "config"]).expect("bare config should parse");
         let switch =
             Cli::try_parse_from(["ov", "config", "switch"]).expect("config switch should parse");
+        let switch_named = Cli::try_parse_from(["ov", "config", "switch", "prod"])
+            .expect("named config switch should parse");
         let version = Cli::try_parse_from(["ov", "version"]).expect("version should parse");
 
         assert!(!setup.command.requires_cli_config_file());
         assert!(!switch.command.requires_cli_config_file());
+        assert!(!switch_named.command.requires_cli_config_file());
         assert!(!version.command.requires_cli_config_file());
+    }
+
+    #[test]
+    fn config_agent_commands_parse_without_secret_value_flags() {
+        let add_cloud = Cli::try_parse_from([
+            "ov",
+            "config",
+            "add",
+            "cloud",
+            "--name",
+            "prod",
+            "--api-key-stdin",
+            "--activate",
+        ])
+        .expect("cloud add should parse");
+        let Commands::Config {
+            action:
+                Some(ConfigCommands::Add {
+                    target: ConfigAddTarget::Cloud(cloud),
+                }),
+        } = add_cloud.command
+        else {
+            panic!("expected cloud add command");
+        };
+        assert_eq!(cloud.name.as_deref(), Some("prod"));
+        assert!(cloud.api_key_stdin);
+        assert!(cloud.activate);
+
+        let add_self_managed = Cli::try_parse_from([
+            "ov",
+            "config",
+            "add",
+            "self-managed",
+            "--url",
+            "https://ov.example.com",
+            "--api-key-env",
+            "OV_KEY",
+        ])
+        .expect("self-managed add should parse");
+        let Commands::Config {
+            action:
+                Some(ConfigCommands::Add {
+                    target: ConfigAddTarget::SelfManaged(self_managed),
+                }),
+        } = add_self_managed.command
+        else {
+            panic!("expected self-managed add command");
+        };
+        assert_eq!(self_managed.url.as_deref(), Some("https://ov.example.com"));
+        assert_eq!(self_managed.api_key_env.as_deref(), Some("OV_KEY"));
+
+        let edit = Cli::try_parse_from([
+            "ov",
+            "config",
+            "edit",
+            "prod",
+            "--clear-api-key",
+            "--activate",
+        ])
+        .expect("config edit should parse");
+        let Commands::Config {
+            action: Some(ConfigCommands::Edit(edit)),
+        } = edit.command
+        else {
+            panic!("expected edit command");
+        };
+        assert_eq!(edit.name, "prod");
+        assert!(edit.clear_api_key);
+        assert!(edit.activate);
+
+        assert!(
+            Cli::try_parse_from(["ov", "config", "add", "cloud", "--api-key", "secret"]).is_err(),
+            "plain API key flag must stay rejected"
+        );
+        assert!(
+            Cli::try_parse_from([
+                "ov",
+                "config",
+                "add",
+                "self-managed",
+                "--use-root-key-for-normal-commands",
+            ])
+            .is_err(),
+            "root-as-normal flag is obsolete and must stay rejected"
+        );
+        assert!(
+            Cli::try_parse_from([
+                "ov",
+                "config",
+                "edit",
+                "prod",
+                "--use-root-key-for-normal-commands",
+            ])
+            .is_err(),
+            "root-as-normal edit flag is obsolete and must stay rejected"
+        );
+    }
+
+    #[test]
+    fn pre_parse_config_gate_catches_incomplete_known_server_commands() {
+        for args in [
+            &["ov", "find"][..],
+            &["ov", "task", "status"],
+            &["ov", "task", "watch", "show"],
+            &["ov", "config", "validate"],
+            &["ov", "config", "show"],
+            &["ov", "system", "consistency"],
+            &["ov", "admin", "list-accounts"],
+        ] {
+            assert!(
+                pre_parse_requires_cli_config_file(&os_args(args)),
+                "{args:?} should require ovcli.conf before Clap positional validation"
+            );
+        }
+    }
+
+    #[test]
+    fn pre_parse_config_gate_covers_known_top_level_server_commands() {
+        for command in [
+            "add-resource",
+            "add-skill",
+            "ls",
+            "tree",
+            "mkdir",
+            "rm",
+            "mv",
+            "stat",
+            "read",
+            "abstract",
+            "overview",
+            "write",
+            "get",
+            "find",
+            "search",
+            "grep",
+            "glob",
+            "add-memory",
+            "relations",
+            "link",
+            "unlink",
+            "export",
+            "backup",
+            "import",
+            "restore",
+            "tui",
+            "chat",
+            "wait",
+            "status",
+            "health",
+            "reindex",
+        ] {
+            assert!(
+                pre_parse_requires_cli_config_file(&os_args(&["ov", command])),
+                "{command} should require ovcli.conf before Clap validation"
+            );
+        }
+    }
+
+    #[test]
+    fn pre_parse_config_gate_covers_known_group_server_commands() {
+        let cases: &[&[&str]] = &[
+            &["ov", "config", "show"],
+            &["ov", "config", "validate"],
+            &["ov", "task", "status"],
+            &["ov", "task", "list"],
+            &["ov", "task", "watch"],
+            &["ov", "task", "watch", "ls"],
+            &["ov", "task", "watch", "show"],
+            &["ov", "task", "watch", "rm"],
+            &["ov", "task", "watch", "pause"],
+            &["ov", "task", "watch", "resume"],
+            &["ov", "task", "watch", "update"],
+            &["ov", "task", "watch", "trigger"],
+            &["ov", "admin", "create-account"],
+            &["ov", "admin", "list-accounts"],
+            &["ov", "admin", "delete-account"],
+            &["ov", "admin", "register-user"],
+            &["ov", "admin", "list-users"],
+            &["ov", "admin", "list-agents"],
+            &["ov", "admin", "remove-user"],
+            &["ov", "admin", "set-role"],
+            &["ov", "admin", "regenerate-key"],
+            &["ov", "system", "wait"],
+            &["ov", "system", "status"],
+            &["ov", "system", "health"],
+            &["ov", "system", "consistency"],
+            &["ov", "system", "crypto"],
+            &["ov", "system", "crypto", "init-key"],
+            &["ov", "session", "new"],
+            &["ov", "session", "list"],
+            &["ov", "session", "get"],
+            &["ov", "session", "get-session-context"],
+            &["ov", "session", "get-session-archive"],
+            &["ov", "session", "delete"],
+            &["ov", "session", "add-message"],
+            &["ov", "session", "add-messages"],
+            &["ov", "session", "commit"],
+            &["ov", "privacy", "categories"],
+            &["ov", "privacy", "list"],
+            &["ov", "privacy", "get"],
+            &["ov", "privacy", "upsert"],
+            &["ov", "privacy", "versions"],
+            &["ov", "privacy", "version"],
+            &["ov", "privacy", "activate"],
+            &["ov", "observer", "queue"],
+            &["ov", "observer", "vikingdb"],
+            &["ov", "observer", "models"],
+            &["ov", "observer", "transaction"],
+            &["ov", "observer", "retrieval"],
+            &["ov", "observer", "filesystem"],
+            &["ov", "observer", "system"],
+        ];
+
+        for args in cases {
+            assert!(
+                pre_parse_requires_cli_config_file(&os_args(args)),
+                "{args:?} should require ovcli.conf before Clap validation"
+            );
+        }
+
+        assert!(
+            pre_parse_requires_cli_config_file(&preprocess_privacy_args(os_args(&[
+                "ov", "privacy", "skill", "demo",
+            ]))),
+            "privacy shortcut should require ovcli.conf after preprocessing"
+        );
+    }
+
+    #[test]
+    fn pre_parse_config_gate_respects_aliases_and_valid_help_values() {
+        for args in [
+            &["ov", "list"][..],
+            &["ov", "delete"],
+            &["ov", "rename"],
+            &["ov", "lang", "en"],
+        ] {
+            let expected = args[1] != "lang";
+            assert_eq!(
+                pre_parse_requires_cli_config_file(&os_args(args)),
+                expected,
+                "{args:?} pre-parse gate mismatch"
+            );
+        }
+    }
+
+    #[test]
+    fn pre_parse_config_gate_allows_non_server_and_unknown_commands() {
+        for args in [
+            &["ov", "con"][..],
+            &["ov", "task", "nope"],
+            &["ov", "config"],
+            &["ov", "config", "switch"],
+            &["ov", "config", "switch", "prod"],
+            &["ov", "config", "list"],
+            &["ov", "config", "delete", "prod"],
+            &["ov", "config", "add", "cloud", "--api-key-stdin"],
+            &["ov", "config", "edit", "prod", "--activate"],
+            &["ov", "config", "setup-cli"],
+            &["ov", "version"],
+            &["ov", "language", "en"],
+            &["ov", "lang", "en"],
+        ] {
+            assert!(
+                !pre_parse_requires_cli_config_file(&os_args(args)),
+                "{args:?} should not be gated before Clap parsing"
+            );
+        }
     }
 
     #[test]
@@ -1917,7 +2756,12 @@ mod tests {
 
         let tree = Cli::try_parse_from(["ov", "--progress", "tree", "viking://"])
             .expect("hidden legacy flag still parses before runtime validation");
-        assert!(legacy_upload_option_error(upload_options, &tree.command).is_some());
+        assert_eq!(
+            legacy_upload_option_error(upload_options, &tree.command),
+            Some(
+                "--progress, --no-progress, and --verbose are only supported for add-resource and add-skill."
+            )
+        );
 
         let add_resource = Cli::try_parse_from(["ov", "--progress", "add-resource", "./README.md"])
             .expect("legacy pre-command upload flags should parse for add-resource");
@@ -2020,6 +2864,29 @@ mod tests {
     }
 
     #[test]
+    fn language_gate_allows_config_agent_commands_without_saved_language() {
+        for args in [
+            &["ov", "config", "add", "cloud", "--api-key-stdin"][..],
+            &["ov", "config", "add", "self-managed"],
+            &["ov", "config", "edit", "prod", "--activate"],
+            &["ov", "config", "delete", "prod"],
+            &["ov", "config", "list"],
+            &["ov", "config", "switch", "prod"],
+        ] {
+            assert_eq!(
+                language_gate_action(&os_args(args), false, false),
+                LanguageGateAction::Continue,
+                "{args:?} should bypass first-run language selection"
+            );
+        }
+
+        assert_eq!(
+            language_gate_action(&os_args(&["ov", "config"]), false, false),
+            LanguageGateAction::ExitNonInteractive
+        );
+    }
+
+    #[test]
     fn language_gate_message_points_to_explicit_language_commands() {
         let message = language_required_message();
 
@@ -2063,6 +2930,64 @@ mod tests {
             Commands::Status { verbose } => assert!(verbose),
             _ => panic!("expected status command"),
         }
+    }
+
+    #[test]
+    fn plain_help_is_rejected_for_top_level_group_and_structured_leaf_commands() {
+        for (args, expected_help) in [
+            (vec!["ov", "help"], "ov --help"),
+            (vec!["ov", "config", "help"], "ov config --help"),
+            (vec!["ov", "task", "help"], "ov task --help"),
+            (vec!["ov", "admin", "help"], "ov admin --help"),
+            (vec!["ov", "ls", "help"], "ov ls --help"),
+            (vec!["ov", "tree", "help"], "ov tree --help"),
+            (vec!["ov", "read", "help"], "ov read --help"),
+            (
+                vec!["ov", "task", "status", "help"],
+                "ov task status --help",
+            ),
+            (
+                vec!["ov", "system", "consistency", "help"],
+                "ov system consistency --help",
+            ),
+        ] {
+            let misuse = plain_help_misuse(&os_args(&args))
+                .unwrap_or_else(|| panic!("{args:?} should be plain-help misuse"));
+            assert_eq!(misuse.help_command, expected_help);
+        }
+    }
+
+    #[test]
+    fn plain_help_is_allowed_as_free_form_user_input() {
+        for args in [
+            vec!["ov", "find", "help"],
+            vec!["ov", "search", "help"],
+            vec!["ov", "grep", "help"],
+            vec!["ov", "glob", "help"],
+            vec!["ov", "add-memory", "help"],
+            vec!["ov", "add-resource", "help"],
+            vec!["ov", "add-skill", "help"],
+        ] {
+            assert!(
+                plain_help_misuse(&os_args(&args)).is_none(),
+                "{args:?} should remain normal user input"
+            );
+        }
+    }
+
+    #[test]
+    fn plain_help_ignores_option_values() {
+        assert!(
+            plain_help_misuse(&os_args(&[
+                "ov",
+                "read",
+                "--account",
+                "help",
+                "viking://resource",
+            ]))
+            .is_none()
+        );
+        assert!(plain_help_misuse(&os_args(&["ov", "grep", "--uri", "help", "TODO",])).is_none());
     }
 
     #[test]

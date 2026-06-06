@@ -1,0 +1,666 @@
+"""
+@author: cunyue
+@file: init.py
+@time: 2026/3/6 21:47
+@description: SwanLab SDK 初始化方法
+我们在设计上将init前后作为分界线，在init之前出现的错误（如登录失败）被视为critical错误，一旦报错直接退出（大多数情况下）
+在init之后的swanlab内部错误被视为non-critical错误，会尝试继续运行，但会记录错误日志
+init函数执行时被视为init之前
+"""
+
+import json
+import os
+import socket
+import time
+from datetime import datetime
+from functools import partial
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import requests
+import yaml
+from google.protobuf.timestamp_pb2 import Timestamp
+
+from swanlab.proto.swanlab.grpc.core.v1.core_pb2 import DeliverRunStartRequest
+from swanlab.proto.swanlab.run.v1.run_pb2 import StartRecord
+from swanlab.sdk.cmd.guard import with_cmd_lock
+from swanlab.sdk.internal.context import (
+    RunConfig,
+    RunContext,
+    use_context,
+)
+from swanlab.sdk.internal.core_python import client
+from swanlab.sdk.internal.pkg import adapter, console, fork, fs, helper, safe
+from swanlab.sdk.typings.cmd import ConfigLike
+from swanlab.sdk.typings.context import CallbacksType
+from swanlab.utils.experiment import generate_color, generate_id, generate_name
+
+from ..internal.run import Run, get_run, has_run
+from ..internal.settings import Settings
+from ..internal.settings import settings as global_settings
+from ..typings.run import ModeType, ParallelType, ResumeType
+from . import utils
+from .login import login_cli, login_raw
+
+__all__ = [
+    "init",
+    "compatible_kwargs",
+    "load_config",
+    "prompt_init_mode",
+    "set_nested_value",
+    "ensure_run_dir",
+]
+
+
+def set_nested_value(d: dict, key: str, value: Any):
+    """
+    根据点分隔的键路径设置嵌套字典中的值
+    例如: set_nested_value(d, "a.b.c", 1) 会设置 d["a"]["b"]["c"] = 1
+    注意: 如果 value 为 None，则不会设置该值
+    :param d: 要操作的字典
+    :param key: 键路径，使用点分隔
+    :param value: 要设置的值，如果为 None 则不设置
+    """
+    if value is None:
+        return
+    keys = key.split(".")
+    current_dict = d
+    for k in keys[:-1]:
+        if k not in current_dict:
+            current_dict[k] = {}
+        current_dict = current_dict[k]
+    current_dict[keys[-1]] = value
+
+
+def compatible_kwargs(model_dict: dict, **kwargs) -> dict:
+    """
+    由于不同库的参数名不同，并且照顾到用户习惯，我们需要针对一些参数进行兼容性处理。
+    将一些额外的参数合并到 model_dict 中
+    """
+    # experiment_name --> name
+    set_nested_value(model_dict, "experiment.name", kwargs.pop("experiment_name", None))
+    # notes --> description
+    set_nested_value(model_dict, "experiment.description", kwargs.pop("notes", None))
+    # logdir --> log_dir (backward compatibility)
+    set_nested_value(model_dict, "log_dir", kwargs.pop("logdir", None))
+    return model_dict
+
+
+@with_cmd_lock
+def init(
+    *,
+    reinit: Optional[bool] = None,
+    log_dir: Optional[str] = None,
+    mode: Optional[ModeType] = None,
+    workspace: Optional[str] = None,
+    project: Optional[str] = None,
+    public: Optional[bool] = None,
+    name: Optional[str] = None,
+    color: Optional[str] = None,
+    description: Optional[str] = None,
+    job_type: Optional[str] = None,
+    group: Optional[str] = None,
+    tags: Optional[List[str]] = None,
+    id: Optional[str] = None,
+    resume: Optional[Union[ResumeType, bool]] = None,
+    parallel: Optional[ParallelType] = None,
+    config: Optional[ConfigLike] = None,
+    settings: Optional[Settings] = None,
+    callbacks: Optional[CallbacksType] = None,
+    **kwargs,
+) -> Run:
+    """Initialize a new SwanLab run to track experiments.
+
+    This function starts a new run for logging metrics, artifacts, and metadata.
+    After calling this, use `swanlab.log()` to log data and `swanlab.finish()` to
+    close the run. SwanLab automatically finishes runs at program exit.
+
+    :param reinit: If True, finish the current run before starting a new one. Defaults to False.
+
+    :param log_dir: Directory to store logs. Defaults to "./swanlog".
+
+    :param mode: Run mode. Options: "online" (sync to cloud), "local" (local only),
+        "offline" (save locally for later sync), "disabled" (no logging). Defaults to "online".
+
+    :param workspace: Workspace or organization name. Defaults to current user.
+
+    :param project: Project name. Defaults to current directory name.
+
+    :param public: Make project publicly visible (online mode only). Defaults to False.
+
+    :param name: Experiment name. Auto-generated if not provided.
+
+    :param color: Experiment color for visualization. Auto-generated if not provided.
+
+    :param description: Experiment description.
+
+    :param job_type: Job type label (e.g., "train", "eval").
+
+    :param group: Group name for organizing related experiments.
+
+    :param tags: List of tags for categorizing experiments.
+
+    :param id: Run ID for resuming a previous run (online mode only).
+
+    :param resume: Resume behavior. Options: "must" (must resume), "allow" (resume if exists),
+        "never" (always create new). Defaults to "never".
+
+    :param parallel: Parallel execution strategy. Options: "none" (default), "shared".
+
+    :param config: Experiment configuration dict or path to config file (JSON/YAML).
+
+    :param settings: Custom Settings object for advanced configuration.
+
+    :param callbacks: List of callback functions triggered on run events.
+
+    :return: The initialized Run object.
+
+    :raises RuntimeError: If a run is already active and reinit=False.
+
+    Examples:
+
+        Basic local run:
+
+        >>> import swanlab
+        >>> swanlab.init(mode="local", project="my_project")
+        >>> swanlab.log({"loss": 0.5})
+        >>> swanlab.finish()
+
+        Online run with configuration:
+
+        >>> import swanlab
+        >>> swanlab.login(api_key="your_key")
+        >>> swanlab.init(
+        ...     mode="online",
+        ...     project="image_classification",
+        ...     name="resnet50_experiment",
+        ...     config={"lr": 0.001, "batch_size": 32}
+        ... )
+        >>> swanlab.log({"accuracy": 0.95})
+        >>> swanlab.finish()
+
+        Resume a previous run:
+
+        >>> import swanlab
+        >>> swanlab.init(
+        ...     mode="online",
+        ...     project="my_project",
+        ...     id="previous_run_id",
+        ...     resume="must"
+        ... )
+    """
+    if reinit and has_run():
+        run = get_run()
+        run.finish()
+    if has_run():
+        raise RuntimeError(
+            "`swanlab.init` requires an inactive Run. Please use `swanlab.finish()` or `swanlab.init(reinit=True)` first."
+        )
+    # 运行时配置
+    run_settings = Settings()
+    # --------------------- 合并配置，检查格式，与业务无关 ----------------------------
+    # 配置具有优先级，从低到高依次是：全局配置 --> 自定义配置 --> 传入的参数
+    # 1. 合并全局配置
+    run_settings.merge_settings(global_settings)
+    # 2. 合并自定义配置
+    if settings:
+        run_settings.merge_settings(settings)
+    # 3. 基于传入的参数，合并当前配置，此步骤必须在合并全局配置之后，因为传入的参数的优先级是高于全局配置的
+    args_dict = compatible_kwargs({}, **kwargs)
+    for key, value in {
+        "log_dir": log_dir,
+        "mode": mode,
+        "project.name": project or Path.cwd().name,
+        "project.workspace": workspace,
+        "project.public": public,
+        "experiment.name": name,
+        "experiment.color": color,
+        "experiment.description": description,
+        "experiment.job_type": job_type,
+        "experiment.group": group,
+        "experiment.tags": tags,
+        "run.resume": resume,
+        "run.id": id,
+        "run.config": Path(config) if isinstance(config, (str, os.PathLike)) else None,
+        "run.parallel": parallel,
+    }.items():
+        set_nested_value(args_dict, key, value)
+    run_settings.merge_settings(args_dict)
+    # ---------------------------------- 再次确认参数 ----------------------------------
+    # 根据交互式引导确定最终的模式
+    mode = prompt_init_mode(run_settings)
+    run_settings.merge_settings({"mode": mode})
+    # 校验 run id 与 resume，仅在对两者存在性有要求的模式下校验
+    if run_settings.mode == "online":
+        if run_settings.run.resume == "must":
+            assert run_settings.run.id is not None, "Run id must be provided when resume=must."
+        elif run_settings.run.resume == "never":
+            assert run_settings.run.id is None, "Run id should not be provided when resume=never."
+    # ---------------------------------- 初始化 ----------------------------------
+    # 开始初始化
+    generate_ctx = _init
+    if run_settings.mode == "online":
+        generate_ctx = utils.with_loading_animation()(_init)
+    ctx, path = generate_ctx(run_settings, callbacks)
+    # 初始化run
+    run = Run(ctx, path)
+    # 发送webhook回调，在除了disabled模式外，都会触发
+    success = send_webhook(ctx)
+    if not success:
+        webhook_url = ctx.config.settings.integration.webhook.url
+        console.warning(f"Failed to send webhook, maybe due to network issues or invalid webhook URL: {webhook_url}.")
+    # 加载配置并合并到 run.config
+    config_data = load_config(run_settings, config)
+    if config_data:
+        run.config.update(config_data)
+    return run
+
+
+def load_config(run_settings: Settings, config: Optional[ConfigLike]) -> Dict[str, Any]:
+    """
+    优雅地加载配置：支持字典直接返回，或从 JSON/YAML 文件加载。
+    """
+    config = config or run_settings.run.config
+    # 1. 如果 config 为 None，则返回空字典
+    if config is None:
+        return {}
+
+    # 2. 如果 config 是字典，则直接返回
+    if isinstance(config, dict):
+        return config
+
+    # 3. 处理路径类型（包括字符串字面量）
+    if isinstance(config, (str, os.PathLike)):
+        path = Path(config)
+
+        if not path.exists():
+            raise FileNotFoundError(f"Config file not found: {path}")
+
+        # 根据后缀名选择加载器
+        suffix = path.suffix.lower()
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                if suffix == ".json":
+                    return json.load(f)
+                elif suffix in (".yaml", ".yml"):
+                    # 使用 safe_load 保证安全
+                    return yaml.safe_load(f)
+                else:
+                    # 如果没有后缀或者后缀未知，尝试先按 JSON 读，失败再按 YAML 读
+                    content = f.read()
+                    try:
+                        return json.loads(content)
+                    except json.JSONDecodeError:
+                        return yaml.safe_load(content)
+        except Exception as e:
+            raise ValueError(f"Error parsing config file {path}: {e}")
+
+    # 4. 如果 config 不是上述类型，直接报错
+    raise ValueError(f"Invalid config type: {type(config).__name__}. Expected dict, str, or PathLike.")
+
+
+def prompt_init_mode(settings: Settings) -> ModeType:
+    """
+    在 swanlab.init 阶段，针对 online 模式且未登录的用户进行交互式引导。
+
+    规则：
+    1. 只有在 settings.interactive 为 True 且 settings.mode 为 'online' 时触发 。
+    2. 如果 client 已存在（已登录），直接跳过 。
+    3. 提供三个选项：(1) 使用已有的Key (2) 注册 (3) 切换为 offline 模式。
+
+    :param settings: 当前的 Settings 实例 。
+    :return: 最终确定的 mode
+    """
+    # 如果不是云模式，或者已经登录，或者非交互环境，直接返回当前状态
+    mode = settings.mode
+    if mode != "online" or client.exists():
+        return mode
+    login_func = partial(login_cli, save=True, host=settings.api_host)
+    if mode == "online":
+        if settings.api_key is not None:
+            # 不登录，交给后面处理，否则会出现闪烁动画，比较影响美感
+            # login_func(api_key=settings.api_key)
+            return "online"
+
+        if not settings.interactive:
+            raise RuntimeError(
+                "Failed to initialize SwanLab in online mode: no API key was provided, "
+                "and interactive prompts are disabled."
+            )
+        if not helper.is_interactive():
+            raise RuntimeError(
+                "Failed to initialize SwanLab in online mode: no TTY is available for interactive login."
+            )
+
+        console.info("Using SwanLab to track your experiments. To get started, choose one of the following options:")
+        console.print(
+            "(1) Use an existing API key.",
+            "(2) Create a new SwanLab account.",
+            "(3) Continue without visualization (Offline mode).",
+            "Learn more in the documentation: https://docs.swanlab.cn",
+            sep="\n",
+        )
+        while True:
+            choice = input("Enter your choice [1/2/3]: ").strip()
+
+            if choice == "1":
+                console.info("Using an existing SwanLab API key.")
+                login_func()
+                return "online"
+
+            if choice == "2":
+                console.info(f"Create a SwanLab account here: {settings.web_host}/login")
+                login_func()
+                return "online"
+
+            if choice == "3":
+                console.info("Continuing in Offline mode. Results will be saved locally.")
+                return "offline"
+
+            console.warning("Invalid choice. Please enter 1, 2, or 3.")
+    # 其他模式不登录
+    return mode
+
+
+@safe.decorator(message="Failed to send webhook")
+def send_webhook(ctx: RunContext) -> Tuple[bool, bool]:
+    """
+    发送 webhook 回调，仅在非 disabled 模式下触发。
+
+    请求体结构 (JSON):
+    {
+      "value": "string",  // 即 SWANLAB_WEBHOOK_VALUE 的值
+      "swanlab": {
+        "version": "string",     // swanlab 版本号
+        "mode": "online" | "local", // swanlab 运行模式
+        "run_dir": "string",  // 日志存储路径
+        "exp_url": "string"       // 云端实验路径
+      }
+    }
+
+    :param ctx: 运行上下文
+    :return: (是否发送，是否成功)
+    """
+    if ctx.config.settings.mode == "disabled":
+        console.debug("Skipping webhook because mode is disabled.")
+        return False, False
+    settings = ctx.config.settings
+    webhook = settings.integration.webhook
+    webhook_url = webhook.url
+    if not webhook_url:
+        console.debug("Skipping webhook because SWANLAB_WEBHOOK is not set.")
+        return False, False
+    webhook_value = webhook.value
+    webhook_timeout = webhook.timeout
+    # 获取实验url
+    if settings.mode == "online":
+        exp_url = f"{settings.web_host}/@{settings.project.workspace}/{settings.project.name}/runs/{settings.run.id}"
+    else:
+        exp_url = None
+    # 发送请求
+    requests.post(
+        webhook_url,
+        timeout=webhook_timeout,
+        json={
+            "value": webhook_value,
+            "swanlab": {
+                "version": helper.get_swanlab_version(),
+                "mode": ctx.config.settings.mode,
+                "run_dir": ctx.run_dir,
+                "exp_url": exp_url,
+            },
+        },
+    )
+    return True, True
+
+
+def ensure_run_dir(
+    log_dir: Path,
+    run_id: str,
+    max_retries: int = 10,
+    retry_interval: float = 1.0,
+    dir_max_length: int = 255,
+    dir_name: Optional[str] = None,
+    parallel: ParallelType = "none",
+) -> Path:
+    """
+    原子化地创建一个不与已有目录冲突的 run_dir。
+
+    通过 ``mkdir(exist_ok=False)`` 将"检查不存在 + 创建目录"合并为一个原子操作：
+    创建成功即拥有该目录；若抛出 FileExistsError，则等待 retry_interval 秒后，用新时间戳重试，最多重试 max_retries 次。
+
+    当 ``dir_name`` 不为 None 时，直接使用指定目录名，仅创建一次，不重试，失败直接抛错。
+
+    :param log_dir: 日志根目录（必须已存在）
+    :param run_id: 当前运行的唯一标识符
+    :param max_retries: 最大重试次数
+    :param retry_interval: 目录冲突时等待的秒数
+    :param dir_max_length: run_dir 目录名最大长度
+    :param dir_name: 用户指定的 run_dir 目录名，指定后仅创建一次不重试
+    :return: 创建成功的 run_dir 路径
+    :raises RuntimeError: 超过最大重试次数仍无法创建唯一目录
+    :raises FileExistsError: 指定 dir_name 时目录已存在
+    """
+    if dir_name is not None:
+        run_dir = log_dir / dir_name
+        fs.safe_mkdir(run_dir, ensure_clean=True)
+        return run_dir
+    for i in range(max_retries):
+        run_dir_name, truncated = _generate_run_dir_name(run_id, dir_max_length, parallel)
+        run_dir = log_dir / run_dir_name
+        try:
+            fs.safe_mkdir(run_dir, ensure_clean=True)
+            if truncated:
+                console.warning(f"Run directory name length exceeds limit, truncated to '{run_dir_name}'.")
+            return run_dir
+        except FileExistsError:
+            if i == max_retries - 1:
+                break
+            time.sleep(retry_interval)
+            console.debug(f"Retrying to create a unique run directory, attempt {i + 1} of {max_retries}")
+    raise RuntimeError(f"Failed to create a unique run directory after {max_retries} attempts")
+
+
+def _generate_run_dir_name(
+    run_id: str, max_length: int, parallel: ParallelType = "none", hostname_max_len: int = 64
+) -> Tuple[str, bool]:
+    """
+    生成 run_dir 的目录名，格式为 ``run-{timestamp}-{run_id}``，超长时截断。
+    如果为共享模式或者分布式训练，增加hostname和pid两个参数，格式为 ``run-{timestamp}-{run_id}-{hostname}-{pid}``，
+    语义为 "某一时刻、某个运行id、某个主机、某个进程开启的运行"。
+
+    :param run_id: 当前运行的唯一标识符
+    :param max_length: 目录名最大字节长度
+    :param parallel: 并行策略
+    :param hostname_max_len: 主机名最大字节长度，仅在共享模式或者分布式时使用，hostname_max_len 有可能会被进一步缩减以适应 max_length
+
+    :return: run_dir 目录名（非完整路径）和是否截断
+    """
+    # 1. 先准备前后缀，因为只有run_id和hostname有可能被截断
+    prefix = "-".join(["run", datetime.now().strftime("%Y%m%d_%H%M%S")]) + "-"
+    suffix: Optional[str] = None
+    hostname: Optional[str] = None
+    # 并行模式添加hostname和pid到目录名
+    if parallel != "none":
+        with safe.block(level="debug", message="Failed to get hostname for run directory name, using fallback."):
+            hostname = socket.gethostname() or "unknown_hostname"
+        if not hostname:
+            # 虽然console.warning有可能会造成大量重复日志刷屏，但这种情况确实很罕见，且通常意味着系统环境有问题，
+            # 用户应该被告知这个潜在风险，所以我们选择在这里打warning而不是silent fail
+            console.warning(
+                "Failed to get hostname for run directory name, swanlab will use a fallback name.",
+                "This may cause issues when running multiple processes on the same machine.",
+                "Consider setting a custom run directory name (SWANLAB_RUN_DIR).",
+            )
+            hostname = "unknown_hostname"
+        suffix = f"-{fork.current_pid()}"
+    # 2. 计算中间部分的可用长度（算上"-"分隔符），并确定 hostname 的最大长度
+    reserved_length = len(prefix.encode("utf-8")) + len((suffix or "").encode("utf-8"))
+    available_length = max_length - reserved_length
+    if available_length <= 0:
+        # 由于 settings 中 dir_max_length 的约束，理论上不会出现 available_length <= 0 的情况，但这里做一个兜底，避免出现负数导致后续逻辑混乱
+        raise ValueError(
+            f"Failed to generate run directory name: max_length ({max_length}) is too small to accommodate prefix and suffix. "
+            f"Consider increasing `dir_max_length` (SWANLAB_RUN_DIR_MAX_LENGTH) or specifying a custom `run.dir` (SWANLAB_RUN_DIR)."
+        )
+    # run id 最小会被截断为 "abc...yz" 样式，长度为 7，并且 run id 和 hostname 之间存在一个 "-" 分隔符，所以至少需要 8 个字符的长度才能保证 run id 的完整性
+    if hostname is not None:
+        hostname_max_len = min(hostname_max_len, available_length - 7 - 1)
+    # 3. 开始截断和格式化中间部分的长度，hostname 和 run_id 共享 available_length 的长度，优先保证 hostname 的完整性
+    hostname_truncated = False
+    if hostname is not None:
+        hostname = fs.safe_fmt(hostname, fallback="unknown_host")
+        try:
+            hostname, hostname_truncated = fs.safe_truncate(hostname, hostname_max_len)
+        except ValueError:
+            raise ValueError(
+                f"Failed to generate run directory name: max_length ({max_length}) is too small to truncate hostname. "
+                f"Consider increasing `dir_max_length` (SWANLAB_RUN_DIR_MAX_LENGTH) or specifying a custom `run.dir` (SWANLAB_RUN_DIR)."
+            ) from None
+        available_length -= len(hostname.encode("utf-8")) + 1  # 减去 hostname 的字节长度和一个 "-" 分隔符
+    run_id = fs.safe_fmt(run_id, fallback="unknown_run")
+    try:
+        run_id, run_id_truncated = fs.safe_truncate(run_id, available_length)
+    except ValueError:
+        raise ValueError(
+            f"Failed to generate run directory name: max_length ({max_length}) is too small to truncate run_id. "
+            f"Consider increasing `dir_max_length` (SWANLAB_RUN_DIR_MAX_LENGTH) or specifying a custom `run.dir` (SWANLAB_RUN_DIR)."
+        ) from None
+    # 4. 组合最终的目录名
+    dir_name = prefix + run_id
+    if hostname is not None:
+        dir_name += f"-{hostname}"
+    if suffix is not None:
+        dir_name += suffix
+    return dir_name, hostname_truncated or run_id_truncated
+
+
+def _init(run_settings: Settings, callbacks: Optional[CallbacksType]) -> Tuple[RunContext, Optional[str]]:
+    """
+    初始化运行时配置，在这之前，所有引导式交互都已经完成
+    上下文生命周期通过 `Run` 管理，而非全局 `ContextVar`
+    """
+    mode = run_settings.mode
+    # 实验路径，/:username/:project_name/:slug(run_id)，与open api命名一致
+    path = None
+    # 1. 生成run_id
+    if not run_settings.run.id:
+        run_settings.merge_settings({"run": {"id": generate_id()}})
+    run_id = run_settings.run.id
+    assert run_id, "Run id is not provided."
+    # 2. 创建运行目录
+    if mode != "disabled":
+        # 安全创建目录，并写入 .gitignore（如果目录为空）
+        helper.mkdir_and_append_gitignore(run_settings.log_dir)
+        # 创建运行子目录，run_dir 必须是新建的，防止误覆盖已有实验数据
+        run_dir = ensure_run_dir(
+            run_settings.log_dir,
+            run_id,
+            max_retries=run_settings.run.dir_create_retries,
+            dir_max_length=run_settings.run.dir_max_length,
+            dir_name=run_settings.run.dir,
+            parallel=run_settings.run.parallel,
+        )
+    else:
+        # 禁用模式下的run_dir为一个示例目录，仅用于满足上下文类型限制
+        if run_settings.run.dir:
+            run_dir = run_settings.log_dir / run_settings.run.dir
+        else:
+            run_dir_name, _ = _generate_run_dir_name(run_id, run_settings.run.dir_max_length, run_settings.run.parallel)
+            run_dir = run_settings.log_dir / run_dir_name
+    # 3. 创建一个临时的上下文，避免出现任何问题导致上下文残留
+    with use_context(RunContext(config=RunConfig(settings=run_settings, run_dir=run_dir), callbacks=callbacks)) as ctx:
+        assert run_settings.project.name, "Project name is required."
+        # 1. 前置操作
+        # online 模式前置：确保 client 已就绪
+        if mode == "online":
+            _ensure_online_client(run_settings)
+        # local 模式前置：注入 LocalCallback 到 callbacks 中
+        elif mode == "local":
+            from swanlab.deprecated.local import LocalCallbacker
+
+            ctx.callbacker.merge_callbacks(LocalCallbacker())
+        # 2. 非云端模式，确定 name/color，合并到 settings
+        if mode != "online":
+            args_dict = {}
+            for key, value in {
+                "experiment.name": run_settings.experiment.name or generate_name("beauty"),
+                "experiment.color": run_settings.experiment.color or generate_color("beauty"),
+                "run.id": run_id,
+            }.items():
+                set_nested_value(args_dict, key, value)
+            run_settings.merge_settings(args_dict)
+        # 3. 统一调用 deliver_run_start（core 内部按 mode 分发：online 走网络，其余本地处理）
+        ts = Timestamp()
+        ts.GetCurrentTime()
+        start_record = StartRecord(
+            project=run_settings.project.name,
+            workspace=run_settings.project.workspace,
+            public=run_settings.project.public,
+            name=run_settings.experiment.name,
+            color=run_settings.experiment.color,
+            description=run_settings.experiment.description,
+            job_type=run_settings.experiment.job_type,
+            group=run_settings.experiment.group,
+            tags=run_settings.experiment.tags,
+            id=run_id,
+            resume=adapter.resume[run_settings.run.resume],
+            started_at=ts,
+        )
+        resp = ctx.core.deliver_run_start(
+            DeliverRunStartRequest(
+                start_record=start_record,
+                core_settings=ctx.config.settings.to_core_proto(run_id=run_id, run_dir=run_dir),
+            )
+        )
+        if not resp.success:
+            raise RuntimeError(resp.message)
+        path = resp.path or path
+        if mode == "online":
+            assert path, "Initialization path failed when mode=online"
+        ctx.next_step(user_step=resp.global_step)
+        ctx.global_system_step = resp.global_system_step
+        # 暂时不允许resume时、旧实验进行硬件信息采集、终端代理
+        resume_limit_kwargs = {}
+        if not resp.new_experiment:
+            resume_limit_kwargs["probe.hardware"] = False
+            resume_limit_kwargs["probe.requirements"] = False
+            resume_limit_kwargs["probe.conda"] = False
+            resume_limit_kwargs["probe.git"] = False
+            resume_limit_kwargs["probe.swanlab"] = False
+            resume_limit_kwargs["probe.monitor"] = False
+            resume_limit_kwargs["console.proxy_type"] = "none"
+            console.info(
+                "Hardware information collection, monitor, and terminal proxy have been disabled in resume mode."
+            )
+        # 4. 从 core 响应同步配置（online 模式会覆盖为服务端分配的值）
+        sync_args = {}
+        merge_dict = helper.strip_none(
+            {
+                "project.workspace": resp.run.workspace,
+                "project.name": resp.run.project,
+                "experiment.name": resp.name,
+                "experiment.color": resp.run.color,
+                **resume_limit_kwargs,
+            },
+            strip_empty_str=True,
+        )
+        for key, value in merge_dict.items():
+            set_nested_value(sync_args, key, value)
+        run_settings.merge_settings(sync_args)
+    # 4. 创建运行目录
+    if mode != "disabled":
+        fs.safe_mkdirs(ctx.media_dir, ctx.files_dir, ctx.debug_dir)
+    return ctx, path
+
+
+def _ensure_online_client(run_settings: Settings):
+    """
+    确保 online 模式下 client 已就绪，未登录时自动执行登录。
+    :param run_settings: 运行时配置
+    """
+    if not client.exists():
+        assert run_settings.api_key, "API key is required."
+        assert run_settings.api_host, "API host is required."
+        login_raw(api_key=run_settings.api_key, host=run_settings.api_host, save=False, animation=False)
+    assert client.exists(), "No client found, please login first."

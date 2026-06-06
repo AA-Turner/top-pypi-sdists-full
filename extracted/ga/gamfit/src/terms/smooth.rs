@@ -4818,6 +4818,14 @@ fn build_tensor_bspline_basis(
     let mut marginalnum_basis = Vec::<usize>::with_capacity(feature_cols.len());
     let mut marginal_penalties = Vec::<Array2<f64>>::with_capacity(feature_cols.len());
     let mut marginal_designs = Vec::<Array2<f64>>::with_capacity(feature_cols.len());
+    // Per-margin effective period: either user-set via `spec.periods` (forcing
+    // the Fourier path) or implied by a `PeriodicUniform` marginal knotspec
+    // (which the 1D B-spline builder already realizes as a periodic basis).
+    // Captured here so freeze→reload round-trips both routes back to a
+    // `PeriodicUniform` marginal knotspec; otherwise a `PeriodicUniform`
+    // margin specified without `spec.periods` would freeze as a plain
+    // `Provided(knots)` open spline and lose its wrap-around at predict time.
+    let mut marginal_effective_periods = Vec::<Option<f64>>::with_capacity(feature_cols.len());
     // Per-marginal sparse representation, populated when the 1D builder returned
     // a `DesignMatrix::Sparse`. Used to assemble the Khatri-Rao tensor product
     // sparsely (only ∏(degree+1) nonzeros per row) instead of densifying to
@@ -4866,6 +4874,7 @@ fn build_tensor_bspline_basis(
             // is available, so record `None` and force the dense fall-back
             // for the tensor product if any dimension is periodic.
             marginal_sparse.push(None);
+            marginal_effective_periods.push(Some(period));
         } else {
             let mut marginal_unconstrained = marginalspec.clone();
             marginal_unconstrained.identifiability = BSplineIdentifiability::None;
@@ -4908,6 +4917,20 @@ fn build_tensor_bspline_basis(
                     "internal TensorBSpline error at dim {dim}: missing marginal nullspace dim"
                 ))
             })?;
+            // A `PeriodicUniform` marginal knotspec implies the margin is
+            // wrap-around: the 1D builder already realized it as a periodic
+            // basis, so the tensor product inherits that periodicity. Record
+            // the period derived from the knotspec's data range so freeze
+            // restores `PeriodicUniform` on the marginal — otherwise the
+            // round-trip downgrades it to `Provided(knots)` (an open spline)
+            // and predict-time wraps disappear.
+            let implied_period = match marginalspec.knotspec {
+                BSplineKnotSpec::PeriodicUniform { data_range, .. } => {
+                    Some(data_range.1 - data_range.0)
+                }
+                _ => None,
+            };
+            marginal_effective_periods.push(implied_period);
         }
     }
 
@@ -5133,11 +5156,13 @@ fn build_tensor_bspline_basis(
             feature_cols: feature_cols.to_vec(),
             knots: marginal_knots,
             degrees: marginal_degrees,
-            periods: if spec.periods.is_empty() {
-                vec![None; feature_cols.len()]
-            } else {
-                spec.periods.clone()
-            },
+            // Prefer the per-margin effective period derived in the loop —
+            // it captures both the explicit `spec.periods` route and the
+            // implied period from a `PeriodicUniform` marginal knotspec.
+            // Falling back to `spec.periods` when populated keeps any
+            // user-supplied explicit period authoritative even if the
+            // marginal knotspec carried no periodicity hint.
+            periods: marginal_effective_periods,
             identifiability_transform: z_opt,
         },
         kronecker_factored: if matches!(spec.identifiability, TensorBSplineIdentifiability::None) {
@@ -11163,7 +11188,6 @@ fn adaptive_fit_options_base(options: &FitOptions, design: &TermCollectionDesign
         nullspace_dims: design.nullspace_dims.clone(),
         linear_constraints: design.linear_constraints.clone(),
         firth_bias_reduction: options.firth_bias_reduction,
-        robust_identification: options.robust_identification,
         adaptive_regularization: None,
         penalty_shrinkage_floor: options.penalty_shrinkage_floor,
         // Propagate user-supplied rho_prior so the baseline/refit and the
@@ -13004,6 +13028,35 @@ fn exact_bounded_edf(
     Ok((edf_by_block, edf_total))
 }
 
+fn transform_bounded_latent_precision_to_user_internal(
+    latent_precision: &Array2<f64>,
+    jac_diag: &Array1<f64>,
+) -> Result<Array2<f64>, EstimationError> {
+    let p = latent_precision.nrows();
+    if latent_precision.ncols() != p || jac_diag.len() != p {
+        crate::bail_invalid_estim!(
+            "bounded precision transform dimension mismatch: precision is {}x{}, jacobian has {} entries",
+            latent_precision.nrows(),
+            latent_precision.ncols(),
+            jac_diag.len()
+        );
+    }
+    let mut out = latent_precision.clone();
+    for i in 0..p {
+        let scale = jac_diag[i];
+        if !scale.is_finite() || scale <= 0.0 {
+            crate::bail_invalid_estim!(
+                "bounded precision transform requires a positive finite coefficient jacobian; column {i} has {scale}"
+            );
+        }
+        if scale != 1.0 {
+            out.row_mut(i).mapv_inplace(|v| v / scale);
+            out.column_mut(i).mapv_inplace(|v| v / scale);
+        }
+    }
+    Ok(out)
+}
+
 fn fit_bounded_term_collection_with_design(
     y: ArrayView1<'_, f64>,
     weights: ArrayView1<'_, f64>,
@@ -13196,6 +13249,8 @@ fn fit_bounded_term_collection_with_design(
     }
     let mut penalized_hessian = h_data.clone();
     penalized_hessian += &s_lambda_internal;
+    let penalized_hessian =
+        transform_bounded_latent_precision_to_user_internal(&penalized_hessian, &jac_diag)?;
     let penalized_hessian =
         conditioning.transform_penalized_hessian_to_original(&penalized_hessian);
     let s_lambda_original = weighted_blockwise_penalty_sum(
@@ -13845,7 +13900,6 @@ fn external_opts_for_design(
         nullspace_dims: design.nullspace_dims.clone(),
         linear_constraints: design.linear_constraints.clone(),
         firth_bias_reduction: Some(options.firth_bias_reduction),
-        robust_identification: options.robust_identification,
         penalty_shrinkage_floor: options.penalty_shrinkage_floor,
         rho_prior: options.rho_prior.clone(),
         // Propagate Kronecker structure so the joint optimizer minimizes the
@@ -16956,7 +17010,16 @@ fn freeze_smooth_basis_from_metadata(
                     _ => BSplineKnotSpec::Provided(knots[i].clone()),
                 };
             }
-            s.periods = periods.clone();
+            // Do NOT overwrite `s.periods` from `periods`: `frozen = spec.clone()`
+            // already preserves the user's original `spec.periods`. The metadata
+            // `periods` slot captures the effective per-margin period for
+            // restoring `PeriodicUniform` knotspecs, but it may also reflect
+            // periodicity implied by a `PeriodicUniform` knotspec on a margin
+            // for which the user left `spec.periods` empty (intending the
+            // periodic B-spline path, not the Fourier path). Overwriting
+            // `s.periods` here would silently flip such a margin onto the
+            // Fourier path at predict time and produce a basis distinct from
+            // the one used at fit time.
             s.identifiability = match identifiability_transform {
                 Some(z) => TensorBSplineIdentifiability::FrozenTransform {
                     transform: z.clone(),
@@ -21897,6 +21960,79 @@ mod tests {
     }
 
     #[test]
+    fn tensor_binary_margin_is_penalized_factor_smooth_not_unidentified_raw_tensor() {
+        let n = 18usize;
+        let mut data = Array2::<f64>::zeros((n, 2));
+        for i in 0..n {
+            data[[i, 0]] = i as f64 / (n as f64 - 1.0);
+            data[[i, 1]] = if i % 2 == 0 { 0.0 } else { 1.0 };
+        }
+
+        let age_margin = BSplineBasisSpec {
+            degree: 3,
+            penalty_order: 2,
+            knotspec: BSplineKnotSpec::Generate {
+                data_range: (0.0, 1.0),
+                num_internal_knots: 1,
+            },
+            double_penalty: false,
+            identifiability: BSplineIdentifiability::None,
+            boundary: OneDimensionalBoundary::Open,
+            boundary_conditions: BSplineBoundaryConditions::default(),
+        };
+        let binary_margin = BSplineBasisSpec {
+            degree: 3,
+            penalty_order: 2,
+            knotspec: BSplineKnotSpec::Generate {
+                data_range: (0.0, 1.0),
+                num_internal_knots: 1,
+            },
+            double_penalty: false,
+            identifiability: BSplineIdentifiability::None,
+            boundary: OneDimensionalBoundary::Open,
+            boundary_conditions: BSplineBoundaryConditions::default(),
+        };
+        let terms = vec![SmoothTermSpec {
+            name: "te_age_binary".to_string(),
+            basis: SmoothBasisSpec::TensorBSpline {
+                feature_cols: vec![0, 1],
+                spec: TensorBSplineSpec {
+                    periods: Vec::new(),
+                    marginalspecs: vec![age_margin, binary_margin],
+                    double_penalty: false,
+                    identifiability: TensorBSplineIdentifiability::None,
+                },
+            },
+            shape: ShapeConstraint::None,
+            joint_null_rotation: None,
+        }];
+
+        let design = build_smooth_design(data.view(), &terms).expect("binary-margin tensor");
+        let kron = design.terms[0]
+            .kronecker_factored
+            .as_ref()
+            .expect("tensor term should preserve Kronecker marginal metadata");
+
+        assert_eq!(kron.marginal_dims, vec![5, 5]);
+        assert_eq!(
+            numerical_rank(&kron.marginal_designs[1]),
+            2,
+            "a binary tensor margin has two data-supported levels even when its raw spline margin has five columns"
+        );
+        assert_eq!(
+            numerical_rank(&kron.marginal_penalties[1]),
+            3,
+            "the binary margin's second-difference roughness penalty must shrink the three unsupported spline-range directions"
+        );
+        assert_eq!(design.penalties.len(), 2);
+        assert!(design.penalties.iter().all(|penalty| {
+            penalty.local.nrows() == 25
+                && penalty.local.ncols() == 25
+                && penalty.local.iter().all(|value| value.is_finite())
+        }));
+    }
+
+    #[test]
     fn centered_tensor_penalties_canonicalize_in_transformed_basis_width() {
         let n = 16usize;
         let mut data = Array2::<f64>::zeros((n, 2));
@@ -22764,7 +22900,6 @@ mod tests {
             80,
             LikelihoodSpec::binomial_probit(),
             false,
-            false,
         );
         assert!(
             pass,
@@ -22782,7 +22917,6 @@ mod tests {
         label: &str,
         n: usize,
         family: LikelihoodSpec,
-        use_thinplate: bool,
         skip_psi: bool,
     ) -> (bool, f64, Vec<String>) {
         let mut data = Array2::<f64>::zeros((n, 1));
@@ -22802,35 +22936,24 @@ mod tests {
         }
         let weights = Array1::ones(n);
         let offset = Array1::zeros(n);
-        let basis = if use_thinplate {
-            SmoothBasisSpec::ThinPlate {
-                feature_cols: vec![0],
-                spec: ThinPlateBasisSpec {
-                    periodic: None,
-                    center_strategy: CenterStrategy::FarthestPoint { num_centers: 8 },
-                    length_scale: 1.0,
-                    double_penalty: false,
-                    identifiability: SpatialIdentifiability::default(),
-                    radial_reparam: None,
-                },
-                input_scales: None,
-            }
-        } else {
-            SmoothBasisSpec::Duchon {
-                feature_cols: vec![0],
-                spec: DuchonBasisSpec {
-                    periodic: None,
-                    center_strategy: CenterStrategy::FarthestPoint { num_centers: 8 },
-                    length_scale: Some(1.0),
-                    power: 1.0,
-                    nullspace_order: DuchonNullspaceOrder::Linear,
-                    identifiability: SpatialIdentifiability::default(),
-                    aniso_log_scales: None,
-                    operator_penalties: DuchonOperatorPenaltySpec::default(),
-                    boundary: OneDimensionalBoundary::Open,
-                },
-                input_scales: None,
-            }
+        // Every active caller is a Duchon-iso-κ FD probe. Thin-plate is
+        // deliberately excluded from the spatial κ-axis enrollment (see
+        // `spatial_term_supports_hyper_optimization`), so the driver only
+        // needs to build the Duchon basis.
+        let basis = SmoothBasisSpec::Duchon {
+            feature_cols: vec![0],
+            spec: DuchonBasisSpec {
+                periodic: None,
+                center_strategy: CenterStrategy::FarthestPoint { num_centers: 8 },
+                length_scale: Some(1.0),
+                power: 1.0,
+                nullspace_order: DuchonNullspaceOrder::Linear,
+                identifiability: SpatialIdentifiability::default(),
+                aniso_log_scales: None,
+                operator_penalties: DuchonOperatorPenaltySpec::default(),
+                boundary: OneDimensionalBoundary::Open,
+            },
+            input_scales: None,
         };
         let spec = TermCollectionSpec {
             linear_terms: vec![],
@@ -23005,7 +23128,6 @@ mod tests {
             "duchon_gaussian",
             80,
             LikelihoodSpec::gaussian_identity(),
-            false,
             false,
         );
         assert!(
@@ -23185,7 +23307,6 @@ mod tests {
             80,
             LikelihoodSpec::binomial_logit(),
             false,
-            false,
         );
         assert!(
             pass,
@@ -23194,21 +23315,11 @@ mod tests {
         );
     }
 
-    #[test]
-    fn iso_kappa_thinplate_binomial_probit_fd() {
-        let (pass, worst, violations) = iso_kappa_fd_variant_driver(
-            "tps_probit",
-            80,
-            LikelihoodSpec::binomial_probit(),
-            true,
-            false,
-        );
-        assert!(
-            pass,
-            "ThinPlate Probit FD failed; worst_psi_rel={worst:.3e}\n  {}",
-            violations.join("\n  ")
-        );
-    }
+    // No `iso_kappa_thinplate_*_fd` companion to the Duchon FD tests above:
+    // thin-plate is deliberately excluded from the spatial κ-axis enrollment
+    // by `spatial_term_supports_hyper_optimization` (a scalar TPS κ creates
+    // the flat ρ/κ valleys tracked in #718 / #721 / #731 / #732), so there
+    // is no analytic κ-gradient on which an FD comparison could land.
 
     #[test]
     fn iso_kappa_duchon_n_smaller_fd() {
@@ -23216,7 +23327,6 @@ mod tests {
             "duchon_probit_n20",
             20,
             LikelihoodSpec::binomial_probit(),
-            false,
             false,
         );
         assert!(
@@ -23232,7 +23342,6 @@ mod tests {
             "duchon_probit_rho_only",
             80,
             LikelihoodSpec::binomial_probit(),
-            false,
             true,
         );
         assert!(
@@ -26465,6 +26574,90 @@ mod tests {
     }
 
     #[test]
+    fn bounded_fit_geometry_precision_is_on_user_scale() {
+        use crate::faer_ndarray::FaerCholesky;
+
+        let n = 72usize;
+        let mut data = Array2::<f64>::zeros((n, 2));
+        let mut y = Array1::<f64>::zeros(n);
+        for i in 0..n {
+            let t = (i as f64) / ((n - 1) as f64);
+            let x = -1.0 + 2.0 * t;
+            let z = (4.0 * std::f64::consts::PI * t).sin();
+            data[[i, 0]] = x;
+            data[[i, 1]] = z;
+            y[i] = 0.2 + 0.35 * x - 0.15 * z;
+        }
+        let spec = TermCollectionSpec {
+            linear_terms: vec![
+                LinearTermSpec {
+                    name: "x".to_string(),
+                    feature_col: 0,
+                    feature_cols: vec![0],
+                    double_penalty: false,
+                    coefficient_geometry: LinearCoefficientGeometry::Bounded {
+                        min: -0.5,
+                        max: 0.5,
+                        prior: BoundedCoefficientPriorSpec::Beta { a: 2.0, b: 2.0 },
+                    },
+                    coefficient_min: None,
+                    coefficient_max: None,
+                },
+                LinearTermSpec {
+                    name: "z".to_string(),
+                    feature_col: 1,
+                    feature_cols: vec![1],
+                    double_penalty: false,
+                    coefficient_geometry: LinearCoefficientGeometry::Unconstrained,
+                    coefficient_min: None,
+                    coefficient_max: None,
+                },
+            ],
+            random_effect_terms: vec![],
+            smooth_terms: vec![],
+        };
+
+        let fitted = fit_term_collection_forspec(
+            data.view(),
+            y.view(),
+            Array1::ones(n).view(),
+            Array1::zeros(n).view(),
+            &spec,
+            LikelihoodSpec::gaussian_identity(),
+            &FitOptions {
+                max_iter: 40,
+                penalty_shrinkage_floor: None,
+                ..FitOptions::default()
+            },
+        )
+        .expect("bounded gaussian fit");
+        let precision = &fitted
+            .fit
+            .geometry
+            .as_ref()
+            .expect("bounded fit geometry")
+            .penalized_hessian;
+        let covariance = fitted
+            .fit
+            .beta_covariance()
+            .expect("bounded user covariance");
+        let chol = precision
+            .cholesky(faer::Side::Lower)
+            .expect("bounded user precision cholesky");
+        let solved = chol.solve_mat(&Array2::eye(covariance.nrows()));
+        for i in 0..solved.nrows() {
+            for j in 0..solved.ncols() {
+                assert!(
+                    (solved[[i, j]] - covariance[[i, j]]).abs() < 1e-5,
+                    "user-scale precision/covariance mismatch at ({i},{j}): inverse {}, covariance {}",
+                    solved[[i, j]],
+                    covariance[[i, j]]
+                );
+            }
+        }
+    }
+
+    #[test]
     fn term_collection_design_emits_linear_coefficient_constraints() {
         let data = array![[0.0], [1.0], [2.0], [3.0]];
         let spec = TermCollectionSpec {
@@ -26492,10 +26685,14 @@ mod tests {
     }
 
     #[test]
-    fn linear_termspec_defaults_to_penalizedwhen_field_is_omitted() {
+    fn linear_termspec_defaults_to_unpenalizedwhen_field_is_omitted() {
+        // Parametric/linear terms are unpenalized by default — mature tools
+        // (mgcv/glm/survreg/VGAM) leave parametric terms unpenalized and gam
+        // matches that, reporting the MLE rather than a ridge-shrunk estimate.
+        // See `default_linear_term_double_penalty`.
         let json = r#"{"name":"x","feature_col":0}"#;
         let term: LinearTermSpec = serde_json::from_str(json).expect("deserialize linear term");
-        assert!(term.double_penalty);
+        assert!(!term.double_penalty);
         assert!(matches!(
             term.coefficient_geometry,
             LinearCoefficientGeometry::Unconstrained

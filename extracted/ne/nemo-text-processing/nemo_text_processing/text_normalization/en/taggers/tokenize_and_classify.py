@@ -78,7 +78,8 @@ class ClassifyFst(GraphFst):
             os.makedirs(cache_dir, exist_ok=True)
             whitelist_file = os.path.basename(whitelist) if whitelist else ""
             far_file = os.path.join(
-                cache_dir, f"en_tn_{deterministic}_deterministic_{input_case}_{whitelist_file}_tokenize.far",
+                cache_dir,
+                f"en_tn_{deterministic}_deterministic_{input_case}_{whitelist_file}_tokenize.far",
             )
         if not overwrite_cache and far_file and os.path.exists(far_file):
             self.fst = pynini.Far(far_file, mode="r")["tokenize_and_classify"]
@@ -107,7 +108,12 @@ class ClassifyFst(GraphFst):
             logger.debug(f"fraction: {time.time() - start_time: .2f}s -- {fraction_graph.num_states()} nodes")
 
             start_time = time.time()
-            measure = MeasureFst(cardinal=cardinal, decimal=decimal, fraction=fraction, deterministic=deterministic,)
+            measure = MeasureFst(
+                cardinal=cardinal,
+                decimal=decimal,
+                fraction=fraction,
+                deterministic=deterministic,
+            )
             measure_graph = measure.fst
             logger.debug(f"measure: {time.time() - start_time: .2f}s -- {measure_graph.num_states()} nodes")
 
@@ -157,9 +163,28 @@ class ClassifyFst(GraphFst):
             time_final = pynini.compose(time_graph, v_time_graph)
             date_final = pynini.compose(date_graph, v_date_graph)
             range_graph = RangeFst(
-                time=time_final, date=date_final, cardinal=cardinal, deterministic=deterministic,
+                time=time_final,
+                date=date_final,
+                cardinal=cardinal,
+                deterministic=deterministic,
             ).fst
             logger.debug(f"range: {time.time() - start_time: .2f}s -- {range_graph.num_states()} nodes")
+
+            # A quick fix to address money ranges:
+            # $150-$200 -> one hundred and fifty dollars to two hundred dollars
+
+            dash = (pynutil.insert('name: "') + pynini.cross("-", "to") + pynutil.insert('"')).optimize()
+
+            graph_range_money = pynini.closure(
+                money_graph
+                + pynutil.insert(" }")
+                + pynutil.insert(" tokens { ")
+                + dash
+                + pynutil.insert(" } ")
+                + pynutil.insert("tokens { ")
+                + money_graph,
+                1,
+            )
 
             classify = (
                 pynutil.add_weight(whitelist_graph, 1.01)
@@ -175,6 +200,7 @@ class ClassifyFst(GraphFst):
                 | pynutil.add_weight(fraction_graph, 1.1)
                 | pynutil.add_weight(range_graph, 1.1)
                 | pynutil.add_weight(serial_graph, 1.12)  # should be higher than the rest of the classes
+                | pynutil.add_weight(graph_range_money, 1.1)
             )
 
             # roman_graph = RomanFst(deterministic=deterministic).fst

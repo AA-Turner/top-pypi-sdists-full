@@ -5,32 +5,32 @@ Instantiate a new node and its child nodes from a node type.
 from __future__ import annotations
 
 import logging
-
-from typing import List, Optional, Union
+from typing import Any
 
 import asyncua
 from asyncua import ua
-from .ua_utils import get_node_supertypes, is_child_present
+
 from .copy_node_util import _rdesc_from_node, _read_and_copy_attrs
 from .node_factory import make_node
+from .ua_utils import get_node_supertypes, is_child_present
 
 _logger = logging.getLogger(__name__)
 
 
-async def is_abstract(node_type) -> bool:
+async def is_abstract(node_type: asyncua.Node) -> bool:
     result = await node_type.read_attribute(ua.AttributeIds.IsAbstract)
-    return result.Value.Value
+    return result.Value.Value  # type: ignore[union-attr]
 
 
 async def instantiate(
     parent: asyncua.Node,
     node_type: asyncua.Node,
-    nodeid: Optional[ua.NodeId] = None,
-    bname: Optional[Union[ua.QualifiedName, str]] = None,
-    dname: Optional[ua.LocalizedText] = None,
+    nodeid: ua.NodeId | None = None,
+    bname: ua.QualifiedName | str | None = None,
+    dname: ua.LocalizedText | None = None,
     idx: int = 0,
     instantiate_optional: bool = True,
-) -> List[asyncua.Node]:
+) -> list[asyncua.Node]:
     """
     instantiate a node type under a parent node.
     nodeid and browse name of new node can be specified, or just namespace index
@@ -70,8 +70,16 @@ async def instantiate(
 
 
 async def _instantiate_node(
-    session, node_type, parentid, rdesc, nodeid, bname, dname=None, recursive=True, instantiate_optional=True
-):
+    session: Any,
+    node_type: asyncua.Node,
+    parentid: ua.NodeId,
+    rdesc: Any,
+    nodeid: ua.NodeId,
+    bname: ua.QualifiedName,
+    dname: ua.LocalizedText | None = None,
+    recursive: bool = True,
+    instantiate_optional: bool = True,
+) -> list[ua.NodeId]:
     """
     instantiate a node type under parent
     """

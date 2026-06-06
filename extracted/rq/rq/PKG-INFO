@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rq
-Version: 2.9.0
+Version: 2.9.1
 Summary: RQ is a simple, lightweight, library for creating background jobs, and processing them.
 Project-URL: changelog, https://github.com/rq/rq/blob/master/CHANGES.md
 Project-URL: documentation, https://python-rq.org/docs/

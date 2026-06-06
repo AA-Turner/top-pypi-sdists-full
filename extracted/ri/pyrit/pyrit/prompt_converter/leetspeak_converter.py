@@ -4,7 +4,7 @@
 import random
 from typing import Optional
 
-from pyrit.identifiers import ComponentIdentifier
+from pyrit.models import ComponentIdentifier
 from pyrit.prompt_converter.text_selection_strategy import WordSelectionStrategy
 from pyrit.prompt_converter.word_level_converter import WordLevelConverter
 
@@ -20,7 +20,7 @@ class LeetspeakConverter(WordLevelConverter):
         deterministic: bool = True,
         custom_substitutions: Optional[dict[str, list[str]]] = None,
         word_selection_strategy: Optional[WordSelectionStrategy] = None,
-    ):
+    ) -> None:
         """
         Initialize the converter with optional deterministic mode and custom substitutions.
 

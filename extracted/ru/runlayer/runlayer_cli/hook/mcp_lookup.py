@@ -1,16 +1,4 @@
-"""MCP server lookup for clients that expose MCP tools via PreToolUse.
-
-Claude Code search order:
-  1. ${cwd}/.mcp.json              — project-scoped servers
-  2. ~/.claude.json projects[cwd]  — per-project servers in user state
-  3. ~/.claude.json mcpServers     — global user-scoped servers
-  4. ~/.claude/plugins/installed_plugins.json — enabled native plugins
-
-Codex search order mirrors runlayer-hook.sh:
-  1. ~/.codex/config.toml
-  2. ~/.codex/managed_config.toml
-  3. /etc/codex/managed_config.toml
-"""
+"""MCP server lookup for clients that expose MCP tools via PreToolUse."""
 
 from __future__ import annotations
 
@@ -82,12 +70,7 @@ def lookup_codex_mcp_server(server_name: str) -> MCPServer | None:
 
 
 def resolve_hermes_mcp_tool(tool_name: str) -> tuple[str, MCPServer] | None:
-    """Resolve a Hermes MCP tool name to its configured MCP server.
-
-    Hermes tool names use a single-underscore ``mcp_<server>_<tool>`` shape.
-    Server names may contain punctuation, so match by the longest normalized
-    configured server-name prefix after ``mcp_``.
-    """
+    """Resolve ``mcp_<server>_<tool>`` Hermes tool names by longest normalized server prefix."""
     if not tool_name.startswith("mcp_"):
         return None
 
@@ -109,12 +92,7 @@ def resolve_hermes_mcp_tool(tool_name: str) -> tuple[str, MCPServer] | None:
 def lookup_cursor_mcp_server(
     server_name: str, payload: Mapping[str, Any]
 ) -> MCPServer | None:
-    """Resolve a Cursor beforeMCPExecution server display name.
-
-    Cursor can send only a server display name in ``command``. Mirror the
-    shell hook by searching workspace .cursor/mcp.json files, then the global
-    ~/.cursor/mcp.json, with Cursor's user- prefix and normalized-name fallback.
-    """
+    """Resolve a Cursor beforeMCPExecution display name across workspace + global mcp.json."""
     for path in _cursor_mcp_config_paths(payload):
         result = _search_cursor_file(path, server_name)
         if result is not None:
@@ -284,14 +262,10 @@ def _extract_server_by_key(servers: object, server_key: object) -> MCPServer | N
 
 
 def _extract_server_entry(entry: object) -> MCPServer | None:
+    """Accepts ``url`` / ``serverUrl`` (Windsurf) / ``uri`` (Goose) across JSON, TOML, and YAML."""
     if not entry or not isinstance(entry, dict):
         return None
     server = cast(dict[str, Any], entry)
-    # Different MCP clients spell the remote endpoint differently:
-    #   url        — Claude Code, Cursor, .mcp.json spec
-    #   serverUrl  — Windsurf
-    #   uri        — Goose
-    # Match the bash hook (runlayer-hook.sh) so Python and shell agree.
     url = server.get("url") or server.get("serverUrl") or server.get("uri")
     if url:
         return MCPServer(url=str(url))

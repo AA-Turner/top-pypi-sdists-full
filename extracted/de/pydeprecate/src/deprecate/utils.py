@@ -15,6 +15,7 @@ This module provides two kinds of helpers:
       block — the inverse of ``pytest.warns()``.
 
 Copyright (C) 2020-2026 Jiri Borovec <6035284+Borda@users.noreply.github.com>
+
 """
 
 import inspect
@@ -22,6 +23,7 @@ import warnings
 from collections.abc import Generator
 from contextlib import contextmanager
 from functools import lru_cache
+from types import TracebackType
 from typing import Any, Callable, Optional, Union
 
 
@@ -69,8 +71,9 @@ def get_func_arguments_types_defaults(func: Callable) -> list[tuple[str, Any, An
 def _get_signature_cached(func: Callable) -> inspect.Signature:
     """Cache inspect.signature lookups for repeated calls.
 
-    Uses an LRU cache (maxsize=256) since function signatures are stable at runtime.
-    The size balances reuse for common callables without unbounded memory growth.
+    Uses an LRU cache (maxsize=256) since function signatures are stable at runtime. The size balances reuse for common
+    callables without unbounded memory growth.
+
     """
     return inspect.signature(func)
 
@@ -79,6 +82,7 @@ def _get_signature(func: Callable) -> inspect.Signature:
     """Get function signature with caching when possible.
 
     Falls back to uncached lookup for unhashable callables.
+
     """
     try:
         return _get_signature_cached(func)
@@ -171,21 +175,56 @@ def assert_no_warnings(warning_type: Optional[type[Warning]] = None, match: Opti
             )
 
 
-@contextmanager
-def no_warning_call(warning_type: Optional[type[Warning]] = None, match: Optional[str] = None) -> Generator:
+class no_warning_call:  # noqa: N801 - kept for backward compatibility with prior snake_case API
     """Deprecated alias for :func:`~deprecate.utils.assert_no_warnings`.
 
     This context manager is kept for backward compatibility so that existing imports like
     ``from deprecate.utils import no_warning_call`` continue to work until v1.0.
+
+    Warning fires at instantiation — the ``no_warning_call(...)`` call line receives the
+    deprecation notice, regardless of how the context manager is subsequently used.
+
+    Args:
+        warning_type: The :class:`Warning` subclass to watch for.  Defaults to :class:`Warning`
+            (all warning categories).
+        match: Optional substring that must appear in the warning message.  When ``None`` (default),
+            any warning of the right category triggers an :class:`AssertionError`.
+
+    Examples:
+        >>> import warnings
+        >>> with warnings.catch_warnings():
+        ...     warnings.simplefilter("ignore", DeprecationWarning)
+        ...     with no_warning_call():
+        ...         pass  # no AssertionError means no warnings were emitted
+
     """
-    warnings.warn(
-        "`deprecate.utils.no_warning_call` is deprecated in `0.6` and will be removed in `1.0`; "
-        "use `deprecate.utils.assert_no_warnings` instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    with assert_no_warnings(warning_type=warning_type, match=match):
-        yield
+
+    def __init__(self, warning_type: Optional[type[Warning]] = None, match: Optional[str] = None) -> None:
+        """Emit the alias-deprecation warning and capture args for the no-warning assertion."""
+        warnings.warn(
+            "`deprecate.utils.no_warning_call` is deprecated in `0.6` and will be removed in `1.0`; "
+            "use `deprecate.utils.assert_no_warnings` instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self._warning_type = warning_type
+        self._match = match
+        self._inner: Any = None  # ``assert_no_warnings`` returns a ``_GeneratorContextManager``
+
+    def __enter__(self) -> None:
+        """Enter the underlying ``assert_no_warnings`` context."""
+        self._inner = assert_no_warnings(warning_type=self._warning_type, match=self._match)
+        self._inner.__enter__()
+
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> Optional[bool]:
+        """Forward exit to the underlying ``assert_no_warnings`` so its AssertionError still surfaces."""
+        assert self._inner is not None  # noqa: S101 — internal invariant: __exit__ only runs after __enter__
+        return self._inner.__exit__(exc_type, exc_val, exc_tb)
 
 
 def void(*args: Any, **kwrgs: Any) -> Any:  # noqa: ANN401

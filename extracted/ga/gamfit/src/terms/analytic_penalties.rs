@@ -54,8 +54,9 @@
 //!     extension-coordinate latent blocks. Tapers the shrinkage derivative to
 //!     zero beyond the SCAD/MCP cutoff so large coefficients are not L¹-biased.
 //!   * [`DecoderIncoherencePenalty`] — β-tier SAE decoder penalty
-//!     `½·w·Σ_{j<k} W[j,k]·‖B_j^T B_k‖²_F`, with `W[j,k]` coming from
-//!     co-activation. Pushes co-firing atom decoder column spaces apart.
+//!     `½·w·Σ_{j<k} W[j,k]·‖B_j B_k^T‖²_F` for stored decoder blocks
+//!     `B_k ∈ R^{M_k×p_out}`, with `W[j,k]` coming from co-activation.
+//!     Pushes co-firing atom decoder column spaces apart.
 //!
 //! All shipped primitives are **analytic**: no autograd, no finite differencing. Each
 //! exposes:
@@ -116,6 +117,9 @@ use ndarray::{Array1, Array2, Array3, ArrayView1, ArrayView2, ArrayViewMut1, Cow
 use std::sync::{Arc, RwLock};
 
 use crate::linalg::faer_ndarray::{FaerEigh, FaerSvd};
+use crate::linalg::lanczos::{
+    SymmetricLanczosOptions, symmetric_lanczos_eigenpairs, symmetric_lanczos_log_quadrature,
+};
 use crate::terms::basis::{BasisError, DuchonNullspaceOrder, radial_basis_cartesian_derivative};
 use crate::terms::penalties::PenaltyManifest;
 use crate::terms::penalty_op::PenaltyOp;
@@ -200,7 +204,7 @@ fn stable_softplus(x: f64) -> f64 {
 /// clamp band is symmetric in log-strength about zero, matched to the largest /
 /// smallest positive normal `f64`, leaving a safety margin so subsequent
 /// multiplications by `O(1)` factors stay finite.
-fn resolve_learnable_weight(base_weight: f64, rho: f64) -> f64 {
+pub(crate) fn resolve_learnable_weight(base_weight: f64, rho: f64) -> f64 {
     // Largest / smallest log-magnitude that keeps the strength a finite normal
     // `f64` with headroom for downstream `O(1)` arithmetic.
     const MAX_LOG_STRENGTH: f64 = 700.0;
@@ -215,6 +219,26 @@ fn resolve_learnable_weight(base_weight: f64, rho: f64) -> f64 {
     let log_strength = base_weight.abs().ln() + rho;
     let clamped = log_strength.clamp(MIN_LOG_STRENGTH, MAX_LOG_STRENGTH);
     clamped.exp().copysign(base_weight)
+}
+
+/// Exponentiate a learnable log-precision `exp(log_alpha)` with the exponent
+/// clamped into the finite-normal band, returning a finite, strictly-positive
+/// precision.
+///
+/// A raw `log_alpha.exp()` overflows to `inf` for `log_alpha ≳ 709` (an `inf`
+/// precision then poisons the ARD value/grad/Hessian via `inf · 0.0 = NaN`) and
+/// underflows to exact `0.0` for `log_alpha ≲ -745` (a zero precision drops a
+/// prior the term still expects to be positive). Clamping the exponent and
+/// flooring at the smallest positive normal keeps the precision a finite,
+/// strictly-positive `f64` while still spanning arbitrarily small / large
+/// values within range (#742, Issue 4).
+pub(crate) fn stable_exp_log_precision(log_alpha: f64) -> f64 {
+    const MAX_LOG_STRENGTH: f64 = 700.0;
+    const MIN_LOG_STRENGTH: f64 = -700.0;
+    log_alpha
+        .clamp(MIN_LOG_STRENGTH, MAX_LOG_STRENGTH)
+        .exp()
+        .max(f64::MIN_POSITIVE)
 }
 
 /// Scalar annealing schedule for analytic penalty weights.
@@ -3039,8 +3063,25 @@ impl JumpReLUPenalty {
     }
 
     fn psd_hessian_diag_entry(&self, tau: f64, gate: f64) -> f64 {
+        // Genuine PSD majorizer of the indefinite exact diagonal Hessian
+        //   h(g) = λτ·g(1−g)(1−2g)/ε².
+        // The bare re-weighted-ℓ₂ surrogate λτ·[g(1−g)]²/ε² is ≥ 0 but only
+        // dominates h in the concave region g > ½. For g < (3−√5)/2 ≈ 0.382 the
+        // exact curvature is positive and strictly larger, so the square alone
+        // is NOT an upper bound — the `B ⪰ ∂²P` contract is violated for exactly
+        // the comfortably-below-threshold (inactive) coordinates JumpReLU is
+        // meant to suppress, costing the MM step its monotone-decrease guarantee.
+        //
+        // Take the elementwise max of that surrogate and the absolute exact
+        // Hessian |h| = λτ·g(1−g)|1−2g|/ε². Since |h| ≥ h everywhere and ≥ 0, the
+        // max is a true PSD upper bound; it equals |h| in the wings (tight where
+        // the bare square failed) and keeps the surrogate's strictly-positive
+        // floor near the inflection g ≈ ½ (where h ≈ 0) so the curvature block
+        // never collapses to zero.
         let slope = gate * (1.0 - gate);
-        self.weight * tau * slope * slope / (self.smoothing_eps * self.smoothing_eps)
+        let reweighted_l2 = slope * slope;
+        let abs_exact = slope * (1.0 - 2.0 * gate).abs();
+        self.weight * tau * reweighted_l2.max(abs_exact) / (self.smoothing_eps * self.smoothing_eps)
     }
 }
 
@@ -3804,11 +3845,15 @@ impl AnalyticPenalty for MonotonicityPenalty {
                     ez / (1.0 + ez)
                 };
                 // d²P/d(target_a)d(target_b) follows from the chain rule on
-                // z = -dir * (target_b - target_a) / eps. Second derivative of
-                // softplus(z) is sigma(z)(1 - sigma(z)); the (dz/dtarget)²
-                // factor is 1/eps². Off-diagonal entries carry an extra minus
-                // sign from the difference.
-                let h = weight * sigma * (1.0 - sigma) / (eps * eps);
+                // z = -dir * (target_b - target_a) / eps. The penalty value is
+                // `softplus(z) * eps` (note the outer eps from `edge_value`).
+                // softplus''(z) = sigma(z)(1 - sigma(z)) and the (dz/dtarget)²
+                // factor is 1/eps², but the value's outer `* eps` cancels one of
+                // those, leaving `sigma(1 - sigma) / eps` — exactly the eps power
+                // that keeps `hvp` consistent with the finite difference of
+                // `grad_target` (whose own eps already cancelled). Off-diagonal
+                // entries carry an extra minus sign from the difference.
+                let h = weight * sigma * (1.0 - sigma) / eps;
                 let dv = v[b * d + j] - v[a * d + j];
                 out[a * d + j] -= h * dv;
                 out[b * d + j] += h * dv;
@@ -4084,14 +4129,21 @@ impl NuclearNormPenalty {
                 ));
             }
         }
+        let eps2 = self.smoothing_eps * self.smoothing_eps;
+        let eig_floor = eps2.max(1.0e-15);
+        let mut regularized_evals = Array1::<f64>::zeros(d);
         let mut f = Array1::<f64>::zeros(d);
         let mut df = Array1::<f64>::zeros(d);
-        let eps2 = self.smoothing_eps * self.smoothing_eps;
         for i in 0..d {
+            regularized_evals[i] = (raw_evals[i] + eps2).max(eig_floor);
             if i >= active_start {
-                let smoothed = raw_evals[i] + eps2;
-                f[i] = smoothed.powf(-0.5);
-                df[i] = -0.5 * smoothed.powf(-1.5);
+                // Keep the value filter and Fréchet derivative on the same
+                // regularized spectrum. This preserves the PSD-roundoff floor
+                // without letting divided differences observe stale raw
+                // eigenvalues near zero.
+                let lambda = regularized_evals[i];
+                f[i] = lambda.powf(-0.5);
+                df[i] = -0.5 * lambda.powf(-1.5);
             }
         }
 
@@ -4122,8 +4174,9 @@ impl NuclearNormPenalty {
         let mut derivative_basis = Array2::<f64>::zeros((d, d));
         for i in 0..d {
             for j in 0..d {
-                let denom = raw_evals[i] - raw_evals[j];
-                let scale = (raw_evals[i].abs() + raw_evals[j].abs()).max(1.0);
+                let denom = regularized_evals[i] - regularized_evals[j];
+                let scale = (regularized_evals[i].abs() + regularized_evals[j].abs())
+                    .max(f64::MIN_POSITIVE);
                 let divided_difference = if denom.abs() <= 1.0e-12 * scale {
                     let i_active = i >= active_start;
                     let j_active = j >= active_start;
@@ -5850,7 +5903,7 @@ impl ParametricRowPrecisionPriorPenalty {
     }
 
     fn lambda_at(&self, n: usize, k: usize, rho: ArrayView1<'_, f64>) -> f64 {
-        let alpha = self.active_log_alpha(k, rho).exp();
+        let alpha = stable_exp_log_precision(self.active_log_alpha(k, rho));
         let beta = stable_softplus(self.active_raw_beta(k, rho));
         MIN_CONDITIONAL_PRECISION + alpha + beta * self.dist2(n, k, rho)
     }
@@ -5993,7 +6046,7 @@ impl AnalyticPenalty for ParametricRowPrecisionPriorPenalty {
         let mut grad_weight_direct = 0.0;
         for k in 0..d {
             let log_alpha = self.active_log_alpha(k, rho);
-            let alpha = log_alpha.exp();
+            let alpha = stable_exp_log_precision(log_alpha);
             let raw_beta = self.active_raw_beta(k, rho);
             let beta = stable_softplus(raw_beta);
             let beta_jac = crate::linalg::utils::stable_logistic(raw_beta);
@@ -6850,14 +6903,14 @@ impl AnalyticPenalty for BlockOrthogonalityPenalty {
 /// Lives on the β tier and targets the flat SAE decoder coefficient block. The
 /// β layout concatenates the per-atom decoder blocks in atom order: atom `k`
 /// owns `M_k · p_out` coefficients, stored as
-/// `β[off_k + a·p_out + o]` for basis column `a` and output feature `o`.
-/// Mathematically it is convenient to view each atom as
-/// `B_k ∈ ℝ^{p_out × M_k}` with columns `B_k[o, a]`.
+/// `β[off_k + a·p_out + o]` for basis row `a` and output feature `o`.
+/// The stored block is `B_k ∈ ℝ^{M_k × p_out}` with rows `B_k[a, :]`
+/// representing decoder directions in output space.
 ///
 /// The penalty is the co-activation-masked cross-column-space overlap
 ///
 /// ```text
-///   P = ½ · w · Σ_{j<k} W[j,k] · ‖B_j^T B_k‖²_F,
+///   P = ½ · w · Σ_{j<k} W[j,k] · ‖B_j B_k^T‖²_F,
 ///   W[j,k] = ½ · (coactivation[j,k] + coactivation[k,j]).
 /// ```
 ///
@@ -6875,8 +6928,10 @@ impl AnalyticPenalty for BlockOrthogonalityPenalty {
 ///
 /// Gotchas:
 ///
-/// * `block_sizes` are decoder basis-column counts `M_k`, not output widths;
-///   every atom shares the same `p_out`.
+/// * `block_sizes` are decoder basis-row counts `M_k`, not output widths;
+///   every atom shares the same `p_out`. Stored decoder blocks are
+///   `(M_k, p_out)`, so `B_j B_k^T` is the cross-Gram of decoder directions in
+///   output space and remains well-defined for heterogeneous `M_k`.
 /// * The descriptor path builds a placeholder penalty; live SAE wiring replaces
 ///   the co-activation matrix with the current mean gate products.
 /// * Offsets are interpreted against the vector passed to this penalty. In the
@@ -6934,13 +6989,22 @@ impl DecoderIncoherencePenalty {
                 coactivation.dim()
             ));
         }
-        if !coactivation.iter().all(|value| value.is_finite()) {
+        if !coactivation
+            .iter()
+            .all(|value| value.is_finite() && *value >= 0.0)
+        {
             return Err(
-                "DecoderIncoherencePenalty::new requires finite coactivation entries".to_string(),
+                "DecoderIncoherencePenalty::new requires finite non-negative coactivation entries"
+                    .to_string(),
             );
         }
         let mut total = 0usize;
-        for &m in &block_sizes {
+        for (atom_idx, &m) in block_sizes.iter().enumerate() {
+            if m == 0 {
+                return Err(format!(
+                    "DecoderIncoherencePenalty::new block_sizes[{atom_idx}] must be > 0"
+                ));
+            }
             let span = m.checked_mul(p_out).ok_or_else(|| {
                 "DecoderIncoherencePenalty::new block span overflows usize".to_string()
             })?;
@@ -6994,7 +7058,7 @@ impl DecoderIncoherencePenalty {
         0.5 * (self.coactivation[[j, k]] + self.coactivation[[k, j]])
     }
 
-    /// Cross-Gram `C[a, b] = Σ_o B_j[o, a]·B_k[o, b]`, shape `(M_j, M_k)`.
+    /// Cross-Gram `C[a, b] = Σ_o B_j[a, o]·B_k[b, o]`, shape `(M_j, M_k)`.
     fn cross_gram(
         target: ArrayView1<'_, f64>,
         off_j: usize,
@@ -8186,98 +8250,38 @@ impl FrozenAnalyticPenaltyOp {
     fn lanczos_log_quadrature(
         &self,
         lambda: f64,
-        mut q: Array1<f64>,
+        q: Array1<f64>,
         max_steps: usize,
     ) -> Result<f64, String> {
         let n = self.dim();
-        let mut q_prev = Array1::<f64>::zeros(n);
-        let mut alphas = Vec::<f64>::with_capacity(max_steps);
-        let mut betas = Vec::<f64>::with_capacity(max_steps.saturating_sub(1));
-        let mut beta_prev = 0.0;
-        let tol = 1e-12_f64;
-
-        for step in 0..max_steps {
-            let mut w = Array1::<f64>::zeros(n);
-            self.matvec(q.view(), w.view_mut());
-            for i in 0..n {
-                w[i] += lambda * q[i];
-                if step > 0 {
-                    w[i] -= beta_prev * q_prev[i];
+        let eigen = symmetric_lanczos_eigenpairs(
+            n,
+            q.as_slice().ok_or_else(|| {
+                "FrozenAnalyticPenaltyOp::log_det_plus_lambda_i SLQ start vector is not contiguous"
+                    .to_string()
+            })?,
+            SymmetricLanczosOptions {
+                max_steps,
+                residual_tol: 1e-12,
+                local_reorthogonalize: false,
+                full_reorthogonalize: false,
+            },
+            |q, out| {
+                self.matvec(ArrayView1::from(q), ArrayViewMut1::from(&mut *out));
+                for i in 0..n {
+                    out[i] += lambda * q[i];
                 }
-            }
-            let alpha = dot(&q, &w);
-            if !alpha.is_finite() {
-                return Err(
-                    "FrozenAnalyticPenaltyOp::log_det_plus_lambda_i SLQ produced non-finite alpha"
-                        .to_string(),
-                );
-            }
-            for i in 0..n {
-                w[i] -= alpha * q[i];
-            }
-            let beta = norm2(&w);
-            alphas.push(alpha);
-            if step + 1 == max_steps || beta <= tol {
-                break;
-            }
-            if !beta.is_finite() {
-                return Err(
-                    "FrozenAnalyticPenaltyOp::log_det_plus_lambda_i SLQ produced non-finite beta"
-                        .to_string(),
-                );
-            }
-            betas.push(beta);
-            q_prev = q;
-            q = w;
-            for i in 0..n {
-                q[i] /= beta;
-            }
-            beta_prev = beta;
-        }
-
-        let k = alphas.len();
-        let mut tri = Array2::<f64>::zeros((k, k));
-        for i in 0..k {
-            tri[[i, i]] = alphas[i];
-            if i + 1 < k {
-                tri[[i, i + 1]] = betas[i];
-                tri[[i + 1, i]] = betas[i];
-            }
-        }
-        let (evals, evecs) = tri.eigh(Side::Lower).map_err(|e| {
-            format!(
-                "FrozenAnalyticPenaltyOp::log_det_plus_lambda_i SLQ eigendecomposition failed: {e}"
-            )
+                Ok(())
+            },
+        )
+        .map_err(|e| {
+            format!("FrozenAnalyticPenaltyOp::log_det_plus_lambda_i SLQ Lanczos failed: {e}")
         })?;
-        let mut quad = 0.0;
-        for j in 0..k {
-            let theta = evals[j];
-            if !theta.is_finite() || theta <= 0.0 {
-                return Err(format!(
-                    "FrozenAnalyticPenaltyOp::log_det_plus_lambda_i expected SPD S+λI, \
-                     Lanczos Ritz value {j} is {theta:.3e}"
-                ));
-            }
-            let weight = evecs[[0, j]] * evecs[[0, j]];
-            quad += weight * theta.ln();
-        }
-        Ok(quad)
+        symmetric_lanczos_log_quadrature(
+            &eigen,
+            "FrozenAnalyticPenaltyOp::log_det_plus_lambda_i expected SPD S+λI",
+        )
     }
-}
-
-#[inline]
-fn dot(a: &Array1<f64>, b: &Array1<f64>) -> f64 {
-    assert_eq!(a.len(), b.len());
-    let mut s = 0.0;
-    for i in 0..a.len() {
-        s += a[i] * b[i];
-    }
-    s
-}
-
-#[inline]
-fn norm2(a: &Array1<f64>) -> f64 {
-    dot(a, a).sqrt()
 }
 
 fn rademacher_unit_probe_into(mut z: ArrayViewMut1<'_, f64>, probe: u64, scale: f64) {
@@ -8620,7 +8624,7 @@ impl AnalyticPenalty for NestedPrefixPenalty {
 mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
-    use ndarray::array;
+    use ndarray::{array, s};
 
     /// The scale-free isometry penalty (math review #681) defaults to a
     /// `MeanProfiled` reference: the per-row pullback metric `G_n` is compared
@@ -8763,6 +8767,90 @@ mod tests {
             diag.iter().all(|entry| entry.is_finite()),
             "IBP Hessian diagonal must remain finite for saturated concrete logits: {diag:?}"
         );
+    }
+
+    #[test]
+    fn ibp_assignment_high_k_prior_keeps_positive_gradient_path() {
+        let k = 400usize;
+        let pen = IBPAssignmentPenalty::new(k, 0.1, 1.0, false);
+        let t = Array1::<f64>::zeros(k);
+        let rho = Array1::<f64>::zeros(0);
+
+        let value = pen.value(t.view(), rho.view());
+        assert!(value.is_finite(), "high-K IBP value must stay finite");
+        let grad = pen.grad_target(t.view(), rho.view());
+        assert_eq!(grad.len(), k);
+        assert!(
+            grad.iter().all(|entry| entry.is_finite()),
+            "high-K IBP gradient must stay finite: {grad:?}"
+        );
+        assert!(
+            grad.slice(s![320..]).iter().any(|entry| entry.abs() > 0.0),
+            "late high-K atoms must retain a strictly positive gradient path"
+        );
+    }
+
+    #[test]
+    fn learnable_weights_stay_finite_at_extreme_rho() {
+        for rho in [1000.0_f64, -1000.0] {
+            let resolved = resolve_learnable_weight(0.7, rho);
+            assert!(
+                resolved.is_finite() && resolved > 0.0,
+                "resolved learnable weight must be finite-positive at rho={rho}: {resolved}"
+            );
+        }
+
+        let softmax = SoftmaxAssignmentSparsityPenalty::new(3, 0.8);
+        let logits = array![0.2_f64, -0.1, 0.4];
+        for rho in [array![1000.0_f64], array![-1000.0_f64]] {
+            let value = softmax.value(logits.view(), rho.view());
+            let grad = softmax.grad_target(logits.view(), rho.view());
+            let diag = softmax
+                .hessian_diag(logits.view(), rho.view())
+                .expect("softmax entropy exposes a diagonal Hessian");
+            assert!(value.is_finite(), "softmax value non-finite at rho={rho:?}");
+            assert!(grad.iter().all(|entry| entry.is_finite()));
+            assert!(diag.iter().all(|entry| entry.is_finite()));
+        }
+
+        let jump =
+            JumpReLUPenalty::new(PsiSlice::full(2, Some(1)), array![1.0_f64], 0.5, 0.1).unwrap();
+        let jump_target = array![0.0_f64, 0.2];
+        for rho in [array![1000.0_f64], array![-1000.0_f64]] {
+            let value = jump.value(jump_target.view(), rho.view());
+            let grad = jump.grad_target(jump_target.view(), rho.view());
+            let diag = jump
+                .hessian_diag(jump_target.view(), rho.view())
+                .expect("JumpReLU exposes a diagonal Hessian");
+            assert!(
+                value.is_finite(),
+                "JumpReLU value non-finite at rho={rho:?}"
+            );
+            assert!(grad.iter().all(|entry| entry.is_finite()));
+            assert!(diag.iter().all(|entry| entry.is_finite()));
+        }
+
+        let target = PsiSlice {
+            range: 0..4,
+            latent_dim: Some(2),
+        };
+        let block_sizes = vec![1usize, 1usize];
+        let p = 2usize;
+        let coact = Array2::<f64>::ones((2, 2));
+        let decoder =
+            DecoderIncoherencePenalty::new(target, block_sizes, p, coact, 0.7, true).unwrap();
+        let beta = Array1::<f64>::zeros(4);
+        for rho in [array![1000.0_f64], array![-1000.0_f64]] {
+            let value = decoder.value(beta.view(), rho.view());
+            let grad = decoder.grad_target(beta.view(), rho.view());
+            let hv = decoder.hvp(beta.view(), rho.view(), beta.view());
+            assert!(
+                value.is_finite(),
+                "DecoderIncoherence value non-finite at rho={rho:?}"
+            );
+            assert!(grad.iter().all(|entry| entry.is_finite()));
+            assert!(hv.iter().all(|entry| entry.is_finite()));
+        }
     }
 
     #[test]
@@ -9013,23 +9101,40 @@ mod tests {
     fn jumprelu_psd_majorizer_diag_is_psd_over_logit_sweep() {
         let (pen, target_values, rho, scaled_thresholds, eps, weight) = jumprelu_sweep_fixture();
         let latent_dim = scaled_thresholds.len();
-        // The PSD majorizer is a DISTINCT operator from the true Hessian:
-        //   B(z) = wτ·[g(1 − g)]²/ε² ⪰ 0.
-        // The Newton / PIRLS curvature block consumes this, not `hessian_diag`.
+        // The PSD majorizer is a DISTINCT operator from the true Hessian. The
+        // bare re-weighted-ℓ₂ surrogate wτ·[g(1−g)]²/ε² is ≥ 0 but does NOT
+        // dominate the indefinite exact Hessian wτ·g(1−g)(1−2g)/ε² for gates
+        // g < (3−√5)/2 (where the exact curvature is positive and larger). The
+        // majorizer is therefore the elementwise max of that surrogate and the
+        // absolute exact Hessian |h| = wτ·g(1−g)|1−2g|/ε²: PSD, finite, and a
+        // genuine upper bound `B ⪰ ∂²P` everywhere. The Newton / PIRLS curvature
+        // block consumes this, not `hessian_diag`.
         let diag = pen
             .psd_majorizer_diag(target_values.view(), rho.view())
             .expect("JumpReLU exposes a PSD diagonal majorizer");
+        let exact = pen
+            .hessian_diag(target_values.view(), rho.view())
+            .expect("JumpReLU exposes a closed-form diagonal Hessian");
 
         for (idx, &entry) in diag.iter().enumerate() {
             let axis = idx % latent_dim;
             let gate = pen.sigmoid_gate((target_values[idx] - scaled_thresholds[axis]) / eps);
             let slope = gate * (1.0 - gate);
-            let expected = weight * scaled_thresholds[axis] * slope * slope / (eps * eps);
+            let reweighted_l2 = slope * slope;
+            let abs_exact = slope * (1.0 - 2.0 * gate).abs();
+            let expected =
+                weight * scaled_thresholds[axis] * reweighted_l2.max(abs_exact) / (eps * eps);
             assert!(
                 entry.is_finite() && entry >= 0.0,
                 "JumpReLU psd_majorizer_diag must be finite and PSD at index {idx}; entry={entry}"
             );
             assert_abs_diff_eq!(entry, expected, epsilon = 1e-12);
+            // The defining contract: the majorizer dominates the exact Hessian.
+            assert!(
+                entry + 1e-12 >= exact[idx],
+                "majorizer {entry} must dominate exact Hessian {} at index {idx}",
+                exact[idx]
+            );
         }
     }
 
@@ -9756,6 +9861,40 @@ mod tests {
     }
 
     #[test]
+    fn nuclear_norm_right_gram_divided_difference_uses_eigen_floor() {
+        let n_eff = 2usize;
+        let p = 2usize;
+        let target = PsiSlice {
+            range: 0..n_eff * p,
+            latent_dim: Some(p),
+        };
+        let smoothing_eps = 1.0e-10_f64;
+        let pen = NuclearNormPenalty::new(target, 0.9, n_eff, smoothing_eps, None, false).unwrap();
+        let a = 1.0e-10_f64;
+        let b = 2.0e-7_f64;
+        let t = array![[a, 0.0_f64], [0.0, b]];
+        let v = array![[0.0_f64, 1.0], [0.0, 0.0]];
+
+        let (_right_filter, right_filter_derivative) = pen
+            .right_spectral_inverse_sqrt_derivative(t.view(), v.view())
+            .expect("right-Gram derivative");
+
+        let eps2 = smoothing_eps * smoothing_eps;
+        let eig_floor = eps2.max(1.0e-15);
+        let lambda0 = (a * a + eps2).max(eig_floor);
+        let lambda1 = (b * b + eps2).max(eig_floor);
+        let f0 = lambda0.powf(-0.5);
+        let f1 = lambda1.powf(-0.5);
+        let expected = ((f0 - f1) / (lambda0 - lambda1)) * a;
+
+        assert_abs_diff_eq!(
+            right_filter_derivative[[0, 1]],
+            expected,
+            epsilon = expected.abs() * 1.0e-12
+        );
+    }
+
+    #[test]
     fn nuclear_norm_hvp_truncated_rank_matches_gradient_directional_derivative() {
         let n_eff = 4usize;
         let p = 3usize;
@@ -9824,6 +9963,47 @@ mod tests {
     }
 
     #[test]
+    fn decoder_incoherence_heterogeneous_blocks_use_output_space_cross_gram() {
+        let p = 3usize;
+        let block_sizes = vec![2usize, 1usize];
+        let total: usize = block_sizes.iter().map(|m| m * p).sum();
+        let target = PsiSlice {
+            range: 0..total,
+            latent_dim: Some(total / p),
+        };
+        let mut coact = Array2::<f64>::zeros((2, 2));
+        coact[[0, 1]] = 0.2;
+        coact[[1, 0]] = 0.6;
+        let pen =
+            DecoderIncoherencePenalty::new(target, block_sizes, p, coact, 2.0, false).unwrap();
+        // Stored decoder blocks are B0 = [[1,0,0], [0,2,0]] and
+        // B1 = [[3,0,4]]. The output-space cross-Gram is B0·B1^T = [[3], [0]],
+        // so ||B0·B1^T||_F^2 = 9. The symmetrized coactivation is 0.4.
+        let beta = array![1.0_f64, 0.0, 0.0, 0.0, 2.0, 0.0, 3.0, 0.0, 4.0];
+        let rho = Array1::<f64>::zeros(0);
+        let value = pen.value(beta.view(), rho.view());
+        assert_abs_diff_eq!(value, 3.6, epsilon = 1.0e-12);
+    }
+
+    #[test]
+    fn decoder_incoherence_rejects_negative_coactivation() {
+        let p = 2usize;
+        let block_sizes = vec![1usize, 1usize];
+        let target = PsiSlice {
+            range: 0..4,
+            latent_dim: Some(2),
+        };
+        let mut coact = Array2::<f64>::zeros((2, 2));
+        coact[[0, 1]] = -0.1;
+        let err = DecoderIncoherencePenalty::new(target, block_sizes, p, coact, 1.0, false)
+            .expect_err("negative coactivation must be rejected");
+        assert_eq!(
+            err,
+            "DecoderIncoherencePenalty::new requires finite non-negative coactivation entries"
+        );
+    }
+
+    #[test]
     fn decoder_incoherence_separability_semantics() {
         // Two atoms, each a single decoder column in ℝ^{p_out=2}: atom 0 = first
         // column, atom 1 = second. β layout is [B_0[:,0]=t0,t1 ; B_1[:,0]=t2,t3].
@@ -9842,7 +10022,7 @@ mod tests {
         };
         let rho = Array1::<f64>::zeros(0);
 
-        // Orthogonal column-spaces ⇒ B_0^T B_1 = 0 ⇒ P ≈ 0.
+        // Orthogonal output-space decoder directions ⇒ B_0·B_1^T = 0 ⇒ P ≈ 0.
         let pen_ortho = DecoderIncoherencePenalty::new(
             target.clone(),
             block_sizes.clone(),
@@ -9859,7 +10039,7 @@ mod tests {
             "orthogonal decoder blocks must give P≈0, got {p_ortho:.3e}"
         );
 
-        // Coincident column-spaces ⇒ B_0^T B_1 large ⇒ P large.
+        // Coincident output-space decoder directions ⇒ B_0·B_1^T large ⇒ P large.
         let pen_coinc = DecoderIncoherencePenalty::new(
             target.clone(),
             block_sizes.clone(),
@@ -9871,7 +10051,7 @@ mod tests {
         .unwrap();
         let t_coinc = array![1.0_f64, 0.0, 1.0, 0.0];
         let p_coinc = pen_coinc.value(t_coinc.view(), rho.view());
-        // ½·w·W·‖B_0^T B_1‖_F² = ½·1·1·(1)² = 0.5.
+        // ½·w·W·‖B_0·B_1^T‖_F² = ½·1·1·(1)² = 0.5.
         assert!(
             (p_coinc - 0.5).abs() <= 1.0e-12,
             "coincident decoder blocks must give large P (=0.5 here), got {p_coinc:.3e}"

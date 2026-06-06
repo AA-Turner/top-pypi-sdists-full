@@ -82,7 +82,7 @@ class ScorerEvaluator(abc.ABC):
     # Subclasses must define the expected metrics type
     expected_metrics_type: MetricsType
 
-    def __init__(self, scorer: Scorer):
+    def __init__(self, scorer: Scorer) -> None:
         """
         Initialize the ScorerEvaluator with a scorer.
 
@@ -295,6 +295,10 @@ class ScorerEvaluator(abc.ABC):
         try:
             scorer_hash = self.scorer.get_identifier().eval_hash
 
+            if scorer_hash is None:
+                logger.debug("No eval_hash available for scorer, cannot check existing metrics")
+                return (False, None)
+
             # Determine if this is a harm or objective evaluation
             metrics_type = MetricsType.OBJECTIVE if isinstance(self.scorer, TrueFalseScorer) else MetricsType.HARM
 
@@ -464,8 +468,8 @@ class ScorerEvaluator(abc.ABC):
     def _compute_metrics(
         self,
         *,
-        all_human_scores: np.ndarray,  # type: ignore[type-arg, unused-ignore]
-        all_model_scores: np.ndarray,  # type: ignore[type-arg, unused-ignore]
+        all_human_scores: np.ndarray,
+        all_model_scores: np.ndarray,
         num_scorer_trials: int,
         dataset_name: Optional[str] = None,
         dataset_version: Optional[str] = None,
@@ -504,10 +508,14 @@ class ScorerEvaluator(abc.ABC):
             result_file_path (Path): The full path to the result file.
         """
         try:
+            eval_hash = self.scorer.get_identifier().eval_hash
+            if eval_hash is None:
+                logger.warning("Cannot write metrics: no eval_hash available for scorer")
+                return
             replace_evaluation_results(
                 file_path=result_file_path,
                 scorer_identifier=self.scorer.get_identifier(),
-                eval_hash=self.scorer.get_identifier().eval_hash,
+                eval_hash=eval_hash,
                 metrics=metrics,
             )
         except Exception as e:
@@ -558,8 +566,8 @@ class HarmScorerEvaluator(ScorerEvaluator):
     def _compute_metrics(
         self,
         *,
-        all_human_scores: np.ndarray,  # type: ignore[type-arg, unused-ignore]
-        all_model_scores: np.ndarray,  # type: ignore[type-arg, unused-ignore]
+        all_human_scores: np.ndarray,
+        all_model_scores: np.ndarray,
         num_scorer_trials: int,
         dataset_name: Optional[str] = None,
         dataset_version: Optional[str] = None,
@@ -577,7 +585,21 @@ class HarmScorerEvaluator(ScorerEvaluator):
         diff[np.abs(diff) < 1e-10] = 0.0
 
         abs_error = np.abs(diff)
-        t_statistic, p_value = cast("tuple[float, float]", ttest_1samp(diff, 0))
+        # ttest_1samp on a zero-variance sample returns NaN and emits scipy
+        # divide-by-zero / catastrophic-cancellation warnings. Two degenerate cases
+        # warrant explicit handling (np.allclose tolerates the float noise that
+        # creeps in from `np.median(...)` differences):
+        #   - Perfect agreement (diff effectively all zeros): the null hypothesis
+        #     (mean diff = 0) is exactly satisfied, so report t=0.0, p=1.0.
+        #   - Systematic bias with no variance (constant non-zero diff): the t-test
+        #     is undefined; report NaN explicitly. MAE captures the bias magnitude.
+        if diff.size > 0 and np.allclose(diff, diff[0]):
+            if np.isclose(diff[0], 0.0):
+                t_statistic, p_value = 0.0, 1.0
+            else:
+                t_statistic, p_value = float("nan"), float("nan")
+        else:
+            t_statistic, p_value = cast("tuple[float, float]", ttest_1samp(diff, 0))
 
         num_responses = all_human_scores.shape[1]
         num_human_raters = all_human_scores.shape[0]
@@ -660,8 +682,8 @@ class ObjectiveScorerEvaluator(ScorerEvaluator):
     def _compute_metrics(
         self,
         *,
-        all_human_scores: np.ndarray,  # type: ignore[type-arg, unused-ignore]
-        all_model_scores: np.ndarray,  # type: ignore[type-arg, unused-ignore]
+        all_human_scores: np.ndarray,
+        all_model_scores: np.ndarray,
         num_scorer_trials: int,
         dataset_name: Optional[str] = None,
         dataset_version: Optional[str] = None,

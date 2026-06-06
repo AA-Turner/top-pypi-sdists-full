@@ -7,7 +7,7 @@ from typing import Literal, Optional
 from pyrit.datasets.seed_datasets.remote.remote_dataset_loader import (
     _RemoteDatasetLoader,
 )
-from pyrit.models import SeedDataset, SeedPrompt
+from pyrit.models import Modality, SeedDataset, SeedPrompt
 
 logger = logging.getLogger(__name__)
 
@@ -23,12 +23,17 @@ class _BabelscapeAlertDataset(_RemoteDatasetLoader):
     Reference: [@tedeschi2024alert]
     """
 
+    # Metadata
+    modalities: tuple[Modality, ...] = (Modality.TEXT,)
+    size: str = "huge"  # 30968 prompts (default config)
+    tags: frozenset[str] = frozenset({"default", "safety", "jailbreak"})
+
     def __init__(
         self,
         *,
         source: str = "Babelscape/ALERT",
         category: Optional[Literal["alert", "alert_adversarial"]] = "alert_adversarial",
-    ):
+    ) -> None:
         """
         Initialize the Babelscape ALERT dataset loader.
 
@@ -51,7 +56,7 @@ class _BabelscapeAlertDataset(_RemoteDatasetLoader):
         """Return the dataset name."""
         return "babelscape_alert"
 
-    async def fetch_dataset(self, *, cache: bool = True) -> SeedDataset:
+    async def fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
         """
         Fetch Babelscape ALERT dataset and return as SeedDataset.
 
@@ -68,7 +73,7 @@ class _BabelscapeAlertDataset(_RemoteDatasetLoader):
 
         prompts: list[tuple[str, str]] = []
         for category_name in data_categories:
-            data = await self._fetch_from_huggingface(
+            data = await self._fetch_from_huggingface_async(
                 dataset_name=self.source,
                 config=category_name,
                 split="test",

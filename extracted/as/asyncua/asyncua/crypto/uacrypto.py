@@ -1,23 +1,17 @@
+import logging
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-import aiofiles
-from typing import Optional, Union
 
+import anyio
 from cryptography import x509
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives import hmac
-from cryptography.hazmat.primitives.asymmetric import padding, rsa
-from cryptography.hazmat.primitives.ciphers import Cipher
-from cryptography.hazmat.primitives.ciphers import algorithms
-from cryptography.hazmat.primitives.ciphers import modes
 
 # We redefine InvalidSignature as part of this module. Do not remove this line.
-from cryptography.exceptions import InvalidSignature  # noqa: F811
-
-from dataclasses import dataclass
-import logging
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes, hmac, serialization
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 _logger = logging.getLogger(__name__)
 
@@ -28,32 +22,39 @@ class InvalidSignature(Exception):  # type: ignore # noqa: F811
 
 @dataclass
 class CertProperties:
-    path_or_content: Union[bytes, Path, str]
-    extension: Optional[str] = None
-    password: Optional[Union[str, bytes]] = None
+    path_or_content: bytes | Path | str
+    extension: str | None = None
+    password: str | bytes | None = None
 
 
-async def get_content(path_or_content: Union[str, bytes, Path]) -> bytes:
+async def get_content(path_or_content: str | bytes | Path) -> bytes:
     if isinstance(path_or_content, bytes):
         return path_or_content
 
-    async with aiofiles.open(path_or_content, mode="rb") as f:
+    async with await anyio.open_file(path_or_content, mode="rb") as f:
         return await f.read()
 
 
-async def load_certificate(path_or_content: Union[bytes, str, Path], extension: Optional[str] = None):
-    if isinstance(path_or_content, str):
-        ext = Path(path_or_content).suffix
-    elif isinstance(path_or_content, Path):
-        ext = path_or_content.suffix
-    else:
-        ext = ""
+def _is_pem_format(path_or_content: bytes | str | Path, extension: str | None) -> bool:
+    """Determine if the content should be loaded as PEM format.
 
+    If an explicit extension is provided, it takes precedence over
+    the file extension inferred from the path.
+    """
+    if extension is not None:
+        return extension.lower() == "pem"
+    if isinstance(path_or_content, str):
+        return Path(path_or_content).suffix.lower() == ".pem"
+    if isinstance(path_or_content, Path):
+        return path_or_content.suffix.lower() == ".pem"
+    return False
+
+
+async def load_certificate(path_or_content: bytes | str | Path, extension: str | None = None):
     content = await get_content(path_or_content)
-    if ext == ".pem" or extension == "pem" or extension == "PEM":
+    if _is_pem_format(path_or_content, extension):
         return x509.load_pem_x509_certificate(content, default_backend())
-    else:
-        return x509.load_der_x509_certificate(content, default_backend())
+    return x509.load_der_x509_certificate(content, default_backend())
 
 
 def x509_from_der(data):
@@ -110,24 +111,17 @@ def x509_from_der(data):
 
 
 async def load_private_key(
-    path_or_content: Union[str, Path, bytes],
-    password: Optional[Union[str, bytes]] = None,
-    extension: Optional[str] = None,
+    path_or_content: str | Path | bytes,
+    password: str | bytes | None = None,
+    extension: str | None = None,
 ):
-    if isinstance(path_or_content, str):
-        ext = Path(path_or_content).suffix
-    elif isinstance(path_or_content, Path):
-        ext = path_or_content.suffix
-    else:
-        ext = ""
     if isinstance(password, str):
         password = password.encode("utf-8")
 
     content = await get_content(path_or_content)
-    if ext == ".pem" or extension == "pem" or extension == "PEM":
+    if _is_pem_format(path_or_content, extension):
         return serialization.load_pem_private_key(content, password=password, backend=default_backend())
-    else:
-        return serialization.load_der_private_key(content, password=password, backend=default_backend())
+    return serialization.load_der_private_key(content, password=password, backend=default_backend())
 
 
 def der_from_x509(certificate):
@@ -330,7 +324,7 @@ def x509_to_string(cert):
     return f"{x509_name_to_string(cert.subject)}{issuer}, {cert.not_valid_before_utc} - {cert.not_valid_after_utc}"
 
 
-def check_certificate(cert: x509.Certificate, application_uri: str, hostname: Optional[str] = None) -> bool:
+def check_certificate(cert: x509.Certificate, application_uri: str, hostname: str | None = None) -> bool:
     """
     check certificate if it matches the application_uri and log errors.
     """

@@ -45,6 +45,18 @@ _KNOWLEDGE_PROTOCOL = (
     "$knowledge_protocol"
 )
 
+_TEAM_KB_INSTRUCTION = (
+    "\n【团队知识库协作 — 已启用】\n"
+    "本项目已配置团队共享知识库，条目来源区分：\n"
+    "  [个人] — 仅你本地可见（默认）\n"
+    "  [团队] — 来自共享知识库，团队所有成员可见\n"
+    "协作操作：\n"
+    "1. 查看团队条目：kanban knowledge share --list --domain <domain>\n"
+    "2. 发现值得分享的条目：kanban knowledge share --push <id>\n"
+    "3. 批量推送积累：kanban knowledge share --push --all --domain <domain>\n"
+    "4. 在产出文档中标注来源：[K001 个人] 或 [K001 团队]\n"
+)
+
 # Step types that should NOT get knowledge auto-injection
 _KNOWLEDGE_SKIP_PREFIXES = (
     "plan.complete", "plan.knowledge_search", "plan.plan_B",

@@ -1,28 +1,49 @@
-Metadata-Version: 2.1
-Name: aiohttp_basicauth
-Version: 1.1.0
-Summary: HTTP basic authentication middleware for aiohttp 3.0+
-Home-page: https://github.com/romis2012/aiohttp-basicauth
-Author: Roman Snegirev
-Author-email: snegiryev@gmail.com
-License: Apache 2
-Keywords: aiohttp http basic auth
+Metadata-Version: 2.4
+Name: aiohttp-basicauth
+Version: 1.2.0
+Summary: Proxy connector for aiohttp
+Author-email: Roman Snegirev <snegiryev@gmail.com>
+License: Apache-2.0
+Project-URL: homepage, https://github.com/romis2012/aiohttp-basicauth
+Project-URL: repository, https://github.com/romis2012/aiohttp-basicauth
+Keywords: asyncio,aiohttp,http,auth,basic auth
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Intended Audience :: Developers
+Classifier: Framework :: AsyncIO
+Classifier: License :: OSI Approved :: Apache Software License
+Requires-Python: >=3.8.0
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: aiohttp>=3.0
+Requires-Dist: aiohttp>=3.10.0
+Dynamic: license-file
 
 ## aiohttp-basicauth
 
 [![CI](https://github.com/romis2012/aiohttp-basicauth/actions/workflows/ci.yml/badge.svg)](https://github.com/romis2012/aiohttp-basicauth/actions/workflows/ci.yml)
 [![Coverage Status](https://codecov.io/gh/romis2012/aiohttp-basicauth/branch/master/graph/badge.svg)](https://codecov.io/gh/romis2012/aiohttp-basicauth)
 [![PyPI version](https://badge.fury.io/py/aiohttp-basicauth.svg?_=a)](https://badge.fury.io/py/aiohttp-basicauth)
+[![versions](https://img.shields.io/pypi/pyversions/aiohttp-basicauth.svg)](https://github.com/romis2012/aiohttp-basicauth)
 
-HTTP basic authentication middleware for aiohttp 3.0+. 
+HTTP basic authentication middleware for aiohttp. 
 Inspired by [Flask-BasicAuth](https://github.com/jpvanhal/flask-basicauth).
 
 ## Requirements
-- Python >= 3.7
-- aiohttp >= 3.0
+- Python >= 3.8
+- aiohttp >= 3.10
 
 ## Installation
 ```

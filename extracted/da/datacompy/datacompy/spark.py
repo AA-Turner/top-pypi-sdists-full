@@ -509,9 +509,17 @@ class SparkSQLCompare(BaseCompare):
 
         LOG.debug("Selecting df1 unique rows")
         self.df1_unq_rows = outer_join[outer_join["_merge"] == "left_only"][df1_cols]
+        # Drop the internal merge indicator and restore original (un-suffixed) column names
+        self.df1_unq_rows = self.df1_unq_rows.drop("_merge_left").withColumnsRenamed(
+            {f"{c}_{self.df1_name}": c for c in self.df1.columns}
+        )
 
         LOG.debug("Selecting df2 unique rows")
         self.df2_unq_rows = outer_join[outer_join["_merge"] == "right_only"][df2_cols]
+        # Drop the internal merge indicator and restore original (un-suffixed) column names
+        self.df2_unq_rows = self.df2_unq_rows.drop("_merge_right").withColumnsRenamed(
+            {f"{c}_{self.df2_name}": c for c in self.df2.columns}
+        )
 
         LOG.info(f"Number of rows in df1 and not in df2: {self.df1_unq_rows.count()}")
         LOG.info(f"Number of rows in df2 and not in df1: {self.df2_unq_rows.count()}")
@@ -775,11 +783,9 @@ class SparkSQLCompare(BaseCompare):
             )
             match_cnt = self.intersect_rows.count()
             sample_count = min(sample_count, row_cnt - match_cnt)
-            df1_col = f"{column}_{self.df1_name}"
-            df2_col = f"{column}_{self.df2_name}"
             sample = (
-                self.df1_unq_rows[[df1_col]]
-                .union(self.df2_unq_rows[[df2_col]])
+                self.df1_unq_rows[[column]]
+                .union(self.df2_unq_rows[[column]])
                 .limit(sample_count)
             )
             return sample.toDF(column)
@@ -806,11 +812,8 @@ class SparkSQLCompare(BaseCompare):
         return_list = []
         if self.only_join_columns():
             LOG.info("Only join keys in data, returning mismatches based on unq_rows")
-            df1_cols = [f"{cols}_{self.df1_name}" for cols in self.join_columns]
-            df2_cols = [f"{cols}_{self.df2_name}" for cols in self.join_columns]
-            to_return = self.df1_unq_rows[df1_cols].union(self.df2_unq_rows[df2_cols])
-            to_return = to_return.withColumnsRenamed(
-                {f"{c}_{self.df1_name}": c for c in self.join_columns}
+            to_return = self.df1_unq_rows[self.join_columns].union(
+                self.df2_unq_rows[self.join_columns]
             )
             return to_return
 
@@ -848,11 +851,8 @@ class SparkSQLCompare(BaseCompare):
 
         if len(match_list) == 0:
             LOG.info("No match columns found, returning mismatches based on unq_rows")
-            df1_cols = [f"{cols}_{self.df1_name}" for cols in self.join_columns]
-            df2_cols = [f"{cols}_{self.df2_name}" for cols in self.join_columns]
-            to_return = self.df1_unq_rows[df1_cols].union(self.df2_unq_rows[df2_cols])
-            to_return = to_return.withColumnsRenamed(
-                {f"{c}_{self.df1_name}": c for c in self.join_columns}
+            to_return = self.df1_unq_rows[self.join_columns].union(
+                self.df2_unq_rows[self.join_columns]
             )
             return to_return
 
@@ -1291,7 +1291,10 @@ def calculate_max_diff(
         )
         return 0
     diff = dataframe.select(
-        (F.col(col_1).astype("float") - F.col(col_2).astype("float")).alias("diff")
+        (
+            F.expr(f"TRY_CAST(`{col_1}` AS DOUBLE)")
+            - F.expr(f"TRY_CAST(`{col_2}` AS DOUBLE)")
+        ).alias("diff")
     )
     abs_diff = diff.select(F.abs(F.col("diff")).alias("abs_diff"))
     max_diff: float = (
@@ -1374,7 +1377,9 @@ def _generate_id_within_group(
     """
     default_value = "DATACOMPY_NULL"
     null_cols = [f"any(isnull({c}))" for c in join_columns]
-    default_cols = [f"any({c} == '{default_value}')" for c in join_columns]
+    default_cols = [
+        f"any(CAST({c} AS STRING) == '{default_value}')" for c in join_columns
+    ]
 
     null_check = any(list(dataframe.selectExpr(null_cols).first()))
     default_check = any(list(dataframe.selectExpr(default_cols).first()))

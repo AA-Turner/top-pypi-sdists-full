@@ -37,6 +37,7 @@ wix build `
     -src "$ScriptDir\aiwatch.wxs" `
     -out $MsiPath `
     -arch x64 `
+    -bindpath "$ScriptDir" `
     -d Version=$Version
 
 if ($LASTEXITCODE -ne 0) {

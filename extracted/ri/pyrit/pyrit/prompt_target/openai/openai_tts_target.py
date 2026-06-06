@@ -7,8 +7,8 @@ from typing import Any, Literal, Optional
 from pyrit.exceptions import (
     pyrit_target_retry,
 )
-from pyrit.identifiers import ComponentIdentifier
 from pyrit.models import (
+    ComponentIdentifier,
     Message,
     construct_response_from_request,
     data_serializer_factory,
@@ -42,7 +42,6 @@ class OpenAITTSTarget(OpenAITarget):
         language: str = "en",
         speed: Optional[float] = None,
         custom_configuration: Optional[TargetConfiguration] = None,
-        custom_capabilities: Optional[TargetCapabilities] = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -66,13 +65,11 @@ class OpenAITTSTarget(OpenAITarget):
             speed (float, Optional): The speed of the TTS. Select a value from 0.25 to 4.0. 1.0 is normal.
             custom_configuration (TargetConfiguration, Optional): Override the default configuration for
                 this target instance. Defaults to None.
-            custom_capabilities (TargetCapabilities, Optional): **Deprecated.** Use
-                ``custom_configuration`` instead. Will be removed in v0.14.0.
             **kwargs: Additional keyword arguments passed to the parent OpenAITarget class.
             httpx_client_kwargs (dict, Optional): Additional kwargs to be passed to the ``httpx.AsyncClient()``
                 constructor. For example, to specify a 3 minute timeout: ``httpx_client_kwargs={"timeout": 180}``
         """
-        super().__init__(custom_configuration=custom_configuration, custom_capabilities=custom_capabilities, **kwargs)
+        super().__init__(custom_configuration=custom_configuration, **kwargs)
 
         self._voice = voice
         self._response_format = response_format
@@ -113,20 +110,22 @@ class OpenAITTSTarget(OpenAITarget):
 
     @limit_requests_per_minute
     @pyrit_target_retry
-    async def send_prompt_async(self, *, message: Message) -> list[Message]:
+    async def _send_prompt_to_target_async(self, *, normalized_conversation: list[Message]) -> list[Message]:
         """
         Asynchronously send a message to the OpenAI TTS target.
 
         Args:
-            message (Message): The message object containing the prompt to send.
+            normalized_conversation (list[Message]): The full conversation
+                (history + current message) after running the normalization
+                pipeline. The current message is the last element.
 
         Returns:
             list[Message]: A list containing the audio response from the prompt target.
         """
-        self._validate_request(message=message)
+        message = normalized_conversation[-1]
         message_piece = message.message_pieces[0]
 
-        logger.info(f"Sending the following prompt to the prompt target: {message_piece}")
+        logger.info(f"Sending the following prompt to the prompt target: {message_piece.converted_value}")
 
         # Construct request parameters for SDK
         body_parameters: dict[str, object] = {
@@ -141,19 +140,19 @@ class OpenAITTSTarget(OpenAITarget):
             body_parameters["speed"] = self._speed
 
         # Use unified error handler for consistent error handling
-        response = await self._handle_openai_request(
-            api_call=lambda: self._async_client.audio.speech.create(
-                model=body_parameters["model"],  # type: ignore[arg-type]
-                voice=body_parameters["voice"],  # type: ignore[arg-type]
-                input=body_parameters["input"],  # type: ignore[arg-type]
-                response_format=body_parameters.get("response_format"),  # type: ignore[arg-type]
-                speed=body_parameters.get("speed"),  # type: ignore[arg-type]
+        response = await self._handle_openai_request_async(
+            api_call=lambda: self._client.audio.speech.create(
+                model=str(body_parameters["model"]),
+                voice=str(body_parameters["voice"]),
+                input=str(body_parameters["input"]),
+                response_format=body_parameters.get("response_format"),
+                speed=body_parameters.get("speed"),
             ),
             request=message,
         )
         return [response]
 
-    async def _construct_message_from_response(self, response: Any, request: Any) -> Message:
+    async def _construct_message_from_response_async(self, response: Any, request: Any) -> Message:
         """
         Construct a Message from a TTS audio response.
 
@@ -172,7 +171,7 @@ class OpenAITTSTarget(OpenAITarget):
             category="prompt-memory-entries", data_type="audio_path", extension=self._response_format
         )
 
-        await audio_response.save_data(data=audio_bytes)
+        await audio_response.save_data_async(data=audio_bytes)
 
         return construct_response_from_request(
             request=request, response_text_pieces=[str(audio_response.value)], response_type="audio_path"

@@ -626,6 +626,11 @@ class Repository(Generic[T]):
 
         # Build field type lookup for conversions
         self._field_types: dict[str, FieldType] = {f.name: f.type for f in entity_spec.fields}
+        # Required columns — used by create() to detect server-filled fields the
+        # caller omitted (e.g. the Plan 1d partition key) that must be RETURNING'd.
+        self._required_fields: frozenset[str] = frozenset(
+            f.name for f in entity_spec.fields if f.required
+        )
 
         # Store computed field specs for evaluation
         self._computed_fields: list[ComputedFieldSpec] = entity_spec.computed_fields or []
@@ -712,17 +717,53 @@ class Repository(Generic[T]):
         values = list(db_data.values())
 
         table = quote_identifier(self.table_name)
-        sql = f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"
+        # auth Plan 1d: a REQUIRED column the caller omitted must be server-filled
+        # by a DB default or the INSERT would NOT-NULL-fail — the framework
+        # partition key (excluded from create input, filled from the bound session
+        # via `current_setting('dazzle.tenant_id')`) is the case that matters.
+        # RETURNING those keeps the response model complete with the server value.
+        # Gating on `required` keeps non-scoped creates byte-identical: a plain
+        # entity's required fields are all present in db_data (client- or
+        # auto_add-supplied), so `omitted` is empty and no RETURNING is appended.
+        omitted = [c for c in self._required_fields if c not in db_data]
+        returning = ""
+        if omitted:
+            returning = " RETURNING " + ", ".join(quote_identifier(c) for c in omitted)
+        sql = f"INSERT INTO {table} ({columns}) VALUES ({placeholders}){returning}"
 
         start = time.perf_counter()
         try:
             with self.db.connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(sql, values)  # nosemgrep
+                if omitted:
+                    returned = cursor.fetchone()
+                    if returned is not None:
+                        row = dict(returned)  # dict_row connection (cf. read())
+                        data = {
+                            **data,
+                            **{
+                                c: _db_to_python(row[c], self._field_types.get(c))
+                                for c in omitted
+                                if c in row
+                            },
+                        }
         except _INTEGRITY_ERRORS as exc:
             raise _translate_integrity_error(exc, self.table_name) from exc
         latency_ms = (time.perf_counter() - start) * 1000
         self._record_query("insert", latency_ms, rows=1)
+
+        # auth Plan 1d: a server-filled required column (the partition key) that
+        # we expected to RETURNING but didn't get back must NOT be masked by the
+        # model_construct fallback — that would yield a row with a missing/None
+        # tenant_id that looks valid. Fail loud instead.
+        missing_server_filled = [c for c in omitted if c not in data]
+        if missing_server_filled:
+            raise RuntimeError(
+                f"{self.table_name}: server-filled required column(s) "
+                f"{missing_server_filled} were not returned by INSERT … RETURNING; "
+                "refusing to construct an incomplete row"
+            )
 
         try:
             return self.model_class(**data)

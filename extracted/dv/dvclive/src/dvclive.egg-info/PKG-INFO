@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dvclive
-Version: 3.49.0
+Version: 3.49.1
 Summary: Experiments logger for ML projects.
 Author-email: Iterative <support@dvc.org>
 Maintainer-email: Iterative <support@dvc.org>
@@ -30,7 +30,7 @@ Requires-Dist: gto
 Requires-Dist: ruamel.yaml
 Requires-Dist: scmrepo<4,>=3
 Requires-Dist: psutil
-Requires-Dist: pynvml
+Requires-Dist: nvidia-ml-py
 Provides-Extra: image
 Requires-Dist: numpy; extra == "image"
 Requires-Dist: pillow; extra == "image"
@@ -45,7 +45,7 @@ Requires-Dist: matplotlib; extra == "markdown"
 Provides-Extra: tests
 Requires-Dist: pytest<9.0,>=7.2.0; extra == "tests"
 Requires-Dist: pytest-sugar<2.0,>=0.9.6; extra == "tests"
-Requires-Dist: pytest-cov<7.0,>=3.0.0; extra == "tests"
+Requires-Dist: pytest-cov<8.0,>=3.0.0; extra == "tests"
 Requires-Dist: pytest-mock<4.0,>=3.8.2; extra == "tests"
 Requires-Dist: dvclive[image,markdown,plots]; extra == "tests"
 Requires-Dist: ipython; extra == "tests"
@@ -76,7 +76,7 @@ Provides-Extra: all
 Requires-Dist: dvclive[fastai,huggingface,image,lgbm,lightning,markdown,mmcv,optuna,plots,tf,xgb]; extra == "all"
 Provides-Extra: dev
 Requires-Dist: dvclive[fastai,huggingface,image,lgbm,lightning,markdown,optuna,plots,tests,tf,xgb]; extra == "dev"
-Requires-Dist: mypy==1.17.1; extra == "dev"
+Requires-Dist: mypy==1.18.2; extra == "dev"
 Requires-Dist: types-PyYAML; extra == "dev"
 Dynamic: license-file
 

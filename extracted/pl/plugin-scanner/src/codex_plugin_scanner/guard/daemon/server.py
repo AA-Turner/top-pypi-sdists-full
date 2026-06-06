@@ -12,6 +12,7 @@ import mimetypes
 import os
 import platform
 import secrets
+import subprocess
 import threading
 import time
 import uuid
@@ -53,6 +54,13 @@ from ..approvals import (
     apply_approval_resolution,
     build_runtime_snapshot,
 )
+from ..cli.connect_flow import (
+    _build_sync_auth_context,
+    exchange_guard_authorization_code,
+    resolve_connect_url,
+    resolve_guard_oauth_client_config,
+    start_guard_browser_session,
+)
 from ..cli.install_commands import (
     apply_managed_install,
     build_harness_setup_plan,
@@ -77,27 +85,36 @@ from ..desktop_notifications import (
     ensure_desktop_notification_setup,
     macos_notification_guidance,
 )
-from ..local_supply_chain import build_local_supply_chain_posture
+from ..local_dashboard_session import LOCAL_DASHBOARD_SESSION_AUDIENCE, build_local_dashboard_session_token
+from ..local_supply_chain import (
+    build_local_supply_chain_posture,
+    resolve_package_firewall_entitlement_with_refresh,
+)
 from ..models import DECISION_SCOPE_VALUES, GUARD_ACTION_VALUES, PolicyDecision
 from ..package_firewall_entitlement import (
+    package_firewall_action_states,
+    package_firewall_available_actions,
     package_firewall_block_details,
-    resolve_package_firewall_entitlement,
 )
 from ..receipts.manager import build_receipt
 from ..runtime.runner import (
     GuardSyncAuthorizationExpiredError,
     GuardSyncNotAvailableError,
     GuardSyncNotConfiguredError,
-    sync_receipts,
+    _build_policy_bundle_decisions,
+    _daemon_version_supported,
+    _guard_device_metadata,
+    _policy_bundle_acknowledgement_payload,
+    _policy_bundle_is_version_downgrade,
+    _validated_policy_bundle_payload,
+    sync_local_guard_cloud_proof,
     sync_supply_chain_bundle,
 )
 from ..runtime.surface_server import GuardSurfaceRuntime
 from ..shims import (
-    ensure_package_shim_path_in_shell_profile,
-    install_package_shims,
+    activate_package_shims,
     package_shim_status,
     package_shim_supported_managers,
-    repair_package_shims,
     uninstall_package_shims,
 )
 from ..stable_digest import stable_digest_hex
@@ -122,7 +139,20 @@ from .manager import (
 _HEADLESS_CLOUD_SYNC_STATE_LOCK = threading.Lock()
 _HEADLESS_CLOUD_SYNC_IN_FLIGHT: set[str] = set()
 _AUDIT_REMEDIATION_ACTIONS = {"package_shim_path"}
-_SUPPLY_CHAIN_PACKAGE_ACTIONS = {"install", "repair", "test", "audit", "sync", "remove", "uninstall"}
+_SUPPLY_CHAIN_PACKAGE_ACTIONS = {
+    "install",
+    "repair",
+    "test",
+    "audit",
+    "sync",
+    "remove",
+    "uninstall",
+    "connect",
+    "open-shell",
+}
+_SUPPLY_CHAIN_CONNECT_POLL_AFTER_MS = 1_500
+_SUPPLY_CHAIN_CONNECT_WAIT_TIMEOUT_SECONDS = 180
+_LOCAL_DASHBOARD_SESSION_REFRESH_GRACE_SECONDS = 7 * 24 * 60 * 60
 
 
 class _HookPathValidationError(ValueError):
@@ -159,11 +189,27 @@ class _GuardDaemonHttpServer(ThreadingHTTPServer):
     start_monotonic: float
     active_stream_clients: int
     active_stream_clients_lock: threading.Lock
+    package_firewall_connect_state: dict[str, object] | None
+    package_firewall_connect_state_lock: threading.Lock
 
 
 _STATIC_DIR = Path(__file__).with_name("static")
 _INDEX_PATH = _STATIC_DIR / "index.html"
 _ENTRY_PATH = _STATIC_DIR / "assets" / "guard-dashboard.js"
+_DASHBOARD_CSP = "; ".join(
+    (
+        "default-src 'self'",
+        "script-src 'self'",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data:",
+        "font-src 'self' data:",
+        "connect-src 'self'",
+        "object-src 'none'",
+        "base-uri 'none'",
+        "frame-ancestors 'none'",
+        "form-action 'self'",
+    )
+)
 _ROOT_STATIC_FILES = {
     "/favicon.svg",
     "/favicon.ico",
@@ -357,11 +403,14 @@ def _run_headless_cloud_sync(
 ) -> None:
     recorded_at = _now()
     try:
-        sync_payload = sync_receipts(store)
+        sync_payload = sync_local_guard_cloud_proof(store)
         summary = {
             "status": "synced",
             "synced_at": sync_payload.get("synced_at"),
             "receipts_stored": sync_payload.get("receipts_stored", 0),
+            "runtime_session_id": sync_payload.get("runtime_session_id"),
+            "runtime_session_synced_at": sync_payload.get("runtime_session_synced_at"),
+            "runtime_sessions_visible": sync_payload.get("runtime_sessions_visible"),
         }
     except GuardSyncAuthorizationExpiredError as error:
         store.record_latest_guard_connect_sync_result(
@@ -448,6 +497,301 @@ def _maybe_queue_first_cloud_sync(*, store: GuardStore) -> dict[str, object] | N
     if str(latest_state.get("milestone") or "") != "first_sync_pending":
         return None
     return _queue_headless_cloud_sync(store=store)
+
+
+def _package_firewall_connect_url(store: GuardStore) -> str:
+    profile = store.get_cloud_sync_profile()
+    sync_url = profile.get("sync_url") if isinstance(profile, dict) else None
+    if isinstance(sync_url, str) and sync_url.strip():
+        parsed = urlparse(sync_url)
+        if parsed.scheme and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}/guard/connect"
+    return "https://hol.org/guard/connect"
+
+
+def _package_firewall_connect_needs_repair(store: GuardStore, reason: str) -> bool:
+    if reason == "guard_cloud_reconnect_required":
+        return True
+    oauth_health = store.get_oauth_local_credential_health()
+    return bool(oauth_health.get("configured"))
+
+
+def _package_firewall_connect_action_label(reason: str, *, repair_copy: bool = False) -> str:
+    if reason == "guard_cloud_reconnect_required" or repair_copy:
+        return "Repair Guard Cloud access"
+    return "Connect HOL Guard Cloud"
+
+
+def _copy_package_firewall_connect_state(server: _GuardDaemonHttpServer) -> dict[str, object] | None:
+    with server.package_firewall_connect_state_lock:
+        current = server.package_firewall_connect_state
+        return dict(current) if isinstance(current, dict) else None
+
+
+def _set_package_firewall_connect_state(server: _GuardDaemonHttpServer, state: dict[str, object] | None) -> None:
+    with server.package_firewall_connect_state_lock:
+        server.package_firewall_connect_state = dict(state) if isinstance(state, dict) else None
+
+
+def _default_package_firewall_connect_flow(
+    *,
+    store: GuardStore,
+    reason: str,
+) -> dict[str, object]:
+    connect_url = _package_firewall_connect_url(store)
+    repair_copy = _package_firewall_connect_needs_repair(store, reason)
+    action_label = _package_firewall_connect_action_label(reason, repair_copy=repair_copy)
+    if repair_copy:
+        title = "Repair Guard Cloud access to restore package firewall"
+        detail = (
+            "Guard already has package-firewall coverage for this machine, but the local cloud authorization is not "
+            "usable right now. Repair it here and Guard will unlock the firewall again."
+        )
+    else:
+        title = "Connect HOL Guard Cloud to enable package firewall"
+        detail = (
+            "Guard keeps this machine protected locally. Connect HOL Guard Cloud here so the daemon can verify "
+            "package-firewall access before it changes package-manager routing."
+        )
+    return {
+        "state": "idle",
+        "title": title,
+        "detail": detail,
+        "action_label": action_label,
+        "connect_url": connect_url,
+        "authorize_url": None,
+        "browser_opened": None,
+        "request_id": None,
+        "poll_after_ms": None,
+    }
+
+
+def _open_package_firewall_activation_shell() -> tuple[int, dict[str, object]]:
+    system_name = platform.system().lower()
+    if system_name != "darwin":
+        return (
+            501,
+            {
+                "error": "activation_shell_unsupported",
+                "message": "Opening a new shell from the dashboard is only supported on macOS right now.",
+            },
+        )
+    osascript_path = Path("/usr/bin/osascript")
+    if not osascript_path.exists():
+        return (
+            500,
+            {
+                "error": "activation_shell_unavailable",
+                "message": "macOS automation support is unavailable on this machine.",
+            },
+        )
+    command = [
+        str(osascript_path),
+        "-e",
+        'tell application "Terminal" to do script ""',
+        "-e",
+        'tell application "Terminal" to activate',
+    ]
+    try:
+        subprocess.Popen(
+            command,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except OSError as error:
+        return (
+            500,
+            {
+                "error": "activation_shell_launch_failed",
+                "message": f"Guard could not open a new shell automatically. {error}",
+            },
+        )
+    return (
+        200,
+        {
+            "status": "opened",
+            "message": "Opened a new Terminal window with a fresh shell session.",
+            "platform": "macos",
+        },
+    )
+
+
+def _resolve_package_firewall_connect_flow(
+    *,
+    server: _GuardDaemonHttpServer,
+    entitlement: dict[str, object],
+) -> dict[str, object] | None:
+    reason = str(entitlement.get("reason") or "").strip().lower()
+    if reason not in {"guard_cloud_connect_required", "guard_cloud_reconnect_required"}:
+        return None
+    current = _copy_package_firewall_connect_state(server)
+    if current is None:
+        return _default_package_firewall_connect_flow(store=server.store, reason=reason)
+    state = str(current.get("state") or "idle")
+    flow = {
+        **_default_package_firewall_connect_flow(store=server.store, reason=reason),
+        **current,
+    }
+    if state == "running":
+        flow["title"] = "Finish Guard Cloud sign-in in your browser"
+        browser_opened = flow.get("browser_opened") is True
+        flow["detail"] = (
+            "HOL Guard opened the secure sign-in flow in your browser. Finish sign-in there and this page will "
+            "unlock package-firewall controls automatically."
+            if browser_opened
+            else (
+                "HOL Guard is waiting for browser approval. Open the sign-in page below if your browser did "
+                "not open automatically."
+            )
+        )
+        flow["poll_after_ms"] = _SUPPLY_CHAIN_CONNECT_POLL_AFTER_MS
+        return flow
+    if state == "failed":
+        flow["title"] = "Guard Cloud sign-in needs attention"
+        flow["poll_after_ms"] = None
+        return flow
+    return flow
+
+
+def _finalize_daemon_guard_connect_payload(
+    *,
+    store: GuardStore,
+    connect_url: str,
+    payload: dict[str, object],
+    now: str,
+) -> dict[str, object]:
+    payload.pop("_guard_sync_auth_context", None)
+    normalized_connect_url, allowed_origin = resolve_connect_url(connect_url)
+    sync_url = f"{allowed_origin}/api/guard/receipts/sync"
+    dashboard_url = f"{allowed_origin}/guard"
+    payload.setdefault("connect_url", normalized_connect_url)
+    payload.setdefault("sync_url", sync_url)
+    payload.setdefault("dashboard_url", dashboard_url)
+    payload.setdefault("inbox_url", f"{dashboard_url}/inbox")
+    payload.setdefault("fleet_url", f"{dashboard_url}/fleet")
+    if str(payload.get("status") or "") != "connected":
+        return payload
+    store.clear_cloud_sync_state_for_reconnect()
+    latest_state = store.record_guard_connect_pairing_completed(
+        sync_url=sync_url,
+        allowed_origin=allowed_origin,
+        now=now,
+    )
+    payload.update(
+        {
+            "status": str(latest_state.get("status") or payload.get("status") or "connected"),
+            "milestone": str(latest_state.get("milestone") or "first_sync_pending"),
+            "completed_at": latest_state.get("completed_at") or now,
+            "latest_connect_state": latest_state,
+        }
+    )
+    oauth_health = store.get_oauth_local_credential_health()
+    if str(oauth_health.get("state") or "") == "degraded":
+        repair_message = (
+            "Guard Cloud authorization did not persist locally. "
+            "Start Guard Cloud connect again to repair local sign-in."
+        )
+        store.record_latest_guard_connect_sync_result(
+            status="retry_required",
+            milestone="first_sync_failed",
+            now=now,
+            reason=repair_message,
+        )
+        payload.update(
+            {
+                "status": "retry_required",
+                "milestone": "first_sync_failed",
+                "sync_succeeded": False,
+                "sync_error": repair_message,
+                "repair_message": repair_message,
+                "latest_connect_state": store.get_effective_guard_connect_state(now=now),
+            }
+        )
+        return payload
+    if store.get_cloud_sync_profile() is None:
+        payload["sync_attempted"] = False
+        return payload
+    payload["sync_attempted"] = True
+    try:
+        sync_payload = sync_local_guard_cloud_proof(store)
+    except GuardSyncNotAvailableError as error:
+        store.record_latest_guard_connect_sync_result(
+            status="connected",
+            milestone="sync_not_available",
+            now=now,
+            reason=str(error),
+        )
+        payload.update(
+            {
+                "milestone": "sync_not_available",
+                "sync_succeeded": False,
+                "sync_error": str(error),
+                "repair_message": str(error),
+                "latest_connect_state": store.get_latest_guard_connect_state(now=now),
+            }
+        )
+        return payload
+    except (GuardSyncAuthorizationExpiredError, GuardSyncNotConfiguredError) as error:
+        store.record_latest_guard_connect_sync_result(
+            status="retry_required",
+            milestone="first_sync_failed",
+            now=now,
+            reason=str(error),
+        )
+        payload.update(
+            {
+                "status": "retry_required",
+                "milestone": "first_sync_failed",
+                "sync_succeeded": False,
+                "sync_error": str(error),
+                "repair_message": "Run Guard Cloud connect again to refresh local authorization.",
+                "latest_connect_state": store.get_latest_guard_connect_state(now=now),
+            }
+        )
+        return payload
+    except RuntimeError as error:
+        repair_message = (
+            "Guard Cloud pairing finished, but the first proof sync is still pending. Local Guard will retry while "
+            "the daemon is running."
+        )
+        store.record_latest_guard_connect_sync_result(
+            status="connected",
+            milestone="first_sync_pending",
+            now=now,
+            reason=str(error),
+        )
+        payload.update(
+            {
+                "status": "connected",
+                "milestone": "first_sync_pending",
+                "sync_succeeded": False,
+                "sync_error": str(error),
+                "repair_message": repair_message,
+                "latest_connect_state": store.get_latest_guard_connect_state(now=now),
+            }
+        )
+        return payload
+    latest_state = store.record_latest_guard_connect_sync_success(
+        sync_payload=sync_payload,
+        now=str(sync_payload.get("synced_at") or now),
+    )
+    payload.update(
+        {
+            "status": "connected",
+            "milestone": "first_sync_succeeded",
+            "sync_succeeded": True,
+            "sync": sync_payload,
+            "last_sync_at": sync_payload.get("synced_at"),
+            "latest_connect_state": latest_state or store.get_latest_guard_connect_state(now=now),
+        }
+    )
+    try:
+        payload["supply_chain"] = sync_supply_chain_bundle(store)
+    except (GuardSyncNotConfiguredError, GuardSyncNotAvailableError, RuntimeError) as error:
+        payload["supply_chain_error"] = str(error)
+    return payload
 
 
 class _GuardDaemonHandler(BaseHTTPRequestHandler):
@@ -777,11 +1121,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                     extra_headers=self._cors_headers_for_request(),
                 )
             else:
-                self._write_json(
-                    {"error": "unauthorized"},
-                    status=401,
-                    extra_headers=self._cors_headers_for_request(),
-                )
+                self._write_unauthorized(extra_headers=self._cors_headers_for_request())
             return
         if parsed.path == "/v1/initialize":
             self._handle_initialize(payload)
@@ -1045,9 +1385,10 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                     },
                 },
                 "package_firewall_api": {
-                    "operations": ["status", "install", "repair", "test", "audit", "sync", "remove"],
+                    "operations": ["status", "connect", "install", "repair", "test", "audit", "sync", "remove"],
                     "routes": {
                         "audit": "/v1/supply-chain/audit",
+                        "connect": "/v1/supply-chain/package-shims/connect",
                         "install": "/v1/supply-chain/package-shims/install",
                         "remove": "/v1/supply-chain/package-shims/remove",
                         "repair": "/v1/supply-chain/package-shims/repair",
@@ -1250,8 +1591,79 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             self._write_json({"error": "unknown_harness"}, status=404)
             return
         policy_memory = self._policy_memory_payload(payload.get("policy_memory"))
-        if not policy_memory:
+        policy_bundle = self._policy_memory_payload(payload.get("policy_bundle") or payload.get("policyBundle"))
+        validated_policy_bundle: dict[str, object] | None = None
+        applied_bundle_hash: str | None = None
+        applied_bundle_version: str | None = None
+        if not policy_memory and not policy_bundle:
             self._write_json({"error": "missing_policy_memory"}, status=400)
+            return
+        if policy_bundle:
+            validated_policy_bundle, rejection_reason = _validated_policy_bundle_payload(policy_bundle)
+            existing_policy_bundle_payload = self.server.store.get_sync_payload("policy_bundle")  # type: ignore[attr-defined]
+            existing_policy_bundle = (
+                existing_policy_bundle_payload if isinstance(existing_policy_bundle_payload, dict) else None
+            )
+            if validated_policy_bundle is None:
+                self._write_json({"error": rejection_reason or "invalid_policy_bundle"}, status=400)
+                return
+            if not _daemon_version_supported(validated_policy_bundle):
+                self._write_json({"error": "unsupported_daemon_version"}, status=400)
+                return
+            if _policy_bundle_is_version_downgrade(existing_policy_bundle, validated_policy_bundle):
+                self._write_json({"error": "bundle_version_downgrade"}, status=400)
+                return
+            applied_at = _now()
+            self.server.store.set_sync_payload("policy_bundle", validated_policy_bundle, applied_at)  # type: ignore[attr-defined]
+            self.server.store.set_sync_payload("policy_bundle_last_good", validated_policy_bundle, applied_at)  # type: ignore[attr-defined]
+            device_id, device_name = _guard_device_metadata(self.server.store)  # type: ignore[attr-defined]
+            self.server.store.set_sync_payload(  # type: ignore[attr-defined]
+                "policy_bundle_ack",
+                _policy_bundle_acknowledgement_payload(
+                    device_id=device_id,
+                    device_name=device_name,
+                    policy_bundle=validated_policy_bundle,
+                    synced_at=applied_at,
+                ),
+                applied_at,
+            )
+            existing_remote_decisions = [
+                PolicyDecision(
+                    harness=str(item["harness"]),
+                    scope=item["scope"],  # type: ignore[arg-type]
+                    action=item["action"],  # type: ignore[arg-type]
+                    artifact_id=self._optional_string(item.get("artifact_id")),
+                    artifact_hash=self._optional_string(item.get("artifact_hash")),
+                    workspace=self._optional_string(item.get("workspace")),
+                    publisher=self._optional_string(item.get("publisher")),
+                    reason=self._optional_string(item.get("reason")),
+                    owner=self._optional_string(item.get("owner")),
+                    source=str(item.get("source") or "cloud-sync"),
+                    expires_at=self._optional_string(item.get("expires_at")),
+                )
+                for item in self.server.store.list_policy_decisions()  # type: ignore[attr-defined]
+                if item.get("source") in {"cloud-sync", "team-policy"}
+            ]
+            existing_remote_decisions.extend(
+                _build_policy_bundle_decisions(
+                    validated_policy_bundle,
+                    device_id=device_id,
+                    device_name=device_name,
+                )
+            )
+            self.server.store.replace_remote_policies(existing_remote_decisions, applied_at)  # type: ignore[attr-defined]
+            applied_bundle_hash = str(validated_policy_bundle["bundleHash"])
+            applied_bundle_version = str(validated_policy_bundle["bundleVersion"])
+        if not policy_memory:
+            self._write_json(
+                {
+                    "bundle_hash": applied_bundle_hash,
+                    "bundle_version": applied_bundle_version,
+                    "harness": adapter.harness,
+                    "operation": "policy_sync",
+                    "status": "completed",
+                }
+            )
             return
         scope = self._optional_string(policy_memory.get("scope"))
         action = self._optional_string(policy_memory.get("action"))
@@ -1314,6 +1726,8 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         )
         self._write_json(
             {
+                "bundle_hash": applied_bundle_hash,
+                "bundle_version": applied_bundle_version,
                 "harness": adapter.harness,
                 "operation": "policy_sync",
                 "receipt": receipt,
@@ -1336,9 +1750,13 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         entitlement = self._supply_chain_entitlement()
         if not bool(entitlement["allowed"]):
             status, error_code, message = package_firewall_block_details(entitlement)
+            current_status = package_shim_status(self._supply_chain_context(payload))
             self._write_json(
                 {
-                    "available_actions": ["status", "education", "cli_fallback"],
+                    "available_actions": package_firewall_available_actions(
+                        entitlement,
+                        has_installed_managers=bool(current_status.get("installed_managers")),
+                    ),
                     "entitlement": entitlement,
                     "error": error_code,
                     "message": message,
@@ -1354,9 +1772,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                 purpose="supply_chain_firewall",
                 approval_gate_input=approval_gate_input_from_mapping(payload),
             )
-            install_result = install_package_shims(context, managers=managers)
-            profile_result = ensure_package_shim_path_in_shell_profile(context)
-            status = package_shim_status(context)
+            activation_result = activate_package_shims(context, managers=managers)
         except ApprovalGateError as error:
             self._write_approval_gate_error(error)
             return
@@ -1365,10 +1781,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             return
         result = {
             "manager": manager,
-            "install": install_result,
-            "profile": profile_result,
-            "package_shims": status,
-            "restart_shell_required": True,
+            **activation_result,
         }
         receipt = self._record_headless_receipt(
             harness="package-firewall",
@@ -1393,12 +1806,17 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         status = package_shim_status(self._harness_context({}))
         self._write_json(
             {
-                "actions": self._supply_chain_action_states(entitlement),
+                "actions": package_firewall_action_states(
+                    entitlement,
+                    has_installed_managers=bool(status.get("installed_managers")),
+                ),
                 "cli_fallback": {
+                    "connect": "hol-guard connect",
                     "install": "hol-guard package-shims install --json",
                     "status": "hol-guard package-shims status --json",
                     "remove": "hol-guard package-shims uninstall --json",
                 },
+                "connect_flow": self._supply_chain_connect_flow(entitlement),
                 "entitlement": entitlement,
                 "operation": "status",
                 "status": "completed",
@@ -1408,13 +1826,25 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         )
 
     def _handle_supply_chain_package_firewall_action(self, action: str, payload: dict[str, object]) -> None:
+        if action == "connect":
+            self._handle_supply_chain_package_firewall_connect()
+            return
+        if action == "open-shell":
+            status, response = _open_package_firewall_activation_shell()
+            self._write_json(response, status=status)
+            return
         operation = "remove" if action == "uninstall" else action
         entitlement = self._supply_chain_entitlement()
-        if not bool(entitlement["allowed"]):
+        context = self._supply_chain_context(payload)
+        current_status = package_shim_status(context)
+        if operation not in {"repair", "remove"} and not bool(entitlement["allowed"]):
             status, error_code, message = package_firewall_block_details(entitlement)
             self._write_json(
                 {
-                    "available_actions": ["status", "education", "cli_fallback"],
+                    "available_actions": package_firewall_available_actions(
+                        entitlement,
+                        has_installed_managers=bool(current_status.get("installed_managers")),
+                    ),
                     "entitlement": entitlement,
                     "error": error_code,
                     "message": message,
@@ -1423,7 +1853,6 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                 status=status,
             )
             return
-        context = self._supply_chain_context(payload)
         managers, manager_error = self._supply_chain_managers(payload)
         if manager_error is not None:
             self._write_json({"error": manager_error, "operation": operation}, status=400)
@@ -1467,18 +1896,24 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         managers: tuple[str, ...] | None,
     ) -> dict[str, object]:
         if operation == "install":
-            return install_package_shims(context, managers=managers)
+            return activate_package_shims(context, managers=managers)
         if operation == "repair":
-            return repair_package_shims(context, managers=managers)
+            return activate_package_shims(context, managers=managers, repair=True)
         if operation == "remove":
             return uninstall_package_shims(context, managers=managers)
         if operation == "test":
             status = package_shim_status(context)
             installed = {str(manager) for manager in status.get("installed_managers", []) if isinstance(manager, str)}
+            protected = {str(manager) for manager in status.get("protected_managers", []) if isinstance(manager, str)}
             tested_managers = list(managers or tuple(sorted(installed)))
+            path_repair_required = [
+                manager for manager in tested_managers if manager in installed and manager not in protected
+            ]
             return {
-                "blocked_execution": all(manager in installed for manager in tested_managers),
+                "blocked_execution": bool(tested_managers) and all(manager in protected for manager in tested_managers),
+                "missing_managers": [manager for manager in tested_managers if manager not in installed],
                 "package_shims": status,
+                "path_repair_required": path_repair_required,
                 "tested_managers": tested_managers,
             }
         if operation == "audit":
@@ -1516,26 +1951,187 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         return managers, None
 
     def _supply_chain_entitlement(self) -> dict[str, object]:
-        return resolve_package_firewall_entitlement(self.server.store)  # type: ignore[attr-defined]
+        return resolve_package_firewall_entitlement_with_refresh(self.server.store)  # type: ignore[attr-defined]
 
-    @staticmethod
-    def _supply_chain_action_states(entitlement: dict[str, object]) -> dict[str, str]:
-        allowed = bool(entitlement.get("allowed"))
+    def _supply_chain_connect_flow(self, entitlement: dict[str, object]) -> dict[str, object] | None:
+        return _resolve_package_firewall_connect_flow(server=self.server, entitlement=entitlement)  # type: ignore[arg-type]
+
+    def _handle_supply_chain_package_firewall_connect(self) -> None:
+        entitlement = self._supply_chain_entitlement()
         reason = str(entitlement.get("reason") or "").strip().lower()
-        if allowed:
-            state = "available"
-        elif reason == "guard_cloud_reconnect_required":
-            state = "reconnect_required"
-        else:
-            state = "paid_required"
-        return {
-            "install": state,
-            "repair": state,
-            "test": state,
-            "audit": state,
-            "sync": state,
-            "remove": state,
+        if reason not in {"guard_cloud_connect_required", "guard_cloud_reconnect_required"}:
+            self._write_json(
+                {
+                    "error": "guard_cloud_connect_not_required",
+                    "entitlement": entitlement,
+                    "message": "Guard Cloud connect is not required for package firewall on this machine.",
+                },
+                status=409,
+            )
+            return
+        current = _copy_package_firewall_connect_state(self.server)  # type: ignore[arg-type]
+        if isinstance(current, dict) and str(current.get("state") or "") == "running":
+            self._write_json(current, status=202)
+            return
+        store = self.server.store  # type: ignore[attr-defined]
+        connect_url = _package_firewall_connect_url(store)
+        action_label = _package_firewall_connect_action_label(
+            reason,
+            repair_copy=_package_firewall_connect_needs_repair(store, reason),
+        )
+        try:
+            device = store.get_device_metadata()
+            session = start_guard_browser_session(
+                connect_url=connect_url,
+                machine_id=str(device["installation_id"]),
+                machine_label=str(device["device_label"]),
+            )
+            browser_opened = bool(webbrowser.open(session.authorize_url))
+        except Exception as error:
+            failure = {
+                **_default_package_firewall_connect_flow(store=store, reason=reason),
+                "state": "failed",
+                "detail": str(error),
+                "browser_opened": False,
+                "poll_after_ms": None,
+            }
+            _set_package_firewall_connect_state(self.server, failure)  # type: ignore[arg-type]
+            self._write_json(failure, status=500)
+            return
+
+        request_id = f"guard-connect-{uuid.uuid4().hex}"
+        running_state = {
+            **_default_package_firewall_connect_flow(store=store, reason=reason),
+            "state": "running",
+            "title": "Finish Guard Cloud sign-in in your browser",
+            "detail": (
+                "HOL Guard opened the secure sign-in flow in your browser. Finish sign-in there and this page will "
+                "unlock package-firewall controls automatically."
+                if browser_opened
+                else (
+                    "HOL Guard is waiting for browser approval. Open the sign-in page below if your browser did "
+                    "not open automatically."
+                )
+            ),
+            "action_label": action_label,
+            "authorize_url": session.authorize_url,
+            "browser_opened": browser_opened,
+            "request_id": request_id,
+            "poll_after_ms": _SUPPLY_CHAIN_CONNECT_POLL_AFTER_MS,
         }
+        _set_package_firewall_connect_state(self.server, running_state)  # type: ignore[arg-type]
+
+        def _complete_connect() -> None:
+            try:
+                _, allowed_origin = resolve_connect_url(connect_url)
+                oauth_client = resolve_guard_oauth_client_config(allowed_origin)
+                callback = session.wait_for_callback(_SUPPLY_CHAIN_CONNECT_WAIT_TIMEOUT_SECONDS)
+                token_result = exchange_guard_authorization_code(
+                    token_endpoint=oauth_client.token_endpoint,
+                    client_id=oauth_client.client_id,
+                    code=callback.code,
+                    redirect_uri=session.redirect_uri,
+                    code_verifier=session.pkce_verifier,
+                    dpop_key_material=session.dpop_key_material,
+                )
+                if token_result.refresh_token is None:
+                    raise RuntimeError("Guard OAuth token exchange failed: missing refresh token.")
+                timestamp = _now()
+                store.set_oauth_local_credentials(
+                    issuer=oauth_client.issuer,
+                    client_id=oauth_client.client_id,
+                    refresh_token=token_result.refresh_token,
+                    dpop_private_key_pem=session.dpop_key_material.private_key_pem,
+                    dpop_public_jwk=session.dpop_key_material.public_jwk,
+                    dpop_public_jwk_thumbprint=session.dpop_key_material.public_jwk_thumbprint,
+                    grant_id=token_result.grant_id,
+                    machine_id=token_result.machine_id,
+                    supply_chain_entitlement_expires_at=(
+                        str(token_result.supply_chain_entitlement.get("supply_chain_entitlement_expires_at"))
+                        if isinstance(token_result.supply_chain_entitlement, dict)
+                        and isinstance(
+                            token_result.supply_chain_entitlement.get("supply_chain_entitlement_expires_at"),
+                            str,
+                        )
+                        else None
+                    ),
+                    supply_chain_firewall=(
+                        bool(token_result.supply_chain_entitlement.get("supply_chain_firewall"))
+                        if isinstance(token_result.supply_chain_entitlement, dict)
+                        and isinstance(token_result.supply_chain_entitlement.get("supply_chain_firewall"), bool)
+                        else None
+                    ),
+                    supply_chain_plan_id=(
+                        str(token_result.supply_chain_entitlement.get("supply_chain_plan_id"))
+                        if isinstance(token_result.supply_chain_entitlement, dict)
+                        and isinstance(token_result.supply_chain_entitlement.get("supply_chain_plan_id"), str)
+                        else None
+                    ),
+                    workspace_id=token_result.workspace_id,
+                    runtime_id="hol-guard",
+                    runtime_label="HOL Guard CLI",
+                    now=timestamp,
+                )
+                payload = _finalize_daemon_guard_connect_payload(
+                    store=store,
+                    connect_url=connect_url,
+                    payload={
+                        "status": "connected",
+                        "connect_mode": "browser_oauth",
+                        "browser_opened": browser_opened,
+                        "authorize_url": session.authorize_url,
+                        "redirect_uri": session.redirect_uri,
+                        "grant_id": token_result.grant_id,
+                        "machine_id": token_result.machine_id,
+                        "workspace_id": token_result.workspace_id,
+                        "connect_url": connect_url,
+                        "sync_url": f"{allowed_origin}/api/guard/receipts/sync",
+                        "_guard_sync_auth_context": _build_sync_auth_context(
+                            access_token=token_result.access_token,
+                            dpop_key_material=session.dpop_key_material,
+                            sync_url=f"{allowed_origin}/api/guard/receipts/sync",
+                        ),
+                    },
+                    now=timestamp,
+                )
+                resolved_entitlement = resolve_package_firewall_entitlement_with_refresh(store)
+                resolved_reason = str(resolved_entitlement.get("reason") or "")
+                if bool(resolved_entitlement.get("allowed")) or resolved_reason == "paid_guard_cloud_required":
+                    _set_package_firewall_connect_state(self.server, None)  # type: ignore[arg-type]
+                    return
+                repair_message = str(
+                    payload.get("repair_message") or payload.get("sync_error") or "Guard Cloud connect did not finish."
+                )
+                _set_package_firewall_connect_state(  # type: ignore[arg-type]
+                    self.server,
+                    {
+                        **running_state,
+                        "state": "failed",
+                        "title": "Guard Cloud sign-in needs attention",
+                        "detail": repair_message,
+                        "poll_after_ms": None,
+                    },
+                )
+            except Exception as error:
+                _set_package_firewall_connect_state(  # type: ignore[arg-type]
+                    self.server,
+                    {
+                        **running_state,
+                        "state": "failed",
+                        "title": "Guard Cloud sign-in needs attention",
+                        "detail": str(error),
+                        "poll_after_ms": None,
+                    },
+                )
+            finally:
+                session.close()
+
+        threading.Thread(
+            target=_complete_connect,
+            daemon=True,
+            name="guard-package-firewall-connect",
+        ).start()
+        self._write_json(running_state, status=202)
 
     @staticmethod
     def _policy_memory_payload(value: object) -> dict[str, object]:
@@ -2098,7 +2694,9 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         except ValueError as error:
             self._write_json({"error": str(error)}, status=400)
             return
-        response["auth_token"] = self.server.auth_token  # type: ignore[attr-defined]
+        refreshed_session_token = self._refresh_dashboard_session_token(surface=surface)
+        if refreshed_session_token is not None:
+            response["dashboard_session_token"] = refreshed_session_token
         self._write_json(response)
 
     def _handle_client_attach(self, payload: dict[str, object]) -> None:
@@ -2470,7 +3068,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         path_parts = [part for part in path.split("/") if part]
         return self._tokens_match(token) or (
-            self._is_hosted_dashboard_api_path(path, path_parts)
+            self._path_supports_dashboard_session(path, path_parts)
             and self._dashboard_session_token_is_valid(payload=payload)
         )
 
@@ -2486,27 +3084,71 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         return any(self._dashboard_session_token_matches(candidate, payload=payload) for candidate in candidates)
 
     def _dashboard_session_token_matches(self, token: str, *, payload: dict[str, object] | None = None) -> bool:
-        if not token.startswith("gld1."):
-            return False
-        parts = token.split(".")
-        if len(parts) != 3:
-            return False
-        prefix, encoded_payload, signature = parts
-        if prefix != "gld1" or not encoded_payload or not signature:
-            return False
-        expected = _dashboard_session_signature(encoded_payload, self.server.auth_token)  # type: ignore[attr-defined]
-        if not secrets.compare_digest(signature, expected):
-            return False
-        claims = _decode_dashboard_session_payload(encoded_payload)
-        expires_at = claims.get("expires_at")
-        if not isinstance(expires_at, str):
-            return False
-        try:
-            if _parse_iso_timestamp(expires_at) <= time.time():
-                return False
-        except ValueError:
+        claims = self._dashboard_session_token_claims(token)
+        if claims is None:
             return False
         return self._dashboard_session_claims_authorize_request(claims, payload=payload)
+
+    def _dashboard_session_token_claims(
+        self,
+        token: str,
+        *,
+        allow_expired_within_seconds: float = 0.0,
+    ) -> dict[str, object] | None:
+        if not token.startswith("gld1."):
+            return None
+        parts = token.split(".")
+        if len(parts) != 3:
+            return None
+        prefix, encoded_payload, signature = parts
+        if prefix != "gld1" or not encoded_payload or not signature:
+            return None
+        expected = _dashboard_session_signature(encoded_payload, self.server.auth_token)  # type: ignore[attr-defined]
+        if not secrets.compare_digest(signature, expected):
+            return None
+        claims = _decode_dashboard_session_payload(encoded_payload)
+        if self._optional_string(claims.get("aud")) != LOCAL_DASHBOARD_SESSION_AUDIENCE:
+            return None
+        expires_at = claims.get("expires_at")
+        if not isinstance(expires_at, str):
+            return None
+        try:
+            expires_at_timestamp = _parse_iso_timestamp(expires_at)
+        except ValueError:
+            return None
+        if expires_at_timestamp + max(0.0, allow_expired_within_seconds) <= time.time():
+            return None
+        return claims
+
+    def _refresh_dashboard_session_token(self, *, surface: str) -> str | None:
+        if self._refreshable_dashboard_session_claims() is None:
+            return None
+        refreshed_surface = surface if surface in {"approval-center", "dashboard", "cloud-dashboard"} else "dashboard"
+        return build_local_dashboard_session_token(
+            auth_token=self.server.auth_token,  # type: ignore[attr-defined]
+            surface=refreshed_surface,
+        )
+
+    def _refreshable_dashboard_session_claims(self) -> dict[str, object] | None:
+        session_token = self.headers.get("X-Guard-Dashboard-Session")
+        authorization = self.headers.get("Authorization")
+        bearer_token = None
+        if isinstance(authorization, str) and authorization.lower().startswith("bearer "):
+            bearer_token = authorization[7:].strip()
+        candidates = [
+            candidate for candidate in (session_token, bearer_token) if isinstance(candidate, str) and candidate.strip()
+        ]
+        for candidate in candidates:
+            claims = self._dashboard_session_token_claims(
+                candidate,
+                allow_expired_within_seconds=_LOCAL_DASHBOARD_SESSION_REFRESH_GRACE_SECONDS,
+            )
+            if claims is None:
+                continue
+            surface = self._optional_string(claims.get("surface"))
+            if surface in {"approval-center", "dashboard", "cloud-dashboard"}:
+                return claims
+        return None
 
     def _dashboard_session_claims_authorize_request(
         self,
@@ -2514,13 +3156,16 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         *,
         payload: dict[str, object] | None,
     ) -> bool:
-        action_path = self._optional_string(claims.get("action_path"))
-        if action_path is None:
-            return True
+        surface = self._optional_string(claims.get("surface"))
         path = urlparse(self.path).path
         path_parts = [part for part in path.split("/") if part]
-        if path in {"/v1/capabilities", "/v1/harnesses", "/v1/inventory", "/v1/runtime"}:
-            return True
+        if surface in {"approval-center", "dashboard", "cloud-dashboard"}:
+            return self._path_supports_dashboard_session(path, path_parts)
+        action_path = self._optional_string(claims.get("action_path"))
+        if action_path is None:
+            return False
+        if self.command == "GET" and self._dashboard_session_scoped_read_path_is_allowed(claims, path):
+            return self._dashboard_session_scoped_nonce_matches_request(claims=claims, payload=payload)
         if (
             len(path_parts) == 3
             and path_parts[:2] == ["v1", "apps"]
@@ -2550,6 +3195,101 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                 supply_chain_action=supply_chain_action,
             )
         return False
+
+    def _dashboard_session_scoped_read_path_is_allowed(self, claims: dict[str, object], path: str) -> bool:
+        allowed_read_paths = claims.get("allowed_read_paths")
+        if not isinstance(allowed_read_paths, list):
+            return False
+        return path in {item for item in allowed_read_paths if isinstance(item, str)}
+
+    def _dashboard_session_scoped_nonce_matches_request(
+        self,
+        *,
+        claims: dict[str, object],
+        payload: dict[str, object] | None,
+    ) -> bool:
+        claim_nonce = self._optional_string(claims.get("nonce"))
+        if claim_nonce is None:
+            return True
+        request_nonce = self._optional_string(self.headers.get("X-Guard-Dashboard-Nonce"))
+        if request_nonce is None and payload is not None:
+            request_nonce = self._optional_string(payload.get("dashboard_session_nonce"))
+        return request_nonce == claim_nonce
+
+    def _local_surface_session_request_is_allowed(self, path: str, path_parts: list[str]) -> bool:
+        if path in {
+            "/v1/capabilities",
+            "/v1/sessions",
+            "/v1/runtime",
+            "/v1/harnesses",
+            "/v1/inventory",
+            "/v1/settings",
+            "/v1/settings/export",
+            "/v1/events",
+            "/v1/events/stream",
+            "/v1/requests",
+            "/v1/receipts",
+            "/v1/receipts/latest",
+            "/v1/policy",
+            "/v1/evidence",
+            "/v1/evidence/export",
+            "/v1/clients/attach",
+            "/v1/clients/heartbeat",
+            "/v1/sessions/start",
+            "/v1/operations/start",
+            "/v1/operations/block",
+            "/v1/requests/clear",
+            "/v1/settings/import",
+            "/v1/settings/reset",
+            "/v1/policy/clear",
+            "/v1/approval-gate/cooldown/revoke",
+            "/v1/approval-gate/totp/enroll",
+            "/v1/approval-gate/totp/verify",
+            "/v1/approval-gate/totp/disable",
+            "/v1/daemon/repair",
+            "/v1/notifications/setup",
+        }:
+            return True
+        if len(path_parts) >= 2 and path_parts[:2] == ["v1", "supply-chain"]:
+            return True
+        if self.command == "GET":
+            if len(path_parts) == 3 and path_parts[:2] in (
+                ["v1", "requests"],
+                ["v1", "receipts"],
+                ["v1", "operations"],
+            ):
+                return True
+            if len(path_parts) == 4 and path_parts[:2] == ["v1", "sessions"] and path_parts[3] == "resume":
+                return True
+        if self.command == "POST":
+            if (
+                len(path_parts) == 4
+                and path_parts[:2] == ["v1", "requests"]
+                and path_parts[3]
+                in {
+                    "approve",
+                    "block",
+                    "resume",
+                }
+            ):
+                return True
+            if (
+                len(path_parts) == 4
+                and path_parts[:2] == ["v1", "operations"]
+                and path_parts[3]
+                in {
+                    "items",
+                    "status",
+                }
+            ):
+                return True
+        return False
+
+    def _path_supports_dashboard_session(self, path: str, path_parts: list[str]) -> bool:
+        return self._is_hosted_dashboard_api_path(path, path_parts) or self._local_surface_session_request_is_allowed(
+            path,
+            path_parts,
+        )
 
     def _supply_chain_dashboard_claims_authorize(
         self,
@@ -2590,7 +3330,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             return "supply_chain_entitlement"
         if len(path_parts) == 4 and path_parts[:3] == ["v1", "supply-chain", "package-shims"]:
             action = "remove" if path_parts[3] == "uninstall" else path_parts[3]
-            if action in {"install", "repair", "test", "remove"}:
+            if action in {"install", "repair", "test", "remove", "open-shell"}:
                 return f"package_shims_{action}"
         if len(path_parts) == 3 and path_parts[:2] == ["v1", "supply-chain"] and path_parts[2] in {"audit", "sync"}:
             return f"package_shims_{path_parts[2]}"
@@ -2756,6 +3496,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             "approvals": pending_approvals,
             "pending_approvals": pending_approvals,
             "uptime_seconds": uptime,
+            "pid": os.getpid(),
             "tables": store.list_table_names(),
             "compatibility_version": GUARD_DAEMON_COMPATIBILITY_VERSION,
             "package_version": __version__,
@@ -3052,6 +3793,8 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             "/v1/notifications/setup",
         }:
             return True
+        if len(path_parts) >= 3 and path_parts[:2] == ["v1", "hooks"]:
+            return True
         if len(path_parts) == 3 and path_parts[:2] == ["v1", "apps"] and path_parts[2] in _HEADLESS_APP_ACTIONS:
             return True
         if len(path_parts) >= 2 and path_parts[:2] == ["v1", "supply-chain"]:
@@ -3151,6 +3894,8 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store, max-age=0")
         self.send_header("Pragma", "no-cache")
         self.send_header("Expires", "0")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         self.wfile.write(body)
 
@@ -3163,6 +3908,9 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "no-store, max-age=0")
             self.send_header("Pragma", "no-cache")
             self.send_header("Expires", "0")
+            self.send_header("Content-Security-Policy", _DASHBOARD_CSP)
+            self.send_header("Referrer-Policy", "no-referrer")
+            self.send_header("X-Content-Type-Options", "nosniff")
             self.end_headers()
             self.wfile.write(encoded)
             return
@@ -3222,6 +3970,8 @@ class GuardDaemonServer:
         self._server.start_monotonic = time.monotonic()
         self._server.active_stream_clients = 0
         self._server.active_stream_clients_lock = threading.Lock()
+        self._server.package_firewall_connect_state = None
+        self._server.package_firewall_connect_state_lock = threading.Lock()
         self.port = int(self._server.server_address[1])
         self._bundle_refresh_backoff_seconds = bundle_refresh_backoff_seconds
         self._bundle_refresh_interval_seconds = bundle_refresh_interval_seconds
@@ -3377,7 +4127,12 @@ def _approval_center_browser_url(approval_center_url: str, auth_token: str) -> s
     fragment_pairs = [
         (key, value) for key, value in parse_qsl(parsed.fragment, keep_blank_values=True) if key != "guard-token"
     ]
-    fragment_pairs.append(("guard-token", auth_token))
+    fragment_pairs.append(
+        (
+            "guard-token",
+            build_local_dashboard_session_token(auth_token=auth_token, surface="approval-center"),
+        )
+    )
     return urlunparse(parsed._replace(fragment=urlencode(fragment_pairs)))
 
 

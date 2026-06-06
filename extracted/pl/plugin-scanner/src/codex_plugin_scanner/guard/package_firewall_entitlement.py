@@ -7,6 +7,9 @@ from datetime import datetime, timedelta, timezone
 from .store import GuardStore
 
 PACKAGE_FIREWALL_PAID_TIERS = frozenset({"paid", "premium", "pro", "team", "enterprise", "guard_cloud", "guard-cloud"})
+PACKAGE_FIREWALL_CONNECT_CTA = (
+    "Connect HOL Guard Cloud to check package firewall access and run package firewall actions."
+)
 PACKAGE_FIREWALL_RECONNECT_CTA = "Reconnect HOL Guard Cloud to refresh package firewall access."
 PACKAGE_FIREWALL_UPGRADE_CTA = "Upgrade to HOL Guard Cloud to run package firewall actions."
 _OAUTH_ENTITLEMENT_FALLBACK_TTL = timedelta(days=30)
@@ -150,6 +153,40 @@ def _connect_state_entitlement(store: GuardStore, *, now: datetime) -> dict[str,
     }
 
 
+def _connect_required_entitlement(store: GuardStore) -> dict[str, object]:
+    oauth_payload = store.get_sync_payload("oauth_local_credentials")
+    tier = "unknown"
+    if isinstance(oauth_payload, dict):
+        plan_id = _optional_string(oauth_payload.get("supply_chain_plan_id"))
+        if plan_id is not None:
+            tier = plan_id.lower()
+    return {
+        "allowed": False,
+        "reason": "guard_cloud_connect_required",
+        "tier": tier,
+        "upgrade_cta": PACKAGE_FIREWALL_CONNECT_CTA,
+    }
+
+
+def _requires_guard_cloud_connect(
+    store: GuardStore,
+    *,
+    bundle: dict[str, object] | None,
+    oauth: dict[str, object] | None,
+) -> bool:
+    oauth_health = store.get_oauth_local_credential_health()
+    oauth_configured = bool(oauth_health.get("configured")) if isinstance(oauth_health, dict) else False
+    oauth_state = _optional_string(oauth_health.get("state")) if isinstance(oauth_health, dict) else None
+    cloud_profile = store.get_cloud_sync_profile()
+    if oauth_configured and oauth_state == "healthy":
+        return False
+    if cloud_profile is not None:
+        return False
+    if oauth_configured:
+        return True
+    return not (bundle is not None and bool(bundle.get("allowed")))
+
+
 def resolve_package_firewall_entitlement(
     store: GuardStore,
     *,
@@ -167,19 +204,63 @@ def resolve_package_firewall_entitlement(
         return oauth
     if connect_state is not None:
         return connect_state
+    if _requires_guard_cloud_connect(store, bundle=bundle, oauth=oauth):
+        return _connect_required_entitlement(store)
     if bundle is not None:
         return bundle
     if oauth is not None:
         return oauth
+    return _connect_required_entitlement(store)
+
+
+def package_firewall_action_states(
+    entitlement: dict[str, object],
+    *,
+    has_installed_managers: bool,
+) -> dict[str, str]:
+    allowed = bool(entitlement.get("allowed"))
+    reason = str(entitlement.get("reason") or "").strip().lower()
+    if allowed:
+        blocked_state = "available"
+    elif reason == "guard_cloud_connect_required":
+        blocked_state = "connect_required"
+    elif reason == "guard_cloud_reconnect_required":
+        blocked_state = "reconnect_required"
+    else:
+        blocked_state = "paid_required"
+    local_recovery_state = "available" if has_installed_managers else "disabled"
     return {
-        "allowed": False,
-        "reason": "paid_guard_cloud_required",
-        "tier": "free",
-        "upgrade_cta": PACKAGE_FIREWALL_UPGRADE_CTA,
+        "install": blocked_state,
+        "repair": local_recovery_state,
+        "test": blocked_state,
+        "audit": blocked_state,
+        "sync": blocked_state,
+        "remove": local_recovery_state,
     }
 
 
+def package_firewall_available_actions(
+    entitlement: dict[str, object],
+    *,
+    has_installed_managers: bool,
+) -> list[str]:
+    reason = str(entitlement.get("reason") or "").strip().lower()
+    actions = ["status"]
+    if reason in {"guard_cloud_connect_required", "guard_cloud_reconnect_required"}:
+        actions.append("connect")
+    if has_installed_managers:
+        actions.extend(["repair", "remove"])
+    actions.extend(["education", "cli_fallback"])
+    return actions
+
+
 def package_firewall_block_details(entitlement: dict[str, object]) -> tuple[int, str, str]:
+    if entitlement.get("reason") == "guard_cloud_connect_required":
+        return (
+            403,
+            "guard_cloud_connect_required",
+            "Connect HOL Guard Cloud on this machine before running package firewall actions.",
+        )
     if entitlement.get("reason") == "guard_cloud_reconnect_required":
         return (
             403,

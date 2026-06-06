@@ -19,9 +19,9 @@ class JobRequest:
     """JSON:API request envelope for updating a job.
 
     Attributes:
-        data (JobResource): JSON:API resource envelope for a job. The caller supplies `id` (the slug) on create.
-            Example: {'attributes': {'concurrency_policy': 'ALLOW', 'configuration': {'body': '{"scope":"all"}', 'headers':
-            [{'name': 'Authorization', 'value': 'Bearer s3cr3t'}], 'method': 'POST', 'success_status': '2xx', 'timeout': 30,
+        data (JobResource): JSON:API resource envelope for a job. The caller supplies `id` on create. Example:
+            {'attributes': {'concurrency_policy': 'ALLOW', 'configuration': {'body': '{"scope":"all"}', 'headers': [{'name':
+            'Authorization', 'value': 'Bearer s3cr3t'}], 'method': 'POST', 'success_status': '2xx', 'timeout': 30,
             'tls_verify': True, 'url': 'https://api.example.com/cache/warm'}, 'description': 'Warms the product cache every
             night at 02:00 UTC.', 'enabled': True, 'name': 'Nightly cache warm', 'schedule': '0 2 * * *', 'type': 'http'},
             'id': 'nightly-cache-warm', 'type': 'job'}.

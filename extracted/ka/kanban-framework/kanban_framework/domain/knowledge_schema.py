@@ -58,6 +58,8 @@ def ensure_schema(conn):
         conn.execute("ALTER TABLE entries ADD COLUMN biz_context TEXT DEFAULT NULL")
     if "effectiveness" not in cols:
         conn.execute("ALTER TABLE entries ADD COLUMN effectiveness TEXT DEFAULT NULL")
+    if "evidence" not in cols:
+        conn.execute("ALTER TABLE entries ADD COLUMN evidence TEXT DEFAULT NULL")
 
     # Rebuild FTS5 with content_segmented column
     has_content_seg = False
@@ -78,6 +80,38 @@ def ensure_schema(conn):
             "INSERT INTO entries_fts(rowid, title, content, content_segmented, code_example, tags) "
             "SELECT rowid, title, content, content_segmented, code_example, tags FROM entries"
         )
+
+    # Add indexes for common filter columns
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_status ON entries(status)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_biz_context ON entries(biz_context)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_status_biz ON entries(status, biz_context)")
+
+    # Version history table for tracking entry changes (#482)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS entry_versions (
+            version_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entry_id TEXT NOT NULL,
+            content TEXT NOT NULL,
+            code_example TEXT DEFAULT '',
+            tags TEXT DEFAULT '[]',
+            source TEXT DEFAULT '{}',
+            severity TEXT DEFAULT 'medium',
+            snapshot_at TEXT NOT NULL,
+            snapshot_reason TEXT DEFAULT 'upsert',
+            evidence TEXT DEFAULT NULL,
+            FOREIGN KEY (entry_id) REFERENCES entries(id)
+        )
+    """)
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_versions_entry_id ON entry_versions(entry_id)"
+    )
+    # Add evidence column to existing entry_versions tables
+    try:
+        ver_cols = {r[1] for r in conn.execute("PRAGMA table_info(entry_versions)")}
+        if "evidence" not in ver_cols:
+            conn.execute("ALTER TABLE entry_versions ADD COLUMN evidence TEXT DEFAULT NULL")
+    except Exception:
+        pass
 
     # Rebuild triggers (idempotent)
     conn.executescript("""

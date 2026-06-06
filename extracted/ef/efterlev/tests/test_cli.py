@@ -658,10 +658,14 @@ def test_init_rejects_unknown_llm_backend_with_clear_error_v0_1_158(
     tmp_path: pytest.TempPathFactory,
 ) -> None:
     """v0.1.158 / #363: the rejection message names all valid backends so the
-    user can correct the typo without re-reading docs. v0.1.211 added openai."""
+    user can correct the typo without re-reading docs. v0.1.211 added openai;
+    v0.1.216 added bedrock_openai."""
     result = runner.invoke(app, ["init", "--target", str(tmp_path), "--llm-backend=foo"])
     assert result.exit_code == 2
-    assert "must be 'anthropic', 'bedrock', 'claude_code', or 'openai'" in result.output
+    assert (
+        "must be 'anthropic', 'bedrock', 'claude_code', 'openai', or 'bedrock_openai'"
+        in result.output
+    )
 
 
 def test_init_rejects_region_with_claude_code_backend_v0_1_158(

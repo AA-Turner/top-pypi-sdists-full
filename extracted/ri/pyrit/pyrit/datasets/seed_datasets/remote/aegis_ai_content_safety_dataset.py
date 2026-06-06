@@ -9,7 +9,7 @@ from datasets import load_dataset
 from pyrit.datasets.seed_datasets.remote.remote_dataset_loader import (
     _RemoteDatasetLoader,
 )
-from pyrit.models import SeedDataset, SeedPrompt
+from pyrit.models import Modality, SeedDataset, SeedPrompt
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +60,11 @@ class _AegisContentSafetyDataset(_RemoteDatasetLoader):
         "Violence",
     ]
 
+    # Metadata
+    modalities: tuple[Modality, ...] = (Modality.TEXT,)
+    size: str = "huge"  # 19093 annotated human-LLM interactions
+    tags: frozenset[str] = frozenset({"default", "safety"})
+
     def __init__(
         self,
         *,
@@ -92,7 +97,7 @@ class _AegisContentSafetyDataset(_RemoteDatasetLoader):
                 ]
             ]
         ] = None,
-    ):
+    ) -> None:
         """
         Initialize the NVIDIA Aegis AI Content Safety Dataset loader.
 
@@ -120,7 +125,7 @@ class _AegisContentSafetyDataset(_RemoteDatasetLoader):
         """Return the dataset name."""
         return "aegis_content_safety"
 
-    async def fetch_dataset(self, *, cache: bool = True) -> SeedDataset:
+    async def fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
         """
         Fetch NVIDIA Aegis AI Content Safety dataset with optional filtering and return as SeedDataset.
 

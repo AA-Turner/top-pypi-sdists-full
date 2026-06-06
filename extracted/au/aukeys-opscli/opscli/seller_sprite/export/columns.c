@@ -1913,9 +1913,72 @@ static CYTHON_INLINE PyObject *__Pyx__GetModuleGlobalName(PyObject *name);
 /* RaiseUnexpectedTypeError.proto */
 static int __Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj);
 
+/* PyObjectVectorCallKwBuilder.proto */
+CYTHON_UNUSED static int __Pyx_VectorcallBuilder_AddArg_Check(PyObject *key, PyObject *value, PyObject *builder, PyObject **args, int n);
+#if CYTHON_VECTORCALL
+#if PY_VERSION_HEX >= 0x03090000
+#define __Pyx_Object_Vectorcall_CallFromBuilder PyObject_Vectorcall
+#else
+#define __Pyx_Object_Vectorcall_CallFromBuilder _PyObject_Vectorcall
+#endif
+#define __Pyx_MakeVectorcallBuilderKwds(n) PyTuple_New(n)
+static int __Pyx_VectorcallBuilder_AddArg(PyObject *key, PyObject *value, PyObject *builder, PyObject **args, int n);
+static int __Pyx_VectorcallBuilder_AddArgStr(const char *key, PyObject *value, PyObject *builder, PyObject **args, int n);
+#else
+#define __Pyx_Object_Vectorcall_CallFromBuilder __Pyx_PyObject_FastCallDict
+#define __Pyx_MakeVectorcallBuilderKwds(n) __Pyx_PyDict_NewPresized(n)
+#define __Pyx_VectorcallBuilder_AddArg(key, value, builder, args, n) PyDict_SetItem(builder, key, value)
+#define __Pyx_VectorcallBuilder_AddArgStr(key, value, builder, args, n) PyDict_SetItemString(builder, key, value)
+#endif
+
+/* dict_getitem_default.proto */
+static PyObject* __Pyx_PyDict_GetItemDefault(PyObject* d, PyObject* key, PyObject* default_value);
+
+/* PyObjectCall2Args.proto (used by CallUnboundCMethod1) */
+static CYTHON_INLINE PyObject* __Pyx_PyObject_Call2Args(PyObject* function, PyObject* arg1, PyObject* arg2);
+
+/* CallUnboundCMethod1.proto */
+CYTHON_UNUSED
+static PyObject* __Pyx__CallUnboundCMethod1(__Pyx_CachedCFunction* cfunc, PyObject* self, PyObject* arg);
+#if CYTHON_COMPILING_IN_CPYTHON
+static CYTHON_INLINE PyObject* __Pyx_CallUnboundCMethod1(__Pyx_CachedCFunction* cfunc, PyObject* self, PyObject* arg);
+#else
+#define __Pyx_CallUnboundCMethod1(cfunc, self, arg)  __Pyx__CallUnboundCMethod1(cfunc, self, arg)
+#endif
+
 /* JoinPyUnicode.export */
 static PyObject* __Pyx_PyUnicode_Join(PyObject** values, Py_ssize_t value_count, Py_ssize_t result_ulength,
                                       Py_UCS4 max_char);
+
+/* PyObjectCallNoArg.proto (used by pyfrozenset_new) */
+static CYTHON_INLINE PyObject* __Pyx_PyObject_CallNoArg(PyObject *func);
+
+/* pyfrozenset_new.proto (used by PySetContains) */
+static CYTHON_INLINE PyObject* __Pyx_PyFrozenSet_New(PyObject* it);
+
+/* PySetContains.proto */
+static CYTHON_INLINE int __Pyx_PySet_ContainsTF(PyObject* key, PyObject* set, int eq);
+
+/* ListAppend.proto */
+#if CYTHON_USE_PYLIST_INTERNALS && CYTHON_ASSUME_SAFE_MACROS
+static CYTHON_INLINE int __Pyx_PyList_Append(PyObject* list, PyObject* x) {
+    PyListObject* L = (PyListObject*) list;
+    Py_ssize_t len = Py_SIZE(list);
+    if (likely(L->allocated > len) & likely(len > (L->allocated >> 1))) {
+        Py_INCREF(x);
+        #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030d0000
+        L->ob_item[len] = x;
+        #else
+        PyList_SET_ITEM(list, len, x);
+        #endif
+        __Pyx_SET_SIZE(list, len + 1);
+        return 0;
+    }
+    return PyList_Append(list, x);
+}
+#else
+#define __Pyx_PyList_Append(L,x) PyList_Append(L,x)
+#endif
 
 /* ListCompAppend.proto */
 #if CYTHON_USE_PYLIST_INTERNALS && CYTHON_ASSUME_SAFE_MACROS
@@ -1938,19 +2001,21 @@ static CYTHON_INLINE int __Pyx_ListComp_Append(PyObject* list, PyObject* x) {
 #define __Pyx_ListComp_Append(L,x) PyList_Append(L,x)
 #endif
 
-/* dict_getitem_default.proto */
-static PyObject* __Pyx_PyDict_GetItemDefault(PyObject* d, PyObject* key, PyObject* default_value);
-
-/* PyObjectCall2Args.proto (used by CallUnboundCMethod1) */
-static CYTHON_INLINE PyObject* __Pyx_PyObject_Call2Args(PyObject* function, PyObject* arg1, PyObject* arg2);
-
-/* CallUnboundCMethod1.proto */
-CYTHON_UNUSED
-static PyObject* __Pyx__CallUnboundCMethod1(__Pyx_CachedCFunction* cfunc, PyObject* self, PyObject* arg);
-#if CYTHON_COMPILING_IN_CPYTHON
-static CYTHON_INLINE PyObject* __Pyx_CallUnboundCMethod1(__Pyx_CachedCFunction* cfunc, PyObject* self, PyObject* arg);
+/* PyObjectFormatSimple.proto */
+#if CYTHON_COMPILING_IN_PYPY
+    #define __Pyx_PyObject_FormatSimple(s, f) (\
+        likely(PyUnicode_CheckExact(s)) ? (Py_INCREF(s), s) :\
+        PyObject_Format(s, f))
+#elif CYTHON_USE_TYPE_SLOTS
+    #define __Pyx_PyObject_FormatSimple(s, f) (\
+        likely(PyUnicode_CheckExact(s)) ? (Py_INCREF(s), s) :\
+        likely(PyLong_CheckExact(s)) ? PyLong_Type.tp_repr(s) :\
+        likely(PyFloat_CheckExact(s)) ? PyFloat_Type.tp_repr(s) :\
+        PyObject_Format(s, f))
 #else
-#define __Pyx_CallUnboundCMethod1(cfunc, self, arg)  __Pyx__CallUnboundCMethod1(cfunc, self, arg)
+    #define __Pyx_PyObject_FormatSimple(s, f) (\
+        likely(PyUnicode_CheckExact(s)) ? (Py_INCREF(s), s) :\
+        PyObject_Format(s, f))
 #endif
 
 /* HasAttr.proto (used by ImportImpl) */
@@ -1978,24 +2043,6 @@ static PyObject* __Pyx_ImportFrom(PyObject* module, PyObject* name);
     (likely(PyDict_CheckExact(ns)) ? PyDict_SetItem(ns, name, value) : PyObject_SetItem(ns, name, value))
 #else
 #define __Pyx_SetNameInClass(ns, name, value)  PyObject_SetItem(ns, name, value)
-#endif
-
-/* PyObjectVectorCallKwBuilder.proto */
-CYTHON_UNUSED static int __Pyx_VectorcallBuilder_AddArg_Check(PyObject *key, PyObject *value, PyObject *builder, PyObject **args, int n);
-#if CYTHON_VECTORCALL
-#if PY_VERSION_HEX >= 0x03090000
-#define __Pyx_Object_Vectorcall_CallFromBuilder PyObject_Vectorcall
-#else
-#define __Pyx_Object_Vectorcall_CallFromBuilder _PyObject_Vectorcall
-#endif
-#define __Pyx_MakeVectorcallBuilderKwds(n) PyTuple_New(n)
-static int __Pyx_VectorcallBuilder_AddArg(PyObject *key, PyObject *value, PyObject *builder, PyObject **args, int n);
-static int __Pyx_VectorcallBuilder_AddArgStr(const char *key, PyObject *value, PyObject *builder, PyObject **args, int n);
-#else
-#define __Pyx_Object_Vectorcall_CallFromBuilder __Pyx_PyObject_FastCallDict
-#define __Pyx_MakeVectorcallBuilderKwds(n) __Pyx_PyDict_NewPresized(n)
-#define __Pyx_VectorcallBuilder_AddArg(key, value, builder, args, n) PyDict_SetItem(builder, key, value)
-#define __Pyx_VectorcallBuilder_AddArgStr(key, value, builder, args, n) PyDict_SetItemString(builder, key, value)
 #endif
 
 /* CalculateMetaclass.proto (used by Py3ClassCreate) */
@@ -2326,11 +2373,13 @@ int __pyx_module_is_main_opscli__seller_sprite__export__columns = 0;
 /* Implementation of "opscli.seller_sprite.export.columns" */
 /* #### Code section: global_var ### */
 /* #### Code section: string_decls ### */
-static const char __pyx_k__8[] = "\345\215\226\345\256\266\347\262\276\347\201\265\345\256\230\346\226\271\345\257\274\345\207\272\346\250\241\346\235\277\345\210\227\345\256\232\344\271\211\343\200\202";
+static const char __pyx_k__26[] = "\345\215\226\345\256\266\347\262\276\347\201\265\345\256\230\346\226\271\345\257\274\345\207\272\346\250\241\346\235\277\345\210\227\345\256\232\344\271\211\343\200\202";
 /* #### Code section: decls ### */
 static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_7columns_columns_for_scenario(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_scenario, PyObject *__pyx_v_site); /* proto */
 static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_7columns_2currency_label(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_site); /* proto */
-static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_7columns_4_product_columns(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_currency); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_7columns_4_product_columns(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_currency, int __pyx_v_swap_unit_columns, PyObject *__pyx_v_reviews_delta_source, PyObject *__pyx_v_percent_suffix_titles, PyObject *__pyx_v_seller_nation_source); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_7columns_6_columns_with_currency_titles(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_columns, PyObject *__pyx_v_currency, PyObject *__pyx_v_titles); /* proto */
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_7columns_8_market_research_columns(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_currency); /* proto */
 /* #### Code section: late_includes ### */
 /* #### Code section: module_state ### */
 /* SmallCodeConfig */
@@ -2356,9 +2405,9 @@ typedef struct {
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_pop;
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_values;
   __Pyx_CachedCFunction __pyx_umethod_PyUnicode_Type__upper;
-  PyObject *__pyx_tuple[119];
-  PyObject *__pyx_codeobj_tab[3];
-  PyObject *__pyx_string_tab[302];
+  PyObject *__pyx_tuple[167];
+  PyObject *__pyx_codeobj_tab[5];
+  PyObject *__pyx_string_tab[436];
 /* #### Code section: module_state_contents ### */
 /* CommonTypesMetaclass.module_state_decls */
 PyTypeObject *__pyx_CommonTypesMetaclassType;
@@ -2408,299 +2457,433 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_kp_u_3 __pyx_string_tab[6]
 #define __pyx_kp_u_3_2 __pyx_string_tab[7]
 #define __pyx_kp_u_3_ASIN __pyx_string_tab[8]
-#define __pyx_kp_u_7 __pyx_string_tab[9]
-#define __pyx_kp_u_A __pyx_string_tab[10]
-#define __pyx_kp_u_Amazon_s_Choice __pyx_string_tab[11]
-#define __pyx_kp_u_Best_Seller __pyx_string_tab[12]
-#define __pyx_kp_u_FBA_2 __pyx_string_tab[13]
-#define __pyx_kp_u_New_Release __pyx_string_tab[14]
-#define __pyx_kp_u_Note_that_Cython_is_deliberately __pyx_string_tab[15]
-#define __pyx_kp_u_Q_A __pyx_string_tab[16]
-#define __pyx_kp_u__10 __pyx_string_tab[17]
-#define __pyx_kp_u__2 __pyx_string_tab[18]
-#define __pyx_kp_u__3 __pyx_string_tab[19]
-#define __pyx_kp_u__4 __pyx_string_tab[20]
-#define __pyx_kp_u__41 __pyx_string_tab[21]
-#define __pyx_kp_u__43 __pyx_string_tab[22]
-#define __pyx_kp_u__45 __pyx_string_tab[23]
-#define __pyx_kp_u__47 __pyx_string_tab[24]
-#define __pyx_kp_u__5 __pyx_string_tab[25]
-#define __pyx_kp_u__6 __pyx_string_tab[26]
-#define __pyx_kp_u__7 __pyx_string_tab[27]
-#define __pyx_kp_u__81 __pyx_string_tab[28]
-#define __pyx_kp_u__9 __pyx_string_tab[29]
-#define __pyx_kp_u_adPosition_page __pyx_string_tab[30]
-#define __pyx_kp_u_adPosition_position __pyx_string_tab[31]
-#define __pyx_kp_u_adPosition_updatedTime __pyx_string_tab[32]
-#define __pyx_kp_u_add_note __pyx_string_tab[33]
-#define __pyx_kp_u_competitor_lookup __pyx_string_tab[34]
-#define __pyx_kp_u_keyword_miner __pyx_string_tab[35]
-#define __pyx_kp_u_keyword_reverse __pyx_string_tab[36]
-#define __pyx_kp_u_list_ExportColumn __pyx_string_tab[37]
-#define __pyx_kp_u_monopolyAsinDtos_0_asin __pyx_string_tab[38]
-#define __pyx_kp_u_monopolyAsinDtos_0_clickRate __pyx_string_tab[39]
-#define __pyx_kp_u_monopolyAsinDtos_0_conversionSha __pyx_string_tab[40]
-#define __pyx_kp_u_monopolyAsinDtos_1_asin __pyx_string_tab[41]
-#define __pyx_kp_u_monopolyAsinDtos_1_clickRate __pyx_string_tab[42]
-#define __pyx_kp_u_monopolyAsinDtos_1_conversionSha __pyx_string_tab[43]
-#define __pyx_kp_u_monopolyAsinDtos_2_asin __pyx_string_tab[44]
-#define __pyx_kp_u_monopolyAsinDtos_2_clickRate __pyx_string_tab[45]
-#define __pyx_kp_u_monopolyAsinDtos_2_conversionSha __pyx_string_tab[46]
-#define __pyx_kp_u_opscli_seller_sprite_export_colu_2 __pyx_string_tab[47]
-#define __pyx_kp_u_prime __pyx_string_tab[48]
-#define __pyx_kp_u_product_research __pyx_string_tab[49]
-#define __pyx_kp_u_rankPosition_page __pyx_string_tab[50]
-#define __pyx_kp_u_rankPosition_position __pyx_string_tab[51]
-#define __pyx_kp_u_rankPosition_updatedTime __pyx_string_tab[52]
-#define __pyx_kp_u_str_None __pyx_string_tab[53]
-#define __pyx_kp_u_subcategories_0_label __pyx_string_tab[54]
-#define __pyx_kp_u_subcategories_0_rank __pyx_string_tab[55]
-#define __pyx_n_u_ __pyx_string_tab[56]
-#define __pyx_n_u_7_2 __pyx_string_tab[57]
-#define __pyx_n_u_ABA __pyx_string_tab[58]
-#define __pyx_n_u_ABA_2 __pyx_string_tab[59]
-#define __pyx_n_u_AC __pyx_string_tab[60]
-#define __pyx_n_u_AC_2 __pyx_string_tab[61]
-#define __pyx_n_u_ASIN __pyx_string_tab[62]
-#define __pyx_n_u_ASIN_2 __pyx_string_tab[63]
-#define __pyx_n_u_ASIN_3 __pyx_string_tab[64]
-#define __pyx_n_u_BSR __pyx_string_tab[65]
-#define __pyx_n_u_BSR_2 __pyx_string_tab[66]
-#define __pyx_n_u_BSR_3 __pyx_string_tab[67]
-#define __pyx_n_u_BSR_4 __pyx_string_tab[68]
-#define __pyx_n_u_BuyBox __pyx_string_tab[69]
-#define __pyx_n_u_BuyBox_2 __pyx_string_tab[70]
-#define __pyx_n_u_Coupon __pyx_string_tab[71]
-#define __pyx_n_u_DELIVERY_PRICE __pyx_string_tab[72]
-#define __pyx_n_u_ExportColumn __pyx_string_tab[73]
-#define __pyx_n_u_FBA __pyx_string_tab[74]
-#define __pyx_n_u_JP __pyx_string_tab[75]
-#define __pyx_n_u_KEYWORD_MINER_COLUMNS __pyx_string_tab[76]
-#define __pyx_n_u_KEYWORD_REVERSE_COLUMNS __pyx_string_tab[77]
-#define __pyx_n_u_LQS __pyx_string_tab[78]
-#define __pyx_n_u_PPC __pyx_string_tab[79]
-#define __pyx_n_u_PPC_2 __pyx_string_tab[80]
-#define __pyx_n_u_PRICE __pyx_string_tab[81]
-#define __pyx_n_u_PRIME_PRICE __pyx_string_tab[82]
-#define __pyx_n_u_PRODUCT_COLUMNS_COMMON __pyx_string_tab[83]
-#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[84]
-#define __pyx_n_u_SKU __pyx_string_tab[85]
-#define __pyx_n_u_SP __pyx_string_tab[86]
-#define __pyx_n_u_SPR __pyx_string_tab[87]
-#define __pyx_n_u_SUB_TOTAL_AMOUNT __pyx_string_tab[88]
-#define __pyx_n_u_TOTAL_AMOUNT __pyx_string_tab[89]
-#define __pyx_n_u__11 __pyx_string_tab[90]
-#define __pyx_n_u__12 __pyx_string_tab[91]
-#define __pyx_n_u__13 __pyx_string_tab[92]
-#define __pyx_n_u__14 __pyx_string_tab[93]
-#define __pyx_n_u__15 __pyx_string_tab[94]
-#define __pyx_n_u__16 __pyx_string_tab[95]
-#define __pyx_n_u__17 __pyx_string_tab[96]
-#define __pyx_n_u__18 __pyx_string_tab[97]
-#define __pyx_n_u__19 __pyx_string_tab[98]
-#define __pyx_n_u__20 __pyx_string_tab[99]
-#define __pyx_n_u__21 __pyx_string_tab[100]
-#define __pyx_n_u__22 __pyx_string_tab[101]
-#define __pyx_n_u__23 __pyx_string_tab[102]
-#define __pyx_n_u__24 __pyx_string_tab[103]
-#define __pyx_n_u__25 __pyx_string_tab[104]
-#define __pyx_n_u__26 __pyx_string_tab[105]
-#define __pyx_n_u__27 __pyx_string_tab[106]
-#define __pyx_n_u__28 __pyx_string_tab[107]
-#define __pyx_n_u__29 __pyx_string_tab[108]
-#define __pyx_n_u__30 __pyx_string_tab[109]
-#define __pyx_n_u__31 __pyx_string_tab[110]
-#define __pyx_n_u__32 __pyx_string_tab[111]
-#define __pyx_n_u__33 __pyx_string_tab[112]
-#define __pyx_n_u__34 __pyx_string_tab[113]
-#define __pyx_n_u__35 __pyx_string_tab[114]
-#define __pyx_n_u__36 __pyx_string_tab[115]
-#define __pyx_n_u__37 __pyx_string_tab[116]
-#define __pyx_n_u__38 __pyx_string_tab[117]
-#define __pyx_n_u__39 __pyx_string_tab[118]
-#define __pyx_n_u__40 __pyx_string_tab[119]
-#define __pyx_n_u__42 __pyx_string_tab[120]
-#define __pyx_n_u__44 __pyx_string_tab[121]
-#define __pyx_n_u__46 __pyx_string_tab[122]
-#define __pyx_n_u__48 __pyx_string_tab[123]
-#define __pyx_n_u__49 __pyx_string_tab[124]
-#define __pyx_n_u__50 __pyx_string_tab[125]
-#define __pyx_n_u__51 __pyx_string_tab[126]
-#define __pyx_n_u__52 __pyx_string_tab[127]
-#define __pyx_n_u__53 __pyx_string_tab[128]
-#define __pyx_n_u__54 __pyx_string_tab[129]
-#define __pyx_n_u__55 __pyx_string_tab[130]
-#define __pyx_n_u__56 __pyx_string_tab[131]
-#define __pyx_n_u__57 __pyx_string_tab[132]
-#define __pyx_n_u__58 __pyx_string_tab[133]
-#define __pyx_n_u__59 __pyx_string_tab[134]
-#define __pyx_n_u__60 __pyx_string_tab[135]
-#define __pyx_n_u__61 __pyx_string_tab[136]
-#define __pyx_n_u__62 __pyx_string_tab[137]
-#define __pyx_n_u__63 __pyx_string_tab[138]
-#define __pyx_n_u__64 __pyx_string_tab[139]
-#define __pyx_n_u__65 __pyx_string_tab[140]
-#define __pyx_n_u__66 __pyx_string_tab[141]
-#define __pyx_n_u__67 __pyx_string_tab[142]
-#define __pyx_n_u__68 __pyx_string_tab[143]
-#define __pyx_n_u__69 __pyx_string_tab[144]
-#define __pyx_n_u__70 __pyx_string_tab[145]
-#define __pyx_n_u__71 __pyx_string_tab[146]
-#define __pyx_n_u__72 __pyx_string_tab[147]
-#define __pyx_n_u__73 __pyx_string_tab[148]
-#define __pyx_n_u__74 __pyx_string_tab[149]
-#define __pyx_n_u__75 __pyx_string_tab[150]
-#define __pyx_n_u__76 __pyx_string_tab[151]
-#define __pyx_n_u__77 __pyx_string_tab[152]
-#define __pyx_n_u__78 __pyx_string_tab[153]
-#define __pyx_n_u__79 __pyx_string_tab[154]
-#define __pyx_n_u__80 __pyx_string_tab[155]
-#define __pyx_n_u_adProducts __pyx_string_tab[156]
-#define __pyx_n_u_adRatio __pyx_string_tab[157]
-#define __pyx_n_u_amazonChoice __pyx_string_tab[158]
-#define __pyx_n_u_amazonChoiceKeyword __pyx_string_tab[159]
-#define __pyx_n_u_amazonProductUrl __pyx_string_tab[160]
-#define __pyx_n_u_amazonSellerUrl __pyx_string_tab[161]
-#define __pyx_n_u_amzUnit __pyx_string_tab[162]
-#define __pyx_n_u_annotations __pyx_string_tab[163]
-#define __pyx_n_u_asin __pyx_string_tab[164]
-#define __pyx_n_u_asinList __pyx_string_tab[165]
-#define __pyx_n_u_asinUrl __pyx_string_tab[166]
-#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[167]
-#define __pyx_n_u_availableDate __pyx_string_tab[168]
-#define __pyx_n_u_availableDays __pyx_string_tab[169]
-#define __pyx_n_u_avgPrice __pyx_string_tab[170]
-#define __pyx_n_u_avgRating __pyx_string_tab[171]
-#define __pyx_n_u_avgReviews __pyx_string_tab[172]
-#define __pyx_n_u_badgeFlag __pyx_string_tab[173]
-#define __pyx_n_u_badges __pyx_string_tab[174]
-#define __pyx_n_u_bestSeller __pyx_string_tab[175]
-#define __pyx_n_u_bid __pyx_string_tab[176]
-#define __pyx_n_u_bidMin __pyx_string_tab[177]
-#define __pyx_n_u_bidRange __pyx_string_tab[178]
-#define __pyx_n_u_booleanY __pyx_string_tab[179]
-#define __pyx_n_u_brand __pyx_string_tab[180]
-#define __pyx_n_u_brandUrl __pyx_string_tab[181]
-#define __pyx_n_u_bsrRank __pyx_string_tab[182]
-#define __pyx_n_u_bsrRankCr __pyx_string_tab[183]
-#define __pyx_n_u_bsrRankCv __pyx_string_tab[184]
-#define __pyx_n_u_calculatedWeeklySearches __pyx_string_tab[185]
-#define __pyx_n_u_category1Name __pyx_string_tab[186]
-#define __pyx_n_u_categoryName __pyx_string_tab[187]
-#define __pyx_n_u_clicks __pyx_string_tab[188]
-#define __pyx_n_u_cline_in_traceback __pyx_string_tab[189]
-#define __pyx_n_u_column __pyx_string_tab[190]
-#define __pyx_n_u_columns_for_scenario __pyx_string_tab[191]
-#define __pyx_n_u_conversionKeywordTypes __pyx_string_tab[192]
-#define __pyx_n_u_coupon __pyx_string_tab[193]
-#define __pyx_n_u_cprExact __pyx_string_tab[194]
-#define __pyx_n_u_currency __pyx_string_tab[195]
-#define __pyx_n_u_currency_label __pyx_string_tab[196]
-#define __pyx_n_u_cvsShareRate __pyx_string_tab[197]
-#define __pyx_n_u_dataclass __pyx_string_tab[198]
-#define __pyx_n_u_dataclasses __pyx_string_tab[199]
-#define __pyx_n_u_deliveryPrice __pyx_string_tab[200]
-#define __pyx_n_u_departments __pyx_string_tab[201]
-#define __pyx_n_u_departmentsJoin __pyx_string_tab[202]
-#define __pyx_n_u_dimensions __pyx_string_tab[203]
-#define __pyx_n_u_dimensionsTag __pyx_string_tab[204]
-#define __pyx_n_u_doc __pyx_string_tab[205]
-#define __pyx_n_u_ebc __pyx_string_tab[206]
-#define __pyx_n_u_emptyIfNegative __pyx_string_tab[207]
-#define __pyx_n_u_fallback __pyx_string_tab[208]
-#define __pyx_n_u_fba __pyx_string_tab[209]
-#define __pyx_n_u_frozen __pyx_string_tab[210]
-#define __pyx_n_u_fulfillment __pyx_string_tab[211]
-#define __pyx_n_u_func __pyx_string_tab[212]
-#define __pyx_n_u_get __pyx_string_tab[213]
-#define __pyx_n_u_gkDatas __pyx_string_tab[214]
-#define __pyx_n_u_imageUrl __pyx_string_tab[215]
-#define __pyx_n_u_impressions __pyx_string_tab[216]
-#define __pyx_n_u_is_coroutine __pyx_string_tab[217]
-#define __pyx_n_u_items __pyx_string_tab[218]
-#define __pyx_n_u_jsonObjectLines __pyx_string_tab[219]
-#define __pyx_n_u_keyword __pyx_string_tab[220]
-#define __pyx_n_u_keywordCn __pyx_string_tab[221]
-#define __pyx_n_u_keywords __pyx_string_tab[222]
-#define __pyx_n_u_latest7daysAds __pyx_string_tab[223]
-#define __pyx_n_u_listJoin __pyx_string_tab[224]
-#define __pyx_n_u_lqs __pyx_string_tab[225]
-#define __pyx_n_u_main __pyx_string_tab[226]
-#define __pyx_n_u_metaclass __pyx_string_tab[227]
-#define __pyx_n_u_module __pyx_string_tab[228]
-#define __pyx_n_u_monopolyClickRate __pyx_string_tab[229]
-#define __pyx_n_u_name __pyx_string_tab[230]
-#define __pyx_n_u_naturalRatio __pyx_string_tab[231]
-#define __pyx_n_u_newRelease __pyx_string_tab[232]
-#define __pyx_n_u_nodeLabelPath __pyx_string_tab[233]
-#define __pyx_n_u_opscli_seller_sprite_export_colu __pyx_string_tab[234]
-#define __pyx_n_u_overviews __pyx_string_tab[235]
-#define __pyx_n_u_parent __pyx_string_tab[236]
-#define __pyx_n_u_pkgDimensionType __pyx_string_tab[237]
-#define __pyx_n_u_pkgDimensions __pyx_string_tab[238]
-#define __pyx_n_u_pkgDimensionsTag __pyx_string_tab[239]
-#define __pyx_n_u_pkgWeight __pyx_string_tab[240]
-#define __pyx_n_u_pkgWeightTag __pyx_string_tab[241]
-#define __pyx_n_u_pop __pyx_string_tab[242]
-#define __pyx_n_u_prepare __pyx_string_tab[243]
-#define __pyx_n_u_price __pyx_string_tab[244]
-#define __pyx_n_u_primeExclusivePrice __pyx_string_tab[245]
-#define __pyx_n_u_product_columns __pyx_string_tab[246]
-#define __pyx_n_u_products __pyx_string_tab[247]
-#define __pyx_n_u_profit __pyx_string_tab[248]
-#define __pyx_n_u_purchaseRate __pyx_string_tab[249]
-#define __pyx_n_u_purchases __pyx_string_tab[250]
-#define __pyx_n_u_qualname __pyx_string_tab[251]
-#define __pyx_n_u_questions __pyx_string_tab[252]
-#define __pyx_n_u_rating __pyx_string_tab[253]
-#define __pyx_n_u_ratingDelta __pyx_string_tab[254]
-#define __pyx_n_u_relevancy __pyx_string_tab[255]
-#define __pyx_n_u_replacements __pyx_string_tab[256]
-#define __pyx_n_u_return __pyx_string_tab[257]
-#define __pyx_n_u_reviews __pyx_string_tab[258]
-#define __pyx_n_u_reviewsDelta __pyx_string_tab[259]
-#define __pyx_n_u_reviewsRate __pyx_string_tab[260]
-#define __pyx_n_u_scenario __pyx_string_tab[261]
-#define __pyx_n_u_searchRank __pyx_string_tab[262]
-#define __pyx_n_u_searchWeeklyRank __pyx_string_tab[263]
-#define __pyx_n_u_searches __pyx_string_tab[264]
-#define __pyx_n_u_searchesRank __pyx_string_tab[265]
-#define __pyx_n_u_sellerDto __pyx_string_tab[266]
-#define __pyx_n_u_sellerId __pyx_string_tab[267]
-#define __pyx_n_u_sellerName __pyx_string_tab[268]
-#define __pyx_n_u_sellerNation __pyx_string_tab[269]
-#define __pyx_n_u_sellerType __pyx_string_tab[270]
-#define __pyx_n_u_sellers __pyx_string_tab[271]
-#define __pyx_n_u_set_name __pyx_string_tab[272]
-#define __pyx_n_u_setdefault __pyx_string_tab[273]
-#define __pyx_n_u_site __pyx_string_tab[274]
-#define __pyx_n_u_sku __pyx_string_tab[275]
-#define __pyx_n_u_source __pyx_string_tab[276]
-#define __pyx_n_u_spr __pyx_string_tab[277]
-#define __pyx_n_u_str __pyx_string_tab[278]
-#define __pyx_n_u_subTotalAmount __pyx_string_tab[279]
-#define __pyx_n_u_supplyDemandRatio __pyx_string_tab[280]
-#define __pyx_n_u_test __pyx_string_tab[281]
-#define __pyx_n_u_title __pyx_string_tab[282]
-#define __pyx_n_u_titleDensity __pyx_string_tab[283]
-#define __pyx_n_u_titleDensityExact __pyx_string_tab[284]
-#define __pyx_n_u_top3ConversionRate __pyx_string_tab[285]
-#define __pyx_n_u_totalAmount __pyx_string_tab[286]
-#define __pyx_n_u_totalUnits __pyx_string_tab[287]
-#define __pyx_n_u_totalUnitsGrowth __pyx_string_tab[288]
-#define __pyx_n_u_trafficKeywordTypes __pyx_string_tab[289]
-#define __pyx_n_u_trafficPercentage __pyx_string_tab[290]
-#define __pyx_n_u_transform __pyx_string_tab[291]
-#define __pyx_n_u_upper __pyx_string_tab[292]
-#define __pyx_n_u_values __pyx_string_tab[293]
-#define __pyx_n_u_variations __pyx_string_tab[294]
-#define __pyx_n_u_video __pyx_string_tab[295]
-#define __pyx_n_u_weight __pyx_string_tab[296]
-#define __pyx_n_u_weightTag __pyx_string_tab[297]
-#define __pyx_n_u_yen __pyx_string_tab[298]
-#define __pyx_kp_b_iso88591_7_fCs_A __pyx_string_tab[299]
-#define __pyx_kp_b_iso88591_ha_y_1_q_y_1_q_y_q_aq_1 __pyx_string_tab[300]
-#define __pyx_kp_b_iso88591_xq_HA_V1_a_7_ha_1_A_QfHF_6_RXXc __pyx_string_tab[301]
+#define __pyx_kp_u_4 __pyx_string_tab[9]
+#define __pyx_kp_u_7 __pyx_string_tab[10]
+#define __pyx_kp_u_A __pyx_string_tab[11]
+#define __pyx_kp_u_A_2 __pyx_string_tab[12]
+#define __pyx_kp_u_Amazon_s_Choice __pyx_string_tab[13]
+#define __pyx_kp_u_Best_Seller __pyx_string_tab[14]
+#define __pyx_kp_u_C __pyx_string_tab[15]
+#define __pyx_kp_u_FBA_2 __pyx_string_tab[16]
+#define __pyx_kp_u_Listing __pyx_string_tab[17]
+#define __pyx_kp_u_MX_2 __pyx_string_tab[18]
+#define __pyx_kp_u_New_Release __pyx_string_tab[19]
+#define __pyx_kp_u_Note_that_Cython_is_deliberately __pyx_string_tab[20]
+#define __pyx_kp_u_Q_A __pyx_string_tab[21]
+#define __pyx_kp_u__11 __pyx_string_tab[22]
+#define __pyx_kp_u__12 __pyx_string_tab[23]
+#define __pyx_kp_u__123 __pyx_string_tab[24]
+#define __pyx_kp_u__13 __pyx_string_tab[25]
+#define __pyx_kp_u__14 __pyx_string_tab[26]
+#define __pyx_kp_u__15 __pyx_string_tab[27]
+#define __pyx_kp_u__16 __pyx_string_tab[28]
+#define __pyx_kp_u__21 __pyx_string_tab[29]
+#define __pyx_kp_u__22 __pyx_string_tab[30]
+#define __pyx_kp_u__23 __pyx_string_tab[31]
+#define __pyx_kp_u__24 __pyx_string_tab[32]
+#define __pyx_kp_u__25 __pyx_string_tab[33]
+#define __pyx_kp_u__27 __pyx_string_tab[34]
+#define __pyx_kp_u__28 __pyx_string_tab[35]
+#define __pyx_kp_u__52 __pyx_string_tab[36]
+#define __pyx_kp_u__54 __pyx_string_tab[37]
+#define __pyx_kp_u__56 __pyx_string_tab[38]
+#define __pyx_kp_u__58 __pyx_string_tab[39]
+#define __pyx_kp_u__7 __pyx_string_tab[40]
+#define __pyx_kp_u__8 __pyx_string_tab[41]
+#define __pyx_kp_u__9 __pyx_string_tab[42]
+#define __pyx_kp_u__97 __pyx_string_tab[43]
+#define __pyx_kp_u_adPosition_updatedTime __pyx_string_tab[44]
+#define __pyx_kp_u_add_note __pyx_string_tab[45]
+#define __pyx_kp_u_competitor_lookup __pyx_string_tab[46]
+#define __pyx_kp_u_counter_ADS __pyx_string_tab[47]
+#define __pyx_kp_u_counter_AMAZON_CHOICE __pyx_string_tab[48]
+#define __pyx_kp_u_counter_EDITORIAL_RECOMMENDATION __pyx_string_tab[49]
+#define __pyx_kp_u_counter_FOUR_STAR __pyx_string_tab[50]
+#define __pyx_kp_u_counter_HIGHLY_RATED __pyx_string_tab[51]
+#define __pyx_kp_u_counter_NATURAL_SEARCHING __pyx_string_tab[52]
+#define __pyx_kp_u_counter_SPONSOR_BRAND __pyx_string_tab[53]
+#define __pyx_kp_u_counter_SPONSOR_VIDEO __pyx_string_tab[54]
+#define __pyx_kp_u_keyword_miner __pyx_string_tab[55]
+#define __pyx_kp_u_keyword_reverse __pyx_string_tab[56]
+#define __pyx_kp_u_list_ExportColumn __pyx_string_tab[57]
+#define __pyx_kp_u_market_research __pyx_string_tab[58]
+#define __pyx_kp_u_monopolyAsinDtos_0_asin __pyx_string_tab[59]
+#define __pyx_kp_u_monopolyAsinDtos_0_clickRate __pyx_string_tab[60]
+#define __pyx_kp_u_monopolyAsinDtos_0_conversionSha __pyx_string_tab[61]
+#define __pyx_kp_u_monopolyAsinDtos_1_asin __pyx_string_tab[62]
+#define __pyx_kp_u_monopolyAsinDtos_1_clickRate __pyx_string_tab[63]
+#define __pyx_kp_u_monopolyAsinDtos_1_conversionSha __pyx_string_tab[64]
+#define __pyx_kp_u_monopolyAsinDtos_2_asin __pyx_string_tab[65]
+#define __pyx_kp_u_monopolyAsinDtos_2_clickRate __pyx_string_tab[66]
+#define __pyx_kp_u_monopolyAsinDtos_2_conversionSha __pyx_string_tab[67]
+#define __pyx_kp_u_opscli_seller_sprite_export_colu_2 __pyx_string_tab[68]
+#define __pyx_kp_u_prime __pyx_string_tab[69]
+#define __pyx_kp_u_product_research __pyx_string_tab[70]
+#define __pyx_kp_u_rankPosition_updatedTime __pyx_string_tab[71]
+#define __pyx_kp_u_sellerDto_nation __pyx_string_tab[72]
+#define __pyx_kp_u_set_str __pyx_string_tab[73]
+#define __pyx_kp_u_set_str_None __pyx_string_tab[74]
+#define __pyx_kp_u_str_None __pyx_string_tab[75]
+#define __pyx_kp_u_subcategories_0_label __pyx_string_tab[76]
+#define __pyx_kp_u_subcategories_0_rank __pyx_string_tab[77]
+#define __pyx_kp_u_traffic_source __pyx_string_tab[78]
+#define __pyx_n_u_ __pyx_string_tab[79]
+#define __pyx_n_u_7_2 __pyx_string_tab[80]
+#define __pyx_n_u_ABA __pyx_string_tab[81]
+#define __pyx_n_u_ABA_2 __pyx_string_tab[82]
+#define __pyx_n_u_AC __pyx_string_tab[83]
+#define __pyx_n_u_AC_2 __pyx_string_tab[84]
+#define __pyx_n_u_ASIN __pyx_string_tab[85]
+#define __pyx_n_u_ASIN_2 __pyx_string_tab[86]
+#define __pyx_n_u_ASIN_3 __pyx_string_tab[87]
+#define __pyx_n_u_AVG_PRICE __pyx_string_tab[88]
+#define __pyx_n_u_AVG_REVENUE __pyx_string_tab[89]
+#define __pyx_n_u_BSR __pyx_string_tab[90]
+#define __pyx_n_u_BSR_2 __pyx_string_tab[91]
+#define __pyx_n_u_BSR_3 __pyx_string_tab[92]
+#define __pyx_n_u_BSR_4 __pyx_string_tab[93]
+#define __pyx_n_u_BSR_5 __pyx_string_tab[94]
+#define __pyx_n_u_BuyBox __pyx_string_tab[95]
+#define __pyx_n_u_BuyBox_2 __pyx_string_tab[96]
+#define __pyx_n_u_CA __pyx_string_tab[97]
+#define __pyx_n_u_Coupon __pyx_string_tab[98]
+#define __pyx_n_u_DE __pyx_string_tab[99]
+#define __pyx_n_u_DELIVERY_PRICE __pyx_string_tab[100]
+#define __pyx_n_u_ER __pyx_string_tab[101]
+#define __pyx_n_u_ES __pyx_string_tab[102]
+#define __pyx_n_u_ExportColumn __pyx_string_tab[103]
+#define __pyx_n_u_FBA __pyx_string_tab[104]
+#define __pyx_n_u_FR __pyx_string_tab[105]
+#define __pyx_n_u_HEAD_AVG_REVENUE __pyx_string_tab[106]
+#define __pyx_n_u_HR __pyx_string_tab[107]
+#define __pyx_n_u_IN __pyx_string_tab[108]
+#define __pyx_n_u_IT __pyx_string_tab[109]
+#define __pyx_n_u_JP __pyx_string_tab[110]
+#define __pyx_n_u_KEYWORD_MINER_COLUMNS __pyx_string_tab[111]
+#define __pyx_n_u_KEYWORD_REVERSE_COLUMNS __pyx_string_tab[112]
+#define __pyx_n_u_LQS __pyx_string_tab[113]
+#define __pyx_n_u_ListingBSR __pyx_string_tab[114]
+#define __pyx_n_u_Listing_2 __pyx_string_tab[115]
+#define __pyx_n_u_MARKET_RESEARCH_COLUMNS __pyx_string_tab[116]
+#define __pyx_n_u_MX __pyx_string_tab[117]
+#define __pyx_n_u_NEW_AVG_PRICE __pyx_string_tab[118]
+#define __pyx_n_u_NEW_AVG_REVENUE __pyx_string_tab[119]
+#define __pyx_n_u_PPC __pyx_string_tab[120]
+#define __pyx_n_u_PPC_2 __pyx_string_tab[121]
+#define __pyx_n_u_PRICE __pyx_string_tab[122]
+#define __pyx_n_u_PRIME_PRICE __pyx_string_tab[123]
+#define __pyx_n_u_PRODUCT_COLUMNS_COMMON __pyx_string_tab[124]
+#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[125]
+#define __pyx_n_u_SKU __pyx_string_tab[126]
+#define __pyx_n_u_SP __pyx_string_tab[127]
+#define __pyx_n_u_SPR __pyx_string_tab[128]
+#define __pyx_n_u_SP_2 __pyx_string_tab[129]
+#define __pyx_n_u_SUB_TOTAL_AMOUNT __pyx_string_tab[130]
+#define __pyx_n_u_TOTAL_AMOUNT __pyx_string_tab[131]
+#define __pyx_n_u_TRAFFIC_SOURCE_COLUMNS __pyx_string_tab[132]
+#define __pyx_n_u_UK __pyx_string_tab[133]
+#define __pyx_n_u_US __pyx_string_tab[134]
+#define __pyx_n_u__10 __pyx_string_tab[135]
+#define __pyx_n_u__100 __pyx_string_tab[136]
+#define __pyx_n_u__101 __pyx_string_tab[137]
+#define __pyx_n_u__102 __pyx_string_tab[138]
+#define __pyx_n_u__103 __pyx_string_tab[139]
+#define __pyx_n_u__104 __pyx_string_tab[140]
+#define __pyx_n_u__105 __pyx_string_tab[141]
+#define __pyx_n_u__106 __pyx_string_tab[142]
+#define __pyx_n_u__107 __pyx_string_tab[143]
+#define __pyx_n_u__108 __pyx_string_tab[144]
+#define __pyx_n_u__109 __pyx_string_tab[145]
+#define __pyx_n_u__110 __pyx_string_tab[146]
+#define __pyx_n_u__111 __pyx_string_tab[147]
+#define __pyx_n_u__112 __pyx_string_tab[148]
+#define __pyx_n_u__113 __pyx_string_tab[149]
+#define __pyx_n_u__114 __pyx_string_tab[150]
+#define __pyx_n_u__115 __pyx_string_tab[151]
+#define __pyx_n_u__116 __pyx_string_tab[152]
+#define __pyx_n_u__117 __pyx_string_tab[153]
+#define __pyx_n_u__118 __pyx_string_tab[154]
+#define __pyx_n_u__119 __pyx_string_tab[155]
+#define __pyx_n_u__120 __pyx_string_tab[156]
+#define __pyx_n_u__121 __pyx_string_tab[157]
+#define __pyx_n_u__122 __pyx_string_tab[158]
+#define __pyx_n_u__17 __pyx_string_tab[159]
+#define __pyx_n_u__18 __pyx_string_tab[160]
+#define __pyx_n_u__19 __pyx_string_tab[161]
+#define __pyx_n_u__2 __pyx_string_tab[162]
+#define __pyx_n_u__20 __pyx_string_tab[163]
+#define __pyx_n_u__29 __pyx_string_tab[164]
+#define __pyx_n_u__3 __pyx_string_tab[165]
+#define __pyx_n_u__30 __pyx_string_tab[166]
+#define __pyx_n_u__31 __pyx_string_tab[167]
+#define __pyx_n_u__32 __pyx_string_tab[168]
+#define __pyx_n_u__33 __pyx_string_tab[169]
+#define __pyx_n_u__34 __pyx_string_tab[170]
+#define __pyx_n_u__35 __pyx_string_tab[171]
+#define __pyx_n_u__36 __pyx_string_tab[172]
+#define __pyx_n_u__37 __pyx_string_tab[173]
+#define __pyx_n_u__38 __pyx_string_tab[174]
+#define __pyx_n_u__39 __pyx_string_tab[175]
+#define __pyx_n_u__4 __pyx_string_tab[176]
+#define __pyx_n_u__40 __pyx_string_tab[177]
+#define __pyx_n_u__41 __pyx_string_tab[178]
+#define __pyx_n_u__42 __pyx_string_tab[179]
+#define __pyx_n_u__43 __pyx_string_tab[180]
+#define __pyx_n_u__44 __pyx_string_tab[181]
+#define __pyx_n_u__45 __pyx_string_tab[182]
+#define __pyx_n_u__46 __pyx_string_tab[183]
+#define __pyx_n_u__47 __pyx_string_tab[184]
+#define __pyx_n_u__48 __pyx_string_tab[185]
+#define __pyx_n_u__49 __pyx_string_tab[186]
+#define __pyx_n_u__5 __pyx_string_tab[187]
+#define __pyx_n_u__50 __pyx_string_tab[188]
+#define __pyx_n_u__51 __pyx_string_tab[189]
+#define __pyx_n_u__53 __pyx_string_tab[190]
+#define __pyx_n_u__55 __pyx_string_tab[191]
+#define __pyx_n_u__57 __pyx_string_tab[192]
+#define __pyx_n_u__59 __pyx_string_tab[193]
+#define __pyx_n_u__6 __pyx_string_tab[194]
+#define __pyx_n_u__60 __pyx_string_tab[195]
+#define __pyx_n_u__61 __pyx_string_tab[196]
+#define __pyx_n_u__62 __pyx_string_tab[197]
+#define __pyx_n_u__63 __pyx_string_tab[198]
+#define __pyx_n_u__64 __pyx_string_tab[199]
+#define __pyx_n_u__65 __pyx_string_tab[200]
+#define __pyx_n_u__66 __pyx_string_tab[201]
+#define __pyx_n_u__67 __pyx_string_tab[202]
+#define __pyx_n_u__68 __pyx_string_tab[203]
+#define __pyx_n_u__69 __pyx_string_tab[204]
+#define __pyx_n_u__70 __pyx_string_tab[205]
+#define __pyx_n_u__71 __pyx_string_tab[206]
+#define __pyx_n_u__72 __pyx_string_tab[207]
+#define __pyx_n_u__73 __pyx_string_tab[208]
+#define __pyx_n_u__74 __pyx_string_tab[209]
+#define __pyx_n_u__75 __pyx_string_tab[210]
+#define __pyx_n_u__76 __pyx_string_tab[211]
+#define __pyx_n_u__77 __pyx_string_tab[212]
+#define __pyx_n_u__78 __pyx_string_tab[213]
+#define __pyx_n_u__79 __pyx_string_tab[214]
+#define __pyx_n_u__80 __pyx_string_tab[215]
+#define __pyx_n_u__81 __pyx_string_tab[216]
+#define __pyx_n_u__82 __pyx_string_tab[217]
+#define __pyx_n_u__83 __pyx_string_tab[218]
+#define __pyx_n_u__84 __pyx_string_tab[219]
+#define __pyx_n_u__85 __pyx_string_tab[220]
+#define __pyx_n_u__86 __pyx_string_tab[221]
+#define __pyx_n_u__87 __pyx_string_tab[222]
+#define __pyx_n_u__88 __pyx_string_tab[223]
+#define __pyx_n_u__89 __pyx_string_tab[224]
+#define __pyx_n_u__90 __pyx_string_tab[225]
+#define __pyx_n_u__91 __pyx_string_tab[226]
+#define __pyx_n_u__92 __pyx_string_tab[227]
+#define __pyx_n_u__93 __pyx_string_tab[228]
+#define __pyx_n_u__94 __pyx_string_tab[229]
+#define __pyx_n_u__95 __pyx_string_tab[230]
+#define __pyx_n_u__96 __pyx_string_tab[231]
+#define __pyx_n_u__98 __pyx_string_tab[232]
+#define __pyx_n_u__99 __pyx_string_tab[233]
+#define __pyx_n_u_adPosition __pyx_string_tab[234]
+#define __pyx_n_u_adProducts __pyx_string_tab[235]
+#define __pyx_n_u_adRatio __pyx_string_tab[236]
+#define __pyx_n_u_amazonChoice __pyx_string_tab[237]
+#define __pyx_n_u_amazonChoiceKeyword __pyx_string_tab[238]
+#define __pyx_n_u_amazonProductUrl __pyx_string_tab[239]
+#define __pyx_n_u_amazonSellerUrl __pyx_string_tab[240]
+#define __pyx_n_u_amzUnit __pyx_string_tab[241]
+#define __pyx_n_u_annotations __pyx_string_tab[242]
+#define __pyx_n_u_asin __pyx_string_tab[243]
+#define __pyx_n_u_asinList __pyx_string_tab[244]
+#define __pyx_n_u_asinUrl __pyx_string_tab[245]
+#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[246]
+#define __pyx_n_u_availableDate __pyx_string_tab[247]
+#define __pyx_n_u_availableDays __pyx_string_tab[248]
+#define __pyx_n_u_avgBsr __pyx_string_tab[249]
+#define __pyx_n_u_avgPrice __pyx_string_tab[250]
+#define __pyx_n_u_avgProfit __pyx_string_tab[251]
+#define __pyx_n_u_avgRating __pyx_string_tab[252]
+#define __pyx_n_u_avgRevenue __pyx_string_tab[253]
+#define __pyx_n_u_avgReviews __pyx_string_tab[254]
+#define __pyx_n_u_avgSales __pyx_string_tab[255]
+#define __pyx_n_u_avgSellers __pyx_string_tab[256]
+#define __pyx_n_u_avgVolume __pyx_string_tab[257]
+#define __pyx_n_u_avgWeight __pyx_string_tab[258]
+#define __pyx_n_u_badgeFlag __pyx_string_tab[259]
+#define __pyx_n_u_badgeLabels __pyx_string_tab[260]
+#define __pyx_n_u_badges __pyx_string_tab[261]
+#define __pyx_n_u_bestSeller __pyx_string_tab[262]
+#define __pyx_n_u_bid __pyx_string_tab[263]
+#define __pyx_n_u_bidMin __pyx_string_tab[264]
+#define __pyx_n_u_bidRange __pyx_string_tab[265]
+#define __pyx_n_u_bool __pyx_string_tab[266]
+#define __pyx_n_u_booleanY __pyx_string_tab[267]
+#define __pyx_n_u_brand __pyx_string_tab[268]
+#define __pyx_n_u_brandConcentration __pyx_string_tab[269]
+#define __pyx_n_u_brandUrl __pyx_string_tab[270]
+#define __pyx_n_u_bsrRank __pyx_string_tab[271]
+#define __pyx_n_u_bsrRankCr __pyx_string_tab[272]
+#define __pyx_n_u_bsrRankCv __pyx_string_tab[273]
+#define __pyx_n_u_calculatedWeeklySearches __pyx_string_tab[274]
+#define __pyx_n_u_category1Name __pyx_string_tab[275]
+#define __pyx_n_u_categoryName __pyx_string_tab[276]
+#define __pyx_n_u_categoryReturnRate __pyx_string_tab[277]
+#define __pyx_n_u_categorySearchPurchaseRatio __pyx_string_tab[278]
+#define __pyx_n_u_clicks __pyx_string_tab[279]
+#define __pyx_n_u_cline_in_traceback __pyx_string_tab[280]
+#define __pyx_n_u_column __pyx_string_tab[281]
+#define __pyx_n_u_columns __pyx_string_tab[282]
+#define __pyx_n_u_columns_for_scenario __pyx_string_tab[283]
+#define __pyx_n_u_columns_with_currency_titles __pyx_string_tab[284]
+#define __pyx_n_u_conversionKeywordTypeLabels __pyx_string_tab[285]
+#define __pyx_n_u_conversionKeywordTypes __pyx_string_tab[286]
+#define __pyx_n_u_coupon __pyx_string_tab[287]
+#define __pyx_n_u_cprExact __pyx_string_tab[288]
+#define __pyx_n_u_currencies __pyx_string_tab[289]
+#define __pyx_n_u_currency __pyx_string_tab[290]
+#define __pyx_n_u_currency_label __pyx_string_tab[291]
+#define __pyx_n_u_cvsShareRate __pyx_string_tab[292]
+#define __pyx_n_u_dataclass __pyx_string_tab[293]
+#define __pyx_n_u_dataclasses __pyx_string_tab[294]
+#define __pyx_n_u_dateMillis __pyx_string_tab[295]
+#define __pyx_n_u_deliveryPrice __pyx_string_tab[296]
+#define __pyx_n_u_departments __pyx_string_tab[297]
+#define __pyx_n_u_departmentsJoin __pyx_string_tab[298]
+#define __pyx_n_u_dimensions __pyx_string_tab[299]
+#define __pyx_n_u_dimensionsTag __pyx_string_tab[300]
+#define __pyx_n_u_divide10 __pyx_string_tab[301]
+#define __pyx_n_u_doc __pyx_string_tab[302]
+#define __pyx_n_u_ebc __pyx_string_tab[303]
+#define __pyx_n_u_ebcRatio __pyx_string_tab[304]
+#define __pyx_n_u_emptyIfNegative __pyx_string_tab[305]
+#define __pyx_n_u_fallback __pyx_string_tab[306]
+#define __pyx_n_u_fba __pyx_string_tab[307]
+#define __pyx_n_u_frozen __pyx_string_tab[308]
+#define __pyx_n_u_fulfillment __pyx_string_tab[309]
+#define __pyx_n_u_func __pyx_string_tab[310]
+#define __pyx_n_u_get __pyx_string_tab[311]
+#define __pyx_n_u_gkDatas __pyx_string_tab[312]
+#define __pyx_n_u_headListingAvgBsr __pyx_string_tab[313]
+#define __pyx_n_u_headListingAvgRevenue __pyx_string_tab[314]
+#define __pyx_n_u_headListingAvgSales __pyx_string_tab[315]
+#define __pyx_n_u_imageUrl __pyx_string_tab[316]
+#define __pyx_n_u_impressions __pyx_string_tab[317]
+#define __pyx_n_u_is_coroutine __pyx_string_tab[318]
+#define __pyx_n_u_items __pyx_string_tab[319]
+#define __pyx_n_u_jsonObjectLines __pyx_string_tab[320]
+#define __pyx_n_u_keyword __pyx_string_tab[321]
+#define __pyx_n_u_keywordCn __pyx_string_tab[322]
+#define __pyx_n_u_keywordReverseUpdatedTime __pyx_string_tab[323]
+#define __pyx_n_u_keywords __pyx_string_tab[324]
+#define __pyx_n_u_latest7daysAds __pyx_string_tab[325]
+#define __pyx_n_u_lqs __pyx_string_tab[326]
+#define __pyx_n_u_main __pyx_string_tab[327]
+#define __pyx_n_u_market __pyx_string_tab[328]
+#define __pyx_n_u_marketCn __pyx_string_tab[329]
+#define __pyx_n_u_marketPath __pyx_string_tab[330]
+#define __pyx_n_u_market_research_columns __pyx_string_tab[331]
+#define __pyx_n_u_metaclass __pyx_string_tab[332]
+#define __pyx_n_u_module __pyx_string_tab[333]
+#define __pyx_n_u_monopoly __pyx_string_tab[334]
+#define __pyx_n_u_monopolyClickRate __pyx_string_tab[335]
+#define __pyx_n_u_name __pyx_string_tab[336]
+#define __pyx_n_u_naturalRatio __pyx_string_tab[337]
+#define __pyx_n_u_newAvgPrice __pyx_string_tab[338]
+#define __pyx_n_u_newAvgRating __pyx_string_tab[339]
+#define __pyx_n_u_newAvgRevenue __pyx_string_tab[340]
+#define __pyx_n_u_newAvgReviews __pyx_string_tab[341]
+#define __pyx_n_u_newAvgSales __pyx_string_tab[342]
+#define __pyx_n_u_newCount __pyx_string_tab[343]
+#define __pyx_n_u_newRatio __pyx_string_tab[344]
+#define __pyx_n_u_newRelease __pyx_string_tab[345]
+#define __pyx_n_u_nodeLabelPath __pyx_string_tab[346]
+#define __pyx_n_u_opscli_seller_sprite_export_colu __pyx_string_tab[347]
+#define __pyx_n_u_overviews __pyx_string_tab[348]
+#define __pyx_n_u_parent __pyx_string_tab[349]
+#define __pyx_n_u_percentSuffix __pyx_string_tab[350]
+#define __pyx_n_u_percent_suffix_titles __pyx_string_tab[351]
+#define __pyx_n_u_percentage __pyx_string_tab[352]
+#define __pyx_n_u_pkgDimensionType __pyx_string_tab[353]
+#define __pyx_n_u_pkgDimensions __pyx_string_tab[354]
+#define __pyx_n_u_pkgDimensionsTag __pyx_string_tab[355]
+#define __pyx_n_u_pkgWeight __pyx_string_tab[356]
+#define __pyx_n_u_pkgWeightTag __pyx_string_tab[357]
+#define __pyx_n_u_pop __pyx_string_tab[358]
+#define __pyx_n_u_prepare __pyx_string_tab[359]
+#define __pyx_n_u_price __pyx_string_tab[360]
+#define __pyx_n_u_primeExclusivePrice __pyx_string_tab[361]
+#define __pyx_n_u_productConcentration __pyx_string_tab[362]
+#define __pyx_n_u_product_columns __pyx_string_tab[363]
+#define __pyx_n_u_products __pyx_string_tab[364]
+#define __pyx_n_u_profit __pyx_string_tab[365]
+#define __pyx_n_u_purchaseRate __pyx_string_tab[366]
+#define __pyx_n_u_purchases __pyx_string_tab[367]
+#define __pyx_n_u_qualname __pyx_string_tab[368]
+#define __pyx_n_u_questions __pyx_string_tab[369]
+#define __pyx_n_u_rankPage __pyx_string_tab[370]
+#define __pyx_n_u_rankPosition __pyx_string_tab[371]
+#define __pyx_n_u_rating __pyx_string_tab[372]
+#define __pyx_n_u_ratingDelta __pyx_string_tab[373]
+#define __pyx_n_u_relevancy __pyx_string_tab[374]
+#define __pyx_n_u_replacements __pyx_string_tab[375]
+#define __pyx_n_u_return __pyx_string_tab[376]
+#define __pyx_n_u_returnRate __pyx_string_tab[377]
+#define __pyx_n_u_reviews __pyx_string_tab[378]
+#define __pyx_n_u_reviewsDelta __pyx_string_tab[379]
+#define __pyx_n_u_reviewsIncreasement __pyx_string_tab[380]
+#define __pyx_n_u_reviewsRate __pyx_string_tab[381]
+#define __pyx_n_u_reviews_delta_source __pyx_string_tab[382]
+#define __pyx_n_u_sampleQuantity __pyx_string_tab[383]
+#define __pyx_n_u_scenario __pyx_string_tab[384]
+#define __pyx_n_u_searchPurchaseRatio __pyx_string_tab[385]
+#define __pyx_n_u_searchRank __pyx_string_tab[386]
+#define __pyx_n_u_searchWeeklyRank __pyx_string_tab[387]
+#define __pyx_n_u_searches __pyx_string_tab[388]
+#define __pyx_n_u_searchesRank __pyx_string_tab[389]
+#define __pyx_n_u_sellerConcentration __pyx_string_tab[390]
+#define __pyx_n_u_sellerDto __pyx_string_tab[391]
+#define __pyx_n_u_sellerId __pyx_string_tab[392]
+#define __pyx_n_u_sellerName __pyx_string_tab[393]
+#define __pyx_n_u_sellerNation __pyx_string_tab[394]
+#define __pyx_n_u_sellerType __pyx_string_tab[395]
+#define __pyx_n_u_sellerTypes __pyx_string_tab[396]
+#define __pyx_n_u_seller_nation_source __pyx_string_tab[397]
+#define __pyx_n_u_sellers __pyx_string_tab[398]
+#define __pyx_n_u_set_name __pyx_string_tab[399]
+#define __pyx_n_u_setdefault __pyx_string_tab[400]
+#define __pyx_n_u_site __pyx_string_tab[401]
+#define __pyx_n_u_sku __pyx_string_tab[402]
+#define __pyx_n_u_source __pyx_string_tab[403]
+#define __pyx_n_u_spr __pyx_string_tab[404]
+#define __pyx_n_u_str __pyx_string_tab[405]
+#define __pyx_n_u_subTotalAmount __pyx_string_tab[406]
+#define __pyx_n_u_supplyDemandRatio __pyx_string_tab[407]
+#define __pyx_n_u_swap_unit_columns __pyx_string_tab[408]
+#define __pyx_n_u_test __pyx_string_tab[409]
+#define __pyx_n_u_title __pyx_string_tab[410]
+#define __pyx_n_u_titleDensity __pyx_string_tab[411]
+#define __pyx_n_u_titleDensityExact __pyx_string_tab[412]
+#define __pyx_n_u_titles __pyx_string_tab[413]
+#define __pyx_n_u_top3ConversionRate __pyx_string_tab[414]
+#define __pyx_n_u_totalAmount __pyx_string_tab[415]
+#define __pyx_n_u_totalProducts __pyx_string_tab[416]
+#define __pyx_n_u_totalSales __pyx_string_tab[417]
+#define __pyx_n_u_totalUnits __pyx_string_tab[418]
+#define __pyx_n_u_totalUnitsGrowth __pyx_string_tab[419]
+#define __pyx_n_u_trafficKeywordTypeLabels __pyx_string_tab[420]
+#define __pyx_n_u_trafficKeywordTypes __pyx_string_tab[421]
+#define __pyx_n_u_trafficPercentage __pyx_string_tab[422]
+#define __pyx_n_u_trafficSourceLabels __pyx_string_tab[423]
+#define __pyx_n_u_transform __pyx_string_tab[424]
+#define __pyx_n_u_upper __pyx_string_tab[425]
+#define __pyx_n_u_values __pyx_string_tab[426]
+#define __pyx_n_u_variations __pyx_string_tab[427]
+#define __pyx_n_u_video __pyx_string_tab[428]
+#define __pyx_n_u_weight __pyx_string_tab[429]
+#define __pyx_n_u_weightTag __pyx_string_tab[430]
+#define __pyx_kp_b_iso88591_1_A_avYoV7_q_Ja __pyx_string_tab[431]
+#define __pyx_kp_b_iso88591_a_a_a_a_a_a_a_a_a_a_T_fD __pyx_string_tab[432]
+#define __pyx_kp_b_iso88591_ha_Qa_y_1_A_j_y_1_A_a_y_1_A_E_P __pyx_string_tab[433]
+#define __pyx_kp_b_iso88591_q_1_HA_V1_a_7_ha_2_q_F_1_vWCq_w __pyx_string_tab[434]
+#define __pyx_kp_b_iso88591_xq_9A_2_Zq_1_A_QfHF_6_RXXcciij __pyx_string_tab[435]
 /* #### Code section: module_state_clear ### */
 #if CYTHON_USE_MODULE_STATE
 static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
@@ -2715,9 +2898,9 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   #if CYTHON_PEP489_MULTI_PHASE_INIT
   __Pyx_State_RemoveModule(NULL);
   #endif
-  for (int i=0; i<119; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<3; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<302; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<167; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
+  for (int i=0; i<5; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
+  for (int i=0; i<436; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* CommonTypesMetaclass.module_state_clear */
 Py_CLEAR(clear_module_state->__pyx_CommonTypesMetaclassType);
@@ -2740,9 +2923,9 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_empty_tuple);
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_empty_bytes);
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_empty_unicode);
-  for (int i=0; i<119; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<3; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<302; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<167; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
+  for (int i=0; i<5; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
+  for (int i=0; i<436; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* CommonTypesMetaclass.module_state_traverse */
 Py_VISIT(traverse_module_state->__pyx_CommonTypesMetaclassType);
@@ -2756,12 +2939,12 @@ return 0;
 #endif
 /* #### Code section: module_code ### */
 
-/* "opscli/seller_sprite/export/columns.py":159
+/* "opscli/seller_sprite/export/columns.py":221
  * 
  * 
  * def columns_for_scenario(scenario: str, site: str) -> list[ExportColumn]:             # <<<<<<<<<<<<<<
  *     """"""
- *     if scenario == "keyword-miner":
+ *     currency = currency_label(site)
 */
 
 /* Python wrapper */
@@ -2805,39 +2988,39 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_scenario,&__pyx_mstate_global->__pyx_n_u_site,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 159, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 221, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 159, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 221, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 159, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 221, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "columns_for_scenario", 0) < (0)) __PYX_ERR(0, 159, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "columns_for_scenario", 0) < (0)) __PYX_ERR(0, 221, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("columns_for_scenario", 1, 2, 2, i); __PYX_ERR(0, 159, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("columns_for_scenario", 1, 2, 2, i); __PYX_ERR(0, 221, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 159, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 221, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 159, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 221, __pyx_L3_error)
     }
     __pyx_v_scenario = ((PyObject*)values[0]);
     __pyx_v_site = ((PyObject*)values[1]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("columns_for_scenario", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 159, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("columns_for_scenario", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 221, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -2848,8 +3031,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_scenario), (&PyUnicode_Type), 0, "scenario", 2))) __PYX_ERR(0, 159, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_site), (&PyUnicode_Type), 0, "site", 2))) __PYX_ERR(0, 159, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_scenario), (&PyUnicode_Type), 0, "scenario", 2))) __PYX_ERR(0, 221, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_site), (&PyUnicode_Type), 0, "site", 2))) __PYX_ERR(0, 221, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_7columns_columns_for_scenario(__pyx_self, __pyx_v_scenario, __pyx_v_site);
 
   /* function exit code */
@@ -2870,227 +3053,555 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 }
 
 static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_7columns_columns_for_scenario(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_scenario, PyObject *__pyx_v_site) {
+  PyObject *__pyx_v_currency = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
-  int __pyx_t_1;
+  PyObject *__pyx_t_1 = NULL;
   PyObject *__pyx_t_2 = NULL;
   PyObject *__pyx_t_3 = NULL;
-  int __pyx_t_4;
-  PyObject *__pyx_t_5 = NULL;
+  size_t __pyx_t_4;
+  int __pyx_t_5;
   PyObject *__pyx_t_6 = NULL;
   PyObject *__pyx_t_7 = NULL;
-  PyObject *__pyx_t_8 = NULL;
-  PyObject *__pyx_t_9 = NULL;
-  size_t __pyx_t_10;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("columns_for_scenario", 0);
 
-  /* "opscli/seller_sprite/export/columns.py":161
+  /* "opscli/seller_sprite/export/columns.py":223
  * def columns_for_scenario(scenario: str, site: str) -> list[ExportColumn]:
  *     """"""
- *     if scenario == "keyword-miner":             # <<<<<<<<<<<<<<
- *         return KEYWORD_MINER_COLUMNS
- *     if scenario == "keyword-reverse":
+ *     currency = currency_label(site)             # <<<<<<<<<<<<<<
+ *     if scenario == "keyword-miner":
+ *         return _columns_with_currency_titles(
 */
-  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_scenario, __pyx_mstate_global->__pyx_kp_u_keyword_miner, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 161, __pyx_L1_error)
-  if (__pyx_t_1) {
+  __pyx_t_2 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_currency_label); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 223, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_4 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_3))) {
+    __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_3);
+    assert(__pyx_t_2);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_3);
+    __Pyx_INCREF(__pyx_t_2);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_3, __pyx__function);
+    __pyx_t_4 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_site};
+    __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 223, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+  }
+  __pyx_v_currency = __pyx_t_1;
+  __pyx_t_1 = 0;
 
-    /* "opscli/seller_sprite/export/columns.py":162
+  /* "opscli/seller_sprite/export/columns.py":224
  *     """"""
- *     if scenario == "keyword-miner":
- *         return KEYWORD_MINER_COLUMNS             # <<<<<<<<<<<<<<
- *     if scenario == "keyword-reverse":
- *         return KEYWORD_REVERSE_COLUMNS
-*/
-    __Pyx_XDECREF(__pyx_r);
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_KEYWORD_MINER_COLUMNS); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 162, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    if (!(likely(PyList_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_2))) __PYX_ERR(0, 162, __pyx_L1_error)
-    __pyx_r = ((PyObject*)__pyx_t_2);
-    __pyx_t_2 = 0;
-    goto __pyx_L0;
-
-    /* "opscli/seller_sprite/export/columns.py":161
- * def columns_for_scenario(scenario: str, site: str) -> list[ExportColumn]:
- *     """"""
+ *     currency = currency_label(site)
  *     if scenario == "keyword-miner":             # <<<<<<<<<<<<<<
- *         return KEYWORD_MINER_COLUMNS
- *     if scenario == "keyword-reverse":
+ *         return _columns_with_currency_titles(
+ *             KEYWORD_MINER_COLUMNS,
 */
-  }
+  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_v_scenario, __pyx_mstate_global->__pyx_kp_u_keyword_miner, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 224, __pyx_L1_error)
+  if (__pyx_t_5) {
 
-  /* "opscli/seller_sprite/export/columns.py":163
+    /* "opscli/seller_sprite/export/columns.py":225
+ *     currency = currency_label(site)
  *     if scenario == "keyword-miner":
- *         return KEYWORD_MINER_COLUMNS
- *     if scenario == "keyword-reverse":             # <<<<<<<<<<<<<<
- *         return KEYWORD_REVERSE_COLUMNS
- *     if scenario in {"competitor-lookup", "product-research"}:
-*/
-  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_scenario, __pyx_mstate_global->__pyx_kp_u_keyword_reverse, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 163, __pyx_L1_error)
-  if (__pyx_t_1) {
-
-    /* "opscli/seller_sprite/export/columns.py":164
- *         return KEYWORD_MINER_COLUMNS
- *     if scenario == "keyword-reverse":
- *         return KEYWORD_REVERSE_COLUMNS             # <<<<<<<<<<<<<<
- *     if scenario in {"competitor-lookup", "product-research"}:
- *         return _product_columns(currency_label(site))
+ *         return _columns_with_currency_titles(             # <<<<<<<<<<<<<<
+ *             KEYWORD_MINER_COLUMNS,
+ *             currency,
 */
     __Pyx_XDECREF(__pyx_r);
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_KEYWORD_REVERSE_COLUMNS); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 164, __pyx_L1_error)
+    __pyx_t_3 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_columns_with_currency_titles); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 225, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    if (!(likely(PyList_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_2))) __PYX_ERR(0, 164, __pyx_L1_error)
-    __pyx_r = ((PyObject*)__pyx_t_2);
-    __pyx_t_2 = 0;
-    goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/columns.py":163
+    /* "opscli/seller_sprite/export/columns.py":226
  *     if scenario == "keyword-miner":
- *         return KEYWORD_MINER_COLUMNS
- *     if scenario == "keyword-reverse":             # <<<<<<<<<<<<<<
- *         return KEYWORD_REVERSE_COLUMNS
- *     if scenario in {"competitor-lookup", "product-research"}:
+ *         return _columns_with_currency_titles(
+ *             KEYWORD_MINER_COLUMNS,             # <<<<<<<<<<<<<<
+ *             currency,
+ *             {"PPC", "", ""},
 */
-  }
-
-  /* "opscli/seller_sprite/export/columns.py":165
- *     if scenario == "keyword-reverse":
- *         return KEYWORD_REVERSE_COLUMNS
- *     if scenario in {"competitor-lookup", "product-research"}:             # <<<<<<<<<<<<<<
- *         return _product_columns(currency_label(site))
- *     return []
-*/
-  __Pyx_INCREF(__pyx_v_scenario);
-  __pyx_t_3 = __pyx_v_scenario;
-  __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_competitor_lookup, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 165, __pyx_L1_error)
-  if (!__pyx_t_4) {
-  } else {
-    __pyx_t_1 = __pyx_t_4;
-    goto __pyx_L6_bool_binop_done;
-  }
-  __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_product_research, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 165, __pyx_L1_error)
-  __pyx_t_1 = __pyx_t_4;
-  __pyx_L6_bool_binop_done:;
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_4 = __pyx_t_1;
-  if (__pyx_t_4) {
-
-    /* "opscli/seller_sprite/export/columns.py":166
- *         return KEYWORD_REVERSE_COLUMNS
- *     if scenario in {"competitor-lookup", "product-research"}:
- *         return _product_columns(currency_label(site))             # <<<<<<<<<<<<<<
- *     return []
- * 
-*/
-    __Pyx_XDECREF(__pyx_r);
-    __pyx_t_5 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_product_columns); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 166, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_KEYWORD_MINER_COLUMNS); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 226, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_8 = NULL;
-    __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_currency_label); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 166, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_9);
-    __pyx_t_10 = 1;
+
+    /* "opscli/seller_sprite/export/columns.py":227
+ *         return _columns_with_currency_titles(
+ *             KEYWORD_MINER_COLUMNS,
+ *             currency,             # <<<<<<<<<<<<<<
+ *             {"PPC", "", ""},
+ *         )
+*/
+    __pyx_t_7 = PySet_New(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 228, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    if (PySet_Add(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_PPC) < (0)) __PYX_ERR(0, 228, __pyx_L1_error)
+    if (PySet_Add(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_) < (0)) __PYX_ERR(0, 228, __pyx_L1_error)
+    if (PySet_Add(__pyx_t_7, __pyx_mstate_global->__pyx_n_u__2) < (0)) __PYX_ERR(0, 228, __pyx_L1_error)
+    __pyx_t_4 = 1;
     #if CYTHON_UNPACK_METHODS
-    if (unlikely(PyMethod_Check(__pyx_t_9))) {
-      __pyx_t_8 = PyMethod_GET_SELF(__pyx_t_9);
-      assert(__pyx_t_8);
-      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_9);
-      __Pyx_INCREF(__pyx_t_8);
+    if (unlikely(PyMethod_Check(__pyx_t_2))) {
+      __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_2);
+      assert(__pyx_t_3);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_2);
+      __Pyx_INCREF(__pyx_t_3);
       __Pyx_INCREF(__pyx__function);
-      __Pyx_DECREF_SET(__pyx_t_9, __pyx__function);
-      __pyx_t_10 = 0;
+      __Pyx_DECREF_SET(__pyx_t_2, __pyx__function);
+      __pyx_t_4 = 0;
     }
     #endif
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_8, __pyx_v_site};
-      __pyx_t_7 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_9, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-      __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 166, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_7);
-    }
-    __pyx_t_10 = 1;
-    #if CYTHON_UNPACK_METHODS
-    if (unlikely(PyMethod_Check(__pyx_t_6))) {
-      __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_6);
-      assert(__pyx_t_5);
-      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_6);
-      __Pyx_INCREF(__pyx_t_5);
-      __Pyx_INCREF(__pyx__function);
-      __Pyx_DECREF_SET(__pyx_t_6, __pyx__function);
-      __pyx_t_10 = 0;
-    }
-    #endif
-    {
-      PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_t_7};
-      __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+      PyObject *__pyx_callargs[4] = {__pyx_t_3, __pyx_t_6, __pyx_v_currency, __pyx_t_7};
+      __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_2, __pyx_callargs+__pyx_t_4, (4-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 166, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_2);
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 225, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
     }
-    if (!(likely(PyList_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_2))) __PYX_ERR(0, 166, __pyx_L1_error)
-    __pyx_r = ((PyObject*)__pyx_t_2);
-    __pyx_t_2 = 0;
+
+    /* "opscli/seller_sprite/export/columns.py":225
+ *     currency = currency_label(site)
+ *     if scenario == "keyword-miner":
+ *         return _columns_with_currency_titles(             # <<<<<<<<<<<<<<
+ *             KEYWORD_MINER_COLUMNS,
+ *             currency,
+*/
+    if (!(likely(PyList_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_1))) __PYX_ERR(0, 225, __pyx_L1_error)
+    __pyx_r = ((PyObject*)__pyx_t_1);
+    __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/export/columns.py":165
- *     if scenario == "keyword-reverse":
- *         return KEYWORD_REVERSE_COLUMNS
- *     if scenario in {"competitor-lookup", "product-research"}:             # <<<<<<<<<<<<<<
- *         return _product_columns(currency_label(site))
- *     return []
+    /* "opscli/seller_sprite/export/columns.py":224
+ *     """"""
+ *     currency = currency_label(site)
+ *     if scenario == "keyword-miner":             # <<<<<<<<<<<<<<
+ *         return _columns_with_currency_titles(
+ *             KEYWORD_MINER_COLUMNS,
 */
   }
 
-  /* "opscli/seller_sprite/export/columns.py":167
- *     if scenario in {"competitor-lookup", "product-research"}:
- *         return _product_columns(currency_label(site))
+  /* "opscli/seller_sprite/export/columns.py":230
+ *             {"PPC", "", ""},
+ *         )
+ *     if scenario == "keyword-reverse":             # <<<<<<<<<<<<<<
+ *         return _columns_with_currency_titles(
+ *             KEYWORD_REVERSE_COLUMNS,
+*/
+  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_v_scenario, __pyx_mstate_global->__pyx_kp_u_keyword_reverse, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 230, __pyx_L1_error)
+  if (__pyx_t_5) {
+
+    /* "opscli/seller_sprite/export/columns.py":231
+ *         )
+ *     if scenario == "keyword-reverse":
+ *         return _columns_with_currency_titles(             # <<<<<<<<<<<<<<
+ *             KEYWORD_REVERSE_COLUMNS,
+ *             currency,
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_2 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_columns_with_currency_titles); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 231, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+
+    /* "opscli/seller_sprite/export/columns.py":232
+ *     if scenario == "keyword-reverse":
+ *         return _columns_with_currency_titles(
+ *             KEYWORD_REVERSE_COLUMNS,             # <<<<<<<<<<<<<<
+ *             currency,
+ *             {"PPC", ""},
+*/
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_KEYWORD_REVERSE_COLUMNS); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 232, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+
+    /* "opscli/seller_sprite/export/columns.py":233
+ *         return _columns_with_currency_titles(
+ *             KEYWORD_REVERSE_COLUMNS,
+ *             currency,             # <<<<<<<<<<<<<<
+ *             {"PPC", ""},
+ *         )
+*/
+    __pyx_t_3 = PySet_New(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 234, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    if (PySet_Add(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_PPC_2) < (0)) __PYX_ERR(0, 234, __pyx_L1_error)
+    if (PySet_Add(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_) < (0)) __PYX_ERR(0, 234, __pyx_L1_error)
+    __pyx_t_4 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_7))) {
+      __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_7);
+      assert(__pyx_t_2);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_7);
+      __Pyx_INCREF(__pyx_t_2);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_7, __pyx__function);
+      __pyx_t_4 = 0;
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[4] = {__pyx_t_2, __pyx_t_6, __pyx_v_currency, __pyx_t_3};
+      __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_7, __pyx_callargs+__pyx_t_4, (4-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 231, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+    }
+
+    /* "opscli/seller_sprite/export/columns.py":231
+ *         )
+ *     if scenario == "keyword-reverse":
+ *         return _columns_with_currency_titles(             # <<<<<<<<<<<<<<
+ *             KEYWORD_REVERSE_COLUMNS,
+ *             currency,
+*/
+    if (!(likely(PyList_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_1))) __PYX_ERR(0, 231, __pyx_L1_error)
+    __pyx_r = ((PyObject*)__pyx_t_1);
+    __pyx_t_1 = 0;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/columns.py":230
+ *             {"PPC", "", ""},
+ *         )
+ *     if scenario == "keyword-reverse":             # <<<<<<<<<<<<<<
+ *         return _columns_with_currency_titles(
+ *             KEYWORD_REVERSE_COLUMNS,
+*/
+  }
+
+  /* "opscli/seller_sprite/export/columns.py":236
+ *             {"PPC", ""},
+ *         )
+ *     if scenario == "traffic-source":             # <<<<<<<<<<<<<<
+ *         return _columns_with_currency_titles(TRAFFIC_SOURCE_COLUMNS, currency, {""})
+ *     if scenario == "market-research":
+*/
+  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_v_scenario, __pyx_mstate_global->__pyx_kp_u_traffic_source, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 236, __pyx_L1_error)
+  if (__pyx_t_5) {
+
+    /* "opscli/seller_sprite/export/columns.py":237
+ *         )
+ *     if scenario == "traffic-source":
+ *         return _columns_with_currency_titles(TRAFFIC_SOURCE_COLUMNS, currency, {""})             # <<<<<<<<<<<<<<
+ *     if scenario == "market-research":
+ *         return _market_research_columns(currency)
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_7 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_columns_with_currency_titles); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 237, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_TRAFFIC_SOURCE_COLUMNS); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 237, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __pyx_t_2 = PySet_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 237, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    if (PySet_Add(__pyx_t_2, __pyx_mstate_global->__pyx_n_u__3) < (0)) __PYX_ERR(0, 237, __pyx_L1_error)
+    __pyx_t_4 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_3))) {
+      __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_3);
+      assert(__pyx_t_7);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_3);
+      __Pyx_INCREF(__pyx_t_7);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_3, __pyx__function);
+      __pyx_t_4 = 0;
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[4] = {__pyx_t_7, __pyx_t_6, __pyx_v_currency, __pyx_t_2};
+      __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_4, (4-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 237, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+    }
+    if (!(likely(PyList_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_1))) __PYX_ERR(0, 237, __pyx_L1_error)
+    __pyx_r = ((PyObject*)__pyx_t_1);
+    __pyx_t_1 = 0;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/columns.py":236
+ *             {"PPC", ""},
+ *         )
+ *     if scenario == "traffic-source":             # <<<<<<<<<<<<<<
+ *         return _columns_with_currency_titles(TRAFFIC_SOURCE_COLUMNS, currency, {""})
+ *     if scenario == "market-research":
+*/
+  }
+
+  /* "opscli/seller_sprite/export/columns.py":238
+ *     if scenario == "traffic-source":
+ *         return _columns_with_currency_titles(TRAFFIC_SOURCE_COLUMNS, currency, {""})
+ *     if scenario == "market-research":             # <<<<<<<<<<<<<<
+ *         return _market_research_columns(currency)
+ *     if scenario == "competitor-lookup":
+*/
+  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_v_scenario, __pyx_mstate_global->__pyx_kp_u_market_research, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 238, __pyx_L1_error)
+  if (__pyx_t_5) {
+
+    /* "opscli/seller_sprite/export/columns.py":239
+ *         return _columns_with_currency_titles(TRAFFIC_SOURCE_COLUMNS, currency, {""})
+ *     if scenario == "market-research":
+ *         return _market_research_columns(currency)             # <<<<<<<<<<<<<<
+ *     if scenario == "competitor-lookup":
+ *         return _product_columns(
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_3 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_market_research_columns); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 239, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __pyx_t_4 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_2))) {
+      __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_2);
+      assert(__pyx_t_3);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_2);
+      __Pyx_INCREF(__pyx_t_3);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_2, __pyx__function);
+      __pyx_t_4 = 0;
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_currency};
+      __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_2, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 239, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+    }
+    if (!(likely(PyList_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_1))) __PYX_ERR(0, 239, __pyx_L1_error)
+    __pyx_r = ((PyObject*)__pyx_t_1);
+    __pyx_t_1 = 0;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/columns.py":238
+ *     if scenario == "traffic-source":
+ *         return _columns_with_currency_titles(TRAFFIC_SOURCE_COLUMNS, currency, {""})
+ *     if scenario == "market-research":             # <<<<<<<<<<<<<<
+ *         return _market_research_columns(currency)
+ *     if scenario == "competitor-lookup":
+*/
+  }
+
+  /* "opscli/seller_sprite/export/columns.py":240
+ *     if scenario == "market-research":
+ *         return _market_research_columns(currency)
+ *     if scenario == "competitor-lookup":             # <<<<<<<<<<<<<<
+ *         return _product_columns(
+ *             currency,
+*/
+  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_v_scenario, __pyx_mstate_global->__pyx_kp_u_competitor_lookup, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 240, __pyx_L1_error)
+  if (__pyx_t_5) {
+
+    /* "opscli/seller_sprite/export/columns.py":241
+ *         return _market_research_columns(currency)
+ *     if scenario == "competitor-lookup":
+ *         return _product_columns(             # <<<<<<<<<<<<<<
+ *             currency,
+ *             swap_unit_columns=True,
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_2 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_product_columns); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 241, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+
+    /* "opscli/seller_sprite/export/columns.py":243
+ *         return _product_columns(
+ *             currency,
+ *             swap_unit_columns=True,             # <<<<<<<<<<<<<<
+ *             reviews_delta_source="reviewsIncreasement",
+ *             percent_suffix_titles={"", ""},
+*/
+    __pyx_t_6 = PySet_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 245, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    if (PySet_Add(__pyx_t_6, __pyx_mstate_global->__pyx_n_u__4) < (0)) __PYX_ERR(0, 245, __pyx_L1_error)
+    if (PySet_Add(__pyx_t_6, __pyx_mstate_global->__pyx_n_u__5) < (0)) __PYX_ERR(0, 245, __pyx_L1_error)
+    __pyx_t_4 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_3))) {
+      __pyx_t_2 = PyMethod_GET_SELF(__pyx_t_3);
+      assert(__pyx_t_2);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_3);
+      __Pyx_INCREF(__pyx_t_2);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_3, __pyx__function);
+      __pyx_t_4 = 0;
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 4 : 0)] = {__pyx_t_2, __pyx_v_currency};
+      __pyx_t_7 = __Pyx_MakeVectorcallBuilderKwds(4); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 241, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_7);
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_swap_unit_columns, Py_True, __pyx_t_7, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 241, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_reviews_delta_source, __pyx_mstate_global->__pyx_n_u_reviewsIncreasement, __pyx_t_7, __pyx_callargs+2, 1) < (0)) __PYX_ERR(0, 241, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_percent_suffix_titles, __pyx_t_6, __pyx_t_7, __pyx_callargs+2, 2) < (0)) __PYX_ERR(0, 241, __pyx_L1_error)
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_seller_nation_source, __pyx_mstate_global->__pyx_kp_u_sellerDto_nation, __pyx_t_7, __pyx_callargs+2, 3) < (0)) __PYX_ERR(0, 241, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_7);
+      __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 241, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+    }
+
+    /* "opscli/seller_sprite/export/columns.py":241
+ *         return _market_research_columns(currency)
+ *     if scenario == "competitor-lookup":
+ *         return _product_columns(             # <<<<<<<<<<<<<<
+ *             currency,
+ *             swap_unit_columns=True,
+*/
+    if (!(likely(PyList_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_1))) __PYX_ERR(0, 241, __pyx_L1_error)
+    __pyx_r = ((PyObject*)__pyx_t_1);
+    __pyx_t_1 = 0;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/columns.py":240
+ *     if scenario == "market-research":
+ *         return _market_research_columns(currency)
+ *     if scenario == "competitor-lookup":             # <<<<<<<<<<<<<<
+ *         return _product_columns(
+ *             currency,
+*/
+  }
+
+  /* "opscli/seller_sprite/export/columns.py":248
+ *             seller_nation_source="sellerDto.nation",
+ *         )
+ *     if scenario == "product-research":             # <<<<<<<<<<<<<<
+ *         return _product_columns(
+ *             currency,
+*/
+  __pyx_t_5 = (__Pyx_PyUnicode_Equals(__pyx_v_scenario, __pyx_mstate_global->__pyx_kp_u_product_research, Py_EQ)); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 248, __pyx_L1_error)
+  if (__pyx_t_5) {
+
+    /* "opscli/seller_sprite/export/columns.py":249
+ *         )
+ *     if scenario == "product-research":
+ *         return _product_columns(             # <<<<<<<<<<<<<<
+ *             currency,
+ *             percent_suffix_titles={"BSR", "", "", ""},
+*/
+    __Pyx_XDECREF(__pyx_r);
+    __pyx_t_3 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_product_columns); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 249, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+
+    /* "opscli/seller_sprite/export/columns.py":250
+ *     if scenario == "product-research":
+ *         return _product_columns(
+ *             currency,             # <<<<<<<<<<<<<<
+ *             percent_suffix_titles={"BSR", "", "", ""},
+ *         )
+*/
+    __pyx_t_6 = PySet_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 251, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    if (PySet_Add(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_BSR) < (0)) __PYX_ERR(0, 251, __pyx_L1_error)
+    if (PySet_Add(__pyx_t_6, __pyx_mstate_global->__pyx_n_u__6) < (0)) __PYX_ERR(0, 251, __pyx_L1_error)
+    if (PySet_Add(__pyx_t_6, __pyx_mstate_global->__pyx_n_u__4) < (0)) __PYX_ERR(0, 251, __pyx_L1_error)
+    if (PySet_Add(__pyx_t_6, __pyx_mstate_global->__pyx_n_u__5) < (0)) __PYX_ERR(0, 251, __pyx_L1_error)
+    __pyx_t_4 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_7))) {
+      __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_7);
+      assert(__pyx_t_3);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_7);
+      __Pyx_INCREF(__pyx_t_3);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_7, __pyx__function);
+      __pyx_t_4 = 0;
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_3, __pyx_v_currency};
+      __pyx_t_2 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 249, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_2);
+      if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_percent_suffix_titles, __pyx_t_6, __pyx_t_2, __pyx_callargs+2, 0) < (0)) __PYX_ERR(0, 249, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_7, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_2);
+      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 249, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+    }
+
+    /* "opscli/seller_sprite/export/columns.py":249
+ *         )
+ *     if scenario == "product-research":
+ *         return _product_columns(             # <<<<<<<<<<<<<<
+ *             currency,
+ *             percent_suffix_titles={"BSR", "", "", ""},
+*/
+    if (!(likely(PyList_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_1))) __PYX_ERR(0, 249, __pyx_L1_error)
+    __pyx_r = ((PyObject*)__pyx_t_1);
+    __pyx_t_1 = 0;
+    goto __pyx_L0;
+
+    /* "opscli/seller_sprite/export/columns.py":248
+ *             seller_nation_source="sellerDto.nation",
+ *         )
+ *     if scenario == "product-research":             # <<<<<<<<<<<<<<
+ *         return _product_columns(
+ *             currency,
+*/
+  }
+
+  /* "opscli/seller_sprite/export/columns.py":253
+ *             percent_suffix_titles={"BSR", "", "", ""},
+ *         )
  *     return []             # <<<<<<<<<<<<<<
  * 
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = PyList_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 167, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_r = ((PyObject*)__pyx_t_2);
-  __pyx_t_2 = 0;
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 253, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/export/columns.py":159
+  /* "opscli/seller_sprite/export/columns.py":221
  * 
  * 
  * def columns_for_scenario(scenario: str, site: str) -> list[ExportColumn]:             # <<<<<<<<<<<<<<
  *     """"""
- *     if scenario == "keyword-miner":
+ *     currency = currency_label(site)
 */
 
   /* function exit code */
   __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
   __Pyx_XDECREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_3);
-  __Pyx_XDECREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_6);
   __Pyx_XDECREF(__pyx_t_7);
-  __Pyx_XDECREF(__pyx_t_8);
-  __Pyx_XDECREF(__pyx_t_9);
   __Pyx_AddTraceback("opscli.seller_sprite.export.columns.columns_for_scenario", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_currency);
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/columns.py":170
+/* "opscli/seller_sprite/export/columns.py":256
  * 
  * 
  * def currency_label(site: str) -> str:             # <<<<<<<<<<<<<<
  *     """"""
- *     return "" if site.upper() == "JP" else "$"
+ *     currencies = {
 */
 
 /* Python wrapper */
@@ -3133,32 +3644,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_site,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 170, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 256, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 170, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 256, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "currency_label", 0) < (0)) __PYX_ERR(0, 170, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "currency_label", 0) < (0)) __PYX_ERR(0, 256, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("currency_label", 1, 1, 1, i); __PYX_ERR(0, 170, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("currency_label", 1, 1, 1, i); __PYX_ERR(0, 256, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 170, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 256, __pyx_L3_error)
     }
     __pyx_v_site = ((PyObject*)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("currency_label", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 170, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("currency_label", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 256, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3169,7 +3680,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_site), (&PyUnicode_Type), 0, "site", 2))) __PYX_ERR(0, 170, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_site), (&PyUnicode_Type), 0, "site", 2))) __PYX_ERR(0, 256, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_7columns_2currency_label(__pyx_self, __pyx_v_site);
 
   /* function exit code */
@@ -3190,45 +3701,62 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 }
 
 static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_7columns_2currency_label(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_site) {
+  PyObject *__pyx_v_currencies = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
   PyObject *__pyx_t_2 = NULL;
-  int __pyx_t_3;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("currency_label", 0);
 
-  /* "opscli/seller_sprite/export/columns.py":172
- * def currency_label(site: str) -> str:
+  /* "opscli/seller_sprite/export/columns.py":259
  *     """"""
- *     return "" if site.upper() == "JP" else "$"             # <<<<<<<<<<<<<<
+ *     currencies = {
+ *         "US": "$",             # <<<<<<<<<<<<<<
+ *         "UK": "",
+ *         "DE": "",
+*/
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(10); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 259, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_US, __pyx_mstate_global->__pyx_kp_u__7) < (0)) __PYX_ERR(0, 259, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_UK, __pyx_mstate_global->__pyx_kp_u__8) < (0)) __PYX_ERR(0, 259, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_DE, __pyx_mstate_global->__pyx_kp_u__9) < (0)) __PYX_ERR(0, 259, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_FR, __pyx_mstate_global->__pyx_kp_u__9) < (0)) __PYX_ERR(0, 259, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_JP, __pyx_mstate_global->__pyx_n_u__10) < (0)) __PYX_ERR(0, 259, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_CA, __pyx_mstate_global->__pyx_kp_u_C) < (0)) __PYX_ERR(0, 259, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_IT, __pyx_mstate_global->__pyx_kp_u__9) < (0)) __PYX_ERR(0, 259, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_ES, __pyx_mstate_global->__pyx_kp_u__9) < (0)) __PYX_ERR(0, 259, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_IN, __pyx_mstate_global->__pyx_kp_u__11) < (0)) __PYX_ERR(0, 259, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_MX, __pyx_mstate_global->__pyx_kp_u_MX_2) < (0)) __PYX_ERR(0, 259, __pyx_L1_error)
+  __pyx_v_currencies = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":270
+ *         "MX": "MX$",
+ *     }
+ *     return currencies.get(site.upper(), "$")             # <<<<<<<<<<<<<<
  * 
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = __Pyx_CallUnboundCMethod0(&__pyx_mstate_global->__pyx_umethod_PyUnicode_Type__upper, __pyx_v_site); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 172, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_CallUnboundCMethod0(&__pyx_mstate_global->__pyx_umethod_PyUnicode_Type__upper, __pyx_v_site); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 270, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = __Pyx_PyDict_GetItemDefault(__pyx_v_currencies, __pyx_t_1, __pyx_mstate_global->__pyx_kp_u__7); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 270, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_JP, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 172, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__pyx_t_3) {
-    __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_);
-    __pyx_t_1 = __pyx_mstate_global->__pyx_n_u_;
-  } else {
-    __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__2);
-    __pyx_t_1 = __pyx_mstate_global->__pyx_kp_u__2;
-  }
-  __pyx_r = ((PyObject*)__pyx_t_1);
-  __pyx_t_1 = 0;
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("str", __pyx_t_2))) __PYX_ERR(0, 270, __pyx_L1_error)
+  __pyx_r = ((PyObject*)__pyx_t_2);
+  __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/export/columns.py":170
+  /* "opscli/seller_sprite/export/columns.py":256
  * 
  * 
  * def currency_label(site: str) -> str:             # <<<<<<<<<<<<<<
  *     """"""
- *     return "" if site.upper() == "JP" else "$"
+ *     currencies = {
 */
 
   /* function exit code */
@@ -3238,17 +3766,18 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_7columns_2currency_lab
   __Pyx_AddTraceback("opscli.seller_sprite.export.columns.currency_label", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_currencies);
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/export/columns.py":175
+/* "opscli/seller_sprite/export/columns.py":273
  * 
  * 
- * def _product_columns(currency: str) -> list[ExportColumn]:             # <<<<<<<<<<<<<<
- *     replacements = {
- *         "__TOTAL_AMOUNT__": f"({currency})",
+ * def _product_columns(             # <<<<<<<<<<<<<<
+ *     currency: str,
+ *     *,
 */
 
 /* Python wrapper */
@@ -3268,11 +3797,15 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ) {
   PyObject *__pyx_v_currency = 0;
+  int __pyx_v_swap_unit_columns;
+  PyObject *__pyx_v_reviews_delta_source = 0;
+  PyObject *__pyx_v_percent_suffix_titles = 0;
+  PyObject *__pyx_v_seller_nation_source = 0;
   #if !CYTHON_METH_FASTCALL
   CYTHON_UNUSED Py_ssize_t __pyx_nargs;
   #endif
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  PyObject* values[1] = {0};
+  PyObject* values[5] = {0,0,0,0,0};
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -3288,34 +3821,64 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   #endif
   __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
   {
-    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_currency,0};
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_currency,&__pyx_mstate_global->__pyx_n_u_swap_unit_columns,&__pyx_mstate_global->__pyx_n_u_reviews_delta_source,&__pyx_mstate_global->__pyx_n_u_percent_suffix_titles,&__pyx_mstate_global->__pyx_n_u_seller_nation_source,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 175, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 273, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 175, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 273, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_product_columns", 0) < (0)) __PYX_ERR(0, 175, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_product_columns", 0) < (0)) __PYX_ERR(0, 273, __pyx_L3_error)
+      if (!values[2]) values[2] = __Pyx_NewRef(((PyObject*)((PyObject*)__pyx_mstate_global->__pyx_n_u_reviewsDelta)));
+
+      /* "opscli/seller_sprite/export/columns.py":278
+ *     swap_unit_columns: bool = False,
+ *     reviews_delta_source: str = "reviewsDelta",
+ *     percent_suffix_titles: set[str] | None = None,             # <<<<<<<<<<<<<<
+ *     seller_nation_source: str = "sellerNation",
+ * ) -> list[ExportColumn]:
+*/
+      if (!values[3]) values[3] = __Pyx_NewRef(((PyObject*)Py_None));
+      if (!values[4]) values[4] = __Pyx_NewRef(((PyObject*)((PyObject*)__pyx_mstate_global->__pyx_n_u_sellerNation)));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_product_columns", 1, 1, 1, i); __PYX_ERR(0, 175, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_product_columns", 1, 1, 1, i); __PYX_ERR(0, 273, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 175, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 273, __pyx_L3_error)
+      if (!values[2]) values[2] = __Pyx_NewRef(((PyObject*)((PyObject*)__pyx_mstate_global->__pyx_n_u_reviewsDelta)));
+      if (!values[3]) values[3] = __Pyx_NewRef(((PyObject*)Py_None));
+      if (!values[4]) values[4] = __Pyx_NewRef(((PyObject*)((PyObject*)__pyx_mstate_global->__pyx_n_u_sellerNation)));
     }
     __pyx_v_currency = ((PyObject*)values[0]);
+    if (values[1]) {
+      __pyx_v_swap_unit_columns = __Pyx_PyObject_IsTrue(values[1]); if (unlikely((__pyx_v_swap_unit_columns == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 276, __pyx_L3_error)
+    } else {
+
+      /* "opscli/seller_sprite/export/columns.py":276
+ *     currency: str,
+ *     *,
+ *     swap_unit_columns: bool = False,             # <<<<<<<<<<<<<<
+ *     reviews_delta_source: str = "reviewsDelta",
+ *     percent_suffix_titles: set[str] | None = None,
+*/
+      __pyx_v_swap_unit_columns = ((int)((int)0));
+    }
+    __pyx_v_reviews_delta_source = ((PyObject*)values[2]);
+    __pyx_v_percent_suffix_titles = ((PyObject*)values[3]);
+    __pyx_v_seller_nation_source = ((PyObject*)values[4]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_product_columns", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 175, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_product_columns", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 273, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3326,8 +3889,19 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_currency), (&PyUnicode_Type), 0, "currency", 2))) __PYX_ERR(0, 175, __pyx_L1_error)
-  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_7columns_4_product_columns(__pyx_self, __pyx_v_currency);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_currency), (&PyUnicode_Type), 0, "currency", 2))) __PYX_ERR(0, 274, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_reviews_delta_source), (&PyUnicode_Type), 0, "reviews_delta_source", 2))) __PYX_ERR(0, 277, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_percent_suffix_titles), (&PySet_Type), 1, "percent_suffix_titles", 2))) __PYX_ERR(0, 278, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_seller_nation_source), (&PyUnicode_Type), 0, "seller_nation_source", 2))) __PYX_ERR(0, 279, __pyx_L1_error)
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_7columns_4_product_columns(__pyx_self, __pyx_v_currency, __pyx_v_swap_unit_columns, __pyx_v_reviews_delta_source, __pyx_v_percent_suffix_titles, __pyx_v_seller_nation_source);
+
+  /* "opscli/seller_sprite/export/columns.py":273
+ * 
+ * 
+ * def _product_columns(             # <<<<<<<<<<<<<<
+ *     currency: str,
+ *     *,
+*/
 
   /* function exit code */
   goto __pyx_L0;
@@ -3346,9 +3920,1043 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_7columns_4_product_columns(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_currency) {
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_7columns_4_product_columns(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_currency, int __pyx_v_swap_unit_columns, PyObject *__pyx_v_reviews_delta_source, PyObject *__pyx_v_percent_suffix_titles, PyObject *__pyx_v_seller_nation_source) {
   PyObject *__pyx_v_replacements = NULL;
+  PyObject *__pyx_v_columns = 0;
+  PyObject *__pyx_v_column = NULL;
+  PyObject *__pyx_v_source = NULL;
+  PyObject *__pyx_v_transform = NULL;
+  PyObject *__pyx_v_fallback = NULL;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2[3];
+  PyObject *__pyx_t_3 = NULL;
+  int __pyx_t_4;
+  Py_ssize_t __pyx_t_5;
+  PyObject *(*__pyx_t_6)(PyObject *);
+  PyObject *__pyx_t_7 = NULL;
+  PyObject *__pyx_t_8 = NULL;
+  PyObject *__pyx_t_9 = NULL;
+  PyObject *__pyx_t_10 = NULL;
+  PyObject *__pyx_t_11 = NULL;
+  size_t __pyx_t_12;
+  int __pyx_t_13;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("_product_columns", 0);
+  __Pyx_INCREF(__pyx_v_percent_suffix_titles);
+
+  /* "opscli/seller_sprite/export/columns.py":282
+ * ) -> list[ExportColumn]:
+ *     replacements = {
+ *         "__TOTAL_AMOUNT__": f"({currency})",             # <<<<<<<<<<<<<<
+ *         "__SUB_TOTAL_AMOUNT__": f"({currency})",
+ *         "__PRICE__": f"({currency})",
+*/
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 282, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2[0] = __pyx_mstate_global->__pyx_kp_u__12;
+  __pyx_t_2[1] = __pyx_v_currency;
+  __pyx_t_2[2] = __pyx_mstate_global->__pyx_kp_u__13;
+  __pyx_t_3 = __Pyx_PyUnicode_Join(__pyx_t_2, 3, 5 + __Pyx_PyUnicode_GET_LENGTH(__pyx_v_currency) + 1, 65535 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_v_currency));
+  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 282, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_TOTAL_AMOUNT, __pyx_t_3) < (0)) __PYX_ERR(0, 282, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":283
+ *     replacements = {
+ *         "__TOTAL_AMOUNT__": f"({currency})",
+ *         "__SUB_TOTAL_AMOUNT__": f"({currency})",             # <<<<<<<<<<<<<<
+ *         "__PRICE__": f"({currency})",
+ *         "__PRIME_PRICE__": f"prime({currency})",
+*/
+  __pyx_t_2[0] = __pyx_mstate_global->__pyx_kp_u__14;
+  __pyx_t_2[1] = __pyx_v_currency;
+  __pyx_t_2[2] = __pyx_mstate_global->__pyx_kp_u__13;
+  __pyx_t_3 = __Pyx_PyUnicode_Join(__pyx_t_2, 3, 6 + __Pyx_PyUnicode_GET_LENGTH(__pyx_v_currency) + 1, 65535 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_v_currency));
+  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 283, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_SUB_TOTAL_AMOUNT, __pyx_t_3) < (0)) __PYX_ERR(0, 282, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":284
+ *         "__TOTAL_AMOUNT__": f"({currency})",
+ *         "__SUB_TOTAL_AMOUNT__": f"({currency})",
+ *         "__PRICE__": f"({currency})",             # <<<<<<<<<<<<<<
+ *         "__PRIME_PRICE__": f"prime({currency})",
+ *         "__FBA__": f"FBA({currency})",
+*/
+  __pyx_t_2[0] = __pyx_mstate_global->__pyx_kp_u__15;
+  __pyx_t_2[1] = __pyx_v_currency;
+  __pyx_t_2[2] = __pyx_mstate_global->__pyx_kp_u__13;
+  __pyx_t_3 = __Pyx_PyUnicode_Join(__pyx_t_2, 3, 3 + __Pyx_PyUnicode_GET_LENGTH(__pyx_v_currency) + 1, 65535 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_v_currency));
+  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 284, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_PRICE, __pyx_t_3) < (0)) __PYX_ERR(0, 282, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":285
+ *         "__SUB_TOTAL_AMOUNT__": f"({currency})",
+ *         "__PRICE__": f"({currency})",
+ *         "__PRIME_PRICE__": f"prime({currency})",             # <<<<<<<<<<<<<<
+ *         "__FBA__": f"FBA({currency})",
+ *         "__DELIVERY_PRICE__": f"({currency})",
+*/
+  __pyx_t_2[0] = __pyx_mstate_global->__pyx_kp_u_prime;
+  __pyx_t_2[1] = __pyx_v_currency;
+  __pyx_t_2[2] = __pyx_mstate_global->__pyx_kp_u__13;
+  __pyx_t_3 = __Pyx_PyUnicode_Join(__pyx_t_2, 3, 8 + __Pyx_PyUnicode_GET_LENGTH(__pyx_v_currency) + 1, 65535 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_v_currency));
+  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 285, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_PRIME_PRICE, __pyx_t_3) < (0)) __PYX_ERR(0, 282, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":286
+ *         "__PRICE__": f"({currency})",
+ *         "__PRIME_PRICE__": f"prime({currency})",
+ *         "__FBA__": f"FBA({currency})",             # <<<<<<<<<<<<<<
+ *         "__DELIVERY_PRICE__": f"({currency})",
+ *     }
+*/
+  __pyx_t_2[0] = __pyx_mstate_global->__pyx_kp_u_FBA_2;
+  __pyx_t_2[1] = __pyx_v_currency;
+  __pyx_t_2[2] = __pyx_mstate_global->__pyx_kp_u__13;
+  __pyx_t_3 = __Pyx_PyUnicode_Join(__pyx_t_2, 3, 4 + __Pyx_PyUnicode_GET_LENGTH(__pyx_v_currency) + 1, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_v_currency));
+  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 286, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_FBA, __pyx_t_3) < (0)) __PYX_ERR(0, 282, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":287
+ *         "__PRIME_PRICE__": f"prime({currency})",
+ *         "__FBA__": f"FBA({currency})",
+ *         "__DELIVERY_PRICE__": f"({currency})",             # <<<<<<<<<<<<<<
+ *     }
+ *     columns: list[ExportColumn] = []
+*/
+  __pyx_t_2[0] = __pyx_mstate_global->__pyx_kp_u__16;
+  __pyx_t_2[1] = __pyx_v_currency;
+  __pyx_t_2[2] = __pyx_mstate_global->__pyx_kp_u__13;
+  __pyx_t_3 = __Pyx_PyUnicode_Join(__pyx_t_2, 3, 5 + __Pyx_PyUnicode_GET_LENGTH(__pyx_v_currency) + 1, 65535 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_v_currency));
+  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 287, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_DELIVERY_PRICE, __pyx_t_3) < (0)) __PYX_ERR(0, 282, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_v_replacements = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":289
+ *         "__DELIVERY_PRICE__": f"({currency})",
+ *     }
+ *     columns: list[ExportColumn] = []             # <<<<<<<<<<<<<<
+ *     percent_suffix_titles = percent_suffix_titles or set()
+ *     for column in PRODUCT_COLUMNS_COMMON:
+*/
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 289, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_v_columns = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":290
+ *     }
+ *     columns: list[ExportColumn] = []
+ *     percent_suffix_titles = percent_suffix_titles or set()             # <<<<<<<<<<<<<<
+ *     for column in PRODUCT_COLUMNS_COMMON:
+ *         source = column.source
+*/
+  __pyx_t_4 = __Pyx_PyObject_IsTrue(__pyx_v_percent_suffix_titles); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 290, __pyx_L1_error)
+  if (!__pyx_t_4) {
+  } else {
+    __Pyx_INCREF(__pyx_v_percent_suffix_titles);
+    __pyx_t_1 = __pyx_v_percent_suffix_titles;
+    goto __pyx_L3_bool_binop_done;
+  }
+  __pyx_t_3 = PySet_New(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 290, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __Pyx_INCREF(__pyx_t_3);
+  __pyx_t_1 = __pyx_t_3;
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  __pyx_L3_bool_binop_done:;
+  __Pyx_DECREF_SET(__pyx_v_percent_suffix_titles, ((PyObject*)__pyx_t_1));
+  __pyx_t_1 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":291
+ *     columns: list[ExportColumn] = []
+ *     percent_suffix_titles = percent_suffix_titles or set()
+ *     for column in PRODUCT_COLUMNS_COMMON:             # <<<<<<<<<<<<<<
+ *         source = column.source
+ *         transform = column.transform
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_PRODUCT_COLUMNS_COMMON); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 291, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  if (likely(PyList_CheckExact(__pyx_t_1)) || PyTuple_CheckExact(__pyx_t_1)) {
+    __pyx_t_3 = __pyx_t_1; __Pyx_INCREF(__pyx_t_3);
+    __pyx_t_5 = 0;
+    __pyx_t_6 = NULL;
+  } else {
+    __pyx_t_5 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 291, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_6 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 291, __pyx_L1_error)
+  }
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  for (;;) {
+    if (likely(!__pyx_t_6)) {
+      if (likely(PyList_CheckExact(__pyx_t_3))) {
+        {
+          Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_3);
+          #if !CYTHON_ASSUME_SAFE_SIZE
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 291, __pyx_L1_error)
+          #endif
+          if (__pyx_t_5 >= __pyx_temp) break;
+        }
+        __pyx_t_1 = __Pyx_PyList_GetItemRefFast(__pyx_t_3, __pyx_t_5, __Pyx_ReferenceSharing_OwnStrongReference);
+        ++__pyx_t_5;
+      } else {
+        {
+          Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_3);
+          #if !CYTHON_ASSUME_SAFE_SIZE
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 291, __pyx_L1_error)
+          #endif
+          if (__pyx_t_5 >= __pyx_temp) break;
+        }
+        #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
+        __pyx_t_1 = __Pyx_NewRef(PyTuple_GET_ITEM(__pyx_t_3, __pyx_t_5));
+        #else
+        __pyx_t_1 = __Pyx_PySequence_ITEM(__pyx_t_3, __pyx_t_5);
+        #endif
+        ++__pyx_t_5;
+      }
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 291, __pyx_L1_error)
+    } else {
+      __pyx_t_1 = __pyx_t_6(__pyx_t_3);
+      if (unlikely(!__pyx_t_1)) {
+        PyObject* exc_type = PyErr_Occurred();
+        if (exc_type) {
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 291, __pyx_L1_error)
+          PyErr_Clear();
+        }
+        break;
+      }
+    }
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_XDECREF_SET(__pyx_v_column, __pyx_t_1);
+    __pyx_t_1 = 0;
+
+    /* "opscli/seller_sprite/export/columns.py":292
+ *     percent_suffix_titles = percent_suffix_titles or set()
+ *     for column in PRODUCT_COLUMNS_COMMON:
+ *         source = column.source             # <<<<<<<<<<<<<<
+ *         transform = column.transform
+ *         if swap_unit_columns:
+*/
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_source); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 292, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_XDECREF_SET(__pyx_v_source, __pyx_t_1);
+    __pyx_t_1 = 0;
+
+    /* "opscli/seller_sprite/export/columns.py":293
+ *     for column in PRODUCT_COLUMNS_COMMON:
+ *         source = column.source
+ *         transform = column.transform             # <<<<<<<<<<<<<<
+ *         if swap_unit_columns:
+ *             if column.title == "":
+*/
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_transform); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 293, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_XDECREF_SET(__pyx_v_transform, __pyx_t_1);
+    __pyx_t_1 = 0;
+
+    /* "opscli/seller_sprite/export/columns.py":294
+ *         source = column.source
+ *         transform = column.transform
+ *         if swap_unit_columns:             # <<<<<<<<<<<<<<
+ *             if column.title == "":
+ *                 source = "totalUnits"
+*/
+    if (__pyx_v_swap_unit_columns) {
+
+      /* "opscli/seller_sprite/export/columns.py":295
+ *         transform = column.transform
+ *         if swap_unit_columns:
+ *             if column.title == "":             # <<<<<<<<<<<<<<
+ *                 source = "totalUnits"
+ *             elif column.title == "":
+*/
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_title); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 295, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u__17, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 295, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+      if (__pyx_t_4) {
+
+        /* "opscli/seller_sprite/export/columns.py":296
+ *         if swap_unit_columns:
+ *             if column.title == "":
+ *                 source = "totalUnits"             # <<<<<<<<<<<<<<
+ *             elif column.title == "":
+ *                 source = "amzUnit"
+*/
+        __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_totalUnits);
+        __Pyx_DECREF_SET(__pyx_v_source, __pyx_mstate_global->__pyx_n_u_totalUnits);
+
+        /* "opscli/seller_sprite/export/columns.py":295
+ *         transform = column.transform
+ *         if swap_unit_columns:
+ *             if column.title == "":             # <<<<<<<<<<<<<<
+ *                 source = "totalUnits"
+ *             elif column.title == "":
+*/
+        goto __pyx_L8;
+      }
+
+      /* "opscli/seller_sprite/export/columns.py":297
+ *             if column.title == "":
+ *                 source = "totalUnits"
+ *             elif column.title == "":             # <<<<<<<<<<<<<<
+ *                 source = "amzUnit"
+ *         if column.title == "LQS":
+*/
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_title); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 297, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u__18, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 297, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+      if (__pyx_t_4) {
+
+        /* "opscli/seller_sprite/export/columns.py":298
+ *                 source = "totalUnits"
+ *             elif column.title == "":
+ *                 source = "amzUnit"             # <<<<<<<<<<<<<<
+ *         if column.title == "LQS":
+ *             transform = "divide10"
+*/
+        __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_amzUnit);
+        __Pyx_DECREF_SET(__pyx_v_source, __pyx_mstate_global->__pyx_n_u_amzUnit);
+
+        /* "opscli/seller_sprite/export/columns.py":297
+ *             if column.title == "":
+ *                 source = "totalUnits"
+ *             elif column.title == "":             # <<<<<<<<<<<<<<
+ *                 source = "amzUnit"
+ *         if column.title == "LQS":
+*/
+      }
+      __pyx_L8:;
+
+      /* "opscli/seller_sprite/export/columns.py":294
+ *         source = column.source
+ *         transform = column.transform
+ *         if swap_unit_columns:             # <<<<<<<<<<<<<<
+ *             if column.title == "":
+ *                 source = "totalUnits"
+*/
+    }
+
+    /* "opscli/seller_sprite/export/columns.py":299
+ *             elif column.title == "":
+ *                 source = "amzUnit"
+ *         if column.title == "LQS":             # <<<<<<<<<<<<<<
+ *             transform = "divide10"
+ *         if column.title == "":
+*/
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_title); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 299, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_LQS, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 299, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    if (__pyx_t_4) {
+
+      /* "opscli/seller_sprite/export/columns.py":300
+ *                 source = "amzUnit"
+ *         if column.title == "LQS":
+ *             transform = "divide10"             # <<<<<<<<<<<<<<
+ *         if column.title == "":
+ *             source = reviews_delta_source
+*/
+      __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_divide10);
+      __Pyx_DECREF_SET(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_divide10);
+
+      /* "opscli/seller_sprite/export/columns.py":299
+ *             elif column.title == "":
+ *                 source = "amzUnit"
+ *         if column.title == "LQS":             # <<<<<<<<<<<<<<
+ *             transform = "divide10"
+ *         if column.title == "":
+*/
+    }
+
+    /* "opscli/seller_sprite/export/columns.py":301
+ *         if column.title == "LQS":
+ *             transform = "divide10"
+ *         if column.title == "":             # <<<<<<<<<<<<<<
+ *             source = reviews_delta_source
+ *         fallback = column.fallback
+*/
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_title); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 301, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u__19, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 301, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    if (__pyx_t_4) {
+
+      /* "opscli/seller_sprite/export/columns.py":302
+ *             transform = "divide10"
+ *         if column.title == "":
+ *             source = reviews_delta_source             # <<<<<<<<<<<<<<
+ *         fallback = column.fallback
+ *         if column.title == "":
+*/
+      __Pyx_INCREF(__pyx_v_reviews_delta_source);
+      __Pyx_DECREF_SET(__pyx_v_source, __pyx_v_reviews_delta_source);
+
+      /* "opscli/seller_sprite/export/columns.py":301
+ *         if column.title == "LQS":
+ *             transform = "divide10"
+ *         if column.title == "":             # <<<<<<<<<<<<<<
+ *             source = reviews_delta_source
+ *         fallback = column.fallback
+*/
+    }
+
+    /* "opscli/seller_sprite/export/columns.py":303
+ *         if column.title == "":
+ *             source = reviews_delta_source
+ *         fallback = column.fallback             # <<<<<<<<<<<<<<
+ *         if column.title == "":
+ *             source = seller_nation_source
+*/
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_fallback); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 303, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __Pyx_XDECREF_SET(__pyx_v_fallback, __pyx_t_1);
+    __pyx_t_1 = 0;
+
+    /* "opscli/seller_sprite/export/columns.py":304
+ *             source = reviews_delta_source
+ *         fallback = column.fallback
+ *         if column.title == "":             # <<<<<<<<<<<<<<
+ *             source = seller_nation_source
+ *             fallback = "sellerNation" if seller_nation_source != "sellerNation" else column.fallback
+*/
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_title); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 304, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u__20, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 304, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    if (__pyx_t_4) {
+
+      /* "opscli/seller_sprite/export/columns.py":305
+ *         fallback = column.fallback
+ *         if column.title == "":
+ *             source = seller_nation_source             # <<<<<<<<<<<<<<
+ *             fallback = "sellerNation" if seller_nation_source != "sellerNation" else column.fallback
+ *             transform = "sellerNation"
+*/
+      __Pyx_INCREF(__pyx_v_seller_nation_source);
+      __Pyx_DECREF_SET(__pyx_v_source, __pyx_v_seller_nation_source);
+
+      /* "opscli/seller_sprite/export/columns.py":306
+ *         if column.title == "":
+ *             source = seller_nation_source
+ *             fallback = "sellerNation" if seller_nation_source != "sellerNation" else column.fallback             # <<<<<<<<<<<<<<
+ *             transform = "sellerNation"
+ *         if column.title in percent_suffix_titles:
+*/
+      __pyx_t_4 = (__Pyx_PyUnicode_Equals(__pyx_v_seller_nation_source, __pyx_mstate_global->__pyx_n_u_sellerNation, Py_NE)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 306, __pyx_L1_error)
+      if (__pyx_t_4) {
+        __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_sellerNation);
+        __pyx_t_1 = __pyx_mstate_global->__pyx_n_u_sellerNation;
+      } else {
+        __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_fallback); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 306, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_7);
+        __pyx_t_1 = __pyx_t_7;
+        __pyx_t_7 = 0;
+      }
+      __Pyx_DECREF_SET(__pyx_v_fallback, __pyx_t_1);
+      __pyx_t_1 = 0;
+
+      /* "opscli/seller_sprite/export/columns.py":307
+ *             source = seller_nation_source
+ *             fallback = "sellerNation" if seller_nation_source != "sellerNation" else column.fallback
+ *             transform = "sellerNation"             # <<<<<<<<<<<<<<
+ *         if column.title in percent_suffix_titles:
+ *             transform = "percentSuffix"
+*/
+      __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_sellerNation);
+      __Pyx_DECREF_SET(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_sellerNation);
+
+      /* "opscli/seller_sprite/export/columns.py":304
+ *             source = reviews_delta_source
+ *         fallback = column.fallback
+ *         if column.title == "":             # <<<<<<<<<<<<<<
+ *             source = seller_nation_source
+ *             fallback = "sellerNation" if seller_nation_source != "sellerNation" else column.fallback
+*/
+    }
+
+    /* "opscli/seller_sprite/export/columns.py":308
+ *             fallback = "sellerNation" if seller_nation_source != "sellerNation" else column.fallback
+ *             transform = "sellerNation"
+ *         if column.title in percent_suffix_titles:             # <<<<<<<<<<<<<<
+ *             transform = "percentSuffix"
+ *         columns.append(ExportColumn(replacements.get(column.title, column.title), source, fallback, transform))
+*/
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_title); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 308, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    if (unlikely(__pyx_v_percent_suffix_titles == Py_None)) {
+      PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
+      __PYX_ERR(0, 308, __pyx_L1_error)
+    }
+    __pyx_t_4 = (__Pyx_PySet_ContainsTF(__pyx_t_1, __pyx_v_percent_suffix_titles, Py_EQ)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 308, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+    if (__pyx_t_4) {
+
+      /* "opscli/seller_sprite/export/columns.py":309
+ *             transform = "sellerNation"
+ *         if column.title in percent_suffix_titles:
+ *             transform = "percentSuffix"             # <<<<<<<<<<<<<<
+ *         columns.append(ExportColumn(replacements.get(column.title, column.title), source, fallback, transform))
+ *     return columns
+*/
+      __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_percentSuffix);
+      __Pyx_DECREF_SET(__pyx_v_transform, __pyx_mstate_global->__pyx_n_u_percentSuffix);
+
+      /* "opscli/seller_sprite/export/columns.py":308
+ *             fallback = "sellerNation" if seller_nation_source != "sellerNation" else column.fallback
+ *             transform = "sellerNation"
+ *         if column.title in percent_suffix_titles:             # <<<<<<<<<<<<<<
+ *             transform = "percentSuffix"
+ *         columns.append(ExportColumn(replacements.get(column.title, column.title), source, fallback, transform))
+*/
+    }
+
+    /* "opscli/seller_sprite/export/columns.py":310
+ *         if column.title in percent_suffix_titles:
+ *             transform = "percentSuffix"
+ *         columns.append(ExportColumn(replacements.get(column.title, column.title), source, fallback, transform))             # <<<<<<<<<<<<<<
+ *     return columns
+ * 
+*/
+    __pyx_t_7 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 310, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_8);
+    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_title); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 310, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
+    __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_v_column, __pyx_mstate_global->__pyx_n_u_title); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 310, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_10);
+    __pyx_t_11 = __Pyx_PyDict_GetItemDefault(__pyx_v_replacements, __pyx_t_9, __pyx_t_10); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 310, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_11);
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+    __pyx_t_12 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_8))) {
+      __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_8);
+      assert(__pyx_t_7);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_8);
+      __Pyx_INCREF(__pyx_t_7);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_8, __pyx__function);
+      __pyx_t_12 = 0;
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[5] = {__pyx_t_7, __pyx_t_11, __pyx_v_source, __pyx_v_fallback, __pyx_v_transform};
+      __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_8, __pyx_callargs+__pyx_t_12, (5-__pyx_t_12) | (__pyx_t_12*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+      __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+      __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 310, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+    }
+    __pyx_t_13 = __Pyx_PyList_Append(__pyx_v_columns, __pyx_t_1); if (unlikely(__pyx_t_13 == ((int)-1))) __PYX_ERR(0, 310, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+    /* "opscli/seller_sprite/export/columns.py":291
+ *     columns: list[ExportColumn] = []
+ *     percent_suffix_titles = percent_suffix_titles or set()
+ *     for column in PRODUCT_COLUMNS_COMMON:             # <<<<<<<<<<<<<<
+ *         source = column.source
+ *         transform = column.transform
+*/
+  }
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":311
+ *             transform = "percentSuffix"
+ *         columns.append(ExportColumn(replacements.get(column.title, column.title), source, fallback, transform))
+ *     return columns             # <<<<<<<<<<<<<<
+ * 
+ * 
+*/
+  __Pyx_XDECREF(__pyx_r);
+  __Pyx_INCREF(__pyx_v_columns);
+  __pyx_r = __pyx_v_columns;
+  goto __pyx_L0;
+
+  /* "opscli/seller_sprite/export/columns.py":273
+ * 
+ * 
+ * def _product_columns(             # <<<<<<<<<<<<<<
+ *     currency: str,
+ *     *,
+*/
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_7);
+  __Pyx_XDECREF(__pyx_t_8);
+  __Pyx_XDECREF(__pyx_t_9);
+  __Pyx_XDECREF(__pyx_t_10);
+  __Pyx_XDECREF(__pyx_t_11);
+  __Pyx_AddTraceback("opscli.seller_sprite.export.columns._product_columns", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_replacements);
+  __Pyx_XDECREF(__pyx_v_columns);
+  __Pyx_XDECREF(__pyx_v_column);
+  __Pyx_XDECREF(__pyx_v_source);
+  __Pyx_XDECREF(__pyx_v_transform);
+  __Pyx_XDECREF(__pyx_v_fallback);
+  __Pyx_XDECREF(__pyx_v_percent_suffix_titles);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "opscli/seller_sprite/export/columns.py":314
+ * 
+ * 
+ * def _columns_with_currency_titles(             # <<<<<<<<<<<<<<
+ *     columns: list[ExportColumn],
+ *     currency: str,
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_7columns_7_columns_with_currency_titles(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_6export_7columns_7_columns_with_currency_titles = {"_columns_with_currency_titles", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_6export_7columns_7_columns_with_currency_titles, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_7columns_7_columns_with_currency_titles(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  PyObject *__pyx_v_columns = 0;
+  PyObject *__pyx_v_currency = 0;
+  PyObject *__pyx_v_titles = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[3] = {0,0,0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("_columns_with_currency_titles (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_columns,&__pyx_mstate_global->__pyx_n_u_currency,&__pyx_mstate_global->__pyx_n_u_titles,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 314, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  3:
+        values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 314, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  2:
+        values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 314, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 314, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_columns_with_currency_titles", 0) < (0)) __PYX_ERR(0, 314, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 3; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_columns_with_currency_titles", 1, 3, 3, i); __PYX_ERR(0, 314, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 3)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 314, __pyx_L3_error)
+      values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 314, __pyx_L3_error)
+      values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 314, __pyx_L3_error)
+    }
+    __pyx_v_columns = ((PyObject*)values[0]);
+    __pyx_v_currency = ((PyObject*)values[1]);
+    __pyx_v_titles = ((PyObject*)values[2]);
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("_columns_with_currency_titles", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 314, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_AddTraceback("opscli.seller_sprite.export.columns._columns_with_currency_titles", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_columns), (&PyList_Type), 0, "columns", 2))) __PYX_ERR(0, 315, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_currency), (&PyUnicode_Type), 0, "currency", 2))) __PYX_ERR(0, 316, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_titles), (&PySet_Type), 0, "titles", 2))) __PYX_ERR(0, 317, __pyx_L1_error)
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_7columns_6_columns_with_currency_titles(__pyx_self, __pyx_v_columns, __pyx_v_currency, __pyx_v_titles);
+
+  /* function exit code */
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __pyx_r = NULL;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  goto __pyx_L7_cleaned_up;
+  __pyx_L0:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __pyx_L7_cleaned_up:;
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_7columns_6_columns_with_currency_titles(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_columns, PyObject *__pyx_v_currency, PyObject *__pyx_v_titles) {
   PyObject *__pyx_7genexpr__pyx_v_column = NULL;
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  Py_ssize_t __pyx_t_3;
+  PyObject *__pyx_t_4 = NULL;
+  PyObject *__pyx_t_5 = NULL;
+  PyObject *__pyx_t_6 = NULL;
+  PyObject *__pyx_t_7 = NULL;
+  PyObject *__pyx_t_8 = NULL;
+  int __pyx_t_9;
+  PyObject *__pyx_t_10 = NULL;
+  PyObject *__pyx_t_11[4];
+  PyObject *__pyx_t_12 = NULL;
+  size_t __pyx_t_13;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("_columns_with_currency_titles", 0);
+
+  /* "opscli/seller_sprite/export/columns.py":319
+ *     titles: set[str],
+ * ) -> list[ExportColumn]:
+ *     return [             # <<<<<<<<<<<<<<
+ *         ExportColumn(
+ *             f"{column.title}({currency})" if column.title in titles else column.title,
+*/
+  __Pyx_XDECREF(__pyx_r);
+  { /* enter inner scope */
+    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 319, __pyx_L5_error)
+    __Pyx_GOTREF(__pyx_t_1);
+
+    /* "opscli/seller_sprite/export/columns.py":326
+ *             column.transform,
+ *         )
+ *         for column in columns             # <<<<<<<<<<<<<<
+ *     ]
+ * 
+*/
+    __pyx_t_2 = __pyx_v_columns; __Pyx_INCREF(__pyx_t_2);
+    __pyx_t_3 = 0;
+    for (;;) {
+      {
+        Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_2);
+        #if !CYTHON_ASSUME_SAFE_SIZE
+        if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 326, __pyx_L5_error)
+        #endif
+        if (__pyx_t_3 >= __pyx_temp) break;
+      }
+      __pyx_t_4 = __Pyx_PyList_GetItemRefFast(__pyx_t_2, __pyx_t_3, __Pyx_ReferenceSharing_OwnStrongReference);
+      ++__pyx_t_3;
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 326, __pyx_L5_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_column, __pyx_t_4);
+      __pyx_t_4 = 0;
+
+      /* "opscli/seller_sprite/export/columns.py":320
+ * ) -> list[ExportColumn]:
+ *     return [
+ *         ExportColumn(             # <<<<<<<<<<<<<<
+ *             f"{column.title}({currency})" if column.title in titles else column.title,
+ *             column.source,
+*/
+      __pyx_t_5 = NULL;
+      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 320, __pyx_L5_error)
+      __Pyx_GOTREF(__pyx_t_6);
+
+      /* "opscli/seller_sprite/export/columns.py":321
+ *     return [
+ *         ExportColumn(
+ *             f"{column.title}({currency})" if column.title in titles else column.title,             # <<<<<<<<<<<<<<
+ *             column.source,
+ *             column.fallback,
+*/
+      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_7genexpr__pyx_v_column, __pyx_mstate_global->__pyx_n_u_title); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 321, __pyx_L5_error)
+      __Pyx_GOTREF(__pyx_t_8);
+      __pyx_t_9 = (__Pyx_PySet_ContainsTF(__pyx_t_8, __pyx_v_titles, Py_EQ)); if (unlikely((__pyx_t_9 < 0))) __PYX_ERR(0, 321, __pyx_L5_error)
+      __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+      if (__pyx_t_9) {
+        __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_7genexpr__pyx_v_column, __pyx_mstate_global->__pyx_n_u_title); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 321, __pyx_L5_error)
+        __Pyx_GOTREF(__pyx_t_8);
+        __pyx_t_10 = __Pyx_PyObject_FormatSimple(__pyx_t_8, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 321, __pyx_L5_error)
+        __Pyx_GOTREF(__pyx_t_10);
+        __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+        __pyx_t_11[0] = __pyx_t_10;
+        __pyx_t_11[1] = __pyx_mstate_global->__pyx_kp_u__21;
+        __pyx_t_11[2] = __pyx_v_currency;
+        __pyx_t_11[3] = __pyx_mstate_global->__pyx_kp_u__13;
+        __pyx_t_8 = __Pyx_PyUnicode_Join(__pyx_t_11, 4, __Pyx_PyUnicode_GET_LENGTH(__pyx_t_10) + 1 * 2 + __Pyx_PyUnicode_GET_LENGTH(__pyx_v_currency), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_10) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_v_currency));
+        if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 321, __pyx_L5_error)
+        __Pyx_GOTREF(__pyx_t_8);
+        __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+        __pyx_t_7 = __pyx_t_8;
+        __pyx_t_8 = 0;
+      } else {
+        __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_7genexpr__pyx_v_column, __pyx_mstate_global->__pyx_n_u_title); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 321, __pyx_L5_error)
+        __Pyx_GOTREF(__pyx_t_8);
+        __pyx_t_7 = __pyx_t_8;
+        __pyx_t_8 = 0;
+      }
+
+      /* "opscli/seller_sprite/export/columns.py":322
+ *         ExportColumn(
+ *             f"{column.title}({currency})" if column.title in titles else column.title,
+ *             column.source,             # <<<<<<<<<<<<<<
+ *             column.fallback,
+ *             column.transform,
+*/
+      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_7genexpr__pyx_v_column, __pyx_mstate_global->__pyx_n_u_source); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 322, __pyx_L5_error)
+      __Pyx_GOTREF(__pyx_t_8);
+
+      /* "opscli/seller_sprite/export/columns.py":323
+ *             f"{column.title}({currency})" if column.title in titles else column.title,
+ *             column.source,
+ *             column.fallback,             # <<<<<<<<<<<<<<
+ *             column.transform,
+ *         )
+*/
+      __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_7genexpr__pyx_v_column, __pyx_mstate_global->__pyx_n_u_fallback); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 323, __pyx_L5_error)
+      __Pyx_GOTREF(__pyx_t_10);
+
+      /* "opscli/seller_sprite/export/columns.py":324
+ *             column.source,
+ *             column.fallback,
+ *             column.transform,             # <<<<<<<<<<<<<<
+ *         )
+ *         for column in columns
+*/
+      __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_7genexpr__pyx_v_column, __pyx_mstate_global->__pyx_n_u_transform); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 324, __pyx_L5_error)
+      __Pyx_GOTREF(__pyx_t_12);
+      __pyx_t_13 = 1;
+      #if CYTHON_UNPACK_METHODS
+      if (unlikely(PyMethod_Check(__pyx_t_6))) {
+        __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_6);
+        assert(__pyx_t_5);
+        PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_6);
+        __Pyx_INCREF(__pyx_t_5);
+        __Pyx_INCREF(__pyx__function);
+        __Pyx_DECREF_SET(__pyx_t_6, __pyx__function);
+        __pyx_t_13 = 0;
+      }
+      #endif
+      {
+        PyObject *__pyx_callargs[5] = {__pyx_t_5, __pyx_t_7, __pyx_t_8, __pyx_t_10, __pyx_t_12};
+        __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_13, (5-__pyx_t_13) | (__pyx_t_13*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+        __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+        __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+        __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+        __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+        __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+        __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 320, __pyx_L5_error)
+        __Pyx_GOTREF(__pyx_t_4);
+      }
+      if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_4))) __PYX_ERR(0, 319, __pyx_L5_error)
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+      /* "opscli/seller_sprite/export/columns.py":326
+ *             column.transform,
+ *         )
+ *         for column in columns             # <<<<<<<<<<<<<<
+ *     ]
+ * 
+*/
+    }
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __Pyx_XDECREF(__pyx_7genexpr__pyx_v_column); __pyx_7genexpr__pyx_v_column = 0;
+    goto __pyx_L9_exit_scope;
+    __pyx_L5_error:;
+    __Pyx_XDECREF(__pyx_7genexpr__pyx_v_column); __pyx_7genexpr__pyx_v_column = 0;
+    goto __pyx_L1_error;
+    __pyx_L9_exit_scope:;
+  } /* exit inner scope */
+  __pyx_r = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+  goto __pyx_L0;
+
+  /* "opscli/seller_sprite/export/columns.py":314
+ * 
+ * 
+ * def _columns_with_currency_titles(             # <<<<<<<<<<<<<<
+ *     columns: list[ExportColumn],
+ *     currency: str,
+*/
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_XDECREF(__pyx_t_5);
+  __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_XDECREF(__pyx_t_7);
+  __Pyx_XDECREF(__pyx_t_8);
+  __Pyx_XDECREF(__pyx_t_10);
+  __Pyx_XDECREF(__pyx_t_12);
+  __Pyx_AddTraceback("opscli.seller_sprite.export.columns._columns_with_currency_titles", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XDECREF(__pyx_7genexpr__pyx_v_column);
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "opscli/seller_sprite/export/columns.py":330
+ * 
+ * 
+ * def _market_research_columns(currency: str) -> list[ExportColumn]:             # <<<<<<<<<<<<<<
+ *     replacements = {
+ *         "__AVG_REVENUE__": f"({currency})",
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_7columns_9_market_research_columns(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static PyMethodDef __pyx_mdef_6opscli_13seller_sprite_6export_7columns_9_market_research_columns = {"_market_research_columns", (PyCFunction)(void(*)(void))(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_6opscli_13seller_sprite_6export_7columns_9_market_research_columns, __Pyx_METH_FASTCALL|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_6opscli_13seller_sprite_6export_7columns_9_market_research_columns(PyObject *__pyx_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  PyObject *__pyx_v_currency = 0;
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject* values[1] = {0};
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("_market_research_columns (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_SIZE
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  {
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_currency,0};
+    const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 330, __pyx_L3_error)
+    if (__pyx_kwds_len > 0) {
+      switch (__pyx_nargs) {
+        case  1:
+        values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 330, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      const Py_ssize_t kwd_pos_args = __pyx_nargs;
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_market_research_columns", 0) < (0)) __PYX_ERR(0, 330, __pyx_L3_error)
+      for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_market_research_columns", 1, 1, 1, i); __PYX_ERR(0, 330, __pyx_L3_error) }
+      }
+    } else if (unlikely(__pyx_nargs != 1)) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 330, __pyx_L3_error)
+    }
+    __pyx_v_currency = ((PyObject*)values[0]);
+  }
+  goto __pyx_L6_skip;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("_market_research_columns", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 330, __pyx_L3_error)
+  __pyx_L6_skip:;
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L3_error:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __Pyx_AddTraceback("opscli.seller_sprite.export.columns._market_research_columns", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_currency), (&PyUnicode_Type), 0, "currency", 2))) __PYX_ERR(0, 330, __pyx_L1_error)
+  __pyx_r = __pyx_pf_6opscli_13seller_sprite_6export_7columns_8_market_research_columns(__pyx_self, __pyx_v_currency);
+
+  /* function exit code */
+  goto __pyx_L0;
+  __pyx_L1_error:;
+  __pyx_r = NULL;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  goto __pyx_L7_cleaned_up;
+  __pyx_L0:;
+  for (Py_ssize_t __pyx_temp=0; __pyx_temp < (Py_ssize_t)(sizeof(values)/sizeof(values[0])); ++__pyx_temp) {
+    Py_XDECREF(values[__pyx_temp]);
+  }
+  __pyx_L7_cleaned_up:;
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_7columns_8_market_research_columns(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_currency) {
+  PyObject *__pyx_v_replacements = NULL;
+  PyObject *__pyx_8genexpr1__pyx_v_column = NULL;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -3367,136 +4975,120 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_7columns_4_product_col
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("_product_columns", 0);
+  __Pyx_RefNannySetupContext("_market_research_columns", 0);
 
-  /* "opscli/seller_sprite/export/columns.py":177
- * def _product_columns(currency: str) -> list[ExportColumn]:
+  /* "opscli/seller_sprite/export/columns.py":332
+ * def _market_research_columns(currency: str) -> list[ExportColumn]:
  *     replacements = {
- *         "__TOTAL_AMOUNT__": f"({currency})",             # <<<<<<<<<<<<<<
- *         "__SUB_TOTAL_AMOUNT__": f"({currency})",
- *         "__PRICE__": f"({currency})",
+ *         "__AVG_REVENUE__": f"({currency})",             # <<<<<<<<<<<<<<
+ *         "__AVG_PRICE__": f"({currency})",
+ *         "__HEAD_AVG_REVENUE__": f"Listing({currency})",
 */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 177, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(5); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 332, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2[0] = __pyx_mstate_global->__pyx_kp_u__3;
+  __pyx_t_2[0] = __pyx_mstate_global->__pyx_kp_u__22;
   __pyx_t_2[1] = __pyx_v_currency;
-  __pyx_t_2[2] = __pyx_mstate_global->__pyx_kp_u__4;
-  __pyx_t_3 = __Pyx_PyUnicode_Join(__pyx_t_2, 3, 5 + __Pyx_PyUnicode_GET_LENGTH(__pyx_v_currency) + 1, 65535 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_v_currency));
-  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 177, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_TOTAL_AMOUNT, __pyx_t_3) < (0)) __PYX_ERR(0, 177, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-
-  /* "opscli/seller_sprite/export/columns.py":178
- *     replacements = {
- *         "__TOTAL_AMOUNT__": f"({currency})",
- *         "__SUB_TOTAL_AMOUNT__": f"({currency})",             # <<<<<<<<<<<<<<
- *         "__PRICE__": f"({currency})",
- *         "__PRIME_PRICE__": f"prime({currency})",
-*/
-  __pyx_t_2[0] = __pyx_mstate_global->__pyx_kp_u__5;
-  __pyx_t_2[1] = __pyx_v_currency;
-  __pyx_t_2[2] = __pyx_mstate_global->__pyx_kp_u__4;
+  __pyx_t_2[2] = __pyx_mstate_global->__pyx_kp_u__13;
   __pyx_t_3 = __Pyx_PyUnicode_Join(__pyx_t_2, 3, 6 + __Pyx_PyUnicode_GET_LENGTH(__pyx_v_currency) + 1, 65535 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_v_currency));
-  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 178, __pyx_L1_error)
+  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 332, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_SUB_TOTAL_AMOUNT, __pyx_t_3) < (0)) __PYX_ERR(0, 177, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_AVG_REVENUE, __pyx_t_3) < (0)) __PYX_ERR(0, 332, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "opscli/seller_sprite/export/columns.py":179
- *         "__TOTAL_AMOUNT__": f"({currency})",
- *         "__SUB_TOTAL_AMOUNT__": f"({currency})",
- *         "__PRICE__": f"({currency})",             # <<<<<<<<<<<<<<
- *         "__PRIME_PRICE__": f"prime({currency})",
- *         "__FBA__": f"FBA({currency})",
+  /* "opscli/seller_sprite/export/columns.py":333
+ *     replacements = {
+ *         "__AVG_REVENUE__": f"({currency})",
+ *         "__AVG_PRICE__": f"({currency})",             # <<<<<<<<<<<<<<
+ *         "__HEAD_AVG_REVENUE__": f"Listing({currency})",
+ *         "__NEW_AVG_REVENUE__": f"({currency})",
 */
-  __pyx_t_2[0] = __pyx_mstate_global->__pyx_kp_u__6;
+  __pyx_t_2[0] = __pyx_mstate_global->__pyx_kp_u__23;
   __pyx_t_2[1] = __pyx_v_currency;
-  __pyx_t_2[2] = __pyx_mstate_global->__pyx_kp_u__4;
-  __pyx_t_3 = __Pyx_PyUnicode_Join(__pyx_t_2, 3, 3 + __Pyx_PyUnicode_GET_LENGTH(__pyx_v_currency) + 1, 65535 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_v_currency));
-  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 179, __pyx_L1_error)
+  __pyx_t_2[2] = __pyx_mstate_global->__pyx_kp_u__13;
+  __pyx_t_3 = __Pyx_PyUnicode_Join(__pyx_t_2, 3, 5 + __Pyx_PyUnicode_GET_LENGTH(__pyx_v_currency) + 1, 65535 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_v_currency));
+  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 333, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_PRICE, __pyx_t_3) < (0)) __PYX_ERR(0, 177, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_AVG_PRICE, __pyx_t_3) < (0)) __PYX_ERR(0, 332, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "opscli/seller_sprite/export/columns.py":180
- *         "__SUB_TOTAL_AMOUNT__": f"({currency})",
- *         "__PRICE__": f"({currency})",
- *         "__PRIME_PRICE__": f"prime({currency})",             # <<<<<<<<<<<<<<
- *         "__FBA__": f"FBA({currency})",
- *         "__DELIVERY_PRICE__": f"({currency})",
+  /* "opscli/seller_sprite/export/columns.py":334
+ *         "__AVG_REVENUE__": f"({currency})",
+ *         "__AVG_PRICE__": f"({currency})",
+ *         "__HEAD_AVG_REVENUE__": f"Listing({currency})",             # <<<<<<<<<<<<<<
+ *         "__NEW_AVG_REVENUE__": f"({currency})",
+ *         "__NEW_AVG_PRICE__": f"({currency})",
 */
-  __pyx_t_2[0] = __pyx_mstate_global->__pyx_kp_u_prime;
+  __pyx_t_2[0] = __pyx_mstate_global->__pyx_kp_u_Listing;
   __pyx_t_2[1] = __pyx_v_currency;
-  __pyx_t_2[2] = __pyx_mstate_global->__pyx_kp_u__4;
-  __pyx_t_3 = __Pyx_PyUnicode_Join(__pyx_t_2, 3, 8 + __Pyx_PyUnicode_GET_LENGTH(__pyx_v_currency) + 1, 65535 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_v_currency));
-  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 180, __pyx_L1_error)
+  __pyx_t_2[2] = __pyx_mstate_global->__pyx_kp_u__13;
+  __pyx_t_3 = __Pyx_PyUnicode_Join(__pyx_t_2, 3, 15 + __Pyx_PyUnicode_GET_LENGTH(__pyx_v_currency) + 1, 65535 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_v_currency));
+  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 334, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_PRIME_PRICE, __pyx_t_3) < (0)) __PYX_ERR(0, 177, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_HEAD_AVG_REVENUE, __pyx_t_3) < (0)) __PYX_ERR(0, 332, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "opscli/seller_sprite/export/columns.py":181
- *         "__PRICE__": f"({currency})",
- *         "__PRIME_PRICE__": f"prime({currency})",
- *         "__FBA__": f"FBA({currency})",             # <<<<<<<<<<<<<<
- *         "__DELIVERY_PRICE__": f"({currency})",
+  /* "opscli/seller_sprite/export/columns.py":335
+ *         "__AVG_PRICE__": f"({currency})",
+ *         "__HEAD_AVG_REVENUE__": f"Listing({currency})",
+ *         "__NEW_AVG_REVENUE__": f"({currency})",             # <<<<<<<<<<<<<<
+ *         "__NEW_AVG_PRICE__": f"({currency})",
  *     }
 */
-  __pyx_t_2[0] = __pyx_mstate_global->__pyx_kp_u_FBA_2;
+  __pyx_t_2[0] = __pyx_mstate_global->__pyx_kp_u__24;
   __pyx_t_2[1] = __pyx_v_currency;
-  __pyx_t_2[2] = __pyx_mstate_global->__pyx_kp_u__4;
-  __pyx_t_3 = __Pyx_PyUnicode_Join(__pyx_t_2, 3, 4 + __Pyx_PyUnicode_GET_LENGTH(__pyx_v_currency) + 1, 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_v_currency));
-  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 181, __pyx_L1_error)
+  __pyx_t_2[2] = __pyx_mstate_global->__pyx_kp_u__13;
+  __pyx_t_3 = __Pyx_PyUnicode_Join(__pyx_t_2, 3, 8 + __Pyx_PyUnicode_GET_LENGTH(__pyx_v_currency) + 1, 65535 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_v_currency));
+  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 335, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_FBA, __pyx_t_3) < (0)) __PYX_ERR(0, 177, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_NEW_AVG_REVENUE, __pyx_t_3) < (0)) __PYX_ERR(0, 332, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "opscli/seller_sprite/export/columns.py":182
- *         "__PRIME_PRICE__": f"prime({currency})",
- *         "__FBA__": f"FBA({currency})",
- *         "__DELIVERY_PRICE__": f"({currency})",             # <<<<<<<<<<<<<<
+  /* "opscli/seller_sprite/export/columns.py":336
+ *         "__HEAD_AVG_REVENUE__": f"Listing({currency})",
+ *         "__NEW_AVG_REVENUE__": f"({currency})",
+ *         "__NEW_AVG_PRICE__": f"({currency})",             # <<<<<<<<<<<<<<
  *     }
  *     return [
 */
-  __pyx_t_2[0] = __pyx_mstate_global->__pyx_kp_u__7;
+  __pyx_t_2[0] = __pyx_mstate_global->__pyx_kp_u__25;
   __pyx_t_2[1] = __pyx_v_currency;
-  __pyx_t_2[2] = __pyx_mstate_global->__pyx_kp_u__4;
-  __pyx_t_3 = __Pyx_PyUnicode_Join(__pyx_t_2, 3, 5 + __Pyx_PyUnicode_GET_LENGTH(__pyx_v_currency) + 1, 65535 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_v_currency));
-  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 182, __pyx_L1_error)
+  __pyx_t_2[2] = __pyx_mstate_global->__pyx_kp_u__13;
+  __pyx_t_3 = __Pyx_PyUnicode_Join(__pyx_t_2, 3, 7 + __Pyx_PyUnicode_GET_LENGTH(__pyx_v_currency) + 1, 65535 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_v_currency));
+  if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 336, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_DELIVERY_PRICE, __pyx_t_3) < (0)) __PYX_ERR(0, 177, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_NEW_AVG_PRICE, __pyx_t_3) < (0)) __PYX_ERR(0, 332, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_v_replacements = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/export/columns.py":184
- *         "__DELIVERY_PRICE__": f"({currency})",
+  /* "opscli/seller_sprite/export/columns.py":338
+ *         "__NEW_AVG_PRICE__": f"({currency})",
  *     }
  *     return [             # <<<<<<<<<<<<<<
  *         ExportColumn(replacements.get(column.title, column.title), column.source, column.fallback, column.transform)
- *         for column in PRODUCT_COLUMNS_COMMON
+ *         for column in MARKET_RESEARCH_COLUMNS
 */
   __Pyx_XDECREF(__pyx_r);
   { /* enter inner scope */
-    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 184, __pyx_L5_error)
+    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 338, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_1);
 
-    /* "opscli/seller_sprite/export/columns.py":186
+    /* "opscli/seller_sprite/export/columns.py":340
  *     return [
  *         ExportColumn(replacements.get(column.title, column.title), column.source, column.fallback, column.transform)
- *         for column in PRODUCT_COLUMNS_COMMON             # <<<<<<<<<<<<<<
+ *         for column in MARKET_RESEARCH_COLUMNS             # <<<<<<<<<<<<<<
  *     ]
 */
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_PRODUCT_COLUMNS_COMMON); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 186, __pyx_L5_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_MARKET_RESEARCH_COLUMNS); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 340, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_3);
     if (likely(PyList_CheckExact(__pyx_t_3)) || PyTuple_CheckExact(__pyx_t_3)) {
       __pyx_t_4 = __pyx_t_3; __Pyx_INCREF(__pyx_t_4);
       __pyx_t_5 = 0;
       __pyx_t_6 = NULL;
     } else {
-      __pyx_t_5 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 186, __pyx_L5_error)
+      __pyx_t_5 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 340, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_6 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 186, __pyx_L5_error)
+      __pyx_t_6 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 340, __pyx_L5_error)
     }
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     for (;;) {
@@ -3505,7 +5097,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_7columns_4_product_col
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_4);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 186, __pyx_L5_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 340, __pyx_L5_error)
             #endif
             if (__pyx_t_5 >= __pyx_temp) break;
           }
@@ -3515,7 +5107,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_7columns_4_product_col
           {
             Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_4);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 186, __pyx_L5_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 340, __pyx_L5_error)
             #endif
             if (__pyx_t_5 >= __pyx_temp) break;
           }
@@ -3526,45 +5118,45 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_7columns_4_product_col
           #endif
           ++__pyx_t_5;
         }
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 186, __pyx_L5_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 340, __pyx_L5_error)
       } else {
         __pyx_t_3 = __pyx_t_6(__pyx_t_4);
         if (unlikely(!__pyx_t_3)) {
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
-            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 186, __pyx_L5_error)
+            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 340, __pyx_L5_error)
             PyErr_Clear();
           }
           break;
         }
       }
       __Pyx_GOTREF(__pyx_t_3);
-      __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_column, __pyx_t_3);
+      __Pyx_XDECREF_SET(__pyx_8genexpr1__pyx_v_column, __pyx_t_3);
       __pyx_t_3 = 0;
 
-      /* "opscli/seller_sprite/export/columns.py":185
+      /* "opscli/seller_sprite/export/columns.py":339
  *     }
  *     return [
  *         ExportColumn(replacements.get(column.title, column.title), column.source, column.fallback, column.transform)             # <<<<<<<<<<<<<<
- *         for column in PRODUCT_COLUMNS_COMMON
+ *         for column in MARKET_RESEARCH_COLUMNS
  *     ]
 */
       __pyx_t_7 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 185, __pyx_L5_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 339, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_8);
-      __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_7genexpr__pyx_v_column, __pyx_mstate_global->__pyx_n_u_title); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 185, __pyx_L5_error)
+      __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_8genexpr1__pyx_v_column, __pyx_mstate_global->__pyx_n_u_title); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 339, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_9);
-      __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_7genexpr__pyx_v_column, __pyx_mstate_global->__pyx_n_u_title); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 185, __pyx_L5_error)
+      __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_8genexpr1__pyx_v_column, __pyx_mstate_global->__pyx_n_u_title); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 339, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_10);
-      __pyx_t_11 = __Pyx_PyDict_GetItemDefault(__pyx_v_replacements, __pyx_t_9, __pyx_t_10); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 185, __pyx_L5_error)
+      __pyx_t_11 = __Pyx_PyDict_GetItemDefault(__pyx_v_replacements, __pyx_t_9, __pyx_t_10); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 339, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_11);
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-      __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_7genexpr__pyx_v_column, __pyx_mstate_global->__pyx_n_u_source); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 185, __pyx_L5_error)
+      __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_8genexpr1__pyx_v_column, __pyx_mstate_global->__pyx_n_u_source); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 339, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_10);
-      __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_7genexpr__pyx_v_column, __pyx_mstate_global->__pyx_n_u_fallback); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 185, __pyx_L5_error)
+      __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_8genexpr1__pyx_v_column, __pyx_mstate_global->__pyx_n_u_fallback); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 339, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_9);
-      __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_7genexpr__pyx_v_column, __pyx_mstate_global->__pyx_n_u_transform); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 185, __pyx_L5_error)
+      __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_8genexpr1__pyx_v_column, __pyx_mstate_global->__pyx_n_u_transform); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 339, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_12);
       __pyx_t_13 = 1;
       #if CYTHON_UNPACK_METHODS
@@ -3587,24 +5179,24 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_7columns_4_product_col
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 185, __pyx_L5_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 339, __pyx_L5_error)
         __Pyx_GOTREF(__pyx_t_3);
       }
-      if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_3))) __PYX_ERR(0, 184, __pyx_L5_error)
+      if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_3))) __PYX_ERR(0, 338, __pyx_L5_error)
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-      /* "opscli/seller_sprite/export/columns.py":186
+      /* "opscli/seller_sprite/export/columns.py":340
  *     return [
  *         ExportColumn(replacements.get(column.title, column.title), column.source, column.fallback, column.transform)
- *         for column in PRODUCT_COLUMNS_COMMON             # <<<<<<<<<<<<<<
+ *         for column in MARKET_RESEARCH_COLUMNS             # <<<<<<<<<<<<<<
  *     ]
 */
     }
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __Pyx_XDECREF(__pyx_7genexpr__pyx_v_column); __pyx_7genexpr__pyx_v_column = 0;
+    __Pyx_XDECREF(__pyx_8genexpr1__pyx_v_column); __pyx_8genexpr1__pyx_v_column = 0;
     goto __pyx_L9_exit_scope;
     __pyx_L5_error:;
-    __Pyx_XDECREF(__pyx_7genexpr__pyx_v_column); __pyx_7genexpr__pyx_v_column = 0;
+    __Pyx_XDECREF(__pyx_8genexpr1__pyx_v_column); __pyx_8genexpr1__pyx_v_column = 0;
     goto __pyx_L1_error;
     __pyx_L9_exit_scope:;
   } /* exit inner scope */
@@ -3612,12 +5204,12 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_7columns_4_product_col
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/export/columns.py":175
+  /* "opscli/seller_sprite/export/columns.py":330
  * 
  * 
- * def _product_columns(currency: str) -> list[ExportColumn]:             # <<<<<<<<<<<<<<
+ * def _market_research_columns(currency: str) -> list[ExportColumn]:             # <<<<<<<<<<<<<<
  *     replacements = {
- *         "__TOTAL_AMOUNT__": f"({currency})",
+ *         "__AVG_REVENUE__": f"({currency})",
 */
 
   /* function exit code */
@@ -3631,11 +5223,11 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6export_7columns_4_product_col
   __Pyx_XDECREF(__pyx_t_10);
   __Pyx_XDECREF(__pyx_t_11);
   __Pyx_XDECREF(__pyx_t_12);
-  __Pyx_AddTraceback("opscli.seller_sprite.export.columns._product_columns", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("opscli.seller_sprite.export.columns._market_research_columns", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
   __Pyx_XDECREF(__pyx_v_replacements);
-  __Pyx_XDECREF(__pyx_7genexpr__pyx_v_column);
+  __Pyx_XDECREF(__pyx_8genexpr1__pyx_v_column);
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
@@ -3748,7 +5340,7 @@ namespace {
   {
       PyModuleDef_HEAD_INIT,
       "columns",
-      __pyx_k__8, /* m_doc */
+      __pyx_k__26, /* m_doc */
     #if CYTHON_USE_MODULE_STATE
       sizeof(__pyx_mstatetype), /* m_size */
     #else
@@ -4086,7 +5678,7 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     """"""
  * 
 */
-  __pyx_t_2 = __Pyx_Py3MetaclassPrepare((PyObject *) NULL, __pyx_mstate_global->__pyx_empty_tuple, __pyx_mstate_global->__pyx_n_u_ExportColumn, __pyx_mstate_global->__pyx_n_u_ExportColumn, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_colu, __pyx_mstate_global->__pyx_kp_u__10); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 9, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_Py3MetaclassPrepare((PyObject *) NULL, __pyx_mstate_global->__pyx_empty_tuple, __pyx_mstate_global->__pyx_n_u_ExportColumn, __pyx_mstate_global->__pyx_n_u_ExportColumn, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_colu, __pyx_mstate_global->__pyx_kp_u__28); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 9, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_4 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 9, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
@@ -4327,7 +5919,7 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "category1Name", fallback="categoryName"),
  *     ExportColumn("BSR", "bsrRank"),             # <<<<<<<<<<<<<<
  *     ExportColumn("BSR", "bsrRankCv"),
- *     ExportColumn("BSR", "bsrRankCr"),
+ *     ExportColumn("BSR", "bsrRankCr", transform="percentSuffix"),
 */
   __Pyx_GetModuleGlobalName(__pyx_t_15, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 30, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_15);
@@ -4339,7 +5931,7 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "category1Name", fallback="categoryName"),
  *     ExportColumn("BSR", "bsrRank"),
  *     ExportColumn("BSR", "bsrRankCv"),             # <<<<<<<<<<<<<<
- *     ExportColumn("BSR", "bsrRankCr"),
+ *     ExportColumn("BSR", "bsrRankCr", transform="percentSuffix"),
  *     ExportColumn("", "subcategories.0.label"),
 */
   __Pyx_GetModuleGlobalName(__pyx_t_15, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 31, __pyx_L1_error)
@@ -4351,41 +5943,45 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
   /* "opscli/seller_sprite/export/columns.py":32
  *     ExportColumn("BSR", "bsrRank"),
  *     ExportColumn("BSR", "bsrRankCv"),
- *     ExportColumn("BSR", "bsrRankCr"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("BSR", "bsrRankCr", transform="percentSuffix"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "subcategories.0.label"),
  *     ExportColumn("BSR", "subcategories.0.rank"),
 */
   __Pyx_GetModuleGlobalName(__pyx_t_15, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 32, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_15);
-  __pyx_t_18 = __Pyx_PyObject_Call(__pyx_t_15, __pyx_mstate_global->__pyx_tuple[13], NULL); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 32, __pyx_L1_error)
+  __pyx_t_18 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 32, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_18);
+  if (PyDict_SetItem(__pyx_t_18, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_percentSuffix) < (0)) __PYX_ERR(0, 32, __pyx_L1_error)
+  __pyx_t_19 = __Pyx_PyObject_Call(__pyx_t_15, __pyx_mstate_global->__pyx_tuple[13], __pyx_t_18); if (unlikely(!__pyx_t_19)) __PYX_ERR(0, 32, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_19);
   __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
+  __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":33
  *     ExportColumn("BSR", "bsrRankCv"),
- *     ExportColumn("BSR", "bsrRankCr"),
+ *     ExportColumn("BSR", "bsrRankCr", transform="percentSuffix"),
  *     ExportColumn("", "subcategories.0.label"),             # <<<<<<<<<<<<<<
  *     ExportColumn("BSR", "subcategories.0.rank"),
  *     ExportColumn("", "amzUnit"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_15, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 33, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_18, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 33, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_18);
+  __pyx_t_15 = __Pyx_PyObject_Call(__pyx_t_18, __pyx_mstate_global->__pyx_tuple[14], NULL); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 33, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_15);
-  __pyx_t_19 = __Pyx_PyObject_Call(__pyx_t_15, __pyx_mstate_global->__pyx_tuple[14], NULL); if (unlikely(!__pyx_t_19)) __PYX_ERR(0, 33, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_19);
-  __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
+  __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":34
- *     ExportColumn("BSR", "bsrRankCr"),
+ *     ExportColumn("BSR", "bsrRankCr", transform="percentSuffix"),
  *     ExportColumn("", "subcategories.0.label"),
  *     ExportColumn("BSR", "subcategories.0.rank"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "amzUnit"),
  *     ExportColumn("", "totalUnitsGrowth"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_15, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 34, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_15);
-  __pyx_t_20 = __Pyx_PyObject_Call(__pyx_t_15, __pyx_mstate_global->__pyx_tuple[15], NULL); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 34, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_18, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 34, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_18);
+  __pyx_t_20 = __Pyx_PyObject_Call(__pyx_t_18, __pyx_mstate_global->__pyx_tuple[15], NULL); if (unlikely(!__pyx_t_20)) __PYX_ERR(0, 34, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_20);
-  __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
+  __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":35
  *     ExportColumn("", "subcategories.0.label"),
@@ -4394,11 +5990,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "totalUnitsGrowth"),
  *     ExportColumn("__TOTAL_AMOUNT__", "totalAmount"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_15, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 35, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_15);
-  __pyx_t_21 = __Pyx_PyObject_Call(__pyx_t_15, __pyx_mstate_global->__pyx_tuple[16], NULL); if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 35, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_18, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 35, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_18);
+  __pyx_t_21 = __Pyx_PyObject_Call(__pyx_t_18, __pyx_mstate_global->__pyx_tuple[16], NULL); if (unlikely(!__pyx_t_21)) __PYX_ERR(0, 35, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_21);
-  __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
+  __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":36
  *     ExportColumn("BSR", "subcategories.0.rank"),
@@ -4407,11 +6003,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("__TOTAL_AMOUNT__", "totalAmount"),
  *     ExportColumn("", "totalUnits"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_15, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 36, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_15);
-  __pyx_t_22 = __Pyx_PyObject_Call(__pyx_t_15, __pyx_mstate_global->__pyx_tuple[17], NULL); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 36, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_18, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 36, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_18);
+  __pyx_t_22 = __Pyx_PyObject_Call(__pyx_t_18, __pyx_mstate_global->__pyx_tuple[17], NULL); if (unlikely(!__pyx_t_22)) __PYX_ERR(0, 36, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_22);
-  __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
+  __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":37
  *     ExportColumn("", "amzUnit"),
@@ -4420,11 +6016,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "totalUnits"),
  *     ExportColumn("__SUB_TOTAL_AMOUNT__", "subTotalAmount"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_15, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 37, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_15);
-  __pyx_t_23 = __Pyx_PyObject_Call(__pyx_t_15, __pyx_mstate_global->__pyx_tuple[18], NULL); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 37, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_18, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 37, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_18);
+  __pyx_t_23 = __Pyx_PyObject_Call(__pyx_t_18, __pyx_mstate_global->__pyx_tuple[18], NULL); if (unlikely(!__pyx_t_23)) __PYX_ERR(0, 37, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_23);
-  __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
+  __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":38
  *     ExportColumn("", "totalUnitsGrowth"),
@@ -4433,11 +6029,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("__SUB_TOTAL_AMOUNT__", "subTotalAmount"),
  *     ExportColumn("", "variations"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_15, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 38, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_15);
-  __pyx_t_24 = __Pyx_PyObject_Call(__pyx_t_15, __pyx_mstate_global->__pyx_tuple[19], NULL); if (unlikely(!__pyx_t_24)) __PYX_ERR(0, 38, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_18, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 38, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_18);
+  __pyx_t_24 = __Pyx_PyObject_Call(__pyx_t_18, __pyx_mstate_global->__pyx_tuple[19], NULL); if (unlikely(!__pyx_t_24)) __PYX_ERR(0, 38, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_24);
-  __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
+  __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":39
  *     ExportColumn("__TOTAL_AMOUNT__", "totalAmount"),
@@ -4446,11 +6042,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "variations"),
  *     ExportColumn("__PRICE__", "price"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_15, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 39, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_15);
-  __pyx_t_25 = __Pyx_PyObject_Call(__pyx_t_15, __pyx_mstate_global->__pyx_tuple[20], NULL); if (unlikely(!__pyx_t_25)) __PYX_ERR(0, 39, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_18, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 39, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_18);
+  __pyx_t_25 = __Pyx_PyObject_Call(__pyx_t_18, __pyx_mstate_global->__pyx_tuple[20], NULL); if (unlikely(!__pyx_t_25)) __PYX_ERR(0, 39, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_25);
-  __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
+  __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":40
  *     ExportColumn("", "totalUnits"),
@@ -4459,11 +6055,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("__PRICE__", "price"),
  *     ExportColumn("__PRIME_PRICE__", "primeExclusivePrice", transform="emptyIfNegative"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_15, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 40, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_15);
-  __pyx_t_26 = __Pyx_PyObject_Call(__pyx_t_15, __pyx_mstate_global->__pyx_tuple[21], NULL); if (unlikely(!__pyx_t_26)) __PYX_ERR(0, 40, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_18, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 40, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_18);
+  __pyx_t_26 = __Pyx_PyObject_Call(__pyx_t_18, __pyx_mstate_global->__pyx_tuple[21], NULL); if (unlikely(!__pyx_t_26)) __PYX_ERR(0, 40, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_26);
-  __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
+  __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":41
  *     ExportColumn("__SUB_TOTAL_AMOUNT__", "subTotalAmount"),
@@ -4472,11 +6068,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("__PRIME_PRICE__", "primeExclusivePrice", transform="emptyIfNegative"),
  *     ExportColumn("Coupon", "coupon"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_15, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 41, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_15);
-  __pyx_t_27 = __Pyx_PyObject_Call(__pyx_t_15, __pyx_mstate_global->__pyx_tuple[22], NULL); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 41, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_18, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 41, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_18);
+  __pyx_t_27 = __Pyx_PyObject_Call(__pyx_t_18, __pyx_mstate_global->__pyx_tuple[22], NULL); if (unlikely(!__pyx_t_27)) __PYX_ERR(0, 41, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_27);
-  __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
+  __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":42
  *     ExportColumn("", "variations"),
@@ -4485,14 +6081,14 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("Coupon", "coupon"),
  *     ExportColumn("Q&A", "questions"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_15, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 42, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_15);
+  __Pyx_GetModuleGlobalName(__pyx_t_18, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 42, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_18);
   __pyx_t_28 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 42, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_28);
   if (PyDict_SetItem(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_emptyIfNegative) < (0)) __PYX_ERR(0, 42, __pyx_L1_error)
-  __pyx_t_29 = __Pyx_PyObject_Call(__pyx_t_15, __pyx_mstate_global->__pyx_tuple[23], __pyx_t_28); if (unlikely(!__pyx_t_29)) __PYX_ERR(0, 42, __pyx_L1_error)
+  __pyx_t_29 = __Pyx_PyObject_Call(__pyx_t_18, __pyx_mstate_global->__pyx_tuple[23], __pyx_t_28); if (unlikely(!__pyx_t_29)) __PYX_ERR(0, 42, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_29);
-  __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
+  __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
   __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":43
@@ -4504,8 +6100,8 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
 */
   __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 43, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_28);
-  __pyx_t_15 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[24], NULL); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 43, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_15);
+  __pyx_t_18 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[24], NULL); if (unlikely(!__pyx_t_18)) __PYX_ERR(0, 43, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_18);
   __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":44
@@ -4591,7 +6187,7 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("__FBA__", "fba"),
  *     ExportColumn("", "profit"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "ratingDelta"),
- *     ExportColumn("", "availableDate"),
+ *     ExportColumn("", "availableDate", transform="dateMillis"),
 */
   __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 50, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_28);
@@ -4603,7 +6199,7 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("__FBA__", "fba"),
  *     ExportColumn("", "profit"),
  *     ExportColumn("", "ratingDelta"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "availableDate"),
+ *     ExportColumn("", "availableDate", transform="dateMillis"),
  *     ExportColumn("", "availableDays"),
 */
   __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 51, __pyx_L1_error)
@@ -4615,44 +6211,48 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
   /* "opscli/seller_sprite/export/columns.py":52
  *     ExportColumn("", "profit"),
  *     ExportColumn("", "ratingDelta"),
- *     ExportColumn("", "availableDate"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "availableDate", transform="dateMillis"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "availableDays"),
  *     ExportColumn("", "fulfillment", fallback="sellerType"),
 */
   __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 52, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_28);
-  __pyx_t_38 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[33], NULL); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 52, __pyx_L1_error)
+  __pyx_t_38 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 52, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_38);
+  if (PyDict_SetItem(__pyx_t_38, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_dateMillis) < (0)) __PYX_ERR(0, 52, __pyx_L1_error)
+  __pyx_t_39 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[33], __pyx_t_38); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 52, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_39);
   __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":53
  *     ExportColumn("", "ratingDelta"),
- *     ExportColumn("", "availableDate"),
+ *     ExportColumn("", "availableDate", transform="dateMillis"),
  *     ExportColumn("", "availableDays"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "fulfillment", fallback="sellerType"),
  *     ExportColumn("__DELIVERY_PRICE__", "deliveryPrice", transform="emptyIfNegative"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 53, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_38, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 53, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
+  __pyx_t_28 = __Pyx_PyObject_Call(__pyx_t_38, __pyx_mstate_global->__pyx_tuple[34], NULL); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 53, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_28);
-  __pyx_t_39 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[34], NULL); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 53, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":54
- *     ExportColumn("", "availableDate"),
+ *     ExportColumn("", "availableDate", transform="dateMillis"),
  *     ExportColumn("", "availableDays"),
  *     ExportColumn("", "fulfillment", fallback="sellerType"),             # <<<<<<<<<<<<<<
  *     ExportColumn("__DELIVERY_PRICE__", "deliveryPrice", transform="emptyIfNegative"),
  *     ExportColumn("LQS", "lqs"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 54, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_28);
+  __Pyx_GetModuleGlobalName(__pyx_t_38, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 54, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
   __pyx_t_40 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_40)) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_40);
   if (PyDict_SetItem(__pyx_t_40, __pyx_mstate_global->__pyx_n_u_fallback, __pyx_mstate_global->__pyx_n_u_sellerType) < (0)) __PYX_ERR(0, 54, __pyx_L1_error)
-  __pyx_t_41 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[35], __pyx_t_40); if (unlikely(!__pyx_t_41)) __PYX_ERR(0, 54, __pyx_L1_error)
+  __pyx_t_41 = __Pyx_PyObject_Call(__pyx_t_38, __pyx_mstate_global->__pyx_tuple[35], __pyx_t_40); if (unlikely(!__pyx_t_41)) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_41);
-  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
   __Pyx_DECREF(__pyx_t_40); __pyx_t_40 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":55
@@ -4664,13 +6264,13 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
 */
   __Pyx_GetModuleGlobalName(__pyx_t_40, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_40)) __PYX_ERR(0, 55, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_40);
-  __pyx_t_28 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 55, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_28);
-  if (PyDict_SetItem(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_emptyIfNegative) < (0)) __PYX_ERR(0, 55, __pyx_L1_error)
-  __pyx_t_42 = __Pyx_PyObject_Call(__pyx_t_40, __pyx_mstate_global->__pyx_tuple[36], __pyx_t_28); if (unlikely(!__pyx_t_42)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __pyx_t_38 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
+  if (PyDict_SetItem(__pyx_t_38, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_emptyIfNegative) < (0)) __PYX_ERR(0, 55, __pyx_L1_error)
+  __pyx_t_42 = __Pyx_PyObject_Call(__pyx_t_40, __pyx_mstate_global->__pyx_tuple[36], __pyx_t_38); if (unlikely(!__pyx_t_42)) __PYX_ERR(0, 55, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_42);
   __Pyx_DECREF(__pyx_t_40); __pyx_t_40 = 0;
-  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":56
  *     ExportColumn("", "fulfillment", fallback="sellerType"),
@@ -4679,11 +6279,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "sellers"),
  *     ExportColumn("BuyBox", "sellerName"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 56, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_28);
-  __pyx_t_40 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[37], NULL); if (unlikely(!__pyx_t_40)) __PYX_ERR(0, 56, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_38, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 56, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
+  __pyx_t_40 = __Pyx_PyObject_Call(__pyx_t_38, __pyx_mstate_global->__pyx_tuple[37], NULL); if (unlikely(!__pyx_t_40)) __PYX_ERR(0, 56, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_40);
-  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":57
  *     ExportColumn("__DELIVERY_PRICE__", "deliveryPrice", transform="emptyIfNegative"),
@@ -4692,11 +6292,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("BuyBox", "sellerName"),
  *     ExportColumn("BuyBox", "sellerType"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 57, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_28);
-  __pyx_t_43 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[38], NULL); if (unlikely(!__pyx_t_43)) __PYX_ERR(0, 57, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_38, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 57, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
+  __pyx_t_43 = __Pyx_PyObject_Call(__pyx_t_38, __pyx_mstate_global->__pyx_tuple[38], NULL); if (unlikely(!__pyx_t_43)) __PYX_ERR(0, 57, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_43);
-  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":58
  *     ExportColumn("LQS", "lqs"),
@@ -4705,11 +6305,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("BuyBox", "sellerType"),
  *     ExportColumn("", "sellerNation"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 58, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_28);
-  __pyx_t_44 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[39], NULL); if (unlikely(!__pyx_t_44)) __PYX_ERR(0, 58, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_38, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 58, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
+  __pyx_t_44 = __Pyx_PyObject_Call(__pyx_t_38, __pyx_mstate_global->__pyx_tuple[39], NULL); if (unlikely(!__pyx_t_44)) __PYX_ERR(0, 58, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_44);
-  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":59
  *     ExportColumn("", "sellers"),
@@ -4718,11 +6318,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "sellerNation"),
  *     ExportColumn("", "sellerDto"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 59, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_28);
-  __pyx_t_45 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[40], NULL); if (unlikely(!__pyx_t_45)) __PYX_ERR(0, 59, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_38, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 59, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
+  __pyx_t_45 = __Pyx_PyObject_Call(__pyx_t_38, __pyx_mstate_global->__pyx_tuple[40], NULL); if (unlikely(!__pyx_t_45)) __PYX_ERR(0, 59, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_45);
-  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":60
  *     ExportColumn("BuyBox", "sellerName"),
@@ -4731,11 +6331,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "sellerDto"),
  *     ExportColumn("", "sellerId", transform="amazonSellerUrl"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 60, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_28);
-  __pyx_t_46 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[41], NULL); if (unlikely(!__pyx_t_46)) __PYX_ERR(0, 60, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_38, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 60, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
+  __pyx_t_46 = __Pyx_PyObject_Call(__pyx_t_38, __pyx_mstate_global->__pyx_tuple[41], NULL); if (unlikely(!__pyx_t_46)) __PYX_ERR(0, 60, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_46);
-  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":61
  *     ExportColumn("BuyBox", "sellerType"),
@@ -4744,11 +6344,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "sellerId", transform="amazonSellerUrl"),
  *     ExportColumn("Best Seller", "bestSeller", transform="badgeFlag"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 61, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_28);
-  __pyx_t_47 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[42], NULL); if (unlikely(!__pyx_t_47)) __PYX_ERR(0, 61, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_38, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 61, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
+  __pyx_t_47 = __Pyx_PyObject_Call(__pyx_t_38, __pyx_mstate_global->__pyx_tuple[42], NULL); if (unlikely(!__pyx_t_47)) __PYX_ERR(0, 61, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_47);
-  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":62
  *     ExportColumn("", "sellerNation"),
@@ -4757,14 +6357,14 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("Best Seller", "bestSeller", transform="badgeFlag"),
  *     ExportColumn("Amazon's Choice", "amazonChoice", transform="badgeFlag"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 62, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_28);
+  __Pyx_GetModuleGlobalName(__pyx_t_38, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 62, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
   __pyx_t_48 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_48)) __PYX_ERR(0, 62, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_48);
   if (PyDict_SetItem(__pyx_t_48, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_amazonSellerUrl) < (0)) __PYX_ERR(0, 62, __pyx_L1_error)
-  __pyx_t_49 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[43], __pyx_t_48); if (unlikely(!__pyx_t_49)) __PYX_ERR(0, 62, __pyx_L1_error)
+  __pyx_t_49 = __Pyx_PyObject_Call(__pyx_t_38, __pyx_mstate_global->__pyx_tuple[43], __pyx_t_48); if (unlikely(!__pyx_t_49)) __PYX_ERR(0, 62, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_49);
-  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
   __Pyx_DECREF(__pyx_t_48); __pyx_t_48 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":63
@@ -4776,13 +6376,13 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
 */
   __Pyx_GetModuleGlobalName(__pyx_t_48, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_48)) __PYX_ERR(0, 63, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_48);
-  __pyx_t_28 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 63, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_28);
-  if (PyDict_SetItem(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_badgeFlag) < (0)) __PYX_ERR(0, 63, __pyx_L1_error)
-  __pyx_t_50 = __Pyx_PyObject_Call(__pyx_t_48, __pyx_mstate_global->__pyx_tuple[44], __pyx_t_28); if (unlikely(!__pyx_t_50)) __PYX_ERR(0, 63, __pyx_L1_error)
+  __pyx_t_38 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 63, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
+  if (PyDict_SetItem(__pyx_t_38, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_badgeFlag) < (0)) __PYX_ERR(0, 63, __pyx_L1_error)
+  __pyx_t_50 = __Pyx_PyObject_Call(__pyx_t_48, __pyx_mstate_global->__pyx_tuple[44], __pyx_t_38); if (unlikely(!__pyx_t_50)) __PYX_ERR(0, 63, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_50);
   __Pyx_DECREF(__pyx_t_48); __pyx_t_48 = 0;
-  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":64
  *     ExportColumn("", "sellerId", transform="amazonSellerUrl"),
@@ -4791,14 +6391,14 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("New Release", "newRelease", transform="badgeFlag"),
  *     ExportColumn("A+", "ebc"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 64, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_28);
+  __Pyx_GetModuleGlobalName(__pyx_t_38, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 64, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
   __pyx_t_48 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_48)) __PYX_ERR(0, 64, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_48);
   if (PyDict_SetItem(__pyx_t_48, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_badgeFlag) < (0)) __PYX_ERR(0, 64, __pyx_L1_error)
-  __pyx_t_51 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[45], __pyx_t_48); if (unlikely(!__pyx_t_51)) __PYX_ERR(0, 64, __pyx_L1_error)
+  __pyx_t_51 = __Pyx_PyObject_Call(__pyx_t_38, __pyx_mstate_global->__pyx_tuple[45], __pyx_t_48); if (unlikely(!__pyx_t_51)) __PYX_ERR(0, 64, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_51);
-  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
   __Pyx_DECREF(__pyx_t_48); __pyx_t_48 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":65
@@ -4810,13 +6410,13 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
 */
   __Pyx_GetModuleGlobalName(__pyx_t_48, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_48)) __PYX_ERR(0, 65, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_48);
-  __pyx_t_28 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 65, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_28);
-  if (PyDict_SetItem(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_badgeFlag) < (0)) __PYX_ERR(0, 65, __pyx_L1_error)
-  __pyx_t_52 = __Pyx_PyObject_Call(__pyx_t_48, __pyx_mstate_global->__pyx_tuple[46], __pyx_t_28); if (unlikely(!__pyx_t_52)) __PYX_ERR(0, 65, __pyx_L1_error)
+  __pyx_t_38 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 65, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
+  if (PyDict_SetItem(__pyx_t_38, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_badgeFlag) < (0)) __PYX_ERR(0, 65, __pyx_L1_error)
+  __pyx_t_52 = __Pyx_PyObject_Call(__pyx_t_48, __pyx_mstate_global->__pyx_tuple[46], __pyx_t_38); if (unlikely(!__pyx_t_52)) __PYX_ERR(0, 65, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_52);
   __Pyx_DECREF(__pyx_t_48); __pyx_t_48 = 0;
-  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":66
  *     ExportColumn("Amazon's Choice", "amazonChoice", transform="badgeFlag"),
@@ -4825,11 +6425,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "video"),
  *     ExportColumn("SP", None),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 66, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_28);
-  __pyx_t_48 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[47], NULL); if (unlikely(!__pyx_t_48)) __PYX_ERR(0, 66, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_38, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 66, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
+  __pyx_t_48 = __Pyx_PyObject_Call(__pyx_t_38, __pyx_mstate_global->__pyx_tuple[47], NULL); if (unlikely(!__pyx_t_48)) __PYX_ERR(0, 66, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_48);
-  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":67
  *     ExportColumn("New Release", "newRelease", transform="badgeFlag"),
@@ -4838,11 +6438,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("SP", None),
  *     ExportColumn("", None),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 67, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_28);
-  __pyx_t_53 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[48], NULL); if (unlikely(!__pyx_t_53)) __PYX_ERR(0, 67, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_38, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 67, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
+  __pyx_t_53 = __Pyx_PyObject_Call(__pyx_t_38, __pyx_mstate_global->__pyx_tuple[48], NULL); if (unlikely(!__pyx_t_53)) __PYX_ERR(0, 67, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_53);
-  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":68
  *     ExportColumn("A+", "ebc"),
@@ -4851,11 +6451,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", None),
  *     ExportColumn("", None),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 68, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_28);
-  __pyx_t_54 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[49], NULL); if (unlikely(!__pyx_t_54)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_38, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 68, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
+  __pyx_t_54 = __Pyx_PyObject_Call(__pyx_t_38, __pyx_mstate_global->__pyx_tuple[49], NULL); if (unlikely(!__pyx_t_54)) __PYX_ERR(0, 68, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_54);
-  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":69
  *     ExportColumn("", "video"),
@@ -4864,11 +6464,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", None),
  *     ExportColumn("7", None),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 69, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_28);
-  __pyx_t_55 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[50], NULL); if (unlikely(!__pyx_t_55)) __PYX_ERR(0, 69, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_38, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 69, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
+  __pyx_t_55 = __Pyx_PyObject_Call(__pyx_t_38, __pyx_mstate_global->__pyx_tuple[50], NULL); if (unlikely(!__pyx_t_55)) __PYX_ERR(0, 69, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_55);
-  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":70
  *     ExportColumn("SP", None),
@@ -4877,11 +6477,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("7", None),
  *     ExportColumn("AC", "amazonChoice", transform="amazonChoiceKeyword"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 70, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_28);
-  __pyx_t_56 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[51], NULL); if (unlikely(!__pyx_t_56)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_38, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
+  __pyx_t_56 = __Pyx_PyObject_Call(__pyx_t_38, __pyx_mstate_global->__pyx_tuple[51], NULL); if (unlikely(!__pyx_t_56)) __PYX_ERR(0, 70, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_56);
-  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":71
  *     ExportColumn("", None),
@@ -4890,11 +6490,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("AC", "amazonChoice", transform="amazonChoiceKeyword"),
  *     ExportColumn("", "weight"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 71, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_28);
-  __pyx_t_57 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[52], NULL); if (unlikely(!__pyx_t_57)) __PYX_ERR(0, 71, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_38, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 71, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
+  __pyx_t_57 = __Pyx_PyObject_Call(__pyx_t_38, __pyx_mstate_global->__pyx_tuple[52], NULL); if (unlikely(!__pyx_t_57)) __PYX_ERR(0, 71, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_57);
-  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":72
  *     ExportColumn("", None),
@@ -4903,14 +6503,14 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "weight"),
  *     ExportColumn("", "weightTag"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 72, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_28);
+  __Pyx_GetModuleGlobalName(__pyx_t_38, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 72, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
   __pyx_t_58 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_58)) __PYX_ERR(0, 72, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_58);
   if (PyDict_SetItem(__pyx_t_58, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_amazonChoiceKeyword) < (0)) __PYX_ERR(0, 72, __pyx_L1_error)
-  __pyx_t_59 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[53], __pyx_t_58); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 72, __pyx_L1_error)
+  __pyx_t_59 = __Pyx_PyObject_Call(__pyx_t_38, __pyx_mstate_global->__pyx_tuple[53], __pyx_t_58); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 72, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_59);
-  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
   __Pyx_DECREF(__pyx_t_58); __pyx_t_58 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":73
@@ -4922,8 +6522,8 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
 */
   __Pyx_GetModuleGlobalName(__pyx_t_58, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_58)) __PYX_ERR(0, 73, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_58);
-  __pyx_t_28 = __Pyx_PyObject_Call(__pyx_t_58, __pyx_mstate_global->__pyx_tuple[54], NULL); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 73, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_28);
+  __pyx_t_38 = __Pyx_PyObject_Call(__pyx_t_58, __pyx_mstate_global->__pyx_tuple[54], NULL); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 73, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
   __Pyx_DECREF(__pyx_t_58); __pyx_t_58 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":74
@@ -5050,7 +6650,7 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("ASIN", "asin"),
  *     ExportColumn("SKU", "sku"),
 */
-  __pyx_t_58 = __Pyx_PyList_Pack(64, __pyx_t_4, __pyx_t_6, __pyx_t_5, __pyx_t_2, __pyx_t_10, __pyx_t_7, __pyx_t_12, __pyx_t_8, __pyx_t_13, __pyx_t_14, __pyx_t_16, __pyx_t_11, __pyx_t_17, __pyx_t_18, __pyx_t_19, __pyx_t_20, __pyx_t_21, __pyx_t_22, __pyx_t_23, __pyx_t_24, __pyx_t_25, __pyx_t_26, __pyx_t_27, __pyx_t_29, __pyx_t_15, __pyx_t_30, __pyx_t_31, __pyx_t_32, __pyx_t_33, __pyx_t_34, __pyx_t_35, __pyx_t_36, __pyx_t_37, __pyx_t_38, __pyx_t_39, __pyx_t_41, __pyx_t_42, __pyx_t_40, __pyx_t_43, __pyx_t_44, __pyx_t_45, __pyx_t_46, __pyx_t_47, __pyx_t_49, __pyx_t_50, __pyx_t_51, __pyx_t_52, __pyx_t_48, __pyx_t_53, __pyx_t_54, __pyx_t_55, __pyx_t_56, __pyx_t_57, __pyx_t_59, __pyx_t_28, __pyx_t_60, __pyx_t_61, __pyx_t_62, __pyx_t_63, __pyx_t_64, __pyx_t_65, __pyx_t_66, __pyx_t_67, __pyx_t_68); if (unlikely(!__pyx_t_58)) __PYX_ERR(0, 18, __pyx_L1_error)
+  __pyx_t_58 = __Pyx_PyList_Pack(64, __pyx_t_4, __pyx_t_6, __pyx_t_5, __pyx_t_2, __pyx_t_10, __pyx_t_7, __pyx_t_12, __pyx_t_8, __pyx_t_13, __pyx_t_14, __pyx_t_16, __pyx_t_11, __pyx_t_17, __pyx_t_19, __pyx_t_15, __pyx_t_20, __pyx_t_21, __pyx_t_22, __pyx_t_23, __pyx_t_24, __pyx_t_25, __pyx_t_26, __pyx_t_27, __pyx_t_29, __pyx_t_18, __pyx_t_30, __pyx_t_31, __pyx_t_32, __pyx_t_33, __pyx_t_34, __pyx_t_35, __pyx_t_36, __pyx_t_37, __pyx_t_39, __pyx_t_28, __pyx_t_41, __pyx_t_42, __pyx_t_40, __pyx_t_43, __pyx_t_44, __pyx_t_45, __pyx_t_46, __pyx_t_47, __pyx_t_49, __pyx_t_50, __pyx_t_51, __pyx_t_52, __pyx_t_48, __pyx_t_53, __pyx_t_54, __pyx_t_55, __pyx_t_56, __pyx_t_57, __pyx_t_59, __pyx_t_38, __pyx_t_60, __pyx_t_61, __pyx_t_62, __pyx_t_63, __pyx_t_64, __pyx_t_65, __pyx_t_66, __pyx_t_67, __pyx_t_68); if (unlikely(!__pyx_t_58)) __PYX_ERR(0, 18, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_58);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -5065,8 +6665,8 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
   __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
   __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
   __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-  __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
   __Pyx_DECREF(__pyx_t_19); __pyx_t_19 = 0;
+  __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
   __Pyx_DECREF(__pyx_t_20); __pyx_t_20 = 0;
   __Pyx_DECREF(__pyx_t_21); __pyx_t_21 = 0;
   __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
@@ -5076,7 +6676,7 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
   __Pyx_DECREF(__pyx_t_26); __pyx_t_26 = 0;
   __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
   __Pyx_DECREF(__pyx_t_29); __pyx_t_29 = 0;
-  __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
+  __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
   __Pyx_DECREF(__pyx_t_30); __pyx_t_30 = 0;
   __Pyx_DECREF(__pyx_t_31); __pyx_t_31 = 0;
   __Pyx_DECREF(__pyx_t_32); __pyx_t_32 = 0;
@@ -5085,8 +6685,8 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
   __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
   __Pyx_DECREF(__pyx_t_36); __pyx_t_36 = 0;
   __Pyx_DECREF(__pyx_t_37); __pyx_t_37 = 0;
-  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
   __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
   __Pyx_DECREF(__pyx_t_41); __pyx_t_41 = 0;
   __Pyx_DECREF(__pyx_t_42); __pyx_t_42 = 0;
   __Pyx_DECREF(__pyx_t_40); __pyx_t_40 = 0;
@@ -5106,7 +6706,7 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
   __Pyx_DECREF(__pyx_t_56); __pyx_t_56 = 0;
   __Pyx_DECREF(__pyx_t_57); __pyx_t_57 = 0;
   __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
-  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
   __Pyx_DECREF(__pyx_t_60); __pyx_t_60 = 0;
   __Pyx_DECREF(__pyx_t_61); __pyx_t_61 = 0;
   __Pyx_DECREF(__pyx_t_62); __pyx_t_62 = 0;
@@ -5206,7 +6806,7 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("ABA", "searchWeeklyRank"),
  *     ExportColumn("", "searches"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "purchases"),
- *     ExportColumn("", "purchaseRate"),
+ *     ExportColumn("", "purchaseRate", transform="percentage"),
 */
   __Pyx_GetModuleGlobalName(__pyx_t_66, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_66)) __PYX_ERR(0, 93, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_66);
@@ -5218,7 +6818,7 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("ABA", "searchWeeklyRank"),
  *     ExportColumn("", "searches"),
  *     ExportColumn("", "purchases"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "purchaseRate"),
+ *     ExportColumn("", "purchaseRate", transform="percentage"),
  *     ExportColumn("", "impressions"),
 */
   __Pyx_GetModuleGlobalName(__pyx_t_66, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_66)) __PYX_ERR(0, 94, __pyx_L1_error)
@@ -5230,41 +6830,45 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
   /* "opscli/seller_sprite/export/columns.py":95
  *     ExportColumn("", "searches"),
  *     ExportColumn("", "purchases"),
- *     ExportColumn("", "purchaseRate"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "purchaseRate", transform="percentage"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "impressions"),
  *     ExportColumn("", "clicks"),
 */
   __Pyx_GetModuleGlobalName(__pyx_t_66, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_66)) __PYX_ERR(0, 95, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_66);
-  __pyx_t_60 = __Pyx_PyObject_Call(__pyx_t_66, __pyx_mstate_global->__pyx_tuple[72], NULL); if (unlikely(!__pyx_t_60)) __PYX_ERR(0, 95, __pyx_L1_error)
+  __pyx_t_60 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_60)) __PYX_ERR(0, 95, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_60);
+  if (PyDict_SetItem(__pyx_t_60, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_percentage) < (0)) __PYX_ERR(0, 95, __pyx_L1_error)
+  __pyx_t_38 = __Pyx_PyObject_Call(__pyx_t_66, __pyx_mstate_global->__pyx_tuple[72], __pyx_t_60); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 95, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
   __Pyx_DECREF(__pyx_t_66); __pyx_t_66 = 0;
+  __Pyx_DECREF(__pyx_t_60); __pyx_t_60 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":96
  *     ExportColumn("", "purchases"),
- *     ExportColumn("", "purchaseRate"),
+ *     ExportColumn("", "purchaseRate", transform="percentage"),
  *     ExportColumn("", "impressions"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "clicks"),
  *     ExportColumn("SPR", "spr"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_66, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_66)) __PYX_ERR(0, 96, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_60, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_60)) __PYX_ERR(0, 96, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_60);
+  __pyx_t_66 = __Pyx_PyObject_Call(__pyx_t_60, __pyx_mstate_global->__pyx_tuple[73], NULL); if (unlikely(!__pyx_t_66)) __PYX_ERR(0, 96, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_66);
-  __pyx_t_28 = __Pyx_PyObject_Call(__pyx_t_66, __pyx_mstate_global->__pyx_tuple[73], NULL); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 96, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_28);
-  __Pyx_DECREF(__pyx_t_66); __pyx_t_66 = 0;
+  __Pyx_DECREF(__pyx_t_60); __pyx_t_60 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":97
- *     ExportColumn("", "purchaseRate"),
+ *     ExportColumn("", "purchaseRate", transform="percentage"),
  *     ExportColumn("", "impressions"),
  *     ExportColumn("", "clicks"),             # <<<<<<<<<<<<<<
  *     ExportColumn("SPR", "spr"),
  *     ExportColumn("", "titleDensity"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_66, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_66)) __PYX_ERR(0, 97, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_66);
-  __pyx_t_59 = __Pyx_PyObject_Call(__pyx_t_66, __pyx_mstate_global->__pyx_tuple[74], NULL); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_60, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_60)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_60);
+  __pyx_t_59 = __Pyx_PyObject_Call(__pyx_t_60, __pyx_mstate_global->__pyx_tuple[74], NULL); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 97, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_59);
-  __Pyx_DECREF(__pyx_t_66); __pyx_t_66 = 0;
+  __Pyx_DECREF(__pyx_t_60); __pyx_t_60 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":98
  *     ExportColumn("", "impressions"),
@@ -5273,11 +6877,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "titleDensity"),
  *     ExportColumn("", "products"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_66, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_66)) __PYX_ERR(0, 98, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_66);
-  __pyx_t_57 = __Pyx_PyObject_Call(__pyx_t_66, __pyx_mstate_global->__pyx_tuple[75], NULL); if (unlikely(!__pyx_t_57)) __PYX_ERR(0, 98, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_60, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_60)) __PYX_ERR(0, 98, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_60);
+  __pyx_t_57 = __Pyx_PyObject_Call(__pyx_t_60, __pyx_mstate_global->__pyx_tuple[75], NULL); if (unlikely(!__pyx_t_57)) __PYX_ERR(0, 98, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_57);
-  __Pyx_DECREF(__pyx_t_66); __pyx_t_66 = 0;
+  __Pyx_DECREF(__pyx_t_60); __pyx_t_60 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":99
  *     ExportColumn("", "clicks"),
@@ -5286,11 +6890,11 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "products"),
  *     ExportColumn("", "supplyDemandRatio"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_66, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_66)) __PYX_ERR(0, 99, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_66);
-  __pyx_t_56 = __Pyx_PyObject_Call(__pyx_t_66, __pyx_mstate_global->__pyx_tuple[76], NULL); if (unlikely(!__pyx_t_56)) __PYX_ERR(0, 99, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_60, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_60)) __PYX_ERR(0, 99, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_60);
+  __pyx_t_56 = __Pyx_PyObject_Call(__pyx_t_60, __pyx_mstate_global->__pyx_tuple[76], NULL); if (unlikely(!__pyx_t_56)) __PYX_ERR(0, 99, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_56);
-  __Pyx_DECREF(__pyx_t_66); __pyx_t_66 = 0;
+  __Pyx_DECREF(__pyx_t_60); __pyx_t_60 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":100
  *     ExportColumn("SPR", "spr"),
@@ -5299,140 +6903,148 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "supplyDemandRatio"),
  *     ExportColumn("", "adProducts"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_66, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_66)) __PYX_ERR(0, 100, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_66);
-  __pyx_t_55 = __Pyx_PyObject_Call(__pyx_t_66, __pyx_mstate_global->__pyx_tuple[77], NULL); if (unlikely(!__pyx_t_55)) __PYX_ERR(0, 100, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_60, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_60)) __PYX_ERR(0, 100, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_60);
+  __pyx_t_55 = __Pyx_PyObject_Call(__pyx_t_60, __pyx_mstate_global->__pyx_tuple[77], NULL); if (unlikely(!__pyx_t_55)) __PYX_ERR(0, 100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_55);
-  __Pyx_DECREF(__pyx_t_66); __pyx_t_66 = 0;
+  __Pyx_DECREF(__pyx_t_60); __pyx_t_60 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":101
  *     ExportColumn("", "titleDensity"),
  *     ExportColumn("", "products"),
  *     ExportColumn("", "supplyDemandRatio"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "adProducts"),
- *     ExportColumn("", "monopolyClickRate"),
+ *     ExportColumn("", "monopolyClickRate", transform="percentage"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_66, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_66)) __PYX_ERR(0, 101, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_66);
-  __pyx_t_54 = __Pyx_PyObject_Call(__pyx_t_66, __pyx_mstate_global->__pyx_tuple[78], NULL); if (unlikely(!__pyx_t_54)) __PYX_ERR(0, 101, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_60, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_60)) __PYX_ERR(0, 101, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_60);
+  __pyx_t_54 = __Pyx_PyObject_Call(__pyx_t_60, __pyx_mstate_global->__pyx_tuple[78], NULL); if (unlikely(!__pyx_t_54)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_54);
-  __Pyx_DECREF(__pyx_t_66); __pyx_t_66 = 0;
+  __Pyx_DECREF(__pyx_t_60); __pyx_t_60 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":102
  *     ExportColumn("", "products"),
  *     ExportColumn("", "supplyDemandRatio"),
  *     ExportColumn("", "adProducts"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "monopolyClickRate"),
- *     ExportColumn("", "cvsShareRate"),
+ *     ExportColumn("", "monopolyClickRate", transform="percentage"),
+ *     ExportColumn("", "cvsShareRate", transform="percentage"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_66, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_66)) __PYX_ERR(0, 102, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_66);
-  __pyx_t_53 = __Pyx_PyObject_Call(__pyx_t_66, __pyx_mstate_global->__pyx_tuple[79], NULL); if (unlikely(!__pyx_t_53)) __PYX_ERR(0, 102, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_60, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_60)) __PYX_ERR(0, 102, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_60);
+  __pyx_t_53 = __Pyx_PyObject_Call(__pyx_t_60, __pyx_mstate_global->__pyx_tuple[79], NULL); if (unlikely(!__pyx_t_53)) __PYX_ERR(0, 102, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_53);
-  __Pyx_DECREF(__pyx_t_66); __pyx_t_66 = 0;
+  __Pyx_DECREF(__pyx_t_60); __pyx_t_60 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":103
  *     ExportColumn("", "supplyDemandRatio"),
  *     ExportColumn("", "adProducts"),
- *     ExportColumn("", "monopolyClickRate"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "cvsShareRate"),
- *     ExportColumn("PPC", "bid", transform="yen"),
+ *     ExportColumn("", "monopolyClickRate", transform="percentage"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "cvsShareRate", transform="percentage"),
+ *     ExportColumn("PPC", "bid", transform="currency"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_66, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_66)) __PYX_ERR(0, 103, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_66);
-  __pyx_t_48 = __Pyx_PyObject_Call(__pyx_t_66, __pyx_mstate_global->__pyx_tuple[80], NULL); if (unlikely(!__pyx_t_48)) __PYX_ERR(0, 103, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_60, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_60)) __PYX_ERR(0, 103, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_60);
+  __pyx_t_48 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_48)) __PYX_ERR(0, 103, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_48);
-  __Pyx_DECREF(__pyx_t_66); __pyx_t_66 = 0;
+  if (PyDict_SetItem(__pyx_t_48, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_percentage) < (0)) __PYX_ERR(0, 103, __pyx_L1_error)
+  __pyx_t_52 = __Pyx_PyObject_Call(__pyx_t_60, __pyx_mstate_global->__pyx_tuple[80], __pyx_t_48); if (unlikely(!__pyx_t_52)) __PYX_ERR(0, 103, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_52);
+  __Pyx_DECREF(__pyx_t_60); __pyx_t_60 = 0;
+  __Pyx_DECREF(__pyx_t_48); __pyx_t_48 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":104
  *     ExportColumn("", "adProducts"),
- *     ExportColumn("", "monopolyClickRate"),
- *     ExportColumn("", "cvsShareRate"),             # <<<<<<<<<<<<<<
- *     ExportColumn("PPC", "bid", transform="yen"),
+ *     ExportColumn("", "monopolyClickRate", transform="percentage"),
+ *     ExportColumn("", "cvsShareRate", transform="percentage"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("PPC", "bid", transform="currency"),
  *     ExportColumn("", "bidMin", transform="bidRange"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_66, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_66)) __PYX_ERR(0, 104, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_66);
-  __pyx_t_52 = __Pyx_PyObject_Call(__pyx_t_66, __pyx_mstate_global->__pyx_tuple[81], NULL); if (unlikely(!__pyx_t_52)) __PYX_ERR(0, 104, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_52);
-  __Pyx_DECREF(__pyx_t_66); __pyx_t_66 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_48, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_48)) __PYX_ERR(0, 104, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_48);
+  __pyx_t_60 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_60)) __PYX_ERR(0, 104, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_60);
+  if (PyDict_SetItem(__pyx_t_60, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_percentage) < (0)) __PYX_ERR(0, 104, __pyx_L1_error)
+  __pyx_t_51 = __Pyx_PyObject_Call(__pyx_t_48, __pyx_mstate_global->__pyx_tuple[81], __pyx_t_60); if (unlikely(!__pyx_t_51)) __PYX_ERR(0, 104, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_51);
+  __Pyx_DECREF(__pyx_t_48); __pyx_t_48 = 0;
+  __Pyx_DECREF(__pyx_t_60); __pyx_t_60 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":105
- *     ExportColumn("", "monopolyClickRate"),
- *     ExportColumn("", "cvsShareRate"),
- *     ExportColumn("PPC", "bid", transform="yen"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "monopolyClickRate", transform="percentage"),
+ *     ExportColumn("", "cvsShareRate", transform="percentage"),
+ *     ExportColumn("PPC", "bid", transform="currency"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "bidMin", transform="bidRange"),
- *     ExportColumn("", "avgPrice", transform="yen"),
+ *     ExportColumn("", "avgPrice", transform="currency"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_66, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_66)) __PYX_ERR(0, 105, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_66);
-  __pyx_t_51 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_51)) __PYX_ERR(0, 105, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_51);
-  if (PyDict_SetItem(__pyx_t_51, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_yen) < (0)) __PYX_ERR(0, 105, __pyx_L1_error)
-  __pyx_t_50 = __Pyx_PyObject_Call(__pyx_t_66, __pyx_mstate_global->__pyx_tuple[82], __pyx_t_51); if (unlikely(!__pyx_t_50)) __PYX_ERR(0, 105, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_60, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_60)) __PYX_ERR(0, 105, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_60);
+  __pyx_t_48 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_48)) __PYX_ERR(0, 105, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_48);
+  if (PyDict_SetItem(__pyx_t_48, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_currency) < (0)) __PYX_ERR(0, 105, __pyx_L1_error)
+  __pyx_t_50 = __Pyx_PyObject_Call(__pyx_t_60, __pyx_mstate_global->__pyx_tuple[82], __pyx_t_48); if (unlikely(!__pyx_t_50)) __PYX_ERR(0, 105, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_50);
-  __Pyx_DECREF(__pyx_t_66); __pyx_t_66 = 0;
-  __Pyx_DECREF(__pyx_t_51); __pyx_t_51 = 0;
+  __Pyx_DECREF(__pyx_t_60); __pyx_t_60 = 0;
+  __Pyx_DECREF(__pyx_t_48); __pyx_t_48 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":106
- *     ExportColumn("", "cvsShareRate"),
- *     ExportColumn("PPC", "bid", transform="yen"),
+ *     ExportColumn("", "cvsShareRate", transform="percentage"),
+ *     ExportColumn("PPC", "bid", transform="currency"),
  *     ExportColumn("", "bidMin", transform="bidRange"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "avgPrice", transform="yen"),
+ *     ExportColumn("", "avgPrice", transform="currency"),
  *     ExportColumn("", "avgReviews"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_51, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_51)) __PYX_ERR(0, 106, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_51);
-  __pyx_t_66 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_66)) __PYX_ERR(0, 106, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_66);
-  if (PyDict_SetItem(__pyx_t_66, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_bidRange) < (0)) __PYX_ERR(0, 106, __pyx_L1_error)
-  __pyx_t_49 = __Pyx_PyObject_Call(__pyx_t_51, __pyx_mstate_global->__pyx_tuple[83], __pyx_t_66); if (unlikely(!__pyx_t_49)) __PYX_ERR(0, 106, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_48, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_48)) __PYX_ERR(0, 106, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_48);
+  __pyx_t_60 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_60)) __PYX_ERR(0, 106, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_60);
+  if (PyDict_SetItem(__pyx_t_60, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_bidRange) < (0)) __PYX_ERR(0, 106, __pyx_L1_error)
+  __pyx_t_49 = __Pyx_PyObject_Call(__pyx_t_48, __pyx_mstate_global->__pyx_tuple[83], __pyx_t_60); if (unlikely(!__pyx_t_49)) __PYX_ERR(0, 106, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_49);
-  __Pyx_DECREF(__pyx_t_51); __pyx_t_51 = 0;
-  __Pyx_DECREF(__pyx_t_66); __pyx_t_66 = 0;
+  __Pyx_DECREF(__pyx_t_48); __pyx_t_48 = 0;
+  __Pyx_DECREF(__pyx_t_60); __pyx_t_60 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":107
- *     ExportColumn("PPC", "bid", transform="yen"),
+ *     ExportColumn("PPC", "bid", transform="currency"),
  *     ExportColumn("", "bidMin", transform="bidRange"),
- *     ExportColumn("", "avgPrice", transform="yen"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "avgPrice", transform="currency"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "avgReviews"),
  *     ExportColumn("", "avgRating"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_66, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_66)) __PYX_ERR(0, 107, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_66);
-  __pyx_t_51 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_51)) __PYX_ERR(0, 107, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_51);
-  if (PyDict_SetItem(__pyx_t_51, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_yen) < (0)) __PYX_ERR(0, 107, __pyx_L1_error)
-  __pyx_t_47 = __Pyx_PyObject_Call(__pyx_t_66, __pyx_mstate_global->__pyx_tuple[84], __pyx_t_51); if (unlikely(!__pyx_t_47)) __PYX_ERR(0, 107, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_60, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_60)) __PYX_ERR(0, 107, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_60);
+  __pyx_t_48 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_48)) __PYX_ERR(0, 107, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_48);
+  if (PyDict_SetItem(__pyx_t_48, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_currency) < (0)) __PYX_ERR(0, 107, __pyx_L1_error)
+  __pyx_t_47 = __Pyx_PyObject_Call(__pyx_t_60, __pyx_mstate_global->__pyx_tuple[84], __pyx_t_48); if (unlikely(!__pyx_t_47)) __PYX_ERR(0, 107, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_47);
-  __Pyx_DECREF(__pyx_t_66); __pyx_t_66 = 0;
-  __Pyx_DECREF(__pyx_t_51); __pyx_t_51 = 0;
+  __Pyx_DECREF(__pyx_t_60); __pyx_t_60 = 0;
+  __Pyx_DECREF(__pyx_t_48); __pyx_t_48 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":108
  *     ExportColumn("", "bidMin", transform="bidRange"),
- *     ExportColumn("", "avgPrice", transform="yen"),
+ *     ExportColumn("", "avgPrice", transform="currency"),
  *     ExportColumn("", "avgReviews"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "avgRating"),
  *     ExportColumn("", "departments", transform="departmentsJoin"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_51, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_51)) __PYX_ERR(0, 108, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_51);
-  __pyx_t_66 = __Pyx_PyObject_Call(__pyx_t_51, __pyx_mstate_global->__pyx_tuple[85], NULL); if (unlikely(!__pyx_t_66)) __PYX_ERR(0, 108, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_66);
-  __Pyx_DECREF(__pyx_t_51); __pyx_t_51 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_48, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_48)) __PYX_ERR(0, 108, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_48);
+  __pyx_t_60 = __Pyx_PyObject_Call(__pyx_t_48, __pyx_mstate_global->__pyx_tuple[85], NULL); if (unlikely(!__pyx_t_60)) __PYX_ERR(0, 108, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_60);
+  __Pyx_DECREF(__pyx_t_48); __pyx_t_48 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":109
- *     ExportColumn("", "avgPrice", transform="yen"),
+ *     ExportColumn("", "avgPrice", transform="currency"),
  *     ExportColumn("", "avgReviews"),
  *     ExportColumn("", "avgRating"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "departments", transform="departmentsJoin"),
  *     ExportColumn("#1 ASIN", "monopolyAsinDtos.0.asin"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_51, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_51)) __PYX_ERR(0, 109, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_51);
-  __pyx_t_46 = __Pyx_PyObject_Call(__pyx_t_51, __pyx_mstate_global->__pyx_tuple[86], NULL); if (unlikely(!__pyx_t_46)) __PYX_ERR(0, 109, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_48, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_48)) __PYX_ERR(0, 109, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_48);
+  __pyx_t_46 = __Pyx_PyObject_Call(__pyx_t_48, __pyx_mstate_global->__pyx_tuple[86], NULL); if (unlikely(!__pyx_t_46)) __PYX_ERR(0, 109, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_46);
-  __Pyx_DECREF(__pyx_t_51); __pyx_t_51 = 0;
+  __Pyx_DECREF(__pyx_t_48); __pyx_t_48 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":110
  *     ExportColumn("", "avgReviews"),
@@ -5441,14 +7053,14 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("#1 ASIN", "monopolyAsinDtos.0.asin"),
  *     ExportColumn("#1 ", "monopolyAsinDtos.0.clickRate"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_51, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_51)) __PYX_ERR(0, 110, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_51);
+  __Pyx_GetModuleGlobalName(__pyx_t_48, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_48)) __PYX_ERR(0, 110, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_48);
   __pyx_t_45 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_45)) __PYX_ERR(0, 110, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_45);
   if (PyDict_SetItem(__pyx_t_45, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_departmentsJoin) < (0)) __PYX_ERR(0, 110, __pyx_L1_error)
-  __pyx_t_44 = __Pyx_PyObject_Call(__pyx_t_51, __pyx_mstate_global->__pyx_tuple[87], __pyx_t_45); if (unlikely(!__pyx_t_44)) __PYX_ERR(0, 110, __pyx_L1_error)
+  __pyx_t_44 = __Pyx_PyObject_Call(__pyx_t_48, __pyx_mstate_global->__pyx_tuple[87], __pyx_t_45); if (unlikely(!__pyx_t_44)) __PYX_ERR(0, 110, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_44);
-  __Pyx_DECREF(__pyx_t_51); __pyx_t_51 = 0;
+  __Pyx_DECREF(__pyx_t_48); __pyx_t_48 = 0;
   __Pyx_DECREF(__pyx_t_45); __pyx_t_45 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":111
@@ -5460,8 +7072,8 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
 */
   __Pyx_GetModuleGlobalName(__pyx_t_45, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_45)) __PYX_ERR(0, 111, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_45);
-  __pyx_t_51 = __Pyx_PyObject_Call(__pyx_t_45, __pyx_mstate_global->__pyx_tuple[88], NULL); if (unlikely(!__pyx_t_51)) __PYX_ERR(0, 111, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_51);
+  __pyx_t_48 = __Pyx_PyObject_Call(__pyx_t_45, __pyx_mstate_global->__pyx_tuple[88], NULL); if (unlikely(!__pyx_t_48)) __PYX_ERR(0, 111, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_48);
   __Pyx_DECREF(__pyx_t_45); __pyx_t_45 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":112
@@ -5525,8 +7137,8 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
 */
   __Pyx_GetModuleGlobalName(__pyx_t_45, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_45)) __PYX_ERR(0, 116, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_45);
-  __pyx_t_39 = __Pyx_PyObject_Call(__pyx_t_45, __pyx_mstate_global->__pyx_tuple[93], NULL); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 116, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
+  __pyx_t_28 = __Pyx_PyObject_Call(__pyx_t_45, __pyx_mstate_global->__pyx_tuple[93], NULL); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 116, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_28);
   __Pyx_DECREF(__pyx_t_45); __pyx_t_45 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":117
@@ -5538,8 +7150,8 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
 */
   __Pyx_GetModuleGlobalName(__pyx_t_45, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_45)) __PYX_ERR(0, 117, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_45);
-  __pyx_t_38 = __Pyx_PyObject_Call(__pyx_t_45, __pyx_mstate_global->__pyx_tuple[94], NULL); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 117, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_38);
+  __pyx_t_39 = __Pyx_PyObject_Call(__pyx_t_45, __pyx_mstate_global->__pyx_tuple[94], NULL); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 117, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_39);
   __Pyx_DECREF(__pyx_t_45); __pyx_t_45 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":118
@@ -5592,7 +7204,7 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "keyword"),
  *     ExportColumn("", "keywordCn"),
 */
-  __pyx_t_35 = __Pyx_PyList_Pack(34, __pyx_t_68, __pyx_t_67, __pyx_t_65, __pyx_t_58, __pyx_t_64, __pyx_t_63, __pyx_t_62, __pyx_t_61, __pyx_t_60, __pyx_t_28, __pyx_t_59, __pyx_t_57, __pyx_t_56, __pyx_t_55, __pyx_t_54, __pyx_t_53, __pyx_t_48, __pyx_t_52, __pyx_t_50, __pyx_t_49, __pyx_t_47, __pyx_t_66, __pyx_t_46, __pyx_t_44, __pyx_t_51, __pyx_t_43, __pyx_t_40, __pyx_t_42, __pyx_t_41, __pyx_t_39, __pyx_t_38, __pyx_t_37, __pyx_t_36, __pyx_t_34); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 86, __pyx_L1_error)
+  __pyx_t_35 = __Pyx_PyList_Pack(34, __pyx_t_68, __pyx_t_67, __pyx_t_65, __pyx_t_58, __pyx_t_64, __pyx_t_63, __pyx_t_62, __pyx_t_61, __pyx_t_38, __pyx_t_66, __pyx_t_59, __pyx_t_57, __pyx_t_56, __pyx_t_55, __pyx_t_54, __pyx_t_53, __pyx_t_52, __pyx_t_51, __pyx_t_50, __pyx_t_49, __pyx_t_47, __pyx_t_60, __pyx_t_46, __pyx_t_44, __pyx_t_48, __pyx_t_43, __pyx_t_40, __pyx_t_42, __pyx_t_41, __pyx_t_28, __pyx_t_39, __pyx_t_37, __pyx_t_36, __pyx_t_34); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 86, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_35);
   __Pyx_DECREF(__pyx_t_68); __pyx_t_68 = 0;
   __Pyx_DECREF(__pyx_t_67); __pyx_t_67 = 0;
@@ -5602,29 +7214,29 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
   __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
   __Pyx_DECREF(__pyx_t_62); __pyx_t_62 = 0;
   __Pyx_DECREF(__pyx_t_61); __pyx_t_61 = 0;
-  __Pyx_DECREF(__pyx_t_60); __pyx_t_60 = 0;
-  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
+  __Pyx_DECREF(__pyx_t_66); __pyx_t_66 = 0;
   __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
   __Pyx_DECREF(__pyx_t_57); __pyx_t_57 = 0;
   __Pyx_DECREF(__pyx_t_56); __pyx_t_56 = 0;
   __Pyx_DECREF(__pyx_t_55); __pyx_t_55 = 0;
   __Pyx_DECREF(__pyx_t_54); __pyx_t_54 = 0;
   __Pyx_DECREF(__pyx_t_53); __pyx_t_53 = 0;
-  __Pyx_DECREF(__pyx_t_48); __pyx_t_48 = 0;
   __Pyx_DECREF(__pyx_t_52); __pyx_t_52 = 0;
+  __Pyx_DECREF(__pyx_t_51); __pyx_t_51 = 0;
   __Pyx_DECREF(__pyx_t_50); __pyx_t_50 = 0;
   __Pyx_DECREF(__pyx_t_49); __pyx_t_49 = 0;
   __Pyx_DECREF(__pyx_t_47); __pyx_t_47 = 0;
-  __Pyx_DECREF(__pyx_t_66); __pyx_t_66 = 0;
+  __Pyx_DECREF(__pyx_t_60); __pyx_t_60 = 0;
   __Pyx_DECREF(__pyx_t_46); __pyx_t_46 = 0;
   __Pyx_DECREF(__pyx_t_44); __pyx_t_44 = 0;
-  __Pyx_DECREF(__pyx_t_51); __pyx_t_51 = 0;
+  __Pyx_DECREF(__pyx_t_48); __pyx_t_48 = 0;
   __Pyx_DECREF(__pyx_t_43); __pyx_t_43 = 0;
   __Pyx_DECREF(__pyx_t_40); __pyx_t_40 = 0;
   __Pyx_DECREF(__pyx_t_42); __pyx_t_42 = 0;
   __Pyx_DECREF(__pyx_t_41); __pyx_t_41 = 0;
+  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
   __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
-  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
   __Pyx_DECREF(__pyx_t_37); __pyx_t_37 = 0;
   __Pyx_DECREF(__pyx_t_36); __pyx_t_36 = 0;
   __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
@@ -5636,7 +7248,7 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  * KEYWORD_REVERSE_COLUMNS = [
  *     ExportColumn("", "keywords"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "keywordCn"),
- *     ExportColumn("", "trafficPercentage"),
+ *     ExportColumn("", "trafficPercentage", transform="percentage"),
 */
   __Pyx_GetModuleGlobalName(__pyx_t_35, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_35);
@@ -5648,7 +7260,7 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  * KEYWORD_REVERSE_COLUMNS = [
  *     ExportColumn("", "keywords"),
  *     ExportColumn("", "keywordCn"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "trafficPercentage"),
+ *     ExportColumn("", "trafficPercentage", transform="percentage"),
  *     ExportColumn("", "calculatedWeeklySearches"),
 */
   __Pyx_GetModuleGlobalName(__pyx_t_35, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 126, __pyx_L1_error)
@@ -5660,209 +7272,245 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
   /* "opscli/seller_sprite/export/columns.py":127
  *     ExportColumn("", "keywords"),
  *     ExportColumn("", "keywordCn"),
- *     ExportColumn("", "trafficPercentage"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "trafficPercentage", transform="percentage"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "calculatedWeeklySearches"),
- *     ExportColumn("", "badges", transform="listJoin"),
+ *     ExportColumn("", "trafficKeywordTypes", transform="trafficKeywordTypeLabels"),
 */
   __Pyx_GetModuleGlobalName(__pyx_t_35, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 127, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_35);
-  __pyx_t_37 = __Pyx_PyObject_Call(__pyx_t_35, __pyx_mstate_global->__pyx_tuple[99], NULL); if (unlikely(!__pyx_t_37)) __PYX_ERR(0, 127, __pyx_L1_error)
+  __pyx_t_37 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_37)) __PYX_ERR(0, 127, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_37);
+  if (PyDict_SetItem(__pyx_t_37, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_percentage) < (0)) __PYX_ERR(0, 127, __pyx_L1_error)
+  __pyx_t_39 = __Pyx_PyObject_Call(__pyx_t_35, __pyx_mstate_global->__pyx_tuple[99], __pyx_t_37); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 127, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_39);
   __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
+  __Pyx_DECREF(__pyx_t_37); __pyx_t_37 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":128
  *     ExportColumn("", "keywordCn"),
- *     ExportColumn("", "trafficPercentage"),
+ *     ExportColumn("", "trafficPercentage", transform="percentage"),
  *     ExportColumn("", "calculatedWeeklySearches"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "badges", transform="listJoin"),
- *     ExportColumn("", "conversionKeywordTypes", transform="listJoin"),
+ *     ExportColumn("", "trafficKeywordTypes", transform="trafficKeywordTypeLabels"),
+ *     ExportColumn("", "conversionKeywordTypes", transform="conversionKeywordTypeLabels"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_35, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_37, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_37)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_37);
+  __pyx_t_35 = __Pyx_PyObject_Call(__pyx_t_37, __pyx_mstate_global->__pyx_tuple[100], NULL); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 128, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_35);
-  __pyx_t_38 = __Pyx_PyObject_Call(__pyx_t_35, __pyx_mstate_global->__pyx_tuple[100], NULL); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 128, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_38);
-  __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
+  __Pyx_DECREF(__pyx_t_37); __pyx_t_37 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":129
- *     ExportColumn("", "trafficPercentage"),
+ *     ExportColumn("", "trafficPercentage", transform="percentage"),
  *     ExportColumn("", "calculatedWeeklySearches"),
- *     ExportColumn("", "badges", transform="listJoin"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "conversionKeywordTypes", transform="listJoin"),
- *     ExportColumn("", "trafficKeywordTypes", transform="listJoin"),
+ *     ExportColumn("", "trafficKeywordTypes", transform="trafficKeywordTypeLabels"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "conversionKeywordTypes", transform="conversionKeywordTypeLabels"),
+ *     ExportColumn("", "badges", transform="badgeLabels"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_35, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 129, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_35);
-  __pyx_t_39 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 129, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  if (PyDict_SetItem(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_listJoin) < (0)) __PYX_ERR(0, 129, __pyx_L1_error)
-  __pyx_t_41 = __Pyx_PyObject_Call(__pyx_t_35, __pyx_mstate_global->__pyx_tuple[101], __pyx_t_39); if (unlikely(!__pyx_t_41)) __PYX_ERR(0, 129, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_37, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_37)) __PYX_ERR(0, 129, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_37);
+  __pyx_t_28 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 129, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_28);
+  if (PyDict_SetItem(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_trafficKeywordTypeLabels) < (0)) __PYX_ERR(0, 129, __pyx_L1_error)
+  __pyx_t_41 = __Pyx_PyObject_Call(__pyx_t_37, __pyx_mstate_global->__pyx_tuple[101], __pyx_t_28); if (unlikely(!__pyx_t_41)) __PYX_ERR(0, 129, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_41);
-  __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_DECREF(__pyx_t_37); __pyx_t_37 = 0;
+  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":130
  *     ExportColumn("", "calculatedWeeklySearches"),
- *     ExportColumn("", "badges", transform="listJoin"),
- *     ExportColumn("", "conversionKeywordTypes", transform="listJoin"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "trafficKeywordTypes", transform="listJoin"),
- *     ExportColumn("", "naturalRatio"),
+ *     ExportColumn("", "trafficKeywordTypes", transform="trafficKeywordTypeLabels"),
+ *     ExportColumn("", "conversionKeywordTypes", transform="conversionKeywordTypeLabels"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "badges", transform="badgeLabels"),
+ *     ExportColumn("", "naturalRatio", transform="percentage"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 130, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __pyx_t_35 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 130, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_35);
-  if (PyDict_SetItem(__pyx_t_35, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_listJoin) < (0)) __PYX_ERR(0, 130, __pyx_L1_error)
-  __pyx_t_42 = __Pyx_PyObject_Call(__pyx_t_39, __pyx_mstate_global->__pyx_tuple[102], __pyx_t_35); if (unlikely(!__pyx_t_42)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_28);
+  __pyx_t_37 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_37)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_37);
+  if (PyDict_SetItem(__pyx_t_37, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_conversionKeywordTypeLabels) < (0)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __pyx_t_42 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[102], __pyx_t_37); if (unlikely(!__pyx_t_42)) __PYX_ERR(0, 130, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_42);
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
-  __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
+  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_37); __pyx_t_37 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":131
- *     ExportColumn("", "badges", transform="listJoin"),
- *     ExportColumn("", "conversionKeywordTypes", transform="listJoin"),
- *     ExportColumn("", "trafficKeywordTypes", transform="listJoin"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "naturalRatio"),
- *     ExportColumn("", "adRatio"),
+ *     ExportColumn("", "trafficKeywordTypes", transform="trafficKeywordTypeLabels"),
+ *     ExportColumn("", "conversionKeywordTypes", transform="conversionKeywordTypeLabels"),
+ *     ExportColumn("", "badges", transform="badgeLabels"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "naturalRatio", transform="percentage"),
+ *     ExportColumn("", "adRatio", transform="percentage"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_35, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 131, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_35);
-  __pyx_t_39 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 131, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  if (PyDict_SetItem(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_listJoin) < (0)) __PYX_ERR(0, 131, __pyx_L1_error)
-  __pyx_t_40 = __Pyx_PyObject_Call(__pyx_t_35, __pyx_mstate_global->__pyx_tuple[103], __pyx_t_39); if (unlikely(!__pyx_t_40)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_37, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_37)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_37);
+  __pyx_t_28 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_28);
+  if (PyDict_SetItem(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_badgeLabels) < (0)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __pyx_t_40 = __Pyx_PyObject_Call(__pyx_t_37, __pyx_mstate_global->__pyx_tuple[103], __pyx_t_28); if (unlikely(!__pyx_t_40)) __PYX_ERR(0, 131, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_40);
-  __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_DECREF(__pyx_t_37); __pyx_t_37 = 0;
+  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":132
- *     ExportColumn("", "conversionKeywordTypes", transform="listJoin"),
- *     ExportColumn("", "trafficKeywordTypes", transform="listJoin"),
- *     ExportColumn("", "naturalRatio"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "adRatio"),
- *     ExportColumn("", "rankPosition.position"),
+ *     ExportColumn("", "conversionKeywordTypes", transform="conversionKeywordTypeLabels"),
+ *     ExportColumn("", "badges", transform="badgeLabels"),
+ *     ExportColumn("", "naturalRatio", transform="percentage"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "adRatio", transform="percentage"),
+ *     ExportColumn("", "rankPosition", transform="rankPosition"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 132, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __pyx_t_35 = __Pyx_PyObject_Call(__pyx_t_39, __pyx_mstate_global->__pyx_tuple[104], NULL); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 132, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_35);
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 132, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_28);
+  __pyx_t_37 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_37)) __PYX_ERR(0, 132, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_37);
+  if (PyDict_SetItem(__pyx_t_37, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_percentage) < (0)) __PYX_ERR(0, 132, __pyx_L1_error)
+  __pyx_t_43 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[104], __pyx_t_37); if (unlikely(!__pyx_t_43)) __PYX_ERR(0, 132, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_43);
+  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_37); __pyx_t_37 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":133
- *     ExportColumn("", "trafficKeywordTypes", transform="listJoin"),
- *     ExportColumn("", "naturalRatio"),
- *     ExportColumn("", "adRatio"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "rankPosition.position"),
- *     ExportColumn("", "rankPosition.page"),
+ *     ExportColumn("", "badges", transform="badgeLabels"),
+ *     ExportColumn("", "naturalRatio", transform="percentage"),
+ *     ExportColumn("", "adRatio", transform="percentage"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "rankPosition", transform="rankPosition"),
+ *     ExportColumn("", "rankPosition", transform="rankPage"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 133, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __pyx_t_43 = __Pyx_PyObject_Call(__pyx_t_39, __pyx_mstate_global->__pyx_tuple[105], NULL); if (unlikely(!__pyx_t_43)) __PYX_ERR(0, 133, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_43);
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_37, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_37)) __PYX_ERR(0, 133, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_37);
+  __pyx_t_28 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 133, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_28);
+  if (PyDict_SetItem(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_percentage) < (0)) __PYX_ERR(0, 133, __pyx_L1_error)
+  __pyx_t_48 = __Pyx_PyObject_Call(__pyx_t_37, __pyx_mstate_global->__pyx_tuple[105], __pyx_t_28); if (unlikely(!__pyx_t_48)) __PYX_ERR(0, 133, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_48);
+  __Pyx_DECREF(__pyx_t_37); __pyx_t_37 = 0;
+  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":134
- *     ExportColumn("", "naturalRatio"),
- *     ExportColumn("", "adRatio"),
- *     ExportColumn("", "rankPosition.position"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "rankPosition.page"),
- *     ExportColumn("", "rankPosition.updatedTime"),
+ *     ExportColumn("", "naturalRatio", transform="percentage"),
+ *     ExportColumn("", "adRatio", transform="percentage"),
+ *     ExportColumn("", "rankPosition", transform="rankPosition"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "rankPosition", transform="rankPage"),
+ *     ExportColumn("", "rankPosition.updatedTime", transform="keywordReverseUpdatedTime"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 134, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __pyx_t_51 = __Pyx_PyObject_Call(__pyx_t_39, __pyx_mstate_global->__pyx_tuple[106], NULL); if (unlikely(!__pyx_t_51)) __PYX_ERR(0, 134, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_51);
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 134, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_28);
+  __pyx_t_37 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_37)) __PYX_ERR(0, 134, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_37);
+  if (PyDict_SetItem(__pyx_t_37, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_rankPosition) < (0)) __PYX_ERR(0, 134, __pyx_L1_error)
+  __pyx_t_44 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[106], __pyx_t_37); if (unlikely(!__pyx_t_44)) __PYX_ERR(0, 134, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_44);
+  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_37); __pyx_t_37 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":135
- *     ExportColumn("", "adRatio"),
- *     ExportColumn("", "rankPosition.position"),
- *     ExportColumn("", "rankPosition.page"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "rankPosition.updatedTime"),
- *     ExportColumn("", "adPosition.position"),
+ *     ExportColumn("", "adRatio", transform="percentage"),
+ *     ExportColumn("", "rankPosition", transform="rankPosition"),
+ *     ExportColumn("", "rankPosition", transform="rankPage"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "rankPosition.updatedTime", transform="keywordReverseUpdatedTime"),
+ *     ExportColumn("", "adPosition", transform="rankPosition"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 135, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __pyx_t_44 = __Pyx_PyObject_Call(__pyx_t_39, __pyx_mstate_global->__pyx_tuple[107], NULL); if (unlikely(!__pyx_t_44)) __PYX_ERR(0, 135, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_44);
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_37, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_37)) __PYX_ERR(0, 135, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_37);
+  __pyx_t_28 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 135, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_28);
+  if (PyDict_SetItem(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_rankPage) < (0)) __PYX_ERR(0, 135, __pyx_L1_error)
+  __pyx_t_46 = __Pyx_PyObject_Call(__pyx_t_37, __pyx_mstate_global->__pyx_tuple[107], __pyx_t_28); if (unlikely(!__pyx_t_46)) __PYX_ERR(0, 135, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_46);
+  __Pyx_DECREF(__pyx_t_37); __pyx_t_37 = 0;
+  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":136
- *     ExportColumn("", "rankPosition.position"),
- *     ExportColumn("", "rankPosition.page"),
- *     ExportColumn("", "rankPosition.updatedTime"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "adPosition.position"),
- *     ExportColumn("", "adPosition.page"),
+ *     ExportColumn("", "rankPosition", transform="rankPosition"),
+ *     ExportColumn("", "rankPosition", transform="rankPage"),
+ *     ExportColumn("", "rankPosition.updatedTime", transform="keywordReverseUpdatedTime"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "adPosition", transform="rankPosition"),
+ *     ExportColumn("", "adPosition", transform="rankPage"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 136, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __pyx_t_46 = __Pyx_PyObject_Call(__pyx_t_39, __pyx_mstate_global->__pyx_tuple[108], NULL); if (unlikely(!__pyx_t_46)) __PYX_ERR(0, 136, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_46);
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 136, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_28);
+  __pyx_t_37 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_37)) __PYX_ERR(0, 136, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_37);
+  if (PyDict_SetItem(__pyx_t_37, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_keywordReverseUpdatedTime) < (0)) __PYX_ERR(0, 136, __pyx_L1_error)
+  __pyx_t_60 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[108], __pyx_t_37); if (unlikely(!__pyx_t_60)) __PYX_ERR(0, 136, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_60);
+  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_37); __pyx_t_37 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":137
- *     ExportColumn("", "rankPosition.page"),
- *     ExportColumn("", "rankPosition.updatedTime"),
- *     ExportColumn("", "adPosition.position"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "adPosition.page"),
- *     ExportColumn("", "adPosition.updatedTime"),
+ *     ExportColumn("", "rankPosition", transform="rankPage"),
+ *     ExportColumn("", "rankPosition.updatedTime", transform="keywordReverseUpdatedTime"),
+ *     ExportColumn("", "adPosition", transform="rankPosition"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "adPosition", transform="rankPage"),
+ *     ExportColumn("", "adPosition.updatedTime", transform="keywordReverseUpdatedTime"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 137, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __pyx_t_66 = __Pyx_PyObject_Call(__pyx_t_39, __pyx_mstate_global->__pyx_tuple[109], NULL); if (unlikely(!__pyx_t_66)) __PYX_ERR(0, 137, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_66);
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_37, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_37)) __PYX_ERR(0, 137, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_37);
+  __pyx_t_28 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 137, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_28);
+  if (PyDict_SetItem(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_rankPosition) < (0)) __PYX_ERR(0, 137, __pyx_L1_error)
+  __pyx_t_47 = __Pyx_PyObject_Call(__pyx_t_37, __pyx_mstate_global->__pyx_tuple[109], __pyx_t_28); if (unlikely(!__pyx_t_47)) __PYX_ERR(0, 137, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_47);
+  __Pyx_DECREF(__pyx_t_37); __pyx_t_37 = 0;
+  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":138
- *     ExportColumn("", "rankPosition.updatedTime"),
- *     ExportColumn("", "adPosition.position"),
- *     ExportColumn("", "adPosition.page"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "adPosition.updatedTime"),
+ *     ExportColumn("", "rankPosition.updatedTime", transform="keywordReverseUpdatedTime"),
+ *     ExportColumn("", "adPosition", transform="rankPosition"),
+ *     ExportColumn("", "adPosition", transform="rankPage"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "adPosition.updatedTime", transform="keywordReverseUpdatedTime"),
  *     ExportColumn("ABA", "searchesRank"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 138, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __pyx_t_47 = __Pyx_PyObject_Call(__pyx_t_39, __pyx_mstate_global->__pyx_tuple[110], NULL); if (unlikely(!__pyx_t_47)) __PYX_ERR(0, 138, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_47);
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 138, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_28);
+  __pyx_t_37 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_37)) __PYX_ERR(0, 138, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_37);
+  if (PyDict_SetItem(__pyx_t_37, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_rankPage) < (0)) __PYX_ERR(0, 138, __pyx_L1_error)
+  __pyx_t_49 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[110], __pyx_t_37); if (unlikely(!__pyx_t_49)) __PYX_ERR(0, 138, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_49);
+  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_37); __pyx_t_37 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":139
- *     ExportColumn("", "adPosition.position"),
- *     ExportColumn("", "adPosition.page"),
- *     ExportColumn("", "adPosition.updatedTime"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "adPosition", transform="rankPosition"),
+ *     ExportColumn("", "adPosition", transform="rankPage"),
+ *     ExportColumn("", "adPosition.updatedTime", transform="keywordReverseUpdatedTime"),             # <<<<<<<<<<<<<<
  *     ExportColumn("ABA", "searchesRank"),
  *     ExportColumn("", "searches"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 139, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __pyx_t_49 = __Pyx_PyObject_Call(__pyx_t_39, __pyx_mstate_global->__pyx_tuple[111], NULL); if (unlikely(!__pyx_t_49)) __PYX_ERR(0, 139, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_49);
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_37, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_37)) __PYX_ERR(0, 139, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_37);
+  __pyx_t_28 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 139, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_28);
+  if (PyDict_SetItem(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_keywordReverseUpdatedTime) < (0)) __PYX_ERR(0, 139, __pyx_L1_error)
+  __pyx_t_50 = __Pyx_PyObject_Call(__pyx_t_37, __pyx_mstate_global->__pyx_tuple[111], __pyx_t_28); if (unlikely(!__pyx_t_50)) __PYX_ERR(0, 139, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_50);
+  __Pyx_DECREF(__pyx_t_37); __pyx_t_37 = 0;
+  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":140
- *     ExportColumn("", "adPosition.page"),
- *     ExportColumn("", "adPosition.updatedTime"),
+ *     ExportColumn("", "adPosition", transform="rankPage"),
+ *     ExportColumn("", "adPosition.updatedTime", transform="keywordReverseUpdatedTime"),
  *     ExportColumn("ABA", "searchesRank"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "searches"),
  *     ExportColumn("SPR", "cprExact"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 140, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __pyx_t_50 = __Pyx_PyObject_Call(__pyx_t_39, __pyx_mstate_global->__pyx_tuple[112], NULL); if (unlikely(!__pyx_t_50)) __PYX_ERR(0, 140, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_50);
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 140, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_28);
+  __pyx_t_37 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[112], NULL); if (unlikely(!__pyx_t_37)) __PYX_ERR(0, 140, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_37);
+  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":141
- *     ExportColumn("", "adPosition.updatedTime"),
+ *     ExportColumn("", "adPosition.updatedTime", transform="keywordReverseUpdatedTime"),
  *     ExportColumn("ABA", "searchesRank"),
  *     ExportColumn("", "searches"),             # <<<<<<<<<<<<<<
  *     ExportColumn("SPR", "cprExact"),
  *     ExportColumn("", "titleDensityExact"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 141, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __pyx_t_52 = __Pyx_PyObject_Call(__pyx_t_39, __pyx_mstate_global->__pyx_tuple[70], NULL); if (unlikely(!__pyx_t_52)) __PYX_ERR(0, 141, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_52);
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 141, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_28);
+  __pyx_t_51 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[70], NULL); if (unlikely(!__pyx_t_51)) __PYX_ERR(0, 141, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_51);
+  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":142
  *     ExportColumn("ABA", "searchesRank"),
@@ -5871,76 +7519,80 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "titleDensityExact"),
  *     ExportColumn("", "purchases"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 142, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __pyx_t_48 = __Pyx_PyObject_Call(__pyx_t_39, __pyx_mstate_global->__pyx_tuple[113], NULL); if (unlikely(!__pyx_t_48)) __PYX_ERR(0, 142, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_48);
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 142, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_28);
+  __pyx_t_52 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[113], NULL); if (unlikely(!__pyx_t_52)) __PYX_ERR(0, 142, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_52);
+  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":143
  *     ExportColumn("", "searches"),
  *     ExportColumn("SPR", "cprExact"),
  *     ExportColumn("", "titleDensityExact"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "purchases"),
- *     ExportColumn("", "purchaseRate"),
+ *     ExportColumn("", "purchaseRate", transform="percentage"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 143, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __pyx_t_53 = __Pyx_PyObject_Call(__pyx_t_39, __pyx_mstate_global->__pyx_tuple[114], NULL); if (unlikely(!__pyx_t_53)) __PYX_ERR(0, 143, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 143, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_28);
+  __pyx_t_53 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[114], NULL); if (unlikely(!__pyx_t_53)) __PYX_ERR(0, 143, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_53);
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":144
  *     ExportColumn("SPR", "cprExact"),
  *     ExportColumn("", "titleDensityExact"),
  *     ExportColumn("", "purchases"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "purchaseRate"),
+ *     ExportColumn("", "purchaseRate", transform="percentage"),
  *     ExportColumn("", "impressions"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 144, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __pyx_t_54 = __Pyx_PyObject_Call(__pyx_t_39, __pyx_mstate_global->__pyx_tuple[115], NULL); if (unlikely(!__pyx_t_54)) __PYX_ERR(0, 144, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 144, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_28);
+  __pyx_t_54 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[115], NULL); if (unlikely(!__pyx_t_54)) __PYX_ERR(0, 144, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_54);
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":145
  *     ExportColumn("", "titleDensityExact"),
  *     ExportColumn("", "purchases"),
- *     ExportColumn("", "purchaseRate"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "purchaseRate", transform="percentage"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "impressions"),
  *     ExportColumn("", "clicks"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 145, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __pyx_t_55 = __Pyx_PyObject_Call(__pyx_t_39, __pyx_mstate_global->__pyx_tuple[72], NULL); if (unlikely(!__pyx_t_55)) __PYX_ERR(0, 145, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_28, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 145, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_28);
+  __pyx_t_55 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_55)) __PYX_ERR(0, 145, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_55);
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  if (PyDict_SetItem(__pyx_t_55, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_percentage) < (0)) __PYX_ERR(0, 145, __pyx_L1_error)
+  __pyx_t_56 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_mstate_global->__pyx_tuple[72], __pyx_t_55); if (unlikely(!__pyx_t_56)) __PYX_ERR(0, 145, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_56);
+  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_55); __pyx_t_55 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":146
  *     ExportColumn("", "purchases"),
- *     ExportColumn("", "purchaseRate"),
+ *     ExportColumn("", "purchaseRate", transform="percentage"),
  *     ExportColumn("", "impressions"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "clicks"),
  *     ExportColumn("", "products"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 146, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __pyx_t_56 = __Pyx_PyObject_Call(__pyx_t_39, __pyx_mstate_global->__pyx_tuple[73], NULL); if (unlikely(!__pyx_t_56)) __PYX_ERR(0, 146, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_56);
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_55, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_55)) __PYX_ERR(0, 146, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_55);
+  __pyx_t_28 = __Pyx_PyObject_Call(__pyx_t_55, __pyx_mstate_global->__pyx_tuple[73], NULL); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 146, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_28);
+  __Pyx_DECREF(__pyx_t_55); __pyx_t_55 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":147
- *     ExportColumn("", "purchaseRate"),
+ *     ExportColumn("", "purchaseRate", transform="percentage"),
  *     ExportColumn("", "impressions"),
  *     ExportColumn("", "clicks"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "products"),
  *     ExportColumn("", "supplyDemandRatio"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 147, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __pyx_t_57 = __Pyx_PyObject_Call(__pyx_t_39, __pyx_mstate_global->__pyx_tuple[74], NULL); if (unlikely(!__pyx_t_57)) __PYX_ERR(0, 147, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_55, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_55)) __PYX_ERR(0, 147, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_55);
+  __pyx_t_57 = __Pyx_PyObject_Call(__pyx_t_55, __pyx_mstate_global->__pyx_tuple[74], NULL); if (unlikely(!__pyx_t_57)) __PYX_ERR(0, 147, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_57);
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_DECREF(__pyx_t_55); __pyx_t_55 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":148
  *     ExportColumn("", "impressions"),
@@ -5949,114 +7601,122 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "supplyDemandRatio"),
  *     ExportColumn("7", "latest7daysAds"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 148, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __pyx_t_59 = __Pyx_PyObject_Call(__pyx_t_39, __pyx_mstate_global->__pyx_tuple[77], NULL); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 148, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_55, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_55)) __PYX_ERR(0, 148, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_55);
+  __pyx_t_59 = __Pyx_PyObject_Call(__pyx_t_55, __pyx_mstate_global->__pyx_tuple[77], NULL); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 148, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_59);
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_DECREF(__pyx_t_55); __pyx_t_55 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":149
  *     ExportColumn("", "clicks"),
  *     ExportColumn("", "products"),
  *     ExportColumn("", "supplyDemandRatio"),             # <<<<<<<<<<<<<<
  *     ExportColumn("7", "latest7daysAds"),
- *     ExportColumn("", "monopolyClickRate"),
+ *     ExportColumn("", "monopolyClickRate", transform="percentage"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 149, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __pyx_t_28 = __Pyx_PyObject_Call(__pyx_t_39, __pyx_mstate_global->__pyx_tuple[78], NULL); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 149, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_28);
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_55, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_55)) __PYX_ERR(0, 149, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_55);
+  __pyx_t_66 = __Pyx_PyObject_Call(__pyx_t_55, __pyx_mstate_global->__pyx_tuple[78], NULL); if (unlikely(!__pyx_t_66)) __PYX_ERR(0, 149, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_66);
+  __Pyx_DECREF(__pyx_t_55); __pyx_t_55 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":150
  *     ExportColumn("", "products"),
  *     ExportColumn("", "supplyDemandRatio"),
  *     ExportColumn("7", "latest7daysAds"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "monopolyClickRate"),
- *     ExportColumn("", "top3ConversionRate"),
+ *     ExportColumn("", "monopolyClickRate", transform="percentage"),
+ *     ExportColumn("", "top3ConversionRate", transform="percentage"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 150, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __pyx_t_60 = __Pyx_PyObject_Call(__pyx_t_39, __pyx_mstate_global->__pyx_tuple[116], NULL); if (unlikely(!__pyx_t_60)) __PYX_ERR(0, 150, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_60);
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_55, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_55)) __PYX_ERR(0, 150, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_55);
+  __pyx_t_38 = __Pyx_PyObject_Call(__pyx_t_55, __pyx_mstate_global->__pyx_tuple[116], NULL); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 150, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
+  __Pyx_DECREF(__pyx_t_55); __pyx_t_55 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":151
  *     ExportColumn("", "supplyDemandRatio"),
  *     ExportColumn("7", "latest7daysAds"),
- *     ExportColumn("", "monopolyClickRate"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "top3ConversionRate"),
- *     ExportColumn("PPC", "bid", transform="yen"),
+ *     ExportColumn("", "monopolyClickRate", transform="percentage"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "top3ConversionRate", transform="percentage"),
+ *     ExportColumn("PPC", "bid", transform="currency"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 151, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __pyx_t_61 = __Pyx_PyObject_Call(__pyx_t_39, __pyx_mstate_global->__pyx_tuple[80], NULL); if (unlikely(!__pyx_t_61)) __PYX_ERR(0, 151, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_55, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_55)) __PYX_ERR(0, 151, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_55);
+  __pyx_t_61 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_61)) __PYX_ERR(0, 151, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_61);
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  if (PyDict_SetItem(__pyx_t_61, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_percentage) < (0)) __PYX_ERR(0, 151, __pyx_L1_error)
+  __pyx_t_62 = __Pyx_PyObject_Call(__pyx_t_55, __pyx_mstate_global->__pyx_tuple[80], __pyx_t_61); if (unlikely(!__pyx_t_62)) __PYX_ERR(0, 151, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_62);
+  __Pyx_DECREF(__pyx_t_55); __pyx_t_55 = 0;
+  __Pyx_DECREF(__pyx_t_61); __pyx_t_61 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":152
  *     ExportColumn("7", "latest7daysAds"),
- *     ExportColumn("", "monopolyClickRate"),
- *     ExportColumn("", "top3ConversionRate"),             # <<<<<<<<<<<<<<
- *     ExportColumn("PPC", "bid", transform="yen"),
+ *     ExportColumn("", "monopolyClickRate", transform="percentage"),
+ *     ExportColumn("", "top3ConversionRate", transform="percentage"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("PPC", "bid", transform="currency"),
  *     ExportColumn("", "bidMin", transform="bidRange"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 152, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __pyx_t_62 = __Pyx_PyObject_Call(__pyx_t_39, __pyx_mstate_global->__pyx_tuple[117], NULL); if (unlikely(!__pyx_t_62)) __PYX_ERR(0, 152, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_62);
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_GetModuleGlobalName(__pyx_t_61, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_61)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_61);
+  __pyx_t_55 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_55)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_55);
+  if (PyDict_SetItem(__pyx_t_55, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_percentage) < (0)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __pyx_t_63 = __Pyx_PyObject_Call(__pyx_t_61, __pyx_mstate_global->__pyx_tuple[117], __pyx_t_55); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_63);
+  __Pyx_DECREF(__pyx_t_61); __pyx_t_61 = 0;
+  __Pyx_DECREF(__pyx_t_55); __pyx_t_55 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":153
- *     ExportColumn("", "monopolyClickRate"),
- *     ExportColumn("", "top3ConversionRate"),
- *     ExportColumn("PPC", "bid", transform="yen"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "monopolyClickRate", transform="percentage"),
+ *     ExportColumn("", "top3ConversionRate", transform="percentage"),
+ *     ExportColumn("PPC", "bid", transform="currency"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "bidMin", transform="bidRange"),
  *     ExportColumn("ASIN", "gkDatas", transform="asinList"),
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 153, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __pyx_t_63 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 153, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_63);
-  if (PyDict_SetItem(__pyx_t_63, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_yen) < (0)) __PYX_ERR(0, 153, __pyx_L1_error)
-  __pyx_t_64 = __Pyx_PyObject_Call(__pyx_t_39, __pyx_mstate_global->__pyx_tuple[118], __pyx_t_63); if (unlikely(!__pyx_t_64)) __PYX_ERR(0, 153, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_55, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_55)) __PYX_ERR(0, 153, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_55);
+  __pyx_t_61 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_61)) __PYX_ERR(0, 153, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_61);
+  if (PyDict_SetItem(__pyx_t_61, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_currency) < (0)) __PYX_ERR(0, 153, __pyx_L1_error)
+  __pyx_t_64 = __Pyx_PyObject_Call(__pyx_t_55, __pyx_mstate_global->__pyx_tuple[118], __pyx_t_61); if (unlikely(!__pyx_t_64)) __PYX_ERR(0, 153, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_64);
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
-  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
+  __Pyx_DECREF(__pyx_t_55); __pyx_t_55 = 0;
+  __Pyx_DECREF(__pyx_t_61); __pyx_t_61 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":154
- *     ExportColumn("", "top3ConversionRate"),
- *     ExportColumn("PPC", "bid", transform="yen"),
+ *     ExportColumn("", "top3ConversionRate", transform="percentage"),
+ *     ExportColumn("PPC", "bid", transform="currency"),
  *     ExportColumn("", "bidMin", transform="bidRange"),             # <<<<<<<<<<<<<<
  *     ExportColumn("ASIN", "gkDatas", transform="asinList"),
  * ]
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_63, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 154, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_63);
-  __pyx_t_39 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 154, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  if (PyDict_SetItem(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_bidRange) < (0)) __PYX_ERR(0, 154, __pyx_L1_error)
-  __pyx_t_58 = __Pyx_PyObject_Call(__pyx_t_63, __pyx_mstate_global->__pyx_tuple[83], __pyx_t_39); if (unlikely(!__pyx_t_58)) __PYX_ERR(0, 154, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_61, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_61)) __PYX_ERR(0, 154, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_61);
+  __pyx_t_55 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_55)) __PYX_ERR(0, 154, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_55);
+  if (PyDict_SetItem(__pyx_t_55, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_bidRange) < (0)) __PYX_ERR(0, 154, __pyx_L1_error)
+  __pyx_t_58 = __Pyx_PyObject_Call(__pyx_t_61, __pyx_mstate_global->__pyx_tuple[83], __pyx_t_55); if (unlikely(!__pyx_t_58)) __PYX_ERR(0, 154, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_58);
-  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_DECREF(__pyx_t_61); __pyx_t_61 = 0;
+  __Pyx_DECREF(__pyx_t_55); __pyx_t_55 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":155
- *     ExportColumn("PPC", "bid", transform="yen"),
+ *     ExportColumn("PPC", "bid", transform="currency"),
  *     ExportColumn("", "bidMin", transform="bidRange"),
  *     ExportColumn("ASIN", "gkDatas", transform="asinList"),             # <<<<<<<<<<<<<<
  * ]
  * 
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_39, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 155, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_39);
-  __pyx_t_63 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 155, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_63);
-  if (PyDict_SetItem(__pyx_t_63, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_asinList) < (0)) __PYX_ERR(0, 155, __pyx_L1_error)
-  __pyx_t_65 = __Pyx_PyObject_Call(__pyx_t_39, __pyx_mstate_global->__pyx_tuple[97], __pyx_t_63); if (unlikely(!__pyx_t_65)) __PYX_ERR(0, 155, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_55, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_55)) __PYX_ERR(0, 155, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_55);
+  __pyx_t_61 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_61)) __PYX_ERR(0, 155, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_61);
+  if (PyDict_SetItem(__pyx_t_61, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_asinList) < (0)) __PYX_ERR(0, 155, __pyx_L1_error)
+  __pyx_t_65 = __Pyx_PyObject_Call(__pyx_t_55, __pyx_mstate_global->__pyx_tuple[97], __pyx_t_61); if (unlikely(!__pyx_t_65)) __PYX_ERR(0, 155, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_65);
-  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
-  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
+  __Pyx_DECREF(__pyx_t_55); __pyx_t_55 = 0;
+  __Pyx_DECREF(__pyx_t_61); __pyx_t_61 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":124
  * 
@@ -6065,115 +7725,982 @@ __Pyx_RefNannySetupContext("PyInit_columns", 0);
  *     ExportColumn("", "keywords"),
  *     ExportColumn("", "keywordCn"),
 */
-  __pyx_t_63 = __Pyx_PyList_Pack(31, __pyx_t_34, __pyx_t_36, __pyx_t_37, __pyx_t_38, __pyx_t_41, __pyx_t_42, __pyx_t_40, __pyx_t_35, __pyx_t_43, __pyx_t_51, __pyx_t_44, __pyx_t_46, __pyx_t_66, __pyx_t_47, __pyx_t_49, __pyx_t_50, __pyx_t_52, __pyx_t_48, __pyx_t_53, __pyx_t_54, __pyx_t_55, __pyx_t_56, __pyx_t_57, __pyx_t_59, __pyx_t_28, __pyx_t_60, __pyx_t_61, __pyx_t_62, __pyx_t_64, __pyx_t_58, __pyx_t_65); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 124, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_63);
+  __pyx_t_61 = __Pyx_PyList_Pack(31, __pyx_t_34, __pyx_t_36, __pyx_t_39, __pyx_t_35, __pyx_t_41, __pyx_t_42, __pyx_t_40, __pyx_t_43, __pyx_t_48, __pyx_t_44, __pyx_t_46, __pyx_t_60, __pyx_t_47, __pyx_t_49, __pyx_t_50, __pyx_t_37, __pyx_t_51, __pyx_t_52, __pyx_t_53, __pyx_t_54, __pyx_t_56, __pyx_t_28, __pyx_t_57, __pyx_t_59, __pyx_t_66, __pyx_t_38, __pyx_t_62, __pyx_t_63, __pyx_t_64, __pyx_t_58, __pyx_t_65); if (unlikely(!__pyx_t_61)) __PYX_ERR(0, 124, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_61);
   __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
   __Pyx_DECREF(__pyx_t_36); __pyx_t_36 = 0;
-  __Pyx_DECREF(__pyx_t_37); __pyx_t_37 = 0;
-  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
+  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
   __Pyx_DECREF(__pyx_t_41); __pyx_t_41 = 0;
   __Pyx_DECREF(__pyx_t_42); __pyx_t_42 = 0;
   __Pyx_DECREF(__pyx_t_40); __pyx_t_40 = 0;
-  __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
   __Pyx_DECREF(__pyx_t_43); __pyx_t_43 = 0;
-  __Pyx_DECREF(__pyx_t_51); __pyx_t_51 = 0;
+  __Pyx_DECREF(__pyx_t_48); __pyx_t_48 = 0;
   __Pyx_DECREF(__pyx_t_44); __pyx_t_44 = 0;
   __Pyx_DECREF(__pyx_t_46); __pyx_t_46 = 0;
-  __Pyx_DECREF(__pyx_t_66); __pyx_t_66 = 0;
+  __Pyx_DECREF(__pyx_t_60); __pyx_t_60 = 0;
   __Pyx_DECREF(__pyx_t_47); __pyx_t_47 = 0;
   __Pyx_DECREF(__pyx_t_49); __pyx_t_49 = 0;
   __Pyx_DECREF(__pyx_t_50); __pyx_t_50 = 0;
+  __Pyx_DECREF(__pyx_t_37); __pyx_t_37 = 0;
+  __Pyx_DECREF(__pyx_t_51); __pyx_t_51 = 0;
   __Pyx_DECREF(__pyx_t_52); __pyx_t_52 = 0;
-  __Pyx_DECREF(__pyx_t_48); __pyx_t_48 = 0;
   __Pyx_DECREF(__pyx_t_53); __pyx_t_53 = 0;
   __Pyx_DECREF(__pyx_t_54); __pyx_t_54 = 0;
-  __Pyx_DECREF(__pyx_t_55); __pyx_t_55 = 0;
   __Pyx_DECREF(__pyx_t_56); __pyx_t_56 = 0;
+  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
   __Pyx_DECREF(__pyx_t_57); __pyx_t_57 = 0;
   __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
-  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
-  __Pyx_DECREF(__pyx_t_60); __pyx_t_60 = 0;
-  __Pyx_DECREF(__pyx_t_61); __pyx_t_61 = 0;
+  __Pyx_DECREF(__pyx_t_66); __pyx_t_66 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
   __Pyx_DECREF(__pyx_t_62); __pyx_t_62 = 0;
+  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
   __Pyx_DECREF(__pyx_t_64); __pyx_t_64 = 0;
   __Pyx_DECREF(__pyx_t_58); __pyx_t_58 = 0;
   __Pyx_DECREF(__pyx_t_65); __pyx_t_65 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_KEYWORD_REVERSE_COLUMNS, __pyx_t_63) < (0)) __PYX_ERR(0, 124, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_KEYWORD_REVERSE_COLUMNS, __pyx_t_61) < (0)) __PYX_ERR(0, 124, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_61); __pyx_t_61 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":160
+ * 
+ * TRAFFIC_SOURCE_COLUMNS = [
+ *     ExportColumn("ASIN", "asin"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "title"),
+ *     ExportColumn("", "price"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_61, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_61)) __PYX_ERR(0, 160, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_61);
+  __pyx_t_65 = __Pyx_PyObject_Call(__pyx_t_61, __pyx_mstate_global->__pyx_tuple[0], NULL); if (unlikely(!__pyx_t_65)) __PYX_ERR(0, 160, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_65);
+  __Pyx_DECREF(__pyx_t_61); __pyx_t_61 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":161
+ * TRAFFIC_SOURCE_COLUMNS = [
+ *     ExportColumn("ASIN", "asin"),
+ *     ExportColumn("", "title"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "price"),
+ *     ExportColumn("", "rating"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_61, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_61)) __PYX_ERR(0, 161, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_61);
+  __pyx_t_58 = __Pyx_PyObject_Call(__pyx_t_61, __pyx_mstate_global->__pyx_tuple[119], NULL); if (unlikely(!__pyx_t_58)) __PYX_ERR(0, 161, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_58);
+  __Pyx_DECREF(__pyx_t_61); __pyx_t_61 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":162
+ *     ExportColumn("ASIN", "asin"),
+ *     ExportColumn("", "title"),
+ *     ExportColumn("", "price"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "rating"),
+ *     ExportColumn("", "reviews"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_61, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_61)) __PYX_ERR(0, 162, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_61);
+  __pyx_t_64 = __Pyx_PyObject_Call(__pyx_t_61, __pyx_mstate_global->__pyx_tuple[120], NULL); if (unlikely(!__pyx_t_64)) __PYX_ERR(0, 162, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_64);
+  __Pyx_DECREF(__pyx_t_61); __pyx_t_61 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":163
+ *     ExportColumn("", "title"),
+ *     ExportColumn("", "price"),
+ *     ExportColumn("", "rating"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "reviews"),
+ *     ExportColumn("", "variations"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_61, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_61)) __PYX_ERR(0, 163, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_61);
+  __pyx_t_63 = __Pyx_PyObject_Call(__pyx_t_61, __pyx_mstate_global->__pyx_tuple[28], NULL); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 163, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_63);
+  __Pyx_DECREF(__pyx_t_61); __pyx_t_61 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":164
+ *     ExportColumn("", "price"),
+ *     ExportColumn("", "rating"),
+ *     ExportColumn("", "reviews"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "variations"),
+ *     ExportColumn("SKU", "sku"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_61, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_61)) __PYX_ERR(0, 164, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_61);
+  __pyx_t_62 = __Pyx_PyObject_Call(__pyx_t_61, __pyx_mstate_global->__pyx_tuple[26], NULL); if (unlikely(!__pyx_t_62)) __PYX_ERR(0, 164, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_62);
+  __Pyx_DECREF(__pyx_t_61); __pyx_t_61 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":165
+ *     ExportColumn("", "rating"),
+ *     ExportColumn("", "reviews"),
+ *     ExportColumn("", "variations"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("SKU", "sku"),
+ *     ExportColumn("", "badgeLabels", transform="trafficSourceLabels"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_61, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_61)) __PYX_ERR(0, 165, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_61);
+  __pyx_t_38 = __Pyx_PyObject_Call(__pyx_t_61, __pyx_mstate_global->__pyx_tuple[21], NULL); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 165, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
+  __Pyx_DECREF(__pyx_t_61); __pyx_t_61 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":166
+ *     ExportColumn("", "reviews"),
+ *     ExportColumn("", "variations"),
+ *     ExportColumn("SKU", "sku"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "badgeLabels", transform="trafficSourceLabels"),
+ *     ExportColumn("", "keywords"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_61, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_61)) __PYX_ERR(0, 166, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_61);
+  __pyx_t_66 = __Pyx_PyObject_Call(__pyx_t_61, __pyx_mstate_global->__pyx_tuple[1], NULL); if (unlikely(!__pyx_t_66)) __PYX_ERR(0, 166, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_66);
+  __Pyx_DECREF(__pyx_t_61); __pyx_t_61 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":167
+ *     ExportColumn("", "variations"),
+ *     ExportColumn("SKU", "sku"),
+ *     ExportColumn("", "badgeLabels", transform="trafficSourceLabels"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "keywords"),
+ *     ExportColumn("", "counter.NATURAL_SEARCHING"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_61, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_61)) __PYX_ERR(0, 167, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_61);
+  __pyx_t_59 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 167, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  if (PyDict_SetItem(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_transform, __pyx_mstate_global->__pyx_n_u_trafficSourceLabels) < (0)) __PYX_ERR(0, 167, __pyx_L1_error)
+  __pyx_t_57 = __Pyx_PyObject_Call(__pyx_t_61, __pyx_mstate_global->__pyx_tuple[121], __pyx_t_59); if (unlikely(!__pyx_t_57)) __PYX_ERR(0, 167, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_57);
+  __Pyx_DECREF(__pyx_t_61); __pyx_t_61 = 0;
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":168
+ *     ExportColumn("SKU", "sku"),
+ *     ExportColumn("", "badgeLabels", transform="trafficSourceLabels"),
+ *     ExportColumn("", "keywords"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "counter.NATURAL_SEARCHING"),
+ *     ExportColumn("AC", "counter.AMAZON_CHOICE"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 168, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_61 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[122], NULL); if (unlikely(!__pyx_t_61)) __PYX_ERR(0, 168, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_61);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":169
+ *     ExportColumn("", "badgeLabels", transform="trafficSourceLabels"),
+ *     ExportColumn("", "keywords"),
+ *     ExportColumn("", "counter.NATURAL_SEARCHING"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("AC", "counter.AMAZON_CHOICE"),
+ *     ExportColumn("ER", "counter.EDITORIAL_RECOMMENDATIONS"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 169, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_28 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[123], NULL); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 169, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_28);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":170
+ *     ExportColumn("", "keywords"),
+ *     ExportColumn("", "counter.NATURAL_SEARCHING"),
+ *     ExportColumn("AC", "counter.AMAZON_CHOICE"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("ER", "counter.EDITORIAL_RECOMMENDATIONS"),
+ *     ExportColumn("4", "counter.FOUR_STAR"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 170, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_56 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[124], NULL); if (unlikely(!__pyx_t_56)) __PYX_ERR(0, 170, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_56);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":171
+ *     ExportColumn("", "counter.NATURAL_SEARCHING"),
+ *     ExportColumn("AC", "counter.AMAZON_CHOICE"),
+ *     ExportColumn("ER", "counter.EDITORIAL_RECOMMENDATIONS"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("4", "counter.FOUR_STAR"),
+ *     ExportColumn("HR", "counter.HIGHLY_RATED"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 171, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_54 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[125], NULL); if (unlikely(!__pyx_t_54)) __PYX_ERR(0, 171, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_54);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":172
+ *     ExportColumn("AC", "counter.AMAZON_CHOICE"),
+ *     ExportColumn("ER", "counter.EDITORIAL_RECOMMENDATIONS"),
+ *     ExportColumn("4", "counter.FOUR_STAR"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("HR", "counter.HIGHLY_RATED"),
+ *     ExportColumn("SP", "counter.ADS"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 172, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_53 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[126], NULL); if (unlikely(!__pyx_t_53)) __PYX_ERR(0, 172, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_53);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":173
+ *     ExportColumn("ER", "counter.EDITORIAL_RECOMMENDATIONS"),
+ *     ExportColumn("4", "counter.FOUR_STAR"),
+ *     ExportColumn("HR", "counter.HIGHLY_RATED"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("SP", "counter.ADS"),
+ *     ExportColumn("", "counter.SPONSOR_VIDEO"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 173, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_52 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[127], NULL); if (unlikely(!__pyx_t_52)) __PYX_ERR(0, 173, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_52);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":174
+ *     ExportColumn("4", "counter.FOUR_STAR"),
+ *     ExportColumn("HR", "counter.HIGHLY_RATED"),
+ *     ExportColumn("SP", "counter.ADS"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "counter.SPONSOR_VIDEO"),
+ *     ExportColumn("", "counter.SPONSOR_BRAND"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 174, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_51 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[128], NULL); if (unlikely(!__pyx_t_51)) __PYX_ERR(0, 174, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_51);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":175
+ *     ExportColumn("HR", "counter.HIGHLY_RATED"),
+ *     ExportColumn("SP", "counter.ADS"),
+ *     ExportColumn("", "counter.SPONSOR_VIDEO"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "counter.SPONSOR_BRAND"),
+ * ]
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 175, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_37 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[129], NULL); if (unlikely(!__pyx_t_37)) __PYX_ERR(0, 175, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_37);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":176
+ *     ExportColumn("SP", "counter.ADS"),
+ *     ExportColumn("", "counter.SPONSOR_VIDEO"),
+ *     ExportColumn("", "counter.SPONSOR_BRAND"),             # <<<<<<<<<<<<<<
+ * ]
+ * 
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 176, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_50 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[130], NULL); if (unlikely(!__pyx_t_50)) __PYX_ERR(0, 176, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_50);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":159
  * 
  * 
+ * TRAFFIC_SOURCE_COLUMNS = [             # <<<<<<<<<<<<<<
+ *     ExportColumn("ASIN", "asin"),
+ *     ExportColumn("", "title"),
+*/
+  __pyx_t_59 = __Pyx_PyList_Pack(17, __pyx_t_65, __pyx_t_58, __pyx_t_64, __pyx_t_63, __pyx_t_62, __pyx_t_38, __pyx_t_66, __pyx_t_57, __pyx_t_61, __pyx_t_28, __pyx_t_56, __pyx_t_54, __pyx_t_53, __pyx_t_52, __pyx_t_51, __pyx_t_37, __pyx_t_50); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 159, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __Pyx_DECREF(__pyx_t_65); __pyx_t_65 = 0;
+  __Pyx_DECREF(__pyx_t_58); __pyx_t_58 = 0;
+  __Pyx_DECREF(__pyx_t_64); __pyx_t_64 = 0;
+  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
+  __Pyx_DECREF(__pyx_t_62); __pyx_t_62 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
+  __Pyx_DECREF(__pyx_t_66); __pyx_t_66 = 0;
+  __Pyx_DECREF(__pyx_t_57); __pyx_t_57 = 0;
+  __Pyx_DECREF(__pyx_t_61); __pyx_t_61 = 0;
+  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_56); __pyx_t_56 = 0;
+  __Pyx_DECREF(__pyx_t_54); __pyx_t_54 = 0;
+  __Pyx_DECREF(__pyx_t_53); __pyx_t_53 = 0;
+  __Pyx_DECREF(__pyx_t_52); __pyx_t_52 = 0;
+  __Pyx_DECREF(__pyx_t_51); __pyx_t_51 = 0;
+  __Pyx_DECREF(__pyx_t_37); __pyx_t_37 = 0;
+  __Pyx_DECREF(__pyx_t_50); __pyx_t_50 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_TRAFFIC_SOURCE_COLUMNS, __pyx_t_59) < (0)) __PYX_ERR(0, 159, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":181
+ * 
+ * MARKET_RESEARCH_COLUMNS = [
+ *     ExportColumn("", "market"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("()", "marketCn"),
+ *     ExportColumn("", "marketPath"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 181, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_50 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[131], NULL); if (unlikely(!__pyx_t_50)) __PYX_ERR(0, 181, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_50);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":182
+ * MARKET_RESEARCH_COLUMNS = [
+ *     ExportColumn("", "market"),
+ *     ExportColumn("()", "marketCn"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "marketPath"),
+ *     ExportColumn("", "sampleQuantity"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 182, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_37 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[132], NULL); if (unlikely(!__pyx_t_37)) __PYX_ERR(0, 182, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_37);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":183
+ *     ExportColumn("", "market"),
+ *     ExportColumn("()", "marketCn"),
+ *     ExportColumn("", "marketPath"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "sampleQuantity"),
+ *     ExportColumn("", "totalSales"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 183, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_51 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[133], NULL); if (unlikely(!__pyx_t_51)) __PYX_ERR(0, 183, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_51);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":184
+ *     ExportColumn("()", "marketCn"),
+ *     ExportColumn("", "marketPath"),
+ *     ExportColumn("", "sampleQuantity"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "totalSales"),
+ *     ExportColumn("", "avgSales"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 184, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_52 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[134], NULL); if (unlikely(!__pyx_t_52)) __PYX_ERR(0, 184, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_52);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":185
+ *     ExportColumn("", "marketPath"),
+ *     ExportColumn("", "sampleQuantity"),
+ *     ExportColumn("", "totalSales"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "avgSales"),
+ *     ExportColumn("__AVG_REVENUE__", "avgRevenue"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 185, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_53 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[135], NULL); if (unlikely(!__pyx_t_53)) __PYX_ERR(0, 185, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_53);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":186
+ *     ExportColumn("", "sampleQuantity"),
+ *     ExportColumn("", "totalSales"),
+ *     ExportColumn("", "avgSales"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("__AVG_REVENUE__", "avgRevenue"),
+ *     ExportColumn("__AVG_PRICE__", "avgPrice"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 186, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_54 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[136], NULL); if (unlikely(!__pyx_t_54)) __PYX_ERR(0, 186, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_54);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":187
+ *     ExportColumn("", "totalSales"),
+ *     ExportColumn("", "avgSales"),
+ *     ExportColumn("__AVG_REVENUE__", "avgRevenue"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("__AVG_PRICE__", "avgPrice"),
+ *     ExportColumn("", "avgReviews"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 187, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_56 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[137], NULL); if (unlikely(!__pyx_t_56)) __PYX_ERR(0, 187, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_56);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":188
+ *     ExportColumn("", "avgSales"),
+ *     ExportColumn("__AVG_REVENUE__", "avgRevenue"),
+ *     ExportColumn("__AVG_PRICE__", "avgPrice"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "avgReviews"),
+ *     ExportColumn("", "avgRating"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 188, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_28 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[138], NULL); if (unlikely(!__pyx_t_28)) __PYX_ERR(0, 188, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_28);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":189
+ *     ExportColumn("__AVG_REVENUE__", "avgRevenue"),
+ *     ExportColumn("__AVG_PRICE__", "avgPrice"),
+ *     ExportColumn("", "avgReviews"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "avgRating"),
+ *     ExportColumn("BSR", "avgBsr"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 189, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_61 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[139], NULL); if (unlikely(!__pyx_t_61)) __PYX_ERR(0, 189, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_61);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":190
+ *     ExportColumn("__AVG_PRICE__", "avgPrice"),
+ *     ExportColumn("", "avgReviews"),
+ *     ExportColumn("", "avgRating"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("BSR", "avgBsr"),
+ *     ExportColumn("", "avgSellers"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 190, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_57 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[140], NULL); if (unlikely(!__pyx_t_57)) __PYX_ERR(0, 190, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_57);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":191
+ *     ExportColumn("", "avgReviews"),
+ *     ExportColumn("", "avgRating"),
+ *     ExportColumn("BSR", "avgBsr"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "avgSellers"),
+ *     ExportColumn("", "sellerTypes"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 191, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_66 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[141], NULL); if (unlikely(!__pyx_t_66)) __PYX_ERR(0, 191, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_66);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":192
+ *     ExportColumn("", "avgRating"),
+ *     ExportColumn("BSR", "avgBsr"),
+ *     ExportColumn("", "avgSellers"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "sellerTypes"),
+ *     ExportColumn("", "productConcentration"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 192, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_38 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[142], NULL); if (unlikely(!__pyx_t_38)) __PYX_ERR(0, 192, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_38);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":193
+ *     ExportColumn("BSR", "avgBsr"),
+ *     ExportColumn("", "avgSellers"),
+ *     ExportColumn("", "sellerTypes"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "productConcentration"),
+ *     ExportColumn("", "brandConcentration"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 193, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_62 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[143], NULL); if (unlikely(!__pyx_t_62)) __PYX_ERR(0, 193, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_62);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":194
+ *     ExportColumn("", "avgSellers"),
+ *     ExportColumn("", "sellerTypes"),
+ *     ExportColumn("", "productConcentration"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "brandConcentration"),
+ *     ExportColumn("", "sellerConcentration"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 194, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_63 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[144], NULL); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 194, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_63);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":195
+ *     ExportColumn("", "sellerTypes"),
+ *     ExportColumn("", "productConcentration"),
+ *     ExportColumn("", "brandConcentration"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "sellerConcentration"),
+ *     ExportColumn("", "totalProducts"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 195, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_64 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[145], NULL); if (unlikely(!__pyx_t_64)) __PYX_ERR(0, 195, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_64);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":196
+ *     ExportColumn("", "productConcentration"),
+ *     ExportColumn("", "brandConcentration"),
+ *     ExportColumn("", "sellerConcentration"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "totalProducts"),
+ *     ExportColumn("", "avgWeight"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 196, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_58 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[146], NULL); if (unlikely(!__pyx_t_58)) __PYX_ERR(0, 196, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_58);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":197
+ *     ExportColumn("", "brandConcentration"),
+ *     ExportColumn("", "sellerConcentration"),
+ *     ExportColumn("", "totalProducts"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "avgWeight"),
+ *     ExportColumn("", "avgVolume"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 197, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_65 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[147], NULL); if (unlikely(!__pyx_t_65)) __PYX_ERR(0, 197, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_65);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":198
+ *     ExportColumn("", "sellerConcentration"),
+ *     ExportColumn("", "totalProducts"),
+ *     ExportColumn("", "avgWeight"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "avgVolume"),
+ *     ExportColumn("", "avgProfit"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 198, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_49 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[148], NULL); if (unlikely(!__pyx_t_49)) __PYX_ERR(0, 198, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_49);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":199
+ *     ExportColumn("", "totalProducts"),
+ *     ExportColumn("", "avgWeight"),
+ *     ExportColumn("", "avgVolume"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "avgProfit"),
+ *     ExportColumn("A+", "ebcRatio"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 199, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_47 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[149], NULL); if (unlikely(!__pyx_t_47)) __PYX_ERR(0, 199, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_47);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":200
+ *     ExportColumn("", "avgWeight"),
+ *     ExportColumn("", "avgVolume"),
+ *     ExportColumn("", "avgProfit"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("A+", "ebcRatio"),
+ *     ExportColumn("", "sellerNation"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 200, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_60 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[150], NULL); if (unlikely(!__pyx_t_60)) __PYX_ERR(0, 200, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_60);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":201
+ *     ExportColumn("", "avgVolume"),
+ *     ExportColumn("", "avgProfit"),
+ *     ExportColumn("A+", "ebcRatio"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "sellerNation"),
+ *     ExportColumn("Listing", "headListingAvgSales"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 201, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_46 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[151], NULL); if (unlikely(!__pyx_t_46)) __PYX_ERR(0, 201, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_46);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":202
+ *     ExportColumn("", "avgProfit"),
+ *     ExportColumn("A+", "ebcRatio"),
+ *     ExportColumn("", "sellerNation"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("Listing", "headListingAvgSales"),
+ *     ExportColumn("", "monopoly"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 202, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_44 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[41], NULL); if (unlikely(!__pyx_t_44)) __PYX_ERR(0, 202, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_44);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":203
+ *     ExportColumn("A+", "ebcRatio"),
+ *     ExportColumn("", "sellerNation"),
+ *     ExportColumn("Listing", "headListingAvgSales"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "monopoly"),
+ *     ExportColumn("__HEAD_AVG_REVENUE__", "headListingAvgRevenue"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 203, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_48 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[152], NULL); if (unlikely(!__pyx_t_48)) __PYX_ERR(0, 203, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_48);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":204
+ *     ExportColumn("", "sellerNation"),
+ *     ExportColumn("Listing", "headListingAvgSales"),
+ *     ExportColumn("", "monopoly"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("__HEAD_AVG_REVENUE__", "headListingAvgRevenue"),
+ *     ExportColumn("ListingBSR", "headListingAvgBsr"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 204, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_43 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[153], NULL); if (unlikely(!__pyx_t_43)) __PYX_ERR(0, 204, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_43);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":205
+ *     ExportColumn("Listing", "headListingAvgSales"),
+ *     ExportColumn("", "monopoly"),
+ *     ExportColumn("__HEAD_AVG_REVENUE__", "headListingAvgRevenue"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("ListingBSR", "headListingAvgBsr"),
+ *     ExportColumn("", "newCount"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 205, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_40 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[154], NULL); if (unlikely(!__pyx_t_40)) __PYX_ERR(0, 205, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_40);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":206
+ *     ExportColumn("", "monopoly"),
+ *     ExportColumn("__HEAD_AVG_REVENUE__", "headListingAvgRevenue"),
+ *     ExportColumn("ListingBSR", "headListingAvgBsr"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "newCount"),
+ *     ExportColumn("", "newRatio"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 206, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_42 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[155], NULL); if (unlikely(!__pyx_t_42)) __PYX_ERR(0, 206, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_42);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":207
+ *     ExportColumn("__HEAD_AVG_REVENUE__", "headListingAvgRevenue"),
+ *     ExportColumn("ListingBSR", "headListingAvgBsr"),
+ *     ExportColumn("", "newCount"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "newRatio"),
+ *     ExportColumn("", "newAvgSales"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 207, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_41 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[156], NULL); if (unlikely(!__pyx_t_41)) __PYX_ERR(0, 207, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_41);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":208
+ *     ExportColumn("ListingBSR", "headListingAvgBsr"),
+ *     ExportColumn("", "newCount"),
+ *     ExportColumn("", "newRatio"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "newAvgSales"),
+ *     ExportColumn("__NEW_AVG_REVENUE__", "newAvgRevenue"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 208, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_35 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[157], NULL); if (unlikely(!__pyx_t_35)) __PYX_ERR(0, 208, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_35);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":209
+ *     ExportColumn("", "newCount"),
+ *     ExportColumn("", "newRatio"),
+ *     ExportColumn("", "newAvgSales"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("__NEW_AVG_REVENUE__", "newAvgRevenue"),
+ *     ExportColumn("__NEW_AVG_PRICE__", "newAvgPrice"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 209, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_39 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[158], NULL); if (unlikely(!__pyx_t_39)) __PYX_ERR(0, 209, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_39);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":210
+ *     ExportColumn("", "newRatio"),
+ *     ExportColumn("", "newAvgSales"),
+ *     ExportColumn("__NEW_AVG_REVENUE__", "newAvgRevenue"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("__NEW_AVG_PRICE__", "newAvgPrice"),
+ *     ExportColumn("", "newAvgReviews"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 210, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_36 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[159], NULL); if (unlikely(!__pyx_t_36)) __PYX_ERR(0, 210, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_36);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":211
+ *     ExportColumn("", "newAvgSales"),
+ *     ExportColumn("__NEW_AVG_REVENUE__", "newAvgRevenue"),
+ *     ExportColumn("__NEW_AVG_PRICE__", "newAvgPrice"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "newAvgReviews"),
+ *     ExportColumn("", "newAvgRating"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 211, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_34 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[160], NULL); if (unlikely(!__pyx_t_34)) __PYX_ERR(0, 211, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_34);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":212
+ *     ExportColumn("__NEW_AVG_REVENUE__", "newAvgRevenue"),
+ *     ExportColumn("__NEW_AVG_PRICE__", "newAvgPrice"),
+ *     ExportColumn("", "newAvgReviews"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "newAvgRating"),
+ *     ExportColumn("", "returnRate"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 212, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_55 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[161], NULL); if (unlikely(!__pyx_t_55)) __PYX_ERR(0, 212, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_55);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":213
+ *     ExportColumn("__NEW_AVG_PRICE__", "newAvgPrice"),
+ *     ExportColumn("", "newAvgReviews"),
+ *     ExportColumn("", "newAvgRating"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "returnRate"),
+ *     ExportColumn("", "categoryReturnRate"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 213, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_67 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[162], NULL); if (unlikely(!__pyx_t_67)) __PYX_ERR(0, 213, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_67);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":214
+ *     ExportColumn("", "newAvgReviews"),
+ *     ExportColumn("", "newAvgRating"),
+ *     ExportColumn("", "returnRate"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "categoryReturnRate"),
+ *     ExportColumn("", "searchPurchaseRatio"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 214, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_68 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[163], NULL); if (unlikely(!__pyx_t_68)) __PYX_ERR(0, 214, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_68);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":215
+ *     ExportColumn("", "newAvgRating"),
+ *     ExportColumn("", "returnRate"),
+ *     ExportColumn("", "categoryReturnRate"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "searchPurchaseRatio"),
+ *     ExportColumn("", "categorySearchPurchaseRatio"),
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 215, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_45 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[164], NULL); if (unlikely(!__pyx_t_45)) __PYX_ERR(0, 215, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_45);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":216
+ *     ExportColumn("", "returnRate"),
+ *     ExportColumn("", "categoryReturnRate"),
+ *     ExportColumn("", "searchPurchaseRatio"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "categorySearchPurchaseRatio"),
+ * ]
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 216, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_33 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[165], NULL); if (unlikely(!__pyx_t_33)) __PYX_ERR(0, 216, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_33);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":217
+ *     ExportColumn("", "categoryReturnRate"),
+ *     ExportColumn("", "searchPurchaseRatio"),
+ *     ExportColumn("", "categorySearchPurchaseRatio"),             # <<<<<<<<<<<<<<
+ * ]
+ * 
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_ExportColumn); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 217, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __pyx_t_32 = __Pyx_PyObject_Call(__pyx_t_59, __pyx_mstate_global->__pyx_tuple[166], NULL); if (unlikely(!__pyx_t_32)) __PYX_ERR(0, 217, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_32);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":180
+ * 
+ * 
+ * MARKET_RESEARCH_COLUMNS = [             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "market"),
+ *     ExportColumn("()", "marketCn"),
+*/
+  __pyx_t_59 = __Pyx_PyList_Pack(37, __pyx_t_50, __pyx_t_37, __pyx_t_51, __pyx_t_52, __pyx_t_53, __pyx_t_54, __pyx_t_56, __pyx_t_28, __pyx_t_61, __pyx_t_57, __pyx_t_66, __pyx_t_38, __pyx_t_62, __pyx_t_63, __pyx_t_64, __pyx_t_58, __pyx_t_65, __pyx_t_49, __pyx_t_47, __pyx_t_60, __pyx_t_46, __pyx_t_44, __pyx_t_48, __pyx_t_43, __pyx_t_40, __pyx_t_42, __pyx_t_41, __pyx_t_35, __pyx_t_39, __pyx_t_36, __pyx_t_34, __pyx_t_55, __pyx_t_67, __pyx_t_68, __pyx_t_45, __pyx_t_33, __pyx_t_32); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 180, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  __Pyx_DECREF(__pyx_t_50); __pyx_t_50 = 0;
+  __Pyx_DECREF(__pyx_t_37); __pyx_t_37 = 0;
+  __Pyx_DECREF(__pyx_t_51); __pyx_t_51 = 0;
+  __Pyx_DECREF(__pyx_t_52); __pyx_t_52 = 0;
+  __Pyx_DECREF(__pyx_t_53); __pyx_t_53 = 0;
+  __Pyx_DECREF(__pyx_t_54); __pyx_t_54 = 0;
+  __Pyx_DECREF(__pyx_t_56); __pyx_t_56 = 0;
+  __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
+  __Pyx_DECREF(__pyx_t_61); __pyx_t_61 = 0;
+  __Pyx_DECREF(__pyx_t_57); __pyx_t_57 = 0;
+  __Pyx_DECREF(__pyx_t_66); __pyx_t_66 = 0;
+  __Pyx_DECREF(__pyx_t_38); __pyx_t_38 = 0;
+  __Pyx_DECREF(__pyx_t_62); __pyx_t_62 = 0;
+  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
+  __Pyx_DECREF(__pyx_t_64); __pyx_t_64 = 0;
+  __Pyx_DECREF(__pyx_t_58); __pyx_t_58 = 0;
+  __Pyx_DECREF(__pyx_t_65); __pyx_t_65 = 0;
+  __Pyx_DECREF(__pyx_t_49); __pyx_t_49 = 0;
+  __Pyx_DECREF(__pyx_t_47); __pyx_t_47 = 0;
+  __Pyx_DECREF(__pyx_t_60); __pyx_t_60 = 0;
+  __Pyx_DECREF(__pyx_t_46); __pyx_t_46 = 0;
+  __Pyx_DECREF(__pyx_t_44); __pyx_t_44 = 0;
+  __Pyx_DECREF(__pyx_t_48); __pyx_t_48 = 0;
+  __Pyx_DECREF(__pyx_t_43); __pyx_t_43 = 0;
+  __Pyx_DECREF(__pyx_t_40); __pyx_t_40 = 0;
+  __Pyx_DECREF(__pyx_t_42); __pyx_t_42 = 0;
+  __Pyx_DECREF(__pyx_t_41); __pyx_t_41 = 0;
+  __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
+  __Pyx_DECREF(__pyx_t_39); __pyx_t_39 = 0;
+  __Pyx_DECREF(__pyx_t_36); __pyx_t_36 = 0;
+  __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
+  __Pyx_DECREF(__pyx_t_55); __pyx_t_55 = 0;
+  __Pyx_DECREF(__pyx_t_67); __pyx_t_67 = 0;
+  __Pyx_DECREF(__pyx_t_68); __pyx_t_68 = 0;
+  __Pyx_DECREF(__pyx_t_45); __pyx_t_45 = 0;
+  __Pyx_DECREF(__pyx_t_33); __pyx_t_33 = 0;
+  __Pyx_DECREF(__pyx_t_32); __pyx_t_32 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_MARKET_RESEARCH_COLUMNS, __pyx_t_59) < (0)) __PYX_ERR(0, 180, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":221
+ * 
+ * 
  * def columns_for_scenario(scenario: str, site: str) -> list[ExportColumn]:             # <<<<<<<<<<<<<<
  *     """"""
- *     if scenario == "keyword-miner":
+ *     currency = currency_label(site)
 */
-  __pyx_t_63 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 159, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_63);
-  if (PyDict_SetItem(__pyx_t_63, __pyx_mstate_global->__pyx_n_u_scenario, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 159, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_63, __pyx_mstate_global->__pyx_n_u_site, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 159, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_63, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_ExportColumn) < (0)) __PYX_ERR(0, 159, __pyx_L1_error)
-  __pyx_t_65 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_7columns_1columns_for_scenario, 0, __pyx_mstate_global->__pyx_n_u_columns_for_scenario, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_colu, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_65)) __PYX_ERR(0, 159, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_65);
+  __pyx_t_59 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 221, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+  if (PyDict_SetItem(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_scenario, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 221, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_site, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 221, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_ExportColumn) < (0)) __PYX_ERR(0, 221, __pyx_L1_error)
+  __pyx_t_32 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_7columns_1columns_for_scenario, 0, __pyx_mstate_global->__pyx_n_u_columns_for_scenario, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_colu, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_32)) __PYX_ERR(0, 221, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_32);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
-  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_65);
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_32);
   #endif
-  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_65, __pyx_t_63);
-  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_columns_for_scenario, __pyx_t_65) < (0)) __PYX_ERR(0, 159, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_65); __pyx_t_65 = 0;
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_32, __pyx_t_59);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_columns_for_scenario, __pyx_t_32) < (0)) __PYX_ERR(0, 221, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_32); __pyx_t_32 = 0;
 
-  /* "opscli/seller_sprite/export/columns.py":170
+  /* "opscli/seller_sprite/export/columns.py":256
  * 
  * 
  * def currency_label(site: str) -> str:             # <<<<<<<<<<<<<<
  *     """"""
- *     return "" if site.upper() == "JP" else "$"
+ *     currencies = {
 */
-  __pyx_t_65 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_65)) __PYX_ERR(0, 170, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_65);
-  if (PyDict_SetItem(__pyx_t_65, __pyx_mstate_global->__pyx_n_u_site, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 170, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_65, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 170, __pyx_L1_error)
-  __pyx_t_63 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_7columns_3currency_label, 0, __pyx_mstate_global->__pyx_n_u_currency_label, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_colu, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 170, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_63);
+  __pyx_t_32 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_32)) __PYX_ERR(0, 256, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_32);
+  if (PyDict_SetItem(__pyx_t_32, __pyx_mstate_global->__pyx_n_u_site, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 256, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_32, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 256, __pyx_L1_error)
+  __pyx_t_59 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_7columns_3currency_label, 0, __pyx_mstate_global->__pyx_n_u_currency_label, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_colu, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 256, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
-  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_63);
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_59);
   #endif
-  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_63, __pyx_t_65);
-  __Pyx_DECREF(__pyx_t_65); __pyx_t_65 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_currency_label, __pyx_t_63) < (0)) __PYX_ERR(0, 170, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_59, __pyx_t_32);
+  __Pyx_DECREF(__pyx_t_32); __pyx_t_32 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_currency_label, __pyx_t_59) < (0)) __PYX_ERR(0, 256, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
 
-  /* "opscli/seller_sprite/export/columns.py":175
+  /* "opscli/seller_sprite/export/columns.py":273
  * 
  * 
- * def _product_columns(currency: str) -> list[ExportColumn]:             # <<<<<<<<<<<<<<
- *     replacements = {
- *         "__TOTAL_AMOUNT__": f"({currency})",
+ * def _product_columns(             # <<<<<<<<<<<<<<
+ *     currency: str,
+ *     *,
 */
-  __pyx_t_63 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_63)) __PYX_ERR(0, 175, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_63);
-  if (PyDict_SetItem(__pyx_t_63, __pyx_mstate_global->__pyx_n_u_currency, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 175, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_63, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_ExportColumn) < (0)) __PYX_ERR(0, 175, __pyx_L1_error)
-  __pyx_t_65 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_7columns_5_product_columns, 0, __pyx_mstate_global->__pyx_n_u_product_columns, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_colu, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_65)) __PYX_ERR(0, 175, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_65);
+  __pyx_t_59 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_59)) __PYX_ERR(0, 273, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_59);
+
+  /* "opscli/seller_sprite/export/columns.py":276
+ *     currency: str,
+ *     *,
+ *     swap_unit_columns: bool = False,             # <<<<<<<<<<<<<<
+ *     reviews_delta_source: str = "reviewsDelta",
+ *     percent_suffix_titles: set[str] | None = None,
+*/
+  __pyx_t_32 = __Pyx_PyBool_FromLong(((int)0)); if (unlikely(!__pyx_t_32)) __PYX_ERR(0, 276, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_32);
+  if (PyDict_SetItem(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_swap_unit_columns, __pyx_t_32) < (0)) __PYX_ERR(0, 273, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_32); __pyx_t_32 = 0;
+  if (PyDict_SetItem(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_reviews_delta_source, ((PyObject*)__pyx_mstate_global->__pyx_n_u_reviewsDelta)) < (0)) __PYX_ERR(0, 273, __pyx_L1_error)
+
+  /* "opscli/seller_sprite/export/columns.py":278
+ *     swap_unit_columns: bool = False,
+ *     reviews_delta_source: str = "reviewsDelta",
+ *     percent_suffix_titles: set[str] | None = None,             # <<<<<<<<<<<<<<
+ *     seller_nation_source: str = "sellerNation",
+ * ) -> list[ExportColumn]:
+*/
+  if (PyDict_SetItem(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_percent_suffix_titles, Py_None) < (0)) __PYX_ERR(0, 273, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_59, __pyx_mstate_global->__pyx_n_u_seller_nation_source, ((PyObject*)__pyx_mstate_global->__pyx_n_u_sellerNation)) < (0)) __PYX_ERR(0, 273, __pyx_L1_error)
+
+  /* "opscli/seller_sprite/export/columns.py":273
+ * 
+ * 
+ * def _product_columns(             # <<<<<<<<<<<<<<
+ *     currency: str,
+ *     *,
+*/
+  __pyx_t_32 = __Pyx_PyDict_NewPresized(6); if (unlikely(!__pyx_t_32)) __PYX_ERR(0, 273, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_32);
+  if (PyDict_SetItem(__pyx_t_32, __pyx_mstate_global->__pyx_n_u_currency, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 273, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_32, __pyx_mstate_global->__pyx_n_u_swap_unit_columns, __pyx_mstate_global->__pyx_n_u_bool) < (0)) __PYX_ERR(0, 273, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_32, __pyx_mstate_global->__pyx_n_u_reviews_delta_source, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 273, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_32, __pyx_mstate_global->__pyx_n_u_percent_suffix_titles, __pyx_mstate_global->__pyx_kp_u_set_str_None) < (0)) __PYX_ERR(0, 273, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_32, __pyx_mstate_global->__pyx_n_u_seller_nation_source, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 273, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_32, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_ExportColumn) < (0)) __PYX_ERR(0, 273, __pyx_L1_error)
+  __pyx_t_33 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_7columns_5_product_columns, 0, __pyx_mstate_global->__pyx_n_u_product_columns, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_colu, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_33)) __PYX_ERR(0, 273, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_33);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
-  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_65);
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_33);
   #endif
-  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_65, __pyx_t_63);
-  __Pyx_DECREF(__pyx_t_63); __pyx_t_63 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_product_columns, __pyx_t_65) < (0)) __PYX_ERR(0, 175, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_65); __pyx_t_65 = 0;
+  __Pyx_CyFunction_SetDefaultsKwDict(__pyx_t_33, __pyx_t_59);
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_33, __pyx_t_32);
+  __Pyx_DECREF(__pyx_t_59); __pyx_t_59 = 0;
+  __Pyx_DECREF(__pyx_t_32); __pyx_t_32 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_product_columns, __pyx_t_33) < (0)) __PYX_ERR(0, 273, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_33); __pyx_t_33 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":314
+ * 
+ * 
+ * def _columns_with_currency_titles(             # <<<<<<<<<<<<<<
+ *     columns: list[ExportColumn],
+ *     currency: str,
+*/
+  __pyx_t_33 = __Pyx_PyDict_NewPresized(4); if (unlikely(!__pyx_t_33)) __PYX_ERR(0, 314, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_33);
+  if (PyDict_SetItem(__pyx_t_33, __pyx_mstate_global->__pyx_n_u_columns, __pyx_mstate_global->__pyx_kp_u_list_ExportColumn) < (0)) __PYX_ERR(0, 314, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_33, __pyx_mstate_global->__pyx_n_u_currency, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 314, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_33, __pyx_mstate_global->__pyx_n_u_titles, __pyx_mstate_global->__pyx_kp_u_set_str) < (0)) __PYX_ERR(0, 314, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_33, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_ExportColumn) < (0)) __PYX_ERR(0, 314, __pyx_L1_error)
+  __pyx_t_32 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_7columns_7_columns_with_currency_titles, 0, __pyx_mstate_global->__pyx_n_u_columns_with_currency_titles, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_colu, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_32)) __PYX_ERR(0, 314, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_32);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_32);
+  #endif
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_32, __pyx_t_33);
+  __Pyx_DECREF(__pyx_t_33); __pyx_t_33 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_columns_with_currency_titles, __pyx_t_32) < (0)) __PYX_ERR(0, 314, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_32); __pyx_t_32 = 0;
+
+  /* "opscli/seller_sprite/export/columns.py":330
+ * 
+ * 
+ * def _market_research_columns(currency: str) -> list[ExportColumn]:             # <<<<<<<<<<<<<<
+ *     replacements = {
+ *         "__AVG_REVENUE__": f"({currency})",
+*/
+  __pyx_t_32 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_32)) __PYX_ERR(0, 330, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_32);
+  if (PyDict_SetItem(__pyx_t_32, __pyx_mstate_global->__pyx_n_u_currency, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 330, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_32, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_list_ExportColumn) < (0)) __PYX_ERR(0, 330, __pyx_L1_error)
+  __pyx_t_33 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6export_7columns_9_market_research_columns, 0, __pyx_mstate_global->__pyx_n_u_market_research_columns, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_export_colu, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_33)) __PYX_ERR(0, 330, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_33);
+  #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
+  PyUnstable_Object_EnableDeferredRefcount(__pyx_t_33);
+  #endif
+  __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_33, __pyx_t_32);
+  __Pyx_DECREF(__pyx_t_32); __pyx_t_32 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_market_research_columns, __pyx_t_33) < (0)) __PYX_ERR(0, 330, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_33); __pyx_t_33 = 0;
 
   /* "opscli/seller_sprite/export/columns.py":1
  * """"""             # <<<<<<<<<<<<<<
  * 
  * from __future__ import annotations
 */
-  __pyx_t_65 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_65)) __PYX_ERR(0, 1, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_65);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_test, __pyx_t_65) < (0)) __PYX_ERR(0, 1, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_65); __pyx_t_65 = 0;
+  __pyx_t_33 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_33)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_33);
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_test, __pyx_t_33) < (0)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_33); __pyx_t_33 = 0;
 
   /*--- Wrapped vars code ---*/
 
@@ -6325,7 +8852,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "brand"),
  *     ExportColumn("", "brandUrl"),
 */
-  __pyx_mstate_global->__pyx_tuple[2] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__11, __pyx_mstate_global->__pyx_n_u_overviews); if (unlikely(!__pyx_mstate_global->__pyx_tuple[2])) __PYX_ERR(0, 21, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[2] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__29, __pyx_mstate_global->__pyx_n_u_overviews); if (unlikely(!__pyx_mstate_global->__pyx_tuple[2])) __PYX_ERR(0, 21, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[2]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[2]);
 
@@ -6336,7 +8863,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "brandUrl"),
  *     ExportColumn("", "title"),
 */
-  __pyx_mstate_global->__pyx_tuple[3] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__12, __pyx_mstate_global->__pyx_n_u_brand); if (unlikely(!__pyx_mstate_global->__pyx_tuple[3])) __PYX_ERR(0, 22, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[3] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__30, __pyx_mstate_global->__pyx_n_u_brand); if (unlikely(!__pyx_mstate_global->__pyx_tuple[3])) __PYX_ERR(0, 22, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[3]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[3]);
 
@@ -6347,7 +8874,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "title"),
  *     ExportColumn("", "asinUrl", fallback="asin", transform="amazonProductUrl"),
 */
-  __pyx_mstate_global->__pyx_tuple[4] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__13, __pyx_mstate_global->__pyx_n_u_brandUrl); if (unlikely(!__pyx_mstate_global->__pyx_tuple[4])) __PYX_ERR(0, 23, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[4] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__31, __pyx_mstate_global->__pyx_n_u_brandUrl); if (unlikely(!__pyx_mstate_global->__pyx_tuple[4])) __PYX_ERR(0, 23, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[4]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[4]);
 
@@ -6358,7 +8885,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "asinUrl", fallback="asin", transform="amazonProductUrl"),
  *     ExportColumn("", "imageUrl"),
 */
-  __pyx_mstate_global->__pyx_tuple[5] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__14, __pyx_mstate_global->__pyx_n_u_title); if (unlikely(!__pyx_mstate_global->__pyx_tuple[5])) __PYX_ERR(0, 24, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[5] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__32, __pyx_mstate_global->__pyx_n_u_title); if (unlikely(!__pyx_mstate_global->__pyx_tuple[5])) __PYX_ERR(0, 24, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[5]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[5]);
 
@@ -6369,7 +8896,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "imageUrl"),
  *     ExportColumn("ASIN", "parent"),
 */
-  __pyx_mstate_global->__pyx_tuple[6] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__15, __pyx_mstate_global->__pyx_n_u_asinUrl); if (unlikely(!__pyx_mstate_global->__pyx_tuple[6])) __PYX_ERR(0, 25, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[6] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__33, __pyx_mstate_global->__pyx_n_u_asinUrl); if (unlikely(!__pyx_mstate_global->__pyx_tuple[6])) __PYX_ERR(0, 25, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[6]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[6]);
 
@@ -6380,7 +8907,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("ASIN", "parent"),
  *     ExportColumn("", "nodeLabelPath"),
 */
-  __pyx_mstate_global->__pyx_tuple[7] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__16, __pyx_mstate_global->__pyx_n_u_imageUrl); if (unlikely(!__pyx_mstate_global->__pyx_tuple[7])) __PYX_ERR(0, 26, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[7] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__34, __pyx_mstate_global->__pyx_n_u_imageUrl); if (unlikely(!__pyx_mstate_global->__pyx_tuple[7])) __PYX_ERR(0, 26, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[7]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[7]);
 
@@ -6402,7 +8929,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "category1Name", fallback="categoryName"),
  *     ExportColumn("BSR", "bsrRank"),
 */
-  __pyx_mstate_global->__pyx_tuple[9] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__17, __pyx_mstate_global->__pyx_n_u_nodeLabelPath); if (unlikely(!__pyx_mstate_global->__pyx_tuple[9])) __PYX_ERR(0, 28, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[9] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__35, __pyx_mstate_global->__pyx_n_u_nodeLabelPath); if (unlikely(!__pyx_mstate_global->__pyx_tuple[9])) __PYX_ERR(0, 28, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[9]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[9]);
 
@@ -6413,7 +8940,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("BSR", "bsrRank"),
  *     ExportColumn("BSR", "bsrRankCv"),
 */
-  __pyx_mstate_global->__pyx_tuple[10] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__18, __pyx_mstate_global->__pyx_n_u_category1Name); if (unlikely(!__pyx_mstate_global->__pyx_tuple[10])) __PYX_ERR(0, 29, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[10] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__36, __pyx_mstate_global->__pyx_n_u_category1Name); if (unlikely(!__pyx_mstate_global->__pyx_tuple[10])) __PYX_ERR(0, 29, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[10]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[10]);
 
@@ -6422,9 +8949,9 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "category1Name", fallback="categoryName"),
  *     ExportColumn("BSR", "bsrRank"),             # <<<<<<<<<<<<<<
  *     ExportColumn("BSR", "bsrRankCv"),
- *     ExportColumn("BSR", "bsrRankCr"),
+ *     ExportColumn("BSR", "bsrRankCr", transform="percentSuffix"),
 */
-  __pyx_mstate_global->__pyx_tuple[11] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_BSR, __pyx_mstate_global->__pyx_n_u_bsrRank); if (unlikely(!__pyx_mstate_global->__pyx_tuple[11])) __PYX_ERR(0, 30, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[11] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_BSR_2, __pyx_mstate_global->__pyx_n_u_bsrRank); if (unlikely(!__pyx_mstate_global->__pyx_tuple[11])) __PYX_ERR(0, 30, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[11]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[11]);
 
@@ -6432,37 +8959,37 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "category1Name", fallback="categoryName"),
  *     ExportColumn("BSR", "bsrRank"),
  *     ExportColumn("BSR", "bsrRankCv"),             # <<<<<<<<<<<<<<
- *     ExportColumn("BSR", "bsrRankCr"),
+ *     ExportColumn("BSR", "bsrRankCr", transform="percentSuffix"),
  *     ExportColumn("", "subcategories.0.label"),
 */
-  __pyx_mstate_global->__pyx_tuple[12] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_BSR_2, __pyx_mstate_global->__pyx_n_u_bsrRankCv); if (unlikely(!__pyx_mstate_global->__pyx_tuple[12])) __PYX_ERR(0, 31, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[12] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_BSR_3, __pyx_mstate_global->__pyx_n_u_bsrRankCv); if (unlikely(!__pyx_mstate_global->__pyx_tuple[12])) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[12]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[12]);
 
   /* "opscli/seller_sprite/export/columns.py":32
  *     ExportColumn("BSR", "bsrRank"),
  *     ExportColumn("BSR", "bsrRankCv"),
- *     ExportColumn("BSR", "bsrRankCr"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("BSR", "bsrRankCr", transform="percentSuffix"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "subcategories.0.label"),
  *     ExportColumn("BSR", "subcategories.0.rank"),
 */
-  __pyx_mstate_global->__pyx_tuple[13] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_BSR_3, __pyx_mstate_global->__pyx_n_u_bsrRankCr); if (unlikely(!__pyx_mstate_global->__pyx_tuple[13])) __PYX_ERR(0, 32, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[13] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_BSR, __pyx_mstate_global->__pyx_n_u_bsrRankCr); if (unlikely(!__pyx_mstate_global->__pyx_tuple[13])) __PYX_ERR(0, 32, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[13]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[13]);
 
   /* "opscli/seller_sprite/export/columns.py":33
  *     ExportColumn("BSR", "bsrRankCv"),
- *     ExportColumn("BSR", "bsrRankCr"),
+ *     ExportColumn("BSR", "bsrRankCr", transform="percentSuffix"),
  *     ExportColumn("", "subcategories.0.label"),             # <<<<<<<<<<<<<<
  *     ExportColumn("BSR", "subcategories.0.rank"),
  *     ExportColumn("", "amzUnit"),
 */
-  __pyx_mstate_global->__pyx_tuple[14] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__19, __pyx_mstate_global->__pyx_kp_u_subcategories_0_label); if (unlikely(!__pyx_mstate_global->__pyx_tuple[14])) __PYX_ERR(0, 33, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[14] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__37, __pyx_mstate_global->__pyx_kp_u_subcategories_0_label); if (unlikely(!__pyx_mstate_global->__pyx_tuple[14])) __PYX_ERR(0, 33, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[14]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[14]);
 
   /* "opscli/seller_sprite/export/columns.py":34
- *     ExportColumn("BSR", "bsrRankCr"),
+ *     ExportColumn("BSR", "bsrRankCr", transform="percentSuffix"),
  *     ExportColumn("", "subcategories.0.label"),
  *     ExportColumn("BSR", "subcategories.0.rank"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "amzUnit"),
@@ -6479,7 +9006,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "totalUnitsGrowth"),
  *     ExportColumn("__TOTAL_AMOUNT__", "totalAmount"),
 */
-  __pyx_mstate_global->__pyx_tuple[16] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__20, __pyx_mstate_global->__pyx_n_u_amzUnit); if (unlikely(!__pyx_mstate_global->__pyx_tuple[16])) __PYX_ERR(0, 35, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[16] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__17, __pyx_mstate_global->__pyx_n_u_amzUnit); if (unlikely(!__pyx_mstate_global->__pyx_tuple[16])) __PYX_ERR(0, 35, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[16]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[16]);
 
@@ -6490,7 +9017,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("__TOTAL_AMOUNT__", "totalAmount"),
  *     ExportColumn("", "totalUnits"),
 */
-  __pyx_mstate_global->__pyx_tuple[17] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__21, __pyx_mstate_global->__pyx_n_u_totalUnitsGrowth); if (unlikely(!__pyx_mstate_global->__pyx_tuple[17])) __PYX_ERR(0, 36, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[17] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__6, __pyx_mstate_global->__pyx_n_u_totalUnitsGrowth); if (unlikely(!__pyx_mstate_global->__pyx_tuple[17])) __PYX_ERR(0, 36, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[17]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[17]);
 
@@ -6512,7 +9039,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("__SUB_TOTAL_AMOUNT__", "subTotalAmount"),
  *     ExportColumn("", "variations"),
 */
-  __pyx_mstate_global->__pyx_tuple[19] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__22, __pyx_mstate_global->__pyx_n_u_totalUnits); if (unlikely(!__pyx_mstate_global->__pyx_tuple[19])) __PYX_ERR(0, 38, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[19] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__18, __pyx_mstate_global->__pyx_n_u_totalUnits); if (unlikely(!__pyx_mstate_global->__pyx_tuple[19])) __PYX_ERR(0, 38, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[19]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[19]);
 
@@ -6534,7 +9061,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("__PRICE__", "price"),
  *     ExportColumn("__PRIME_PRICE__", "primeExclusivePrice", transform="emptyIfNegative"),
 */
-  __pyx_mstate_global->__pyx_tuple[21] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__23, __pyx_mstate_global->__pyx_n_u_variations); if (unlikely(!__pyx_mstate_global->__pyx_tuple[21])) __PYX_ERR(0, 40, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[21] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__38, __pyx_mstate_global->__pyx_n_u_variations); if (unlikely(!__pyx_mstate_global->__pyx_tuple[21])) __PYX_ERR(0, 40, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[21]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[21]);
 
@@ -6589,7 +9116,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "reviewsDelta"),
  *     ExportColumn("", "rating"),
 */
-  __pyx_mstate_global->__pyx_tuple[26] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__24, __pyx_mstate_global->__pyx_n_u_reviews); if (unlikely(!__pyx_mstate_global->__pyx_tuple[26])) __PYX_ERR(0, 45, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[26] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__39, __pyx_mstate_global->__pyx_n_u_reviews); if (unlikely(!__pyx_mstate_global->__pyx_tuple[26])) __PYX_ERR(0, 45, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[26]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[26]);
 
@@ -6600,7 +9127,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "rating"),
  *     ExportColumn("", "reviewsRate"),
 */
-  __pyx_mstate_global->__pyx_tuple[27] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__25, __pyx_mstate_global->__pyx_n_u_reviewsDelta); if (unlikely(!__pyx_mstate_global->__pyx_tuple[27])) __PYX_ERR(0, 46, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[27] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__19, __pyx_mstate_global->__pyx_n_u_reviewsDelta); if (unlikely(!__pyx_mstate_global->__pyx_tuple[27])) __PYX_ERR(0, 46, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[27]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[27]);
 
@@ -6611,7 +9138,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "reviewsRate"),
  *     ExportColumn("__FBA__", "fba"),
 */
-  __pyx_mstate_global->__pyx_tuple[28] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__26, __pyx_mstate_global->__pyx_n_u_rating); if (unlikely(!__pyx_mstate_global->__pyx_tuple[28])) __PYX_ERR(0, 47, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[28] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__40, __pyx_mstate_global->__pyx_n_u_rating); if (unlikely(!__pyx_mstate_global->__pyx_tuple[28])) __PYX_ERR(0, 47, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[28]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[28]);
 
@@ -6622,7 +9149,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("__FBA__", "fba"),
  *     ExportColumn("", "profit"),
 */
-  __pyx_mstate_global->__pyx_tuple[29] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__27, __pyx_mstate_global->__pyx_n_u_reviewsRate); if (unlikely(!__pyx_mstate_global->__pyx_tuple[29])) __PYX_ERR(0, 48, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[29] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__4, __pyx_mstate_global->__pyx_n_u_reviewsRate); if (unlikely(!__pyx_mstate_global->__pyx_tuple[29])) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[29]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[29]);
 
@@ -6642,9 +9169,9 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("__FBA__", "fba"),
  *     ExportColumn("", "profit"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "ratingDelta"),
- *     ExportColumn("", "availableDate"),
+ *     ExportColumn("", "availableDate", transform="dateMillis"),
 */
-  __pyx_mstate_global->__pyx_tuple[31] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__28, __pyx_mstate_global->__pyx_n_u_profit); if (unlikely(!__pyx_mstate_global->__pyx_tuple[31])) __PYX_ERR(0, 50, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[31] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__5, __pyx_mstate_global->__pyx_n_u_profit); if (unlikely(!__pyx_mstate_global->__pyx_tuple[31])) __PYX_ERR(0, 50, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[31]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[31]);
 
@@ -6652,43 +9179,43 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("__FBA__", "fba"),
  *     ExportColumn("", "profit"),
  *     ExportColumn("", "ratingDelta"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "availableDate"),
+ *     ExportColumn("", "availableDate", transform="dateMillis"),
  *     ExportColumn("", "availableDays"),
 */
-  __pyx_mstate_global->__pyx_tuple[32] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__29, __pyx_mstate_global->__pyx_n_u_ratingDelta); if (unlikely(!__pyx_mstate_global->__pyx_tuple[32])) __PYX_ERR(0, 51, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[32] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__41, __pyx_mstate_global->__pyx_n_u_ratingDelta); if (unlikely(!__pyx_mstate_global->__pyx_tuple[32])) __PYX_ERR(0, 51, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[32]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[32]);
 
   /* "opscli/seller_sprite/export/columns.py":52
  *     ExportColumn("", "profit"),
  *     ExportColumn("", "ratingDelta"),
- *     ExportColumn("", "availableDate"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "availableDate", transform="dateMillis"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "availableDays"),
  *     ExportColumn("", "fulfillment", fallback="sellerType"),
 */
-  __pyx_mstate_global->__pyx_tuple[33] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__30, __pyx_mstate_global->__pyx_n_u_availableDate); if (unlikely(!__pyx_mstate_global->__pyx_tuple[33])) __PYX_ERR(0, 52, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[33] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__42, __pyx_mstate_global->__pyx_n_u_availableDate); if (unlikely(!__pyx_mstate_global->__pyx_tuple[33])) __PYX_ERR(0, 52, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[33]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[33]);
 
   /* "opscli/seller_sprite/export/columns.py":53
  *     ExportColumn("", "ratingDelta"),
- *     ExportColumn("", "availableDate"),
+ *     ExportColumn("", "availableDate", transform="dateMillis"),
  *     ExportColumn("", "availableDays"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "fulfillment", fallback="sellerType"),
  *     ExportColumn("__DELIVERY_PRICE__", "deliveryPrice", transform="emptyIfNegative"),
 */
-  __pyx_mstate_global->__pyx_tuple[34] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__31, __pyx_mstate_global->__pyx_n_u_availableDays); if (unlikely(!__pyx_mstate_global->__pyx_tuple[34])) __PYX_ERR(0, 53, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[34] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__43, __pyx_mstate_global->__pyx_n_u_availableDays); if (unlikely(!__pyx_mstate_global->__pyx_tuple[34])) __PYX_ERR(0, 53, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[34]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[34]);
 
   /* "opscli/seller_sprite/export/columns.py":54
- *     ExportColumn("", "availableDate"),
+ *     ExportColumn("", "availableDate", transform="dateMillis"),
  *     ExportColumn("", "availableDays"),
  *     ExportColumn("", "fulfillment", fallback="sellerType"),             # <<<<<<<<<<<<<<
  *     ExportColumn("__DELIVERY_PRICE__", "deliveryPrice", transform="emptyIfNegative"),
  *     ExportColumn("LQS", "lqs"),
 */
-  __pyx_mstate_global->__pyx_tuple[35] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__32, __pyx_mstate_global->__pyx_n_u_fulfillment); if (unlikely(!__pyx_mstate_global->__pyx_tuple[35])) __PYX_ERR(0, 54, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[35] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__44, __pyx_mstate_global->__pyx_n_u_fulfillment); if (unlikely(!__pyx_mstate_global->__pyx_tuple[35])) __PYX_ERR(0, 54, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[35]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[35]);
 
@@ -6721,7 +9248,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("BuyBox", "sellerName"),
  *     ExportColumn("BuyBox", "sellerType"),
 */
-  __pyx_mstate_global->__pyx_tuple[38] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__33, __pyx_mstate_global->__pyx_n_u_sellers); if (unlikely(!__pyx_mstate_global->__pyx_tuple[38])) __PYX_ERR(0, 57, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[38] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__45, __pyx_mstate_global->__pyx_n_u_sellers); if (unlikely(!__pyx_mstate_global->__pyx_tuple[38])) __PYX_ERR(0, 57, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[38]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[38]);
 
@@ -6754,7 +9281,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "sellerDto"),
  *     ExportColumn("", "sellerId", transform="amazonSellerUrl"),
 */
-  __pyx_mstate_global->__pyx_tuple[41] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__34, __pyx_mstate_global->__pyx_n_u_sellerNation); if (unlikely(!__pyx_mstate_global->__pyx_tuple[41])) __PYX_ERR(0, 60, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[41] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__20, __pyx_mstate_global->__pyx_n_u_sellerNation); if (unlikely(!__pyx_mstate_global->__pyx_tuple[41])) __PYX_ERR(0, 60, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[41]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[41]);
 
@@ -6765,7 +9292,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "sellerId", transform="amazonSellerUrl"),
  *     ExportColumn("Best Seller", "bestSeller", transform="badgeFlag"),
 */
-  __pyx_mstate_global->__pyx_tuple[42] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__35, __pyx_mstate_global->__pyx_n_u_sellerDto); if (unlikely(!__pyx_mstate_global->__pyx_tuple[42])) __PYX_ERR(0, 61, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[42] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__46, __pyx_mstate_global->__pyx_n_u_sellerDto); if (unlikely(!__pyx_mstate_global->__pyx_tuple[42])) __PYX_ERR(0, 61, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[42]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[42]);
 
@@ -6776,7 +9303,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("Best Seller", "bestSeller", transform="badgeFlag"),
  *     ExportColumn("Amazon's Choice", "amazonChoice", transform="badgeFlag"),
 */
-  __pyx_mstate_global->__pyx_tuple[43] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__36, __pyx_mstate_global->__pyx_n_u_sellerId); if (unlikely(!__pyx_mstate_global->__pyx_tuple[43])) __PYX_ERR(0, 62, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[43] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__47, __pyx_mstate_global->__pyx_n_u_sellerId); if (unlikely(!__pyx_mstate_global->__pyx_tuple[43])) __PYX_ERR(0, 62, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[43]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[43]);
 
@@ -6831,7 +9358,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("SP", None),
  *     ExportColumn("", None),
 */
-  __pyx_mstate_global->__pyx_tuple[48] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__37, __pyx_mstate_global->__pyx_n_u_video); if (unlikely(!__pyx_mstate_global->__pyx_tuple[48])) __PYX_ERR(0, 67, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[48] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__48, __pyx_mstate_global->__pyx_n_u_video); if (unlikely(!__pyx_mstate_global->__pyx_tuple[48])) __PYX_ERR(0, 67, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[48]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[48]);
 
@@ -6853,7 +9380,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", None),
  *     ExportColumn("7", None),
 */
-  __pyx_mstate_global->__pyx_tuple[50] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__38, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[50])) __PYX_ERR(0, 69, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[50] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__49, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[50])) __PYX_ERR(0, 69, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[50]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[50]);
 
@@ -6864,7 +9391,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("7", None),
  *     ExportColumn("AC", "amazonChoice", transform="amazonChoiceKeyword"),
 */
-  __pyx_mstate_global->__pyx_tuple[51] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__39, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[51])) __PYX_ERR(0, 70, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[51] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__50, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[51])) __PYX_ERR(0, 70, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[51]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[51]);
 
@@ -6897,7 +9424,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "weightTag"),
  *     ExportColumn("", "dimensions"),
 */
-  __pyx_mstate_global->__pyx_tuple[54] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__40, __pyx_mstate_global->__pyx_n_u_weight); if (unlikely(!__pyx_mstate_global->__pyx_tuple[54])) __PYX_ERR(0, 73, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[54] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__51, __pyx_mstate_global->__pyx_n_u_weight); if (unlikely(!__pyx_mstate_global->__pyx_tuple[54])) __PYX_ERR(0, 73, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[54]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[54]);
 
@@ -6908,7 +9435,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "dimensions"),
  *     ExportColumn("", "dimensionsTag"),
 */
-  __pyx_mstate_global->__pyx_tuple[55] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u__41, __pyx_mstate_global->__pyx_n_u_weightTag); if (unlikely(!__pyx_mstate_global->__pyx_tuple[55])) __PYX_ERR(0, 74, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[55] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u__52, __pyx_mstate_global->__pyx_n_u_weightTag); if (unlikely(!__pyx_mstate_global->__pyx_tuple[55])) __PYX_ERR(0, 74, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[55]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[55]);
 
@@ -6919,7 +9446,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "dimensionsTag"),
  *     ExportColumn("", "pkgWeight"),
 */
-  __pyx_mstate_global->__pyx_tuple[56] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__42, __pyx_mstate_global->__pyx_n_u_dimensions); if (unlikely(!__pyx_mstate_global->__pyx_tuple[56])) __PYX_ERR(0, 75, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[56] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__53, __pyx_mstate_global->__pyx_n_u_dimensions); if (unlikely(!__pyx_mstate_global->__pyx_tuple[56])) __PYX_ERR(0, 75, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[56]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[56]);
 
@@ -6930,7 +9457,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "pkgWeight"),
  *     ExportColumn("", "pkgWeightTag"),
 */
-  __pyx_mstate_global->__pyx_tuple[57] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u__43, __pyx_mstate_global->__pyx_n_u_dimensionsTag); if (unlikely(!__pyx_mstate_global->__pyx_tuple[57])) __PYX_ERR(0, 76, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[57] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u__54, __pyx_mstate_global->__pyx_n_u_dimensionsTag); if (unlikely(!__pyx_mstate_global->__pyx_tuple[57])) __PYX_ERR(0, 76, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[57]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[57]);
 
@@ -6941,7 +9468,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "pkgWeightTag"),
  *     ExportColumn("", "pkgDimensions"),
 */
-  __pyx_mstate_global->__pyx_tuple[58] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__44, __pyx_mstate_global->__pyx_n_u_pkgWeight); if (unlikely(!__pyx_mstate_global->__pyx_tuple[58])) __PYX_ERR(0, 77, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[58] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__55, __pyx_mstate_global->__pyx_n_u_pkgWeight); if (unlikely(!__pyx_mstate_global->__pyx_tuple[58])) __PYX_ERR(0, 77, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[58]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[58]);
 
@@ -6952,7 +9479,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "pkgDimensions"),
  *     ExportColumn("", "pkgDimensionsTag"),
 */
-  __pyx_mstate_global->__pyx_tuple[59] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u__45, __pyx_mstate_global->__pyx_n_u_pkgWeightTag); if (unlikely(!__pyx_mstate_global->__pyx_tuple[59])) __PYX_ERR(0, 78, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[59] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u__56, __pyx_mstate_global->__pyx_n_u_pkgWeightTag); if (unlikely(!__pyx_mstate_global->__pyx_tuple[59])) __PYX_ERR(0, 78, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[59]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[59]);
 
@@ -6963,7 +9490,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "pkgDimensionsTag"),
  *     ExportColumn("", "pkgDimensionType"),
 */
-  __pyx_mstate_global->__pyx_tuple[60] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__46, __pyx_mstate_global->__pyx_n_u_pkgDimensions); if (unlikely(!__pyx_mstate_global->__pyx_tuple[60])) __PYX_ERR(0, 79, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[60] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__57, __pyx_mstate_global->__pyx_n_u_pkgDimensions); if (unlikely(!__pyx_mstate_global->__pyx_tuple[60])) __PYX_ERR(0, 79, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[60]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[60]);
 
@@ -6974,7 +9501,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "pkgDimensionType"),
  *     ExportColumn("", None),
 */
-  __pyx_mstate_global->__pyx_tuple[61] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u__47, __pyx_mstate_global->__pyx_n_u_pkgDimensionsTag); if (unlikely(!__pyx_mstate_global->__pyx_tuple[61])) __PYX_ERR(0, 80, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[61] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u__58, __pyx_mstate_global->__pyx_n_u_pkgDimensionsTag); if (unlikely(!__pyx_mstate_global->__pyx_tuple[61])) __PYX_ERR(0, 80, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[61]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[61]);
 
@@ -6985,7 +9512,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", None),
  * ]
 */
-  __pyx_mstate_global->__pyx_tuple[62] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__48, __pyx_mstate_global->__pyx_n_u_pkgDimensionType); if (unlikely(!__pyx_mstate_global->__pyx_tuple[62])) __PYX_ERR(0, 81, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[62] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__59, __pyx_mstate_global->__pyx_n_u_pkgDimensionType); if (unlikely(!__pyx_mstate_global->__pyx_tuple[62])) __PYX_ERR(0, 81, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[62]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[62]);
 
@@ -6996,7 +9523,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  * ]
  * 
 */
-  __pyx_mstate_global->__pyx_tuple[63] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__49, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[63])) __PYX_ERR(0, 82, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[63] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__60, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[63])) __PYX_ERR(0, 82, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[63]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[63]);
 
@@ -7007,7 +9534,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "keywordCn"),
  *     ExportColumn("AC", "amazonChoice", transform="booleanY"),
 */
-  __pyx_mstate_global->__pyx_tuple[64] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__50, __pyx_mstate_global->__pyx_n_u_keyword); if (unlikely(!__pyx_mstate_global->__pyx_tuple[64])) __PYX_ERR(0, 87, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[64] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__61, __pyx_mstate_global->__pyx_n_u_keyword); if (unlikely(!__pyx_mstate_global->__pyx_tuple[64])) __PYX_ERR(0, 87, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[64]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[64]);
 
@@ -7018,7 +9545,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("AC", "amazonChoice", transform="booleanY"),
  *     ExportColumn("", "relevancy"),
 */
-  __pyx_mstate_global->__pyx_tuple[65] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__51, __pyx_mstate_global->__pyx_n_u_keywordCn); if (unlikely(!__pyx_mstate_global->__pyx_tuple[65])) __PYX_ERR(0, 88, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[65] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__62, __pyx_mstate_global->__pyx_n_u_keywordCn); if (unlikely(!__pyx_mstate_global->__pyx_tuple[65])) __PYX_ERR(0, 88, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[65]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[65]);
 
@@ -7040,7 +9567,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("ABA", "searchRank"),
  *     ExportColumn("ABA", "searchWeeklyRank"),
 */
-  __pyx_mstate_global->__pyx_tuple[67] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__52, __pyx_mstate_global->__pyx_n_u_relevancy); if (unlikely(!__pyx_mstate_global->__pyx_tuple[67])) __PYX_ERR(0, 90, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[67] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__63, __pyx_mstate_global->__pyx_n_u_relevancy); if (unlikely(!__pyx_mstate_global->__pyx_tuple[67])) __PYX_ERR(0, 90, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[67]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[67]);
 
@@ -7071,9 +9598,9 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("ABA", "searchWeeklyRank"),
  *     ExportColumn("", "searches"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "purchases"),
- *     ExportColumn("", "purchaseRate"),
+ *     ExportColumn("", "purchaseRate", transform="percentage"),
 */
-  __pyx_mstate_global->__pyx_tuple[70] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__53, __pyx_mstate_global->__pyx_n_u_searches); if (unlikely(!__pyx_mstate_global->__pyx_tuple[70])) __PYX_ERR(0, 93, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[70] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__64, __pyx_mstate_global->__pyx_n_u_searches); if (unlikely(!__pyx_mstate_global->__pyx_tuple[70])) __PYX_ERR(0, 93, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[70]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[70]);
 
@@ -7081,43 +9608,43 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("ABA", "searchWeeklyRank"),
  *     ExportColumn("", "searches"),
  *     ExportColumn("", "purchases"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "purchaseRate"),
+ *     ExportColumn("", "purchaseRate", transform="percentage"),
  *     ExportColumn("", "impressions"),
 */
-  __pyx_mstate_global->__pyx_tuple[71] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__54, __pyx_mstate_global->__pyx_n_u_purchases); if (unlikely(!__pyx_mstate_global->__pyx_tuple[71])) __PYX_ERR(0, 94, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[71] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__65, __pyx_mstate_global->__pyx_n_u_purchases); if (unlikely(!__pyx_mstate_global->__pyx_tuple[71])) __PYX_ERR(0, 94, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[71]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[71]);
 
   /* "opscli/seller_sprite/export/columns.py":95
  *     ExportColumn("", "searches"),
  *     ExportColumn("", "purchases"),
- *     ExportColumn("", "purchaseRate"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "purchaseRate", transform="percentage"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "impressions"),
  *     ExportColumn("", "clicks"),
 */
-  __pyx_mstate_global->__pyx_tuple[72] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__55, __pyx_mstate_global->__pyx_n_u_purchaseRate); if (unlikely(!__pyx_mstate_global->__pyx_tuple[72])) __PYX_ERR(0, 95, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[72] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__66, __pyx_mstate_global->__pyx_n_u_purchaseRate); if (unlikely(!__pyx_mstate_global->__pyx_tuple[72])) __PYX_ERR(0, 95, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[72]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[72]);
 
   /* "opscli/seller_sprite/export/columns.py":96
  *     ExportColumn("", "purchases"),
- *     ExportColumn("", "purchaseRate"),
+ *     ExportColumn("", "purchaseRate", transform="percentage"),
  *     ExportColumn("", "impressions"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "clicks"),
  *     ExportColumn("SPR", "spr"),
 */
-  __pyx_mstate_global->__pyx_tuple[73] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__56, __pyx_mstate_global->__pyx_n_u_impressions); if (unlikely(!__pyx_mstate_global->__pyx_tuple[73])) __PYX_ERR(0, 96, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[73] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__67, __pyx_mstate_global->__pyx_n_u_impressions); if (unlikely(!__pyx_mstate_global->__pyx_tuple[73])) __PYX_ERR(0, 96, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[73]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[73]);
 
   /* "opscli/seller_sprite/export/columns.py":97
- *     ExportColumn("", "purchaseRate"),
+ *     ExportColumn("", "purchaseRate", transform="percentage"),
  *     ExportColumn("", "impressions"),
  *     ExportColumn("", "clicks"),             # <<<<<<<<<<<<<<
  *     ExportColumn("SPR", "spr"),
  *     ExportColumn("", "titleDensity"),
 */
-  __pyx_mstate_global->__pyx_tuple[74] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__57, __pyx_mstate_global->__pyx_n_u_clicks); if (unlikely(!__pyx_mstate_global->__pyx_tuple[74])) __PYX_ERR(0, 97, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[74] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__68, __pyx_mstate_global->__pyx_n_u_clicks); if (unlikely(!__pyx_mstate_global->__pyx_tuple[74])) __PYX_ERR(0, 97, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[74]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[74]);
 
@@ -7139,7 +9666,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "products"),
  *     ExportColumn("", "supplyDemandRatio"),
 */
-  __pyx_mstate_global->__pyx_tuple[76] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__58, __pyx_mstate_global->__pyx_n_u_titleDensity); if (unlikely(!__pyx_mstate_global->__pyx_tuple[76])) __PYX_ERR(0, 99, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[76] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__69, __pyx_mstate_global->__pyx_n_u_titleDensity); if (unlikely(!__pyx_mstate_global->__pyx_tuple[76])) __PYX_ERR(0, 99, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[76]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[76]);
 
@@ -7150,7 +9677,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "supplyDemandRatio"),
  *     ExportColumn("", "adProducts"),
 */
-  __pyx_mstate_global->__pyx_tuple[77] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__59, __pyx_mstate_global->__pyx_n_u_products); if (unlikely(!__pyx_mstate_global->__pyx_tuple[77])) __PYX_ERR(0, 100, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[77] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__70, __pyx_mstate_global->__pyx_n_u_products); if (unlikely(!__pyx_mstate_global->__pyx_tuple[77])) __PYX_ERR(0, 100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[77]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[77]);
 
@@ -7159,9 +9686,9 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "products"),
  *     ExportColumn("", "supplyDemandRatio"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "adProducts"),
- *     ExportColumn("", "monopolyClickRate"),
+ *     ExportColumn("", "monopolyClickRate", transform="percentage"),
 */
-  __pyx_mstate_global->__pyx_tuple[78] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__60, __pyx_mstate_global->__pyx_n_u_supplyDemandRatio); if (unlikely(!__pyx_mstate_global->__pyx_tuple[78])) __PYX_ERR(0, 101, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[78] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__71, __pyx_mstate_global->__pyx_n_u_supplyDemandRatio); if (unlikely(!__pyx_mstate_global->__pyx_tuple[78])) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[78]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[78]);
 
@@ -7169,87 +9696,87 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "products"),
  *     ExportColumn("", "supplyDemandRatio"),
  *     ExportColumn("", "adProducts"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "monopolyClickRate"),
- *     ExportColumn("", "cvsShareRate"),
+ *     ExportColumn("", "monopolyClickRate", transform="percentage"),
+ *     ExportColumn("", "cvsShareRate", transform="percentage"),
 */
-  __pyx_mstate_global->__pyx_tuple[79] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__61, __pyx_mstate_global->__pyx_n_u_adProducts); if (unlikely(!__pyx_mstate_global->__pyx_tuple[79])) __PYX_ERR(0, 102, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[79] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__72, __pyx_mstate_global->__pyx_n_u_adProducts); if (unlikely(!__pyx_mstate_global->__pyx_tuple[79])) __PYX_ERR(0, 102, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[79]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[79]);
 
   /* "opscli/seller_sprite/export/columns.py":103
  *     ExportColumn("", "supplyDemandRatio"),
  *     ExportColumn("", "adProducts"),
- *     ExportColumn("", "monopolyClickRate"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "cvsShareRate"),
- *     ExportColumn("PPC", "bid", transform="yen"),
+ *     ExportColumn("", "monopolyClickRate", transform="percentage"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "cvsShareRate", transform="percentage"),
+ *     ExportColumn("PPC", "bid", transform="currency"),
 */
-  __pyx_mstate_global->__pyx_tuple[80] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__62, __pyx_mstate_global->__pyx_n_u_monopolyClickRate); if (unlikely(!__pyx_mstate_global->__pyx_tuple[80])) __PYX_ERR(0, 103, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[80] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__73, __pyx_mstate_global->__pyx_n_u_monopolyClickRate); if (unlikely(!__pyx_mstate_global->__pyx_tuple[80])) __PYX_ERR(0, 103, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[80]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[80]);
 
   /* "opscli/seller_sprite/export/columns.py":104
  *     ExportColumn("", "adProducts"),
- *     ExportColumn("", "monopolyClickRate"),
- *     ExportColumn("", "cvsShareRate"),             # <<<<<<<<<<<<<<
- *     ExportColumn("PPC", "bid", transform="yen"),
+ *     ExportColumn("", "monopolyClickRate", transform="percentage"),
+ *     ExportColumn("", "cvsShareRate", transform="percentage"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("PPC", "bid", transform="currency"),
  *     ExportColumn("", "bidMin", transform="bidRange"),
 */
-  __pyx_mstate_global->__pyx_tuple[81] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__63, __pyx_mstate_global->__pyx_n_u_cvsShareRate); if (unlikely(!__pyx_mstate_global->__pyx_tuple[81])) __PYX_ERR(0, 104, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[81] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__74, __pyx_mstate_global->__pyx_n_u_cvsShareRate); if (unlikely(!__pyx_mstate_global->__pyx_tuple[81])) __PYX_ERR(0, 104, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[81]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[81]);
 
   /* "opscli/seller_sprite/export/columns.py":105
- *     ExportColumn("", "monopolyClickRate"),
- *     ExportColumn("", "cvsShareRate"),
- *     ExportColumn("PPC", "bid", transform="yen"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "monopolyClickRate", transform="percentage"),
+ *     ExportColumn("", "cvsShareRate", transform="percentage"),
+ *     ExportColumn("PPC", "bid", transform="currency"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "bidMin", transform="bidRange"),
- *     ExportColumn("", "avgPrice", transform="yen"),
+ *     ExportColumn("", "avgPrice", transform="currency"),
 */
   __pyx_mstate_global->__pyx_tuple[82] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_PPC, __pyx_mstate_global->__pyx_n_u_bid); if (unlikely(!__pyx_mstate_global->__pyx_tuple[82])) __PYX_ERR(0, 105, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[82]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[82]);
 
   /* "opscli/seller_sprite/export/columns.py":106
- *     ExportColumn("", "cvsShareRate"),
- *     ExportColumn("PPC", "bid", transform="yen"),
+ *     ExportColumn("", "cvsShareRate", transform="percentage"),
+ *     ExportColumn("PPC", "bid", transform="currency"),
  *     ExportColumn("", "bidMin", transform="bidRange"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "avgPrice", transform="yen"),
+ *     ExportColumn("", "avgPrice", transform="currency"),
  *     ExportColumn("", "avgReviews"),
 */
-  __pyx_mstate_global->__pyx_tuple[83] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__64, __pyx_mstate_global->__pyx_n_u_bidMin); if (unlikely(!__pyx_mstate_global->__pyx_tuple[83])) __PYX_ERR(0, 106, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[83] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_, __pyx_mstate_global->__pyx_n_u_bidMin); if (unlikely(!__pyx_mstate_global->__pyx_tuple[83])) __PYX_ERR(0, 106, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[83]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[83]);
 
   /* "opscli/seller_sprite/export/columns.py":107
- *     ExportColumn("PPC", "bid", transform="yen"),
+ *     ExportColumn("PPC", "bid", transform="currency"),
  *     ExportColumn("", "bidMin", transform="bidRange"),
- *     ExportColumn("", "avgPrice", transform="yen"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "avgPrice", transform="currency"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "avgReviews"),
  *     ExportColumn("", "avgRating"),
 */
-  __pyx_mstate_global->__pyx_tuple[84] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__65, __pyx_mstate_global->__pyx_n_u_avgPrice); if (unlikely(!__pyx_mstate_global->__pyx_tuple[84])) __PYX_ERR(0, 107, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[84] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__2, __pyx_mstate_global->__pyx_n_u_avgPrice); if (unlikely(!__pyx_mstate_global->__pyx_tuple[84])) __PYX_ERR(0, 107, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[84]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[84]);
 
   /* "opscli/seller_sprite/export/columns.py":108
  *     ExportColumn("", "bidMin", transform="bidRange"),
- *     ExportColumn("", "avgPrice", transform="yen"),
+ *     ExportColumn("", "avgPrice", transform="currency"),
  *     ExportColumn("", "avgReviews"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "avgRating"),
  *     ExportColumn("", "departments", transform="departmentsJoin"),
 */
-  __pyx_mstate_global->__pyx_tuple[85] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__24, __pyx_mstate_global->__pyx_n_u_avgReviews); if (unlikely(!__pyx_mstate_global->__pyx_tuple[85])) __PYX_ERR(0, 108, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[85] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__39, __pyx_mstate_global->__pyx_n_u_avgReviews); if (unlikely(!__pyx_mstate_global->__pyx_tuple[85])) __PYX_ERR(0, 108, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[85]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[85]);
 
   /* "opscli/seller_sprite/export/columns.py":109
- *     ExportColumn("", "avgPrice", transform="yen"),
+ *     ExportColumn("", "avgPrice", transform="currency"),
  *     ExportColumn("", "avgReviews"),
  *     ExportColumn("", "avgRating"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "departments", transform="departmentsJoin"),
  *     ExportColumn("#1 ASIN", "monopolyAsinDtos.0.asin"),
 */
-  __pyx_mstate_global->__pyx_tuple[86] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__66, __pyx_mstate_global->__pyx_n_u_avgRating); if (unlikely(!__pyx_mstate_global->__pyx_tuple[86])) __PYX_ERR(0, 109, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[86] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__75, __pyx_mstate_global->__pyx_n_u_avgRating); if (unlikely(!__pyx_mstate_global->__pyx_tuple[86])) __PYX_ERR(0, 109, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[86]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[86]);
 
@@ -7260,7 +9787,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("#1 ASIN", "monopolyAsinDtos.0.asin"),
  *     ExportColumn("#1 ", "monopolyAsinDtos.0.clickRate"),
 */
-  __pyx_mstate_global->__pyx_tuple[87] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__67, __pyx_mstate_global->__pyx_n_u_departments); if (unlikely(!__pyx_mstate_global->__pyx_tuple[87])) __PYX_ERR(0, 110, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[87] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__76, __pyx_mstate_global->__pyx_n_u_departments); if (unlikely(!__pyx_mstate_global->__pyx_tuple[87])) __PYX_ERR(0, 110, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[87]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[87]);
 
@@ -7379,158 +9906,158 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  * KEYWORD_REVERSE_COLUMNS = [
  *     ExportColumn("", "keywords"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "keywordCn"),
- *     ExportColumn("", "trafficPercentage"),
+ *     ExportColumn("", "trafficPercentage", transform="percentage"),
 */
-  __pyx_mstate_global->__pyx_tuple[98] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__50, __pyx_mstate_global->__pyx_n_u_keywords); if (unlikely(!__pyx_mstate_global->__pyx_tuple[98])) __PYX_ERR(0, 125, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[98] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__61, __pyx_mstate_global->__pyx_n_u_keywords); if (unlikely(!__pyx_mstate_global->__pyx_tuple[98])) __PYX_ERR(0, 125, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[98]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[98]);
 
   /* "opscli/seller_sprite/export/columns.py":127
  *     ExportColumn("", "keywords"),
  *     ExportColumn("", "keywordCn"),
- *     ExportColumn("", "trafficPercentage"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "trafficPercentage", transform="percentage"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "calculatedWeeklySearches"),
- *     ExportColumn("", "badges", transform="listJoin"),
+ *     ExportColumn("", "trafficKeywordTypes", transform="trafficKeywordTypeLabels"),
 */
-  __pyx_mstate_global->__pyx_tuple[99] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__68, __pyx_mstate_global->__pyx_n_u_trafficPercentage); if (unlikely(!__pyx_mstate_global->__pyx_tuple[99])) __PYX_ERR(0, 127, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[99] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__77, __pyx_mstate_global->__pyx_n_u_trafficPercentage); if (unlikely(!__pyx_mstate_global->__pyx_tuple[99])) __PYX_ERR(0, 127, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[99]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[99]);
 
   /* "opscli/seller_sprite/export/columns.py":128
  *     ExportColumn("", "keywordCn"),
- *     ExportColumn("", "trafficPercentage"),
+ *     ExportColumn("", "trafficPercentage", transform="percentage"),
  *     ExportColumn("", "calculatedWeeklySearches"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "badges", transform="listJoin"),
- *     ExportColumn("", "conversionKeywordTypes", transform="listJoin"),
+ *     ExportColumn("", "trafficKeywordTypes", transform="trafficKeywordTypeLabels"),
+ *     ExportColumn("", "conversionKeywordTypes", transform="conversionKeywordTypeLabels"),
 */
-  __pyx_mstate_global->__pyx_tuple[100] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__69, __pyx_mstate_global->__pyx_n_u_calculatedWeeklySearches); if (unlikely(!__pyx_mstate_global->__pyx_tuple[100])) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[100] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__78, __pyx_mstate_global->__pyx_n_u_calculatedWeeklySearches); if (unlikely(!__pyx_mstate_global->__pyx_tuple[100])) __PYX_ERR(0, 128, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[100]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[100]);
 
   /* "opscli/seller_sprite/export/columns.py":129
- *     ExportColumn("", "trafficPercentage"),
+ *     ExportColumn("", "trafficPercentage", transform="percentage"),
  *     ExportColumn("", "calculatedWeeklySearches"),
- *     ExportColumn("", "badges", transform="listJoin"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "conversionKeywordTypes", transform="listJoin"),
- *     ExportColumn("", "trafficKeywordTypes", transform="listJoin"),
+ *     ExportColumn("", "trafficKeywordTypes", transform="trafficKeywordTypeLabels"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "conversionKeywordTypes", transform="conversionKeywordTypeLabels"),
+ *     ExportColumn("", "badges", transform="badgeLabels"),
 */
-  __pyx_mstate_global->__pyx_tuple[101] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__70, __pyx_mstate_global->__pyx_n_u_badges); if (unlikely(!__pyx_mstate_global->__pyx_tuple[101])) __PYX_ERR(0, 129, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[101] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__79, __pyx_mstate_global->__pyx_n_u_trafficKeywordTypes); if (unlikely(!__pyx_mstate_global->__pyx_tuple[101])) __PYX_ERR(0, 129, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[101]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[101]);
 
   /* "opscli/seller_sprite/export/columns.py":130
  *     ExportColumn("", "calculatedWeeklySearches"),
- *     ExportColumn("", "badges", transform="listJoin"),
- *     ExportColumn("", "conversionKeywordTypes", transform="listJoin"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "trafficKeywordTypes", transform="listJoin"),
- *     ExportColumn("", "naturalRatio"),
+ *     ExportColumn("", "trafficKeywordTypes", transform="trafficKeywordTypeLabels"),
+ *     ExportColumn("", "conversionKeywordTypes", transform="conversionKeywordTypeLabels"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "badges", transform="badgeLabels"),
+ *     ExportColumn("", "naturalRatio", transform="percentage"),
 */
-  __pyx_mstate_global->__pyx_tuple[102] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__71, __pyx_mstate_global->__pyx_n_u_conversionKeywordTypes); if (unlikely(!__pyx_mstate_global->__pyx_tuple[102])) __PYX_ERR(0, 130, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[102] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__80, __pyx_mstate_global->__pyx_n_u_conversionKeywordTypes); if (unlikely(!__pyx_mstate_global->__pyx_tuple[102])) __PYX_ERR(0, 130, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[102]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[102]);
 
   /* "opscli/seller_sprite/export/columns.py":131
- *     ExportColumn("", "badges", transform="listJoin"),
- *     ExportColumn("", "conversionKeywordTypes", transform="listJoin"),
- *     ExportColumn("", "trafficKeywordTypes", transform="listJoin"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "naturalRatio"),
- *     ExportColumn("", "adRatio"),
+ *     ExportColumn("", "trafficKeywordTypes", transform="trafficKeywordTypeLabels"),
+ *     ExportColumn("", "conversionKeywordTypes", transform="conversionKeywordTypeLabels"),
+ *     ExportColumn("", "badges", transform="badgeLabels"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "naturalRatio", transform="percentage"),
+ *     ExportColumn("", "adRatio", transform="percentage"),
 */
-  __pyx_mstate_global->__pyx_tuple[103] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__72, __pyx_mstate_global->__pyx_n_u_trafficKeywordTypes); if (unlikely(!__pyx_mstate_global->__pyx_tuple[103])) __PYX_ERR(0, 131, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[103] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__81, __pyx_mstate_global->__pyx_n_u_badges); if (unlikely(!__pyx_mstate_global->__pyx_tuple[103])) __PYX_ERR(0, 131, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[103]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[103]);
 
   /* "opscli/seller_sprite/export/columns.py":132
- *     ExportColumn("", "conversionKeywordTypes", transform="listJoin"),
- *     ExportColumn("", "trafficKeywordTypes", transform="listJoin"),
- *     ExportColumn("", "naturalRatio"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "adRatio"),
- *     ExportColumn("", "rankPosition.position"),
+ *     ExportColumn("", "conversionKeywordTypes", transform="conversionKeywordTypeLabels"),
+ *     ExportColumn("", "badges", transform="badgeLabels"),
+ *     ExportColumn("", "naturalRatio", transform="percentage"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "adRatio", transform="percentage"),
+ *     ExportColumn("", "rankPosition", transform="rankPosition"),
 */
-  __pyx_mstate_global->__pyx_tuple[104] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__73, __pyx_mstate_global->__pyx_n_u_naturalRatio); if (unlikely(!__pyx_mstate_global->__pyx_tuple[104])) __PYX_ERR(0, 132, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[104] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__82, __pyx_mstate_global->__pyx_n_u_naturalRatio); if (unlikely(!__pyx_mstate_global->__pyx_tuple[104])) __PYX_ERR(0, 132, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[104]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[104]);
 
   /* "opscli/seller_sprite/export/columns.py":133
- *     ExportColumn("", "trafficKeywordTypes", transform="listJoin"),
- *     ExportColumn("", "naturalRatio"),
- *     ExportColumn("", "adRatio"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "rankPosition.position"),
- *     ExportColumn("", "rankPosition.page"),
+ *     ExportColumn("", "badges", transform="badgeLabels"),
+ *     ExportColumn("", "naturalRatio", transform="percentage"),
+ *     ExportColumn("", "adRatio", transform="percentage"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "rankPosition", transform="rankPosition"),
+ *     ExportColumn("", "rankPosition", transform="rankPage"),
 */
-  __pyx_mstate_global->__pyx_tuple[105] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__74, __pyx_mstate_global->__pyx_n_u_adRatio); if (unlikely(!__pyx_mstate_global->__pyx_tuple[105])) __PYX_ERR(0, 133, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[105] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__83, __pyx_mstate_global->__pyx_n_u_adRatio); if (unlikely(!__pyx_mstate_global->__pyx_tuple[105])) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[105]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[105]);
 
   /* "opscli/seller_sprite/export/columns.py":134
- *     ExportColumn("", "naturalRatio"),
- *     ExportColumn("", "adRatio"),
- *     ExportColumn("", "rankPosition.position"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "rankPosition.page"),
- *     ExportColumn("", "rankPosition.updatedTime"),
+ *     ExportColumn("", "naturalRatio", transform="percentage"),
+ *     ExportColumn("", "adRatio", transform="percentage"),
+ *     ExportColumn("", "rankPosition", transform="rankPosition"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "rankPosition", transform="rankPage"),
+ *     ExportColumn("", "rankPosition.updatedTime", transform="keywordReverseUpdatedTime"),
 */
-  __pyx_mstate_global->__pyx_tuple[106] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__75, __pyx_mstate_global->__pyx_kp_u_rankPosition_position); if (unlikely(!__pyx_mstate_global->__pyx_tuple[106])) __PYX_ERR(0, 134, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[106] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__84, __pyx_mstate_global->__pyx_n_u_rankPosition); if (unlikely(!__pyx_mstate_global->__pyx_tuple[106])) __PYX_ERR(0, 134, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[106]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[106]);
 
   /* "opscli/seller_sprite/export/columns.py":135
- *     ExportColumn("", "adRatio"),
- *     ExportColumn("", "rankPosition.position"),
- *     ExportColumn("", "rankPosition.page"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "rankPosition.updatedTime"),
- *     ExportColumn("", "adPosition.position"),
+ *     ExportColumn("", "adRatio", transform="percentage"),
+ *     ExportColumn("", "rankPosition", transform="rankPosition"),
+ *     ExportColumn("", "rankPosition", transform="rankPage"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "rankPosition.updatedTime", transform="keywordReverseUpdatedTime"),
+ *     ExportColumn("", "adPosition", transform="rankPosition"),
 */
-  __pyx_mstate_global->__pyx_tuple[107] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__76, __pyx_mstate_global->__pyx_kp_u_rankPosition_page); if (unlikely(!__pyx_mstate_global->__pyx_tuple[107])) __PYX_ERR(0, 135, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[107] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__85, __pyx_mstate_global->__pyx_n_u_rankPosition); if (unlikely(!__pyx_mstate_global->__pyx_tuple[107])) __PYX_ERR(0, 135, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[107]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[107]);
 
   /* "opscli/seller_sprite/export/columns.py":136
- *     ExportColumn("", "rankPosition.position"),
- *     ExportColumn("", "rankPosition.page"),
- *     ExportColumn("", "rankPosition.updatedTime"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "adPosition.position"),
- *     ExportColumn("", "adPosition.page"),
+ *     ExportColumn("", "rankPosition", transform="rankPosition"),
+ *     ExportColumn("", "rankPosition", transform="rankPage"),
+ *     ExportColumn("", "rankPosition.updatedTime", transform="keywordReverseUpdatedTime"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "adPosition", transform="rankPosition"),
+ *     ExportColumn("", "adPosition", transform="rankPage"),
 */
-  __pyx_mstate_global->__pyx_tuple[108] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__77, __pyx_mstate_global->__pyx_kp_u_rankPosition_updatedTime); if (unlikely(!__pyx_mstate_global->__pyx_tuple[108])) __PYX_ERR(0, 136, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[108] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__86, __pyx_mstate_global->__pyx_kp_u_rankPosition_updatedTime); if (unlikely(!__pyx_mstate_global->__pyx_tuple[108])) __PYX_ERR(0, 136, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[108]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[108]);
 
   /* "opscli/seller_sprite/export/columns.py":137
- *     ExportColumn("", "rankPosition.page"),
- *     ExportColumn("", "rankPosition.updatedTime"),
- *     ExportColumn("", "adPosition.position"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "adPosition.page"),
- *     ExportColumn("", "adPosition.updatedTime"),
+ *     ExportColumn("", "rankPosition", transform="rankPage"),
+ *     ExportColumn("", "rankPosition.updatedTime", transform="keywordReverseUpdatedTime"),
+ *     ExportColumn("", "adPosition", transform="rankPosition"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "adPosition", transform="rankPage"),
+ *     ExportColumn("", "adPosition.updatedTime", transform="keywordReverseUpdatedTime"),
 */
-  __pyx_mstate_global->__pyx_tuple[109] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__78, __pyx_mstate_global->__pyx_kp_u_adPosition_position); if (unlikely(!__pyx_mstate_global->__pyx_tuple[109])) __PYX_ERR(0, 137, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[109] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__87, __pyx_mstate_global->__pyx_n_u_adPosition); if (unlikely(!__pyx_mstate_global->__pyx_tuple[109])) __PYX_ERR(0, 137, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[109]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[109]);
 
   /* "opscli/seller_sprite/export/columns.py":138
- *     ExportColumn("", "rankPosition.updatedTime"),
- *     ExportColumn("", "adPosition.position"),
- *     ExportColumn("", "adPosition.page"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "adPosition.updatedTime"),
+ *     ExportColumn("", "rankPosition.updatedTime", transform="keywordReverseUpdatedTime"),
+ *     ExportColumn("", "adPosition", transform="rankPosition"),
+ *     ExportColumn("", "adPosition", transform="rankPage"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "adPosition.updatedTime", transform="keywordReverseUpdatedTime"),
  *     ExportColumn("ABA", "searchesRank"),
 */
-  __pyx_mstate_global->__pyx_tuple[110] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__79, __pyx_mstate_global->__pyx_kp_u_adPosition_page); if (unlikely(!__pyx_mstate_global->__pyx_tuple[110])) __PYX_ERR(0, 138, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[110] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__88, __pyx_mstate_global->__pyx_n_u_adPosition); if (unlikely(!__pyx_mstate_global->__pyx_tuple[110])) __PYX_ERR(0, 138, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[110]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[110]);
 
   /* "opscli/seller_sprite/export/columns.py":139
- *     ExportColumn("", "adPosition.position"),
- *     ExportColumn("", "adPosition.page"),
- *     ExportColumn("", "adPosition.updatedTime"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "adPosition", transform="rankPosition"),
+ *     ExportColumn("", "adPosition", transform="rankPage"),
+ *     ExportColumn("", "adPosition.updatedTime", transform="keywordReverseUpdatedTime"),             # <<<<<<<<<<<<<<
  *     ExportColumn("ABA", "searchesRank"),
  *     ExportColumn("", "searches"),
 */
-  __pyx_mstate_global->__pyx_tuple[111] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__77, __pyx_mstate_global->__pyx_kp_u_adPosition_updatedTime); if (unlikely(!__pyx_mstate_global->__pyx_tuple[111])) __PYX_ERR(0, 139, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[111] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__86, __pyx_mstate_global->__pyx_kp_u_adPosition_updatedTime); if (unlikely(!__pyx_mstate_global->__pyx_tuple[111])) __PYX_ERR(0, 139, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[111]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[111]);
 
   /* "opscli/seller_sprite/export/columns.py":140
- *     ExportColumn("", "adPosition.page"),
- *     ExportColumn("", "adPosition.updatedTime"),
+ *     ExportColumn("", "adPosition", transform="rankPage"),
+ *     ExportColumn("", "adPosition.updatedTime", transform="keywordReverseUpdatedTime"),
  *     ExportColumn("ABA", "searchesRank"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "searches"),
  *     ExportColumn("SPR", "cprExact"),
@@ -7555,9 +10082,9 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("SPR", "cprExact"),
  *     ExportColumn("", "titleDensityExact"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "purchases"),
- *     ExportColumn("", "purchaseRate"),
+ *     ExportColumn("", "purchaseRate", transform="percentage"),
 */
-  __pyx_mstate_global->__pyx_tuple[114] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__58, __pyx_mstate_global->__pyx_n_u_titleDensityExact); if (unlikely(!__pyx_mstate_global->__pyx_tuple[114])) __PYX_ERR(0, 143, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[114] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__69, __pyx_mstate_global->__pyx_n_u_titleDensityExact); if (unlikely(!__pyx_mstate_global->__pyx_tuple[114])) __PYX_ERR(0, 143, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[114]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[114]);
 
@@ -7565,10 +10092,10 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("SPR", "cprExact"),
  *     ExportColumn("", "titleDensityExact"),
  *     ExportColumn("", "purchases"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "purchaseRate"),
+ *     ExportColumn("", "purchaseRate", transform="percentage"),
  *     ExportColumn("", "impressions"),
 */
-  __pyx_mstate_global->__pyx_tuple[115] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__80, __pyx_mstate_global->__pyx_n_u_purchases); if (unlikely(!__pyx_mstate_global->__pyx_tuple[115])) __PYX_ERR(0, 144, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[115] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__89, __pyx_mstate_global->__pyx_n_u_purchases); if (unlikely(!__pyx_mstate_global->__pyx_tuple[115])) __PYX_ERR(0, 144, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[115]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[115]);
 
@@ -7576,8 +10103,8 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *     ExportColumn("", "products"),
  *     ExportColumn("", "supplyDemandRatio"),
  *     ExportColumn("7", "latest7daysAds"),             # <<<<<<<<<<<<<<
- *     ExportColumn("", "monopolyClickRate"),
- *     ExportColumn("", "top3ConversionRate"),
+ *     ExportColumn("", "monopolyClickRate", transform="percentage"),
+ *     ExportColumn("", "top3ConversionRate", transform="percentage"),
 */
   __pyx_mstate_global->__pyx_tuple[116] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_7_2, __pyx_mstate_global->__pyx_n_u_latest7daysAds); if (unlikely(!__pyx_mstate_global->__pyx_tuple[116])) __PYX_ERR(0, 150, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[116]);
@@ -7585,29 +10112,557 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 
   /* "opscli/seller_sprite/export/columns.py":152
  *     ExportColumn("7", "latest7daysAds"),
- *     ExportColumn("", "monopolyClickRate"),
- *     ExportColumn("", "top3ConversionRate"),             # <<<<<<<<<<<<<<
- *     ExportColumn("PPC", "bid", transform="yen"),
+ *     ExportColumn("", "monopolyClickRate", transform="percentage"),
+ *     ExportColumn("", "top3ConversionRate", transform="percentage"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("PPC", "bid", transform="currency"),
  *     ExportColumn("", "bidMin", transform="bidRange"),
 */
-  __pyx_mstate_global->__pyx_tuple[117] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__63, __pyx_mstate_global->__pyx_n_u_top3ConversionRate); if (unlikely(!__pyx_mstate_global->__pyx_tuple[117])) __PYX_ERR(0, 152, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[117] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__74, __pyx_mstate_global->__pyx_n_u_top3ConversionRate); if (unlikely(!__pyx_mstate_global->__pyx_tuple[117])) __PYX_ERR(0, 152, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[117]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[117]);
 
   /* "opscli/seller_sprite/export/columns.py":153
- *     ExportColumn("", "monopolyClickRate"),
- *     ExportColumn("", "top3ConversionRate"),
- *     ExportColumn("PPC", "bid", transform="yen"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "monopolyClickRate", transform="percentage"),
+ *     ExportColumn("", "top3ConversionRate", transform="percentage"),
+ *     ExportColumn("PPC", "bid", transform="currency"),             # <<<<<<<<<<<<<<
  *     ExportColumn("", "bidMin", transform="bidRange"),
  *     ExportColumn("ASIN", "gkDatas", transform="asinList"),
 */
   __pyx_mstate_global->__pyx_tuple[118] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_PPC_2, __pyx_mstate_global->__pyx_n_u_bid); if (unlikely(!__pyx_mstate_global->__pyx_tuple[118])) __PYX_ERR(0, 153, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[118]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[118]);
+
+  /* "opscli/seller_sprite/export/columns.py":161
+ * TRAFFIC_SOURCE_COLUMNS = [
+ *     ExportColumn("ASIN", "asin"),
+ *     ExportColumn("", "title"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "price"),
+ *     ExportColumn("", "rating"),
+*/
+  __pyx_mstate_global->__pyx_tuple[119] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__90, __pyx_mstate_global->__pyx_n_u_title); if (unlikely(!__pyx_mstate_global->__pyx_tuple[119])) __PYX_ERR(0, 161, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[119]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[119]);
+
+  /* "opscli/seller_sprite/export/columns.py":162
+ *     ExportColumn("ASIN", "asin"),
+ *     ExportColumn("", "title"),
+ *     ExportColumn("", "price"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "rating"),
+ *     ExportColumn("", "reviews"),
+*/
+  __pyx_mstate_global->__pyx_tuple[120] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__3, __pyx_mstate_global->__pyx_n_u_price); if (unlikely(!__pyx_mstate_global->__pyx_tuple[120])) __PYX_ERR(0, 162, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[120]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[120]);
+
+  /* "opscli/seller_sprite/export/columns.py":167
+ *     ExportColumn("", "variations"),
+ *     ExportColumn("SKU", "sku"),
+ *     ExportColumn("", "badgeLabels", transform="trafficSourceLabels"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "keywords"),
+ *     ExportColumn("", "counter.NATURAL_SEARCHING"),
+*/
+  __pyx_mstate_global->__pyx_tuple[121] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__91, __pyx_mstate_global->__pyx_n_u_badgeLabels); if (unlikely(!__pyx_mstate_global->__pyx_tuple[121])) __PYX_ERR(0, 167, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[121]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[121]);
+
+  /* "opscli/seller_sprite/export/columns.py":168
+ *     ExportColumn("SKU", "sku"),
+ *     ExportColumn("", "badgeLabels", transform="trafficSourceLabels"),
+ *     ExportColumn("", "keywords"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "counter.NATURAL_SEARCHING"),
+ *     ExportColumn("AC", "counter.AMAZON_CHOICE"),
+*/
+  __pyx_mstate_global->__pyx_tuple[122] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__92, __pyx_mstate_global->__pyx_n_u_keywords); if (unlikely(!__pyx_mstate_global->__pyx_tuple[122])) __PYX_ERR(0, 168, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[122]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[122]);
+
+  /* "opscli/seller_sprite/export/columns.py":169
+ *     ExportColumn("", "badgeLabels", transform="trafficSourceLabels"),
+ *     ExportColumn("", "keywords"),
+ *     ExportColumn("", "counter.NATURAL_SEARCHING"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("AC", "counter.AMAZON_CHOICE"),
+ *     ExportColumn("ER", "counter.EDITORIAL_RECOMMENDATIONS"),
+*/
+  __pyx_mstate_global->__pyx_tuple[123] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__93, __pyx_mstate_global->__pyx_kp_u_counter_NATURAL_SEARCHING); if (unlikely(!__pyx_mstate_global->__pyx_tuple[123])) __PYX_ERR(0, 169, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[123]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[123]);
+
+  /* "opscli/seller_sprite/export/columns.py":170
+ *     ExportColumn("", "keywords"),
+ *     ExportColumn("", "counter.NATURAL_SEARCHING"),
+ *     ExportColumn("AC", "counter.AMAZON_CHOICE"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("ER", "counter.EDITORIAL_RECOMMENDATIONS"),
+ *     ExportColumn("4", "counter.FOUR_STAR"),
+*/
+  __pyx_mstate_global->__pyx_tuple[124] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_AC_2, __pyx_mstate_global->__pyx_kp_u_counter_AMAZON_CHOICE); if (unlikely(!__pyx_mstate_global->__pyx_tuple[124])) __PYX_ERR(0, 170, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[124]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[124]);
+
+  /* "opscli/seller_sprite/export/columns.py":171
+ *     ExportColumn("", "counter.NATURAL_SEARCHING"),
+ *     ExportColumn("AC", "counter.AMAZON_CHOICE"),
+ *     ExportColumn("ER", "counter.EDITORIAL_RECOMMENDATIONS"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("4", "counter.FOUR_STAR"),
+ *     ExportColumn("HR", "counter.HIGHLY_RATED"),
+*/
+  __pyx_mstate_global->__pyx_tuple[125] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_ER, __pyx_mstate_global->__pyx_kp_u_counter_EDITORIAL_RECOMMENDATION); if (unlikely(!__pyx_mstate_global->__pyx_tuple[125])) __PYX_ERR(0, 171, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[125]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[125]);
+
+  /* "opscli/seller_sprite/export/columns.py":172
+ *     ExportColumn("AC", "counter.AMAZON_CHOICE"),
+ *     ExportColumn("ER", "counter.EDITORIAL_RECOMMENDATIONS"),
+ *     ExportColumn("4", "counter.FOUR_STAR"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("HR", "counter.HIGHLY_RATED"),
+ *     ExportColumn("SP", "counter.ADS"),
+*/
+  __pyx_mstate_global->__pyx_tuple[126] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u_4, __pyx_mstate_global->__pyx_kp_u_counter_FOUR_STAR); if (unlikely(!__pyx_mstate_global->__pyx_tuple[126])) __PYX_ERR(0, 172, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[126]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[126]);
+
+  /* "opscli/seller_sprite/export/columns.py":173
+ *     ExportColumn("ER", "counter.EDITORIAL_RECOMMENDATIONS"),
+ *     ExportColumn("4", "counter.FOUR_STAR"),
+ *     ExportColumn("HR", "counter.HIGHLY_RATED"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("SP", "counter.ADS"),
+ *     ExportColumn("", "counter.SPONSOR_VIDEO"),
+*/
+  __pyx_mstate_global->__pyx_tuple[127] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_HR, __pyx_mstate_global->__pyx_kp_u_counter_HIGHLY_RATED); if (unlikely(!__pyx_mstate_global->__pyx_tuple[127])) __PYX_ERR(0, 173, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[127]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[127]);
+
+  /* "opscli/seller_sprite/export/columns.py":174
+ *     ExportColumn("4", "counter.FOUR_STAR"),
+ *     ExportColumn("HR", "counter.HIGHLY_RATED"),
+ *     ExportColumn("SP", "counter.ADS"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "counter.SPONSOR_VIDEO"),
+ *     ExportColumn("", "counter.SPONSOR_BRAND"),
+*/
+  __pyx_mstate_global->__pyx_tuple[128] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_SP_2, __pyx_mstate_global->__pyx_kp_u_counter_ADS); if (unlikely(!__pyx_mstate_global->__pyx_tuple[128])) __PYX_ERR(0, 174, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[128]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[128]);
+
+  /* "opscli/seller_sprite/export/columns.py":175
+ *     ExportColumn("HR", "counter.HIGHLY_RATED"),
+ *     ExportColumn("SP", "counter.ADS"),
+ *     ExportColumn("", "counter.SPONSOR_VIDEO"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "counter.SPONSOR_BRAND"),
+ * ]
+*/
+  __pyx_mstate_global->__pyx_tuple[129] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__94, __pyx_mstate_global->__pyx_kp_u_counter_SPONSOR_VIDEO); if (unlikely(!__pyx_mstate_global->__pyx_tuple[129])) __PYX_ERR(0, 175, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[129]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[129]);
+
+  /* "opscli/seller_sprite/export/columns.py":176
+ *     ExportColumn("SP", "counter.ADS"),
+ *     ExportColumn("", "counter.SPONSOR_VIDEO"),
+ *     ExportColumn("", "counter.SPONSOR_BRAND"),             # <<<<<<<<<<<<<<
+ * ]
+ * 
+*/
+  __pyx_mstate_global->__pyx_tuple[130] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__95, __pyx_mstate_global->__pyx_kp_u_counter_SPONSOR_BRAND); if (unlikely(!__pyx_mstate_global->__pyx_tuple[130])) __PYX_ERR(0, 176, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[130]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[130]);
+
+  /* "opscli/seller_sprite/export/columns.py":181
+ * 
+ * MARKET_RESEARCH_COLUMNS = [
+ *     ExportColumn("", "market"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("()", "marketCn"),
+ *     ExportColumn("", "marketPath"),
+*/
+  __pyx_mstate_global->__pyx_tuple[131] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__96, __pyx_mstate_global->__pyx_n_u_market); if (unlikely(!__pyx_mstate_global->__pyx_tuple[131])) __PYX_ERR(0, 181, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[131]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[131]);
+
+  /* "opscli/seller_sprite/export/columns.py":182
+ * MARKET_RESEARCH_COLUMNS = [
+ *     ExportColumn("", "market"),
+ *     ExportColumn("()", "marketCn"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "marketPath"),
+ *     ExportColumn("", "sampleQuantity"),
+*/
+  __pyx_mstate_global->__pyx_tuple[132] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u__97, __pyx_mstate_global->__pyx_n_u_marketCn); if (unlikely(!__pyx_mstate_global->__pyx_tuple[132])) __PYX_ERR(0, 182, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[132]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[132]);
+
+  /* "opscli/seller_sprite/export/columns.py":183
+ *     ExportColumn("", "market"),
+ *     ExportColumn("()", "marketCn"),
+ *     ExportColumn("", "marketPath"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "sampleQuantity"),
+ *     ExportColumn("", "totalSales"),
+*/
+  __pyx_mstate_global->__pyx_tuple[133] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__98, __pyx_mstate_global->__pyx_n_u_marketPath); if (unlikely(!__pyx_mstate_global->__pyx_tuple[133])) __PYX_ERR(0, 183, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[133]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[133]);
+
+  /* "opscli/seller_sprite/export/columns.py":184
+ *     ExportColumn("()", "marketCn"),
+ *     ExportColumn("", "marketPath"),
+ *     ExportColumn("", "sampleQuantity"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "totalSales"),
+ *     ExportColumn("", "avgSales"),
+*/
+  __pyx_mstate_global->__pyx_tuple[134] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__99, __pyx_mstate_global->__pyx_n_u_sampleQuantity); if (unlikely(!__pyx_mstate_global->__pyx_tuple[134])) __PYX_ERR(0, 184, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[134]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[134]);
+
+  /* "opscli/seller_sprite/export/columns.py":185
+ *     ExportColumn("", "marketPath"),
+ *     ExportColumn("", "sampleQuantity"),
+ *     ExportColumn("", "totalSales"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "avgSales"),
+ *     ExportColumn("__AVG_REVENUE__", "avgRevenue"),
+*/
+  __pyx_mstate_global->__pyx_tuple[135] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__100, __pyx_mstate_global->__pyx_n_u_totalSales); if (unlikely(!__pyx_mstate_global->__pyx_tuple[135])) __PYX_ERR(0, 185, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[135]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[135]);
+
+  /* "opscli/seller_sprite/export/columns.py":186
+ *     ExportColumn("", "sampleQuantity"),
+ *     ExportColumn("", "totalSales"),
+ *     ExportColumn("", "avgSales"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("__AVG_REVENUE__", "avgRevenue"),
+ *     ExportColumn("__AVG_PRICE__", "avgPrice"),
+*/
+  __pyx_mstate_global->__pyx_tuple[136] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__101, __pyx_mstate_global->__pyx_n_u_avgSales); if (unlikely(!__pyx_mstate_global->__pyx_tuple[136])) __PYX_ERR(0, 186, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[136]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[136]);
+
+  /* "opscli/seller_sprite/export/columns.py":187
+ *     ExportColumn("", "totalSales"),
+ *     ExportColumn("", "avgSales"),
+ *     ExportColumn("__AVG_REVENUE__", "avgRevenue"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("__AVG_PRICE__", "avgPrice"),
+ *     ExportColumn("", "avgReviews"),
+*/
+  __pyx_mstate_global->__pyx_tuple[137] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_AVG_REVENUE, __pyx_mstate_global->__pyx_n_u_avgRevenue); if (unlikely(!__pyx_mstate_global->__pyx_tuple[137])) __PYX_ERR(0, 187, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[137]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[137]);
+
+  /* "opscli/seller_sprite/export/columns.py":188
+ *     ExportColumn("", "avgSales"),
+ *     ExportColumn("__AVG_REVENUE__", "avgRevenue"),
+ *     ExportColumn("__AVG_PRICE__", "avgPrice"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "avgReviews"),
+ *     ExportColumn("", "avgRating"),
+*/
+  __pyx_mstate_global->__pyx_tuple[138] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_AVG_PRICE, __pyx_mstate_global->__pyx_n_u_avgPrice); if (unlikely(!__pyx_mstate_global->__pyx_tuple[138])) __PYX_ERR(0, 188, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[138]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[138]);
+
+  /* "opscli/seller_sprite/export/columns.py":189
+ *     ExportColumn("__AVG_REVENUE__", "avgRevenue"),
+ *     ExportColumn("__AVG_PRICE__", "avgPrice"),
+ *     ExportColumn("", "avgReviews"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "avgRating"),
+ *     ExportColumn("BSR", "avgBsr"),
+*/
+  __pyx_mstate_global->__pyx_tuple[139] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__102, __pyx_mstate_global->__pyx_n_u_avgReviews); if (unlikely(!__pyx_mstate_global->__pyx_tuple[139])) __PYX_ERR(0, 189, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[139]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[139]);
+
+  /* "opscli/seller_sprite/export/columns.py":190
+ *     ExportColumn("__AVG_PRICE__", "avgPrice"),
+ *     ExportColumn("", "avgReviews"),
+ *     ExportColumn("", "avgRating"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("BSR", "avgBsr"),
+ *     ExportColumn("", "avgSellers"),
+*/
+  __pyx_mstate_global->__pyx_tuple[140] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__103, __pyx_mstate_global->__pyx_n_u_avgRating); if (unlikely(!__pyx_mstate_global->__pyx_tuple[140])) __PYX_ERR(0, 190, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[140]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[140]);
+
+  /* "opscli/seller_sprite/export/columns.py":191
+ *     ExportColumn("", "avgReviews"),
+ *     ExportColumn("", "avgRating"),
+ *     ExportColumn("BSR", "avgBsr"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "avgSellers"),
+ *     ExportColumn("", "sellerTypes"),
+*/
+  __pyx_mstate_global->__pyx_tuple[141] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_BSR_5, __pyx_mstate_global->__pyx_n_u_avgBsr); if (unlikely(!__pyx_mstate_global->__pyx_tuple[141])) __PYX_ERR(0, 191, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[141]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[141]);
+
+  /* "opscli/seller_sprite/export/columns.py":192
+ *     ExportColumn("", "avgRating"),
+ *     ExportColumn("BSR", "avgBsr"),
+ *     ExportColumn("", "avgSellers"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "sellerTypes"),
+ *     ExportColumn("", "productConcentration"),
+*/
+  __pyx_mstate_global->__pyx_tuple[142] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__104, __pyx_mstate_global->__pyx_n_u_avgSellers); if (unlikely(!__pyx_mstate_global->__pyx_tuple[142])) __PYX_ERR(0, 192, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[142]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[142]);
+
+  /* "opscli/seller_sprite/export/columns.py":193
+ *     ExportColumn("BSR", "avgBsr"),
+ *     ExportColumn("", "avgSellers"),
+ *     ExportColumn("", "sellerTypes"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "productConcentration"),
+ *     ExportColumn("", "brandConcentration"),
+*/
+  __pyx_mstate_global->__pyx_tuple[143] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__105, __pyx_mstate_global->__pyx_n_u_sellerTypes); if (unlikely(!__pyx_mstate_global->__pyx_tuple[143])) __PYX_ERR(0, 193, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[143]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[143]);
+
+  /* "opscli/seller_sprite/export/columns.py":194
+ *     ExportColumn("", "avgSellers"),
+ *     ExportColumn("", "sellerTypes"),
+ *     ExportColumn("", "productConcentration"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "brandConcentration"),
+ *     ExportColumn("", "sellerConcentration"),
+*/
+  __pyx_mstate_global->__pyx_tuple[144] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__106, __pyx_mstate_global->__pyx_n_u_productConcentration); if (unlikely(!__pyx_mstate_global->__pyx_tuple[144])) __PYX_ERR(0, 194, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[144]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[144]);
+
+  /* "opscli/seller_sprite/export/columns.py":195
+ *     ExportColumn("", "sellerTypes"),
+ *     ExportColumn("", "productConcentration"),
+ *     ExportColumn("", "brandConcentration"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "sellerConcentration"),
+ *     ExportColumn("", "totalProducts"),
+*/
+  __pyx_mstate_global->__pyx_tuple[145] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__107, __pyx_mstate_global->__pyx_n_u_brandConcentration); if (unlikely(!__pyx_mstate_global->__pyx_tuple[145])) __PYX_ERR(0, 195, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[145]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[145]);
+
+  /* "opscli/seller_sprite/export/columns.py":196
+ *     ExportColumn("", "productConcentration"),
+ *     ExportColumn("", "brandConcentration"),
+ *     ExportColumn("", "sellerConcentration"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "totalProducts"),
+ *     ExportColumn("", "avgWeight"),
+*/
+  __pyx_mstate_global->__pyx_tuple[146] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__108, __pyx_mstate_global->__pyx_n_u_sellerConcentration); if (unlikely(!__pyx_mstate_global->__pyx_tuple[146])) __PYX_ERR(0, 196, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[146]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[146]);
+
+  /* "opscli/seller_sprite/export/columns.py":197
+ *     ExportColumn("", "brandConcentration"),
+ *     ExportColumn("", "sellerConcentration"),
+ *     ExportColumn("", "totalProducts"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "avgWeight"),
+ *     ExportColumn("", "avgVolume"),
+*/
+  __pyx_mstate_global->__pyx_tuple[147] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__109, __pyx_mstate_global->__pyx_n_u_totalProducts); if (unlikely(!__pyx_mstate_global->__pyx_tuple[147])) __PYX_ERR(0, 197, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[147]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[147]);
+
+  /* "opscli/seller_sprite/export/columns.py":198
+ *     ExportColumn("", "sellerConcentration"),
+ *     ExportColumn("", "totalProducts"),
+ *     ExportColumn("", "avgWeight"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "avgVolume"),
+ *     ExportColumn("", "avgProfit"),
+*/
+  __pyx_mstate_global->__pyx_tuple[148] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__110, __pyx_mstate_global->__pyx_n_u_avgWeight); if (unlikely(!__pyx_mstate_global->__pyx_tuple[148])) __PYX_ERR(0, 198, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[148]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[148]);
+
+  /* "opscli/seller_sprite/export/columns.py":199
+ *     ExportColumn("", "totalProducts"),
+ *     ExportColumn("", "avgWeight"),
+ *     ExportColumn("", "avgVolume"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "avgProfit"),
+ *     ExportColumn("A+", "ebcRatio"),
+*/
+  __pyx_mstate_global->__pyx_tuple[149] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__111, __pyx_mstate_global->__pyx_n_u_avgVolume); if (unlikely(!__pyx_mstate_global->__pyx_tuple[149])) __PYX_ERR(0, 199, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[149]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[149]);
+
+  /* "opscli/seller_sprite/export/columns.py":200
+ *     ExportColumn("", "avgWeight"),
+ *     ExportColumn("", "avgVolume"),
+ *     ExportColumn("", "avgProfit"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("A+", "ebcRatio"),
+ *     ExportColumn("", "sellerNation"),
+*/
+  __pyx_mstate_global->__pyx_tuple[150] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__112, __pyx_mstate_global->__pyx_n_u_avgProfit); if (unlikely(!__pyx_mstate_global->__pyx_tuple[150])) __PYX_ERR(0, 200, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[150]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[150]);
+
+  /* "opscli/seller_sprite/export/columns.py":201
+ *     ExportColumn("", "avgVolume"),
+ *     ExportColumn("", "avgProfit"),
+ *     ExportColumn("A+", "ebcRatio"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "sellerNation"),
+ *     ExportColumn("Listing", "headListingAvgSales"),
+*/
+  __pyx_mstate_global->__pyx_tuple[151] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u_A_2, __pyx_mstate_global->__pyx_n_u_ebcRatio); if (unlikely(!__pyx_mstate_global->__pyx_tuple[151])) __PYX_ERR(0, 201, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[151]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[151]);
+
+  /* "opscli/seller_sprite/export/columns.py":203
+ *     ExportColumn("A+", "ebcRatio"),
+ *     ExportColumn("", "sellerNation"),
+ *     ExportColumn("Listing", "headListingAvgSales"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "monopoly"),
+ *     ExportColumn("__HEAD_AVG_REVENUE__", "headListingAvgRevenue"),
+*/
+  __pyx_mstate_global->__pyx_tuple[152] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_Listing_2, __pyx_mstate_global->__pyx_n_u_headListingAvgSales); if (unlikely(!__pyx_mstate_global->__pyx_tuple[152])) __PYX_ERR(0, 203, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[152]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[152]);
+
+  /* "opscli/seller_sprite/export/columns.py":204
+ *     ExportColumn("", "sellerNation"),
+ *     ExportColumn("Listing", "headListingAvgSales"),
+ *     ExportColumn("", "monopoly"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("__HEAD_AVG_REVENUE__", "headListingAvgRevenue"),
+ *     ExportColumn("ListingBSR", "headListingAvgBsr"),
+*/
+  __pyx_mstate_global->__pyx_tuple[153] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__113, __pyx_mstate_global->__pyx_n_u_monopoly); if (unlikely(!__pyx_mstate_global->__pyx_tuple[153])) __PYX_ERR(0, 204, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[153]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[153]);
+
+  /* "opscli/seller_sprite/export/columns.py":205
+ *     ExportColumn("Listing", "headListingAvgSales"),
+ *     ExportColumn("", "monopoly"),
+ *     ExportColumn("__HEAD_AVG_REVENUE__", "headListingAvgRevenue"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("ListingBSR", "headListingAvgBsr"),
+ *     ExportColumn("", "newCount"),
+*/
+  __pyx_mstate_global->__pyx_tuple[154] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_HEAD_AVG_REVENUE, __pyx_mstate_global->__pyx_n_u_headListingAvgRevenue); if (unlikely(!__pyx_mstate_global->__pyx_tuple[154])) __PYX_ERR(0, 205, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[154]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[154]);
+
+  /* "opscli/seller_sprite/export/columns.py":206
+ *     ExportColumn("", "monopoly"),
+ *     ExportColumn("__HEAD_AVG_REVENUE__", "headListingAvgRevenue"),
+ *     ExportColumn("ListingBSR", "headListingAvgBsr"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "newCount"),
+ *     ExportColumn("", "newRatio"),
+*/
+  __pyx_mstate_global->__pyx_tuple[155] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_ListingBSR, __pyx_mstate_global->__pyx_n_u_headListingAvgBsr); if (unlikely(!__pyx_mstate_global->__pyx_tuple[155])) __PYX_ERR(0, 206, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[155]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[155]);
+
+  /* "opscli/seller_sprite/export/columns.py":207
+ *     ExportColumn("__HEAD_AVG_REVENUE__", "headListingAvgRevenue"),
+ *     ExportColumn("ListingBSR", "headListingAvgBsr"),
+ *     ExportColumn("", "newCount"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "newRatio"),
+ *     ExportColumn("", "newAvgSales"),
+*/
+  __pyx_mstate_global->__pyx_tuple[156] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__114, __pyx_mstate_global->__pyx_n_u_newCount); if (unlikely(!__pyx_mstate_global->__pyx_tuple[156])) __PYX_ERR(0, 207, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[156]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[156]);
+
+  /* "opscli/seller_sprite/export/columns.py":208
+ *     ExportColumn("ListingBSR", "headListingAvgBsr"),
+ *     ExportColumn("", "newCount"),
+ *     ExportColumn("", "newRatio"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "newAvgSales"),
+ *     ExportColumn("__NEW_AVG_REVENUE__", "newAvgRevenue"),
+*/
+  __pyx_mstate_global->__pyx_tuple[157] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__115, __pyx_mstate_global->__pyx_n_u_newRatio); if (unlikely(!__pyx_mstate_global->__pyx_tuple[157])) __PYX_ERR(0, 208, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[157]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[157]);
+
+  /* "opscli/seller_sprite/export/columns.py":209
+ *     ExportColumn("", "newCount"),
+ *     ExportColumn("", "newRatio"),
+ *     ExportColumn("", "newAvgSales"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("__NEW_AVG_REVENUE__", "newAvgRevenue"),
+ *     ExportColumn("__NEW_AVG_PRICE__", "newAvgPrice"),
+*/
+  __pyx_mstate_global->__pyx_tuple[158] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__116, __pyx_mstate_global->__pyx_n_u_newAvgSales); if (unlikely(!__pyx_mstate_global->__pyx_tuple[158])) __PYX_ERR(0, 209, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[158]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[158]);
+
+  /* "opscli/seller_sprite/export/columns.py":210
+ *     ExportColumn("", "newRatio"),
+ *     ExportColumn("", "newAvgSales"),
+ *     ExportColumn("__NEW_AVG_REVENUE__", "newAvgRevenue"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("__NEW_AVG_PRICE__", "newAvgPrice"),
+ *     ExportColumn("", "newAvgReviews"),
+*/
+  __pyx_mstate_global->__pyx_tuple[159] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_NEW_AVG_REVENUE, __pyx_mstate_global->__pyx_n_u_newAvgRevenue); if (unlikely(!__pyx_mstate_global->__pyx_tuple[159])) __PYX_ERR(0, 210, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[159]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[159]);
+
+  /* "opscli/seller_sprite/export/columns.py":211
+ *     ExportColumn("", "newAvgSales"),
+ *     ExportColumn("__NEW_AVG_REVENUE__", "newAvgRevenue"),
+ *     ExportColumn("__NEW_AVG_PRICE__", "newAvgPrice"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "newAvgReviews"),
+ *     ExportColumn("", "newAvgRating"),
+*/
+  __pyx_mstate_global->__pyx_tuple[160] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_NEW_AVG_PRICE, __pyx_mstate_global->__pyx_n_u_newAvgPrice); if (unlikely(!__pyx_mstate_global->__pyx_tuple[160])) __PYX_ERR(0, 211, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[160]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[160]);
+
+  /* "opscli/seller_sprite/export/columns.py":212
+ *     ExportColumn("__NEW_AVG_REVENUE__", "newAvgRevenue"),
+ *     ExportColumn("__NEW_AVG_PRICE__", "newAvgPrice"),
+ *     ExportColumn("", "newAvgReviews"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "newAvgRating"),
+ *     ExportColumn("", "returnRate"),
+*/
+  __pyx_mstate_global->__pyx_tuple[161] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__117, __pyx_mstate_global->__pyx_n_u_newAvgReviews); if (unlikely(!__pyx_mstate_global->__pyx_tuple[161])) __PYX_ERR(0, 212, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[161]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[161]);
+
+  /* "opscli/seller_sprite/export/columns.py":213
+ *     ExportColumn("__NEW_AVG_PRICE__", "newAvgPrice"),
+ *     ExportColumn("", "newAvgReviews"),
+ *     ExportColumn("", "newAvgRating"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "returnRate"),
+ *     ExportColumn("", "categoryReturnRate"),
+*/
+  __pyx_mstate_global->__pyx_tuple[162] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__118, __pyx_mstate_global->__pyx_n_u_newAvgRating); if (unlikely(!__pyx_mstate_global->__pyx_tuple[162])) __PYX_ERR(0, 213, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[162]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[162]);
+
+  /* "opscli/seller_sprite/export/columns.py":214
+ *     ExportColumn("", "newAvgReviews"),
+ *     ExportColumn("", "newAvgRating"),
+ *     ExportColumn("", "returnRate"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "categoryReturnRate"),
+ *     ExportColumn("", "searchPurchaseRatio"),
+*/
+  __pyx_mstate_global->__pyx_tuple[163] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__119, __pyx_mstate_global->__pyx_n_u_returnRate); if (unlikely(!__pyx_mstate_global->__pyx_tuple[163])) __PYX_ERR(0, 214, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[163]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[163]);
+
+  /* "opscli/seller_sprite/export/columns.py":215
+ *     ExportColumn("", "newAvgRating"),
+ *     ExportColumn("", "returnRate"),
+ *     ExportColumn("", "categoryReturnRate"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "searchPurchaseRatio"),
+ *     ExportColumn("", "categorySearchPurchaseRatio"),
+*/
+  __pyx_mstate_global->__pyx_tuple[164] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__120, __pyx_mstate_global->__pyx_n_u_categoryReturnRate); if (unlikely(!__pyx_mstate_global->__pyx_tuple[164])) __PYX_ERR(0, 215, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[164]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[164]);
+
+  /* "opscli/seller_sprite/export/columns.py":216
+ *     ExportColumn("", "returnRate"),
+ *     ExportColumn("", "categoryReturnRate"),
+ *     ExportColumn("", "searchPurchaseRatio"),             # <<<<<<<<<<<<<<
+ *     ExportColumn("", "categorySearchPurchaseRatio"),
+ * ]
+*/
+  __pyx_mstate_global->__pyx_tuple[165] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__121, __pyx_mstate_global->__pyx_n_u_searchPurchaseRatio); if (unlikely(!__pyx_mstate_global->__pyx_tuple[165])) __PYX_ERR(0, 216, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[165]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[165]);
+
+  /* "opscli/seller_sprite/export/columns.py":217
+ *     ExportColumn("", "categoryReturnRate"),
+ *     ExportColumn("", "searchPurchaseRatio"),
+ *     ExportColumn("", "categorySearchPurchaseRatio"),             # <<<<<<<<<<<<<<
+ * ]
+ * 
+*/
+  __pyx_mstate_global->__pyx_tuple[166] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u__122, __pyx_mstate_global->__pyx_n_u_categorySearchPurchaseRatio); if (unlikely(!__pyx_mstate_global->__pyx_tuple[166])) __PYX_ERR(0, 217, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[166]);
+  __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[166]);
   #if CYTHON_IMMORTAL_CONSTANTS
   {
     PyObject **table = __pyx_mstate->__pyx_tuple;
-    for (Py_ssize_t i=0; i<119; ++i) {
+    for (Py_ssize_t i=0; i<167; ++i) {
       #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
       #if PY_VERSION_HEX < 0x030E0000
       if (_Py_IsOwnedByCurrentThread(table[i]) && Py_REFCNT(table[i]) == 1)
@@ -7634,34 +10689,34 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 8; } index[] = {{15},{14},{13},{15},{15},{13},{15},{15},{13},{10},{8},{15},{17},{4},{17},{179},{3},{24},{1},{13},{1},{30},{30},{30},{30},{16},{7},{13},{1},{1},{15},{19},{22},{8},{17},{13},{15},{18},{23},{28},{38},{23},{28},{38},{23},{28},{38},{38},{12},{16},{17},{21},{24},{10},{21},{20},{3},{22},{12},{12},{11},{11},{4},{7},{10},{9},{18},{18},{9},{12},{12},{6},{18},{12},{7},{2},{21},{23},{3},{9},{9},{9},{15},{22},{20},{3},{8},{3},{20},{16},{12},{6},{12},{12},{21},{12},{12},{9},{9},{9},{18},{12},{9},{9},{18},{6},{9},{9},{6},{12},{12},{12},{9},{15},{12},{12},{12},{12},{12},{12},{12},{12},{12},{18},{6},{9},{15},{9},{12},{12},{9},{9},{9},{12},{9},{9},{15},{15},{15},{18},{6},{9},{12},{12},{18},{15},{12},{15},{18},{18},{12},{18},{12},{12},{18},{9},{10},{7},{12},{19},{16},{15},{7},{15},{4},{8},{7},{18},{13},{13},{8},{9},{10},{9},{6},{10},{3},{6},{8},{8},{5},{8},{7},{9},{9},{24},{13},{12},{6},{18},{6},{20},{22},{6},{8},{8},{14},{12},{9},{11},{13},{11},{15},{10},{13},{7},{3},{15},{8},{3},{6},{11},{8},{3},{7},{8},{11},{13},{5},{15},{7},{9},{8},{14},{8},{3},{8},{13},{10},{17},{8},{12},{10},{13},{35},{9},{6},{16},{13},{16},{9},{12},{3},{11},{5},{19},{16},{8},{6},{12},{9},{12},{9},{6},{11},{9},{12},{6},{7},{12},{11},{8},{10},{16},{8},{12},{9},{8},{10},{12},{10},{7},{12},{10},{4},{3},{6},{3},{3},{14},{17},{8},{5},{12},{17},{18},{11},{10},{16},{19},{17},{9},{5},{6},{10},{5},{6},{9},{3},{24},{68},{99}};
-    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (2455 bytes) */
-const char* const cstring = "BZh91AY&SY.%\262\322\000\0002\177\377N\355\256m\355\373\375\310\277\377\377\356\277\377\377\364\177\377\377\377\177\377\357\377\300@@@O\340\340\010_C\003T$U@\212\210\264\024\020\322\r\022\t\251\232\232\237\220By=MOM\023\311=M\036\246'\244\364&\236\247\244\320\032i\352i\2234L\206\203jb4h\r4\0324\006CM\0002i\241\210=\0204 L@ \023&I\351\225\033\004O&\232&\214C@4\032\032\006\200\000\006\232h4\310\031\000\000\000\000\000\006\2100\232\0311\014\021\246!\240`F\201\246F\020\321\241\223FF\206\230C\023FF&\021\243\t\220\321\240\310\003M\003L\201\240d \302hd\3040F\230\206\201\201\032\006\231\030CF\206M\031\032\032a\014M\031\030\230F\214&CF\203 \r4\r2\006\201\220\203\t\241\223\020\301\032b\032\006\004h\032da\r\032\0314dhi\20414dba\0320\231\r\032\014\2004\3204\310\032\006@\221!4F\2012'\252\237\221'\215\024\375G\251?*l\240\3653Q\3524\365\006\321\250\017Bdi\221\204\310`\t\2041\244\006F#&A\352<\240\332\236\223\004tW(?\031\377:M2*\022H\375p\260\305az\204\242N\037\237\203\245%\236]\227u\335\375\355\317\305\1775H\374\205\252U\300I\275\352x)\211\256\\$\205Un\2532+\253\320\204\031\320{/\214K0gC\003\022\336\376;\036o\267\003\360\022\253\321\223\261Ve\023\346\215\240\t\253M\373M!\010l\222IAU7`,\211\251\005\224J!\t@\312\233\031\240t\252\000\241\031t\255xZ\213\255=O\341\251]\375\035\267_#8\3074X\016\361h\366\324Y\254\336\300~@;\261b\335a\311\033!\371\003\n\023q\202\3178\236\000\255d0\332\246\010\257\311\355\006\333\n\246A\257\206\300uC\233\301B\201\250\251 5\373\350\360\306\204|A\303\341\370D\371f\342\327\312;k\322\261s%\000NS\231q'\204\362\303\006\255\247\213\234j\270k\300Y\241ov9[\214\253\220ch\n%\206o*\2607\373h\332\277\022\273\232\004\334Q\266\010+\267tC\213\371\336\234\267\346\232\330/h\031\231\346\350^\241\217\017\336\343\326V\020\312\310X\353\314#\360\227\036l\265Tfff\022\232\244\0262u\327\231Ya\312\013O!\365>\256\317`\013\314\263U\023\326\242\314\016\305\225\341\242Ahr\036\231\207g[8\246\032\274\233\342/\2040gh\356\270\343\033s\206M\224\200\341+\322\360\025\2067J\323\000\264\371\332""\261\3116\036\023\002,<\376\261X&h\n\231\330&:\364d\345\274]s\206\337.\226\340\"\2206R6d\246\364\262\214\330c\031x\364\351\336\201\207\234\036WF\234!\354N\247\007\203\242\036\225bU\227(-A\306,\351p\272\007Kr\334\325\025\362M\233+\267\223!\276M0\177ob*+CFv\360b$N\215\322n\272U\230\205\\\2069\215\002\325h\t\220\000\243\325R\031\210\231\327\300\316\242\355\372\314\3274\366\210s\272\373\303\301%p\204X\030c\204S\266i\353\332\264H\315\035\206\315\206#\024p\343\023\312\322\023\031\255b\0132\001\332\212\001\240\3144\033F\"\2212\317\306\203q\272u\022\216FYi\312qE\005\005U\241\205\034^\201\272\262|\200\032\321aaImI\034\203\221#\244\246[\2224\336\320\216d*\325M\254As2\346B\r\254\341\263\277\226\212\341\013i[m\2432]d\242\312\256# \266fJ\324\2377\003\317 \256\036A\324c\311\324T)\307n\270p\034\023\001+\2636\215F6\351\266ax\341\r\350\202A\267\222\262\016\006\306!b\222+1\205\032\261p\001nd\323\255-\202y\204\234+\010\251Mz\240\326KB\234\311\234\335\272\347<o{\325\000\263\214\315r\240\263+Gz\024\020\317\310\274\245\260F'\237;\030\315&d\032B\226\347\310\312\025\257\250\240\362\300F\033\025\246\023\010i\"X\002\343@Qc\337\023\340\204\020\232\343(#]C\344\3613\233\017T\325$\332\2228Q\277Z hR\006\322\220\375\225\347k\302\341\231\242\245\251\244A\367\023{K[\232{\214\210Lq\\P\211\202PL\030\330\333#\036\355\370L\033\026\032.Apg\241\"M\327\016\265i\275\251\256\323@3\24649\214a\t\002(\251bX\0142\247$\241\373\022\210\220;\261\245P\215\"\240\354\223*\2218\235\304o\240.x&`i\030\256\22734QS\004\257J\352@\214\233\362\272\224\352\255\t\264\330\321~R\223\237\035\343\304\224\271\271*67\207\t\216\351\231\260\223\224\341\003@\333\001\313bND\025\306\354'\016\375\332\326\302\324XoXL\234)\277\226\240Z\314$\014\235\004c0\306,\020\233VX\224\244\331\002\274\204F\241r\327x.E\270\243uu\246\003\031\245\032D:q0\211\217^!\260\243\036\344^!\210\255\255kos[\224E\372\223\337\361@\340\021\200\264$Q\005\357\212)\214\252(\212O\005B\250\330\266\016\224\326\007ld\013a\213\327\304i0%5P\347%\204t\001\006\205\356\000\210P""\237\014\246\371e\033\345\241D6gB\373\206\246\327\242\033WI\004\254\312R0\243\013*q\014K\275CUi\351x\337\236\014\030\021\000\031\0147\2230\035\027vi\0245\320x\2252a \230\314\\4O\034\352\333$y\274\032\025J\227X\027\023 g#4S\022\006\021\203\0055\031\032\030\232\254\016>S,AbE\275\3500\234\343Q\"n\223:\232\034\343v(\236\334\355\330\343J\353\206\365\361\222\253\370h\030\257D\225\214\307x\020kp\260\230\316\262t\316\361\016\352\360\024\245LJ\2155\254\333nl\313\220\215\022'+k\303y\247\265q&8\351\343\204J\035\367JU-'\2401\022\262E\226EJ\020\304\241\223p\362\272c\0031T\302\260\242\022\002331\023l\2178-\245@\210\251[`A\320]\024\265qR4\304X\3249\321\024hr\265\314\277,\025V\tH\\ \223[\235x\247a\022H0\014\324\027\343aT\204\210{\2304DE\2730\313Y*\331\t\024\342k\t\307\023\022\272\350\001D\0219\365!\217}3%\255\006\300\316\025\304\311\030\r\253\3667*\323\325\263)\236y\000\277\230\267\2146 \343+\014\265\277s\204\357z\242\354\031LS0\023\230\350\004f5\000KT\205\252\271\223\223+\3550=\326e\324i\036\307=\\\206z\266\024\353{\232\2019\007m\376\260!\036\372\264^'\363\r\343a\315^\177\344,KG\335\017\202\262\260\361\327\300(\026\007\221P\376^\030Tk\241\356\351\203=\3028a\367\rrSi,aE7[=\340\232\213\371\301\006TZ\202W\014\310\304w\303\016B\357?I\350\371\237\267\231\333\372\327\213\027\3758\273\244\320n\352\360\305!-\243Jb \230\256\200\036\263\0215r=\311-\325$3\245Bf\347\270\036\256\237+\326\346\177\037_\330\372O\254\241\021\227r\360\007\250B(+\235\250D\236\316#p\222\232H%K,\007\341P,\257>\032\022\374\372\021t/\3629\373\303(\033H\320\215\276L\013T&\036\367\035\022J\335\302\317\225\3237d{A\317\347t6\377\276\257c\3111\\\270\277?\346,B\314\034dg#Ba\032\232`[K\251\373\001\014\240\023iQ&@\275OC\342l\360h\227*\177A\373/\257\210!\246:,\211\035rC\274:9[\310\031\275\244i\203\343\276\210\342\"\243\345\334\321\315\367\322\303\323\243^H\312\2279\032%#4\013\246\372\250\303\300\352\302\313\033\025j\273Sf\305&\035TvK\377\001[r\335\tgD\343\260\355\203\304\224\006\346\001\024\002\333jbf\333]h\313\314\350b\357@""\307\236\032R\020\203\322\323\237P)\312\262*\216c\331\037\317,\002\217\020\024\232\314EnR\213\035p;7\002,\354\354\033]\305i\231\234w3.\337\367,\243\020tK\037\007o0\262\224o\t\007\254Axv`\\J\013X\233\3033\241?\350)DS\315\224( \3023\327\300L\240\rW\014\315J\026|\234WZ\352\244\023\0375\314!\365&\020\206\304^$@\0266a\020\326V]X\216\r-x\307\243z\325\324c\305\313M>b\274\034\034\373\333I@\321\370\362\260\036\250\326e\211n\273\203\247e|\004\266\247\334I3\250V\245\205\354\370\207\260n\360cd\3308mzL\334\3100)\3358\237\274\256&\\T\024g >\nF|\3050\022h\006\352\225\206C\2740\031\263+\010a\tV\304\242u\006\275m\241\242\005=Q\007\225i\276\237?\363\262{(\335\030}I\226\232\"*\255\246Af\306]\225\272mJf\233\245\250\267(x\216\273\214sE\335m\335\235Pcr\005\362\250>G\215z\271v\254\340\027\204/\357\214\367`\177\342\356H\247\n\022\005\304\266Z@";
-    PyObject *data = __Pyx_DecompressString(cstring, 2455, 2);
+    const struct { const unsigned int length: 9; } index[] = {{15},{14},{13},{15},{15},{13},{15},{15},{13},{13},{10},{8},{8},{15},{17},{2},{4},{29},{3},{17},{179},{3},{3},{13},{1},{1},{16},{7},{13},{1},{16},{13},{22},{19},{1},{24},{30},{30},{30},{30},{1},{2},{3},{20},{22},{8},{17},{11},{21},{33},{17},{20},{25},{21},{21},{13},{15},{18},{15},{23},{28},{38},{23},{28},{38},{23},{28},{38},{38},{12},{16},{24},{16},{8},{15},{10},{21},{20},{14},{18},{22},{12},{12},{11},{11},{4},{7},{10},{13},{15},{18},{9},{18},{9},{9},{12},{12},{2},{6},{2},{18},{11},{2},{12},{7},{2},{20},{11},{2},{2},{2},{21},{23},{3},{22},{25},{23},{2},{17},{19},{9},{9},{9},{15},{22},{20},{3},{8},{3},{11},{20},{16},{22},{2},{2},{3},{12},{12},{15},{12},{15},{12},{15},{15},{15},{12},{12},{12},{15},{9},{12},{12},{18},{21},{18},{9},{18},{15},{24},{9},{12},{18},{6},{15},{12},{6},{6},{12},{12},{21},{12},{12},{9},{9},{9},{9},{9},{6},{6},{12},{12},{12},{9},{12},{12},{12},{12},{9},{12},{12},{12},{12},{12},{18},{18},{6},{9},{15},{9},{12},{12},{9},{9},{9},{12},{9},{9},{15},{15},{15},{9},{12},{12},{18},{15},{12},{15},{18},{18},{12},{18},{12},{12},{18},{9},{6},{12},{15},{15},{15},{15},{12},{12},{12},{10},{10},{7},{12},{19},{16},{15},{7},{15},{4},{8},{7},{18},{13},{13},{6},{8},{9},{9},{10},{10},{8},{10},{9},{9},{9},{11},{6},{10},{3},{6},{8},{4},{8},{5},{18},{8},{7},{9},{9},{24},{13},{12},{18},{27},{6},{18},{6},{7},{20},{29},{27},{22},{6},{8},{10},{8},{14},{12},{9},{11},{10},{13},{11},{15},{10},{13},{8},{7},{3},{8},{15},{8},{3},{6},{11},{8},{3},{7},{17},{21},{19},{8},{11},{13},{5},{15},{7},{9},{25},{8},{14},{3},{8},{6},{8},{10},{24},{13},{10},{8},{17},{8},{12},{11},{12},{13},{13},{11},{8},{8},{10},{13},{35},{9},{6},{13},{21},{10},{16},{13},{16},{9},{12},{3},{11},{5},{19},{20},{16},{8},{6},{12},{9},{12},{9},{8},{12},{6},{11},{9},{12},{6},{10},{7},{12},{19},{11},{20},{14},{8},{19},{10},{16},{8},{12},{19},{9},{8},{10},{12},{10},{11},{20},{7},{12},{10},{4},{3},{6},{3},{3},{14},{17},{17},{8},{5},{12},{17},{6},{18},{11},{13},{10},{10},{16},{24},{19},{17},{19},{9},{5},{6},{10},{5},{6},{9},{69},{77},{198},{279},{93}};
+    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (3436 bytes) */
+const char* const cstring = "BZh91AY&SY\246\222\351\215\000\000\231\377\377o\377\377\377\375\357\375\375\277\377\377\376\277\377\377\375\177\377\377\377\377\377\357\377\320@@@_\340\340\014?=\356+\300\350E/[\333v\265T\nmF\224\331\350**\013\243N\227BQ\021\023L\t=44\004\360\232\032\233JoD\2326&\211\262\217P\017S\304\215\031\224\3151G\251\372\246L\324\365\033S\324h\033P\365\033Ph\330\220\320\315G\240@4\321\352\003\312z\231\006\210FI\350LA\244\364\320\320M\t\3526\246\223\312z\217h\247\250z\201\240\000\000\000\000\000\000\017Pz\201\240h\000\000\000\000\000\000ES\332\004\3054\001\246\200\000\001\240\000\000\006\200\000\000\000\0002\032\000\000\000\000\000\000\000\000\000\000i\242\t\246\210\324\311\241\225=\224\217\322M\251\345=M2di\241\220b\006\200\0004\000\000\000\001\240\000\000h\000\000\000\000\000\000\2004\r4\032\014L\200\032\031\006\214\002\000\r4d\006\020\0312\014\232d\320\304d\310\r\000\006\214\201\211\223 \000\000\r\000\004\211\010CI\352i\224\365S\375\006\246$M\251\3456\2154\322\036\204\301=M\003#\004\311\246L \036\246\217D\300&\320\214@\323!\240\000\310\304h\302\032h\323\365O\3254zh\233K\255G\226\177O%}c\364\372\3368\246\033{i\2661\266\332`\375\030.Z#\024\nm\000E\237r\003\"\034\322D\rfI\216\004i\342\024\245F-B\010\265&E(\244E\034\201T,\205\257\326s\304\340.\320\005#\020\247*\221$aIRX\313\3005A6v\211\237/\002\312\340\230T\207\237\n\267\034\324\244]\020\027\n'\016\"\2125!ja\021\023\024!\010a\220\025[5+d2\301\243V\257\253\224\246:\212\257\244,\256\007\032\006}\010Y}\354{\010\035\215^\200\242\342(\314\017\332v\224[\334W\304\004\343\275\2252\310^L\320G\004\232\246\035\215\213\030\312&\265\263\2368\307\254\365\243\221\237=sl\205\036\370b9\265\271\234\262\354\304`\305Pz\017RF\003S7\207\301\264|\024we# \331hKyeT4b\302q\r>\3723\223\334\204\010j\223Y\202Q\021\026\002$\023\024\356\235\217\336iiW\033\216\000x9U\257[\010\261@\271\357\305QVME\345h\243h?=\022\334\211\241\252\212\276\275\2542\031QS\243\316l\221\025\371\231\013\247IZ:a\272\333\220\017W\213\263W\310\017c\340T\017.\2340\304\357\200r\006\312""\034z[\365\\\006\222\221\244\001\321\336\354\207\363\363\361gx$\212\350\021Wf\343e\000( 7B\225$P\014\0038\252U\332f\257mN\316ud\320\366\337>\354\244+[c\322l\232N\3769\201`\211\267\025X\254\246\322J\344V\274+V-VY\344\020]h\242\376\354\316\336\027+\220\251@\016\020\304\314E1fz\253\232\365\017\210\210)\301\253N\027\336+\361\255-\323@\244O\203\006\370Y!G\303M8\346s\233ln\236\023\315\230Eh+\305\217h^\312\006\022\021\233r\260xC\264\350\374c\340\014\204\306\255\034\032\330n\250\317J\321\337\215\305\253\311\r\r\0301KU\241{X0g\354'6\320\032\001\301\r\001\030\346\233\352\\\260\\9;\262]\313\324\337\277yI$\204\244X\014T\323o\311T\223\252\207\336'LW!S\014\250\3146\202\320\304`9tz\2232\320'\003\241\362\251\272LB\275WjJ\242\225\3109\213B\275Q\210a\214'ob1\010|L[\303\021\035\000\362\341\256\361#4\204c\t\214\203\016\366q\202(i\323UZ\200J\202\025\347\253\245\251\274\014\031\315Y/r$\300\260r\304\354.\347\273Q&8\313\313\342\265\345i\326!\000=\032\016\n\016=\301\321u\200\230q\236S\273\020\303p]\\\236\2246\242\250\351\025(-Ld_{sgla\301Z\222\007\"\350\334<\246\245\213Vs\323\221*I/\242CunT\275\213\201\"\013\2753\210\017\302\271\344L\2079G<\346\016tsU\342\272[\034pi\020\nRuA\311H\266\234\206\316\272\235\024\222\003,\2576{\002\311\275\nI,\312\306X\031:mvAfhc+\205\"g[2E\031\213\344d`\037O:\"\327x\020\244\014YD\325`\251\003\203\322\000\230<\323\300\244-\204\215\301\242lR\250\345\314\tb\240\014p\006PJ\032\252V\n\267\235\266x\3276\014\313\206\205\224\025\310k\265u\007\023\2345\312\200l!)\324U\227\252\301\004\024\334t\031\214\322*\216E$\232\356\206>\353\273\346\303\034\272\3200\235\366]Q\241j\250\274\3144\210\241\023\n\324\020 \203\234\220Pl\250u\033*\374ot<l\001F\325\242\005\004\222O\006ny\336\275\276\233)\t\203NC\215\t\t$\313k\034O)\340/\352kZx\021f\225\224%Y\310@U\304\313H\311O\036\210\320\270,\305E\217Zp\320\215(\343\254\307\361;\037\000\004h\224X\323\304\n\250\220\2006(\016@\220\000\345\036,\370\001\200\005\216I\204\214\ng'\010\302\256<@\314\226\220\307'Z\004\215Hpy\3149RApk\013\261I\215`""\241w@\301\261\370\037\032\002\240\351\334$\001t\241$=\003g\n\313\354d\031\207)\204\2006l\243i\004\205!\252\232\200\306\257`\2437\031\245YA\031\201R\350\251p(d\231|\n20\204\320#KV\353\\B\326\267\312\020\247\235y\250\ty\305\352\273\t\310\300\362\315-\304FF\372!\256\272Y<\266\225@B\030\3650\001\242\006\367\334\316\370p\320\314\267d\321\323\335\032\312\276M\013\303T\202\354B\214r\205\306\321\325\260\030A\232*\"\022jh\213\001R\026\205\274\202\375*\024\310mbD\326\310@A\2075r\230s\312\010\325\010z<<\205\217\0322# d\030\327L\227\202\211\250\002\264\0327\006\316w\356K~\025f\022U\255]\202 \2471g\212\252\265\237\275\344\240Ek\036\t\"I0\030\330\323d3C}m\362\362Z\246\225\203&\235\002\004\321\037\000\314I4M\342\254\271G_\212\221\232R \023Z\rq\233\250\224.\"\010\230d\246R\215\030\371L%\356r\323\002\036\255\374v\317\005\272FC\005\352\350X\001]Lcr\245\3626 /\272\346V\3000\222\227\306\303BLT\275,\000\254\244\010\267\222\"\274T\355.\3073\201\200+i\333\004\n\353\326\016S\256.\255#\340r\330,\033\033\367vZh`\301Q\216D\3458\023@\306\311\214Q=\202$6Ws\254\234fqM\006\251\202\311of\257\212\263e\205\024\363\274\306I\312\202\255\243\243\265\222\026\243\0075\005*H\306]\032WBi\261\205U%)6B/\2017\000\020Q\202LH\221\204\323$I5\266\027\223k$\343\255\214(\006\024@a\255\244\020\345\031%\r\240\251O~H\302\220\301XQ\255M\203J\314I\026\343\237'\355\3225\010\276X\022\n \264|\020\215\344\221\200\321{\233\300h\342\034r\371\0030\361G\004{\3752\333\216\230\236\330\240\341(\365\227*\210Fo(\335\225\016:\371\020x8\360\010\021\335Y\261\255\034{9\222\221\n\237\247\323Dk5\232\221xuE\324Jj\210.\224\255\n8\027\020\24123\221\371\316Su\025\255$\235U\247\220\001\2011\003\000\3104\210\031\th\262\231\3008\246\227\020M8X\302\335\240\315\215\"_h0p \240\206$\016\261\036\"I \260\330\351\336\004B\007\312\000H8($\035\225\305}J\036\204\020\226\254\324@\227\256\370\361\023\270/\311Zb\251C\304\234\260\335\024^}\261\253\223\340EFs{\354I\333\022\242J\241\312\261~\360\314a\233\302\225\342cz\234\n\361\024\207W0\202\005\204SV2\354!""\007\266\335\336.7\021\316\341*\305D \257\006\226\316F\335\335\005\266\220\005\010\031d\242\020\360F\324f)\275t30\252\016\235\312E\327\014t\206e\014\027I\321\324\007\263\302\332{\225\234\035Z\3100\244#\203FEvYd\346T\020\320\020\311\330\004\022v\272\245\030C<b\267!\205L\032\024\210(J\022\002\224\205\022\026\025\235P\240#\254\017\254k\347\005\010!K\222\026A\222x\\\302&\000\021TYM\265R\312\246\270$_\212\271\260\271\246\342\353A\271\"T\216\264\254sD\274\021\254\002D\017\221\t/\004\013\217\326I\n\230A\244\240\001\257:-\210\006U\206\346\312\244\214\242\262U\356\233clm\261\250\256\241X\355\350\310A=\013\330\363\244P\tU\313N\377\r:\210\036\372\263\036\026\203df\\$\3111\334\235\332\374\312\251\203\314\362(\332e\204\210?\302\022\246\033\324-g\301)\251\347\340\357\363\004\354\246\266\300lu^!\3036C\0217\265y\200\247\261\002\0336\304\370\374\204:u+\253\262\340\363x\366\007\023l\\\177\352\340\311c\005\350\177u}\014\363\352)\375\226\177\250\254\021\005\030q\031\353\034b\324\222\366B\370\244\217LLoU\221\004$\327\211\344\210\360\317\031#\302\3372\360->(r\2021\260\215u\271(*\203\304\242\364\374\000\254b\327<]X2\336\021\275\016\\fx\032%0`\215\000\242\233u\325\354\004\202\031o\031\0224@\260\024\213\303.h\016\334T;\2619z\201\241\242\234\3214\216r|\247Mq\213\376/\005~s\342U\257\245\0020\177\206\316\3508Y\335@\270D\267\342\222\005\314\033!8@I\020\202\374\010z\354\002i\362\032\355D7\010\320\024\376\235\0346\372\341\320H\241\203#\242\032fg*g\327\2310\030r\264\177=O;\2453\230\316_L\341,t\276\257M\345Ub;$E\224\305\226_:\352\"8\033\253\200\243A\250\200\353\276\023Pb}\001d<\016\002faX\3651\230\317\313\255\247\365'\337\243\227\215w\370z\263=\256j\327\025\010%\302-ds\337*\0223\204\303\330\016\251\034\211\210\275\321\026Y\357\203v\307aT\213\307\256\021\233\233\370\366.\272\351U\220\231UY\337\247\010v0y1\023\30110\302(\221\202\375\014_\326\260r:\024I\373\264'\253\272\204\036\3609\336\340 h\240\211\260\n\002d\013\317\342\371\247\352\364\016\237\207\351p{.g\002T\\LiC\372p\021\0046fj\007E\270\022\334""\212`\232 4\200\3322\232\353(\263z\350\330\203\341=\244\310\210,\031\305\276>\351\245\351~\335\377a\255\321me^\310\214\234${\211%1#x\214\357<\363PZ\212B\345{\204U\215\353t\301Z\255\264\026X\270\306\372\240\224\240]\t)i\243\332\002\2734\247I\001\252\212\021\332xFYPXEx\204\304\241\326\353\363108\206NO\361\203\311\021\375\014(=\306\027?$\350\375\336C\216\363\364\274_\346\223\016+>7\035\245\350\023\3610\355\001\351?JP\006\210HM\314%FM\0161Fu\365\020\023\013\026\200Q#\232\257(\335|\327\352{\214k\345G\215\032\301\372\275\317\201\235\216\2278\0233\323{\255\324\236\205\365\270\230^\035\301\\\365\234\215\343\267\320\203\216\363(\334\354j\305\342;\340w\312\252\267\260\371\031uz\233\376\351\010\260E\007\313\213\336\027)\366\272\376[\027\262\204\036\226\030P\255\307}V\334\353\375gf\255H\261\270Y\024z\342o\204'\301z\252*-\210\3061\347\257!\343b\240n\321\310\273N\204\267\233]\206\337m\227\024\327\264i1\031\305\245POh\271\3777l2\r\256\322\331\356\013\3576x\220\024\215h\207i\311v\344\305ZJ\322\270\242\205\246\362$;\250\016Mq\215\324\227\273\231\264\267Ww/7IH\262n\267\020\312\251Q%\361\254\345ZE\007~\311\316\213rv\256\253\207d\313}OI\022s\322\243D\352\233\207\322[\310\241\216\376^\004L\233\361\340e6\1775\205\2273)!\017\242=8T/{\321dTt\010~i\220^\021\250\204\205B\225n\325\212\026\357\351\340\310\266\342\307\271\274G\3616\341y\024M\264\222\275\353YL\332\361-\253\013\333\013:X\305?\276\020Sey\036x\327-7v\254\253\n[S\266}6D\346\315Q\266\022\202\341\n\2275\027\025ql\377\355\262\007\0219\224\350<\244 \321=\321\202\226\260PqX\336e>Sl#\226\356\225\346WJ_\310\277n\362\255\327m(r\027\002\\S%\327\235q\202\300`\307\264\313\257<\242\202)m\210\030\212\260c\350}\257\215I8|\253\202\231X!Kwp\317`\017\374]\311\024\341BB\232K\2464";
+    PyObject *data = __Pyx_DecompressString(cstring, 3436, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (2203 bytes) */
-const char* const cstring = "x\332\215W\333o\024\327\031G*U]\245j\024\225J\215Z5S\021\025h\205\251MT*\345\241Z\257\227\306\340\313\262k\207\240\266\032\235\2359\273\036<;g\230s\306\366\242>\330\200\355u`a)\030\2665X\033\207\202\223\024\257Q\r\361\r\334\307>\372\321\217\221\272\263\227\247\374\013\375\3169\263\353Y\344D\265\354\231\337\367\235\313\234\363\373\256>\334\241T\257\254{3\233\336\324\263\362\306\027\207;j/\377\351\335\270\327\220\024o6W^\233\r\305{\372\017w\266\316\354TZ\246v\006\247\236l\235z\262u\352\311\300\324S\336\243\317\312\333W\353w'B\277\256\177\362\274\376p1\224F\227\211u\204*\341abh\270\013S\246\304\261ib\247R\234\251\225\246Ow\205\216\366\3431%\206M\214(\226\312~\302\260\302\206\021S\302\0316L,\305\240\212\216M#\201\035\304\260\231Q(s\014\215a\207O\262\224h$z\374\275\337\275\247 KW\034|\021k\214*\324Mh&\242\024S\205$\225\204k\230\314\260\024\226\2611mWz\222J\206\270\212\205\261\2560\242\3300/\270\200\rcK\241\230q\240\034A\226E\030b\006\261TXnX\251#\212n8\360\021c\024\363\325\247\221Iq\373\271_\206\274\334\\y\355s\257\264\345\315lx\331\373\336\362\337\313\353\263\377\235\270\362n\345A\026\030\361\356.\327\027\037\036=\346\315M{w&\3533\271\372\314\255\257\267\262|\325\313\\%\267X]\276\377\365\326\254\034\365V6\274\322\332>\2437\246j\237N}\343Z1\372\215k\237\346\313/\357\354\035\244\274\371e\245\270u\264\274\276\342-\277\250m\347k\253\353G\177\337\216\364(\241\006\277m\273\215R8(\372 \240rm\035\354\241\017\032i\230\250\253\300\023\326H\332\306\314`\3049n\0222\342\332#83F\034\375x\332\260\260\323\020\034<\212\035\n\026\245\354\217\221q\2338,LL7m\3759M,b\0233\023\242\206\325\315\010m\377M;\002\270\217Z3\rm$\006\237\337o\214X|\1778b|\0309x\337Y\035\373o\334\361-\033w\374_\033w\356\277q\347\267l\334\271\337\306\304\246\260\342\004\025\301\242R\3331\030>\201\005Y'4\301\026m\2673\240Nc\337\224\266CtWc\300.\305\310\321\206\035d\215\264X\263U\341\203\026e\300\242\020c\312_\224~ba\036\032\240M\021\307\300\234^\023%\260\371\272\222o\343MO\327\266o\363$\340\255o{\267?\256~\261\000\316""\\\231[\tu\205 \010*7\377\352\345s\200\275\333K>\016{S\377\252\337]\256\225\000Vn.\325ry\016!\223T\263/\370\013R\213\227\233\024\350\321\223\352\263\315\256xl\017,.\324\347\266a\367\3274\325\2333\336\312-\251\351r3]d\334\313\335\003\037\227\030\364\336\302\3650qm\010h\265;\322\333\363a$vA\215\306z\302\021U\r:\243\252BrR\3253\321\263\221\013\347\007b\335j_O\177$\246\206\007z\207\372\372\343\re,\002\353\343\221\206\272\367\\<\032\r\303\305\301&\000\244e\324\306\366\002\364E\032b46\320=\024\036l\254\205w_\337@?\3503\343\360\327\r)N\355\307\343,\206\223\361\263C\361\250$5\036\215\251j|\250K\035\034\030\014\365\252\241\276\201\241\376A\276u\253\\+=\256nN{\267\256p\202\356LVgo\310g\375\316\253\312\315\177\3104\003\331\266\276X\220\030\346W\256N\361\244\035\230P^\333\364\346_\001e\325\371\345\332\227%\357\3255\3115\210\222b\0002\273ABj\202=34R\016W\336*\000\206\303\324J\327\274\3544\000\356\021\367V`rS#Au\356o\000`y\2454\357e?\003\300\305\215'\345\265\217+\013/*\367_\324\357\257J\014\216\006\253\352S\271\372\304d\345\336\272\267uKZ\232_Y\202\331\t\357\331\202\367\300\027\313\333\237T&K\022\327\037\337\203\313\326\236L\327\027o\2277\257W7s\222\237\312\334Ty\343\272\317\230 <\230\260\203\3519\230\214\203\251\267\005\303\275\226\237\003\317\325\247\257\232\256\336\004\325\355\315Z\351vu~\r4\336\306cNH\376AuuQ\222Y[}\n\311\031\260\004\234\317gs\325G\033\240\221\365\230O\223\026,M\303r\337\246@\310\203\211\362\253\371J\351\356kQ(WU&6\275\\\021Fe\025o\212\336\346FmyYzn\355\306Uo~\325{8\303\2610\2127\261%\311\364\215\376|\222\337Z,\254/^+o\255\360\230\236\177\350M\315r}\363\202\"\330\374\017\315e+\013\017\344\302\275\241\231\317\253\327^\004w\223g\016j\3749\"a\0041\230\257Z\234\254\314\257\202\027I\257\360\327\212\321 \2263\233|B\005\223\231\222\"=\306+;\022M\212\354P\202\370\254,WR\345\257\031rL)\313.F\210\227\207,\203\251\352^\247@A\200\344\316\377z\241\306\3617\237H3\226f\020H\366\016q\241\035\301\024\215\"\003\262\251\211\273!\225\006\204\014\214\244\242\016?\316h\212\037""\321Jq\200G\r<F\023HO\341\323&J\t@\023\220\251\345Y\022\206\016\277}\206\005\317\030\262R8A\010tU\326\205\004$g]<\340\024\t\352\300\340\210\377\n;\r0\252!SsM\236\376\317c<bf\342\242\210`\352\247\371LG?J\343\206 0/h\274HYX5\240;r\220\206\023H\033\221\325\311\257Qj\222@\365\322\260\205\034\203\354\2259\237\332A\336\220i\"\031k\266\023\031G\032\323\\\307\301\226\226i\274UQn\264Q\332\254\214P\242\220\350\325\232\000S\336\036\302\326\031A\232\216m\344\2604\266\030\r\3003\304\260t(l\026\377>\335C\203(\245\252:\321T\025'4\234\266Y\246'\331\217S\2107xId\232\374J\311\004J:\3442\266\222\256\2314L\223o\250\252I\327\202U)\314R#`@\260r\032\212,Pl\244m\250\301bs\325\240j\323\336P\301\323\364\"%\326@\202w\251\275\334\005\374\226\310\177\205-\037Pn\010\312N\351\340\013!\220\300\213\370\371\315K\340Zi\004l\303O\032\373\327\027\002x\247\211\371[6\027\341F\267\241\252\026\330\212?\231\353 S8\274\205\307\374\206\333\":\356\345\004G\021t\332\242\345hoi9\332e\313\321\356\233\223\000\311\302\013\201V\340\300\036Iu7\210\344\266\014\312\264E\000\226A>\217\215\3240k\002\256$\266\252\002]|?\016\300|\242\247\211\214k\246K\301\004\302\242\252\337\333\250\3761|\221\277\223\006\263]pT\270\014\277n\003\003)\227\\d\312\273_r\201K~\nG\304\222|vc\223\301GM<\212\300\315\340\004&\370\257\360\024\007\003U\226#\303\315\177\371\263\005\346\337i\270\264l\265x\004I$cgO\006?\360\337R\307\251\345M\237\000=\272|\363hj qN\201Ep\010\004\227\201\377G|C\002\322\3011]\223A\323\006\016\344R\002w\306\300\005\264l\320\226\rB\0222Ci\342\302M\\\33363\3358\r\241/\014\257\252\334\253\340i0\023\213G7\267\017\313\004\261\010CF\354\223\341f\270\362\033\263\275}\005\344I\217\356\241?8d\214\rC\022H&\r-\030\336\276*\212\341\220\026\203\010\001\205E!-\244\341t\340M\310\004\353\214\002\227\362\352\243\206\216\311\230p\217\261\206\223d\260\265s\340\355\302O\212o}u\360\215\354\251\374\273\371d!\\\240\305_-\205v\016\034.\276\2774\274\202\276:\370\275\211L\376;\371\216\335\2667\263\227v\367\221\016\356\034:\266\364\026(v\336|\247p""\251\370\303%\264\004#od;v\016\274S\030/\002\376\356n\333\317\n\037\024C\273mJ\361\373|\352\217\363\037\026`\213\237\026\336/\242\335\266\037\345O\025~\261\333\366\363\302p\021\361\203\300\310\241|(\377\247\342\241\342\271br\351\203\225\323k\307\376\375\333\377\274\275\023\373h\347#mG3v\214\213\273m?\310\236\311\243\377\001X\227\245\326";
-    PyObject *data = __Pyx_DecompressString(cstring, 2203, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (3231 bytes) */
+const char* const cstring = "x\332\225\030ks\023\3275LH\353\266\016\2246\tI\223&Ka\002L\212\023\233LH\233N;kI\306\n\266,$\331\274\222\271\263^]\331\213W\273\362\356\312\266h\246c\036~\220`\020\005\203Z\203\2538$8\017l1q\210l\363\310\364S>\352\243>2\251V\217O\371\013=\367\336\335\225d\234L;c\355=\347\334s\357=\367\234s\317\303\333\233\271\322\251esb\325\034\273]X\371|{s\371\336\027\346\271+6\306\231g\247\n\331\263|\320\353\333\336R\317\331\302\325\261\266\324\262\356\255g\335[\317\272\267\206\365\365b\352_\305\363\363\345\251dyqj\237y\343\323\302\203\323\225\313\243\374+\225\017\277\252\\\237\343_1\247\322\305\305\313|T8\241*;u\316\325\257J\"n\305\272\301\005\261,c\255\230\236(/\216\273v\264\265\362\273\314\033K\225\323\363\035\222nHJ_\361\332\244y}\002\3662//T\346\256\357\352<\274\303\207\207\271\000\226\261\240c\266\314\247\032\2303\372\005\203s%\214~U\341$\235\013cY\352\305\232``9\301\351\206&\211\006\326\010\223\302\371=\376=\257\277\371:'(aN\303\307\261h\350\234\036\357\025eA\327\261\316\251\021\2567.\311p8g$bXo\342\274\021.\241\3069\005\3430g\250\\\014\370j\027\030\375X\341tl\020\200\333)(\212j\010\206\244*\010\226\303\rvraI\203C\244!LV\267\t\262\216\233\016\276\314\177wj\031.W\275\331_v\233\267\222\205{\227\252\224\302\352\327\305\364\335]\205\345\214\271p\247\374 Y^Z\336\265k\255B\314\345/\001\267X\213W2\346\245\223kY\030\265\216\261\311\234\232.d?3\027\357\232\023+\346\344Us\341\237\205\345\263\377\031=eN\217\003oeb\2522q\341\373\273\223\204\355\336Tqj\256\264p\365\373\273g\331\254\231Y1\027\263\353\314\236\033+\1774\366\203k\351\354\017\255\335\361\357\217\276;\365Eiu\334\234\0347\263\247\314k+\273J\017V\313\213\027w\013a\277\252KD\241M\361X\030\014\032\016IQ,\204\303\010\024\215E5\032\303\206d\250\332\036YU\007\3421Q\215+`\352&\336\035t\300N\376h\227\017\271\332\273\274.\217M\364\270\275\241\256\200\227\357@\001\217\253\253\263\323\343s\363!o\227\317Y\325\326\325\035@\301\020\037\260\t\355\336\375\355\035GP\200\017y\3346\315\307\207\272\003\260G\320\303\007\\\355^\337~{\"\350\207\255""\272\002\2505\300\373\334k\211=^\267\247k\000'\206U-\274'*)X\263\021\r\017aM\007\337\325\215c\236\221\230\252\031.U\216G\225w\243\002\360\0300\257cA\023\373\243\252\242\306T9\301\353\222\3426T\275\351\265&\001\300u\310\242,\211\003\001P\333zs\252B\216\003\325\006\373\005\r\257\313\325\274\376\306\315?\262q\363\377\264q\313\372\033\267\374\310\306-\353m\254\306tX\361\252N\343\010\322c\232d\340W1\325\335\253\"U\236\336\024K\0009\212-\347\217ij8.V\225\251\t\312\300z>\306\266\204\223\233\024\372\240\341\215\037\203P\362\256=r\357q>U\201 \246\331\020\004\005X\334\247j\022&\372\225\205^,\257%\222\323\014M\210D$q\217\256\3065\021\233\253+\345\205\205\322\347\263 _\371\334isf\251\374\340\"\211\242\346\362\003\363\342\3730A\036\365t\206o\345\341i\027\317\377\335LN\001l^\234\267`\2279\366e\345\362\002\304^\336\345\204a\022\227K\223w\310\000\201\332\234:I \204\370\236\375\310\037\200\207\200\020C\002\236\036\217\257\033P\363\306\315\322\355\325\326`\300\234\233\255L?(\235\237\250R\352\247@\0263s\301\242\320\260\002@k<\321\252\216\230SW X1\030\030\314\331\017\\\274K\215\307T\305\rG\270=\035\336\036O\340\210-\201'\340\210\353\t\326\372;B\220\t\340\023@\250\335\303\273\353\005m\257\256\362\372\274\241\267\375\007<G\016u\005\334\250\323\353\363\004\220\253\253\243\273\323\027\264\211dY \350\261\311\035\007\203u\t\306\221\177\375\264\003\241\254\223\017\034\360\204`\037\366\310\355\215:\017#\344\363\034\252W\250Mpd\365\373]\314\260\0000\367CUn\000:=6\352\017t\271\273]!{{D\202\022D-\344O\214\300\317\r\t\014\371\360\210\021\300\221\340\201\356\240\237\371F\320\037\260A\320\006B\301\356V\024\352\nAD\342;\273\272}!rJ=\036\n\360mm^\027\nBxs9Z\351\206-\315\361q\342^\243\253\354\332\265*`J*/\236\201\350L\214OQ\310\371\245\225\233\014ff'S\024`\226\267r\311\314x!{\313\\\371\004\340\322\331sU\224rVQ\312\014\247;\373\263Db\245\255{\227J7\027\255s\027g\314\311O\211{\316\236)^!k\255\2647\235!b\263dG\353\2155\351\260:[\177\235Z\"\273Tet\264\274t\223\034\221<\007w)\315,8\224b\362Zii\256\274t\013""\3222\034\3410\254\241\263\324N\344\267\223:S)9kn\266\252I\232\221-\355\235\0355o\317\232\3272\345\305OH\"\274p\n\030\230\3170\325Y\n\274t\277x\376cK]\351\211\312\\\212\301\260\252xz\214\024\\5\014\205\354\2529s\237IX\376z\321\274\177\206=e@\331\013&\300\205\024H\010g9R\225\246\377\0010\\\226Q\010\274r\263\220}\2778{\247x\365N\345\352\022\203!B\021\235\217MUFO\026\257,\233w/\254q\203\302\203\017\213'\027-C\177r\005d+\337\034\257\314],\254~PZ\235b\327)N\217\025V>\250\332\224\335\224ztm-R[y\324\326\031\265UE\035\014\027Y\370\252j\005;\244\201\306J\267\356;\361\322\001X\261Q\232\311\002\205x\024X\212\032\224Y\215\231\025`\006\0209oO\227n\254\000\205\225\310\204\215\331bq\274\352\314\240\234k\243\205\3733\304O\352C9[\005\336\316\034\225\025\326U\224\252\335\034\275\313\\\302r\260\257N\222\213P\206\312\334\231\302\335\014I\0003\327\315\261\263\204\356\\\204>=k\303\351\311\342\3545\266\260:5\361Y\351\314\235\332\335\230l\265\024\213\207f\227Z\030,XJ\237,\316,\201\0333O\260\326\322\331Z\230q:zc\312aG\024\257\177\\\\I\232c\363\020n\035\331\254S\330#\002\224\372\211\023\330j\275\202\\\244\246Ld_\346\333\305\364\327\305k_\2608P-\033\001b\t_\027\302\001\222\310\005\332\206\260\036\244\026>\300\2120F\262\326tk2\303Y\237B\321\023\335\212d T\255\364u@\240F!?\222?\310H\030\365\204\"J*\324,\232\032\207\244\202uaH\220\240&\220\261\033\n\202\032$\0013}\255\272\006_\277F\204\"\243\032\221\014\000\210\304J\037\001\2404T\342\230A\022\036&k\202\202\214\351H\205#P\017I\237\204\351\020\226\372\372\215^!\334\207\333d\241\217\002\035\264\036\241\240\336\013u\013[\326+\205\341\257SR\340\033\020\224>\334\253\2522\371aA9\322\013\345J\230~\\\252\"b\005*\027rcJ\201;\366\352\032,\031\260\006\227f\003C\242 \213q\231TR\2070\036\220\023AZia\335*\205\022\315>!\212m\244\026\016`#\256)\244\260\263)l\251\037*\245~h\371\250\005i\211H\312>\005#\t\032-M\020q\257 \016\260z\317\252\372\254\001ET(\013AtA\223Td\023\207%\243\037\211qM\303\212\230@\320@\200\"\253\305\245\345\t!\350\377\230\316\326\235\002*)l\304""\230\346\031\021D\303\332\r\252<{_g\177Z\010\212C\272S\264B\215)\320\376\321\0010\001q\247$C\355O\232W8.A\235!\214c\202fDA\365z\r\370\266*)a\250Q\025\"\223^\205BB_X\032\222\302\270\3715\204\302\252\210\020\356\005\335\210Tm8\0323\022\336\210\017\367\t\244\035\215\010\262L\264\026\351\025\"\232z\002+\221\270\034\001\001\310\001\010E\342\n\254\356\303F\337\000\270\253\240\367C\317eUG<\365\326z\202\345\236\365D\352\237RT\350\303\340+R4\006\0257\225\022I:r\236\005\324\353Q\375\270\256*]\275\244\031\357 /\305\352\207\254\301\245X@\200\265G\335\325\032\335\232\320\211\253\351\306\2760\274%\036\260Ax\222Q\001\\\003\261\306\211}]\n\033\375\002\030\237\201\310n\002\034\317@Ql\231\204\024OQ\210\0022&#\353E\354\321e7)\010)\340\275\344\013~+\310T\317\n\036\346\255\247\314@\366\210-\230)\312A\310Sf\010\325\026\200.\322.\302h\357e\375\263CQ\303\314\033\211\370\254\353i\252\353z\232X\327\323d\335D\005]\321\335\301i\300\2421\254\221\367\033\214C\3471b!H\247\230\345\377\026\021\254\025\033\350s\333.E<\275\026\327\353\020\3607\300Y\260q\000BTc\010\201\275\311\331\004\000U\320\026\3143\"\312q\035\234\317\317H4\310\326\205\026d\021m\203X(\031!\"\306\252a\000\3330\030j0.\310\314\016\203q\360\003\"\031\355\352\340.\265\335\235F\355\300\276n,\033 \234\214\207\004x\242 \251\014A\204\276-\215\206 \315\tD\0323\2225X\353(\354UD\215\230\206,\263H5\013P\230\260\"\326\344\351B4&\343\203qA\001e'\354x\244?\032\333\030\211DQ\006\261\370Y\305\341\tY#\243\021\007\250S\240\323\2662\300\033f#\t\2626Te\243q\254\nY\376\304\372][r\226\\\020\202\276\327rv\200\302\020>\342\262\001z\205\327\032\2678c\0324\303\320\360\206 1\312|\224\370\261\036\217\305\344\204\033G!a\260\373\r\0131\024'\031\324yq\344\351\"\346\204\364\343&\316e$ja\032a\231\233\032jl\257\313\211\307D\337F\3658\n\332\371\236\"\364UQ\210\244\355\032h\277\246\016\033\375V+\376H\304\177\224n\223\374\3163\261\010Azyg\231\242C\306\211\302\265\341\371\t2\270\343\020X\232\251\234\004fu\230\276\221a\373\245\214n\310?\271)\277is\276\361\311\374\023?""\311o\374\305ds\276\341\251$\237o\3344)L\016%\217\244\324\371\236\314\276\354\366\354;\337>\363\355`\276\361W\311m\325\317\303\206\306\311\267\223B\356\261\347R\317\246\267<\334\370D\276\001\226\375_\237\207p\344\037\223\241\324\226\324\216T$\355\236\337\220{l{\372\255\371\376\014\314l\236\374[\352`J\310o\374\351h\"\371x\022$\333\234\333\374\373y\236\010\013\177O>\223<\236\336\360\360\207g\205G\346r{<\337\034\313\371\017\326o\2713=8\277\241\236\364Rj\220\356\363\"\034\337\270-\275%\337\270=\275o~\033\205\037\256\313\271=\375\247\371\023\331\255\337l 7j\006\275n\332\374p\343\326\344`~\343oR\333\362\033\237O53\210h\031\364\364B\252=\315\347\033\270\364\317\346\267\344\033\236N\366\300|\303\363\251\267\322\240\226_'\367\001c\303\213\251\3764\\\341wiX\376B\356\205\226\314\313Y\220\262a\362\347\240\375\206-\311g`o0U\033a%fk\334\014\366:\224r\201<\277|.\265%\277ekr8%\202\350\024\003\2267\222[S\217\3031\215\317\2466\324\341O'\017\222C\337X\303F\310\215[s[w\347v\3779+\346\370\356\\\367\261\334\261w\036]O\361\315\223\303I!\371^\2729\335\221\331\230\3413=\3317\277y\343\333\347r\201\243\271\243\341\\\030S\337\312=\2663=2?H5\360|\352\017D\003\324u@\0219\256%\0037y)\365WPs\303oSG\323\203\017\035wL\276\223~*}0\035\231o\317\264ew\263}\017\347\016\2139Q\312I\307\363\314\r\377\013\355\020\332\241";
+    PyObject *data = __Pyx_DecompressString(cstring, 3231, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (3994 bytes) */
-const char* const bytes = "#1 \347\202\271\345\207\273\345\205\261\344\272\253#1\350\275\254\345\214\226\345\205\261\344\272\253#1 \345\211\215\344\270\211ASIN#2 \347\202\271\345\207\273\345\205\261\344\272\253#2 \350\275\254\345\214\226\345\205\261\344\272\253#2 \345\211\215\344\270\211ASIN#3 \347\202\271\345\207\273\345\205\261\344\272\253#3 \350\275\254\345\214\226\345\205\261\344\272\253#3 \345\211\215\344\270\211ASIN7\345\244\251\344\277\203\351\224\200A+\351\241\265\351\235\242Amazon's ChoiceBest Seller\346\240\207\350\257\206FBA(New Release\346\240\207\350\257\206Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Q&A\345\215\225\344\270\252\345\257\274\345\207\272\345\210\227\345\256\232\344\271\211\343\200\202$\346\234\210\351\224\200\345\224\256\351\242\235()\345\225\206\345\223\201\351\207\215\351\207\217\357\274\210\345\215\225\344\275\215\346\215\242\347\256\227\357\274\211\345\225\206\345\223\201\345\260\272\345\257\270\357\274\210\345\215\225\344\275\215\346\215\242\347\256\227\357\274\211\345\214\205\350\243\205\351\207\215\351\207\217\357\274\210\345\215\225\344\275\215\346\215\242\347\256\227\357\274\211\345\214\205\350\243\205\345\260\272\345\257\270\357\274\210\345\215\225\344\275\215\346\215\242\347\256\227\357\274\211\345\255\220\344\275\223\351\224\200\345\224\256\351\242\235(\344\273\267\346\240\274(\344\271\260\345\256\266\350\277\220\350\264\271(?.adPosition.pageadPosition.positionadPosition.updatedTimeadd_notecompetitor-lookupkeyword-minerkeyword-reverselist[ExportColumn]monopolyAsinDtos.0.asinmonopolyAsinDtos.0.clickRatemonopolyAsinDtos.0.conversionShareRatemonopolyAsinDtos.1.asinmonopolyAsinDtos.1.clickRatemonopolyAsinDtos.1.conversionShareRatemonopolyAsinDtos.2.asinmonopolyAsinDtos.2.clickRatemonopolyAsinDtos.2.conversionShareRateopscli/seller_sprite/export/columns.pyprime\344\273\267\346\240\274(product-researchrankPosition.pagerankPosit""ion.positionrankPosition.updatedTimestr | Nonesubcategories.0.labelsubcategories.0.rank\345\206\206\350\277\2217\345\244\251\345\271\277\345\221\212\347\253\236\345\223\201\346\225\260ABA\346\234\210\346\216\222\345\220\215ABA\345\221\250\346\216\222\345\220\215AC\345\205\263\351\224\256\350\257\215AC\346\216\250\350\215\220\350\257\215ASIN\347\210\266ASIN\345\211\215\345\215\201ASIN\345\244\247\347\261\273BSR\345\244\247\347\261\273BSR\345\242\236\351\225\277\346\225\260\345\244\247\347\261\273BSR\345\242\236\351\225\277\347\216\207\345\260\217\347\261\273BSRBuyBox\345\215\226\345\256\266BuyBox\347\261\273\345\236\213Coupon__DELIVERY_PRICE__ExportColumn__FBA__JPKEYWORD_MINER_COLUMNSKEYWORD_REVERSE_COLUMNSLQSPPC\347\253\236\344\273\267PPC\344\273\267\346\240\274__PRICE____PRIME_PRICE__PRODUCT_COLUMNS_COMMON__Pyx_PyDict_NextRefSKUSP\345\271\277\345\221\212SPR__SUB_TOTAL_AMOUNT____TOTAL_AMOUNT__\350\257\246\347\273\206\345\217\202\346\225\260\345\223\201\347\211\214\345\223\201\347\211\214\351\223\276\346\216\245\345\225\206\345\223\201\346\240\207\351\242\230\345\225\206\345\223\201\350\257\246\346\203\205\351\241\265\351\223\276\346\216\245\345\225\206\345\223\201\344\270\273\345\233\276\347\261\273\347\233\256\350\267\257\345\276\204\345\244\247\347\261\273\347\233\256\345\260\217\347\261\273\347\233\256\346\234\210\351\224\200\351\207\217\346\234\210\351\224\200\351\207\217\345\242\236\351\225\277\347\216\207\345\255\220\344\275\223\351\224\200\351\207\217\345\217\230\344\275\223\346\225\260\350\257\204\345\210\206\346\225\260\346\234\210\346\226\260\345\242\236\350\257\204\345\210\206\346\225\260\350\257\204\345\210\206\347\225\231\350\257\204\347\216\207\346\257\233\345\210\251\347\216\207\350\257\204\347\272\247\344\270\212\346\236\266\346\227\266\351\227\264\344\270\212\346\236\266\345\244\251\346\225\260\351\205\215\351\200\201\346\226\271\345\274\217\345\215\226\345\256\266\346\225\260\345\215\226\345\256\266\346\211\200\345\261\236\345\234\260\345\215\226""\345\256\266\344\277\241\346\201\257\345\215\226\345\256\266\351\246\226\351\241\265\350\247\206\351\242\221\344\273\213\347\273\215\345\223\201\347\211\214\346\225\205\344\272\213\345\223\201\347\211\214\345\271\277\345\221\212\345\225\206\345\223\201\351\207\215\351\207\217\345\225\206\345\223\201\345\260\272\345\257\270\345\214\205\350\243\205\351\207\215\351\207\217\345\214\205\350\243\205\345\260\272\345\257\270\345\214\205\350\243\205\345\260\272\345\257\270\345\210\206\346\256\265\346\240\207\347\255\276\345\205\263\351\224\256\350\257\215\345\205\263\351\224\256\350\257\215\347\277\273\350\257\221\347\233\270\345\205\263\345\272\246\346\234\210\346\220\234\347\264\242\351\207\217\346\234\210\350\264\255\344\271\260\351\207\217\350\264\255\344\271\260\347\216\207\345\261\225\347\244\272\351\207\217\347\202\271\345\207\273\351\207\217\346\240\207\351\242\230\345\257\206\345\272\246\345\225\206\345\223\201\346\225\260\351\234\200\344\276\233\346\257\224\345\271\277\345\221\212\347\253\236\345\223\201\346\225\260\347\202\271\345\207\273\346\200\273\345\215\240\346\257\224\350\275\254\345\214\226\346\200\273\345\215\240\346\257\224\345\273\272\350\256\256\347\253\236\344\273\267\350\214\203\345\233\264\345\235\207\344\273\267\350\257\204\345\210\206\345\200\274\346\211\200\345\261\236\347\261\273\347\233\256\346\265\201\351\207\217\345\215\240\346\257\224\351\242\204\344\274\260\345\221\250\346\233\235\345\205\211\351\207\217\345\205\263\351\224\256\350\257\215\347\261\273\345\236\213\350\275\254\345\214\226\346\225\210\346\236\234\346\265\201\351\207\217\350\257\215\347\261\273\345\236\213\350\207\252\347\204\266\346\265\201\351\207\217\345\215\240\346\257\224\345\271\277\345\221\212\346\265\201\351\207\217\345\215\240\346\257\224\350\207\252\347\204\266\346\216\222\345\220\215\350\207\252\347\204\266\346\216\222\345\220\215\351\241\265\347\240\201\346\233\264\346\226\260\346\227\266\351\227\264\345\271\277\345\221\212\346\216\222\345\220\215\345\271\277\345""\221\212\346\216\222\345\220\215\351\241\265\347\240\201\350\264\255\344\271\260\351\207\217adProductsadRatioamazonChoiceamazonChoiceKeywordamazonProductUrlamazonSellerUrlamzUnit__annotations__asinasinListasinUrlasyncio.coroutinesavailableDateavailableDaysavgPriceavgRatingavgReviewsbadgeFlagbadgesbestSellerbidbidMinbidRangebooleanYbrandbrandUrlbsrRankbsrRankCrbsrRankCvcalculatedWeeklySearchescategory1NamecategoryNameclickscline_in_tracebackcolumncolumns_for_scenarioconversionKeywordTypescouponcprExactcurrencycurrency_labelcvsShareRatedataclassdataclassesdeliveryPricedepartmentsdepartmentsJoindimensionsdimensionsTag__doc__ebcemptyIfNegativefallbackfbafrozenfulfillment__func__getgkDatasimageUrlimpressions_is_coroutineitemsjsonObjectLineskeywordkeywordCnkeywordslatest7daysAdslistJoinlqs__main____metaclass____module__monopolyClickRate__name__naturalRationewReleasenodeLabelPathopscli.seller_sprite.export.columnsoverviewsparentpkgDimensionTypepkgDimensionspkgDimensionsTagpkgWeightpkgWeightTagpop__prepare__priceprimeExclusivePrice_product_columnsproductsprofitpurchaseRatepurchases__qualname__questionsratingratingDeltarelevancyreplacementsreturnreviewsreviewsDeltareviewsRatescenariosearchRanksearchWeeklyRanksearchessearchesRanksellerDtosellerIdsellerNamesellerNationsellerTypesellers__set_name__setdefaultsiteskusourcesprstrsubTotalAmountsupplyDemandRatio__test__titletitleDensitytitleDensityExacttop3ConversionRatetotalAmounttotalUnitstotalUnitsGrowthtrafficKeywordTypestrafficPercentagetransformuppervaluesvariationsvideoweightweightTagyen\320\000\031\230\030\240\021\340\004\013\2107\220$\220f\230C\230s\240*\250A\320\000#\240;\250h\260a\340\004\007\200y\220\003\2201\330\010\017\210q\330\004\007\200y\220\003\2201\330\010\017\210q\330\004\007\200y\220\004\320\024)\250\021\330\010\017\320\017\037\230q\240\016\250a\250q\330\004\013\2101\320\000\037\230x\240q\330\004\005\330\010\034\230H\240A\330\010 \240\t\250\021\330\010\025\220V\2301\330\010\033\230;\240a\330\010\023\2207\230!""\330\010\036\230h\240a\340\004\013\2101\330\010\024\220A\220\\\240\024\240Q\240f\250H\260F\270)\3006\310\031\320RX\320Xc\320ci\320ij\330\010\014\210J\220a";
+    #else /* compression: none (6280 bytes) */
+const char* const bytes = "#1 \347\202\271\345\207\273\345\205\261\344\272\253#1\350\275\254\345\214\226\345\205\261\344\272\253#1 \345\211\215\344\270\211ASIN#2 \347\202\271\345\207\273\345\205\261\344\272\253#2 \350\275\254\345\214\226\345\205\261\344\272\253#2 \345\211\215\344\270\211ASIN#3 \347\202\271\345\207\273\345\205\261\344\272\253#3 \350\275\254\345\214\226\345\205\261\344\272\253#3 \345\211\215\344\270\211ASIN4\346\230\237\346\216\250\350\215\220\350\257\2157\345\244\251\344\277\203\351\224\200A+\351\241\265\351\235\242A+\345\215\240\346\257\224Amazon's ChoiceBest Seller\346\240\207\350\257\206C$FBA(\345\244\264\351\203\250Listing\346\234\210\345\235\207\351\224\200\345\224\256\351\242\235(MX$New Release\346\240\207\350\257\206Note that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.Q&A\342\202\271\346\234\210\351\224\200\345\224\256\351\242\235(?)\345\255\220\344\275\223\351\224\200\345\224\256\351\242\235(\344\273\267\346\240\274(\344\271\260\345\256\266\350\277\220\350\264\271((\346\234\210\345\235\207\351\224\200\345\224\256\351\242\235(\345\271\263\345\235\207\344\273\267\346\240\274(\346\226\260\345\223\201\346\234\210\345\235\207\351\224\200\345\224\256\351\242\235(\346\226\260\345\223\201\345\271\263\345\235\207\344\273\267\346\240\274(.\345\215\225\344\270\252\345\257\274\345\207\272\345\210\227\345\256\232\344\271\211\343\200\202\345\225\206\345\223\201\351\207\215\351\207\217\357\274\210\345\215\225\344\275\215\346\215\242\347\256\227\357\274\211\345\225\206\345\223\201\345\260\272\345\257\270\357\274\210\345\215\225\344\275\215\346\215\242\347\256\227\357\274\211\345\214\205\350\243\205\351\207\215\351\207\217\357\274\210\345\215\225\344\275\215\346\215\242\347\256\227\357\274\211\345\214\205\350\243\205\345\260\272\345\257\270\357\274\210\345\215\225\344\275\215\346\215\242\347\256\227\357\274\211$\302\243\342\202\254\347\273\206\345\210\206\345""\270\202\345\234\272(\347\277\273\350\257\221)adPosition.updatedTimeadd_notecompetitor-lookupcounter.ADScounter.AMAZON_CHOICEcounter.EDITORIAL_RECOMMENDATIONScounter.FOUR_STARcounter.HIGHLY_RATEDcounter.NATURAL_SEARCHINGcounter.SPONSOR_BRANDcounter.SPONSOR_VIDEOkeyword-minerkeyword-reverselist[ExportColumn]market-researchmonopolyAsinDtos.0.asinmonopolyAsinDtos.0.clickRatemonopolyAsinDtos.0.conversionShareRatemonopolyAsinDtos.1.asinmonopolyAsinDtos.1.clickRatemonopolyAsinDtos.1.conversionShareRatemonopolyAsinDtos.2.asinmonopolyAsinDtos.2.clickRatemonopolyAsinDtos.2.conversionShareRateopscli/seller_sprite/export/columns.pyprime\344\273\267\346\240\274(product-researchrankPosition.updatedTimesellerDto.nationset[str]set[str] | Nonestr | Nonesubcategories.0.labelsubcategories.0.ranktraffic-source\345\273\272\350\256\256\347\253\236\344\273\267\350\214\203\345\233\264\350\277\2217\345\244\251\345\271\277\345\221\212\347\253\236\345\223\201\346\225\260ABA\346\234\210\346\216\222\345\220\215ABA\345\221\250\346\216\222\345\220\215AC\345\205\263\351\224\256\350\257\215AC\346\216\250\350\215\220\350\257\215ASIN\347\210\266ASIN\345\211\215\345\215\201ASIN__AVG_PRICE____AVG_REVENUE__\345\244\247\347\261\273BSR\345\242\236\351\225\277\347\216\207\345\244\247\347\261\273BSR\345\244\247\347\261\273BSR\345\242\236\351\225\277\346\225\260\345\260\217\347\261\273BSR\345\271\263\345\235\207BSRBuyBox\345\215\226\345\256\266BuyBox\347\261\273\345\236\213CACouponDE__DELIVERY_PRICE__ER\346\216\250\350\215\220\350\257\215ESExportColumn__FBA__FR__HEAD_AVG_REVENUE__HR\346\216\250\350\215\220\350\257\215INITJPKEYWORD_MINER_COLUMNSKEYWORD_REVERSE_COLUMNSLQS\345\244\264\351\203\250Listing\345\271\263\345\235\207BSR\345\244\264\351\203\250Listing\346\234\210\345\235\207\351\224\200\351\207\217MARKET_RESEARCH_COLUMNSMX__NEW_AVG_PRICE____NEW_AVG_REVENUE__PPC\347\253\236\344\273\267PPC\344\273\267\346\240\274__PRICE____PRIME_PRICE__PRODUCT_COLUMNS_COMMON__Pyx_PyDict_NextRefSKUSP\345\271\277\345\221""\212SPRSP\345\271\277\345\221\212\350\257\215__SUB_TOTAL_AMOUNT____TOTAL_AMOUNT__TRAFFIC_SOURCE_COLUMNSUKUS\345\206\206\346\234\210\346\200\273\351\224\200\351\207\217\346\234\210\345\235\207\351\224\200\351\207\217\345\271\263\345\235\207\350\257\204\345\210\206\346\225\260\345\271\263\345\235\207\346\230\237\347\272\247\345\271\263\345\235\207\345\215\226\345\256\266\346\225\260\345\215\226\345\256\266\347\261\273\345\236\213\345\225\206\345\223\201\351\233\206\344\270\255\345\272\246\345\223\201\347\211\214\351\233\206\344\270\255\345\272\246\345\215\226\345\256\266\351\233\206\344\270\255\345\272\246\345\225\206\345\223\201\346\200\273\346\225\260\345\271\263\345\235\207\351\207\215\351\207\217\345\271\263\345\235\207\344\275\223\347\247\257\345\271\263\345\235\207\346\257\233\345\210\251\347\216\207\345\236\204\346\226\255\345\272\246\346\226\260\345\223\201\346\225\260\351\207\217\346\226\260\345\223\201\345\215\240\346\257\224\346\226\260\345\223\201\346\234\210\345\235\207\351\224\200\351\207\217\346\226\260\345\223\201\345\271\263\345\235\207\350\257\204\345\210\206\346\225\260\346\226\260\345\223\201\345\271\263\345\235\207\346\230\237\347\272\247\351\200\200\350\264\247\347\216\207\345\220\214\347\261\273\347\233\256\351\200\200\350\264\247\347\216\207\346\220\234\347\264\242\350\264\255\344\271\260\346\257\224\345\220\214\347\261\273\347\233\256\346\220\234\347\264\242\350\264\255\344\271\260\346\257\224\346\234\210\351\224\200\351\207\217\345\255\220\344\275\223\351\224\200\351\207\217\346\234\210\346\226\260\345\242\236\350\257\204\345\210\206\346\225\260\345\235\207\344\273\267\345\215\226\345\256\266\346\211\200\345\261\236\345\234\260\350\257\246\347\273\206\345\217\202\346\225\260\344\273\267\346\240\274\345\223\201\347\211\214\345\223\201\347\211\214\351\223\276\346\216\245\345\225\206\345\223\201\346\240\207\351\242\230\345\225\206\345\223\201\350\257\246\346\203\205\351\241\265\351\223\276\346\216\245\345\225\206\345\223\201\344\270\273\345\233""\276\347\261\273\347\233\256\350\267\257\345\276\204\345\244\247\347\261\273\347\233\256\345\260\217\347\261\273\347\233\256\345\217\230\344\275\223\346\225\260\350\257\204\345\210\206\346\225\260\347\225\231\350\257\204\347\216\207\350\257\204\345\210\206\350\257\204\347\272\247\344\270\212\346\236\266\346\227\266\351\227\264\344\270\212\346\236\266\345\244\251\346\225\260\351\205\215\351\200\201\346\226\271\345\274\217\345\215\226\345\256\266\346\225\260\345\215\226\345\256\266\344\277\241\346\201\257\345\215\226\345\256\266\351\246\226\351\241\265\350\247\206\351\242\221\344\273\213\347\273\215\345\223\201\347\211\214\346\225\205\344\272\213\346\257\233\345\210\251\347\216\207\345\223\201\347\211\214\345\271\277\345\221\212\345\225\206\345\223\201\351\207\215\351\207\217\345\225\206\345\223\201\345\260\272\345\257\270\345\214\205\350\243\205\351\207\215\351\207\217\345\214\205\350\243\205\345\260\272\345\257\270\345\214\205\350\243\205\345\260\272\345\257\270\345\210\206\346\256\265\346\234\210\351\224\200\351\207\217\345\242\236\351\225\277\347\216\207\346\240\207\347\255\276\345\205\263\351\224\256\350\257\215\345\205\263\351\224\256\350\257\215\347\277\273\350\257\221\347\233\270\345\205\263\345\272\246\346\234\210\346\220\234\347\264\242\351\207\217\346\234\210\350\264\255\344\271\260\351\207\217\350\264\255\344\271\260\347\216\207\345\261\225\347\244\272\351\207\217\347\202\271\345\207\273\351\207\217\346\240\207\351\242\230\345\257\206\345\272\246\345\225\206\345\223\201\346\225\260\351\234\200\344\276\233\346\257\224\345\271\277\345\221\212\347\253\236\345\223\201\346\225\260\347\202\271\345\207\273\346\200\273\345\215\240\346\257\224\350\275\254\345\214\226\346\200\273\345\215\240\346\257\224\350\257\204\345\210\206\345\200\274\346\211\200\345\261\236\347\261\273\347\233\256\346\265\201\351\207\217\345\215\240\346\257\224\351\242\204\344\274\260\345\221\250\346\233\235\345\205\211\351\207\217\345\205\263\351\224\256\350\257\215\347\261\273\345\236\213""\350\275\254\345\214\226\346\225\210\346\236\234\346\265\201\351\207\217\350\257\215\347\261\273\345\236\213\350\207\252\347\204\266\346\265\201\351\207\217\345\215\240\346\257\224\345\271\277\345\221\212\346\265\201\351\207\217\345\215\240\346\257\224\350\207\252\347\204\266\346\216\222\345\220\215\350\207\252\347\204\266\346\216\222\345\220\215\351\241\265\347\240\201\346\233\264\346\226\260\346\227\266\351\227\264\345\271\277\345\221\212\346\216\222\345\220\215\345\271\277\345\221\212\346\216\222\345\220\215\351\241\265\347\240\201\350\264\255\344\271\260\351\207\217\346\240\207\351\242\230\346\265\201\351\207\217\346\235\245\346\272\220\345\205\250\351\203\250\346\265\201\351\207\217\350\257\215\350\207\252\347\204\266\346\220\234\347\264\242\350\257\215\350\247\206\351\242\221\345\271\277\345\221\212\350\257\215\345\223\201\347\211\214\345\271\277\345\221\212\350\257\215\347\273\206\345\210\206\345\270\202\345\234\272\345\270\202\345\234\272\350\267\257\345\276\204\346\240\267\346\234\254\346\225\260\351\207\217adPositionadProductsadRatioamazonChoiceamazonChoiceKeywordamazonProductUrlamazonSellerUrlamzUnit__annotations__asinasinListasinUrlasyncio.coroutinesavailableDateavailableDaysavgBsravgPriceavgProfitavgRatingavgRevenueavgReviewsavgSalesavgSellersavgVolumeavgWeightbadgeFlagbadgeLabelsbadgesbestSellerbidbidMinbidRangeboolbooleanYbrandbrandConcentrationbrandUrlbsrRankbsrRankCrbsrRankCvcalculatedWeeklySearchescategory1NamecategoryNamecategoryReturnRatecategorySearchPurchaseRatioclickscline_in_tracebackcolumncolumnscolumns_for_scenario_columns_with_currency_titlesconversionKeywordTypeLabelsconversionKeywordTypescouponcprExactcurrenciescurrencycurrency_labelcvsShareRatedataclassdataclassesdateMillisdeliveryPricedepartmentsdepartmentsJoindimensionsdimensionsTagdivide10__doc__ebcebcRatioemptyIfNegativefallbackfbafrozenfulfillment__func__getgkDatasheadListingAvgBsrheadListingAvgRevenueheadListingAvgSalesimageUrlimpressions_is_coroutineitemsjsonObjectLineskeywordkey""wordCnkeywordReverseUpdatedTimekeywordslatest7daysAdslqs__main__marketmarketCnmarketPath_market_research_columns__metaclass____module__monopolymonopolyClickRate__name__naturalRationewAvgPricenewAvgRatingnewAvgRevenuenewAvgReviewsnewAvgSalesnewCountnewRationewReleasenodeLabelPathopscli.seller_sprite.export.columnsoverviewsparentpercentSuffixpercent_suffix_titlespercentagepkgDimensionTypepkgDimensionspkgDimensionsTagpkgWeightpkgWeightTagpop__prepare__priceprimeExclusivePriceproductConcentration_product_columnsproductsprofitpurchaseRatepurchases__qualname__questionsrankPagerankPositionratingratingDeltarelevancyreplacementsreturnreturnRatereviewsreviewsDeltareviewsIncreasementreviewsRatereviews_delta_sourcesampleQuantityscenariosearchPurchaseRatiosearchRanksearchWeeklyRanksearchessearchesRanksellerConcentrationsellerDtosellerIdsellerNamesellerNationsellerTypesellerTypesseller_nation_sourcesellers__set_name__setdefaultsiteskusourcesprstrsubTotalAmountsupplyDemandRatioswap_unit_columns__test__titletitleDensitytitleDensityExacttitlestop3ConversionRatetotalAmounttotalProductstotalSalestotalUnitstotalUnitsGrowthtrafficKeywordTypeLabelstrafficKeywordTypestrafficPercentagetrafficSourceLabelstransformuppervaluesvariationsvideoweightweightTag\200\001\330\r\016\330\016\017\330\014\r\330\005\006\330\004\013\2101\330\010\024\220A\330\014\016\210a\210v\220Y\230o\250V\2607\270#\270\\\310\026\310q\330\014\022\220!\330\014\022\220!\330\014\022\220!\340\010\014\210J\220a\320\000\031\230\030\240\021\340\004\005\330\010\016\210a\330\010\016\210a\330\010\016\210a\330\010\016\210a\330\010\016\210a\330\010\016\210a\330\010\016\210a\330\010\016\210a\330\010\016\210a\330\010\016\210a\340\004\013\210:\220T\230\021\230$\230f\240D\250\001\320\000#\240;\250h\260a\340\004\017\210~\230Q\230a\330\004\007\200y\220\003\2201\330\010\017\320\017,\250A\330\014\r\330\014\r\330\r\026\220j\240\001\340\004\007\200y\220\003\2201\330\010\017\320\017,\250A\330\014\r\330\014\r\330\r\026\220a\340\004\007\200y\220""\003\2201\330\010\017\320\017,\250A\320-E\300[\320PQ\330\004\007\200y\220\003\2201\330\010\017\320\017'\240q\250\001\330\004\007\200y\220\003\2201\330\010\017\320\017\037\230q\330\014\r\330\014\036\230a\330\014!\240\021\330\014#\2407\250!\330\014!\240\021\340\004\007\200y\220\003\2201\330\010\017\320\017\037\230q\330\014\r\330\014#\240<\250z\270\027\300\001\340\004\013\2101\200\001\330\016\017\340\004\027\220q\330\004\032\230!\330\004\033\2301\330\004\032\230!\330\005\006\330\004\005\330\010\034\230H\240A\330\010 \240\t\250\021\330\010\025\220V\2301\330\010\033\230;\240a\330\010\023\2207\230!\330\010\036\230h\240a\340\004\"\240!\330\004\034\320\0342\260&\270\001\330\004\010\210\n\220!\330\010\021\220\026\220q\330\010\024\220F\230!\330\010\013\2101\330\014\017\210v\220W\230C\230q\330\020\031\230\021\330\021\027\220w\230c\240\021\330\020\031\230\021\330\010\013\2106\220\027\230\003\2301\330\014\030\230\001\330\010\013\2106\220\027\230\003\2301\330\014\025\220Q\330\010\023\2206\230\021\330\010\013\2106\220\027\230\003\2301\330\014\025\220Q\330\014\027\320\027)\320)>\270c\320AU\320U[\320[\\\330\014\030\230\001\330\010\013\2106\220\027\230\003\2301\330\014\030\230\001\330\010\017\210w\220a\220|\2401\240L\260\004\260A\260V\2708\3006\310\031\320RZ\320Zd\320de\330\004\013\2101\320\000'\240x\250q\330\004\005\330\010\033\2309\240A\330\010\031\230\030\240\021\330\010 \320 2\260!\330\010\037\230{\250!\330\010\035\230Z\240q\340\004\013\2101\330\010\024\220A\220\\\240\024\240Q\240f\250H\260F\270)\3006\310\031\320RX\320Xc\320ci\320ij\330\010\014\210J\220a";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif
     PyObject **stringtab = __pyx_mstate->__pyx_string_tab;
     Py_ssize_t pos = 0;
-    for (int i = 0; i < 299; i++) {
+    for (int i = 0; i < 431; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyUnicode_DecodeUTF8(bytes + pos, bytes_length, NULL);
-      if (likely(string) && i >= 56) PyUnicode_InternInPlace(&string);
+      if (likely(string) && i >= 79) PyUnicode_InternInPlace(&string);
       if (unlikely(!string)) {
         Py_XDECREF(data);
         __PYX_ERR(0, 1, __pyx_L1_error)
@@ -7669,7 +10724,7 @@ const char* const bytes = "#1 \347\202\271\345\207\273\345\205\261\344\272\253#1
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 299; i < 302; i++) {
+    for (int i = 431; i < 436; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
@@ -7680,15 +10735,15 @@ const char* const bytes = "#1 \347\202\271\345\207\273\345\205\261\344\272\253#1
       }
     }
     Py_XDECREF(data);
-    for (Py_ssize_t i = 0; i < 302; i++) {
+    for (Py_ssize_t i = 0; i < 436; i++) {
       if (unlikely(PyObject_Hash(stringtab[i]) == -1)) {
         __PYX_ERR(0, 1, __pyx_L1_error)
       }
     }
     #if CYTHON_IMMORTAL_CONSTANTS
     {
-      PyObject **table = stringtab + 299;
-      for (Py_ssize_t i=0; i<3; ++i) {
+      PyObject **table = stringtab + 431;
+      for (Py_ssize_t i=0; i<5; ++i) {
         #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
         #if PY_VERSION_HEX < 0x030E0000
         if (_Py_IsOwnedByCurrentThread(table[i]) && Py_REFCNT(table[i]) == 1)
@@ -7713,10 +10768,10 @@ const char* const bytes = "#1 \347\202\271\345\207\273\345\205\261\344\272\253#1
 typedef struct {
     unsigned int argcount : 2;
     unsigned int num_posonly_args : 1;
-    unsigned int num_kwonly_args : 1;
-    unsigned int nlocals : 2;
+    unsigned int num_kwonly_args : 3;
+    unsigned int nlocals : 4;
     unsigned int flags : 10;
-    unsigned int first_line : 8;
+    unsigned int first_line : 9;
 } __Pyx_PyCode_New_function_description;
 /* NewCodeObj.proto */
 static PyObject* __Pyx_PyCode_New(
@@ -7733,19 +10788,29 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   PyObject* tuple_dedup_map = PyDict_New();
   if (unlikely(!tuple_dedup_map)) return -1;
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 159};
-    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_scenario, __pyx_mstate->__pyx_n_u_site};
-    __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_colu_2, __pyx_mstate->__pyx_n_u_columns_for_scenario, __pyx_mstate->__pyx_kp_b_iso88591_ha_y_1_q_y_1_q_y_q_aq_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 221};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_scenario, __pyx_mstate->__pyx_n_u_site, __pyx_mstate->__pyx_n_u_currency};
+    __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_colu_2, __pyx_mstate->__pyx_n_u_columns_for_scenario, __pyx_mstate->__pyx_kp_b_iso88591_ha_Qa_y_1_A_j_y_1_A_a_y_1_A_E_P, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 1, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 170};
-    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_site};
-    __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_colu_2, __pyx_mstate->__pyx_n_u_currency_label, __pyx_mstate->__pyx_kp_b_iso88591_7_fCs_A, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 256};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_site, __pyx_mstate->__pyx_n_u_currencies};
+    __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_colu_2, __pyx_mstate->__pyx_n_u_currency_label, __pyx_mstate->__pyx_kp_b_iso88591_a_a_a_a_a_a_a_a_a_a_T_fD, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 175};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 4, 11, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 273};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_currency, __pyx_mstate->__pyx_n_u_swap_unit_columns, __pyx_mstate->__pyx_n_u_reviews_delta_source, __pyx_mstate->__pyx_n_u_percent_suffix_titles, __pyx_mstate->__pyx_n_u_seller_nation_source, __pyx_mstate->__pyx_n_u_replacements, __pyx_mstate->__pyx_n_u_columns, __pyx_mstate->__pyx_n_u_column, __pyx_mstate->__pyx_n_u_source, __pyx_mstate->__pyx_n_u_transform, __pyx_mstate->__pyx_n_u_fallback};
+    __pyx_mstate_global->__pyx_codeobj_tab[2] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_colu_2, __pyx_mstate->__pyx_n_u_product_columns, __pyx_mstate->__pyx_kp_b_iso88591_q_1_HA_V1_a_7_ha_2_q_F_1_vWCq_w, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[2])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 4, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 314};
+    PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_columns, __pyx_mstate->__pyx_n_u_currency, __pyx_mstate->__pyx_n_u_titles, __pyx_mstate->__pyx_n_u_column};
+    __pyx_mstate_global->__pyx_codeobj_tab[3] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_colu_2, __pyx_mstate->__pyx_n_u_columns_with_currency_titles, __pyx_mstate->__pyx_kp_b_iso88591_1_A_avYoV7_q_Ja, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[3])) goto bad;
+  }
+  {
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 330};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_currency, __pyx_mstate->__pyx_n_u_replacements, __pyx_mstate->__pyx_n_u_column};
-    __pyx_mstate_global->__pyx_codeobj_tab[2] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_colu_2, __pyx_mstate->__pyx_n_u_product_columns, __pyx_mstate->__pyx_kp_b_iso88591_xq_HA_V1_a_7_ha_1_A_QfHF_6_RXXc, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[2])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[4] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_export_colu_2, __pyx_mstate->__pyx_n_u_market_research_columns, __pyx_mstate->__pyx_kp_b_iso88591_xq_9A_2_Zq_1_A_QfHF_6_RXXcciij, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[4])) goto bad;
   }
   Py_DECREF(tuple_dedup_map);
   return 0;
@@ -9123,83 +12188,37 @@ __Pyx_RaiseUnexpectedTypeError(const char *expected, PyObject *obj)
     return 0;
 }
 
-/* JoinPyUnicode */
-static PyObject* __Pyx_PyUnicode_Join(PyObject** values, Py_ssize_t value_count, Py_ssize_t result_ulength,
-                                      Py_UCS4 max_char) {
-#if CYTHON_USE_UNICODE_INTERNALS && CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-    PyObject *result_uval;
-    int result_ukind, kind_shift;
-    Py_ssize_t i, char_pos;
-    void *result_udata;
-    if (max_char > 1114111) max_char = 1114111;
-    result_uval = PyUnicode_New(result_ulength, max_char);
-    if (unlikely(!result_uval)) return NULL;
-    result_ukind = (max_char <= 255) ? PyUnicode_1BYTE_KIND : (max_char <= 65535) ? PyUnicode_2BYTE_KIND : PyUnicode_4BYTE_KIND;
-    kind_shift = (result_ukind == PyUnicode_4BYTE_KIND) ? 2 : result_ukind - 1;
-    result_udata = PyUnicode_DATA(result_uval);
-    assert(kind_shift == 2 || kind_shift == 1 || kind_shift == 0);
-    if (unlikely((PY_SSIZE_T_MAX >> kind_shift) - result_ulength < 0))
-        goto overflow;
-    char_pos = 0;
-    for (i=0; i < value_count; i++) {
-        int ukind;
-        Py_ssize_t ulength;
-        void *udata;
-        PyObject *uval = values[i];
-        #if !CYTHON_COMPILING_IN_LIMITED_API
-        if (__Pyx_PyUnicode_READY(uval) == (-1))
-            goto bad;
-        #endif
-        ulength = __Pyx_PyUnicode_GET_LENGTH(uval);
-        #if !CYTHON_ASSUME_SAFE_SIZE
-        if (unlikely(ulength < 0)) goto bad;
-        #endif
-        if (unlikely(!ulength))
-            continue;
-        if (unlikely((PY_SSIZE_T_MAX >> kind_shift) - ulength < char_pos))
-            goto overflow;
-        ukind = __Pyx_PyUnicode_KIND(uval);
-        udata = __Pyx_PyUnicode_DATA(uval);
-        if (ukind == result_ukind) {
-            memcpy((char *)result_udata + (char_pos << kind_shift), udata, (size_t) (ulength << kind_shift));
-        } else {
-            #if PY_VERSION_HEX >= 0x030d0000
-            if (unlikely(PyUnicode_CopyCharacters(result_uval, char_pos, uval, 0, ulength) < 0)) goto bad;
-            #elif CYTHON_COMPILING_IN_CPYTHON || defined(_PyUnicode_FastCopyCharacters)
-            _PyUnicode_FastCopyCharacters(result_uval, char_pos, uval, 0, ulength);
-            #else
-            Py_ssize_t j;
-            for (j=0; j < ulength; j++) {
-                Py_UCS4 uchar = __Pyx_PyUnicode_READ(ukind, udata, j);
-                __Pyx_PyUnicode_WRITE(result_ukind, result_udata, char_pos+j, uchar);
-            }
-            #endif
-        }
-        char_pos += ulength;
-    }
-    return result_uval;
-overflow:
-    PyErr_SetString(PyExc_OverflowError, "join() result is too long for a Python string");
-bad:
-    Py_DECREF(result_uval);
-    return NULL;
-#else
-    Py_ssize_t i;
-    PyObject *result = NULL;
-    PyObject *value_tuple = PyTuple_New(value_count);
-    if (unlikely(!value_tuple)) return NULL;
-    CYTHON_UNUSED_VAR(max_char);
-    CYTHON_UNUSED_VAR(result_ulength);
-    for (i=0; i<value_count; i++) {
-        Py_INCREF(values[i]);
-        if (__Pyx_PyTuple_SET_ITEM(value_tuple, i, values[i]) != (0)) goto bad;
-    }
-    result = PyUnicode_Join(__pyx_mstate_global->__pyx_empty_unicode, value_tuple);
-bad:
-    Py_DECREF(value_tuple);
-    return result;
-#endif
+/* PyObjectVectorCallKwBuilder */
+#if CYTHON_VECTORCALL
+static int __Pyx_VectorcallBuilder_AddArg(PyObject *key, PyObject *value, PyObject *builder, PyObject **args, int n) {
+    (void)__Pyx_PyObject_FastCallDict;
+    Py_INCREF(key);
+    if (__Pyx_PyTuple_SET_ITEM(builder, n, key) != (0)) return -1;
+    args[n] = value;
+    return 0;
 }
+CYTHON_UNUSED static int __Pyx_VectorcallBuilder_AddArg_Check(PyObject *key, PyObject *value, PyObject *builder, PyObject **args, int n) {
+    (void)__Pyx_VectorcallBuilder_AddArgStr;
+    if (unlikely(!PyUnicode_Check(key))) {
+        PyErr_SetString(PyExc_TypeError, "keywords must be strings");
+        return -1;
+    }
+    return __Pyx_VectorcallBuilder_AddArg(key, value, builder, args, n);
+}
+static int __Pyx_VectorcallBuilder_AddArgStr(const char *key, PyObject *value, PyObject *builder, PyObject **args, int n) {
+    PyObject *pyKey = PyUnicode_FromString(key);
+    if (!pyKey) return -1;
+    return __Pyx_VectorcallBuilder_AddArg(pyKey, value, builder, args, n);
+}
+#else // CYTHON_VECTORCALL
+CYTHON_UNUSED static int __Pyx_VectorcallBuilder_AddArg_Check(PyObject *key, PyObject *value, PyObject *builder, CYTHON_UNUSED PyObject **args, CYTHON_UNUSED int n) {
+    if (unlikely(!PyUnicode_Check(key))) {
+        PyErr_SetString(PyExc_TypeError, "keywords must be strings");
+        return -1;
+    }
+    return PyDict_SetItem(builder, key, value);
+}
+#endif
 
 /* PyObjectCall2Args (used by CallUnboundCMethod1) */
 static CYTHON_INLINE PyObject* __Pyx_PyObject_Call2Args(PyObject* function, PyObject* arg1, PyObject* arg2) {
@@ -9288,6 +12307,155 @@ static PyObject* __Pyx_PyDict_GetItemDefault(PyObject* d, PyObject* key, PyObjec
             value = __Pyx_CallUnboundCMethod2(&__pyx_mstate_global->__pyx_umethod_PyDict_Type_get, d, key, default_value);
     }
     return value;
+}
+
+/* JoinPyUnicode */
+static PyObject* __Pyx_PyUnicode_Join(PyObject** values, Py_ssize_t value_count, Py_ssize_t result_ulength,
+                                      Py_UCS4 max_char) {
+#if CYTHON_USE_UNICODE_INTERNALS && CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
+    PyObject *result_uval;
+    int result_ukind, kind_shift;
+    Py_ssize_t i, char_pos;
+    void *result_udata;
+    if (max_char > 1114111) max_char = 1114111;
+    result_uval = PyUnicode_New(result_ulength, max_char);
+    if (unlikely(!result_uval)) return NULL;
+    result_ukind = (max_char <= 255) ? PyUnicode_1BYTE_KIND : (max_char <= 65535) ? PyUnicode_2BYTE_KIND : PyUnicode_4BYTE_KIND;
+    kind_shift = (result_ukind == PyUnicode_4BYTE_KIND) ? 2 : result_ukind - 1;
+    result_udata = PyUnicode_DATA(result_uval);
+    assert(kind_shift == 2 || kind_shift == 1 || kind_shift == 0);
+    if (unlikely((PY_SSIZE_T_MAX >> kind_shift) - result_ulength < 0))
+        goto overflow;
+    char_pos = 0;
+    for (i=0; i < value_count; i++) {
+        int ukind;
+        Py_ssize_t ulength;
+        void *udata;
+        PyObject *uval = values[i];
+        #if !CYTHON_COMPILING_IN_LIMITED_API
+        if (__Pyx_PyUnicode_READY(uval) == (-1))
+            goto bad;
+        #endif
+        ulength = __Pyx_PyUnicode_GET_LENGTH(uval);
+        #if !CYTHON_ASSUME_SAFE_SIZE
+        if (unlikely(ulength < 0)) goto bad;
+        #endif
+        if (unlikely(!ulength))
+            continue;
+        if (unlikely((PY_SSIZE_T_MAX >> kind_shift) - ulength < char_pos))
+            goto overflow;
+        ukind = __Pyx_PyUnicode_KIND(uval);
+        udata = __Pyx_PyUnicode_DATA(uval);
+        if (ukind == result_ukind) {
+            memcpy((char *)result_udata + (char_pos << kind_shift), udata, (size_t) (ulength << kind_shift));
+        } else {
+            #if PY_VERSION_HEX >= 0x030d0000
+            if (unlikely(PyUnicode_CopyCharacters(result_uval, char_pos, uval, 0, ulength) < 0)) goto bad;
+            #elif CYTHON_COMPILING_IN_CPYTHON || defined(_PyUnicode_FastCopyCharacters)
+            _PyUnicode_FastCopyCharacters(result_uval, char_pos, uval, 0, ulength);
+            #else
+            Py_ssize_t j;
+            for (j=0; j < ulength; j++) {
+                Py_UCS4 uchar = __Pyx_PyUnicode_READ(ukind, udata, j);
+                __Pyx_PyUnicode_WRITE(result_ukind, result_udata, char_pos+j, uchar);
+            }
+            #endif
+        }
+        char_pos += ulength;
+    }
+    return result_uval;
+overflow:
+    PyErr_SetString(PyExc_OverflowError, "join() result is too long for a Python string");
+bad:
+    Py_DECREF(result_uval);
+    return NULL;
+#else
+    Py_ssize_t i;
+    PyObject *result = NULL;
+    PyObject *value_tuple = PyTuple_New(value_count);
+    if (unlikely(!value_tuple)) return NULL;
+    CYTHON_UNUSED_VAR(max_char);
+    CYTHON_UNUSED_VAR(result_ulength);
+    for (i=0; i<value_count; i++) {
+        Py_INCREF(values[i]);
+        if (__Pyx_PyTuple_SET_ITEM(value_tuple, i, values[i]) != (0)) goto bad;
+    }
+    result = PyUnicode_Join(__pyx_mstate_global->__pyx_empty_unicode, value_tuple);
+bad:
+    Py_DECREF(value_tuple);
+    return result;
+#endif
+}
+
+/* PyObjectCallNoArg (used by pyfrozenset_new) */
+static CYTHON_INLINE PyObject* __Pyx_PyObject_CallNoArg(PyObject *func) {
+    PyObject *arg[2] = {NULL, NULL};
+    return __Pyx_PyObject_FastCall(func, arg + 1, 0 | __Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET);
+}
+
+/* pyfrozenset_new (used by PySetContains) */
+static CYTHON_INLINE PyObject* __Pyx_PyFrozenSet_New(PyObject* it) {
+    if (it) {
+        PyObject* result;
+#if CYTHON_COMPILING_IN_PYPY
+        PyObject* args;
+        args = PyTuple_Pack(1, it);
+        if (unlikely(!args))
+            return NULL;
+        result = PyObject_Call((PyObject*)&PyFrozenSet_Type, args, NULL);
+        Py_DECREF(args);
+        return result;
+#else
+        if (PyFrozenSet_CheckExact(it)) {
+            Py_INCREF(it);
+            return it;
+        }
+        result = PyFrozenSet_New(it);
+        if (unlikely(!result))
+            return NULL;
+        if ((__PYX_LIMITED_VERSION_HEX >= 0x030A0000)
+#if CYTHON_COMPILING_IN_LIMITED_API
+            || __Pyx_get_runtime_version() >= 0x030A0000
+#endif
+            )
+            return result;
+        {
+            Py_ssize_t size = __Pyx_PySet_GET_SIZE(result);
+            if (likely(size > 0))
+                return result;
+#if !CYTHON_ASSUME_SAFE_SIZE
+            if (unlikely(size < 0)) {
+                Py_DECREF(result);
+                return NULL;
+            }
+#endif
+        }
+        Py_DECREF(result);
+#endif
+    }
+    return __Pyx_PyObject_CallNoArg((PyObject*) &PyFrozenSet_Type);
+}
+
+/* PySetContains */
+static int __Pyx_PySet_ContainsUnhashable(PyObject *set, PyObject *key) {
+    int result = -1;
+    if (PySet_Check(key) && PyErr_ExceptionMatches(PyExc_TypeError)) {
+        PyObject *tmpkey;
+        PyErr_Clear();
+        tmpkey = __Pyx_PyFrozenSet_New(key);
+        if (tmpkey != NULL) {
+            result = PySet_Contains(set, tmpkey);
+            Py_DECREF(tmpkey);
+        }
+    }
+    return result;
+}
+static CYTHON_INLINE int __Pyx_PySet_ContainsTF(PyObject* key, PyObject* set, int eq) {
+    int result = PySet_Contains(set, key);
+    if (unlikely(result < 0)) {
+        result = __Pyx_PySet_ContainsUnhashable(set, key);
+    }
+    return unlikely(result < 0) ? result : (result == (eq == Py_EQ));
 }
 
 /* HasAttr (used by ImportImpl) */
@@ -9441,7 +12609,7 @@ static PyObject* __Pyx_ImportFrom(PyObject* module, PyObject* name) {
         if (unlikely(!module_name_str)) { goto modbad; }
         module_name = PyUnicode_FromString(module_name_str);
         if (unlikely(!module_name)) { goto modbad; }
-        module_dot = PyUnicode_Concat(module_name, __pyx_mstate_global->__pyx_kp_u__9);
+        module_dot = PyUnicode_Concat(module_name, __pyx_mstate_global->__pyx_kp_u__27);
         if (unlikely(!module_dot)) { goto modbad; }
         full_name = PyUnicode_Concat(module_dot, name);
         if (unlikely(!full_name)) { goto modbad; }
@@ -9466,38 +12634,6 @@ static PyObject* __Pyx_ImportFrom(PyObject* module, PyObject* name) {
     }
     return value;
 }
-
-/* PyObjectVectorCallKwBuilder */
-#if CYTHON_VECTORCALL
-static int __Pyx_VectorcallBuilder_AddArg(PyObject *key, PyObject *value, PyObject *builder, PyObject **args, int n) {
-    (void)__Pyx_PyObject_FastCallDict;
-    Py_INCREF(key);
-    if (__Pyx_PyTuple_SET_ITEM(builder, n, key) != (0)) return -1;
-    args[n] = value;
-    return 0;
-}
-CYTHON_UNUSED static int __Pyx_VectorcallBuilder_AddArg_Check(PyObject *key, PyObject *value, PyObject *builder, PyObject **args, int n) {
-    (void)__Pyx_VectorcallBuilder_AddArgStr;
-    if (unlikely(!PyUnicode_Check(key))) {
-        PyErr_SetString(PyExc_TypeError, "keywords must be strings");
-        return -1;
-    }
-    return __Pyx_VectorcallBuilder_AddArg(key, value, builder, args, n);
-}
-static int __Pyx_VectorcallBuilder_AddArgStr(const char *key, PyObject *value, PyObject *builder, PyObject **args, int n) {
-    PyObject *pyKey = PyUnicode_FromString(key);
-    if (!pyKey) return -1;
-    return __Pyx_VectorcallBuilder_AddArg(pyKey, value, builder, args, n);
-}
-#else // CYTHON_VECTORCALL
-CYTHON_UNUSED static int __Pyx_VectorcallBuilder_AddArg_Check(PyObject *key, PyObject *value, PyObject *builder, CYTHON_UNUSED PyObject **args, CYTHON_UNUSED int n) {
-    if (unlikely(!PyUnicode_Check(key))) {
-        PyErr_SetString(PyExc_TypeError, "keywords must be strings");
-        return -1;
-    }
-    return PyDict_SetItem(builder, key, value);
-}
-#endif
 
 /* CalculateMetaclass (used by Py3ClassCreate) */
 static PyObject *__Pyx_CalculateMetaclass(PyTypeObject *metaclass, PyObject *bases) {
@@ -11498,7 +14634,7 @@ __Pyx_PyType_GetFullyQualifiedName(PyTypeObject* tp)
         result = name;
         name = NULL;
     } else {
-        result = __Pyx_NewRef(__pyx_mstate_global->__pyx_kp_u__81);
+        result = __Pyx_NewRef(__pyx_mstate_global->__pyx_kp_u__123);
     }
     goto done;
 }

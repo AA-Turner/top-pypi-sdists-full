@@ -377,7 +377,7 @@ def validate_and_load_state(args, state):
 
 def reset_local_file_directory(args):
     files_path = os.path.join(args.project_path, OUTPUT_FILES_DIR)
-    if args.force:
+    if args.non_interactive:
         confirm = "y"
     else:
         confirm = input(

@@ -9,6 +9,9 @@ from mistralai.extra.workflows.encoding.config import (
     BlobStorageConfig as BlobStorageConfigBase,
 )
 from mistralai.extra.workflows.encoding.config import (
+    PayloadCompressionConfig as PayloadCompressionConfigBase,
+)
+from mistralai.extra.workflows.encoding.config import (
     PayloadEncryptionConfig as PayloadEncryptionConfigBase,
 )
 from mistralai.extra.workflows.encoding.config import (
@@ -229,6 +232,10 @@ class PayloadEncryptionConfig(PayloadEncryptionConfigBase, BaseSettings):
     pass
 
 
+class PayloadCompressionConfig(PayloadCompressionConfigBase, BaseSettings):
+    pass
+
+
 class AgentConfig(_ConflictDetectionMixin, BaseSettings):
     llm_rate_limit: RateLimit | None = None
     mistral_client_server: str | None = None
@@ -387,6 +394,7 @@ class WorkerConfig(BaseSettings):
 
     temporal_payload_offloading: PayloadOffloadingConfig | None = None
     temporal_payload_encryption: PayloadEncryptionConfig | None = None
+    temporal_payload_compression: PayloadCompressionConfig | None = None
 
     activity_attributes_offloading: PayloadOffloadingConfig | None = None
 

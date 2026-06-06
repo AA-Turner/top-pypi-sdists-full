@@ -3,13 +3,18 @@ repos:
     rev: "v6.0.0"
     hooks:
       - id: check-case-conflict
+      - id: check-executables-have-shebangs
       - id: check-merge-conflict
       - id: check-toml
+      - id: check-yaml
+      - id: detect-private-key
       - id: end-of-file-fixer
+      - id: fix-byte-order-marker
+      - id: mixed-line-ending
       - id: trailing-whitespace
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: "v0.15.0"
+    rev: "v0.15.16"
     hooks:
       - id: ruff-format
         args: [--config=ruff.toml]
@@ -21,5 +26,15 @@ repos:
     hooks:
       - id: prettier
         additional_dependencies:
-          - prettier@3.8.1
+          - prettier@3.8.3
           - prettier-plugin-toml@2.0.6
+
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.47.2
+    hooks:
+      - id: typos
+        exclude: |
+          (?x)^(
+            ruff.toml|
+            tests/.*
+          )$

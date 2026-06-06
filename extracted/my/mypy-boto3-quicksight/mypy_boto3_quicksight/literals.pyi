@@ -50,6 +50,7 @@ __all__ = (
     "AssetBundleImportFailureActionType",
     "AssetBundleImportJobStatusType",
     "AssignmentStatusType",
+    "AudioExtractionStatusType",
     "AuthenticationMethodOptionType",
     "AuthenticationTypeType",
     "AuthorSpecifiedAggregationType",
@@ -104,6 +105,7 @@ __all__ = (
     "DataSetFilterAttributeType",
     "DataSetImportModeType",
     "DataSetNumericComparisonFilterOperatorType",
+    "DataSetStatusType",
     "DataSetStringComparisonFilterOperatorType",
     "DataSetStringListFilterOperatorType",
     "DataSetUseAsType",
@@ -152,6 +154,7 @@ __all__ = (
     "IdentityStoreType",
     "IdentityTypeType",
     "ImageCustomActionTriggerType",
+    "ImageExtractionStatusType",
     "IncludeFolderMembersType",
     "IncludeGeneratedAnswerType",
     "IncludeQuickSightQIndexType",
@@ -165,6 +168,10 @@ __all__ = (
     "JoinTypeType",
     "KPISparklineTypeType",
     "KPIVisualStandardLayoutTypeType",
+    "KbIngestionStatusType",
+    "KnowledgeBaseSearchFilterNameType",
+    "KnowledgeBaseSearchOperatorType",
+    "KnowledgeBaseSortByFieldType",
     "LayerCustomActionTriggerType",
     "LayoutElementTypeType",
     "LegendPositionType",
@@ -191,6 +198,7 @@ __all__ = (
     "ListIAMPolicyAssignmentsForUserPaginatorName",
     "ListIAMPolicyAssignmentsPaginatorName",
     "ListIngestionsPaginatorName",
+    "ListKnowledgeBasesPaginatorName",
     "ListNamespacesPaginatorName",
     "ListOAuthClientApplicationsPaginatorName",
     "ListRoleMembershipsPaginatorName",
@@ -272,6 +280,7 @@ __all__ = (
     "SearchFlowsPaginatorName",
     "SearchFoldersPaginatorName",
     "SearchGroupsPaginatorName",
+    "SearchKnowledgeBasesPaginatorName",
     "SearchTopicsPaginatorName",
     "SectionPageBreakStatusType",
     "SelectAllValueOptionsType",
@@ -299,6 +308,7 @@ __all__ = (
     "SnapshotFileSheetSelectionScopeType",
     "SnapshotJobStatusType",
     "SortDirectionType",
+    "SortOrderType",
     "SpaceQuickSightResourceTypeType",
     "SpaceQuickSightSearchFilterNameType",
     "SpaceSearchOperatorType",
@@ -340,12 +350,16 @@ __all__ = (
     "TransposedColumnTypeType",
     "URLTargetConfigurationType",
     "UndefinedSpecifiedValueTypeType",
+    "UserIndexCapacitySortByType",
+    "UserIndexCapacitySortOrderType",
     "UserRoleType",
     "VPCConnectionAvailabilityStatusType",
     "VPCConnectionResourceStatusType",
     "ValidationStrategyModeType",
     "ValueWhenUnsetOptionType",
     "VerticalTextAlignmentType",
+    "VideoExtractionStatusType",
+    "VideoExtractionTypeType",
     "VisibilityType",
     "VisualCustomActionTriggerType",
     "VisualHighlightTriggerType",
@@ -499,6 +513,7 @@ AssetBundleImportJobStatusType = Literal[
     "SUCCESSFUL",
 ]
 AssignmentStatusType = Literal["DISABLED", "DRAFT", "ENABLED"]
+AudioExtractionStatusType = Literal["DISABLED", "ENABLED"]
 AuthenticationMethodOptionType = Literal[
     "ACTIVE_DIRECTORY", "IAM_AND_QUICKSIGHT", "IAM_IDENTITY_CENTER", "IAM_ONLY"
 ]
@@ -641,6 +656,7 @@ DataSetNumericComparisonFilterOperatorType = Literal[
     "LESS_THAN",
     "LESS_THAN_OR_EQUALS_TO",
 ]
+DataSetStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATING"]
 DataSetStringComparisonFilterOperatorType = Literal[
     "CONTAINS", "DOES_NOT_CONTAIN", "DOES_NOT_EQUAL", "ENDS_WITH", "EQUALS", "STARTS_WITH"
 ]
@@ -832,6 +848,7 @@ IconType = Literal[
 IdentityStoreType = Literal["QUICKSIGHT"]
 IdentityTypeType = Literal["IAM", "IAM_IDENTITY_CENTER", "QUICKSIGHT"]
 ImageCustomActionTriggerType = Literal["CLICK", "MENU"]
+ImageExtractionStatusType = Literal["DISABLED", "ENABLED"]
 IncludeFolderMembersType = Literal["NONE", "ONE_LEVEL", "RECURSE"]
 IncludeGeneratedAnswerType = Literal["EXCLUDE", "INCLUDE"]
 IncludeQuickSightQIndexType = Literal["EXCLUDE", "INCLUDE"]
@@ -897,6 +914,22 @@ JoinOperationTypeType = Literal["INNER", "LEFT", "OUTER", "RIGHT"]
 JoinTypeType = Literal["INNER", "LEFT", "OUTER", "RIGHT"]
 KPISparklineTypeType = Literal["AREA", "LINE"]
 KPIVisualStandardLayoutTypeType = Literal["CLASSIC", "VERTICAL"]
+KbIngestionStatusType = Literal[
+    "CANCELLED", "CANCELLING", "COMPLETED", "FAILED", "INCOMPLETE", "QUEUED", "RUNNING", "TIMEOUT"
+]
+KnowledgeBaseSearchFilterNameType = Literal[
+    "DIRECT_QUICKSIGHT_OWNER",
+    "DIRECT_QUICKSIGHT_SOLE_OWNER",
+    "DIRECT_QUICKSIGHT_VIEWER_OR_OWNER",
+    "KNOWLEDGE_BASE_ID",
+    "KNOWLEDGE_BASE_NAME",
+    "KNOWLEDGE_BASE_SIZE_BYTES",
+    "PRIMARY_OWNER",
+]
+KnowledgeBaseSearchOperatorType = Literal[
+    "GREATER_THAN_OR_EQUALS", "LESS_THAN_OR_EQUALS", "STRING_EQUALS", "STRING_LIKE"
+]
+KnowledgeBaseSortByFieldType = Literal["CREATED_AT", "KNOWLEDGE_BASE_SIZE_BYTES"]
 LayerCustomActionTriggerType = Literal["DATA_POINT_CLICK", "DATA_POINT_MENU"]
 LayoutElementTypeType = Literal[
     "FILTER_CONTROL", "IMAGE", "PARAMETER_CONTROL", "TEXT_BOX", "VISUAL"
@@ -925,6 +958,7 @@ ListGroupsPaginatorName = Literal["list_groups"]
 ListIAMPolicyAssignmentsForUserPaginatorName = Literal["list_iam_policy_assignments_for_user"]
 ListIAMPolicyAssignmentsPaginatorName = Literal["list_iam_policy_assignments"]
 ListIngestionsPaginatorName = Literal["list_ingestions"]
+ListKnowledgeBasesPaginatorName = Literal["list_knowledge_bases"]
 ListNamespacesPaginatorName = Literal["list_namespaces"]
 ListOAuthClientApplicationsPaginatorName = Literal["list_o_auth_client_applications"]
 ListRoleMembershipsPaginatorName = Literal["list_role_memberships"]
@@ -1084,6 +1118,7 @@ SearchFilterOperatorType = Literal["StringEquals", "StringLike"]
 SearchFlowsPaginatorName = Literal["search_flows"]
 SearchFoldersPaginatorName = Literal["search_folders"]
 SearchGroupsPaginatorName = Literal["search_groups"]
+SearchKnowledgeBasesPaginatorName = Literal["search_knowledge_bases"]
 SearchTopicsPaginatorName = Literal["search_topics"]
 SectionPageBreakStatusType = Literal["DISABLED", "ENABLED"]
 SelectAllValueOptionsType = Literal["ALL_VALUES"]
@@ -1126,6 +1161,7 @@ SnapshotFileFormatTypeType = Literal["CSV", "EXCEL", "PDF"]
 SnapshotFileSheetSelectionScopeType = Literal["ALL_VISUALS", "SELECTED_VISUALS"]
 SnapshotJobStatusType = Literal["COMPLETED", "FAILED", "QUEUED", "RUNNING"]
 SortDirectionType = Literal["ASC", "DESC"]
+SortOrderType = Literal["ASC", "DESC"]
 SpaceQuickSightResourceTypeType = Literal[
     "ACTION_CONNECTOR", "ARTIFACT", "DASHBOARD", "DATA_SET", "KNOWLEDGE_BASE", "SPACE", "TOPIC"
 ]
@@ -1215,6 +1251,8 @@ TopicUserExperienceVersionType = Literal["LEGACY", "NEW_READER_EXPERIENCE"]
 TransposedColumnTypeType = Literal["ROW_HEADER_COLUMN", "VALUE_COLUMN"]
 URLTargetConfigurationType = Literal["NEW_TAB", "NEW_WINDOW", "SAME_TAB"]
 UndefinedSpecifiedValueTypeType = Literal["LEAST", "MOST"]
+UserIndexCapacitySortByType = Literal["TOTAL_CAPACITY_BYTES"]
+UserIndexCapacitySortOrderType = Literal["ASC", "DESC"]
 UserRoleType = Literal[
     "ADMIN",
     "ADMIN_PRO",
@@ -1240,6 +1278,10 @@ VPCConnectionResourceStatusType = Literal[
 ValidationStrategyModeType = Literal["LENIENT", "STRICT"]
 ValueWhenUnsetOptionType = Literal["NULL", "RECOMMENDED_VALUE"]
 VerticalTextAlignmentType = Literal["AUTO", "BOTTOM", "MIDDLE", "TOP"]
+VideoExtractionStatusType = Literal["DISABLED", "ENABLED"]
+VideoExtractionTypeType = Literal[
+    "AUDIO_TRANSCRIPTION_ONLY", "VISUAL_CONTENT_AND_AUDIO_TRANSCRIPTION"
+]
 VisibilityType = Literal["HIDDEN", "VISIBLE"]
 VisualCustomActionTriggerType = Literal["DATA_POINT_CLICK", "DATA_POINT_MENU"]
 VisualHighlightTriggerType = Literal["DATA_POINT_CLICK", "DATA_POINT_HOVER", "NONE"]
@@ -1604,6 +1646,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -1703,6 +1746,7 @@ PaginatorName = Literal[
     "list_iam_policy_assignments",
     "list_iam_policy_assignments_for_user",
     "list_ingestions",
+    "list_knowledge_bases",
     "list_namespaces",
     "list_o_auth_client_applications",
     "list_role_memberships",
@@ -1721,6 +1765,7 @@ PaginatorName = Literal[
     "search_flows",
     "search_folders",
     "search_groups",
+    "search_knowledge_bases",
     "search_topics",
 ]
 RegionName = Literal[

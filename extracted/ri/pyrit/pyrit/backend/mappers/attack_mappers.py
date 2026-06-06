@@ -13,10 +13,10 @@ from __future__ import annotations
 
 import logging
 import mimetypes
-import os
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import TYPE_CHECKING, Optional, cast
 from urllib.parse import quote, urlparse
 
@@ -24,16 +24,19 @@ from azure.identity.aio import DefaultAzureCredential
 from azure.storage.blob import ContainerSasPermissions, generate_container_sas
 from azure.storage.blob.aio import BlobServiceClient
 
+from pyrit.backend.mappers._preview import format_last_message_preview
 from pyrit.backend.models.attacks import (
     AddMessageRequest,
     AttackSummary,
     Message,
     MessagePiece,
     MessagePieceRequest,
+    RetryEventResponse,
     Score,
     TargetInfo,
 )
-from pyrit.models import AttackResult, ChatMessageRole, PromptDataType
+from pyrit.common.deprecation import print_deprecation_message
+from pyrit.models import MEDIA_PATH_DATA_TYPES, AttackResult, ChatMessageRole, PromptDataType
 from pyrit.models import Message as PyritMessage
 from pyrit.models import MessagePiece as PyritMessagePiece
 from pyrit.models import Score as PyritScore
@@ -42,13 +45,11 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from pyrit.models.conversation_stats import ConversationStats
+    from pyrit.models.retry_event import RetryEvent
 
 # ============================================================================
 # Domain → DTO  (for API responses)
 # ============================================================================
-
-# Media data types whose values are file paths (local or Azure Blob URLs)
-_MEDIA_PATH_TYPES = frozenset({"image_path", "audio_path", "video_path", "binary_path"})
 
 # ---------------------------------------------------------------------------
 # Azure Blob SAS token cache
@@ -107,7 +108,7 @@ async def _get_sas_for_container_async(*, container_url: str) -> str:
                 account_name=storage_account_name,
                 container_name=container_name,
                 user_delegation_key=delegation_key,
-                permission=ContainerSasPermissions(read=True),  # type: ignore[no-untyped-call,unused-ignore]
+                permission=ContainerSasPermissions(read=True),
                 expiry=expiry_time,
                 start=start_time,
             )
@@ -169,15 +170,43 @@ def _resolve_media_url(*, value: Optional[str], data_type: str) -> Optional[str]
         The value unchanged for non-media types, a ``/api/media?path=...``
         URL for local file paths, or the original value for blob URLs / data URIs.
     """
-    if not value or data_type not in _MEDIA_PATH_TYPES:
+    if not value or data_type not in MEDIA_PATH_DATA_TYPES:
         return value
     # Already a URL or data URI — pass through
     if value.startswith(("http://", "https://", "data:")):
         return value
     # Local file path — construct a media endpoint URL
-    if os.path.isfile(value):
+    if Path(value).is_file():
         return f"/api/media?path={quote(str(value))}"
     return value
+
+
+def retry_events_to_response(retry_events: list[RetryEvent] | None) -> list[RetryEventResponse] | None:
+    """
+    Convert a list of RetryEvent domain objects to RetryEventResponse DTOs.
+
+    Args:
+        retry_events: Domain retry events, or None.
+
+    Returns:
+        List of RetryEventResponse DTOs, or None if the input is None or empty.
+    """
+    if not retry_events:
+        return None
+    return [
+        RetryEventResponse(
+            timestamp=evt.timestamp,
+            attempt_number=evt.attempt_number,
+            function_name=evt.function_name,
+            exception_type=evt.exception_type,
+            exception_message=evt.exception_message,
+            component_role=evt.component_role,
+            component_name=evt.component_name,
+            endpoint=evt.endpoint,
+            elapsed_seconds=evt.elapsed_seconds,
+        )
+        for evt in retry_events
+    ]
 
 
 def attack_result_to_summary(
@@ -196,12 +225,26 @@ def attack_result_to_summary(
         AttackSummary DTO ready for the API response.
     """
     message_count = stats.message_count
-    last_preview = stats.last_message_preview
-    labels = dict(stats.labels) if stats.labels else {}
+    last_preview = format_last_message_preview(
+        value=stats.last_message_preview,
+        data_type=stats.last_message_data_type,
+    )
 
+    # Merge attack-result labels with conversation-level labels.
+    # Conversation labels take precedence on key collision.
+    labels = dict(ar.labels) if ar.labels else {}
+    labels.update(stats.labels or {})
+    # Resolution order for created_at: explicit metadata override, then the
+    # persisted AttackResult.timestamp, and finally datetime.now() as a
+    # last-resort fallback for never-persisted results.
     created_str = ar.metadata.get("created_at")
     updated_str = ar.metadata.get("updated_at")
-    created_at = datetime.fromisoformat(created_str) if created_str else datetime.now(timezone.utc)
+    if created_str:
+        created_at = datetime.fromisoformat(created_str)
+    elif ar.timestamp is not None:
+        created_at = ar.timestamp
+    else:
+        created_at = datetime.now(timezone.utc)
     updated_at = datetime.fromisoformat(updated_str) if updated_str else created_at
 
     aid = ar.get_attack_strategy_identifier()
@@ -220,6 +263,9 @@ def attack_result_to_summary(
         else None
     )
 
+    # Build retry event responses if available
+    retry_event_responses = retry_events_to_response(ar.retry_events)
+
     return AttackSummary(
         attack_result_id=ar.attack_result_id,
         conversation_id=ar.conversation_id,
@@ -234,6 +280,11 @@ def attack_result_to_summary(
         labels=labels,
         created_at=created_at,
         updated_at=updated_at,
+        error_message=ar.error_message,
+        error_type=ar.error_type,
+        error_traceback=ar.error_traceback,
+        total_retries=ar.total_retries,
+        retry_events=retry_event_responses,
     )
 
 
@@ -247,7 +298,9 @@ def pyrit_scores_to_dto(scores: list[PyritScore]) -> list[Score]:
     return [
         Score(
             score_id=str(score.id),
-            scorer_type=score.scorer_class_identifier.class_name,
+            scorer_type=(
+                score.scorer_class_identifier.class_name or "Unknown" if score.scorer_class_identifier else "Unknown"
+            ),
             score_type=score.score_type,
             score_value=score.score_value,
             score_category=score.score_category,
@@ -323,7 +376,7 @@ def _build_filename(
         source = value
         if source.startswith("http"):
             source = urlparse(source).path
-        ext = os.path.splitext(source)[1]  # e.g. ".png"
+        ext = Path(source).suffix  # e.g. ".png"
 
     if not ext:
         # Fallback: guess from mime type based on data type prefix
@@ -389,7 +442,7 @@ async def pyrit_messages_to_dto_async(pyrit_messages: list[PyritMessage]) -> lis
         messages.append(
             Message(
                 turn_number=first.sequence if first else 0,
-                role=first.get_role_for_storage() if first else "user",
+                role=first.role if first else "user",
                 pieces=pieces,
                 created_at=first.timestamp if first else datetime.now(timezone.utc),
             )
@@ -409,7 +462,7 @@ def request_piece_to_pyrit_message_piece(
     role: ChatMessageRole,
     conversation_id: str,
     sequence: int,
-    labels: Optional[dict[str, str]] = None,
+    labels: Optional[dict[str, str]] = None,  # deprecated
 ) -> PyritMessagePiece:
     """
     Convert a single request piece DTO to a PyRIT MessagePiece domain object.
@@ -420,11 +473,18 @@ def request_piece_to_pyrit_message_piece(
         conversation_id: The conversation/attack ID.
         sequence: The message sequence number.
         labels: Optional labels to attach to the piece.
+            Deprecated: This parameter will be removed in a release 0.16.0.
 
     Returns:
         PyritMessagePiece domain object.
     """
-    metadata: Optional[dict[str, str | int]] = None
+    if labels is not None:
+        print_deprecation_message(
+            old_item="request_piece_to_pyrit_message_piece(..., labels=...)",
+            new_item="request_piece_to_pyrit_message_piece(...)",
+            removed_in="0.16.0",
+        )
+    metadata: dict[str, str | int] = {}
     if piece.prompt_metadata:
         metadata = dict(piece.prompt_metadata)
     elif piece.mime_type:
@@ -439,7 +499,7 @@ def request_piece_to_pyrit_message_piece(
         conversation_id=conversation_id,
         sequence=sequence,
         prompt_metadata=metadata,
-        labels=labels or {},
+        labels=labels or {},  # deprecated
         original_prompt_id=original_prompt_id,
     )
 
@@ -449,7 +509,7 @@ def request_to_pyrit_message(
     request: AddMessageRequest,
     conversation_id: str,
     sequence: int,
-    labels: Optional[dict[str, str]] = None,
+    labels: Optional[dict[str, str]] = None,  # deprecated
 ) -> PyritMessage:
     """
     Build a PyRIT Message from an AddMessageRequest DTO.
@@ -459,21 +519,28 @@ def request_to_pyrit_message(
         conversation_id: The conversation/attack ID.
         sequence: The message sequence number.
         labels: Optional labels to attach to each piece.
+            Deprecated: This parameter will be removed in a release 0.16.0.
 
     Returns:
         PyritMessage ready to send to the target.
     """
+    if labels is not None:
+        print_deprecation_message(
+            old_item="request_to_pyrit_message(..., labels=...)",
+            new_item="request_to_pyrit_message(...)",
+            removed_in="0.16.0",
+        )
     pieces = [
         request_piece_to_pyrit_message_piece(
             piece=p,
             role=request.role,
             conversation_id=conversation_id,
             sequence=sequence,
-            labels=labels,
+            labels=labels,  # deprecated
         )
         for p in request.pieces
     ]
-    return PyritMessage(pieces)
+    return PyritMessage(message_pieces=pieces)
 
 
 # ============================================================================

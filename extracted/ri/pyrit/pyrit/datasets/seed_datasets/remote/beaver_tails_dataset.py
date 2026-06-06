@@ -6,7 +6,7 @@ import logging
 from pyrit.datasets.seed_datasets.remote.remote_dataset_loader import (
     _RemoteDatasetLoader,
 )
-from pyrit.models import SeedDataset, SeedPrompt
+from pyrit.models import Modality, SeedDataset, SeedPrompt
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +31,17 @@ class _BeaverTailsDataset(_RemoteDatasetLoader):
 
     HF_DATASET_NAME: str = "PKU-Alignment/BeaverTails"
 
+    # Metadata
+    modalities: tuple[Modality, ...] = (Modality.TEXT,)
+    size: str = "huge"  # 166382 annotated prompt-response entries (default config)
+    tags: frozenset[str] = frozenset({"default", "safety"})
+
     def __init__(
         self,
         *,
         split: str = "330k_train",
         unsafe_only: bool = True,
-    ):
+    ) -> None:
         """
         Initialize the BeaverTails dataset loader.
 
@@ -52,7 +57,7 @@ class _BeaverTailsDataset(_RemoteDatasetLoader):
         """Return the dataset name."""
         return "beaver_tails"
 
-    async def fetch_dataset(self, *, cache: bool = True) -> SeedDataset:
+    async def fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
         """
         Fetch BeaverTails dataset from HuggingFace and return as SeedDataset.
 
@@ -64,7 +69,7 @@ class _BeaverTailsDataset(_RemoteDatasetLoader):
         """
         logger.info(f"Loading BeaverTails dataset from {self.HF_DATASET_NAME}")
 
-        data = await self._fetch_from_huggingface(
+        data = await self._fetch_from_huggingface_async(
             dataset_name=self.HF_DATASET_NAME,
             split=self.split,
             cache=cache,

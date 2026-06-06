@@ -270,6 +270,20 @@ h2{color:#4ade80;font-size:24px;margin-bottom:8px}p{color:#888}</style>
     if not result.get("token"):
         raise RuntimeError("Authentication timed out. Run `sage login` again.")
 
+    # Detect account switch
+    existing = load_auth()
+    if existing and existing.get("uid") != result["uid"]:
+        # User switched accounts! Stop any running bridge daemon.
+        try:
+            from sage.core.sms_bridge import SMS_PID_FILE
+            from sage.main import _sms_terminate_process
+            if SMS_PID_FILE.exists():
+                pid = int(SMS_PID_FILE.read_text().strip())
+                _sms_terminate_process(pid)
+                if SMS_PID_FILE.exists(): SMS_PID_FILE.unlink()
+        except Exception:
+            pass
+
     auth = {
         "uid":           result["uid"],
         "email":         result["email"],
@@ -296,6 +310,42 @@ h2{color:#4ade80;font-size:24px;margin-bottom:8px}p{color:#888}</style>
 
 def logout() -> None:
     clear_auth()
+    
+    # Terminate any running SMS bridge daemon before deleting its PID file
+    try:
+        from sage.core.sms_bridge import SMS_PID_FILE
+        if SMS_PID_FILE.exists():
+            pid_str = SMS_PID_FILE.read_text().strip()
+            if pid_str.isdigit():
+                from sage.main import _sms_terminate_process
+                _sms_terminate_process(int(pid_str))
+    except Exception:
+        pass
+
+    # Deep clean local identity data
+    targets = [
+        "verified_phone.txt",
+        "sms_daemon.pid",
+        "sms.log",
+        "contacts.json",
+        "last_seen_contacts.txt"
+    ]
+    for t in targets:
+        p = Path.home() / ".sage" / t
+        if p.exists():
+            try:
+                p.unlink()
+            except Exception:
+                pass
+    
+    # Also clear session history if it exists
+    history_dir = Path.home() / ".sage" / "history"
+    if history_dir.exists() and history_dir.is_dir():
+        try:
+            import shutil
+            shutil.rmtree(history_dir)
+        except Exception:
+            pass
 
 
 def whoami() -> dict | None:

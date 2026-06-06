@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import json
-import os
 import shlex
-import shutil
 import subprocess
 import urllib.error
 import urllib.parse
@@ -17,6 +15,7 @@ from pathlib import Path
 
 from .adapters.base import HarnessContext
 from .config import GuardConfig, resolve_risk_action
+from .package_firewall_entitlement import resolve_package_firewall_entitlement
 from .receipts import build_receipt
 from .redaction import redact_text
 from .runtime.package_intent_common import (
@@ -33,9 +32,12 @@ from .runtime.package_intent_common import (
 from .runtime.package_manifest_diff import parse_manifest_dependencies, parse_manifest_dependency_changes
 from .runtime.runner import (
     GuardSyncAuthorizationExpiredError,
+    GuardSyncNotAvailableError,
     GuardSyncNotConfiguredError,
     _guard_sync_headers,
     _resolve_guard_sync_auth_context,
+    sync_local_guard_cloud_proof,
+    sync_supply_chain_bundle,
 )
 from .runtime.supply_chain_package_eval import evaluate_package_request_artifact
 from .runtime.supply_chain_support import ecosystem_support_matrix
@@ -253,6 +255,30 @@ def build_supply_chain_status_payload(
         "dry_run": True,
         "supply_chain": posture,
     }
+
+
+def resolve_package_firewall_entitlement_with_refresh(store: GuardStore) -> dict[str, object]:
+    """Resolve package-firewall access and opportunistically heal stale cloud state."""
+
+    entitlement = resolve_package_firewall_entitlement(store)
+    if bool(entitlement.get("allowed")):
+        return entitlement
+    if store.get_cloud_sync_profile() is None:
+        return entitlement
+    if str(entitlement.get("reason") or "") not in {"guard_cloud_reconnect_required", "paid_guard_cloud_required"}:
+        return entitlement
+    for refresh in (sync_local_guard_cloud_proof, sync_supply_chain_bundle):
+        try:
+            refresh(store)
+        except (
+            GuardSyncAuthorizationExpiredError,
+            GuardSyncNotAvailableError,
+            GuardSyncNotConfiguredError,
+            OSError,
+            RuntimeError,
+        ):
+            continue
+    return resolve_package_firewall_entitlement(store)
 
 
 def build_workspace_scan_payload(
@@ -504,6 +530,15 @@ def build_package_protect_payload(
     )
     verdict_action = _protect_action_for_decision(evaluation.decision)
     risk_signals = tuple(_evaluation_risk_signals(evaluation))
+    receipt_policy_metadata = {
+        "matched_rule_id": evaluation.matched_rule_id,
+        "package_manager": sanitized_intent.package_manager,
+        "package_targets": [target.raw_spec for target in sanitized_intent.targets],
+        "policy_version": evaluation.policy_version,
+        "redacted_command": sanitized_intent.redacted_command,
+    }
+    if evaluation.bundle_version is not None:
+        receipt_policy_metadata["bundle_version"] = evaluation.bundle_version
     receipt = build_receipt(
         harness=_LOCAL_SUPPLY_CHAIN_HARNESS,
         artifact_id=artifact.artifact_id,
@@ -515,6 +550,10 @@ def build_package_protect_payload(
         artifact_name=artifact.name,
         source_scope=artifact.source_scope,
     )
+    receipt_payload = {
+        **receipt.to_dict(),
+        "action_envelope_json": receipt_policy_metadata,
+    }
     payload: dict[str, object] = {
         "generated_at": now,
         "request": {
@@ -538,7 +577,7 @@ def build_package_protect_payload(
         },
         "executed": False,
         "dry_run": dry_run,
-        "receipt": receipt.to_dict(),
+        "receipt": receipt_payload,
         "matched_advisories": _matched_advisories(evaluation),
         "supply_chain_evaluation": evaluation.to_dict(),
     }
@@ -546,6 +585,7 @@ def build_package_protect_payload(
         payload["supply_chain"] = build_local_supply_chain_posture(store, config, now=now)
     if evaluation.decision in {"block", "ask"} or dry_run:
         store.add_receipt(receipt)
+        store.set_receipt_action_envelope(receipt.receipt_id, receipt_policy_metadata)
         store.add_event(
             f"install_time_{verdict_action}",
             {
@@ -598,6 +638,7 @@ def build_package_protect_payload(
     )
     if execution.returncode == 0:
         store.add_receipt(receipt)
+        store.set_receipt_action_envelope(receipt.receipt_id, receipt_policy_metadata)
         store.add_event(
             "install_time_allow",
             {
@@ -668,7 +709,7 @@ def _coerce_command_error_output(error: subprocess.TimeoutExpired | OSError) -> 
 
 def _build_package_manager_protection(store: GuardStore) -> dict[str, object]:
     context = HarnessContext(
-        home_dir=store.guard_home,
+        home_dir=Path.home().resolve(),
         workspace_dir=None,
         guard_home=store.guard_home,
     )
@@ -678,20 +719,19 @@ def _build_package_manager_protection(store: GuardStore) -> dict[str, object]:
     active_managers = sorted({str(item) for item in status.get("active_managers", []) if isinstance(item, str)})
     missing_shims = sorted({str(item) for item in status.get("missing_managers", []) if isinstance(item, str)})
     supported_managers = list(package_shim_supported_managers())
-    path_entries = [entry for entry in os.environ.get("PATH", "").split(os.pathsep) if entry]
-    path_contains_shim_dir = any(_paths_match(entry, shim_dir) for entry in path_entries)
-    protected_managers: list[str] = []
-    unprotected_managers: list[str] = []
-    for manager in supported_managers:
-        shim_target = shim_dir / manager
-        resolved = shutil.which(manager)
-        if resolved is not None and _paths_match(resolved, shim_target):
-            protected_managers.append(manager)
-        else:
-            unprotected_managers.append(manager)
+    protected_managers = sorted({str(item) for item in status.get("protected_managers", []) if isinstance(item, str)})
+    protected_set = set(protected_managers)
+    path_status = str(status.get("path_status") or "missing_from_path")
+    staged_managers = set(installed_managers) if path_status == "restart_required" else set()
+    unprotected_managers = [
+        manager for manager in supported_managers if manager not in protected_set and manager not in staged_managers
+    ]
     return {
-        "path_status": "in_path" if path_contains_shim_dir else "missing_from_path",
-        "path_contains_shim_dir": path_contains_shim_dir,
+        "path_status": path_status,
+        "path_contains_shim_dir": bool(status.get("path_contains_shim_dir")),
+        "restart_shell_required": bool(status.get("restart_shell_required")),
+        "shell_profile_configured": bool(status.get("shell_profile_configured")),
+        "shell_profile_path": status.get("shell_profile_path"),
         "shim_dir": str(shim_dir),
         "supported_managers": supported_managers,
         "installed_managers": installed_managers,
@@ -700,17 +740,6 @@ def _build_package_manager_protection(store: GuardStore) -> dict[str, object]:
         "protected_managers": protected_managers,
         "unprotected_managers": unprotected_managers,
     }
-
-
-def _paths_match(left: str | Path, right: str | Path) -> bool:
-    try:
-        left_path = Path(str(left)).expanduser().resolve()
-        right_path = Path(str(right)).expanduser().resolve()
-        return left_path == right_path
-    except (OSError, RuntimeError):
-        left_path = Path(str(left)).expanduser()
-        right_path = Path(str(right)).expanduser()
-        return os.path.normcase(os.path.abspath(left_path)) == os.path.normcase(os.path.abspath(right_path))
 
 
 def _workspace_scan_intent(

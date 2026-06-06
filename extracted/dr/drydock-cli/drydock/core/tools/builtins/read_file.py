@@ -100,11 +100,52 @@ class ReadFile(
                 # Fall through to plain UTF-8 read on parse error.
                 pass
 
-        # Handle image files (describe what we can)
-        if file_path.suffix.lower() in (".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg"):
+        # Handle image files.
+        # 2026-06-05: actually send the image bytes to the LLM (Gemma 4 26B
+        # runs with --mmproj /models/mmproj-F16.gguf so it CAN see images).
+        # Encode as base64 with markers; the backend's prepare_request scans
+        # for the marker and transforms the message content to OpenAI
+        # multimodal format (text + image_url) before sending to llama.cpp.
+        if file_path.suffix.lower() in (".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".svg"):
             import os
             size = os.path.getsize(file_path)
-            content = f"[Image file: {file_path.name}, {size} bytes, format: {file_path.suffix}]"
+            # 5MB cap — beyond that the base64 expansion (1.33x) eats too
+            # much context and most VLMs can't reason about giant images
+            # anyway. Operator can override via DRYDOCK_IMAGE_MAX_BYTES.
+            cap = int(os.environ.get("DRYDOCK_IMAGE_MAX_BYTES", "5000000"))
+            if size > cap:
+                content = (
+                    f"[Image file: {file_path.name}, {size} bytes — too "
+                    f"large to embed (>{cap} bytes cap). Use `bash` with "
+                    f"`convert {file_path} -resize 800x800 /tmp/small.png` "
+                    f"to create a smaller version first.]"
+                )
+            elif file_path.suffix.lower() == ".svg":
+                # SVG is text-based; read as text so the model can analyze
+                # the markup directly. mmproj doesn't process SVG.
+                try:
+                    content = file_path.read_text(encoding="utf-8", errors="replace")
+                except Exception:
+                    content = f"[Image file: {file_path.name}, {size} bytes, .svg unreadable as text]"
+            else:
+                import base64 as _b64
+                raw = file_path.read_bytes()
+                mime = {
+                    ".png": "image/png",
+                    ".jpg": "image/jpeg",
+                    ".jpeg": "image/jpeg",
+                    ".gif": "image/gif",
+                    ".bmp": "image/bmp",
+                    ".webp": "image/webp",
+                }.get(file_path.suffix.lower(), "image/png")
+                b64 = _b64.b64encode(raw).decode("ascii")
+                # Marker format consumed by generic.py prepare_request:
+                #   [[DRYDOCK_IMG_BEGIN:<mime>]]<base64>[[DRYDOCK_IMG_END]]
+                content = (
+                    f"[Image: {file_path.name}, {size} bytes — visual "
+                    f"content embedded below]\n"
+                    f"[[DRYDOCK_IMG_BEGIN:{mime}]]{b64}[[DRYDOCK_IMG_END]]"
+                )
             yield ReadFileResult(
                 path=str(file_path), content=content,
                 lines_read=1, was_truncated=False,

@@ -16,7 +16,14 @@ _chromadb = None
 
 _EMBED_MODEL = None
 _EMBED_FAILED = False
-_EMBED_DIM = 512  # bge-small-zh-v1.5
+_EMBED_DIM = 512
+_EMBED_MODEL_NAME: str | None = None  # override from config
+
+
+def set_embed_model_name(name: str) -> None:
+    """Set embedding model name before first use. Call from Config init."""
+    global _EMBED_MODEL_NAME
+    _EMBED_MODEL_NAME = name
 
 
 # ── Lazy loaders ─────────────────────────────────────────────────────────
@@ -71,14 +78,16 @@ def _get_chromadb():
 
 
 def _get_embed_model():
-    """Lazy-load bge-small-zh-v1.5 via fastembed (ONNX, no PyTorch)."""
+    """Lazy-load embedding model via fastembed (ONNX, no PyTorch)."""
     global _EMBED_MODEL, _EMBED_FAILED, _EMBED_DIM
     if _EMBED_FAILED:
         return None
     if _EMBED_MODEL is None:
         try:
+            from kanban_framework.infra.consts import Consts
+            model_name = _EMBED_MODEL_NAME or Consts.DEFAULT_EMBEDDING_MODEL
             from fastembed import TextEmbedding
-            _EMBED_MODEL = TextEmbedding(model_name="BAAI/bge-small-zh-v1.5")
+            _EMBED_MODEL = TextEmbedding(model_name=model_name)
             probe = list(_EMBED_MODEL.embed(["dim_probe"]))[0]
             _EMBED_DIM = len(probe)
         except Exception:
@@ -160,7 +169,7 @@ VALID_SEVERITIES = {
 
 STALE_DAYS = 30
 
-DEFAULT_SCORE_THRESHOLD = 0.0
+DEFAULT_SCORE_THRESHOLD = 0.15
 
 TECH_ABBREVIATIONS: dict[str, str] = {
     "k8s": "Kubernetes", "k3s": "K3s",

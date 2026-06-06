@@ -3773,45 +3773,6 @@ use crate::term_builder::{
     smooth_type_uses_spatial_center_heuristic,
 };
 
-/// User-facing policy for the universal under-identification robustness layer
-/// (link-general Jeffreys/Firth on the under-identified span + exact
-/// orthogonalization of structural confounds).
-///
-/// `Off` is the default and leaves every solver path byte-identical to the
-/// released behavior: no new branch reads a non-`Off` value yet. `Auto` enables
-/// the robustness only where a pathology is detected; `Force` requests it
-/// unconditionally on supported families.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub enum RobustIdentification {
-    /// Disabled: existing behavior, byte-unchanged.
-    #[default]
-    Off,
-    /// Enable robustness only where an under-identified direction is detected.
-    Auto,
-    /// Request robustness unconditionally on supported families.
-    Force,
-}
-
-impl RobustIdentification {
-    pub fn parse(raw: &str) -> Option<Self> {
-        match raw.trim().to_ascii_lowercase().as_str() {
-            "off" | "false" | "0" | "" => Some(Self::Off),
-            "auto" => Some(Self::Auto),
-            "force" | "on" | "true" | "1" => Some(Self::Force),
-            _ => None,
-        }
-    }
-
-    #[inline]
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Off => "off",
-            Self::Auto => "auto",
-            Self::Force => "force",
-        }
-    }
-}
-
 /// Non-formula configuration for model fitting. All fields have sensible defaults.
 #[derive(Clone, Debug)]
 pub struct FitConfig {
@@ -3896,11 +3857,9 @@ pub struct FitConfig {
 
     /// Enable Firth bias reduction for standard single-parameter families.
     pub firth: bool,
-
-    /// Universal under-identification robustness policy. `Off` (default) leaves
-    /// every solver path byte-identical to released behavior; `Auto`/`Force`
-    /// enable the link-general Jeffreys/Firth + orthogonalization layer.
-    pub robust_identification: RobustIdentification,
+    /// Optional cap on the REML/LAML outer smoothing-parameter iterations for
+    /// standard formula fits. `None` uses the production default.
+    pub outer_max_iter: Option<usize>,
 
     /// GPU backend selection policy. `Auto` uses supported device kernels for
     /// large workloads, `Off` pins execution to CPU kernels, and `Force` fails
@@ -3994,7 +3953,7 @@ impl Default for FitConfig {
             ridge_lambda: 1e-6,
             transformation_normal: false,
             firth: false,
-            robust_identification: RobustIdentification::Off,
+            outer_max_iter: None,
             gpu_policy: crate::gpu::GpuPolicy::Auto,
             device: crate::solver::gpu::Device::Cpu,
             resource_policy: None,
@@ -4103,6 +4062,13 @@ pub fn materialize<'a>(
         // auxiliary-formula rejection in `validate_auxiliary_formula_controls`.
         reject_survival_only_terms_for_nonsurvival(&parsed)?;
         if config.transformation_normal {
+            // Issue #789A: a Bernoulli marginal-slope request with
+            // `transformation_normal=true` used to dispatch as a CTN fit while
+            // retaining marginal-slope controls, leaving the transformation path
+            // in a non-advancing loop. CTN score calibration now uses the
+            // explicit `ctn_stage1` recipe instead, so the legacy boolean is a
+            // hard configuration error for marginal-slope requests.
+            reject_marginal_slope_controls_for_transformation_normal(config)?;
             if config.noise_formula.is_some() {
                 return Err(WorkflowError::InvalidConfig {
                     reason: "transformation_normal cannot be combined with noise_formula"
@@ -4118,6 +4084,26 @@ pub fn materialize<'a>(
             materialize_standard(&parsed, data, &col_map, config)
         }
     }
+}
+
+fn reject_marginal_slope_controls_for_transformation_normal(
+    config: &FitConfig,
+) -> Result<(), WorkflowError> {
+    let family_requests_marginal_slope = config.family.as_deref().is_some_and(|family| {
+        let canonical = family.to_ascii_lowercase().replace('_', "-");
+        canonical == "bernoulli-marginal-slope" || canonical == "binary-marginal-slope"
+    });
+    if family_requests_marginal_slope
+        || config.logslope_formula.is_some()
+        || config.z_column.is_some()
+        || config.ctn_stage1.is_some()
+    {
+        return Err(WorkflowError::InvalidConfig {
+            reason: "transformation_normal cannot be combined with marginal-slope family controls"
+                .to_string(),
+        });
+    }
+    Ok(())
 }
 
 /// Reject `timewiggle(...)` / `survmodel(...)` in a formula whose response is
@@ -4688,7 +4674,7 @@ fn l2_norm(column: &Array1<f64>) -> f64 {
     column.iter().map(|v| v * v).sum::<f64>().sqrt()
 }
 
-fn prune_unidentified_linear_terms_for_bernoulli_marginal_slope(
+fn prune_unidentified_linear_terms_for_marginal_slope(
     spec: &mut TermCollectionSpec,
     data: &Dataset,
     label: &str,
@@ -6026,12 +6012,11 @@ fn materialize_standard<'a>(
         sas_link: None,
         optimize_sas: false,
         compute_inference: true,
-        max_iter: 200,
+        max_iter: config.outer_max_iter.unwrap_or(200),
         tol: 1e-7,
         nullspace_dims: vec![],
         linear_constraints: None,
         firth_bias_reduction: config.firth,
-        robust_identification: config.robust_identification,
         adaptive_regularization: standard_adaptive_regularization_options(config),
         penalty_shrinkage_floor: Some(1e-6),
         rho_prior: Default::default(),
@@ -6181,7 +6166,7 @@ fn materialize_bernoulli_marginal_slope<'a>(
         &policy,
         config.smooth_overrides.as_ref(),
     )?;
-    prune_unidentified_linear_terms_for_bernoulli_marginal_slope(
+    prune_unidentified_linear_terms_for_marginal_slope(
         &mut marginalspec,
         data,
         "bernoulli marginal-slope marginal formula",
@@ -6196,7 +6181,7 @@ fn materialize_bernoulli_marginal_slope<'a>(
         &policy,
         config.smooth_overrides.as_ref(),
     )?;
-    prune_unidentified_linear_terms_for_bernoulli_marginal_slope(
+    prune_unidentified_linear_terms_for_marginal_slope(
         &mut logslopespec,
         data,
         "bernoulli marginal-slope logslope_formula",
@@ -6258,7 +6243,8 @@ fn materialize_bernoulli_marginal_slope<'a>(
             spec,
             options: BlockwiseFitOptions {
                 compute_covariance: true,
-                robust_identification: config.robust_identification,
+                // Robustness (Firth/Jeffreys stabilizer) is the unconditional
+                // default for bernoulli marginal-slope — no flag to thread.
                 ..Default::default()
             },
             kappa_options: SpatialLengthScaleOptimizationOptions::default(),
@@ -6314,6 +6300,22 @@ fn materialize_survival<'a>(
     }
 
     let survival_mode = parse_survival_likelihood_mode(&config.survival_likelihood)?;
+    // Fail fast on all-censored (zero-event) survival data in the marginal-slope
+    // path (#789B). The single-hazard / marginal-slope likelihood has no event
+    // score when no row is an event, so the inner/outer solve cannot identify the
+    // hazard and the optimizer spins without termination. The standard survival
+    // engine rejects this inside `WorkingModelSurvival`, but the marginal-slope
+    // construction does not necessarily build that working model, so the
+    // degenerate config must be caught here before any heavy construction.
+    if matches!(survival_mode, SurvivalLikelihoodMode::MarginalSlope)
+        && !event_codes.iter().any(|&code| code > 0)
+    {
+        return Err(WorkflowError::InvalidConfig {
+            reason: "survival marginal-slope requires at least one observed event; all rows are \
+                     censored, so the likelihood has no event score and cannot identify the hazard"
+                .to_string(),
+        });
+    }
     let cause_count =
         crate::survival::cause_count_from_event_codes(event_codes.view()).into_workflow_result()?;
     if cause_count > 1
@@ -6475,7 +6477,7 @@ fn materialize_survival<'a>(
         None
     };
     let termspec_col_map = marginal_slope_aliased_col_map.as_ref().unwrap_or(col_map);
-    let termspec = build_termspec_with_geometry_and_overrides(
+    let mut termspec = build_termspec_with_geometry_and_overrides(
         &parsed.terms,
         data,
         termspec_col_map,
@@ -6484,6 +6486,14 @@ fn materialize_survival<'a>(
         &policy,
         config.smooth_overrides.as_ref(),
     )?;
+    if survival_mode == SurvivalLikelihoodMode::MarginalSlope {
+        prune_unidentified_linear_terms_for_marginal_slope(
+            &mut termspec,
+            data,
+            "survival marginal-slope marginal formula",
+            &mut inference_notes,
+        )?;
+    }
 
     let residual_dist = parse_survival_distribution(&config.survival_distribution)?;
     let survival_inverse_link = residual_distribution_inverse_link(residual_dist);
@@ -6629,7 +6639,7 @@ fn materialize_survival<'a>(
                             .into(),
                     );
                 }
-                let spec = build_termspec_with_geometry_and_overrides(
+                let mut spec = build_termspec_with_geometry_and_overrides(
                     &ls_parsed.terms,
                     data,
                     col_map,
@@ -6637,6 +6647,12 @@ fn materialize_survival<'a>(
                     config.scale_dimensions,
                     &policy,
                     config.smooth_overrides.as_ref(),
+                )?;
+                prune_unidentified_linear_terms_for_marginal_slope(
+                    &mut spec,
+                    data,
+                    "survival marginal-slope logslope_formula",
+                    &mut inference_notes,
                 )?;
                 let routing = route_marginal_slope_deviation_blocks(
                     parsed.linkwiggle.as_ref(),
@@ -6695,7 +6711,7 @@ fn materialize_survival<'a>(
                 let z_idx = resolve_role_col(col_map, &surface.z_column, "z")?;
                 z.column_mut(surface_idx).assign(&data.values.column(z_idx));
                 let aliased_col_map = column_map_with_alias(col_map, "z", &surface.z_column);
-                specs.push(build_termspec_with_geometry_and_overrides(
+                let mut spec = build_termspec_with_geometry_and_overrides(
                     &surface.terms,
                     data,
                     &aliased_col_map,
@@ -6703,7 +6719,14 @@ fn materialize_survival<'a>(
                     config.scale_dimensions,
                     &policy,
                     config.smooth_overrides.as_ref(),
-                )?);
+                )?;
+                prune_unidentified_linear_terms_for_marginal_slope(
+                    &mut spec,
+                    data,
+                    "survival marginal-slope logslope_formula",
+                    &mut inference_notes,
+                )?;
+                specs.push(spec);
             }
             (
                 Some(z),
@@ -6994,6 +7017,8 @@ fn materialize_survival<'a>(
                 },
                 options: BlockwiseFitOptions {
                     compute_covariance: false,
+                    // Robustness (Firth/Jeffreys stabilizer) is the unconditional
+                    // default for survival marginal-slope — no flag to thread.
                     ..Default::default()
                 },
                 kappa_options: SpatialLengthScaleOptimizationOptions::default(),
@@ -7757,6 +7782,157 @@ mod tests {
         assert!(err.to_string().contains("main formula"));
     }
 
+    #[test]
+    fn survival_marginal_slope_matern_logslope_penalties_keep_surface_width() {
+        let n = 24usize;
+        let mut values = Array2::<f64>::zeros((n, 8));
+        for i in 0..n {
+            let u = i as f64 / (n - 1) as f64;
+            values[[i, 0]] = 0.0;
+            values[[i, 1]] = 0.25 + 8.0 * u;
+            values[[i, 2]] = if i % 3 == 0 { 1.0 } else { 0.0 };
+            values[[i, 3]] = ((i * 17 % 23) as f64 - 11.0) / 7.0;
+            values[[i, 4]] = (2.0 * std::f64::consts::PI * u).sin();
+            values[[i, 5]] = (2.0 * std::f64::consts::PI * u).cos();
+            values[[i, 6]] = 2.0 * u - 1.0;
+            values[[i, 7]] = if i % 2 == 0 { 0.0 } else { 1.0 };
+        }
+        let data = Dataset {
+            headers: vec![
+                "t0".to_string(),
+                "t1".to_string(),
+                "event".to_string(),
+                "z".to_string(),
+                "PC1".to_string(),
+                "PC2".to_string(),
+                "PC3".to_string(),
+                "sex".to_string(),
+            ],
+            values,
+            schema: DataSchema {
+                columns: vec![
+                    SchemaColumn {
+                        name: "t0".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "t1".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "event".to_string(),
+                        kind: ColumnKindTag::Binary,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "z".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "PC1".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "PC2".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "PC3".to_string(),
+                        kind: ColumnKindTag::Continuous,
+                        levels: vec![],
+                    },
+                    SchemaColumn {
+                        name: "sex".to_string(),
+                        kind: ColumnKindTag::Binary,
+                        levels: vec![],
+                    },
+                ],
+            },
+            column_kinds: vec![
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Binary,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Continuous,
+                ColumnKindTag::Binary,
+            ],
+        };
+        for (case, formula) in [
+            (
+                "with parametric sex term",
+                "Surv(t0, t1, event) ~ matern(PC1, PC2, PC3, centers=6) + sex",
+            ),
+            (
+                "without parametric sex term",
+                "Surv(t0, t1, event) ~ matern(PC1, PC2, PC3, centers=6)",
+            ),
+        ] {
+            let config = FitConfig {
+                survival_likelihood: "marginal-slope".to_string(),
+                logslope_formula: Some("matern(PC1, PC2, PC3, centers=6)".to_string()),
+                z_column: Some("z".to_string()),
+                ..FitConfig::default()
+            };
+
+            let materialized = materialize(formula, &data, &config).unwrap_or_else(|err| {
+                panic!(
+                    "survival marginal-slope materialization should keep block-local penalties \
+                     {case}: {err}"
+                )
+            });
+            let FitRequest::SurvivalMarginalSlope(request) = materialized.request else {
+                panic!("expected survival marginal-slope request for {case}");
+            };
+            let specs = vec![
+                request.spec.marginalspec.clone(),
+                request.spec.logslopespec.clone(),
+            ];
+            let (designs, frozen_specs) =
+                crate::smooth::build_term_collection_designs_and_freeze_joint(
+                    data.values.view(),
+                    &specs,
+                )
+                .unwrap_or_else(|err| {
+                    panic!("joint freeze should preserve per-block penalty geometry {case}: {err}")
+                });
+            let (rebuilt, _) = crate::smooth::build_term_collection_designs_and_freeze_joint(
+                data.values.view(),
+                &frozen_specs,
+            )
+            .unwrap_or_else(|err| {
+                panic!("frozen rebuild should preserve per-block penalty geometry {case}: {err}")
+            });
+
+            for (label, design) in [
+                ("raw marginal", &designs[0]),
+                ("raw logslope", &designs[1]),
+                ("frozen marginal", &rebuilt[0]),
+                ("frozen logslope", &rebuilt[1]),
+            ] {
+                let width = design.design.ncols();
+                assert!(
+                    width > 2,
+                    "{case}: {label} design should be surface-width, not sex/intercept-width; \
+                     width={width}"
+                );
+                for (idx, penalty) in design.penalties_as_penalty_matrix().iter().enumerate() {
+                    assert_eq!(
+                        penalty.shape(),
+                        (width, width),
+                        "{case}: {label} penalty {idx} must be block-local at the surface width"
+                    );
+                }
+            }
+        }
+    }
+
     fn workflow_test_dataset() -> Dataset {
         Dataset {
             headers: vec![
@@ -7811,6 +7987,45 @@ mod tests {
                 ColumnKindTag::Continuous,
             ],
         }
+    }
+
+    #[test]
+    fn issue_789_transformation_normal_rejects_marginal_slope_controls_before_dispatch() {
+        let data = workflow_test_dataset();
+        let config = FitConfig {
+            transformation_normal: true,
+            family: Some("bernoulli-marginal-slope".to_string()),
+            logslope_formula: Some("1".to_string()),
+            z_column: Some("z".to_string()),
+            ..FitConfig::default()
+        };
+
+        let err = materialize("event ~ bmi", &data, &config)
+            .err()
+            .expect("transformation_normal must not steal marginal-slope fits");
+
+        assert!(
+            err.to_string()
+                .contains("transformation_normal cannot be combined with marginal-slope")
+        );
+    }
+
+    #[test]
+    fn survival_marginal_slope_rejects_zero_event_data_before_fit() {
+        let mut data = workflow_test_dataset();
+        data.values.column_mut(2).fill(0.0);
+        let config = FitConfig {
+            survival_likelihood: "marginal-slope".to_string(),
+            logslope_formula: Some("1".to_string()),
+            z_column: Some("z".to_string()),
+            ..FitConfig::default()
+        };
+
+        let err = materialize("Surv(age_entry, age_exit, event) ~ bmi", &data, &config)
+            .err()
+            .expect("zero-event survival marginal-slope data must fail before optimization");
+
+        assert!(err.to_string().contains("at least one target event"));
     }
 
     fn workflow_test_outer_result(converged: bool, rho: Array1<f64>) -> OuterResult {
@@ -8385,7 +8600,7 @@ mod tests {
             smooth_terms: vec![],
         };
         let mut notes = Vec::new();
-        let err = prune_unidentified_linear_terms_for_bernoulli_marginal_slope(
+        let err = prune_unidentified_linear_terms_for_marginal_slope(
             &mut spec,
             &data,
             "test BMS formula",

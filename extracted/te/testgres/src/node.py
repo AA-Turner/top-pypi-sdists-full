@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import signal
 import subprocess
 
@@ -91,7 +90,6 @@ from . import utils
 from .utils import \
     PgVer, \
     eprint, \
-    get_bin_path2, \
     get_pg_version2, \
     execute_utility2, \
     options_string, \
@@ -101,7 +99,6 @@ from .raise_error import RaiseError
 
 from .backup import NodeBackup
 
-from testgres.operations.os_ops import ConnectionParams
 from testgres.operations.os_ops import OsOperations
 from testgres.operations.local_ops import LocalOperations
 
@@ -165,6 +162,7 @@ class PostgresNode(object):
 
     _name: typing.Optional[str]
     _port: typing.Optional[int]
+    _bin_dir: str
     _should_free_port: bool
     _os_ops: OsOperations
     _port_manager: typing.Optional[PortManager]
@@ -174,8 +172,7 @@ class PostgresNode(object):
                  name=None,
                  base_dir=None,
                  port: typing.Optional[int] = None,
-                 conn_params: typing.Optional[ConnectionParams] = None,
-                 bin_dir=None,
+                 bin_dir: typing.Optional[str] = None,
                  prefix=None,
                  os_ops: typing.Optional[OsOperations] = None,
                  port_manager: typing.Optional[PortManager] = None):
@@ -191,13 +188,9 @@ class PostgresNode(object):
             port_manager: None or correct port manager object.
         """
         assert port is None or type(port) is int
+        assert bin_dir is None or type(bin_dir) is str
         assert os_ops is None or isinstance(os_ops, OsOperations)
         assert port_manager is None or isinstance(port_manager, PortManager)
-
-        if conn_params is not None:
-            assert type(conn_params) is ConnectionParams
-
-            raise InvalidOperationException("conn_params is deprecated, please use os_ops parameter instead.")
 
         # private
         if os_ops is None:
@@ -210,9 +203,15 @@ class PostgresNode(object):
         assert self._os_ops is not None
         assert isinstance(self._os_ops, OsOperations)
 
-        self._pg_version = PgVer(get_pg_version2(self._os_ops, bin_dir))
+        if bin_dir is not None:
+            self._bin_dir = bin_dir
+        else:
+            self._bin_dir = utils.get_bin_dir(self._os_ops)
+
+        assert type(self._bin_dir) is str
+
+        self._pg_version = PgVer(get_pg_version2(self._os_ops, self._bin_dir))
         self._base_dir = base_dir
-        self._bin_dir = bin_dir
         self._prefix = prefix
         self._logger = None
         self._master = None
@@ -486,18 +485,17 @@ class PostgresNode(object):
     @property
     def base_dir(self):
         if not self._base_dir:
-            self._base_dir = self.os_ops.mkdtemp(prefix=self._prefix or TMP_NODE)
+            self._base_dir = self._os_ops.mkdtemp(prefix=self._prefix or TMP_NODE)
 
         # NOTE: it's safe to create a new dir
-        if not self.os_ops.path_exists(self._base_dir):
-            self.os_ops.makedirs(self._base_dir)
+        if not self._os_ops.path_exists(self._base_dir):
+            self._os_ops.makedirs(self._base_dir)
 
         return self._base_dir
 
     @property
-    def bin_dir(self):
-        if not self._bin_dir:
-            self._bin_dir = os.path.dirname(get_bin_path2(self.os_ops, "pg_config"))
+    def bin_dir(self) -> str:
+        assert type(self._bin_dir) is str
         return self._bin_dir
 
     @property
@@ -509,8 +507,8 @@ class PostgresNode(object):
         assert type(path) is str
 
         # NOTE: it's safe to create a new dir
-        if not self.os_ops.path_exists(path):
-            self.os_ops.makedirs(path)
+        if not self._os_ops.path_exists(path):
+            self._os_ops.makedirs(path)
 
         return path
 
@@ -587,7 +585,7 @@ class PostgresNode(object):
 
         ps_command = ['ps', '-o', 'pid=', '-p', str(node_pid)]
 
-        ps_output = self.os_ops.exec_command(cmd=ps_command, shell=True, ignore_errors=True).decode('utf-8')
+        ps_output = self._os_ops.exec_command(cmd=ps_command, shell=True, ignore_errors=True).decode('utf-8')
         assert type(ps_output) is str
 
         if ps_output == "":
@@ -600,13 +598,13 @@ class PostgresNode(object):
 
         try:
             eprint('Force stopping node {0} with PID {1}'.format(self.name, node_pid))
-            self.os_ops.kill(node_pid, signal.SIGKILL)
+            self._os_ops.kill(node_pid, signal.SIGKILL)
         except Exception:
             # The node has already stopped
             pass
 
         # Check that node stopped - print only column pid without headers
-        ps_output = self.os_ops.exec_command(cmd=ps_command, shell=True, ignore_errors=True).decode('utf-8')
+        ps_output = self._os_ops.exec_command(cmd=ps_command, shell=True, ignore_errors=True).decode('utf-8')
         assert type(ps_output) is str
 
         if ps_output == "":
@@ -669,7 +667,7 @@ class PostgresNode(object):
 
             signal_name = self._os_ops.build_path(self.data_dir, "standby.signal")
             assert type(signal_name) is str
-            self.os_ops.touch(signal_name)
+            self._os_ops.touch(signal_name)
         else:
             line += "standby_mode=on\n"
 
@@ -730,10 +728,10 @@ class PostgresNode(object):
 
         for f, num_lines in files:
             # skip missing files
-            if not self.os_ops.path_exists(f):
+            if not self._os_ops.path_exists(f):
                 continue
 
-            file_lines = self.os_ops.readlines(f, num_lines, binary=True, encoding=None)
+            file_lines = self._os_ops.readlines(f, num_lines, binary=True, encoding=None)
             lines = b''.join(file_lines)
 
             # fill list
@@ -800,14 +798,14 @@ class PostgresNode(object):
 
         # filter lines in hba file
         # get rid of comments and blank lines
-        hba_conf_file = self.os_ops.readlines(hba_conf)
+        hba_conf_file = self._os_ops.readlines(hba_conf)
         lines = [
             s for s in hba_conf_file
             if len(s.strip()) > 0 and not s.startswith('#')
         ]
 
         # write filtered lines
-        self.os_ops.write(hba_conf, lines, truncate=True)
+        self._os_ops.write(hba_conf, lines, truncate=True)
 
         # replication-related settings
         if allow_streaming:
@@ -819,7 +817,7 @@ class PostgresNode(object):
             # get auth methods
             auth_local = get_auth_method('local')
             auth_host = get_auth_method('host')
-            subnet_base = ".".join(self.os_ops.host.split('.')[:-1] + ['0'])
+            subnet_base = ".".join(self._os_ops.host.split('.')[:-1] + ['0'])
 
             new_lines = [
                 u"local\treplication\tall\t\t\t{}\n".format(auth_local),
@@ -832,10 +830,10 @@ class PostgresNode(object):
             ]  # yapf: disable
 
             # write missing lines
-            self.os_ops.write(hba_conf, new_lines)
+            self._os_ops.write(hba_conf, new_lines)
 
         # overwrite config file
-        self.os_ops.write(postgres_conf, '', truncate=True)
+        self._os_ops.write(postgres_conf, '', truncate=True)
 
         self.append_conf(fsync=fsync,
                          max_worker_processes=MAX_WORKER_PROCESSES,
@@ -915,7 +913,7 @@ class PostgresNode(object):
         conf_text = ''
         for line in lines:
             conf_text += text_type(line) + '\n'
-        self.os_ops.write(config_name, conf_text)
+        self._os_ops.write(config_name, conf_text)
 
         return self
 
@@ -948,7 +946,7 @@ class PostgresNode(object):
         _params += ["-D"] if self._pg_version >= PgVer('9.5') else []
         _params += [self.data_dir]
 
-        data = execute_utility2(self.os_ops, _params, self.utils_log_file)
+        data = execute_utility2(self._os_ops, _params, self.utils_log_file)
 
         out_dict = {}
 
@@ -958,7 +956,14 @@ class PostgresNode(object):
 
         return out_dict
 
-    def slow_start(self, replica=False, dbname='template1', username=None, max_attempts=0, exec_env=None):
+    def slow_start(
+        self,
+        replica: bool = False,
+        dbname: typing.Optional[str] = 'template1',
+        username: typing.Optional[str] = None,
+        max_attempts: int = 0,
+        exec_env: typing.Optional[typing.Dict[str, str]] = None,
+    ):
         """
         Starts the PostgreSQL instance and then polls the instance
         until it reaches the expected state (primary or replica). The state is checked
@@ -971,6 +976,8 @@ class PostgresNode(object):
                         If False, waits for the instance to be in primary mode. Default is False.
                max_attempts:
         """
+        assert dbname is None or type(dbname) is str
+        assert username is None or type(username) is str
         assert exec_env is None or type(exec_env) is dict
 
         self.start(exec_env=exec_env)
@@ -992,7 +999,7 @@ class PostgresNode(object):
             self.poll_query_until(
                 query=query,
                 dbname=dbname,
-                username=username or self.os_ops.username,
+                username=username or self._os_ops.username,
                 suppress=suppressed_exceptions,
                 max_attempts=max_attempts,
             )
@@ -1094,7 +1101,7 @@ class PostgresNode(object):
 
         def LOCAL__start_node():
             # 'error' will be None on Windows
-            _, _, error = execute_utility2(self.os_ops, _params, self.utils_log_file, verbose=True, exec_env=exec_env)
+            _, _, error = execute_utility2(self._os_ops, _params, self.utils_log_file, verbose=True, exec_env=exec_env)
             assert error is None or type(error) is str
             if error and 'does not exist' in error:
                 raise Exception(error)
@@ -1183,7 +1190,7 @@ class PostgresNode(object):
             "stop"
         ] + params  # yapf: disable
 
-        execute_utility2(self.os_ops, _params, self.utils_log_file)
+        execute_utility2(self._os_ops, _params, self.utils_log_file)
 
         self._manually_started_pm_pid = None
 
@@ -1207,7 +1214,10 @@ class PostgresNode(object):
 
         assert x.node_status == NodeStatus.Running
         assert type(x.pid) is int
-        sig = signal.SIGKILL if os.name != 'nt' else signal.SIGBREAK
+        if self._os_ops.get_platform() == "win32":
+            sig = 21  # signal.SIGBREAK
+        else:
+            sig = signal.SIGKILL
         if someone is None:
             self._os_ops.kill(x.pid, sig)
             self._manually_started_pm_pid = None
@@ -1240,7 +1250,7 @@ class PostgresNode(object):
         ] + params  # yapf: disable
 
         try:
-            error_code, out, error = execute_utility2(self.os_ops, _params, self.utils_log_file, verbose=True)
+            error_code, out, error = execute_utility2(self._os_ops, _params, self.utils_log_file, verbose=True)
             if error and 'could not start server' in error:
                 raise ExecUtilException
         except ExecUtilException as e:
@@ -1269,7 +1279,7 @@ class PostgresNode(object):
             "reload"
         ] + params  # yapf: disable
 
-        execute_utility2(self.os_ops, _params, self.utils_log_file)
+        execute_utility2(self._os_ops, _params, self.utils_log_file)
 
         return self
 
@@ -1291,7 +1301,7 @@ class PostgresNode(object):
             "promote"
         ]  # yapf: disable
 
-        execute_utility2(self.os_ops, _params, self.utils_log_file)
+        execute_utility2(self._os_ops, _params, self.utils_log_file)
 
         # for versions below 10 `promote` is asynchronous so we need to wait
         # until it actually becomes writable
@@ -1326,7 +1336,7 @@ class PostgresNode(object):
             "-w"  # wait
         ] + params  # yapf: disable
 
-        return execute_utility2(self.os_ops, _params, self.utils_log_file)
+        return execute_utility2(self._os_ops, _params, self.utils_log_file)
 
     def release_resources(self):
         """
@@ -1362,7 +1372,7 @@ class PostgresNode(object):
         else:
             rm_dir = self.data_dir    # just data, save logs
 
-        self.os_ops.rmdirs(rm_dir, ignore_errors=False)
+        self._os_ops.rmdirs(rm_dir, ignore_errors=False)
 
         if release_resources:
             self._release_resources()
@@ -1457,7 +1467,7 @@ class PostgresNode(object):
             self._get_bin_path("psql"),
             "-p", str(port),
             "-h", host,
-            "-U", username or self.os_ops.username,
+            "-U", username or self._os_ops.username,
             "-d", dbname or default_dbname(),
             "-X",  # no .psqlrc
             "-A",  # unaligned output
@@ -1477,7 +1487,7 @@ class PostgresNode(object):
         else:
             raise QueryException('Query or filename must be provided')
 
-        return self.os_ops.exec_command(
+        return self._os_ops.exec_command(
             psql_params,
             verbose=True,
             input=input,
@@ -1560,9 +1570,9 @@ class PostgresNode(object):
         # Generate tmpfile or tmpdir
         def tmpfile():
             if format == DumpFormat.Directory:
-                fname = self.os_ops.mkdtemp(prefix=TMP_DUMP)
+                fname = self._os_ops.mkdtemp(prefix=TMP_DUMP)
             else:
-                fname = self.os_ops.mkstemp(prefix=TMP_DUMP)
+                fname = self._os_ops.mkstemp(prefix=TMP_DUMP)
             return fname
 
         filename = filename or tmpfile()
@@ -1572,7 +1582,7 @@ class PostgresNode(object):
             "-p", str(self.port),
             "-h", self.host,
             "-f", filename,
-            "-U", username or self.os_ops.username,
+            "-U", username or self._os_ops.username,
             "-d", dbname or default_dbname(),
             "-F", format.value
         ]  # yapf: disable
@@ -1581,7 +1591,7 @@ class PostgresNode(object):
         if options:
             _params.extend(options)
 
-        execute_utility2(self.os_ops, _params, self.utils_log_file)
+        execute_utility2(self._os_ops, _params, self.utils_log_file)
 
         return filename
 
@@ -1597,7 +1607,7 @@ class PostgresNode(object):
 
         # Set default arguments
         dbname = dbname or default_dbname()
-        username = username or self.os_ops.username
+        username = username or self._os_ops.username
 
         _params = [
             self._get_bin_path("pg_restore"),
@@ -1610,20 +1620,22 @@ class PostgresNode(object):
 
         # try pg_restore if dump is binary format, and psql if not
         try:
-            execute_utility2(self.os_ops, _params, self.utils_log_name)
+            execute_utility2(self._os_ops, _params, self.utils_log_name)
         except ExecUtilException:
             self.psql(filename=filename, dbname=dbname, username=username)
 
     @method_decorator(positional_args_hack(['dbname', 'query']))
-    def poll_query_until(self,
-                         query,
-                         dbname=None,
-                         username=None,
-                         max_attempts=0,
-                         sleep_time: typing.Union[int, float] = 1,
-                         expected=True,
-                         commit=True,
-                         suppress=None):
+    def poll_query_until(
+        self,
+        query,
+        dbname: typing.Optional[str] = None,
+        username: typing.Optional[str] = None,
+        max_attempts: int = 0,
+        sleep_time: typing.Union[int, float] = 1,
+        expected: bool = True,
+        commit: bool = True,
+        suppress: typing.Optional[typing.Iterable[BaseException]] = None,
+    ) -> None:
         """
         Run a query once per second until it returns 'expected'.
         Query should return a single value (1 row, 1 column).
@@ -1650,6 +1662,8 @@ class PostgresNode(object):
         assert max_attempts >= 0
         assert type(sleep_time) in [int, float]
         assert sleep_time > 0
+        assert suppress is None or isinstance(suppress, typing.Iterable)
+
         attempts = 0
         while max_attempts == 0 or attempts < max_attempts:
             try:
@@ -1875,13 +1889,13 @@ class PostgresNode(object):
             self._get_bin_path("pgbench"),
             "-p", str(self.port),
             "-h", self.host,
-            "-U", username or self.os_ops.username
+            "-U", username or self._os_ops.username
         ] + options  # yapf: disable
 
         # should be the last one
         _params.append(dbname)
 
-        proc = self.os_ops.exec_command(_params, stdout=stdout, stderr=stderr, wait_exit=True, get_process=True)
+        proc = self._os_ops.exec_command(_params, stdout=stdout, stderr=stderr, wait_exit=True, get_process=True)
 
         return proc
 
@@ -1948,7 +1962,7 @@ class PostgresNode(object):
             self._get_bin_path("pgbench"),
             "-p", str(self.port),
             "-h", self.host,
-            "-U", username or self.os_ops.username
+            "-U", username or self._os_ops.username
         ] + options  # yapf: disable
 
         for key, value in iteritems(kwargs):
@@ -1965,7 +1979,7 @@ class PostgresNode(object):
         # should be the last one
         _params.append(dbname)
 
-        return execute_utility2(self.os_ops, _params, self.utils_log_file)
+        return execute_utility2(self._os_ops, _params, self.utils_log_file)
 
     def connect(self,
                 dbname=None,
@@ -2054,9 +2068,9 @@ class PostgresNode(object):
         assert isinstance(self._os_ops, OsOperations)
 
         # parse postgresql.auto.conf
-        path = self.os_ops.build_path(self.data_dir, config)
+        path = self._os_ops.build_path(self.data_dir, config)
 
-        lines = self.os_ops.readlines(path)
+        lines = self._os_ops.readlines(path)
         current_options = {}
         current_directives = []
         for line in lines:
@@ -2103,7 +2117,7 @@ class PostgresNode(object):
         for directive in current_directives:
             auto_conf += directive + "\n"
 
-        self.os_ops.write(path, auto_conf, truncate=True)
+        self._os_ops.write(path, auto_conf, truncate=True)
 
     def upgrade_from(self, old_node, options=None, expect_error=False):
         """
@@ -2138,7 +2152,7 @@ class PostgresNode(object):
         ]
         upgrade_command += options
 
-        return self.os_ops.exec_command(upgrade_command, expect_error=expect_error)
+        return self._os_ops.exec_command(upgrade_command, expect_error=expect_error)
 
     def _release_resources(self):
         self._free_port()
@@ -2162,12 +2176,9 @@ class PostgresNode(object):
     def _get_bin_path(self, filename):
         assert self._os_ops is not None
         assert isinstance(self._os_ops, OsOperations)
+        assert type(self._bin_dir) is str
 
-        if self.bin_dir:
-            bin_path = self._os_ops.build_path(self.bin_dir, filename)
-        else:
-            bin_path = get_bin_path2(self.os_ops, filename)
-        return bin_path
+        return self._os_ops.build_path(self._bin_dir, filename)
 
     @staticmethod
     def _escape_config_value(value):

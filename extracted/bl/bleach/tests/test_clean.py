@@ -171,6 +171,19 @@ def test_bare_entities_get_escaped_correctly(text, expected):
         ("<some thing thing", "&lt;some thing thing"),
         # this is an expected-end-of-tag-but-got-eof parser error
         ("<some thing thing2 ", "&lt;some thing thing2 "),
+        # handle invalid-character-in-attribute-name correctly tests
+        ("<tag <b><em>text</em></b> <a></a>", "&lt;tag <b><em>text</em></b> <a></a>"),
+        ("<foo <a>link text</a>", "&lt;foo <a>link text</a>"),
+        # keep the tag and add an end tag
+        ("<foo <b>", "&lt;foo <b></b>"),
+        # escape disallowed tags
+        ("<foo <p>text</p>", "&lt;foo &lt;p&gt;text&lt;/p&gt;"),
+        # keep tags with attributes
+        ('<foo <a href="x">text</a>', '&lt;foo <a href="x">text</a>'),
+        # multiple spaces
+        ("<foo   <a>link text</a>", "&lt;foo   <a>link text</a>"),
+        ("text <foo <b>text</b>", "text &lt;foo <b>text</b>"),
+        ("text <foo <bar <b>text</b>", "text &lt;foo &lt;bar <b>text</b>"),
     ],
 )
 def test_lessthan_escaping(text, expected):
@@ -414,13 +427,31 @@ def test_poster_attribute():
     assert clean(ok, tags=tags, attributes=attrs) == ok
 
 
+def test_formaction_attribute():
+    """formaction attributes should not allow javascript (GHSA-gj48-438w-jh9v)."""
+    tags = {"button", "input"}
+    attrs = {"button": ["formaction"], "input": ["formaction", "type"]}
+
+    test = '<button formaction="javascript:alert(1)">x</button>'
+    assert clean(test, tags=tags, attributes=attrs) == "<button>x</button>"
+
+    test = '<input type="submit" formaction="javascript:alert(1)">'
+    assert clean(test, tags=tags, attributes=attrs) == '<input type="submit">'
+
+    ok = '<button formaction="/foo">x</button>'
+    assert clean(ok, tags=tags, attributes=attrs) == ok
+
+
 def test_attributes_callable():
     """Verify attributes can take a callable"""
-    ATTRS = lambda tag, name, val: name == "title"
+
+    def attrs_fun(tag, name, val):
+        return name == "title"
+
     TAGS = {"a"}
 
     text = '<a href="/foo" title="blah">example</a>'
-    assert clean(text, tags=TAGS, attributes=ATTRS) == '<a title="blah">example</a>'
+    assert clean(text, tags=TAGS, attributes=attrs_fun) == '<a title="blah">example</a>'
 
 
 def test_attributes_wildcard():
@@ -602,6 +633,22 @@ def test_attributes_list():
         # Disallowed protocols with sneaky character entities
         ('<a href="javas&#x09;cript:alert(1)">alert</a>', {}, "<a>alert</a>"),
         ('<a href="&#14;javascript:alert(1)">alert</a>', {}, "<a>alert</a>"),
+        # Disallowed protocols with Unicode characters injected
+        (
+            '<a href="javascript\u200b:alert(1)">alert</a>',
+            {"protocols": ALLOWED_PROTOCOLS},
+            "<a>alert</a>",
+        ),
+        (
+            '<a href="\ufeffjavascript:alert(1)">alert</a>',
+            {"protocols": ALLOWED_PROTOCOLS},
+            "<a>alert</a>",
+        ),
+        (
+            '<a href="javascript\u00ad:alert(1)">alert</a>',
+            {"protocols": ALLOWED_PROTOCOLS},
+            "<a>alert</a>",
+        ),
         # Checking the uri should change it at all
         (
             '<a href="http://example.com/?foo&nbsp;bar">foo</a>',

@@ -74,6 +74,7 @@ plugins:
             unwrap_annotated: true
             filters:
               - "!^_"
+              - "get_bottom_toolbar"
             merge_init_into_class: true
             docstring_style: sphinx
             docstring_section_style: spacy
@@ -124,14 +125,15 @@ markdown_extensions:
 
 # Validation
 validation:
-  nav:
-    omitted_files: info
-    not_found: warn
-    absolute_links: info
-  links:
-    not_found: warn
-    absolute_links: ignore
-    unrecognized_links: info
+  invalid_link_anchors: true
+  invalid_links: true
+  shadowed_definitions: true
+  shadowed_footnotes: true
+  unresolved_footnotes: true
+  # bug with mkdocstrings autorefs: https://github.com/zensical/zensical/issues/600
+  unresolved_references: false
+  unused_definitions: true
+  unused_footnotes: true
 
 not_in_nav: |
   **/download/*.md
@@ -154,6 +156,8 @@ nav:
   - Features:
       - features/index.md
       - features/argument_processing.md
+      - features/annotated.md
+      - features/async_commands.md
       - features/builtin_commands.md
       - features/clipboard.md
       - features/commands.md
@@ -179,7 +183,6 @@ nav:
       - features/startup_commands.md
       - features/table_creation.md
       - features/theme.md
-      - features/transcripts.md
   - Examples:
       - examples/index.md
       - examples/getting_started.md
@@ -193,24 +196,24 @@ nav:
   - API Reference:
       - api/index.md
       - api/cmd.md
+      - api/annotated.md
       - api/argparse_completer.md
-      - api/argparse_custom.md
+      - api/argparse_utils.md
       - api/clipboard.md
       - api/colors.md
-      - api/command_definition.md
+      - api/command_set.md
+      - api/completion.md
       - api/constants.md
       - api/decorators.md
       - api/exceptions.md
       - api/history.md
       - api/parsing.md
       - api/plugin.md
+      - api/pt_utils.md
       - api/py_bridge.md
       - api/rich_utils.md
-      - api/rl_utils.md
       - api/string_utils.md
       - api/styles.md
-      - api/terminal_utils.md
-      - api/transcript.md
       - api/utils.md
   - Version Upgrades:
       - upgrades.md

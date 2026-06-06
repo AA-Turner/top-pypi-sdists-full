@@ -512,6 +512,7 @@ def scan_claude_code_plugin_artifacts(
 _CLAUDE_DESKTOP_CONFIG_PATHS = {
     "Darwin": "~/Library/Application Support/Claude/claude_desktop_config.json",
     "Windows": "%APPDATA%/Claude/claude_desktop_config.json",
+    "Linux": "~/.config/Claude/claude_desktop_config.json",
 }
 
 

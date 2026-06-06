@@ -213,6 +213,7 @@ if [[ -f "$_config_file" ]]; then
   [[ "$_val" == "false" ]] && _ENFORCEMENT=false
 fi
 _TRANSCRIPT_STREAM_ACTIVE_SECONDS=10
+_TRANSCRIPT_STREAM_COMPLETED_SECONDS=120
 
 _run_relay() {
   local relay_cmd
@@ -264,31 +265,51 @@ _session_id_from_payload() {
 
 _transcript_stream_marker() {
   local payload="$1"
+  local suffix="${2:-active}"
   local sid safe
   sid=$(_session_id_from_payload "$payload")
   [[ -n "$sid" ]] || return 1
   safe=$(printf '%s' "$sid" | tr -c 'A-Za-z0-9_.-' '_' | sed 's/^[._]*//; s/[._]*$//')
   [[ -n "$safe" ]] || return 1
-  printf '%s/runlayer-claude-transcript-stream/%s.active' "${TMPDIR:-/tmp}" "$safe"
+  printf '%s/runlayer-claude-transcript-stream/%s.%s' "${TMPDIR:-/tmp}" "$safe" "$suffix"
 }
 
-_transcript_stream_active() {
+_transcript_stream_marker_recent() {
   local payload="$1"
+  local suffix="$2"
+  local max_age="$3"
   local marker marker_ts now age
-  marker=$(_transcript_stream_marker "$payload") || return 1
+  marker=$(_transcript_stream_marker "$payload" "$suffix") || return 1
   [[ -f "$marker" ]] || return 1
   marker_ts=$(head -n 1 "$marker" 2>/dev/null | sed -E 's/^([0-9]+).*/\1/') || marker_ts=""
   [[ -n "$marker_ts" ]] || return 1
   [[ "$marker_ts" != *[!0-9]* ]] || return 1
   now=$(date +%s 2>/dev/null) || return 1
   age=$((now - marker_ts))
-  [[ "$age" -ge 0 && "$age" -lt "$_TRANSCRIPT_STREAM_ACTIVE_SECONDS" ]]
+  [[ "$age" -ge 0 && "$age" -lt "$max_age" ]]
+}
+
+_transcript_stream_active() {
+  local payload="$1"
+  _transcript_stream_marker_recent "$payload" active "$_TRANSCRIPT_STREAM_ACTIVE_SECONDS"
+}
+
+_transcript_stream_recently_completed() {
+  local payload="$1"
+  _transcript_stream_marker_recent "$payload" completed "$_TRANSCRIPT_STREAM_COMPLETED_SECONDS"
 }
 
 _clear_transcript_stream_active() {
   local payload="$1"
   local marker
-  marker=$(_transcript_stream_marker "$payload") || return 0
+  marker=$(_transcript_stream_marker "$payload" active) || return 0
+  rm -f "$marker" 2>/dev/null || true
+}
+
+_clear_transcript_stream_completed() {
+  local payload="$1"
+  local marker
+  marker=$(_transcript_stream_marker "$payload" completed) || return 0
   rm -f "$marker" 2>/dev/null || true
 }
 
@@ -296,11 +317,15 @@ _start_transcript_stream() {
   local payload="$1"
   local transcript_path start_offset wrapper
 
-  [[ "$_CLIENT" == "claude_code" ]] || return 0
+  [[ "$_CLIENT" == "claude_code" || "$_CLIENT" == "codex" ]] || return 0
   transcript_path=$(echo "$payload" | jq -r '.transcript_path // empty' 2>/dev/null) || true
   [[ -n "$transcript_path" ]] || return 0
   transcript_path="${transcript_path/#\~/$HOME}"
-  _transcript_stream_active "$payload" && return 0
+  if _transcript_stream_recently_completed "$payload"; then
+    _clear_transcript_stream_completed "$payload"
+  elif _transcript_stream_active "$payload"; then
+    return 0
+  fi
 
   if ! command -v runlayer >/dev/null 2>&1 && ! command -v uvx >/dev/null 2>&1; then
     return 0
@@ -536,7 +561,8 @@ _forward_stop_event() {
   local payload="$2"
   local _transcript_tmp=""
   local transcript_path
-  if [[ "$_CLIENT" == "claude_code" ]] && _transcript_stream_active "$payload"; then
+  if [[ "$_CLIENT" == "claude_code" || "$_CLIENT" == "codex" ]] \
+     && { _transcript_stream_active "$payload" || _transcript_stream_recently_completed "$payload"; }; then
     _forward_event "$event_name" "$payload"
     return
   fi

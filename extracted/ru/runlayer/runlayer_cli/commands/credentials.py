@@ -2,12 +2,14 @@
 
 from typing import Optional
 
-import httpx
 import typer
 
-from runlayer_cli.api import USER_AGENT
 from runlayer_cli.config import load_config, resolve_host, save_config
-from runlayer_cli.tls import http_client
+from runlayer_cli.enrollment import (
+    EnrollmentError,
+    exchange_enrollment_key,
+    write_enrollment_marker,
+)
 
 app = typer.Typer(hidden=True)
 add_app = typer.Typer(help="Add a credential")
@@ -123,58 +125,22 @@ def enroll(
     """Enroll a device and store the returned user API key."""
     config = load_config()
     effective_host = resolve_host(ctx, host, config.default_host)
-    endpoint = f"{effective_host}/api/v1/mdm/enroll"
-
-    body: dict[str, str] = {}
-    if username:
-        body["username"] = username
-    if device_name:
-        body["device_name"] = device_name
 
     try:
-        with http_client(timeout=60.0) as client:
-            response = client.post(
-                endpoint,
-                headers={
-                    "Authorization": f"Bearer {enrollment_key}",
-                    "Content-Type": "application/json",
-                    "User-Agent": USER_AGENT,
-                },
-                json=body,
-            )
-    except httpx.RequestError as exc:
-        typer.secho(
-            f"Error: Failed to connect to {endpoint}: {exc}",
-            fg=typer.colors.RED,
-            err=True,
+        result = exchange_enrollment_key(
+            host=effective_host,
+            enrollment_key=enrollment_key,
+            username=username,
+            device_name=device_name,
         )
-        raise typer.Exit(2) from None
-
-    if response.status_code != 200:
-        detail = ""
-        try:
-            detail = response.json().get("detail", "")
-        except Exception:
-            pass
-        msg = f"Enrollment failed (HTTP {response.status_code})"
-        if detail:
-            msg += f": {detail}"
-        typer.secho(msg, fg=typer.colors.RED, err=True)
-        raise typer.Exit(1)
-
-    try:
-        api_key = response.json()["api_key"]
-    except (KeyError, TypeError, ValueError):
-        typer.secho(
-            "Error: Enrollment response did not contain api_key.",
-            fg=typer.colors.RED,
-            err=True,
-        )
-        raise typer.Exit(1)
+    except EnrollmentError as exc:
+        typer.secho(f"Error: {exc}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1 if exc.status_code is not None else 2) from None
 
     config = load_config()
-    keyring_used = config.set_host_credentials(effective_host, api_key)
+    keyring_used = config.set_host_credentials(effective_host, result.api_key)
     save_config(config)
+    write_enrollment_marker(effective_host)
     dest = "credential store" if keyring_used else "config file"
     typer.secho(
         f"Enrollment successful. API key saved to {dest} for {effective_host}.",

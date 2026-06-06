@@ -463,7 +463,8 @@ void ParseEngine<EventHandler>::_relocate_arena(csubstr prev_arena, substr next_
     if((s).str >= pb && (s).str <= pe)              \
     {                                               \
         (s).str = next_arena.str + ((s).str - pb);  \
-    }
+    }                                               \
+    ((void)0)
     for(ParserState &st : m_evt_handler->m_stack)
     {
         _ryml_relocate(st.line_contents.rem);
@@ -1134,6 +1135,7 @@ bool ParseEngine<EventHandler>::_scan_scalar_plain_seq_flow(ScannedScalar *C4_RE
                     _c4err("parse error"); // no return
                 }
             }
+            break;
         default:
             ;
         }
@@ -1615,7 +1617,7 @@ substr ParseEngine<EventHandler>::_peek_next_line(size_t pos) const
 
 next_is_empty:
     _c4dbgpf("peek next line @ {}: (len=0)''", pos);
-    return {};
+    return rem;
 }
 
 //-----------------------------------------------------------------------------
@@ -2291,30 +2293,38 @@ void ParseEngine<EventHandler>::_scan_block(ScannedBlock *C4_RESTRICT sb, size_t
     {
         _RYML_ASSERT_PARSE_(m_evt_handler->m_stack.m_callbacks, s.begins_with_any("|>"), m_evt_handler->m_curr->pos);
         csubstr t = s.sub(1);
-        _c4dbgpf("blck: spec is multichar: '{}'", t);
+        _c4dbgpf("blck: spec is multichar: {}", _prs(t));
         _RYML_ASSERT_PARSE_(m_evt_handler->m_stack.m_callbacks, t.len >= 1, m_evt_handler->m_curr->pos);
         size_t pos = t.first_of("-+");
-        _c4dbgpf("blck: spec chomp char at {}", pos);
+        _c4dbgpf("blck: spec chomp char: pos={}", pos);
         if(pos != npos)
         {
+            _c4dbgpf("blck: spec chomp char: {}", _c4prc(t[pos]));
             if(t[pos] == '-')
+            {
+                _c4dbgp("blck: chomp=STRIP");
                 chomp = CHOMP_STRIP;
+            }
             else if(t[pos] == '+')
+            {
+                _c4dbgp("blck: chomp=KEEP");
                 chomp = CHOMP_KEEP;
+            }
             if(pos == 0)
                 t = t.sub(1);
             else
                 t = t.first(pos);
+            _c4dbgpf("blck: spec is now: {}", _prs(t));
         }
         // from here to the end, only digits are considered
         pos = t.first_not_of("0123456789");
-        csubstr digits = t.first(pos);
-        if( ! digits.empty())
+        csubstr rest = t.first(pos);
+        if( ! rest.empty())
         {
-            if(C4_UNLIKELY(digits.len > 1))
+            _c4dbgpf("blck: parse indentation digits: {}", _prs(rest));
+            if(C4_UNLIKELY(rest.len > 1))
                 _c4err("parse error: invalid indentation");
-            _c4dbgpf("blck: parse indentation digits: [{}]~~~{}~~~", digits.len, digits);
-            if(C4_UNLIKELY( ! c4::atou(digits, &indentation)))
+            if(C4_UNLIKELY( ! c4::atou(rest, &indentation)))
                 _c4err("parse error: could not read indentation as decimal"); // LCOV_EXCL_LINE
             if(C4_UNLIKELY( ! indentation))
                 _c4err("parse error: null indentation");
@@ -2323,7 +2333,9 @@ void ParseEngine<EventHandler>::_scan_block(ScannedBlock *C4_RESTRICT sb, size_t
         }
         else
         {
-            if(C4_UNLIKELY(t.len && (!t.begins_with_any(" \t") || !t.sub(pos).triml(" \t").begins_with('#'))))
+            rest = t.triml(" \t");
+            _c4dbgpf("blck: digits empty. t={} trimmed={} iscomm={} t.iscomm={}", _prs(t), _prs(rest), rest.begins_with('#'), t.begins_with('#'));
+            if(C4_UNLIKELY(rest.len && (rest.str[0] != '#' || t.str[0] == '#')))
                 _c4err("parse error: invalid token");
         }
     }
@@ -3583,11 +3595,7 @@ void ParseEngine<EventHandler>::_filter_block_folded_indented_block(FilterProces
                 {
                     const char c = rem[first];
                     _c4dbgfbf("firstns={}='{}'", first, _c4prc(c));
-                    if(c == '\n' || c == '\r')
-                    {
-                        ;
-                    }
-                    else
+                    if(c != '\n' && c != '\r')
                     {
                         _c4dbgfbf("done with indented block",  first);
                         goto endloop;
@@ -7601,8 +7609,10 @@ bool ParseEngine<EventHandler>::_handle_map_block_rkcl()
         _c4dbgp("mapblck[RKCL]: found the colon");
         _line_progressed(1);
         _maybe_skipchars(' ');
-        #if defined(__GNUC__) && (__GNUC__ >= 12)                       \
-            && ((C4_WORDSIZE == 4) || defined(C4_CPU_S390_X) || defined(C4_CPU_PPC64))
+        #if defined(__GNUC__) && (                                      \
+            ((__GNUC__ >= 12) && ((C4_WORDSIZE == 4) || defined(C4_CPU_S390_X) || defined(C4_CPU_PPC64))) \
+            ||                                                          \
+            (__GNUC__ == 16 && defined(C4_CPU_X86_64)))
         C4_DONT_OPTIMIZE(m_evt_handler->m_curr->line_contents.rem);
         #endif
         // sequence is valid after the RKCL ':'

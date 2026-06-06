@@ -1,11 +1,20 @@
 """Device identification utilities for MCP Watch."""
 
+from __future__ import annotations
+
 import os
 import platform
 import socket
 import subprocess
+import sys
 import uuid
 from pathlib import Path
+from typing import TypedDict
+
+if sys.version_info >= (3, 11):
+    from typing import NotRequired
+else:
+    from typing_extensions import NotRequired
 
 import structlog
 
@@ -68,15 +77,17 @@ def get_or_create_device_id() -> str:
     return device_id
 
 
-def get_device_metadata() -> dict[str, str | None]:
-    """
-    Collect device metadata for the scan payload.
+class DeviceMetadata(TypedDict):
+    hostname: str | None
+    os: str | None
+    os_version: str | None
+    username: str | None
+    is_wsl: NotRequired[bool]
 
-    Returns:
-        Dictionary with device metadata
-    """
+
+def get_device_metadata() -> DeviceMetadata:
+    """Collect device metadata for the scan payload."""
     system = platform.system().lower()
-    # Normalize platform names
     os_name = {
         "darwin": "darwin",
         "windows": "windows",
@@ -98,12 +109,84 @@ def get_device_metadata() -> dict[str, str | None]:
     if (not username or username in SYSTEM_USERNAMES) and system == "darwin":
         username = _get_macos_console_user() or username
 
-    return {
-        "hostname": hostname,
-        "os": os_name,
-        "os_version": platform.release(),
-        "username": username,
-    }
+    metadata = DeviceMetadata(
+        hostname=hostname,
+        os=os_name,
+        os_version=platform.release(),
+        username=username,
+    )
+
+    if system == "linux" and detect_wsl():
+        metadata["is_wsl"] = True
+
+    return metadata
+
+
+def detect_wsl() -> bool:
+    """Detect whether the current environment is Windows Subsystem for Linux."""
+    if os.environ.get("WSL_DISTRO_NAME"):
+        return True
+    try:
+        content = Path("/proc/version").read_text()
+        if "microsoft" in content.lower():
+            return True
+    except OSError:
+        pass
+    return False
+
+
+def list_wsl_distros() -> list[str]:
+    """List installed WSL distributions (Windows host only).
+
+    Runs ``wsl.exe --list --quiet``; output is UTF-16LE with NUL bytes and may
+    include a BOM. Returns an empty list on any failure or timeout.
+    """
+    try:
+        result = subprocess.run(
+            ["wsl.exe", "--list", "--quiet"],
+            capture_output=True,
+            timeout=10,
+        )
+    except Exception:
+        return []
+
+    if result.returncode != 0:
+        return []
+
+    try:
+        text = result.stdout.decode("utf-16-le")
+    except (UnicodeDecodeError, AttributeError):
+        text = result.stdout.decode("utf-8", errors="ignore")
+
+    distros: list[str] = []
+    for raw in text.replace("\x00", "").splitlines():
+        name = raw.strip().lstrip("\ufeff").strip()
+        if name and name.lower() != "docker-desktop-data":
+            distros.append(name)
+    return distros
+
+
+def get_wsl_user_homes(distro: str) -> list[Path]:
+    """Resolve Linux user home directories inside a WSL distro from Windows.
+
+    Lists ``\\\\wsl.localhost\\<distro>\\home\\*`` (falls back to the older
+    ``\\\\wsl$\\<distro>\\home``). Returns each user home dir; tolerates a
+    missing/unreachable UNC root.
+    """
+    homes: list[Path] = []
+    for unc_root in (Rf"\\wsl.localhost\{distro}", Rf"\\wsl$\{distro}"):
+        home_base = Path(unc_root) / "home"
+        try:
+            if not home_base.is_dir():
+                continue
+            for entry in sorted(home_base.iterdir()):
+                if entry.is_dir():
+                    homes.append(entry)
+        except OSError:
+            continue
+        if homes:
+            break
+    return homes
 
 
 def _get_macos_console_user() -> str | None:

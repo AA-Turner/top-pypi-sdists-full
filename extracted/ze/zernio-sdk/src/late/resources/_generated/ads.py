@@ -259,6 +259,8 @@ class AdsResource:
         idempotency_key: str | None = None,
         campaign_name: str | None = None,
         ad_set_name: str | None = None,
+        ad_name: str | None = None,
+        tracking: dict[str, Any] | None = None,
         goal: str | None = None,
         budget_amount: float | None = None,
         budget_type: str | None = None,
@@ -323,6 +325,8 @@ class AdsResource:
             name=name,
             campaign_name=campaign_name,
             ad_set_name=ad_set_name,
+            ad_name=ad_name,
+            tracking=tracking,
             goal=goal,
             budget_amount=budget_amount,
             budget_type=budget_type,
@@ -565,6 +569,17 @@ class AdsResource:
             consent=consent,
         )
         return self._client._post("/v1/ads/conversions", data=payload)
+
+    def adjust_conversions(
+        self, account_id: str, destination_id: str, adjustments: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        """Adjust already-uploaded conversions (Google only)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            destination_id=destination_id,
+            adjustments=adjustments,
+        )
+        return self._client._post("/v1/ads/conversions/adjustments", data=payload)
 
     def list_conversion_destinations(self, account_id: str) -> dict[str, Any]:
         """List destinations for the Conversions API"""
@@ -994,6 +1009,8 @@ class AdsResource:
         idempotency_key: str | None = None,
         campaign_name: str | None = None,
         ad_set_name: str | None = None,
+        ad_name: str | None = None,
+        tracking: dict[str, Any] | None = None,
         goal: str | None = None,
         budget_amount: float | None = None,
         budget_type: str | None = None,
@@ -1058,6 +1075,8 @@ class AdsResource:
             name=name,
             campaign_name=campaign_name,
             ad_set_name=ad_set_name,
+            ad_name=ad_name,
+            tracking=tracking,
             goal=goal,
             budget_amount=budget_amount,
             budget_type=budget_type,
@@ -1306,6 +1325,19 @@ class AdsResource:
             consent=consent,
         )
         return await self._client._apost("/v1/ads/conversions", data=payload)
+
+    async def aadjust_conversions(
+        self, account_id: str, destination_id: str, adjustments: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        """Adjust already-uploaded conversions (Google only) (async)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            destination_id=destination_id,
+            adjustments=adjustments,
+        )
+        return await self._client._apost(
+            "/v1/ads/conversions/adjustments", data=payload
+        )
 
     async def alist_conversion_destinations(self, account_id: str) -> dict[str, Any]:
         """List destinations for the Conversions API (async)"""

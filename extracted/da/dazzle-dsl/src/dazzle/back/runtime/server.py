@@ -91,6 +91,11 @@ class ServerConfig:
     # Authentication settings
     enable_auth: bool = False
     auth_config: "AuthConfig | None" = None  # from manifest (for OAuth providers)
+    # auth Plan 1c: lazily provision a single default Organization + one
+    # membership per identity at activation (invisible single-org degradation).
+    # Default False — non-breaking; Plan 1d turns it on for migrated apps and
+    # the new-app scaffolder defaults it on.
+    auto_provision_single_org: bool = False
 
     # File upload settings
     enable_files: bool = False
@@ -526,15 +531,22 @@ class DazzleBackendApp:
         Shutdown: stop the audit logger (if configured), then close the pool —
         mirroring the previous ordering (pool opens first, closes last).
         """
+        from dazzle.back.runtime.lifespan_hooks import run_shutdown_hooks, run_startup_hooks
+
         pool_min = int(os.environ.get("DAZZLE_DB_POOL_MIN", "2"))
         pool_max = int(os.environ.get("DAZZLE_DB_POOL_MAX", "10"))
         assert self._db_manager is not None
         self._db_manager.open_pool(min_size=pool_min, max_size=pool_max)
         if self._audit_logger is not None:
             self._audit_logger.start()
+        # Subsystem startup hooks (seed/events/queues/sla/process/channels/…) run after the
+        # pool is open so they can use the DB. Replaces the @on_event hooks a custom lifespan
+        # silently dropped.
+        await run_startup_hooks(app)
         try:
             yield
         finally:
+            await run_shutdown_hooks(app)
             if self._audit_logger is not None:
                 await self._audit_logger.stop()
             self._db_manager.close_pool()
@@ -548,6 +560,11 @@ class DazzleBackendApp:
             version=self._appspec.version,
             lifespan=self._lifespan,
         )
+        # Subsystems register startup/shutdown work here (replacing @app.on_event, which
+        # a custom lifespan silently ignores). Initialised before _run_subsystems runs.
+        from dazzle.back.runtime.lifespan_hooks import init_lifespan_registry
+
+        init_lifespan_registry(self._app)
         _maybe_instrument_for_perf(self._app)
 
         # Attach runtime service container (v0.49.0, #673)
@@ -844,10 +861,27 @@ class DazzleBackendApp:
     def _setup_models(self) -> None:
         """Generate Pydantic models and create/update schemas from the spec."""
         self._models = generate_all_entity_models(self._entities)
+        # auth Plan 1d: under shared_schema, the framework partition key is
+        # server-supplied (DB default from the bound session) — exclude it from
+        # the create/update INPUT schemas for tenant-scoped entities.
+        from dazzle.back.runtime.sa_schema import scoped_entity_names
+        from dazzle.core.ir import TenancyMode
+
+        partition_key: str | None = None
+        scoped: set[str] = set()
+        tenancy = getattr(self._appspec, "tenancy", None) if self._appspec else None
+        if tenancy is not None and tenancy.isolation.mode == TenancyMode.SHARED_SCHEMA:
+            partition_key = tenancy.isolation.partition_key
+            scoped = scoped_entity_names(self._entities, partition_key)
         for entity in self._entities:
+            ts = entity.name in scoped
             self._schemas[entity.name] = {
-                "create": generate_create_schema(entity),
-                "update": generate_update_schema(entity),
+                "create": generate_create_schema(
+                    entity, partition_key=partition_key, tenant_scoped=ts
+                ),
+                "update": generate_update_schema(
+                    entity, partition_key=partition_key, tenant_scoped=ts
+                ),
             }
 
     def _setup_database(self) -> None:
@@ -1633,7 +1667,10 @@ class DazzleBackendApp:
             atomic_router = build_atomic_flow_router(
                 list(self._appspec.atomic_flows),
                 self._db_manager,
-                user_role_extractor=lambda user: list(getattr(user, "roles", []) or []),
+                # auth Plan 1b: the atomic-flow router invokes this with the
+                # AuthContext (atomic_flow_routes `auth_context=user`), so read
+                # effective_roles (active membership) — not the global user.roles.
+                user_role_extractor=lambda ac: list(getattr(ac, "effective_roles", None) or []),
                 auth_dep=auth_dep,
                 # #1313 slice 1b/1c — per-step scope enforcement. Same access
                 # specs + FK graph the policy registry uses above.

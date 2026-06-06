@@ -7,7 +7,7 @@ from typing import Literal
 from pyrit.datasets.seed_datasets.remote.remote_dataset_loader import (
     _RemoteDatasetLoader,
 )
-from pyrit.models import SeedDataset, SeedPrompt
+from pyrit.models import Modality, SeedDataset, SeedPrompt
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +22,11 @@ class _MLCommonsAILuminateDataset(_RemoteDatasetLoader):
     Reference: https://github.com/mlcommons/ailuminate
     Paper: [@vidgen2024ailuminate]
     """
+
+    # Metadata
+    modalities: tuple[Modality, ...] = (Modality.TEXT,)
+    size: str = "large"  # 1,200 hazard-category prompts
+    tags: frozenset[str] = frozenset({"default", "safety"})
 
     HAZARD_CATEGORIES_MAP = {
         "vcr": "Violent Crimes",
@@ -49,7 +54,7 @@ class _MLCommonsAILuminateDataset(_RemoteDatasetLoader):
             "airr_official_1.0_demo_en_us_prompt_set_release.csv"
         ),
         source_type: Literal["public_url", "file"] = "public_url",
-    ):
+    ) -> None:
         """
         Initialize the AILuminate dataset loader.
 
@@ -65,7 +70,7 @@ class _MLCommonsAILuminateDataset(_RemoteDatasetLoader):
         """Return the dataset name."""
         return "mlcommons_ailuminate"
 
-    async def fetch_dataset(self, *, cache: bool = True) -> SeedDataset:
+    async def fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
         """
         Fetch AILuminate dataset and return as SeedDataset.
 

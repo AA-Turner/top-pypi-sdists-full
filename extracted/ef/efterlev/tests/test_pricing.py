@@ -90,6 +90,18 @@ def test_lookup_dated_snapshot_of_unregistered_base_still_none() -> None:
     assert lookup("gpt-99-future-2026-03-17") is None
 
 
+def test_bedrock_openai_models_registered_and_treated_as_bedrock() -> None:
+    """The Mantle model IDs (`openai.gpt-5.4` / `openai.gpt-5.5`) have pricing
+    and are recognized as Bedrock-served (for the `via bedrock` cost suffix)."""
+    from efterlev.llm.pricing import is_bedrock_model
+
+    for model_id in ("openai.gpt-5.4", "openai.gpt-5.5"):
+        price = lookup(model_id)
+        assert price is not None, f"{model_id} should be priced"
+        assert price.input_per_mtok_usd > 0
+        assert is_bedrock_model(model_id), f"{model_id} should be treated as Bedrock-served"
+
+
 def test_is_bedrock_model_recognizes_aws_prefix() -> None:
     """AWS Bedrock model IDs carry a `us.anthropic.` or `anthropic.`
     prefix; the cost summary uses this signal to decide whether to

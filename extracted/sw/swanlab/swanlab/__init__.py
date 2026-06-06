@@ -1,59 +1,108 @@
-# 导出初始化函数和log函数，以及一些数据处理模块
-from .data import *
-from .data.modules import (
+from swanlab.converter.mlf.sync import sync_mlflow
+from swanlab.converter.tfb.sync import sync_tensorboard_torch, sync_tensorboardX
+from swanlab.converter.wb.sync import sync_wandb
+from swanlab.sdk import (
     Audio,
+    Callback,
+    ECharts,
     Image,
-    Object3D,
     Molecule,
+    Object3D,
+    Run,
+    Settings,
     Text,
     Video,
+    async_log,
+    config,
+    define_scalar,
     echarts,
-    roc_curve,
-    pr_curve,
-    confusion_matrix,
+    finish,
+    get_run,
+    has_run,
+    init,
+    log,
+    log_audio,
+    log_echarts,
+    log_image,
+    log_molecule,
+    log_object3d,
+    log_text,
+    log_video,
+    login,
+    merge_callbacks,
+    merge_settings,
+    pkg,
+    plot,
+    save,
+    sync,
 )
-from .env import SwanLabEnv
-from .package import get_package_version
-from .swanlab_settings import Settings
-from .sync import sync_wandb, sync_tensorboardX, sync_tensorboard_torch, sync_mlflow, sync
 
-# 设置默认环境变量
-SwanLabEnv.set_default()
-# 检查当前需要检查的环境变量
-SwanLabEnv.check()
+from . import utils
+from .api import Api
+from .deprecated.callbacks import register_callbacks
+from .deprecated.echarts import confusion_matrix, pr_curve, roc_curve
 
-# 导出 OpenApi 接口，必须要等待上述的 import 语句执行完毕以后才能导出，否则会触发循环引用
-from .api import OpenApi, Api
-
-__version__ = get_package_version()
+__version__ = pkg.helper.get_swanlab_version()
 
 __all__ = [
-    "login",
-    "Settings",
+    # cmd
+    "merge_callbacks",
     "merge_settings",
     "init",
-    "log",
-    "save",
-    "register_callbacks",
     "finish",
-    "Audio",
-    "Image",
-    "echarts",
-    "Object3D",
-    "Molecule",
-    "Text",
-    "Video",
+    "login",
+    "log",
+    "log_text",
+    "log_image",
+    "log_audio",
+    "log_video",
+    "log_echarts",
+    "log_object3d",
+    "log_molecule",
+    "define_scalar",
+    "save",
+    "async_log",
+    "sync",
+    # run
+    "run",  # type: ignore [no-redef]
     "Run",
-    "State",
+    "has_run",
     "get_run",
-    "get_config",
+    # config
     "config",
-    "OpenApi",
+    # data
+    "Text",
+    "Audio",
+    "ECharts",
+    "Image",
+    "Molecule",
+    "Object3D",
+    "Video",
+    "plot",
+    "echarts",
+    # utils
+    "utils",
+    "Settings",
+    "Callback",
+    # Api
     "Api",
+    # deprecated
+    "roc_curve",
+    "pr_curve",
+    "confusion_matrix",
+    "register_callbacks",
+    # sync patches
     "sync_wandb",
-    "sync_mlflow",
     "sync_tensorboardX",
     "sync_tensorboard_torch",
-    "sync",
-    "__version__",
+    "sync_mlflow",
 ]
+
+
+def __getattr__(name: str):
+    if name == "run":
+        try:
+            return get_run()
+        except RuntimeError:
+            return None
+    raise AttributeError(f"module 'swanlab' has no attribute {name!r}")

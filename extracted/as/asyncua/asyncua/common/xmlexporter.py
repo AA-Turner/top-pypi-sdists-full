@@ -5,20 +5,21 @@ format is the one from opc-ua specification
 
 from __future__ import annotations
 
-import logging
 import asyncio
-import functools
-from collections import OrderedDict
-from typing import Any, Union
-import xml.etree.ElementTree as Et
 import base64
+import functools
+import logging
+import xml.etree.ElementTree as Et
+from collections import OrderedDict
 from dataclasses import is_dataclass
 from enum import Enum
+from typing import Any, ClassVar
 
 import asyncua
 from asyncua import ua
-from asyncua.ua.uatypes import type_string_from_type
 from asyncua.ua.uaerrors import UaError, UaInvalidParameterError
+from asyncua.ua.uatypes import type_string_from_type
+
 from .. import Node
 from ..ua import object_ids as o_ids
 from .ua_utils import get_base_data_type
@@ -31,11 +32,11 @@ class XmlExporter:
     order it can be added to the dictionary below.
     """
 
-    extobj_ordered_elements = {
+    extobj_ordered_elements: ClassVar[dict] = {
         ua.NodeId(ua.ObjectIds.Argument): ["Name", "DataType", "ValueRank", "ArrayDimensions", "Description"]
     }
 
-    def __init__(self, server: Union[asyncua.Server, asyncua.Client], export_values: bool = False):
+    def __init__(self, server: asyncua.Server | asyncua.Client, export_values: bool = False):
         """
         param: export_values: exports values from variants (CustomDataTypes are not support!)
         """
@@ -421,7 +422,7 @@ class XmlExporter:
 
     async def member_to_etree(self, el, name, dtype, val):
         member_el = Et.SubElement(el, "uax:" + name)
-        if isinstance(val, (list, tuple)):
+        if isinstance(val, list | tuple):
             for v in val:
                 try:
                     type_name = ua.ObjectIdNames[dtype.Identifier]
@@ -488,7 +489,7 @@ class XmlExporter:
         if val is None:
             return
 
-        if isinstance(val, (list, tuple)):
+        if isinstance(val, list | tuple):
             if not isinstance(dtype.Identifier, int):
                 raise UaInvalidParameterError(f"Expected int, got {type(dtype.Identifier)}")
             if dtype.NamespaceIndex == 0 and dtype.Identifier <= 21:
@@ -505,10 +506,10 @@ class XmlExporter:
 
             if dtype_base == ua.NodeId(ua.ObjectIds.Enumeration):
                 dtype_base = ua.NodeId(ua.ObjectIds.Int32)
-                type_name = ua.ObjectIdNames[dtype_base.Identifier]
+                type_name = ua.ObjectIdNames[int(dtype_base.Identifier)]  # type: ignore[attr-defined,arg-type]
 
-            if dtype_base.NamespaceIndex == 0 and dtype_base.Identifier <= 21:
-                type_name = ua.ObjectIdNames[dtype_base.Identifier]
+            if dtype_base.NamespaceIndex == 0 and dtype_base.Identifier <= 21:  # type: ignore[attr-defined,operator]
+                type_name = ua.ObjectIdNames[dtype_base.Identifier]  # type: ignore[attr-defined,index]
                 val_el = Et.SubElement(el, "uax:" + type_name)
                 await self._val_to_etree(val_el, dtype_base, val)
             else:
@@ -536,7 +537,10 @@ class XmlExporter:
     async def _all_fields_to_etree(self, struct_el: Et.Element, val: Any) -> None:
         # TODO: adding the 'ua' module to the globals to resolve the type hints might not be enough.
         #       it is possible that the type annotations also refere to classes defined in other modules.
-        for field in fields_with_resolved_types(val, globalns={"ua": ua}):
+        globalns = {"ua": ua}
+        globalns.update(vars(globalns["ua"]))  # some types will be defined with the ua namespace
+        resolved_fields = fields_with_resolved_types(val, globalns=globalns)
+        for field in resolved_fields:
             # FIXME; what happened if we have a custom type which is not part of ObjectIds???
             if field.name == "Encoding":
                 continue
@@ -545,15 +549,16 @@ class XmlExporter:
                 dtype = ua.NodeId(getattr(ua.ObjectIds, type_name))
             except AttributeError:
                 try:
-                    enc_node: Node = self.server.get_node(ua.extension_object_typeids[type_name])
+                    cls = getattr(ua, type_name)
+                    enc_node: Node = self.server.get_node(ua.typeid_by_extension_objects[cls])
                     dtype_node = (
                         await enc_node.get_referenced_nodes(ua.ObjectIds.HasEncoding, ua.BrowseDirection.Inverse)
                     )[0]
                     dtype = dtype_node.nodeid
-                except KeyError:
-                    for cls in ua.enums_datatypes:
-                        if cls.__class__ == field.type.__class__:
-                            dtype = ua.enums_datatypes[cls]
+                except (AttributeError, KeyError):
+                    for enum_cls in ua.enums_datatypes:
+                        if enum_cls.__class__ == field.type.__class__:
+                            dtype = ua.enums_datatypes[enum_cls]
                             break
                     self.logger.debug("could not find field type %s in registered types", field.type)
                     return

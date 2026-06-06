@@ -33,6 +33,7 @@ Usage::
         ListIAMPolicyAssignmentsForUserPaginator,
         ListIAMPolicyAssignmentsPaginator,
         ListIngestionsPaginator,
+        ListKnowledgeBasesPaginator,
         ListNamespacesPaginator,
         ListOAuthClientApplicationsPaginator,
         ListRoleMembershipsPaginator,
@@ -51,6 +52,7 @@ Usage::
         SearchFlowsPaginator,
         SearchFoldersPaginator,
         SearchGroupsPaginator,
+        SearchKnowledgeBasesPaginator,
         SearchTopicsPaginator,
     )
 
@@ -78,6 +80,7 @@ Usage::
     list_iam_policy_assignments_for_user_paginator: ListIAMPolicyAssignmentsForUserPaginator = client.get_paginator("list_iam_policy_assignments_for_user")
     list_iam_policy_assignments_paginator: ListIAMPolicyAssignmentsPaginator = client.get_paginator("list_iam_policy_assignments")
     list_ingestions_paginator: ListIngestionsPaginator = client.get_paginator("list_ingestions")
+    list_knowledge_bases_paginator: ListKnowledgeBasesPaginator = client.get_paginator("list_knowledge_bases")
     list_namespaces_paginator: ListNamespacesPaginator = client.get_paginator("list_namespaces")
     list_o_auth_client_applications_paginator: ListOAuthClientApplicationsPaginator = client.get_paginator("list_o_auth_client_applications")
     list_role_memberships_paginator: ListRoleMembershipsPaginator = client.get_paginator("list_role_memberships")
@@ -96,6 +99,7 @@ Usage::
     search_flows_paginator: SearchFlowsPaginator = client.get_paginator("search_flows")
     search_folders_paginator: SearchFoldersPaginator = client.get_paginator("search_folders")
     search_groups_paginator: SearchGroupsPaginator = client.get_paginator("search_groups")
+    search_knowledge_bases_paginator: SearchKnowledgeBasesPaginator = client.get_paginator("search_knowledge_bases")
     search_topics_paginator: SearchTopicsPaginator = client.get_paginator("search_topics")
     ```
 """
@@ -150,6 +154,8 @@ from .type_defs import (
     ListIAMPolicyAssignmentsResponseTypeDef,
     ListIngestionsRequestPaginateTypeDef,
     ListIngestionsResponseTypeDef,
+    ListKnowledgeBasesRequestPaginateTypeDef,
+    ListKnowledgeBasesResponseTypeDef,
     ListNamespacesRequestPaginateTypeDef,
     ListNamespacesResponseTypeDef,
     ListOAuthClientApplicationsRequestPaginateTypeDef,
@@ -186,6 +192,8 @@ from .type_defs import (
     SearchFoldersResponseTypeDef,
     SearchGroupsRequestPaginateTypeDef,
     SearchGroupsResponseTypeDef,
+    SearchKnowledgeBasesRequestPaginateTypeDef,
+    SearchKnowledgeBasesResponseTypeDef,
     SearchTopicsRequestPaginateTypeDef,
     SearchTopicsResponseTypeDef,
 )
@@ -217,6 +225,7 @@ __all__ = (
     "ListIAMPolicyAssignmentsForUserPaginator",
     "ListIAMPolicyAssignmentsPaginator",
     "ListIngestionsPaginator",
+    "ListKnowledgeBasesPaginator",
     "ListNamespacesPaginator",
     "ListOAuthClientApplicationsPaginator",
     "ListRoleMembershipsPaginator",
@@ -235,6 +244,7 @@ __all__ = (
     "SearchFlowsPaginator",
     "SearchFoldersPaginator",
     "SearchGroupsPaginator",
+    "SearchKnowledgeBasesPaginator",
     "SearchTopicsPaginator",
 )
 
@@ -621,6 +631,24 @@ class ListIngestionsPaginator(_ListIngestionsPaginatorBase):
         """
 
 if TYPE_CHECKING:
+    _ListKnowledgeBasesPaginatorBase = Paginator[ListKnowledgeBasesResponseTypeDef]
+else:
+    _ListKnowledgeBasesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListKnowledgeBasesPaginator(_ListKnowledgeBasesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListKnowledgeBases.html#QuickSight.Paginator.ListKnowledgeBases)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#listknowledgebasespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListKnowledgeBasesRequestPaginateTypeDef]
+    ) -> PageIterator[ListKnowledgeBasesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListKnowledgeBases.html#QuickSight.Paginator.ListKnowledgeBases.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#listknowledgebasespaginator)
+        """
+
+if TYPE_CHECKING:
     _ListNamespacesPaginatorBase = Paginator[ListNamespacesResponseTypeDef]
 else:
     _ListNamespacesPaginatorBase = Paginator  # type: ignore[assignment]
@@ -944,6 +972,24 @@ class SearchGroupsPaginator(_SearchGroupsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/SearchGroups.html#QuickSight.Paginator.SearchGroups.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#searchgroupspaginator)
+        """
+
+if TYPE_CHECKING:
+    _SearchKnowledgeBasesPaginatorBase = Paginator[SearchKnowledgeBasesResponseTypeDef]
+else:
+    _SearchKnowledgeBasesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class SearchKnowledgeBasesPaginator(_SearchKnowledgeBasesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/SearchKnowledgeBases.html#QuickSight.Paginator.SearchKnowledgeBases)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#searchknowledgebasespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[SearchKnowledgeBasesRequestPaginateTypeDef]
+    ) -> PageIterator[SearchKnowledgeBasesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/SearchKnowledgeBases.html#QuickSight.Paginator.SearchKnowledgeBases.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#searchknowledgebasespaginator)
         """
 
 if TYPE_CHECKING:

@@ -375,14 +375,20 @@ class Gemma4TextModel(nn.Module):
 
         self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size)
         self.embed_scale = config.hidden_size**0.5
+        num_kv_shared = getattr(config, "num_kv_shared_layers", 0)
+        first_kv_shared = config.num_hidden_layers - num_kv_shared
         self.layers = [
-            DecoderLayer(config, layer_idx=i, kv_shared_only=kv_shared_only)
+            DecoderLayer(
+                config,
+                layer_idx=i,
+                kv_shared_only=kv_shared_only
+                or (num_kv_shared > 0 and i >= first_kv_shared),
+            )
             for i in range(config.num_hidden_layers)
         ]
         self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
-        num_kv_shared = getattr(config, "num_kv_shared_layers", 0)
-        self.first_kv_shared_layer_idx = config.num_hidden_layers - num_kv_shared
+        self.first_kv_shared_layer_idx = first_kv_shared
         self.previous_kvs = list(range(len(self.layers)))
         if num_kv_shared > 0:
             N = len(self.layers)
@@ -483,26 +489,40 @@ class Gemma4TextModel(nn.Module):
             mm_token_type_ids is not None
             and int(mx.sum(mm_token_type_ids == 3).item()) > 0
         )
+        has_visual_tokens = (
+            mm_token_type_ids is not None
+            and int(mx.sum((mm_token_type_ids == 1) | (mm_token_type_ids == 2)).item())
+            > 0
+        )
         # Audio spans are sequential; keep mixed image+audio prompts causal to
         # avoid the vision block overlay dominating quantized unified models.
         use_bidirectional_vision = (
             getattr(self.config, "use_bidirectional_attention", None) == "vision"
             and mm_token_type_ids is not None
+            and has_visual_tokens
             and not has_audio_tokens
             and h.shape[1] > 1
         )
         for l, c in zip(self.layers, cache):
             if l.layer_type not in mask:
-                return_array = (
-                    h.shape[1] > 1
-                    and c is not None
-                    and int(mx.max(mx.array(c.offset)).item()) > 0
-                ) or use_bidirectional_vision
                 if l.layer_type == "full_attention":
+                    # Full attention can use MLX's causal mask even when
+                    # prefilling against an existing KV prefix. Only materialize
+                    # a mask for batch left-padding or the Gemma 4 vision
+                    # bidirectional overlay.
+                    return_array = (
+                        use_bidirectional_vision
+                        or getattr(c, "left_padding", None) is not None
+                    )
                     mask["full_attention"] = create_attention_mask(
                         h, c, return_array=return_array
                     )
                 elif l.layer_type == "sliding_attention":
+                    return_array = (
+                        h.shape[1] > 1
+                        and c is not None
+                        and int(mx.max(mx.array(c.offset)).item()) > 0
+                    ) or use_bidirectional_vision
                     mask["sliding_attention"] = create_attention_mask(
                         h, c, window_size=self.window_size, return_array=return_array
                     )
@@ -652,6 +672,42 @@ class LanguageModel(nn.Module):
     def speculative_draft_hidden(self, hidden: mx.array) -> mx.array:
         return self.model.norm(hidden)
 
+    def chunked_prefill_policy(
+        self,
+        *,
+        input_ids=None,
+        inputs_embeds=None,
+        prompt_cache=None,
+        draft_model=None,
+        draft_kind=None,
+        prefill_kwargs=None,
+    ) -> bool:
+        del input_ids, inputs_embeds, prompt_cache
+        prefill_kwargs = prefill_kwargs or {}
+        if getattr(self, "no_chunked_prefill", False):
+            return False
+
+        token_types = prefill_kwargs.get("mm_token_type_ids", None)
+        if token_types is None:
+            token_types = prefill_kwargs.get("token_type_ids", None)
+        if (
+            getattr(self.config, "use_bidirectional_attention", None) == "vision"
+            and token_types is not None
+        ):
+            has_visual = int(mx.sum((token_types == 1) | (token_types == 2)).item()) > 0
+            has_audio = int(mx.sum(token_types == 3).item()) > 0
+            if has_visual and not has_audio:
+                return False
+
+        if draft_model is not None:
+            return (
+                draft_kind == "mtp"
+                and bool(prefill_kwargs.get("return_hidden", False))
+                and bool(prefill_kwargs.get("return_shared_kv", False))
+            )
+
+        return True
+
     def __call__(
         self,
         inputs: mx.array = None,
@@ -739,6 +795,8 @@ class LanguageModel(nn.Module):
         for k, v in weights.items():
             if "self_attn.rotary_emb" in k:
                 continue
+            if self._is_unused_shared_kv_weight(k):
+                continue
             if any(
                 s in k for s in ["input_max", "input_min", "output_max", "output_min"]
             ):
@@ -746,6 +804,28 @@ class LanguageModel(nn.Module):
                     continue
             sanitized[k] = v
         return sanitized
+
+    def _is_unused_shared_kv_weight(self, key: str) -> bool:
+        prefix = "language_model.model.layers."
+        if not key.startswith(prefix):
+            return False
+
+        parts = key[len(prefix) :].split(".")
+        if len(parts) < 4 or parts[1] != "self_attn":
+            return False
+
+        try:
+            layer_idx = int(parts[0])
+        except ValueError:
+            return False
+        if layer_idx >= len(self.model.layers):
+            return False
+
+        attn = self.model.layers[layer_idx].self_attn
+        if not getattr(attn, "is_kv_shared_layer", False):
+            return False
+
+        return parts[2] in {"k_proj", "v_proj", "k_norm", "v_norm"}
 
     @property
     def layers(self):
@@ -765,8 +845,6 @@ class LanguageModel(nn.Module):
             if not hasattr(m, "to_quantized"):
                 return False
             if "router" in path:
-                return {"group_size": 64, "bits": 8}
-            if path.endswith(("mlp.gate_proj", "mlp.up_proj", "mlp.down_proj")):
                 return {"group_size": 64, "bits": 8}
             return True
 

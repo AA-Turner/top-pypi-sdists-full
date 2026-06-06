@@ -166,6 +166,8 @@ def run_fixture(
             )
         elif llm_backend == "openai":
             llm_model = os.environ.get("EFTERLEV_TEST_OPENAI_MODEL", "gpt-5.4")
+        elif llm_backend == "bedrock_openai":
+            llm_model = os.environ.get("EFTERLEV_TEST_BEDROCK_OPENAI_MODEL", "openai.gpt-5.4")
         else:  # anthropic
             llm_model = "claude-haiku-4-5"
 
@@ -193,7 +195,7 @@ def run_fixture(
         "--llm-model",
         llm_model,
     ]
-    if llm_backend == "bedrock":
+    if llm_backend in ("bedrock", "bedrock_openai"):
         init_args.extend(["--llm-region", llm_region])
     init_exit = _run_efterlev(init_args, workspace)
 

@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: prime-sandboxes
-Version: 0.2.26
+Version: 0.2.27
 Summary: Prime Intellect Sandboxes SDK - Manage remote code execution environments
-Project-URL: Homepage, https://github.com/PrimeIntellect-ai/prime-cli
-Project-URL: Documentation, https://github.com/PrimeIntellect-ai/prime-cli/tree/main/packages/prime-sandboxes
-Project-URL: Repository, https://github.com/PrimeIntellect-ai/prime-cli.git
+Project-URL: Homepage, https://github.com/PrimeIntellect-ai/prime
+Project-URL: Documentation, https://github.com/PrimeIntellect-ai/prime/tree/main/packages/prime-sandboxes
+Project-URL: Repository, https://github.com/PrimeIntellect-ai/prime.git
 Author-email: Prime Intellect <contact@primeintellect.ai>
 License: MIT
 License-File: LICENSE
@@ -284,7 +284,7 @@ asyncio.run(run_training())
 
 ## Documentation
 
-Full API reference: https://github.com/PrimeIntellect-ai/prime-cli/tree/main/packages/prime-sandboxes
+Full API reference: https://github.com/PrimeIntellect-ai/prime/tree/main/packages/prime-sandboxes
 
 ## Related Packages
 

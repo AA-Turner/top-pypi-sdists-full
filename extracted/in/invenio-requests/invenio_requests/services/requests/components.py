@@ -2,6 +2,7 @@
 #
 # Copyright (C) 2021 CERN.
 # Copyright (C) 2021 TU Wien.
+# Copyright (C) 2026 KTH Royal Institute of Technology.
 #
 # Invenio-Requests is free software; you can redistribute it and/or
 # modify it under the terms of the MIT License; see LICENSE file for more
@@ -126,7 +127,10 @@ class RequestReviewersComponent(ServiceComponent):
 
         if len(reviewers) > max_reviewers:
             raise ValidationError(
-                _(f"You can only add up to {max_reviewers} reviewers.")
+                _(
+                    "You can only add up to %(max_reviewers)s reviewers.",
+                    max_reviewers=max_reviewers,
+                )
             )
 
     def _ensure_no_duplicates(self, reviewers):
@@ -158,7 +162,7 @@ class RequestReviewersComponent(ServiceComponent):
                 event = ReviewersUpdatedType(
                     payload=dict(
                         event="reviewers_updated",
-                        content=_(f"{event_type} a reviewer"),
+                        content=_("%(event_type)s a reviewer", event_type=event_type),
                         reviewers=updated_reviewers,
                     )
                 )
@@ -235,7 +239,12 @@ class RequestCommentFileValidationComponent(ServiceComponent):
             if comment_file_id_next not in request_file_ids_existing:
                 error_messages.append(
                     {
-                        "messages": [_(f"File {str(comment_file_id_next)} not found.")],
+                        "messages": [
+                            _(
+                                "File %(file_id)s not found.",
+                                file_id=str(comment_file_id_next),
+                            )
+                        ],
                         "field": f"payload.files[{idx}]",
                     }
                 )

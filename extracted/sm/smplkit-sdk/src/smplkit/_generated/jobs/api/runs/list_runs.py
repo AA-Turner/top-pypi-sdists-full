@@ -84,7 +84,7 @@ def sync_detailed(
 
      List runs for this account, newest first (cursor paginated).
 
-    Use `filter[job]={slug}` for a single job's run history.
+    Use `filter[job]={id}` for a single job's run history.
 
     Args:
         filterjob (None | str | Unset):
@@ -123,7 +123,7 @@ def sync(
 
      List runs for this account, newest first (cursor paginated).
 
-    Use `filter[job]={slug}` for a single job's run history.
+    Use `filter[job]={id}` for a single job's run history.
 
     Args:
         filterjob (None | str | Unset):
@@ -157,7 +157,7 @@ async def asyncio_detailed(
 
      List runs for this account, newest first (cursor paginated).
 
-    Use `filter[job]={slug}` for a single job's run history.
+    Use `filter[job]={id}` for a single job's run history.
 
     Args:
         filterjob (None | str | Unset):
@@ -194,7 +194,7 @@ async def asyncio(
 
      List runs for this account, newest first (cursor paginated).
 
-    Use `filter[job]={slug}` for a single job's run history.
+    Use `filter[job]={id}` for a single job's run history.
 
     Args:
         filterjob (None | str | Unset):

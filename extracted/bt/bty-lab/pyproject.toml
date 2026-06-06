@@ -1,6 +1,6 @@
 [project]
 name = "bty-lab"
-version = "0.35.0"
+version = "0.36.0"
 description = "Flash images onto target disks, offline or networked with and without PXE"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -51,6 +51,13 @@ all = [
 [project.scripts]
 bty = "bty.tui:main"
 bty-web = "bty.web:main"
+# ``bty-lab`` hosts deployment + operator helpers (currently just
+# ``init`` -- emit a compose deploy). Separate from ``bty`` so the
+# flash-wizard CLI stays single-purpose. The script name matches the
+# PyPI distribution so ``uvx bty-lab init ...`` and
+# ``pipx run bty-lab init ...`` work without ``--from`` -- both tools
+# look for a script whose name matches the package.
+bty-lab = "bty.deploy:main"
 
 [project.urls]
 Homepage = "https://safl.dk/bty/"

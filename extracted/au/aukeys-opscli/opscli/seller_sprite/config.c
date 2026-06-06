@@ -2414,8 +2414,8 @@ typedef struct {
   __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_values;
   PyObject *__pyx_tuple[4];
   PyObject *__pyx_codeobj_tab[7];
-  PyObject *__pyx_string_tab[129];
-  PyObject *__pyx_number_tab[3];
+  PyObject *__pyx_string_tab[133];
+  PyObject *__pyx_number_tab[4];
 /* #### Code section: module_state_contents ### */
 /* CommonTypesMetaclass.module_state_decls */
 PyTypeObject *__pyx_CommonTypesMetaclassType;
@@ -2476,118 +2476,123 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_kp_u_utf_8 __pyx_string_tab[17]
 #define __pyx_n_u_Any __pyx_string_tab[18]
 #define __pyx_n_u_CONFIG_DIR __pyx_string_tab[19]
-#define __pyx_n_u_DEFAULT_ACCOUNT_NAME __pyx_string_tab[20]
-#define __pyx_n_u_DEFAULT_OUTPUT_DIR __pyx_string_tab[21]
-#define __pyx_n_u_DEFAULT_PAGE_SIZE __pyx_string_tab[22]
-#define __pyx_n_u_DEFAULT_PERIOD __pyx_string_tab[23]
-#define __pyx_n_u_DEFAULT_SITE __pyx_string_tab[24]
-#define __pyx_n_u_ENV_ACCOUNTS __pyx_string_tab[25]
-#define __pyx_n_u_ENV_ACCOUNT_NAME __pyx_string_tab[26]
-#define __pyx_n_u_ENV_OUTPUT_DIR __pyx_string_tab[27]
-#define __pyx_n_u_ENV_PAGE_SIZE __pyx_string_tab[28]
-#define __pyx_n_u_ENV_PASSWORD __pyx_string_tab[29]
-#define __pyx_n_u_ENV_USERNAME __pyx_string_tab[30]
-#define __pyx_n_u_JSONDecodeError __pyx_string_tab[31]
-#define __pyx_n_u_OPSCLI_SELLER_SPRITE_ACCOUNTS __pyx_string_tab[32]
-#define __pyx_n_u_OPSCLI_SELLER_SPRITE_ACCOUNT_NAM __pyx_string_tab[33]
-#define __pyx_n_u_OPSCLI_SELLER_SPRITE_OUTPUT_DIR __pyx_string_tab[34]
-#define __pyx_n_u_OPSCLI_SELLER_SPRITE_PAGE_SIZE __pyx_string_tab[35]
-#define __pyx_n_u_OPSCLI_SELLER_SPRITE_PASSWORD __pyx_string_tab[36]
-#define __pyx_n_u_OPSCLI_SELLER_SPRITE_USERNAME __pyx_string_tab[37]
-#define __pyx_n_u_Path __pyx_string_tab[38]
-#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[39]
-#define __pyx_n_u_SellerSpriteSettings __pyx_string_tab[40]
-#define __pyx_n_u_SellerSpriteSettings_to_public_d __pyx_string_tab[41]
-#define __pyx_n_u_account_count __pyx_string_tab[42]
-#define __pyx_n_u_account_name __pyx_string_tab[43]
-#define __pyx_n_u_accounts __pyx_string_tab[44]
-#define __pyx_n_u_annotations __pyx_string_tab[45]
-#define __pyx_n_u_api_runs __pyx_string_tab[46]
-#define __pyx_n_u_asdict __pyx_string_tab[47]
-#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[48]
-#define __pyx_n_u_cline_in_traceback __pyx_string_tab[49]
-#define __pyx_n_u_current __pyx_string_tab[50]
-#define __pyx_n_u_cwd __pyx_string_tab[51]
-#define __pyx_n_u_dataclass __pyx_string_tab[52]
-#define __pyx_n_u_dataclasses __pyx_string_tab[53]
-#define __pyx_n_u_default __pyx_string_tab[54]
-#define __pyx_n_u_default_period __pyx_string_tab[55]
-#define __pyx_n_u_default_site __pyx_string_tab[56]
-#define __pyx_n_u_directory __pyx_string_tab[57]
-#define __pyx_n_u_doc __pyx_string_tab[58]
-#define __pyx_n_u_dotenv __pyx_string_tab[59]
-#define __pyx_n_u_encoding __pyx_string_tab[60]
-#define __pyx_n_u_environ __pyx_string_tab[61]
-#define __pyx_n_u_exists __pyx_string_tab[62]
-#define __pyx_n_u_expanduser __pyx_string_tab[63]
-#define __pyx_n_u_frozen __pyx_string_tab[64]
-#define __pyx_n_u_func __pyx_string_tab[65]
-#define __pyx_n_u_get __pyx_string_tab[66]
-#define __pyx_n_u_has_password __pyx_string_tab[67]
-#define __pyx_n_u_has_username __pyx_string_tab[68]
-#define __pyx_n_u_int __pyx_string_tab[69]
-#define __pyx_n_u_is_coroutine __pyx_string_tab[70]
-#define __pyx_n_u_item __pyx_string_tab[71]
-#define __pyx_n_u_items __pyx_string_tab[72]
-#define __pyx_n_u_json __pyx_string_tab[73]
-#define __pyx_n_u_key __pyx_string_tab[74]
-#define __pyx_n_u_line __pyx_string_tab[75]
-#define __pyx_n_u_load_env_values __pyx_string_tab[76]
-#define __pyx_n_u_load_settings __pyx_string_tab[77]
-#define __pyx_n_u_loads __pyx_string_tab[78]
-#define __pyx_n_u_main __pyx_string_tab[79]
-#define __pyx_n_u_metaclass __pyx_string_tab[80]
-#define __pyx_n_u_module __pyx_string_tab[81]
-#define __pyx_n_u_name __pyx_string_tab[82]
-#define __pyx_n_u_name_2 __pyx_string_tab[83]
-#define __pyx_n_u_opscli_config __pyx_string_tab[84]
-#define __pyx_n_u_opscli_seller_sprite_config __pyx_string_tab[85]
-#define __pyx_n_u_os __pyx_string_tab[86]
-#define __pyx_n_u_output_dir __pyx_string_tab[87]
-#define __pyx_n_u_page_size __pyx_string_tab[88]
-#define __pyx_n_u_parents __pyx_string_tab[89]
-#define __pyx_n_u_parse_accounts __pyx_string_tab[90]
-#define __pyx_n_u_parse_dotenv __pyx_string_tab[91]
-#define __pyx_n_u_parse_int __pyx_string_tab[92]
-#define __pyx_n_u_parsed __pyx_string_tab[93]
-#define __pyx_n_u_password __pyx_string_tab[94]
-#define __pyx_n_u_path __pyx_string_tab[95]
-#define __pyx_n_u_pathlib __pyx_string_tab[96]
-#define __pyx_n_u_payload __pyx_string_tab[97]
-#define __pyx_n_u_pop __pyx_string_tab[98]
-#define __pyx_n_u_prepare __pyx_string_tab[99]
-#define __pyx_n_u_qualname __pyx_string_tab[100]
-#define __pyx_n_u_raw_line __pyx_string_tab[101]
-#define __pyx_n_u_read_dotenv __pyx_string_tab[102]
-#define __pyx_n_u_read_text __pyx_string_tab[103]
-#define __pyx_n_u_resolve __pyx_string_tab[104]
-#define __pyx_n_u_return __pyx_string_tab[105]
-#define __pyx_n_u_self __pyx_string_tab[106]
-#define __pyx_n_u_seller_sprite __pyx_string_tab[107]
-#define __pyx_n_u_set_name __pyx_string_tab[108]
-#define __pyx_n_u_setdefault __pyx_string_tab[109]
-#define __pyx_n_u_split __pyx_string_tab[110]
-#define __pyx_n_u_splitlines __pyx_string_tab[111]
-#define __pyx_n_u_startswith __pyx_string_tab[112]
-#define __pyx_n_u_str __pyx_string_tab[113]
-#define __pyx_n_u_strip __pyx_string_tab[114]
-#define __pyx_n_u_test __pyx_string_tab[115]
-#define __pyx_n_u_to_public_dict __pyx_string_tab[116]
-#define __pyx_n_u_typing __pyx_string_tab[117]
-#define __pyx_n_u_us __pyx_string_tab[118]
-#define __pyx_n_u_username __pyx_string_tab[119]
-#define __pyx_n_u_value __pyx_string_tab[120]
-#define __pyx_n_u_values __pyx_string_tab[121]
-#define __pyx_kp_b_iso88591_81_t1_q_AQ_q_WBgQ __pyx_string_tab[122]
-#define __pyx_kp_b_iso88591_Q_D_9HKq_xvQ_4uCt_auCt7_XT_q_Q __pyx_string_tab[123]
-#define __pyx_kp_b_iso88591_a_d_b_Qj_q_2Q_6_1 __pyx_string_tab[124]
-#define __pyx_kp_b_iso88591_q_1D_q_at1_q_at1_q_3at_c_AT_a_t __pyx_string_tab[125]
-#define __pyx_kp_b_iso88591_q_Q_QfD_1_4G_RS_6_Q_6a_q_V4q_2 __pyx_string_tab[126]
-#define __pyx_kp_b_iso88591_q_n_nL_aq_1_7_1 __pyx_string_tab[127]
-#define __pyx_kp_b_iso88591_t1_q_fAQ_q_q_t_Qiq_q_Q_4z_s_4t1 __pyx_string_tab[128]
+#define __pyx_n_u_DEFAULT_ACCOUNT_CACHE_TTL_SECOND __pyx_string_tab[20]
+#define __pyx_n_u_DEFAULT_ACCOUNT_NAME __pyx_string_tab[21]
+#define __pyx_n_u_DEFAULT_OUTPUT_DIR __pyx_string_tab[22]
+#define __pyx_n_u_DEFAULT_PAGE_SIZE __pyx_string_tab[23]
+#define __pyx_n_u_DEFAULT_PERIOD __pyx_string_tab[24]
+#define __pyx_n_u_DEFAULT_SITE __pyx_string_tab[25]
+#define __pyx_n_u_ENV_ACCOUNTS __pyx_string_tab[26]
+#define __pyx_n_u_ENV_ACCOUNT_CACHE_TTL_SECONDS __pyx_string_tab[27]
+#define __pyx_n_u_ENV_ACCOUNT_NAME __pyx_string_tab[28]
+#define __pyx_n_u_ENV_OUTPUT_DIR __pyx_string_tab[29]
+#define __pyx_n_u_ENV_PAGE_SIZE __pyx_string_tab[30]
+#define __pyx_n_u_ENV_PASSWORD __pyx_string_tab[31]
+#define __pyx_n_u_ENV_USERNAME __pyx_string_tab[32]
+#define __pyx_n_u_JSONDecodeError __pyx_string_tab[33]
+#define __pyx_n_u_OPSCLI_SELLER_SPRITE_ACCOUNTS __pyx_string_tab[34]
+#define __pyx_n_u_OPSCLI_SELLER_SPRITE_ACCOUNT_CAC __pyx_string_tab[35]
+#define __pyx_n_u_OPSCLI_SELLER_SPRITE_ACCOUNT_NAM __pyx_string_tab[36]
+#define __pyx_n_u_OPSCLI_SELLER_SPRITE_OUTPUT_DIR __pyx_string_tab[37]
+#define __pyx_n_u_OPSCLI_SELLER_SPRITE_PAGE_SIZE __pyx_string_tab[38]
+#define __pyx_n_u_OPSCLI_SELLER_SPRITE_PASSWORD __pyx_string_tab[39]
+#define __pyx_n_u_OPSCLI_SELLER_SPRITE_USERNAME __pyx_string_tab[40]
+#define __pyx_n_u_Path __pyx_string_tab[41]
+#define __pyx_n_u_Pyx_PyDict_NextRef __pyx_string_tab[42]
+#define __pyx_n_u_SellerSpriteSettings __pyx_string_tab[43]
+#define __pyx_n_u_SellerSpriteSettings_to_public_d __pyx_string_tab[44]
+#define __pyx_n_u_account_cache_ttl_seconds __pyx_string_tab[45]
+#define __pyx_n_u_account_count __pyx_string_tab[46]
+#define __pyx_n_u_account_name __pyx_string_tab[47]
+#define __pyx_n_u_accounts __pyx_string_tab[48]
+#define __pyx_n_u_annotations __pyx_string_tab[49]
+#define __pyx_n_u_api_runs __pyx_string_tab[50]
+#define __pyx_n_u_asdict __pyx_string_tab[51]
+#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[52]
+#define __pyx_n_u_cline_in_traceback __pyx_string_tab[53]
+#define __pyx_n_u_current __pyx_string_tab[54]
+#define __pyx_n_u_cwd __pyx_string_tab[55]
+#define __pyx_n_u_dataclass __pyx_string_tab[56]
+#define __pyx_n_u_dataclasses __pyx_string_tab[57]
+#define __pyx_n_u_default __pyx_string_tab[58]
+#define __pyx_n_u_default_period __pyx_string_tab[59]
+#define __pyx_n_u_default_site __pyx_string_tab[60]
+#define __pyx_n_u_directory __pyx_string_tab[61]
+#define __pyx_n_u_doc __pyx_string_tab[62]
+#define __pyx_n_u_dotenv __pyx_string_tab[63]
+#define __pyx_n_u_encoding __pyx_string_tab[64]
+#define __pyx_n_u_environ __pyx_string_tab[65]
+#define __pyx_n_u_exists __pyx_string_tab[66]
+#define __pyx_n_u_expanduser __pyx_string_tab[67]
+#define __pyx_n_u_frozen __pyx_string_tab[68]
+#define __pyx_n_u_func __pyx_string_tab[69]
+#define __pyx_n_u_get __pyx_string_tab[70]
+#define __pyx_n_u_has_password __pyx_string_tab[71]
+#define __pyx_n_u_has_username __pyx_string_tab[72]
+#define __pyx_n_u_int __pyx_string_tab[73]
+#define __pyx_n_u_is_coroutine __pyx_string_tab[74]
+#define __pyx_n_u_item __pyx_string_tab[75]
+#define __pyx_n_u_items __pyx_string_tab[76]
+#define __pyx_n_u_json __pyx_string_tab[77]
+#define __pyx_n_u_key __pyx_string_tab[78]
+#define __pyx_n_u_line __pyx_string_tab[79]
+#define __pyx_n_u_load_env_values __pyx_string_tab[80]
+#define __pyx_n_u_load_settings __pyx_string_tab[81]
+#define __pyx_n_u_loads __pyx_string_tab[82]
+#define __pyx_n_u_main __pyx_string_tab[83]
+#define __pyx_n_u_metaclass __pyx_string_tab[84]
+#define __pyx_n_u_module __pyx_string_tab[85]
+#define __pyx_n_u_name __pyx_string_tab[86]
+#define __pyx_n_u_name_2 __pyx_string_tab[87]
+#define __pyx_n_u_opscli_config __pyx_string_tab[88]
+#define __pyx_n_u_opscli_seller_sprite_config __pyx_string_tab[89]
+#define __pyx_n_u_os __pyx_string_tab[90]
+#define __pyx_n_u_output_dir __pyx_string_tab[91]
+#define __pyx_n_u_page_size __pyx_string_tab[92]
+#define __pyx_n_u_parents __pyx_string_tab[93]
+#define __pyx_n_u_parse_accounts __pyx_string_tab[94]
+#define __pyx_n_u_parse_dotenv __pyx_string_tab[95]
+#define __pyx_n_u_parse_int __pyx_string_tab[96]
+#define __pyx_n_u_parsed __pyx_string_tab[97]
+#define __pyx_n_u_password __pyx_string_tab[98]
+#define __pyx_n_u_path __pyx_string_tab[99]
+#define __pyx_n_u_pathlib __pyx_string_tab[100]
+#define __pyx_n_u_payload __pyx_string_tab[101]
+#define __pyx_n_u_pop __pyx_string_tab[102]
+#define __pyx_n_u_prepare __pyx_string_tab[103]
+#define __pyx_n_u_qualname __pyx_string_tab[104]
+#define __pyx_n_u_raw_line __pyx_string_tab[105]
+#define __pyx_n_u_read_dotenv __pyx_string_tab[106]
+#define __pyx_n_u_read_text __pyx_string_tab[107]
+#define __pyx_n_u_resolve __pyx_string_tab[108]
+#define __pyx_n_u_return __pyx_string_tab[109]
+#define __pyx_n_u_self __pyx_string_tab[110]
+#define __pyx_n_u_seller_sprite __pyx_string_tab[111]
+#define __pyx_n_u_set_name __pyx_string_tab[112]
+#define __pyx_n_u_setdefault __pyx_string_tab[113]
+#define __pyx_n_u_split __pyx_string_tab[114]
+#define __pyx_n_u_splitlines __pyx_string_tab[115]
+#define __pyx_n_u_startswith __pyx_string_tab[116]
+#define __pyx_n_u_str __pyx_string_tab[117]
+#define __pyx_n_u_strip __pyx_string_tab[118]
+#define __pyx_n_u_test __pyx_string_tab[119]
+#define __pyx_n_u_to_public_dict __pyx_string_tab[120]
+#define __pyx_n_u_typing __pyx_string_tab[121]
+#define __pyx_n_u_us __pyx_string_tab[122]
+#define __pyx_n_u_username __pyx_string_tab[123]
+#define __pyx_n_u_value __pyx_string_tab[124]
+#define __pyx_n_u_values __pyx_string_tab[125]
+#define __pyx_kp_b_iso88591_81_t1_q_AQ_q_WBgQ __pyx_string_tab[126]
+#define __pyx_kp_b_iso88591_Q_D_9HKq_xvQ_4uCt_auCt7_XT_q_Q __pyx_string_tab[127]
+#define __pyx_kp_b_iso88591_a_d_b_Qj_q_2Q_6_1 __pyx_string_tab[128]
+#define __pyx_kp_b_iso88591_q_1D_q_at1_q_at1_q_3at_c_AT_a_t __pyx_string_tab[129]
+#define __pyx_kp_b_iso88591_q_Q_QfD_1_4G_RS_6_Q_6a_q_V4q_2 __pyx_string_tab[130]
+#define __pyx_kp_b_iso88591_q_aq_1_7_1 __pyx_string_tab[131]
+#define __pyx_kp_b_iso88591_t1_q_fAQ_q_q_t_Qiq_q_Q_4z_s_4t1 __pyx_string_tab[132]
 #define __pyx_int_0 __pyx_number_tab[0]
 #define __pyx_int_1 __pyx_number_tab[1]
 #define __pyx_int_100 __pyx_number_tab[2]
+#define __pyx_int_600 __pyx_number_tab[3]
 /* #### Code section: module_state_clear ### */
 #if CYTHON_USE_MODULE_STATE
 static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
@@ -2604,8 +2609,8 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   #endif
   for (int i=0; i<4; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
   for (int i=0; i<7; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<129; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
-  for (int i=0; i<3; ++i) { Py_CLEAR(clear_module_state->__pyx_number_tab[i]); }
+  for (int i=0; i<133; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<4; ++i) { Py_CLEAR(clear_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* CommonTypesMetaclass.module_state_clear */
 Py_CLEAR(clear_module_state->__pyx_CommonTypesMetaclassType);
@@ -2630,8 +2635,8 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_empty_unicode);
   for (int i=0; i<4; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
   for (int i=0; i<7; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<129; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
-  for (int i=0; i<3; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_number_tab[i]); }
+  for (int i=0; i<133; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<4; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_number_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* CommonTypesMetaclass.module_state_traverse */
 Py_VISIT(traverse_module_state->__pyx_CommonTypesMetaclassType);
@@ -2645,8 +2650,8 @@ return 0;
 #endif
 /* #### Code section: module_code ### */
 
-/* "opscli/seller_sprite/config.py":41
- *     default_period: str = DEFAULT_PERIOD
+/* "opscli/seller_sprite/config.py":44
+ *     account_cache_ttl_seconds: int = DEFAULT_ACCOUNT_CACHE_TTL_SECONDS
  * 
  *     def to_public_dict(self) -> dict[str, Any]:             # <<<<<<<<<<<<<<
  *         """"""
@@ -2693,32 +2698,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_self,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 41, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 44, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 41, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 44, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "to_public_dict", 0) < (0)) __PYX_ERR(0, 41, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "to_public_dict", 0) < (0)) __PYX_ERR(0, 44, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("to_public_dict", 1, 1, 1, i); __PYX_ERR(0, 41, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("to_public_dict", 1, 1, 1, i); __PYX_ERR(0, 44, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 41, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 44, __pyx_L3_error)
     }
     __pyx_v_self = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("to_public_dict", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 41, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("to_public_dict", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 44, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -2755,7 +2760,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_20SellerSpriteSettings
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("to_public_dict", 0);
 
-  /* "opscli/seller_sprite/config.py":43
+  /* "opscli/seller_sprite/config.py":46
  *     def to_public_dict(self) -> dict[str, Any]:
  *         """"""
  *         payload = asdict(self)             # <<<<<<<<<<<<<<
@@ -2763,7 +2768,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_20SellerSpriteSettings
  *         payload["has_username"] = bool(self.username)
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_asdict); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 43, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_asdict); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 46, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -2782,84 +2787,84 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_20SellerSpriteSettings
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 43, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 46, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_payload = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/config.py":44
+  /* "opscli/seller_sprite/config.py":47
  *         """"""
  *         payload = asdict(self)
  *         payload["output_dir"] = str(self.output_dir)             # <<<<<<<<<<<<<<
  *         payload["has_username"] = bool(self.username)
  *         payload["has_password"] = bool(self.password)
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_output_dir); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 44, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_output_dir); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 47, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 44, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 47, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely((PyObject_SetItem(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_output_dir, __pyx_t_3) < 0))) __PYX_ERR(0, 44, __pyx_L1_error)
+  if (unlikely((PyObject_SetItem(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_output_dir, __pyx_t_3) < 0))) __PYX_ERR(0, 47, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "opscli/seller_sprite/config.py":45
+  /* "opscli/seller_sprite/config.py":48
  *         payload = asdict(self)
  *         payload["output_dir"] = str(self.output_dir)
  *         payload["has_username"] = bool(self.username)             # <<<<<<<<<<<<<<
  *         payload["has_password"] = bool(self.password)
  *         payload["account_count"] = len(self.accounts) or int(bool(self.username))
 */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_username); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 45, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_username); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 45, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyBool_FromLong((!(!__pyx_t_5))); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 45, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyBool_FromLong((!(!__pyx_t_5))); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (unlikely((PyObject_SetItem(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_has_username, __pyx_t_3) < 0))) __PYX_ERR(0, 45, __pyx_L1_error)
+  if (unlikely((PyObject_SetItem(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_has_username, __pyx_t_3) < 0))) __PYX_ERR(0, 48, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "opscli/seller_sprite/config.py":46
+  /* "opscli/seller_sprite/config.py":49
  *         payload["output_dir"] = str(self.output_dir)
  *         payload["has_username"] = bool(self.username)
  *         payload["has_password"] = bool(self.password)             # <<<<<<<<<<<<<<
  *         payload["account_count"] = len(self.accounts) or int(bool(self.username))
  *         payload.pop("username", None)
 */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_password); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 46, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_password); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 49, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 46, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 49, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyBool_FromLong((!(!__pyx_t_5))); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 46, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyBool_FromLong((!(!__pyx_t_5))); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 49, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (unlikely((PyObject_SetItem(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_has_password, __pyx_t_3) < 0))) __PYX_ERR(0, 46, __pyx_L1_error)
+  if (unlikely((PyObject_SetItem(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_has_password, __pyx_t_3) < 0))) __PYX_ERR(0, 49, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "opscli/seller_sprite/config.py":47
+  /* "opscli/seller_sprite/config.py":50
  *         payload["has_username"] = bool(self.username)
  *         payload["has_password"] = bool(self.password)
  *         payload["account_count"] = len(self.accounts) or int(bool(self.username))             # <<<<<<<<<<<<<<
  *         payload.pop("username", None)
  *         payload.pop("password", None)
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_accounts); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 47, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_accounts); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 50, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_6 = PyObject_Length(__pyx_t_1); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(0, 47, __pyx_L1_error)
+  __pyx_t_6 = PyObject_Length(__pyx_t_1); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(0, 50, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (!__pyx_t_6) {
   } else {
-    __pyx_t_1 = PyLong_FromSsize_t(__pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 47, __pyx_L1_error)
+    __pyx_t_1 = PyLong_FromSsize_t(__pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 50, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_3 = __pyx_t_1;
     __pyx_t_1 = 0;
     goto __pyx_L3_bool_binop_done;
   }
   __pyx_t_2 = NULL;
-  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_username); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 47, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_v_self, __pyx_mstate_global->__pyx_n_u_username); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 50, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 47, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_t_7); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 50, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-  __pyx_t_7 = __Pyx_PyBool_FromLong((!(!__pyx_t_5))); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 47, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyBool_FromLong((!(!__pyx_t_5))); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 50, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __pyx_t_4 = 1;
   {
@@ -2867,59 +2872,59 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_20SellerSpriteSettings
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)(&PyLong_Type), __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 47, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 50, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __Pyx_INCREF(__pyx_t_1);
   __pyx_t_3 = __pyx_t_1;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_L3_bool_binop_done:;
-  if (unlikely((PyObject_SetItem(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_account_count, __pyx_t_3) < 0))) __PYX_ERR(0, 47, __pyx_L1_error)
+  if (unlikely((PyObject_SetItem(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_account_count, __pyx_t_3) < 0))) __PYX_ERR(0, 50, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "opscli/seller_sprite/config.py":48
+  /* "opscli/seller_sprite/config.py":51
  *         payload["has_password"] = bool(self.password)
  *         payload["account_count"] = len(self.accounts) or int(bool(self.username))
  *         payload.pop("username", None)             # <<<<<<<<<<<<<<
  *         payload.pop("password", None)
  *         payload.pop("accounts", None)
 */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_pop); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 48, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_pop); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 51, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_mstate_global->__pyx_tuple[0], NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 48, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_mstate_global->__pyx_tuple[0], NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 51, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/config.py":49
+  /* "opscli/seller_sprite/config.py":52
  *         payload["account_count"] = len(self.accounts) or int(bool(self.username))
  *         payload.pop("username", None)
  *         payload.pop("password", None)             # <<<<<<<<<<<<<<
  *         payload.pop("accounts", None)
  *         return payload
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_pop); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 49, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_pop); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 52, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_mstate_global->__pyx_tuple[1], NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 49, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_mstate_global->__pyx_tuple[1], NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 52, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "opscli/seller_sprite/config.py":50
+  /* "opscli/seller_sprite/config.py":53
  *         payload.pop("username", None)
  *         payload.pop("password", None)
  *         payload.pop("accounts", None)             # <<<<<<<<<<<<<<
  *         return payload
  * 
 */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_pop); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 50, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_payload, __pyx_mstate_global->__pyx_n_u_pop); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 53, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_mstate_global->__pyx_tuple[2], NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 50, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_mstate_global->__pyx_tuple[2], NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 53, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/config.py":51
+  /* "opscli/seller_sprite/config.py":54
  *         payload.pop("password", None)
  *         payload.pop("accounts", None)
  *         return payload             # <<<<<<<<<<<<<<
@@ -2929,13 +2934,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_20SellerSpriteSettings
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_1 = __pyx_v_payload;
   __Pyx_INCREF(__pyx_t_1);
-  if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_1))) __PYX_ERR(0, 51, __pyx_L1_error)
+  if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_1))) __PYX_ERR(0, 54, __pyx_L1_error)
   __pyx_r = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/config.py":41
- *     default_period: str = DEFAULT_PERIOD
+  /* "opscli/seller_sprite/config.py":44
+ *     account_cache_ttl_seconds: int = DEFAULT_ACCOUNT_CACHE_TTL_SECONDS
  * 
  *     def to_public_dict(self) -> dict[str, Any]:             # <<<<<<<<<<<<<<
  *         """"""
@@ -2957,7 +2962,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_20SellerSpriteSettings
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/config.py":54
+/* "opscli/seller_sprite/config.py":57
  * 
  * 
  * def load_settings() -> SellerSpriteSettings:             # <<<<<<<<<<<<<<
@@ -3002,12 +3007,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
   PyObject *__pyx_t_12 = NULL;
   PyObject *__pyx_t_13 = NULL;
   PyObject *__pyx_t_14 = NULL;
+  PyObject *__pyx_t_15 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("load_settings", 0);
 
-  /* "opscli/seller_sprite/config.py":56
+  /* "opscli/seller_sprite/config.py":59
  * def load_settings() -> SellerSpriteSettings:
  *     """ `.env` """
  *     values = _load_env_values()             # <<<<<<<<<<<<<<
@@ -3015,7 +3021,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
  *     page_size = _parse_int(values.get(ENV_PAGE_SIZE), DEFAULT_PAGE_SIZE)
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_load_env_values); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 56, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_load_env_values); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 59, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -3034,13 +3040,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 56, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 59, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_values = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/config.py":57
+  /* "opscli/seller_sprite/config.py":60
  *     """ `.env` """
  *     values = _load_env_values()
  *     output_dir = Path(values.get(ENV_OUTPUT_DIR) or DEFAULT_OUTPUT_DIR).expanduser()             # <<<<<<<<<<<<<<
@@ -3048,11 +3054,11 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
  *     return SellerSpriteSettings(
 */
   __pyx_t_5 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_Path); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 57, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_Path); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 60, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __pyx_t_9 = __pyx_v_values;
   __Pyx_INCREF(__pyx_t_9);
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_ENV_OUTPUT_DIR); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 57, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_ENV_OUTPUT_DIR); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 60, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __pyx_t_4 = 0;
   {
@@ -3060,10 +3066,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
     __pyx_t_8 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 57, __pyx_L1_error)
+    if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 60, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
   }
-  __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 57, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 60, __pyx_L1_error)
   if (!__pyx_t_11) {
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
   } else {
@@ -3072,7 +3078,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     goto __pyx_L3_bool_binop_done;
   }
-  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_DEFAULT_OUTPUT_DIR); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 57, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_DEFAULT_OUTPUT_DIR); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 60, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __Pyx_INCREF(__pyx_t_8);
   __pyx_t_7 = __pyx_t_8;
@@ -3096,7 +3102,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 57, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 60, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
   __pyx_t_3 = __pyx_t_2;
@@ -3107,13 +3113,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_expanduser, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 57, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 60, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_output_dir = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/config.py":58
+  /* "opscli/seller_sprite/config.py":61
  *     values = _load_env_values()
  *     output_dir = Path(values.get(ENV_OUTPUT_DIR) or DEFAULT_OUTPUT_DIR).expanduser()
  *     page_size = _parse_int(values.get(ENV_PAGE_SIZE), DEFAULT_PAGE_SIZE)             # <<<<<<<<<<<<<<
@@ -3121,11 +3127,11 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
  *         account_name=values.get(ENV_ACCOUNT_NAME) or DEFAULT_ACCOUNT_NAME,
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_parse_int); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 58, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_parse_int); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 61, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_7 = __pyx_v_values;
   __Pyx_INCREF(__pyx_t_7);
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ENV_PAGE_SIZE); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 58, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ENV_PAGE_SIZE); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 61, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_4 = 0;
   {
@@ -3133,10 +3139,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
     __pyx_t_6 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 58, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 61, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
   }
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_DEFAULT_PAGE_SIZE); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 58, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_DEFAULT_PAGE_SIZE); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 61, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_4 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -3157,13 +3163,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 58, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 61, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_page_size = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/config.py":59
+  /* "opscli/seller_sprite/config.py":62
  *     output_dir = Path(values.get(ENV_OUTPUT_DIR) or DEFAULT_OUTPUT_DIR).expanduser()
  *     page_size = _parse_int(values.get(ENV_PAGE_SIZE), DEFAULT_PAGE_SIZE)
  *     return SellerSpriteSettings(             # <<<<<<<<<<<<<<
@@ -3172,10 +3178,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
 */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_3 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_SellerSpriteSettings); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 59, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_SellerSpriteSettings); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 62, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
 
-  /* "opscli/seller_sprite/config.py":60
+  /* "opscli/seller_sprite/config.py":63
  *     page_size = _parse_int(values.get(ENV_PAGE_SIZE), DEFAULT_PAGE_SIZE)
  *     return SellerSpriteSettings(
  *         account_name=values.get(ENV_ACCOUNT_NAME) or DEFAULT_ACCOUNT_NAME,             # <<<<<<<<<<<<<<
@@ -3184,7 +3190,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
 */
   __pyx_t_7 = __pyx_v_values;
   __Pyx_INCREF(__pyx_t_7);
-  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_ENV_ACCOUNT_NAME); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 60, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_ENV_ACCOUNT_NAME); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 63, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __pyx_t_4 = 0;
   {
@@ -3192,10 +3198,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
     __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 60, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 63, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 60, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 63, __pyx_L1_error)
   if (!__pyx_t_11) {
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   } else {
@@ -3204,14 +3210,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     goto __pyx_L5_bool_binop_done;
   }
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_DEFAULT_ACCOUNT_NAME); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 60, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_DEFAULT_ACCOUNT_NAME); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 63, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_INCREF(__pyx_t_2);
   __pyx_t_6 = __pyx_t_2;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_L5_bool_binop_done:;
 
-  /* "opscli/seller_sprite/config.py":61
+  /* "opscli/seller_sprite/config.py":64
  *     return SellerSpriteSettings(
  *         account_name=values.get(ENV_ACCOUNT_NAME) or DEFAULT_ACCOUNT_NAME,
  *         username=values.get(ENV_USERNAME) or None,             # <<<<<<<<<<<<<<
@@ -3220,7 +3226,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
 */
   __pyx_t_7 = __pyx_v_values;
   __Pyx_INCREF(__pyx_t_7);
-  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_ENV_USERNAME); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 61, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_ENV_USERNAME); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 64, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   __pyx_t_4 = 0;
   {
@@ -3228,10 +3234,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
     __pyx_t_8 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-    if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 61, __pyx_L1_error)
+    if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 64, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
   }
-  __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 61, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 64, __pyx_L1_error)
   if (!__pyx_t_11) {
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
   } else {
@@ -3244,7 +3250,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
   __pyx_t_2 = Py_None;
   __pyx_L7_bool_binop_done:;
 
-  /* "opscli/seller_sprite/config.py":62
+  /* "opscli/seller_sprite/config.py":65
  *         account_name=values.get(ENV_ACCOUNT_NAME) or DEFAULT_ACCOUNT_NAME,
  *         username=values.get(ENV_USERNAME) or None,
  *         password=values.get(ENV_PASSWORD) or None,             # <<<<<<<<<<<<<<
@@ -3253,7 +3259,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
 */
   __pyx_t_7 = __pyx_v_values;
   __Pyx_INCREF(__pyx_t_7);
-  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_ENV_PASSWORD); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 62, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_ENV_PASSWORD); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 65, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __pyx_t_4 = 0;
   {
@@ -3261,10 +3267,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
     __pyx_t_10 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 62, __pyx_L1_error)
+    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 65, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
   }
-  __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_10); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 62, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_10); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 65, __pyx_L1_error)
   if (!__pyx_t_11) {
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
   } else {
@@ -3277,7 +3283,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
   __pyx_t_8 = Py_None;
   __pyx_L9_bool_binop_done:;
 
-  /* "opscli/seller_sprite/config.py":63
+  /* "opscli/seller_sprite/config.py":66
  *         username=values.get(ENV_USERNAME) or None,
  *         password=values.get(ENV_PASSWORD) or None,
  *         accounts=_parse_accounts(values.get(ENV_ACCOUNTS)),             # <<<<<<<<<<<<<<
@@ -3285,11 +3291,11 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
  *         page_size=page_size,
 */
   __pyx_t_9 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_parse_accounts); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 63, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_parse_accounts); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 66, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __pyx_t_13 = __pyx_v_values;
   __Pyx_INCREF(__pyx_t_13);
-  __Pyx_GetModuleGlobalName(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_ENV_ACCOUNTS); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 63, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_14, __pyx_mstate_global->__pyx_n_u_ENV_ACCOUNTS); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 66, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_14);
   __pyx_t_4 = 0;
   {
@@ -3297,7 +3303,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
     __pyx_t_12 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_13); __pyx_t_13 = 0;
     __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
-    if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 63, __pyx_L1_error)
+    if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 66, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
   }
   __pyx_t_4 = 1;
@@ -3318,17 +3324,73 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 63, __pyx_L1_error)
+    if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 66, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
   }
 
-  /* "opscli/seller_sprite/config.py":65
- *         accounts=_parse_accounts(values.get(ENV_ACCOUNTS)),
+  /* "opscli/seller_sprite/config.py":69
  *         output_dir=output_dir,
- *         page_size=page_size,             # <<<<<<<<<<<<<<
- *     )
- * 
+ *         page_size=page_size,
+ *         account_cache_ttl_seconds=_parse_int(             # <<<<<<<<<<<<<<
+ *             values.get(ENV_ACCOUNT_CACHE_TTL_SECONDS),
+ *             DEFAULT_ACCOUNT_CACHE_TTL_SECONDS,
 */
+  __pyx_t_12 = NULL;
+  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_parse_int); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 69, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_9);
+
+  /* "opscli/seller_sprite/config.py":70
+ *         page_size=page_size,
+ *         account_cache_ttl_seconds=_parse_int(
+ *             values.get(ENV_ACCOUNT_CACHE_TTL_SECONDS),             # <<<<<<<<<<<<<<
+ *             DEFAULT_ACCOUNT_CACHE_TTL_SECONDS,
+ *         ),
+*/
+  __pyx_t_13 = __pyx_v_values;
+  __Pyx_INCREF(__pyx_t_13);
+  __Pyx_GetModuleGlobalName(__pyx_t_15, __pyx_mstate_global->__pyx_n_u_ENV_ACCOUNT_CACHE_TTL_SECONDS); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 70, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_15);
+  __pyx_t_4 = 0;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_13, __pyx_t_15};
+    __pyx_t_14 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_13); __pyx_t_13 = 0;
+    __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
+    if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 70, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_14);
+  }
+
+  /* "opscli/seller_sprite/config.py":71
+ *         account_cache_ttl_seconds=_parse_int(
+ *             values.get(ENV_ACCOUNT_CACHE_TTL_SECONDS),
+ *             DEFAULT_ACCOUNT_CACHE_TTL_SECONDS,             # <<<<<<<<<<<<<<
+ *         ),
+ *     )
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_15, __pyx_mstate_global->__pyx_n_u_DEFAULT_ACCOUNT_CACHE_TTL_SECOND); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 71, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_15);
+  __pyx_t_4 = 1;
+  #if CYTHON_UNPACK_METHODS
+  if (unlikely(PyMethod_Check(__pyx_t_9))) {
+    __pyx_t_12 = PyMethod_GET_SELF(__pyx_t_9);
+    assert(__pyx_t_12);
+    PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_9);
+    __Pyx_INCREF(__pyx_t_12);
+    __Pyx_INCREF(__pyx__function);
+    __Pyx_DECREF_SET(__pyx_t_9, __pyx__function);
+    __pyx_t_4 = 0;
+  }
+  #endif
+  {
+    PyObject *__pyx_callargs[3] = {__pyx_t_12, __pyx_t_14, __pyx_t_15};
+    __pyx_t_7 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_9, __pyx_callargs+__pyx_t_4, (3-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+    __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
+    __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
+    __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 69, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+  }
   __pyx_t_4 = 1;
   #if CYTHON_UNPACK_METHODS
   if (unlikely(PyMethod_Check(__pyx_t_5))) {
@@ -3342,31 +3404,33 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
   }
   #endif
   {
-    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 6 : 0)] = {__pyx_t_3, NULL};
-    __pyx_t_7 = __Pyx_MakeVectorcallBuilderKwds(6); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 59, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_7);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_account_name, __pyx_t_6, __pyx_t_7, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 59, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_username, __pyx_t_2, __pyx_t_7, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 59, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_password, __pyx_t_8, __pyx_t_7, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 59, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_accounts, __pyx_t_10, __pyx_t_7, __pyx_callargs+1, 3) < (0)) __PYX_ERR(0, 59, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_output_dir, __pyx_v_output_dir, __pyx_t_7, __pyx_callargs+1, 4) < (0)) __PYX_ERR(0, 59, __pyx_L1_error)
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_page_size, __pyx_v_page_size, __pyx_t_7, __pyx_callargs+1, 5) < (0)) __PYX_ERR(0, 59, __pyx_L1_error)
-    __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_7);
+    PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 7 : 0)] = {__pyx_t_3, NULL};
+    __pyx_t_9 = __Pyx_MakeVectorcallBuilderKwds(7); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 62, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_account_name, __pyx_t_6, __pyx_t_9, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 62, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_username, __pyx_t_2, __pyx_t_9, __pyx_callargs+1, 1) < (0)) __PYX_ERR(0, 62, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_password, __pyx_t_8, __pyx_t_9, __pyx_callargs+1, 2) < (0)) __PYX_ERR(0, 62, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_accounts, __pyx_t_10, __pyx_t_9, __pyx_callargs+1, 3) < (0)) __PYX_ERR(0, 62, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_output_dir, __pyx_v_output_dir, __pyx_t_9, __pyx_callargs+1, 4) < (0)) __PYX_ERR(0, 62, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_page_size, __pyx_v_page_size, __pyx_t_9, __pyx_callargs+1, 5) < (0)) __PYX_ERR(0, 62, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_account_cache_ttl_seconds, __pyx_t_7, __pyx_t_9, __pyx_callargs+1, 6) < (0)) __PYX_ERR(0, 62, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_5, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_9);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 59, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 62, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/config.py":54
+  /* "opscli/seller_sprite/config.py":57
  * 
  * 
  * def load_settings() -> SellerSpriteSettings:             # <<<<<<<<<<<<<<
@@ -3388,6 +3452,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
   __Pyx_XDECREF(__pyx_t_12);
   __Pyx_XDECREF(__pyx_t_13);
   __Pyx_XDECREF(__pyx_t_14);
+  __Pyx_XDECREF(__pyx_t_15);
   __Pyx_AddTraceback("opscli.seller_sprite.config.load_settings", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -3399,7 +3464,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_load_settings(CYTHON_U
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/config.py":69
+/* "opscli/seller_sprite/config.py":76
  * 
  * 
  * def _load_env_values() -> dict[str, str]:             # <<<<<<<<<<<<<<
@@ -3438,22 +3503,23 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_2_load_env_values(CYTH
   PyObject *__pyx_t_6 = NULL;
   PyObject *__pyx_t_7 = NULL;
   PyObject *__pyx_t_8 = NULL;
-  Py_ssize_t __pyx_t_9;
-  int __pyx_t_10;
+  PyObject *__pyx_t_9 = NULL;
+  Py_ssize_t __pyx_t_10;
+  int __pyx_t_11;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_load_env_values", 0);
 
-  /* "opscli/seller_sprite/config.py":71
+  /* "opscli/seller_sprite/config.py":78
  * def _load_env_values() -> dict[str, str]:
  *     """ `.env` """
  *     values = _read_dotenv()             # <<<<<<<<<<<<<<
- *     for key in [ENV_USERNAME, ENV_PASSWORD, ENV_ACCOUNT_NAME, ENV_ACCOUNTS, ENV_OUTPUT_DIR, ENV_PAGE_SIZE]:
- *         value = os.environ.get(key)
+ *     for key in [
+ *         ENV_USERNAME,
 */
   __pyx_t_2 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_read_dotenv); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 71, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_read_dotenv); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 78, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = 1;
   #if CYTHON_UNPACK_METHODS
@@ -3472,114 +3538,175 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_2_load_env_values(CYTH
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_3, __pyx_callargs+__pyx_t_4, (1-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 71, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 78, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_values = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/config.py":72
+  /* "opscli/seller_sprite/config.py":80
+ *     values = _read_dotenv()
+ *     for key in [
+ *         ENV_USERNAME,             # <<<<<<<<<<<<<<
+ *         ENV_PASSWORD,
+ *         ENV_ACCOUNT_NAME,
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_ENV_USERNAME); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 80, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+
+  /* "opscli/seller_sprite/config.py":81
+ *     for key in [
+ *         ENV_USERNAME,
+ *         ENV_PASSWORD,             # <<<<<<<<<<<<<<
+ *         ENV_ACCOUNT_NAME,
+ *         ENV_ACCOUNTS,
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_ENV_PASSWORD); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 81, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+
+  /* "opscli/seller_sprite/config.py":82
+ *         ENV_USERNAME,
+ *         ENV_PASSWORD,
+ *         ENV_ACCOUNT_NAME,             # <<<<<<<<<<<<<<
+ *         ENV_ACCOUNTS,
+ *         ENV_OUTPUT_DIR,
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_ENV_ACCOUNT_NAME); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 82, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+
+  /* "opscli/seller_sprite/config.py":83
+ *         ENV_PASSWORD,
+ *         ENV_ACCOUNT_NAME,
+ *         ENV_ACCOUNTS,             # <<<<<<<<<<<<<<
+ *         ENV_OUTPUT_DIR,
+ *         ENV_PAGE_SIZE,
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ENV_ACCOUNTS); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 83, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
+
+  /* "opscli/seller_sprite/config.py":84
+ *         ENV_ACCOUNT_NAME,
+ *         ENV_ACCOUNTS,
+ *         ENV_OUTPUT_DIR,             # <<<<<<<<<<<<<<
+ *         ENV_PAGE_SIZE,
+ *         ENV_ACCOUNT_CACHE_TTL_SECONDS,
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_ENV_OUTPUT_DIR); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 84, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_6);
+
+  /* "opscli/seller_sprite/config.py":85
+ *         ENV_ACCOUNTS,
+ *         ENV_OUTPUT_DIR,
+ *         ENV_PAGE_SIZE,             # <<<<<<<<<<<<<<
+ *         ENV_ACCOUNT_CACHE_TTL_SECONDS,
+ *     ]:
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_ENV_PAGE_SIZE); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 85, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+
+  /* "opscli/seller_sprite/config.py":86
+ *         ENV_OUTPUT_DIR,
+ *         ENV_PAGE_SIZE,
+ *         ENV_ACCOUNT_CACHE_TTL_SECONDS,             # <<<<<<<<<<<<<<
+ *     ]:
+ *         value = os.environ.get(key)
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_ENV_ACCOUNT_CACHE_TTL_SECONDS); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 86, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_8);
+
+  /* "opscli/seller_sprite/config.py":79
  *     """ `.env` """
  *     values = _read_dotenv()
- *     for key in [ENV_USERNAME, ENV_PASSWORD, ENV_ACCOUNT_NAME, ENV_ACCOUNTS, ENV_OUTPUT_DIR, ENV_PAGE_SIZE]:             # <<<<<<<<<<<<<<
- *         value = os.environ.get(key)
- *         if value:
+ *     for key in [             # <<<<<<<<<<<<<<
+ *         ENV_USERNAME,
+ *         ENV_PASSWORD,
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_ENV_USERNAME); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 72, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_ENV_PASSWORD); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 72, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_ENV_ACCOUNT_NAME); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 72, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_ENV_ACCOUNTS); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 72, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_ENV_OUTPUT_DIR); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 72, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_6);
-  __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_mstate_global->__pyx_n_u_ENV_PAGE_SIZE); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 72, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_7);
-  __pyx_t_8 = PyTuple_New(6); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 72, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_8);
+  __pyx_t_9 = PyTuple_New(7); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 79, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_9);
   __Pyx_GIVEREF(__pyx_t_1);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 72, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 0, __pyx_t_1) != (0)) __PYX_ERR(0, 79, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_3);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 72, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 1, __pyx_t_3) != (0)) __PYX_ERR(0, 79, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_2);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 2, __pyx_t_2) != (0)) __PYX_ERR(0, 72, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 2, __pyx_t_2) != (0)) __PYX_ERR(0, 79, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_5);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 3, __pyx_t_5) != (0)) __PYX_ERR(0, 72, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 3, __pyx_t_5) != (0)) __PYX_ERR(0, 79, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_6);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 4, __pyx_t_6) != (0)) __PYX_ERR(0, 72, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 4, __pyx_t_6) != (0)) __PYX_ERR(0, 79, __pyx_L1_error);
   __Pyx_GIVEREF(__pyx_t_7);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_8, 5, __pyx_t_7) != (0)) __PYX_ERR(0, 72, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 5, __pyx_t_7) != (0)) __PYX_ERR(0, 79, __pyx_L1_error);
+  __Pyx_GIVEREF(__pyx_t_8);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_9, 6, __pyx_t_8) != (0)) __PYX_ERR(0, 79, __pyx_L1_error);
   __pyx_t_1 = 0;
   __pyx_t_3 = 0;
   __pyx_t_2 = 0;
   __pyx_t_5 = 0;
   __pyx_t_6 = 0;
   __pyx_t_7 = 0;
-  __pyx_t_7 = __pyx_t_8; __Pyx_INCREF(__pyx_t_7);
-  __pyx_t_9 = 0;
-  __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
+  __pyx_t_8 = 0;
+  __pyx_t_8 = __pyx_t_9; __Pyx_INCREF(__pyx_t_8);
+  __pyx_t_10 = 0;
+  __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
   for (;;) {
-    if (__pyx_t_9 >= 6) break;
+    if (__pyx_t_10 >= 7) break;
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-    __pyx_t_8 = __Pyx_NewRef(PyTuple_GET_ITEM(__pyx_t_7, __pyx_t_9));
+    __pyx_t_9 = __Pyx_NewRef(PyTuple_GET_ITEM(__pyx_t_8, __pyx_t_10));
     #else
-    __pyx_t_8 = __Pyx_PySequence_ITEM(__pyx_t_7, __pyx_t_9);
+    __pyx_t_9 = __Pyx_PySequence_ITEM(__pyx_t_8, __pyx_t_10);
     #endif
-    ++__pyx_t_9;
-    if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 72, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_8);
-    __Pyx_XDECREF_SET(__pyx_v_key, __pyx_t_8);
-    __pyx_t_8 = 0;
+    ++__pyx_t_10;
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 79, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
+    __Pyx_XDECREF_SET(__pyx_v_key, __pyx_t_9);
+    __pyx_t_9 = 0;
 
-    /* "opscli/seller_sprite/config.py":73
- *     values = _read_dotenv()
- *     for key in [ENV_USERNAME, ENV_PASSWORD, ENV_ACCOUNT_NAME, ENV_ACCOUNTS, ENV_OUTPUT_DIR, ENV_PAGE_SIZE]:
+    /* "opscli/seller_sprite/config.py":88
+ *         ENV_ACCOUNT_CACHE_TTL_SECONDS,
+ *     ]:
  *         value = os.environ.get(key)             # <<<<<<<<<<<<<<
  *         if value:
  *             values[key] = value
 */
-    __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_os); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 73, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_os); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 88, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_environ); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 88, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_environ); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 73, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __pyx_t_6 = __pyx_t_2;
-    __Pyx_INCREF(__pyx_t_6);
+    __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+    __pyx_t_7 = __pyx_t_5;
+    __Pyx_INCREF(__pyx_t_7);
     __pyx_t_4 = 0;
     {
-      PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v_key};
-      __pyx_t_8 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 73, __pyx_L1_error)
-      __Pyx_GOTREF(__pyx_t_8);
+      PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_v_key};
+      __pyx_t_9 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 88, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_9);
     }
-    __Pyx_XDECREF_SET(__pyx_v_value, __pyx_t_8);
-    __pyx_t_8 = 0;
+    __Pyx_XDECREF_SET(__pyx_v_value, __pyx_t_9);
+    __pyx_t_9 = 0;
 
-    /* "opscli/seller_sprite/config.py":74
- *     for key in [ENV_USERNAME, ENV_PASSWORD, ENV_ACCOUNT_NAME, ENV_ACCOUNTS, ENV_OUTPUT_DIR, ENV_PAGE_SIZE]:
+    /* "opscli/seller_sprite/config.py":89
+ *     ]:
  *         value = os.environ.get(key)
  *         if value:             # <<<<<<<<<<<<<<
  *             values[key] = value
  *     return values
 */
-    __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 74, __pyx_L1_error)
-    if (__pyx_t_10) {
+    __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_v_value); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 89, __pyx_L1_error)
+    if (__pyx_t_11) {
 
-      /* "opscli/seller_sprite/config.py":75
+      /* "opscli/seller_sprite/config.py":90
  *         value = os.environ.get(key)
  *         if value:
  *             values[key] = value             # <<<<<<<<<<<<<<
  *     return values
  * 
 */
-      if (unlikely((PyObject_SetItem(__pyx_v_values, __pyx_v_key, __pyx_v_value) < 0))) __PYX_ERR(0, 75, __pyx_L1_error)
+      if (unlikely((PyObject_SetItem(__pyx_v_values, __pyx_v_key, __pyx_v_value) < 0))) __PYX_ERR(0, 90, __pyx_L1_error)
 
-      /* "opscli/seller_sprite/config.py":74
- *     for key in [ENV_USERNAME, ENV_PASSWORD, ENV_ACCOUNT_NAME, ENV_ACCOUNTS, ENV_OUTPUT_DIR, ENV_PAGE_SIZE]:
+      /* "opscli/seller_sprite/config.py":89
+ *     ]:
  *         value = os.environ.get(key)
  *         if value:             # <<<<<<<<<<<<<<
  *             values[key] = value
@@ -3587,17 +3714,17 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_2_load_env_values(CYTH
 */
     }
 
-    /* "opscli/seller_sprite/config.py":72
+    /* "opscli/seller_sprite/config.py":79
  *     """ `.env` """
  *     values = _read_dotenv()
- *     for key in [ENV_USERNAME, ENV_PASSWORD, ENV_ACCOUNT_NAME, ENV_ACCOUNTS, ENV_OUTPUT_DIR, ENV_PAGE_SIZE]:             # <<<<<<<<<<<<<<
- *         value = os.environ.get(key)
- *         if value:
+ *     for key in [             # <<<<<<<<<<<<<<
+ *         ENV_USERNAME,
+ *         ENV_PASSWORD,
 */
   }
-  __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+  __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-  /* "opscli/seller_sprite/config.py":76
+  /* "opscli/seller_sprite/config.py":91
  *         if value:
  *             values[key] = value
  *     return values             # <<<<<<<<<<<<<<
@@ -3605,14 +3732,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_2_load_env_values(CYTH
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_7 = __pyx_v_values;
-  __Pyx_INCREF(__pyx_t_7);
-  if (!(likely(PyDict_CheckExact(__pyx_t_7))||((__pyx_t_7) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_7))) __PYX_ERR(0, 76, __pyx_L1_error)
-  __pyx_r = ((PyObject*)__pyx_t_7);
-  __pyx_t_7 = 0;
+  __pyx_t_8 = __pyx_v_values;
+  __Pyx_INCREF(__pyx_t_8);
+  if (!(likely(PyDict_CheckExact(__pyx_t_8))||((__pyx_t_8) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_8))) __PYX_ERR(0, 91, __pyx_L1_error)
+  __pyx_r = ((PyObject*)__pyx_t_8);
+  __pyx_t_8 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/config.py":69
+  /* "opscli/seller_sprite/config.py":76
  * 
  * 
  * def _load_env_values() -> dict[str, str]:             # <<<<<<<<<<<<<<
@@ -3629,6 +3756,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_2_load_env_values(CYTH
   __Pyx_XDECREF(__pyx_t_6);
   __Pyx_XDECREF(__pyx_t_7);
   __Pyx_XDECREF(__pyx_t_8);
+  __Pyx_XDECREF(__pyx_t_9);
   __Pyx_AddTraceback("opscli.seller_sprite.config._load_env_values", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -3640,7 +3768,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_2_load_env_values(CYTH
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/config.py":79
+/* "opscli/seller_sprite/config.py":94
  * 
  * 
  * def _read_dotenv() -> dict[str, str]:             # <<<<<<<<<<<<<<
@@ -3685,7 +3813,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_4_read_dotenv(CYTHON_U
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_read_dotenv", 0);
 
-  /* "opscli/seller_sprite/config.py":81
+  /* "opscli/seller_sprite/config.py":96
  * def _read_dotenv() -> dict[str, str]:
  *     """ `.env`"""
  *     current = Path.cwd().resolve()             # <<<<<<<<<<<<<<
@@ -3693,9 +3821,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_4_read_dotenv(CYTHON_U
  *         dotenv = directory / ".env"
 */
   __pyx_t_4 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_Path); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 81, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_Path); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 96, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_cwd); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 81, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_cwd); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 96, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_t_7 = 1;
@@ -3715,7 +3843,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_4_read_dotenv(CYTHON_U
     __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 81, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 96, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __pyx_t_2 = __pyx_t_3;
@@ -3726,34 +3854,34 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_4_read_dotenv(CYTHON_U
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_resolve, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 81, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_v_current = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/config.py":82
+  /* "opscli/seller_sprite/config.py":97
  *     """ `.env`"""
  *     current = Path.cwd().resolve()
  *     for directory in [current, *current.parents]:             # <<<<<<<<<<<<<<
  *         dotenv = directory / ".env"
  *         if dotenv.exists():
 */
-  __pyx_t_3 = PyList_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 82, __pyx_L1_error)
+  __pyx_t_3 = PyList_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 97, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_INCREF(__pyx_v_current);
   __Pyx_GIVEREF(__pyx_v_current);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 0, __pyx_v_current) != (0)) __PYX_ERR(0, 82, __pyx_L1_error);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 0, __pyx_v_current) != (0)) __PYX_ERR(0, 97, __pyx_L1_error);
   __pyx_t_1 = __pyx_t_3;
   __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_current, __pyx_mstate_global->__pyx_n_u_parents); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 82, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_current, __pyx_mstate_global->__pyx_n_u_parents); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 97, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (__Pyx_PyList_Extend(__pyx_t_1, __pyx_t_3) < (0)) __PYX_ERR(0, 82, __pyx_L1_error)
+  if (__Pyx_PyList_Extend(__pyx_t_1, __pyx_t_3) < (0)) __PYX_ERR(0, 97, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   {
     PyObject *__pyx_temp = PyList_AsTuple(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_1);
-    __pyx_t_1 = __pyx_temp; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 82, __pyx_L1_error)
+    __pyx_t_1 = __pyx_temp; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_t_3 = __pyx_t_1; __Pyx_INCREF(__pyx_t_3);
@@ -3763,7 +3891,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_4_read_dotenv(CYTHON_U
     {
       Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_3);
       #if !CYTHON_ASSUME_SAFE_SIZE
-      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 82, __pyx_L1_error)
+      if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 97, __pyx_L1_error)
       #endif
       if (__pyx_t_8 >= __pyx_temp) break;
     }
@@ -3773,24 +3901,24 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_4_read_dotenv(CYTHON_U
     __pyx_t_1 = __Pyx_PySequence_ITEM(__pyx_t_3, __pyx_t_8);
     #endif
     ++__pyx_t_8;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 82, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_XDECREF_SET(__pyx_v_directory, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "opscli/seller_sprite/config.py":83
+    /* "opscli/seller_sprite/config.py":98
  *     current = Path.cwd().resolve()
  *     for directory in [current, *current.parents]:
  *         dotenv = directory / ".env"             # <<<<<<<<<<<<<<
  *         if dotenv.exists():
  *             return _parse_dotenv(dotenv)
 */
-    __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_directory, __pyx_mstate_global->__pyx_kp_u_env); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 83, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyNumber_Divide(__pyx_v_directory, __pyx_mstate_global->__pyx_kp_u_env); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 98, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_XDECREF_SET(__pyx_v_dotenv, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "opscli/seller_sprite/config.py":84
+    /* "opscli/seller_sprite/config.py":99
  *     for directory in [current, *current.parents]:
  *         dotenv = directory / ".env"
  *         if dotenv.exists():             # <<<<<<<<<<<<<<
@@ -3804,14 +3932,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_4_read_dotenv(CYTHON_U
       PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_exists, __pyx_callargs+__pyx_t_7, (1-__pyx_t_7) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 84, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 99, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
-    __pyx_t_9 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_9 < 0))) __PYX_ERR(0, 84, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_9 < 0))) __PYX_ERR(0, 99, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if (__pyx_t_9) {
 
-      /* "opscli/seller_sprite/config.py":85
+      /* "opscli/seller_sprite/config.py":100
  *         dotenv = directory / ".env"
  *         if dotenv.exists():
  *             return _parse_dotenv(dotenv)             # <<<<<<<<<<<<<<
@@ -3820,7 +3948,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_4_read_dotenv(CYTHON_U
 */
       __Pyx_XDECREF(__pyx_r);
       __pyx_t_2 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_parse_dotenv); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 85, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_parse_dotenv); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 100, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_7 = 1;
       #if CYTHON_UNPACK_METHODS
@@ -3839,16 +3967,16 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_4_read_dotenv(CYTHON_U
         __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_6, __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 85, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 100, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
-      if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_1))) __PYX_ERR(0, 85, __pyx_L1_error)
+      if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_1))) __PYX_ERR(0, 100, __pyx_L1_error)
       __pyx_r = ((PyObject*)__pyx_t_1);
       __pyx_t_1 = 0;
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       goto __pyx_L0;
 
-      /* "opscli/seller_sprite/config.py":84
+      /* "opscli/seller_sprite/config.py":99
  *     for directory in [current, *current.parents]:
  *         dotenv = directory / ".env"
  *         if dotenv.exists():             # <<<<<<<<<<<<<<
@@ -3857,7 +3985,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_4_read_dotenv(CYTHON_U
 */
     }
 
-    /* "opscli/seller_sprite/config.py":82
+    /* "opscli/seller_sprite/config.py":97
  *     """ `.env`"""
  *     current = Path.cwd().resolve()
  *     for directory in [current, *current.parents]:             # <<<<<<<<<<<<<<
@@ -3867,7 +3995,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_4_read_dotenv(CYTHON_U
   }
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "opscli/seller_sprite/config.py":86
+  /* "opscli/seller_sprite/config.py":101
  *         if dotenv.exists():
  *             return _parse_dotenv(dotenv)
  *     return {}             # <<<<<<<<<<<<<<
@@ -3875,13 +4003,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_4_read_dotenv(CYTHON_U
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 86, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_r = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/config.py":79
+  /* "opscli/seller_sprite/config.py":94
  * 
  * 
  * def _read_dotenv() -> dict[str, str]:             # <<<<<<<<<<<<<<
@@ -3908,7 +4036,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_4_read_dotenv(CYTHON_U
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/config.py":89
+/* "opscli/seller_sprite/config.py":104
  * 
  * 
  * def _parse_dotenv(path: Path) -> dict[str, str]:             # <<<<<<<<<<<<<<
@@ -3956,32 +4084,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_path,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 89, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 104, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 89, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 104, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_parse_dotenv", 0) < (0)) __PYX_ERR(0, 89, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_parse_dotenv", 0) < (0)) __PYX_ERR(0, 104, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_parse_dotenv", 1, 1, 1, i); __PYX_ERR(0, 89, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_parse_dotenv", 1, 1, 1, i); __PYX_ERR(0, 104, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 89, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 104, __pyx_L3_error)
     }
     __pyx_v_path = values[0];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_parse_dotenv", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 89, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_parse_dotenv", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 104, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4029,19 +4157,19 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_parse_dotenv", 0);
 
-  /* "opscli/seller_sprite/config.py":91
+  /* "opscli/seller_sprite/config.py":106
  * def _parse_dotenv(path: Path) -> dict[str, str]:
  *     """ KEY=VALUE  `.env` """
  *     values: dict[str, str] = {}             # <<<<<<<<<<<<<<
  *     for raw_line in path.read_text(encoding="utf-8").splitlines():
  *         line = raw_line.strip()
 */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 91, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 106, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_values = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "opscli/seller_sprite/config.py":92
+  /* "opscli/seller_sprite/config.py":107
  *     """ KEY=VALUE  `.env` """
  *     values: dict[str, str] = {}
  *     for raw_line in path.read_text(encoding="utf-8").splitlines():             # <<<<<<<<<<<<<<
@@ -4053,13 +4181,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
   __pyx_t_5 = 0;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_4, NULL};
-    __pyx_t_6 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 92, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_encoding, __pyx_mstate_global->__pyx_kp_u_utf_8, __pyx_t_6, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 92, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_encoding, __pyx_mstate_global->__pyx_kp_u_utf_8, __pyx_t_6, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 107, __pyx_L1_error)
     __pyx_t_3 = __Pyx_Object_VectorcallMethod_CallFromBuilder((PyObject*)__pyx_mstate_global->__pyx_n_u_read_text, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_6);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 92, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
   }
   __pyx_t_2 = __pyx_t_3;
@@ -4070,7 +4198,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_splitlines, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 92, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   if (likely(PyList_CheckExact(__pyx_t_1)) || PyTuple_CheckExact(__pyx_t_1)) {
@@ -4078,9 +4206,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
     __pyx_t_7 = 0;
     __pyx_t_8 = NULL;
   } else {
-    __pyx_t_7 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 92, __pyx_L1_error)
+    __pyx_t_7 = -1; __pyx_t_3 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_8 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 92, __pyx_L1_error)
+    __pyx_t_8 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_3); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 107, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   for (;;) {
@@ -4089,7 +4217,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_3);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 92, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 107, __pyx_L1_error)
           #endif
           if (__pyx_t_7 >= __pyx_temp) break;
         }
@@ -4099,7 +4227,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_3);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 92, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 107, __pyx_L1_error)
           #endif
           if (__pyx_t_7 >= __pyx_temp) break;
         }
@@ -4110,13 +4238,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
         #endif
         ++__pyx_t_7;
       }
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 92, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 107, __pyx_L1_error)
     } else {
       __pyx_t_1 = __pyx_t_8(__pyx_t_3);
       if (unlikely(!__pyx_t_1)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 92, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 107, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -4126,7 +4254,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
     __Pyx_XDECREF_SET(__pyx_v_raw_line, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "opscli/seller_sprite/config.py":93
+    /* "opscli/seller_sprite/config.py":108
  *     values: dict[str, str] = {}
  *     for raw_line in path.read_text(encoding="utf-8").splitlines():
  *         line = raw_line.strip()             # <<<<<<<<<<<<<<
@@ -4140,20 +4268,20 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
       PyObject *__pyx_callargs[2] = {__pyx_t_2, NULL};
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_strip, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 93, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 108, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_XDECREF_SET(__pyx_v_line, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "opscli/seller_sprite/config.py":94
+    /* "opscli/seller_sprite/config.py":109
  *     for raw_line in path.read_text(encoding="utf-8").splitlines():
  *         line = raw_line.strip()
  *         if not line or line.startswith("#") or "=" not in line:             # <<<<<<<<<<<<<<
  *             continue
  *         key, value = line.split("=", 1)
 */
-    __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_v_line); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 94, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_v_line); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 109, __pyx_L1_error)
     __pyx_t_11 = (!__pyx_t_10);
     if (!__pyx_t_11) {
     } else {
@@ -4167,22 +4295,22 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
       PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_mstate_global->__pyx_kp_u_};
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_startswith, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 94, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 109, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
-    __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 94, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 109, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if (!__pyx_t_11) {
     } else {
       __pyx_t_9 = __pyx_t_11;
       goto __pyx_L6_bool_binop_done;
     }
-    __pyx_t_11 = (__Pyx_PySequence_ContainsTF(__pyx_mstate_global->__pyx_kp_u__2, __pyx_v_line, Py_NE)); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 94, __pyx_L1_error)
+    __pyx_t_11 = (__Pyx_PySequence_ContainsTF(__pyx_mstate_global->__pyx_kp_u__2, __pyx_v_line, Py_NE)); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 109, __pyx_L1_error)
     __pyx_t_9 = __pyx_t_11;
     __pyx_L6_bool_binop_done:;
     if (__pyx_t_9) {
 
-      /* "opscli/seller_sprite/config.py":95
+      /* "opscli/seller_sprite/config.py":110
  *         line = raw_line.strip()
  *         if not line or line.startswith("#") or "=" not in line:
  *             continue             # <<<<<<<<<<<<<<
@@ -4191,7 +4319,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
 */
       goto __pyx_L3_continue;
 
-      /* "opscli/seller_sprite/config.py":94
+      /* "opscli/seller_sprite/config.py":109
  *     for raw_line in path.read_text(encoding="utf-8").splitlines():
  *         line = raw_line.strip()
  *         if not line or line.startswith("#") or "=" not in line:             # <<<<<<<<<<<<<<
@@ -4200,16 +4328,16 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
 */
     }
 
-    /* "opscli/seller_sprite/config.py":96
+    /* "opscli/seller_sprite/config.py":111
  *         if not line or line.startswith("#") or "=" not in line:
  *             continue
  *         key, value = line.split("=", 1)             # <<<<<<<<<<<<<<
  *         key = key.strip()
  *         value = value.strip().strip('"').strip("'")
 */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_line, __pyx_mstate_global->__pyx_n_u_split); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_line, __pyx_mstate_global->__pyx_n_u_split); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 111, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_mstate_global->__pyx_tuple[3], NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 96, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_mstate_global->__pyx_tuple[3], NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 111, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if ((likely(PyTuple_CheckExact(__pyx_t_2))) || (PyList_CheckExact(__pyx_t_2))) {
@@ -4218,7 +4346,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
       if (unlikely(size != 2)) {
         if (size > 2) __Pyx_RaiseTooManyValuesError(2);
         else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-        __PYX_ERR(0, 96, __pyx_L1_error)
+        __PYX_ERR(0, 111, __pyx_L1_error)
       }
       #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
       if (likely(PyTuple_CheckExact(sequence))) {
@@ -4228,22 +4356,22 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
         __Pyx_INCREF(__pyx_t_6);
       } else {
         __pyx_t_1 = __Pyx_PyList_GetItemRefFast(sequence, 0, __Pyx_ReferenceSharing_SharedReference);
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 111, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_1);
         __pyx_t_6 = __Pyx_PyList_GetItemRefFast(sequence, 1, __Pyx_ReferenceSharing_SharedReference);
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 96, __pyx_L1_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 111, __pyx_L1_error)
         __Pyx_XGOTREF(__pyx_t_6);
       }
       #else
-      __pyx_t_1 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 111, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_6 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 96, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 111, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       #endif
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     } else {
       Py_ssize_t index = -1;
-      __pyx_t_4 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 96, __pyx_L1_error)
+      __pyx_t_4 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 111, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __pyx_t_12 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_4);
@@ -4251,7 +4379,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
       __Pyx_GOTREF(__pyx_t_1);
       index = 1; __pyx_t_6 = __pyx_t_12(__pyx_t_4); if (unlikely(!__pyx_t_6)) goto __pyx_L9_unpacking_failed;
       __Pyx_GOTREF(__pyx_t_6);
-      if (__Pyx_IternextUnpackEndCheck(__pyx_t_12(__pyx_t_4), 2) < (0)) __PYX_ERR(0, 96, __pyx_L1_error)
+      if (__Pyx_IternextUnpackEndCheck(__pyx_t_12(__pyx_t_4), 2) < (0)) __PYX_ERR(0, 111, __pyx_L1_error)
       __pyx_t_12 = NULL;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       goto __pyx_L10_unpacking_done;
@@ -4259,7 +4387,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __pyx_t_12 = NULL;
       if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-      __PYX_ERR(0, 96, __pyx_L1_error)
+      __PYX_ERR(0, 111, __pyx_L1_error)
       __pyx_L10_unpacking_done:;
     }
     __Pyx_XDECREF_SET(__pyx_v_key, __pyx_t_1);
@@ -4267,7 +4395,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
     __Pyx_XDECREF_SET(__pyx_v_value, __pyx_t_6);
     __pyx_t_6 = 0;
 
-    /* "opscli/seller_sprite/config.py":97
+    /* "opscli/seller_sprite/config.py":112
  *             continue
  *         key, value = line.split("=", 1)
  *         key = key.strip()             # <<<<<<<<<<<<<<
@@ -4281,13 +4409,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
       PyObject *__pyx_callargs[2] = {__pyx_t_6, NULL};
       __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_strip, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 97, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 112, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF_SET(__pyx_v_key, __pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "opscli/seller_sprite/config.py":98
+    /* "opscli/seller_sprite/config.py":113
  *         key, value = line.split("=", 1)
  *         key = key.strip()
  *         value = value.strip().strip('"').strip("'")             # <<<<<<<<<<<<<<
@@ -4301,7 +4429,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
       PyObject *__pyx_callargs[2] = {__pyx_t_14, NULL};
       __pyx_t_13 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_strip, __pyx_callargs+__pyx_t_5, (1-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_14); __pyx_t_14 = 0;
-      if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 98, __pyx_L1_error)
+      if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 113, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_13);
     }
     __pyx_t_4 = __pyx_t_13;
@@ -4312,7 +4440,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
       __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_strip, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 98, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 113, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __pyx_t_6 = __pyx_t_1;
@@ -4323,32 +4451,32 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
       __pyx_t_2 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_strip, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 98, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 113, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __Pyx_DECREF_SET(__pyx_v_value, __pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "opscli/seller_sprite/config.py":99
+    /* "opscli/seller_sprite/config.py":114
  *         key = key.strip()
  *         value = value.strip().strip('"').strip("'")
  *         if key:             # <<<<<<<<<<<<<<
  *             values[key] = value
  *     return values
 */
-    __pyx_t_9 = __Pyx_PyObject_IsTrue(__pyx_v_key); if (unlikely((__pyx_t_9 < 0))) __PYX_ERR(0, 99, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_IsTrue(__pyx_v_key); if (unlikely((__pyx_t_9 < 0))) __PYX_ERR(0, 114, __pyx_L1_error)
     if (__pyx_t_9) {
 
-      /* "opscli/seller_sprite/config.py":100
+      /* "opscli/seller_sprite/config.py":115
  *         value = value.strip().strip('"').strip("'")
  *         if key:
  *             values[key] = value             # <<<<<<<<<<<<<<
  *     return values
  * 
 */
-      if (unlikely((PyDict_SetItem(__pyx_v_values, __pyx_v_key, __pyx_v_value) < 0))) __PYX_ERR(0, 100, __pyx_L1_error)
+      if (unlikely((PyDict_SetItem(__pyx_v_values, __pyx_v_key, __pyx_v_value) < 0))) __PYX_ERR(0, 115, __pyx_L1_error)
 
-      /* "opscli/seller_sprite/config.py":99
+      /* "opscli/seller_sprite/config.py":114
  *         key = key.strip()
  *         value = value.strip().strip('"').strip("'")
  *         if key:             # <<<<<<<<<<<<<<
@@ -4357,7 +4485,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
 */
     }
 
-    /* "opscli/seller_sprite/config.py":92
+    /* "opscli/seller_sprite/config.py":107
  *     """ KEY=VALUE  `.env` """
  *     values: dict[str, str] = {}
  *     for raw_line in path.read_text(encoding="utf-8").splitlines():             # <<<<<<<<<<<<<<
@@ -4368,7 +4496,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
   }
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "opscli/seller_sprite/config.py":101
+  /* "opscli/seller_sprite/config.py":116
  *         if key:
  *             values[key] = value
  *     return values             # <<<<<<<<<<<<<<
@@ -4380,7 +4508,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
   __pyx_r = __pyx_v_values;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/config.py":89
+  /* "opscli/seller_sprite/config.py":104
  * 
  * 
  * def _parse_dotenv(path: Path) -> dict[str, str]:             # <<<<<<<<<<<<<<
@@ -4410,7 +4538,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_6_parse_dotenv(CYTHON_
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/config.py":104
+/* "opscli/seller_sprite/config.py":119
  * 
  * 
  * def _parse_int(value: str | None, default: int) -> int:             # <<<<<<<<<<<<<<
@@ -4459,40 +4587,40 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_value,&__pyx_mstate_global->__pyx_n_u_default,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 104, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 119, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 104, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 119, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 104, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 119, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_parse_int", 0) < (0)) __PYX_ERR(0, 104, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_parse_int", 0) < (0)) __PYX_ERR(0, 119, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 2; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_parse_int", 1, 2, 2, i); __PYX_ERR(0, 104, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_parse_int", 1, 2, 2, i); __PYX_ERR(0, 119, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 104, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 119, __pyx_L3_error)
       values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 104, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 119, __pyx_L3_error)
     }
     __pyx_v_value = ((PyObject*)values[0]);
-    if (__Pyx_PyInt_FromNumber(&values[1], "default", 0) < (0)) __PYX_ERR(0, 104, __pyx_L3_error)
+    if (__Pyx_PyInt_FromNumber(&values[1], "default", 0) < (0)) __PYX_ERR(0, 119, __pyx_L3_error)
     __pyx_v_default = ((PyObject*)values[1]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_parse_int", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 104, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_parse_int", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 119, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4503,8 +4631,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyUnicode_Type), 1, "value", 2))) __PYX_ERR(0, 104, __pyx_L1_error)
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_default), (&PyLong_Type), 0, "default", 2))) __PYX_ERR(0, 104, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyUnicode_Type), 1, "value", 2))) __PYX_ERR(0, 119, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_default), (&PyLong_Type), 0, "default", 2))) __PYX_ERR(0, 119, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_13seller_sprite_6config_8_parse_int(__pyx_self, __pyx_v_value, __pyx_v_default);
 
   /* function exit code */
@@ -4541,7 +4669,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_8_parse_int(CYTHON_UNU
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_parse_int", 0);
 
-  /* "opscli/seller_sprite/config.py":106
+  /* "opscli/seller_sprite/config.py":121
  * def _parse_int(value: str | None, default: int) -> int:
  *     """"""
  *     if not value:             # <<<<<<<<<<<<<<
@@ -4552,14 +4680,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_8_parse_int(CYTHON_UNU
   else
   {
     Py_ssize_t __pyx_temp = __Pyx_PyUnicode_IS_TRUE(__pyx_v_value);
-    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 106, __pyx_L1_error)
+    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 121, __pyx_L1_error)
     __pyx_t_1 = (__pyx_temp != 0);
   }
 
   __pyx_t_2 = (!__pyx_t_1);
   if (__pyx_t_2) {
 
-    /* "opscli/seller_sprite/config.py":107
+    /* "opscli/seller_sprite/config.py":122
  *     """"""
  *     if not value:
  *         return default             # <<<<<<<<<<<<<<
@@ -4571,7 +4699,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_8_parse_int(CYTHON_UNU
     __pyx_r = __pyx_v_default;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/config.py":106
+    /* "opscli/seller_sprite/config.py":121
  * def _parse_int(value: str | None, default: int) -> int:
  *     """"""
  *     if not value:             # <<<<<<<<<<<<<<
@@ -4580,7 +4708,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_8_parse_int(CYTHON_UNU
 */
   }
 
-  /* "opscli/seller_sprite/config.py":108
+  /* "opscli/seller_sprite/config.py":123
  *     if not value:
  *         return default
  *     try:             # <<<<<<<<<<<<<<
@@ -4596,19 +4724,19 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_8_parse_int(CYTHON_UNU
     __Pyx_XGOTREF(__pyx_t_5);
     /*try:*/ {
 
-      /* "opscli/seller_sprite/config.py":109
+      /* "opscli/seller_sprite/config.py":124
  *         return default
  *     try:
  *         parsed = int(value)             # <<<<<<<<<<<<<<
  *     except ValueError:
  *         return default
 */
-      __pyx_t_6 = __Pyx_PyNumber_Int(__pyx_v_value); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 109, __pyx_L4_error)
+      __pyx_t_6 = __Pyx_PyNumber_Int(__pyx_v_value); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 124, __pyx_L4_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_v_parsed = ((PyObject*)__pyx_t_6);
       __pyx_t_6 = 0;
 
-      /* "opscli/seller_sprite/config.py":108
+      /* "opscli/seller_sprite/config.py":123
  *     if not value:
  *         return default
  *     try:             # <<<<<<<<<<<<<<
@@ -4623,7 +4751,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_8_parse_int(CYTHON_UNU
     __pyx_L4_error:;
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-    /* "opscli/seller_sprite/config.py":110
+    /* "opscli/seller_sprite/config.py":125
  *     try:
  *         parsed = int(value)
  *     except ValueError:             # <<<<<<<<<<<<<<
@@ -4634,7 +4762,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_8_parse_int(CYTHON_UNU
     if (__pyx_t_7) {
       __Pyx_ErrRestore(0,0,0);
 
-      /* "opscli/seller_sprite/config.py":111
+      /* "opscli/seller_sprite/config.py":126
  *         parsed = int(value)
  *     except ValueError:
  *         return default             # <<<<<<<<<<<<<<
@@ -4648,7 +4776,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_8_parse_int(CYTHON_UNU
     }
     goto __pyx_L6_except_error;
 
-    /* "opscli/seller_sprite/config.py":108
+    /* "opscli/seller_sprite/config.py":123
  *     if not value:
  *         return default
  *     try:             # <<<<<<<<<<<<<<
@@ -4670,7 +4798,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_8_parse_int(CYTHON_UNU
     __pyx_L9_try_end:;
   }
 
-  /* "opscli/seller_sprite/config.py":112
+  /* "opscli/seller_sprite/config.py":127
  *     except ValueError:
  *         return default
  *     return parsed if parsed > 0 else default             # <<<<<<<<<<<<<<
@@ -4678,8 +4806,8 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_8_parse_int(CYTHON_UNU
  * 
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_8 = PyObject_RichCompare(__pyx_v_parsed, __pyx_mstate_global->__pyx_int_0, Py_GT); __Pyx_XGOTREF(__pyx_t_8); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 112, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 112, __pyx_L1_error)
+  __pyx_t_8 = PyObject_RichCompare(__pyx_v_parsed, __pyx_mstate_global->__pyx_int_0, Py_GT); __Pyx_XGOTREF(__pyx_t_8); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 127, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 127, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
   if (__pyx_t_2) {
     __Pyx_INCREF(__pyx_v_parsed);
@@ -4692,7 +4820,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_8_parse_int(CYTHON_UNU
   __pyx_t_6 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/config.py":104
+  /* "opscli/seller_sprite/config.py":119
  * 
  * 
  * def _parse_int(value: str | None, default: int) -> int:             # <<<<<<<<<<<<<<
@@ -4713,7 +4841,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_8_parse_int(CYTHON_UNU
   return __pyx_r;
 }
 
-/* "opscli/seller_sprite/config.py":115
+/* "opscli/seller_sprite/config.py":130
  * 
  * 
  * def _parse_accounts(value: str | None) -> tuple[dict[str, str], ...]:             # <<<<<<<<<<<<<<
@@ -4761,32 +4889,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_value,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 115, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 130, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 115, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 130, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_parse_accounts", 0) < (0)) __PYX_ERR(0, 115, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "_parse_accounts", 0) < (0)) __PYX_ERR(0, 130, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_parse_accounts", 1, 1, 1, i); __PYX_ERR(0, 115, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("_parse_accounts", 1, 1, 1, i); __PYX_ERR(0, 130, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 115, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 130, __pyx_L3_error)
     }
     __pyx_v_value = ((PyObject*)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_parse_accounts", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 115, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_parse_accounts", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 130, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4797,7 +4925,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyUnicode_Type), 1, "value", 2))) __PYX_ERR(0, 115, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_value), (&PyUnicode_Type), 1, "value", 2))) __PYX_ERR(0, 130, __pyx_L1_error)
   __pyx_r = __pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(__pyx_self, __pyx_v_value);
 
   /* function exit code */
@@ -4848,7 +4976,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_parse_accounts", 0);
 
-  /* "opscli/seller_sprite/config.py":117
+  /* "opscli/seller_sprite/config.py":132
  * def _parse_accounts(value: str | None) -> tuple[dict[str, str], ...]:
  *     """"""
  *     if not value:             # <<<<<<<<<<<<<<
@@ -4859,14 +4987,14 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
   else
   {
     Py_ssize_t __pyx_temp = __Pyx_PyUnicode_IS_TRUE(__pyx_v_value);
-    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 117, __pyx_L1_error)
+    if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 132, __pyx_L1_error)
     __pyx_t_1 = (__pyx_temp != 0);
   }
 
   __pyx_t_2 = (!__pyx_t_1);
   if (__pyx_t_2) {
 
-    /* "opscli/seller_sprite/config.py":118
+    /* "opscli/seller_sprite/config.py":133
  *     """"""
  *     if not value:
  *         return ()             # <<<<<<<<<<<<<<
@@ -4878,7 +5006,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
     __pyx_r = __pyx_mstate_global->__pyx_empty_tuple;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/config.py":117
+    /* "opscli/seller_sprite/config.py":132
  * def _parse_accounts(value: str | None) -> tuple[dict[str, str], ...]:
  *     """"""
  *     if not value:             # <<<<<<<<<<<<<<
@@ -4887,7 +5015,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
 */
   }
 
-  /* "opscli/seller_sprite/config.py":119
+  /* "opscli/seller_sprite/config.py":134
  *     if not value:
  *         return ()
  *     try:             # <<<<<<<<<<<<<<
@@ -4903,7 +5031,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
     __Pyx_XGOTREF(__pyx_t_5);
     /*try:*/ {
 
-      /* "opscli/seller_sprite/config.py":120
+      /* "opscli/seller_sprite/config.py":135
  *         return ()
  *     try:
  *         payload = json.loads(value)             # <<<<<<<<<<<<<<
@@ -4911,9 +5039,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
  *         return ()
 */
       __pyx_t_7 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 120, __pyx_L4_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 135, __pyx_L4_error)
       __Pyx_GOTREF(__pyx_t_8);
-      __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_loads); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 120, __pyx_L4_error)
+      __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_loads); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 135, __pyx_L4_error)
       __Pyx_GOTREF(__pyx_t_9);
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __pyx_t_10 = 1;
@@ -4933,13 +5061,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
         __pyx_t_6 = __Pyx_PyObject_FastCall((PyObject*)__pyx_t_9, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 120, __pyx_L4_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 135, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_6);
       }
       __pyx_v_payload = __pyx_t_6;
       __pyx_t_6 = 0;
 
-      /* "opscli/seller_sprite/config.py":119
+      /* "opscli/seller_sprite/config.py":134
  *     if not value:
  *         return ()
  *     try:             # <<<<<<<<<<<<<<
@@ -4957,7 +5085,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-    /* "opscli/seller_sprite/config.py":121
+    /* "opscli/seller_sprite/config.py":136
  *     try:
  *         payload = json.loads(value)
  *     except json.JSONDecodeError:             # <<<<<<<<<<<<<<
@@ -4965,9 +5093,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
  *     if not isinstance(payload, list):
 */
     __Pyx_ErrFetch(&__pyx_t_6, &__pyx_t_9, &__pyx_t_7);
-    __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 121, __pyx_L6_except_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_json); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 136, __pyx_L6_except_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_JSONDecodeError); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 121, __pyx_L6_except_error)
+    __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_JSONDecodeError); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 136, __pyx_L6_except_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __pyx_t_12 = __Pyx_PyErr_GivenExceptionMatches(__pyx_t_6, __pyx_t_11);
@@ -4977,7 +5105,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
     if (__pyx_t_12) {
       __Pyx_ErrRestore(0,0,0);
 
-      /* "opscli/seller_sprite/config.py":122
+      /* "opscli/seller_sprite/config.py":137
  *         payload = json.loads(value)
  *     except json.JSONDecodeError:
  *         return ()             # <<<<<<<<<<<<<<
@@ -4991,7 +5119,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
     }
     goto __pyx_L6_except_error;
 
-    /* "opscli/seller_sprite/config.py":119
+    /* "opscli/seller_sprite/config.py":134
  *     if not value:
  *         return ()
  *     try:             # <<<<<<<<<<<<<<
@@ -5013,7 +5141,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
     __pyx_L9_try_end:;
   }
 
-  /* "opscli/seller_sprite/config.py":123
+  /* "opscli/seller_sprite/config.py":138
  *     except json.JSONDecodeError:
  *         return ()
  *     if not isinstance(payload, list):             # <<<<<<<<<<<<<<
@@ -5024,7 +5152,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
   __pyx_t_1 = (!__pyx_t_2);
   if (__pyx_t_1) {
 
-    /* "opscli/seller_sprite/config.py":124
+    /* "opscli/seller_sprite/config.py":139
  *         return ()
  *     if not isinstance(payload, list):
  *         return ()             # <<<<<<<<<<<<<<
@@ -5036,7 +5164,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
     __pyx_r = __pyx_mstate_global->__pyx_empty_tuple;
     goto __pyx_L0;
 
-    /* "opscli/seller_sprite/config.py":123
+    /* "opscli/seller_sprite/config.py":138
  *     except json.JSONDecodeError:
  *         return ()
  *     if not isinstance(payload, list):             # <<<<<<<<<<<<<<
@@ -5045,19 +5173,19 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
 */
   }
 
-  /* "opscli/seller_sprite/config.py":126
+  /* "opscli/seller_sprite/config.py":141
  *         return ()
  * 
  *     accounts: list[dict[str, str]] = []             # <<<<<<<<<<<<<<
  *     for item in payload:
  *         if not isinstance(item, dict):
 */
-  __pyx_t_7 = PyList_New(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 126, __pyx_L1_error)
+  __pyx_t_7 = PyList_New(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 141, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __pyx_v_accounts = ((PyObject*)__pyx_t_7);
   __pyx_t_7 = 0;
 
-  /* "opscli/seller_sprite/config.py":127
+  /* "opscli/seller_sprite/config.py":142
  * 
  *     accounts: list[dict[str, str]] = []
  *     for item in payload:             # <<<<<<<<<<<<<<
@@ -5069,9 +5197,9 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
     __pyx_t_13 = 0;
     __pyx_t_14 = NULL;
   } else {
-    __pyx_t_13 = -1; __pyx_t_7 = PyObject_GetIter(__pyx_v_payload); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 127, __pyx_L1_error)
+    __pyx_t_13 = -1; __pyx_t_7 = PyObject_GetIter(__pyx_v_payload); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 142, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_14 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_7); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 127, __pyx_L1_error)
+    __pyx_t_14 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_7); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 142, __pyx_L1_error)
   }
   for (;;) {
     if (likely(!__pyx_t_14)) {
@@ -5079,7 +5207,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_7);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 127, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 142, __pyx_L1_error)
           #endif
           if (__pyx_t_13 >= __pyx_temp) break;
         }
@@ -5089,7 +5217,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_7);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 127, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 142, __pyx_L1_error)
           #endif
           if (__pyx_t_13 >= __pyx_temp) break;
         }
@@ -5100,13 +5228,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
         #endif
         ++__pyx_t_13;
       }
-      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 127, __pyx_L1_error)
+      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 142, __pyx_L1_error)
     } else {
       __pyx_t_9 = __pyx_t_14(__pyx_t_7);
       if (unlikely(!__pyx_t_9)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 127, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 142, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -5116,7 +5244,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
     __Pyx_XDECREF_SET(__pyx_v_item, __pyx_t_9);
     __pyx_t_9 = 0;
 
-    /* "opscli/seller_sprite/config.py":128
+    /* "opscli/seller_sprite/config.py":143
  *     accounts: list[dict[str, str]] = []
  *     for item in payload:
  *         if not isinstance(item, dict):             # <<<<<<<<<<<<<<
@@ -5127,7 +5255,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
     __pyx_t_2 = (!__pyx_t_1);
     if (__pyx_t_2) {
 
-      /* "opscli/seller_sprite/config.py":129
+      /* "opscli/seller_sprite/config.py":144
  *     for item in payload:
  *         if not isinstance(item, dict):
  *             continue             # <<<<<<<<<<<<<<
@@ -5136,7 +5264,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
 */
       goto __pyx_L13_continue;
 
-      /* "opscli/seller_sprite/config.py":128
+      /* "opscli/seller_sprite/config.py":143
  *     accounts: list[dict[str, str]] = []
  *     for item in payload:
  *         if not isinstance(item, dict):             # <<<<<<<<<<<<<<
@@ -5145,7 +5273,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
 */
     }
 
-    /* "opscli/seller_sprite/config.py":130
+    /* "opscli/seller_sprite/config.py":145
  *         if not isinstance(item, dict):
  *             continue
  *         name = str(item.get("name") or "").strip()             # <<<<<<<<<<<<<<
@@ -5159,10 +5287,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
       PyObject *__pyx_callargs[2] = {__pyx_t_15, __pyx_mstate_global->__pyx_n_u_name};
       __pyx_t_8 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_15); __pyx_t_15 = 0;
-      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 130, __pyx_L1_error)
+      if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 145, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
     }
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 130, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_8); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 145, __pyx_L1_error)
     if (!__pyx_t_2) {
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     } else {
@@ -5174,7 +5302,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
     __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__5);
     __pyx_t_11 = __pyx_mstate_global->__pyx_kp_u__5;
     __pyx_L16_bool_binop_done:;
-    __pyx_t_8 = __Pyx_PyObject_Unicode(__pyx_t_11); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 130, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_Unicode(__pyx_t_11); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 145, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
     __pyx_t_6 = __pyx_t_8;
@@ -5185,13 +5313,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
       __pyx_t_9 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_strip, __pyx_callargs+__pyx_t_10, (1-__pyx_t_10) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 130, __pyx_L1_error)
+      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 145, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
     }
     __Pyx_XDECREF_SET(__pyx_v_name, ((PyObject*)__pyx_t_9));
     __pyx_t_9 = 0;
 
-    /* "opscli/seller_sprite/config.py":131
+    /* "opscli/seller_sprite/config.py":146
  *             continue
  *         name = str(item.get("name") or "").strip()
  *         username = str(item.get("username") or "").strip()             # <<<<<<<<<<<<<<
@@ -5205,10 +5333,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
       PyObject *__pyx_callargs[2] = {__pyx_t_15, __pyx_mstate_global->__pyx_n_u_username};
       __pyx_t_11 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_15); __pyx_t_15 = 0;
-      if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 131, __pyx_L1_error)
+      if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 146, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
     }
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_11); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 131, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_11); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 146, __pyx_L1_error)
     if (!__pyx_t_2) {
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
     } else {
@@ -5220,7 +5348,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
     __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__5);
     __pyx_t_6 = __pyx_mstate_global->__pyx_kp_u__5;
     __pyx_L18_bool_binop_done:;
-    __pyx_t_11 = __Pyx_PyObject_Unicode(__pyx_t_6); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 131, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyObject_Unicode(__pyx_t_6); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 146, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_t_8 = __pyx_t_11;
@@ -5231,13 +5359,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
       __pyx_t_9 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_strip, __pyx_callargs+__pyx_t_10, (1-__pyx_t_10) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 131, __pyx_L1_error)
+      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 146, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
     }
     __Pyx_XDECREF_SET(__pyx_v_username, ((PyObject*)__pyx_t_9));
     __pyx_t_9 = 0;
 
-    /* "opscli/seller_sprite/config.py":132
+    /* "opscli/seller_sprite/config.py":147
  *         name = str(item.get("name") or "").strip()
  *         username = str(item.get("username") or "").strip()
  *         password = str(item.get("password") or "").strip()             # <<<<<<<<<<<<<<
@@ -5251,10 +5379,10 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
       PyObject *__pyx_callargs[2] = {__pyx_t_15, __pyx_mstate_global->__pyx_n_u_password};
       __pyx_t_6 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_10, (2-__pyx_t_10) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_15); __pyx_t_15 = 0;
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 132, __pyx_L1_error)
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 147, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
     }
-    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 132, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_6); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 147, __pyx_L1_error)
     if (!__pyx_t_2) {
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     } else {
@@ -5266,7 +5394,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
     __Pyx_INCREF(__pyx_mstate_global->__pyx_kp_u__5);
     __pyx_t_8 = __pyx_mstate_global->__pyx_kp_u__5;
     __pyx_L20_bool_binop_done:;
-    __pyx_t_6 = __Pyx_PyObject_Unicode(__pyx_t_8); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 132, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_Unicode(__pyx_t_8); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 147, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __pyx_t_11 = __pyx_t_6;
@@ -5277,13 +5405,13 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
       __pyx_t_9 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_strip, __pyx_callargs+__pyx_t_10, (1-__pyx_t_10) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 132, __pyx_L1_error)
+      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 147, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
     }
     __Pyx_XDECREF_SET(__pyx_v_password, ((PyObject*)__pyx_t_9));
     __pyx_t_9 = 0;
 
-    /* "opscli/seller_sprite/config.py":133
+    /* "opscli/seller_sprite/config.py":148
  *         username = str(item.get("username") or "").strip()
  *         password = str(item.get("password") or "").strip()
  *         if not name or not username or not password:             # <<<<<<<<<<<<<<
@@ -5292,7 +5420,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
 */
     {
       Py_ssize_t __pyx_temp = __Pyx_PyUnicode_IS_TRUE(__pyx_v_name);
-      if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 133, __pyx_L1_error)
+      if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 148, __pyx_L1_error)
       __pyx_t_1 = (__pyx_temp != 0);
     }
 
@@ -5304,7 +5432,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
     }
     {
       Py_ssize_t __pyx_temp = __Pyx_PyUnicode_IS_TRUE(__pyx_v_username);
-      if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 133, __pyx_L1_error)
+      if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 148, __pyx_L1_error)
       __pyx_t_16 = (__pyx_temp != 0);
     }
 
@@ -5316,7 +5444,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
     }
     {
       Py_ssize_t __pyx_temp = __Pyx_PyUnicode_IS_TRUE(__pyx_v_password);
-      if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 133, __pyx_L1_error)
+      if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 148, __pyx_L1_error)
       __pyx_t_1 = (__pyx_temp != 0);
     }
 
@@ -5325,7 +5453,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
     __pyx_L23_bool_binop_done:;
     if (__pyx_t_2) {
 
-      /* "opscli/seller_sprite/config.py":134
+      /* "opscli/seller_sprite/config.py":149
  *         password = str(item.get("password") or "").strip()
  *         if not name or not username or not password:
  *             continue             # <<<<<<<<<<<<<<
@@ -5334,7 +5462,7 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
 */
       goto __pyx_L13_continue;
 
-      /* "opscli/seller_sprite/config.py":133
+      /* "opscli/seller_sprite/config.py":148
  *         username = str(item.get("username") or "").strip()
  *         password = str(item.get("password") or "").strip()
  *         if not name or not username or not password:             # <<<<<<<<<<<<<<
@@ -5343,21 +5471,21 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
 */
     }
 
-    /* "opscli/seller_sprite/config.py":135
+    /* "opscli/seller_sprite/config.py":150
  *         if not name or not username or not password:
  *             continue
  *         accounts.append({"name": name, "username": username, "password": password})             # <<<<<<<<<<<<<<
  *     return tuple(accounts)
 */
-    __pyx_t_9 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 135, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 150, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_name, __pyx_v_name) < (0)) __PYX_ERR(0, 135, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_username, __pyx_v_username) < (0)) __PYX_ERR(0, 135, __pyx_L1_error)
-    if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_password, __pyx_v_password) < (0)) __PYX_ERR(0, 135, __pyx_L1_error)
-    __pyx_t_17 = __Pyx_PyList_Append(__pyx_v_accounts, __pyx_t_9); if (unlikely(__pyx_t_17 == ((int)-1))) __PYX_ERR(0, 135, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_name, __pyx_v_name) < (0)) __PYX_ERR(0, 150, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_username, __pyx_v_username) < (0)) __PYX_ERR(0, 150, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_9, __pyx_mstate_global->__pyx_n_u_password, __pyx_v_password) < (0)) __PYX_ERR(0, 150, __pyx_L1_error)
+    __pyx_t_17 = __Pyx_PyList_Append(__pyx_v_accounts, __pyx_t_9); if (unlikely(__pyx_t_17 == ((int)-1))) __PYX_ERR(0, 150, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-    /* "opscli/seller_sprite/config.py":127
+    /* "opscli/seller_sprite/config.py":142
  * 
  *     accounts: list[dict[str, str]] = []
  *     for item in payload:             # <<<<<<<<<<<<<<
@@ -5368,19 +5496,19 @@ static PyObject *__pyx_pf_6opscli_13seller_sprite_6config_10_parse_accounts(CYTH
   }
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "opscli/seller_sprite/config.py":136
+  /* "opscli/seller_sprite/config.py":151
  *             continue
  *         accounts.append({"name": name, "username": username, "password": password})
  *     return tuple(accounts)             # <<<<<<<<<<<<<<
 */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_7 = PyList_AsTuple(__pyx_v_accounts); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 136, __pyx_L1_error)
+  __pyx_t_7 = PyList_AsTuple(__pyx_v_accounts); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 151, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __pyx_r = ((PyObject*)__pyx_t_7);
   __pyx_t_7 = 0;
   goto __pyx_L0;
 
-  /* "opscli/seller_sprite/config.py":115
+  /* "opscli/seller_sprite/config.py":130
  * 
  * 
  * def _parse_accounts(value: str | None) -> tuple[dict[str, str], ...]:             # <<<<<<<<<<<<<<
@@ -5929,7 +6057,7 @@ __Pyx_RefNannySetupContext("PyInit_config", 0);
  * ENV_ACCOUNTS = "OPSCLI_SELLER_SPRITE_ACCOUNTS"
  * ENV_OUTPUT_DIR = "OPSCLI_SELLER_SPRITE_OUTPUT_DIR"             # <<<<<<<<<<<<<<
  * ENV_PAGE_SIZE = "OPSCLI_SELLER_SPRITE_PAGE_SIZE"
- * 
+ * ENV_ACCOUNT_CACHE_TTL_SECONDS = "OPSCLI_SELLER_SPRITE_ACCOUNT_CACHE_TTL_SECONDS"
 */
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_ENV_OUTPUT_DIR, __pyx_mstate_global->__pyx_n_u_OPSCLI_SELLER_SPRITE_OUTPUT_DIR) < (0)) __PYX_ERR(0, 18, __pyx_L1_error)
 
@@ -5937,195 +6065,226 @@ __Pyx_RefNannySetupContext("PyInit_config", 0);
  * ENV_ACCOUNTS = "OPSCLI_SELLER_SPRITE_ACCOUNTS"
  * ENV_OUTPUT_DIR = "OPSCLI_SELLER_SPRITE_OUTPUT_DIR"
  * ENV_PAGE_SIZE = "OPSCLI_SELLER_SPRITE_PAGE_SIZE"             # <<<<<<<<<<<<<<
+ * ENV_ACCOUNT_CACHE_TTL_SECONDS = "OPSCLI_SELLER_SPRITE_ACCOUNT_CACHE_TTL_SECONDS"
  * 
- * DEFAULT_ACCOUNT_NAME = "default"
 */
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_ENV_PAGE_SIZE, __pyx_mstate_global->__pyx_n_u_OPSCLI_SELLER_SPRITE_PAGE_SIZE) < (0)) __PYX_ERR(0, 19, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/config.py":21
+  /* "opscli/seller_sprite/config.py":20
+ * ENV_OUTPUT_DIR = "OPSCLI_SELLER_SPRITE_OUTPUT_DIR"
  * ENV_PAGE_SIZE = "OPSCLI_SELLER_SPRITE_PAGE_SIZE"
+ * ENV_ACCOUNT_CACHE_TTL_SECONDS = "OPSCLI_SELLER_SPRITE_ACCOUNT_CACHE_TTL_SECONDS"             # <<<<<<<<<<<<<<
+ * 
+ * DEFAULT_ACCOUNT_NAME = "default"
+*/
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_ENV_ACCOUNT_CACHE_TTL_SECONDS, __pyx_mstate_global->__pyx_n_u_OPSCLI_SELLER_SPRITE_ACCOUNT_CAC) < (0)) __PYX_ERR(0, 20, __pyx_L1_error)
+
+  /* "opscli/seller_sprite/config.py":22
+ * ENV_ACCOUNT_CACHE_TTL_SECONDS = "OPSCLI_SELLER_SPRITE_ACCOUNT_CACHE_TTL_SECONDS"
  * 
  * DEFAULT_ACCOUNT_NAME = "default"             # <<<<<<<<<<<<<<
  * DEFAULT_PAGE_SIZE = 100
  * DEFAULT_SITE = "us"
 */
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_DEFAULT_ACCOUNT_NAME, __pyx_mstate_global->__pyx_n_u_default) < (0)) __PYX_ERR(0, 21, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_DEFAULT_ACCOUNT_NAME, __pyx_mstate_global->__pyx_n_u_default) < (0)) __PYX_ERR(0, 22, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/config.py":22
+  /* "opscli/seller_sprite/config.py":23
  * 
  * DEFAULT_ACCOUNT_NAME = "default"
  * DEFAULT_PAGE_SIZE = 100             # <<<<<<<<<<<<<<
  * DEFAULT_SITE = "us"
  * DEFAULT_PERIOD = "30d"
 */
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_DEFAULT_PAGE_SIZE, __pyx_mstate_global->__pyx_int_100) < (0)) __PYX_ERR(0, 22, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_DEFAULT_PAGE_SIZE, __pyx_mstate_global->__pyx_int_100) < (0)) __PYX_ERR(0, 23, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/config.py":23
+  /* "opscli/seller_sprite/config.py":24
  * DEFAULT_ACCOUNT_NAME = "default"
  * DEFAULT_PAGE_SIZE = 100
  * DEFAULT_SITE = "us"             # <<<<<<<<<<<<<<
  * DEFAULT_PERIOD = "30d"
  * DEFAULT_OUTPUT_DIR = CONFIG_DIR / "seller_sprite" / "api_runs"
 */
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_DEFAULT_SITE, __pyx_mstate_global->__pyx_n_u_us) < (0)) __PYX_ERR(0, 23, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_DEFAULT_SITE, __pyx_mstate_global->__pyx_n_u_us) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/config.py":24
+  /* "opscli/seller_sprite/config.py":25
  * DEFAULT_PAGE_SIZE = 100
  * DEFAULT_SITE = "us"
  * DEFAULT_PERIOD = "30d"             # <<<<<<<<<<<<<<
  * DEFAULT_OUTPUT_DIR = CONFIG_DIR / "seller_sprite" / "api_runs"
- * 
+ * DEFAULT_ACCOUNT_CACHE_TTL_SECONDS = 600
 */
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_DEFAULT_PERIOD, __pyx_mstate_global->__pyx_kp_u_30d) < (0)) __PYX_ERR(0, 24, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_DEFAULT_PERIOD, __pyx_mstate_global->__pyx_kp_u_30d) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/config.py":25
+  /* "opscli/seller_sprite/config.py":26
  * DEFAULT_SITE = "us"
  * DEFAULT_PERIOD = "30d"
  * DEFAULT_OUTPUT_DIR = CONFIG_DIR / "seller_sprite" / "api_runs"             # <<<<<<<<<<<<<<
+ * DEFAULT_ACCOUNT_CACHE_TTL_SECONDS = 600
+ * 
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_CONFIG_DIR); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 26, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_4 = __Pyx_PyNumber_Divide(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_seller_sprite); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 26, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_t_2 = __Pyx_PyNumber_Divide(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_api_runs); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 26, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_DEFAULT_OUTPUT_DIR, __pyx_t_2) < (0)) __PYX_ERR(0, 26, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+
+  /* "opscli/seller_sprite/config.py":27
+ * DEFAULT_PERIOD = "30d"
+ * DEFAULT_OUTPUT_DIR = CONFIG_DIR / "seller_sprite" / "api_runs"
+ * DEFAULT_ACCOUNT_CACHE_TTL_SECONDS = 600             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_CONFIG_DIR); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 25, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_4 = __Pyx_PyNumber_Divide(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_seller_sprite); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 25, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyNumber_Divide(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_api_runs); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 25, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_DEFAULT_OUTPUT_DIR, __pyx_t_2) < (0)) __PYX_ERR(0, 25, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_DEFAULT_ACCOUNT_CACHE_TTL_SECOND, __pyx_mstate_global->__pyx_int_600) < (0)) __PYX_ERR(0, 27, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/config.py":29
+  /* "opscli/seller_sprite/config.py":31
  * 
  * @dataclass(frozen=True)
  * class SellerSpriteSettings:             # <<<<<<<<<<<<<<
  *     """"""
  * 
 */
-  __pyx_t_2 = __Pyx_Py3MetaclassPrepare((PyObject *) NULL, __pyx_mstate_global->__pyx_empty_tuple, __pyx_mstate_global->__pyx_n_u_SellerSpriteSettings, __pyx_mstate_global->__pyx_n_u_SellerSpriteSettings, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_config, __pyx_mstate_global->__pyx_kp_u__8); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 29, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_Py3MetaclassPrepare((PyObject *) NULL, __pyx_mstate_global->__pyx_empty_tuple, __pyx_mstate_global->__pyx_n_u_SellerSpriteSettings, __pyx_mstate_global->__pyx_n_u_SellerSpriteSettings, (PyObject *) NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_config, __pyx_mstate_global->__pyx_kp_u__8); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(8); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 29, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(9); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_account_name, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_username, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_password, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_accounts, __pyx_mstate_global->__pyx_kp_u_tuple_dict_str_str) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_output_dir, __pyx_mstate_global->__pyx_n_u_Path) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_page_size, __pyx_mstate_global->__pyx_n_u_int) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_default_site, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_default_period, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_annotations, __pyx_t_4) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_account_name, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_username, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_password, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_accounts, __pyx_mstate_global->__pyx_kp_u_tuple_dict_str_str) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_output_dir, __pyx_mstate_global->__pyx_n_u_Path) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_page_size, __pyx_mstate_global->__pyx_n_u_int) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_default_site, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_default_period, __pyx_mstate_global->__pyx_n_u_str) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_account_cache_ttl_seconds, __pyx_mstate_global->__pyx_n_u_int) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_annotations, __pyx_t_4) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/seller_sprite/config.py":32
+  /* "opscli/seller_sprite/config.py":34
  *     """"""
  * 
  *     account_name: str = DEFAULT_ACCOUNT_NAME             # <<<<<<<<<<<<<<
  *     username: str | None = None
  *     password: str | None = None
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_DEFAULT_ACCOUNT_NAME); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 32, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_DEFAULT_ACCOUNT_NAME); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 34, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_account_name, __pyx_t_4) < (0)) __PYX_ERR(0, 32, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_account_name, __pyx_t_4) < (0)) __PYX_ERR(0, 34, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/seller_sprite/config.py":33
+  /* "opscli/seller_sprite/config.py":35
  * 
  *     account_name: str = DEFAULT_ACCOUNT_NAME
  *     username: str | None = None             # <<<<<<<<<<<<<<
  *     password: str | None = None
  *     accounts: tuple[dict[str, str], ...] = ()
 */
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_username, Py_None) < (0)) __PYX_ERR(0, 33, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_username, Py_None) < (0)) __PYX_ERR(0, 35, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/config.py":34
+  /* "opscli/seller_sprite/config.py":36
  *     account_name: str = DEFAULT_ACCOUNT_NAME
  *     username: str | None = None
  *     password: str | None = None             # <<<<<<<<<<<<<<
  *     accounts: tuple[dict[str, str], ...] = ()
  *     output_dir: Path = DEFAULT_OUTPUT_DIR
 */
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_password, Py_None) < (0)) __PYX_ERR(0, 34, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_password, Py_None) < (0)) __PYX_ERR(0, 36, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/config.py":35
+  /* "opscli/seller_sprite/config.py":37
  *     username: str | None = None
  *     password: str | None = None
  *     accounts: tuple[dict[str, str], ...] = ()             # <<<<<<<<<<<<<<
  *     output_dir: Path = DEFAULT_OUTPUT_DIR
  *     page_size: int = DEFAULT_PAGE_SIZE
 */
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_accounts, __pyx_mstate_global->__pyx_empty_tuple) < (0)) __PYX_ERR(0, 35, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_accounts, __pyx_mstate_global->__pyx_empty_tuple) < (0)) __PYX_ERR(0, 37, __pyx_L1_error)
 
-  /* "opscli/seller_sprite/config.py":36
+  /* "opscli/seller_sprite/config.py":38
  *     password: str | None = None
  *     accounts: tuple[dict[str, str], ...] = ()
  *     output_dir: Path = DEFAULT_OUTPUT_DIR             # <<<<<<<<<<<<<<
  *     page_size: int = DEFAULT_PAGE_SIZE
  *     default_site: str = DEFAULT_SITE
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_DEFAULT_OUTPUT_DIR); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 36, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_DEFAULT_OUTPUT_DIR); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 38, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_output_dir, __pyx_t_4) < (0)) __PYX_ERR(0, 36, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_output_dir, __pyx_t_4) < (0)) __PYX_ERR(0, 38, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/seller_sprite/config.py":37
+  /* "opscli/seller_sprite/config.py":39
  *     accounts: tuple[dict[str, str], ...] = ()
  *     output_dir: Path = DEFAULT_OUTPUT_DIR
  *     page_size: int = DEFAULT_PAGE_SIZE             # <<<<<<<<<<<<<<
  *     default_site: str = DEFAULT_SITE
  *     default_period: str = DEFAULT_PERIOD
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_DEFAULT_PAGE_SIZE); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 37, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_DEFAULT_PAGE_SIZE); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 39, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_page_size, __pyx_t_4) < (0)) __PYX_ERR(0, 37, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_page_size, __pyx_t_4) < (0)) __PYX_ERR(0, 39, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "opscli/seller_sprite/config.py":38
+  /* "opscli/seller_sprite/config.py":40
  *     output_dir: Path = DEFAULT_OUTPUT_DIR
  *     page_size: int = DEFAULT_PAGE_SIZE
  *     default_site: str = DEFAULT_SITE             # <<<<<<<<<<<<<<
  *     default_period: str = DEFAULT_PERIOD
- * 
+ *     account_cache_ttl_seconds: int = DEFAULT_ACCOUNT_CACHE_TTL_SECONDS
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_DEFAULT_SITE); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 38, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_DEFAULT_SITE); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 40, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_default_site, __pyx_t_4) < (0)) __PYX_ERR(0, 38, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-
-  /* "opscli/seller_sprite/config.py":39
- *     page_size: int = DEFAULT_PAGE_SIZE
- *     default_site: str = DEFAULT_SITE
- *     default_period: str = DEFAULT_PERIOD             # <<<<<<<<<<<<<<
- * 
- *     def to_public_dict(self) -> dict[str, Any]:
-*/
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_DEFAULT_PERIOD); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 39, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_default_period, __pyx_t_4) < (0)) __PYX_ERR(0, 39, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_default_site, __pyx_t_4) < (0)) __PYX_ERR(0, 40, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "opscli/seller_sprite/config.py":41
+ *     page_size: int = DEFAULT_PAGE_SIZE
+ *     default_site: str = DEFAULT_SITE
+ *     default_period: str = DEFAULT_PERIOD             # <<<<<<<<<<<<<<
+ *     account_cache_ttl_seconds: int = DEFAULT_ACCOUNT_CACHE_TTL_SECONDS
+ * 
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_DEFAULT_PERIOD); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 41, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_default_period, __pyx_t_4) < (0)) __PYX_ERR(0, 41, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "opscli/seller_sprite/config.py":42
+ *     default_site: str = DEFAULT_SITE
  *     default_period: str = DEFAULT_PERIOD
+ *     account_cache_ttl_seconds: int = DEFAULT_ACCOUNT_CACHE_TTL_SECONDS             # <<<<<<<<<<<<<<
+ * 
+ *     def to_public_dict(self) -> dict[str, Any]:
+*/
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_DEFAULT_ACCOUNT_CACHE_TTL_SECOND); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 42, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_account_cache_ttl_seconds, __pyx_t_4) < (0)) __PYX_ERR(0, 42, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+
+  /* "opscli/seller_sprite/config.py":44
+ *     account_cache_ttl_seconds: int = DEFAULT_ACCOUNT_CACHE_TTL_SECONDS
  * 
  *     def to_public_dict(self) -> dict[str, Any]:             # <<<<<<<<<<<<<<
  *         """"""
  *         payload = asdict(self)
 */
-  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 41, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 41, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6config_20SellerSpriteSettings_1to_public_dict, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteSettings_to_public_d, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_config, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 41, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_Any) < (0)) __PYX_ERR(0, 44, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6config_20SellerSpriteSettings_1to_public_dict, 0, __pyx_mstate_global->__pyx_n_u_SellerSpriteSettings_to_public_d, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_config, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[0])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_4);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_to_public_dict, __pyx_t_5) < (0)) __PYX_ERR(0, 41, __pyx_L1_error)
+  if (__Pyx_SetNameInClass(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_to_public_dict, __pyx_t_5) < (0)) __PYX_ERR(0, 44, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/seller_sprite/config.py":28
+  /* "opscli/seller_sprite/config.py":30
  * 
  * 
  * @dataclass(frozen=True)             # <<<<<<<<<<<<<<
@@ -6134,30 +6293,30 @@ __Pyx_RefNannySetupContext("PyInit_config", 0);
 */
   __pyx_t_4 = NULL;
   __pyx_t_7 = NULL;
-  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_dataclass); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 28, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_mstate_global->__pyx_n_u_dataclass); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 30, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __pyx_t_9 = 1;
   {
     PyObject *__pyx_callargs[2 + ((CYTHON_VECTORCALL) ? 1 : 0)] = {__pyx_t_7, NULL};
-    __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 28, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_MakeVectorcallBuilderKwds(1); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 30, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
-    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_frozen, Py_True, __pyx_t_10, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 28, __pyx_L1_error)
+    if (__Pyx_VectorcallBuilder_AddArg(__pyx_mstate_global->__pyx_n_u_frozen, Py_True, __pyx_t_10, __pyx_callargs+1, 0) < (0)) __PYX_ERR(0, 30, __pyx_L1_error)
     __pyx_t_6 = __Pyx_Object_Vectorcall_CallFromBuilder((PyObject*)__pyx_t_8, __pyx_callargs+__pyx_t_9, (1-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_10);
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 28, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 30, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
   }
 
-  /* "opscli/seller_sprite/config.py":29
+  /* "opscli/seller_sprite/config.py":31
  * 
  * @dataclass(frozen=True)
  * class SellerSpriteSettings:             # <<<<<<<<<<<<<<
  *     """"""
  * 
 */
-  __pyx_t_8 = __Pyx_Py3ClassCreate(((PyObject*)&PyType_Type), __pyx_mstate_global->__pyx_n_u_SellerSpriteSettings, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_2, NULL, 0, 0); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 29, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_Py3ClassCreate(((PyObject*)&PyType_Type), __pyx_mstate_global->__pyx_n_u_SellerSpriteSettings, __pyx_mstate_global->__pyx_empty_tuple, __pyx_t_2, NULL, 0, 0); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_8);
@@ -6169,135 +6328,135 @@ __Pyx_RefNannySetupContext("PyInit_config", 0);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 28, __pyx_L1_error)
+    if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 30, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
   }
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_SellerSpriteSettings, __pyx_t_5) < (0)) __PYX_ERR(0, 29, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_SellerSpriteSettings, __pyx_t_5) < (0)) __PYX_ERR(0, 31, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/seller_sprite/config.py":54
+  /* "opscli/seller_sprite/config.py":57
  * 
  * 
  * def load_settings() -> SellerSpriteSettings:             # <<<<<<<<<<<<<<
  *     """ `.env` """
  *     values = _load_env_values()
 */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 54, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 57, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_SellerSpriteSettings) < (0)) __PYX_ERR(0, 54, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6config_1load_settings, 0, __pyx_mstate_global->__pyx_n_u_load_settings, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_config, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 54, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_SellerSpriteSettings) < (0)) __PYX_ERR(0, 57, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6config_1load_settings, 0, __pyx_mstate_global->__pyx_n_u_load_settings, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_config, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[1])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 57, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_load_settings, __pyx_t_5) < (0)) __PYX_ERR(0, 54, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_load_settings, __pyx_t_5) < (0)) __PYX_ERR(0, 57, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/seller_sprite/config.py":69
+  /* "opscli/seller_sprite/config.py":76
  * 
  * 
  * def _load_env_values() -> dict[str, str]:             # <<<<<<<<<<<<<<
  *     """ `.env` """
  *     values = _read_dotenv()
 */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 69, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 76, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_str) < (0)) __PYX_ERR(0, 69, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6config_3_load_env_values, 0, __pyx_mstate_global->__pyx_n_u_load_env_values, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_config, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 69, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_str) < (0)) __PYX_ERR(0, 76, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6config_3_load_env_values, 0, __pyx_mstate_global->__pyx_n_u_load_env_values, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_config, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[2])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 76, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_load_env_values, __pyx_t_2) < (0)) __PYX_ERR(0, 69, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_load_env_values, __pyx_t_2) < (0)) __PYX_ERR(0, 76, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/seller_sprite/config.py":79
+  /* "opscli/seller_sprite/config.py":94
  * 
  * 
  * def _read_dotenv() -> dict[str, str]:             # <<<<<<<<<<<<<<
  *     """ `.env`"""
  *     current = Path.cwd().resolve()
 */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 79, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 94, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_str) < (0)) __PYX_ERR(0, 79, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6config_5_read_dotenv, 0, __pyx_mstate_global->__pyx_n_u_read_dotenv, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_config, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 79, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_str) < (0)) __PYX_ERR(0, 94, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6config_5_read_dotenv, 0, __pyx_mstate_global->__pyx_n_u_read_dotenv, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_config, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[3])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 94, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_read_dotenv, __pyx_t_5) < (0)) __PYX_ERR(0, 79, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_read_dotenv, __pyx_t_5) < (0)) __PYX_ERR(0, 94, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/seller_sprite/config.py":89
+  /* "opscli/seller_sprite/config.py":104
  * 
  * 
  * def _parse_dotenv(path: Path) -> dict[str, str]:             # <<<<<<<<<<<<<<
  *     """ KEY=VALUE  `.env` """
  *     values: dict[str, str] = {}
 */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 89, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 104, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_path, __pyx_mstate_global->__pyx_n_u_Path) < (0)) __PYX_ERR(0, 89, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_str) < (0)) __PYX_ERR(0, 89, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6config_7_parse_dotenv, 0, __pyx_mstate_global->__pyx_n_u_parse_dotenv, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_config, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 89, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_path, __pyx_mstate_global->__pyx_n_u_Path) < (0)) __PYX_ERR(0, 104, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_dict_str_str) < (0)) __PYX_ERR(0, 104, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6config_7_parse_dotenv, 0, __pyx_mstate_global->__pyx_n_u_parse_dotenv, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_config, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[4])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 104, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_parse_dotenv, __pyx_t_2) < (0)) __PYX_ERR(0, 89, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_parse_dotenv, __pyx_t_2) < (0)) __PYX_ERR(0, 104, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "opscli/seller_sprite/config.py":104
+  /* "opscli/seller_sprite/config.py":119
  * 
  * 
  * def _parse_int(value: str | None, default: int) -> int:             # <<<<<<<<<<<<<<
  *     """"""
  *     if not value:
 */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 104, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 119, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 104, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_default, __pyx_mstate_global->__pyx_n_u_int) < (0)) __PYX_ERR(0, 104, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_int) < (0)) __PYX_ERR(0, 104, __pyx_L1_error)
-  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6config_9_parse_int, 0, __pyx_mstate_global->__pyx_n_u_parse_int, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_config, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 104, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 119, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_default, __pyx_mstate_global->__pyx_n_u_int) < (0)) __PYX_ERR(0, 119, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_n_u_int) < (0)) __PYX_ERR(0, 119, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6config_9_parse_int, 0, __pyx_mstate_global->__pyx_n_u_parse_int, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_config, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[5])); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 119, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_5);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_5, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_parse_int, __pyx_t_5) < (0)) __PYX_ERR(0, 104, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_parse_int, __pyx_t_5) < (0)) __PYX_ERR(0, 119, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "opscli/seller_sprite/config.py":115
+  /* "opscli/seller_sprite/config.py":130
  * 
  * 
  * def _parse_accounts(value: str | None) -> tuple[dict[str, str], ...]:             # <<<<<<<<<<<<<<
  *     """"""
  *     if not value:
 */
-  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 115, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 130, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 115, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_tuple_dict_str_str) < (0)) __PYX_ERR(0, 115, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6config_11_parse_accounts, 0, __pyx_mstate_global->__pyx_n_u_parse_accounts, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_config, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 115, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_value, __pyx_mstate_global->__pyx_kp_u_str_None) < (0)) __PYX_ERR(0, 130, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_return, __pyx_mstate_global->__pyx_kp_u_tuple_dict_str_str) < (0)) __PYX_ERR(0, 130, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6opscli_13seller_sprite_6config_11_parse_accounts, 0, __pyx_mstate_global->__pyx_n_u_parse_accounts, NULL, __pyx_mstate_global->__pyx_n_u_opscli_seller_sprite_config, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[6])); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 130, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount(__pyx_t_2);
   #endif
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_5);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_parse_accounts, __pyx_t_2) < (0)) __PYX_ERR(0, 115, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_parse_accounts, __pyx_t_2) < (0)) __PYX_ERR(0, 130, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "opscli/seller_sprite/config.py":1
@@ -6369,47 +6528,47 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "opscli/seller_sprite/config.py":48
+  /* "opscli/seller_sprite/config.py":51
  *         payload["has_password"] = bool(self.password)
  *         payload["account_count"] = len(self.accounts) or int(bool(self.username))
  *         payload.pop("username", None)             # <<<<<<<<<<<<<<
  *         payload.pop("password", None)
  *         payload.pop("accounts", None)
 */
-  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_username, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 48, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[0] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_username, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 51, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[0]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[0]);
 
-  /* "opscli/seller_sprite/config.py":49
+  /* "opscli/seller_sprite/config.py":52
  *         payload["account_count"] = len(self.accounts) or int(bool(self.username))
  *         payload.pop("username", None)
  *         payload.pop("password", None)             # <<<<<<<<<<<<<<
  *         payload.pop("accounts", None)
  *         return payload
 */
-  __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_password, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 49, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[1] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_password, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 52, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[1]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[1]);
 
-  /* "opscli/seller_sprite/config.py":50
+  /* "opscli/seller_sprite/config.py":53
  *         payload.pop("username", None)
  *         payload.pop("password", None)
  *         payload.pop("accounts", None)             # <<<<<<<<<<<<<<
  *         return payload
  * 
 */
-  __pyx_mstate_global->__pyx_tuple[2] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_accounts, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[2])) __PYX_ERR(0, 50, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[2] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_n_u_accounts, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_tuple[2])) __PYX_ERR(0, 53, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[2]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[2]);
 
-  /* "opscli/seller_sprite/config.py":96
+  /* "opscli/seller_sprite/config.py":111
  *         if not line or line.startswith("#") or "=" not in line:
  *             continue
  *         key, value = line.split("=", 1)             # <<<<<<<<<<<<<<
  *         key = key.strip()
  *         value = value.strip().strip('"').strip("'")
 */
-  __pyx_mstate_global->__pyx_tuple[3] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u__2, __pyx_mstate_global->__pyx_int_1); if (unlikely(!__pyx_mstate_global->__pyx_tuple[3])) __PYX_ERR(0, 96, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_tuple[3] = PyTuple_Pack(2, __pyx_mstate_global->__pyx_kp_u__2, __pyx_mstate_global->__pyx_int_1); if (unlikely(!__pyx_mstate_global->__pyx_tuple[3])) __PYX_ERR(0, 111, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[3]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[3]);
   #if CYTHON_IMMORTAL_CONSTANTS
@@ -6442,31 +6601,31 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 8; } index[] = {{1},{3},{179},{1},{1},{1},{0},{1},{39},{1},{8},{14},{14},{4},{30},{10},{26},{5},{3},{10},{20},{18},{17},{14},{12},{12},{16},{14},{13},{12},{12},{15},{29},{33},{31},{30},{29},{29},{4},{20},{20},{35},{13},{12},{8},{15},{8},{6},{18},{18},{7},{3},{9},{11},{7},{14},{12},{9},{7},{6},{8},{7},{6},{10},{6},{8},{3},{12},{12},{3},{13},{4},{5},{4},{3},{4},{16},{13},{5},{8},{13},{10},{4},{8},{13},{27},{2},{10},{9},{7},{15},{13},{10},{6},{8},{4},{7},{7},{3},{11},{12},{8},{12},{9},{7},{6},{4},{13},{12},{10},{5},{10},{10},{3},{5},{8},{14},{6},{2},{8},{5},{6},{55},{132},{63},{130},{136},{66},{208}};
-    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (1499 bytes) */
-const char* const cstring = "BZh91AY&SYn\306\240\022\000\000\206\177\377\177\377\377\332\377\317\377\373\277\377\377\336\277\377\377\374rG\301IjAWC\300@@@K\340P\004\375\353\306\006m\025\231mW\005\330i$\203!\223M4\0004\331\021\220\006@\321\240\006\200\000\032\032h\r\000\000\014\203\020\310\r\001\2435\02021\0320&\214\203\000\2324\320`\214\206\0020\t\221\246&&#FF\020h\310`\023L\000\t\211\210\032 \010L\214\243&\211\351\223SA\243OP\321\240b\032\r\032\006\200\000\000\003M\032h4=M\000\000\000\000i\241\021\250L\236\250\364\217Dz@\0004\000\320h\000\000\000\000\000\000\006\200z\200\000\001\220\001$\223M\021\246\t\223Sh\0256\247\3525?T=FM\006\201\240\000\000\000\003F\214\020\001\240\000\000\000\000?\0017\351k\313\350\003\346\313\355!\275\353\003\003\2000AD\005\0102.\365D\212y\235\346@\0100F\021\312A\236K\032\261\014\314D(J]\010B6\332Q;\003\220@\204\210\005\035\325H\022\3002\301U\220\200C5j\313\010R\241\322x\006\014X\251\247o9]+\367\237w\265\253\314\312\303\307\357`+-.\310T\"\312\307~H\322\206\266\026M{BR\243I\010\026\367H\306h\260j\025\032\030\341Z\030V\266\264d\341`\263Q\221@\240\347MI\325\255\217)\025 \215M\252\304\356$)\212\210\264\303\320\022\001\205\241\002\213\004\375\203\003\267x\264^Kq \036\321\"\014\363bd\016\014J\250\273s\345\217\202\214\353\316C\036J+\263\004\233\230\235\342\243\220-\337!\022\312XJ\270\334\216#7\021\330\301\261\315\202\214'\037\323\3459\330P\352\205\211\232f{\343\310\346\201\311\024\250\363\323o\260\"\2332.>\362\273\263c\306\024\270L\251\026\034Z\242\025\342\210^\2025\345U#136r\010\220O\233\205Ye3\357\335,\315_\244A\023'\262&i\0058\262\250\336T\264\252\001\255\270{\3520\r.q0\354\216\027L\361L,Y\007\007*'\013h\250\347\370:\213\313\351Je\250\320\344\344\340\267^$Z\212\006U\251\005\003%C\266bT\332\256|\364Vovz\264'Z\352\345W \301-\213\272\252\222\266\243n\021\235.BE`\227\3454\326k\221Z\375\313:xJ\032\2530v\200,\347&\010P\326\225\221\203\254E\242\355\244\0067\252&\203\341\321J8\203\236\320\325\267-D\250\001\344\240Gg\023K\tN\"\232\303p\244\010\0059bzl\2200\367\3431\354\214\214\335""\007\305\270l\340\006\377\201\330G}\306v\032\327\337s\317y\016e\240k\201\352\352\336\ngX \303\310\230Gf\226\212X\031\2178\\\0308\321\233\240 Z\3215\273\3748\222\264\336\326$\201\266\020\271\322U\212\274(\021\230\272\200\356\311&\260\3631\210\226\nX\010\026g\274=\367\261\001\002\\\265_\204\023JL\311\355\n\2649\365\020\246\"R\025]\006t\3008\321]\351rT'\234R\016\204\220\204O\341K\274\277\240\212\344H\260\325f\364~\275.|C\203f\005{%*\265\202%\240\304'xV\215\212'\022A\275\251$F\273\230\026\r\202\330\3532\371d)>\332\356p\205v\254B'W(+Q:\t\235\016*\310l\315\275I\t\220W{h\226\246\226\n\245\324\3230M\321e*\353\020J\300U#\n'\2454\342t\270)$\004!a@\223O#\022'URBt\346~\226\262\014P\027\305a\226\253.\217\230\246E\033\356\307\267\242L\344\2451\334L\324\254\260D\244\355\265C\264m\024\251\361\272lm\236)\3631\232\202\021\270\333\032\225\0216\275;\232S!\2309\345Sw\213\274ez\362\002\232\205\005\t\246\302\205\263`a\254B\356R\004\225@\242\342h\322\025\322\2553\300y\304\330\333\003-P*\204&\346\233\022 \n\220\234\323Uy\3402\235\211e'\224\322\251\330\327=m\316[\002\n\241F\303`\325\272\246U\355\344\210\246iL9\264j'{s:\302L\260\032\316\230Z\022\320\305L\026\306&2\006m0\202d\301\353\221\246H\230\334\366\t\344\240\370\344/\302\374R\316'\320\345\034i\322\315e\n\014M\202\177\221X\264\245j-\267\343\244\322R\267\325i\001s3\310H&e\010jEa\305(\241H:\210\244\231L\255e\2222\270p\020\271\327\3072\336\226iY*\264L\251JvIe\\\2248\223\350\267\0030\224\203\021\030\315\306\260L\350\210\257\201\215\355\022\014S\236I8\001\216\263\220\270\303\250\301f\351R\230lK\226\3619#\006a\323\302\340\355\235m\003\177\2167\\l;\020\010\356d\017H\031\206B\332/\246\342k\216\234\214\275%\3726\275/\303\307\254W\222MS\201\250\216\035x[\206\242.\300\335\375\031\217\201f\264\362>\361\365\312\016\322,\262\335%\367\241\256q\202\017\254\316`\271\330z{\304 \370-\016\032\367\331-\r 4h\201\340\343\003\221\205\n\204s\357\213\366`y\031[ay16<\224\312\026,V\022\014\324\007\352 \254OG9W\363\357\0161\300\331op\261\276_8\177Y\301\267\305\320""\371\3679\253\215f\373N\241\313\341,\r!\340\267\255D\376\2610\244`lA!YO\034XEI\250V&\250\020\2741q;v\213\336\3101\235\2613\210@Th\241*\0354\211\321\2539?\177\"#\021\027=\021QG\374]\311\024\341BA\273\032\200H";
-    PyObject *data = __Pyx_DecompressString(cstring, 1499, 2);
+    const struct { const unsigned int length: 8; } index[] = {{1},{3},{179},{1},{1},{1},{0},{1},{39},{1},{8},{14},{14},{4},{30},{10},{26},{5},{3},{10},{33},{20},{18},{17},{14},{12},{12},{29},{16},{14},{13},{12},{12},{15},{29},{46},{33},{31},{30},{29},{29},{4},{20},{20},{35},{25},{13},{12},{8},{15},{8},{6},{18},{18},{7},{3},{9},{11},{7},{14},{12},{9},{7},{6},{8},{7},{6},{10},{6},{8},{3},{12},{12},{3},{13},{4},{5},{4},{3},{4},{16},{13},{5},{8},{13},{10},{4},{8},{13},{27},{2},{10},{9},{7},{15},{13},{10},{6},{8},{4},{7},{7},{3},{11},{12},{8},{12},{9},{7},{6},{4},{13},{12},{10},{5},{10},{10},{3},{5},{8},{14},{6},{2},{8},{5},{6},{55},{132},{63},{130},{155},{72},{208}};
+    #if (CYTHON_COMPRESS_STRINGS) == 2 /* compression: bz2 (1559 bytes) */
+const char* const cstring = "BZh91AY&SY\350m\375\016\000\000\217\377\377\177\377\377\332\377\337\377\372\277\377\377\336\277\377\377\374rG\301IjAWC\300@@@K\340P\005=\357t\300sdR\2645po\rM\n55?S\324\323D\007\221\017\323H\312i\210l\246\217\021=G\251\214\232\203'\250\3651\032i\240bf\246\324\323\032\032\237\252z\231\2116\247\242yM\003\023 db4`M\031\006\0014i\240\301\031\014\004`\023#LLLF\214\214 \321\220\300&\230\000\023\023\0204#M\010\ny\t\264\244\366\232h\240i\246M=F&M\000\320\000\000\000\000\006@\001\220\000\000\032\036\247\250CH\2414\321\220\000\006\200\000\000\000\000\000\000\000\000\000\000\003@\000\000\000\t$\231\000FS\304MS\364\311A\342\236\220z\004b\r\000\000\000\031\006F\217&\246OP\014!\220\000\000\000\036\304w\206\343\217\230\213\305I\326\t]\250\3000\036\345\360@\314\201\202\014\302\326\324\231\203\344Z\331\022J6@\314\210\004%-JG@\2325\00431\020\021\312b\2168\341\215\314NC \024\301(\006N\222!\201/\350\345\315D\220S2\006\326X\212\263\324yEB\002\t\004rU\312\311\315\275lS~P\247\351\305\227\255\r:\350\256\321J\241\226\203a\275\202\016\242\212\265\263\271qdY5L&m\207wl7\233\364Q\255\022i\r\024\322\252\314=\256?S\t\360\2717\027\235\213,v0?q3\312\267\266\210;\270\260\257+E\375n\364\220\030TA\216\002\336\272\002=\347k\204\211bH\017\262p\237A%1\317)\034O\305/\312\375\360\034U\225z\250c\321\025\226\315/SH\351\327\234\221\266\227\031l`\002y\313I\326\326\334\3239\275'R\r\240\024\317\202\202e\311\3669Nu\002s\322\245\206\241\236\370^\346\214\365\222\224[+i;VqWv%\311\351tU\2729n\270,rL\254J\212\263\304\224\351D\227,V-\025Z:B\206l\250\214\t\022}\034+\013iX[v\342Z\032\315\3020(OdP\322%RU\250<\255fX\001\255\274{\353&\032\\\2510\355g%\330\275+)\021S\257\"\016S\337\022X\313\r\215\366s!\222\260'T\254\345\013Hr\2112p_\251\200W\201 \313AH\224f+\007k\324\253\275EM\206\256\276\005\270\376\364\210\210\210q@\215\314-h\210\0028b\366mL\326\300\337L\301\262\014Oh\035\034\013\300&\333K\nY\357\203\r\221\221\"\303\002\nX\214 HJp\2125\022\321\2118\013T\371\0063\237#\204`\271I\357:\236r\233!\275Z\237\211Ii\007\355\240\263""\227\331\360j*\310\261p\033\217h@\252\201dV\241\207\276\322\335h\020:\240|Z\213[x\033\275\347s\014\230\215&\032\347\344\304\362\377\201(\231i\r\214'{r\367D\215\246\234\304\311A7C\037Y\241<{\225\031Xl\016\352,'UK\363K\343\344\\\307&\203\210\033P*\201\331\257N\232\020Vcbg\264N5\0223\034\211=\206\257\t\2349v\314>{\352\200\233\242\257\333\010LT\374\266\260~#\267Y\037\004\270\206\274g\317\030\007Zi\223\242\347\213N\233\002A\241\007?\247\216\2148.\310A\212v\337\264\037\263\254\217p@5\346Y\030\314\310\231^\300\365\231\212[t\257\222\252\245Q\r4\221'a\205\023\300h\315\026\321\r\265!\253,\273U\n\027\034\021*\304\250B\315H\220\213\310\365\365\203\270\026\312A\210b}P7PYM\01333\201w\306\3444z@\031\242\212\314^#6\213\034K\031\223\210\030&\210\260\232)fb6%s\234\314.\021\204{\024\2068\2541`\262\350C=NP}\325\350\314\330\010\213\027\020\240\354,\220\005\021Q\343\2553c\026\025W%\027\036\016\253)\214\265\210*\006\344\033\032\211\244<\014)\305\031\000e\"\210'\033\311\251\toL\310\232!!\003\001\242\211\335 \337\206L\253\236R\006f\204\020chLis\366\344\004\216\226\255\247\014h5\302;>\020p\230s\354(\261\256\233J\243l7\367\\S+\342U\230\331\253P\367\270\240 V\202S\007,\373\342\240\265628YDD\363s\231\305O=; 6Q3S\300*9\204\037xXA\325\2203c\010P\274Ilc$\274\343(\013I\342H\2540\232\323\032\201>\264%RH\321}e\031\034Q\025?\"\265fJ\344]w\307\204\314aZ\272x\303=\263\013\tlvQ\232\235\211V\201f1\034\203U\327\031c\272\312\313y\020(\214zS\275e\0341\025\335T\256\266\255\270\337\345\027\367\271\237w\277\003\303*\306I\233\212l\233H'aw\3437\343\376}\177\353\272\024\372\001\263\3065\030\350\261\247\270\035[\033|\243h\233(\304 \014\306M\361\331u\033nf\233I\331\2438\343l\307\274\232\361\204\204\213\301\334\342\335\320m\027c\311\215N\337.$\352A\235\253\213s#\332pON'\370%\223\323}FE'\304\306\342\356\314\3565\016\353\023\221\320\205,\326\321\307\227\316A\212\027\347|\362q\266\235\374\330\233\366\\z/\251C\\A\334\203\005\343\000\344\017\377\253Uq\2550H~\005B\344\324\214#\363]\n\216,\215\342\342\270V\003qE\2755\326""\351Z?\337\255\375\260\022\260$\337\342V\344\177\255\204\210\375:=\367NaI\224\221\226t\201\324+\346\266{\3512\311\r;!\001/Yj\210\200\304\024A\022\244u\t`\032]\034\036$\340\356\034C\215\235\231\202\323\000\210\350\022\2428>3J!\237\335\3779\273\233\273\233\276?\301\377n\377\177\213\271\"\234(Ht6\376\207\000";
+    PyObject *data = __Pyx_DecompressString(cstring, 1559, 2);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (1367 bytes) */
-const char* const cstring = "x\332}T\315o\033E\024\217\301%\246I\332\270)iU\204\272nB\212D\353\3426\364S\2452\266\333\006\202\343\304I\213h\242\321dw\234l\273\331]\317\314&q\351\241 !\371\300\307\234\320HHh\021B\362\251\262\020 _\2409r\334\243\217\221PI\371/x\263k'\215H\260\264\343\367f\336\307\357\367\336\233\031\271\360\216Qt8\321\3702\346Z\256\306\227\035[3\231f\020\313\\$\024sb\3254\306\251\251sB\225\221\255\225\n\245\263\343\227\3075l\033\032%\367\211\316\231\306\274E\335\302\214\021\2469\025m\3213-n\332\032\257\271\204\245\265\211\212Vs<\315&\304\320\270\243\271`\367\242\003_&\266\306\010W\202v\032\333\266\30317\035\033\201\273i/\235\326\014\223B\022s\225(\357\233\330b$}\375\324\351\364\263\257\276}\366\344\267\255\237\377\330\372\354\327\277\277\376\351\3317?n}\367\313\363\247\337?\177*\236\377\360\345?_|\265\365\373\223\277\036\177~\003\033\006\202\230\304\000\016\367\200\312\031-k\327\026v4X\026\322\304^u\\\246[\3469F,\213P\304\\jrrNw\354\212\271\224vk`\245=\322\212\216M\270\347Z\344\336n\3773Z:\235^\360x\345\354e\010\236\233*\336\234\270\205\362\0233\371\302\315\354\334\344,\312\346rSs\305YT\314~T\350\356M\315\315\226\346f_\264*eo\025Py\342\223m\223Rafb*\337\325\312\023\263\205B\361N7X\371\0059\014\254\364\235\240J\333\016\030)\345\362\335)H\006\362\\\2710\243\\>(O\025\363Dw\014R\240\324\241S\245rnr\002\225\013\223\223\205\031T.\315@\306\355t\377w\030\346\337\323`\007\320\236\307\333\010\3679\215 \357y\330\345P\302|\031\241Rm\035\276<t\005\025\311:\237!\225r\330\310r\330\3072\3410\220Kl\257\2754w\220\353-Z\246\216TS\261\256;\236\315Q\270v\025\033\257\220\216\314\020\332\231Q\245\270&\242\236\3150\013\275Y\315\326M'\255;\324\361 <Q3e\023d\3028S\254\223E\254?\320=J\211\315\3655\303\300\220A]\203m\2010\203T\260g\361\316\037r\t5\035\243\2531S\315\261\272\016\016\255!d8\272Z8L/\261\241\213@\007D\223\302\224\256\233\2143\262\356\302-\365\030\241\025\352<$6B\025\317\006\227%\0027\231!u\023\327\034j(Y\031)\226&\2605\031\332\306\017\tW\324\307\3563\307~@j!\033\313\301\006\202Lh\025[\036a\241""\312:\345T\n\224e\005\003e\370\255\220\016\263Pq\014\317\"(,gw\215\256]:\272h\035e\327\035\354\0361\000\344z\034\232D]\274D\240\026\017\211\213U%\025\023\312\010\332\356P\244F\205\351(\300+\024\214.i\027\306F}\360\316\271\270\246P\273\216\213\220K\303\240\nm\325\303V\204\221\3425\024\022\247\004\230FqC\221\303\250Q\302\034k\225Px\030\250\r\310+\273\320#U\230\016U\220:\215d\256eF\213\n\313\030\307\224\2635\223/\303c\242^[\000\302\t\343\260\356\232\315\350E\364X\267Ya\371\243\036\004=\303\301\360\333\215\313\315\314f\274\3671\257g\332\211\303\365j;~\240\235H\212!\221\025\323\355\276\376\316^_\375\252\270+\337\227K\376t\320s\\\276\352'7\343o\310\351v<Q\357\027yy\320O\371W\032\267\233\037\266\252\312a]\254\302Y\242\257>^\367DNpy\315\307\276\327\3105x\363R+\325\356\037h'\006\352\037\213Y9,\253\376\001\037L\017\325u1,\300yP\034\020w\344yy\307\317\370\371\306+\r\334\250\252@\231v\377\021\221\022\227dJa\311\000t\2017\343\207\352\206\030\025\2132\341\307\024\222\0011-\356\373\275~U\0218\001AB\014\027\3051\031k\367\017\211\353~\314OF\356q\315\217m&\216\2101\031\223\311\220b0\250\371/\2079c\035\375\224?\n\250y#\263\217>\342_\010\365kM\2755\324\312\266f7\222\033\243\033X\235r\221\021\223~l\177\261\032\364\034\023\325\315\370@0\020V1)\216\002\366\212\314\373\261 \225i\016\005\343\2676>\rf\312\355\370\2408(S\362\242\177\024\n?v\261\211\001\177\320wR\002\305\327\240N\343\262\032h\347\233#\315iEy\030*\235\221\305\306Hc/\365$\320\037V\370\033\331vbH\000\r\250h\320sB\246\000G}\036\352\000%\354\255W\305!i\007g\336k\331\301\344|0\277\240Z\362\222xK\216J,\367n\305\353\362F#\365\237\021:\002\235\251\310,\260\353S[\321\276\262\271\nLM\031\355l\306\337\364\303!J\210X4/\017eR\216A\221\324\214\034\2563H4\036\322\270\355\347|\326\030k\306\024\366\013\002\303&\220\367\373a\250Xs\254\265\377\366\316\020^\201\020\252}*\364\240\350\025T\036\207\202<j^m\315\377\031\316\305\273\"&\222\377\002\204\245n\000";
-    PyObject *data = __Pyx_DecompressString(cstring, 1367, 1);
+    #elif (CYTHON_COMPRESS_STRINGS) != 0 /* compression: zlib (1411 bytes) */
+const char* const cstring = "x\332}T\317o\033E\024\216\301%n\223\320\270)iU\204\272nB\212\240uq\033\372SUel\267\r\004\307\311:-\242\255F\223\335q\262\355fw=3\233\304\245\207\202\204\344\003\2059\241\221\220\320\"\204\344Se!@\271@s\344\350\243\217\221PI\371/x\263\376\221\204$\215\262\343\367f\336\274\367}\337\274\231\221s\357\233y\227\023\215/`\256e*|\301u4\213i&\261\2559B1'vEc\234Z\006'T\0059Z!W8=~q\\\303\216\251Qr\237\030\234i\314\2373l\314\030a\232[\322\346|\313\346\226\243\361\212GXR\233(i\025\327\327\034BL\215\273\232\007q[7\360\005\342h\214peh'\261\343\270\034s\313u\020l\267\234\371\223\232iQ(b-\021\265\373:\266\031I^=q2\371\374\311w\317\237\376\276\361\313\237\033_\374\366\3177\077\077\377\366\247\215\357\177}\361\354\207\027\317\304\213\037\277\376\367\253'\033\177<\375\373\361\227\327\260i\"\310IL\340p\007\250\234\322\322N\345\336\246\007\303\275$q\226\\\217\031\266u\206\021\333&\0241\217Z\234\2341\\\247d\315'\275\nDi\217\264\274\353\020\356{6\271\263}\377)-\231L\336\363y\351\364EH\236\231\312_\237\270\201\262\0233\331\334\365\364\354d\021\2453\231\251\331|\021e\322\231\2339T,N\"=\007QY\375\377\001\371\364'\271\316\334\324l\2610[\334\232\246\220\276\221C\372\304g\335\220Bnfb*\333\361\364\211b.\227\277\325I\246o\261wV\336\272\250\252*\177\263\242\362\272\325Z\216\256\337\236\002$`\317\352\271\031\265\345#\035\022\021\3035I\216R\227N\025\364\314\344\004\344\237\234\314\315 \2750\003p\272X^\266\270\023\334K\243U\351]\0036\341\357\272\334\345\263\307j\213\340\256\213\035\306\005\314\027\020*TV\340\313B\007\240<Y\3413\244\244\207M\243\207=\243\023\016\315?\317v\233Kr\027y\376\234m\031H5\0206\014\327w82\260\261@\020\3476b \247c\262\356\202\032;\216\203\027I\333f\010m^\024\345x\026\242\276\3030\013\323\262\212cXn\322p\251\353C]\242\032\333!\310\202;E\261A\346\260\361\300\360)%\0167\226M\023C\005u\027\273\006a&)a\337\346\355\037\344\021j\271f\307c\226\272L\352N\272\264\202\220\351\032j\340p\205\210\003\315\000<\301\264(\\\225\025\213qFV<x*|Fh\211\272\017\211\203P\311w`\313<\201\347\204!\365""\034,\273\324T\266\nR,-`k1\324\305\017\005\027\325\307\3563\327y@*!\033\333\305&\202Jh\t\333>a\241\313\332:+\007dY\304@\031\376\026I\233Y\350\270\246o\023\024\312\331\031[w?\331\272\355mg\333C\320Yb\000\310\3639\234\036\365\360<\001-\036\022\017+%\025\023\312\010\352\236P\313m\t\323v\200Wh\230\035\322\036\364\223\372\340\261\365pE\241\366\\\017!\217\206I\025\332\262\217\355\026F\212\227QH\234\022`\332\312\033\232\034z\220\022\346\332K\204\302\353D\035@^\332\206\036)a\332T\301j\037$\363l\2535\250\264\214qL9[\266\370\002\274h\352\311\007 \2340\016\343\266\246m=\313>\353\034V(\177\353\014\032=\303\215\341\367j\027\353\251\365h\357c^M5c\007\253\345ft_3\026\027C\"-\246\233}\375\355\271\276\352eq[~(\347\203\351F\317Q\271?\210\257G\337\222\323\315h\254\332/\262\362@\220\010.\325n\326?^-\253\r+b\t\326b}\325\361\252/2\202\313+\001\016\374Z\246\306\353\027V\023\315\376\201fl\240\372\251(\312aY\016\366\005\020\372z\325\020\303\0026\017\212}\342\226<+o\005\251 [{\255\206ke\225(\325\354?$\022\342\202L(,)\200.\360z\364\365\252)F\305\234\214\005\021\205d@L\213\373AoPV\004\216A\222\020\303yqDF\232\375C\342j\020\t\342\255\355Q-\210\254\307\016\2111\031\221\361\220bcP\013^\rkF\332\376\211`\024P\363Zj\017\177$8\027\372W\352\306\352\320jz\265\270\026_\033]\303j\225\213\224\230\014\"{\233\345F\317\021Q^\217\0164\006B\025\343\3420`/\311l\020i$R\365\241\306\370\215\265\317\0333z3:(\016\310\204<\037\034\006\341\307\316\3271\340o\364\035\227@\361\r\320i\\\226\033\332\331\372H}ZQ\036\006\245S2_\033\251\355\346\036\007\372\303\n\177-\335\214\r\t\240\001\2126c'\202wa\002\324\035\025\030\016\240\177\240\321sL&\000Z\365.H\003\252\366\302\371\307\366\357\374_\207\263zE\274#G%\226\273\237\321\233\362Z-\261\243\267T\245\222L\003\355>5\325\232W1\227A\002K\266f\326\243o\007aw\305D\244\325H\017e\\\216\201z\252y\016V\031\024\032\017\371\335\0142\001\253\215\325#\212\3249\340\300\225*A?t\033\253\217\255\356=\275\331\235\227 \205:W\225zP\364\n*\217\202R\217\352\227W\357\376\0256\314\007\"\"\342\377\001k""\254\237\231";
+    PyObject *data = __Pyx_DecompressString(cstring, 1411, 1);
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (2271 bytes) */
-const char* const bytes = "#30dNote that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.=\"'.\345\215\226\345\256\266\347\262\276\347\201\265\346\216\245\345\217\243\347\233\264\350\277\236\350\277\220\350\241\214\351\205\215\347\275\256\343\200\202?add_notedict[str, Any]dict[str, str].envopscli/seller_sprite/config.pystr | Nonetuple[dict[str, str], ...]utf-8AnyCONFIG_DIRDEFAULT_ACCOUNT_NAMEDEFAULT_OUTPUT_DIRDEFAULT_PAGE_SIZEDEFAULT_PERIODDEFAULT_SITEENV_ACCOUNTSENV_ACCOUNT_NAMEENV_OUTPUT_DIRENV_PAGE_SIZEENV_PASSWORDENV_USERNAMEJSONDecodeErrorOPSCLI_SELLER_SPRITE_ACCOUNTSOPSCLI_SELLER_SPRITE_ACCOUNT_NAMEOPSCLI_SELLER_SPRITE_OUTPUT_DIROPSCLI_SELLER_SPRITE_PAGE_SIZEOPSCLI_SELLER_SPRITE_PASSWORDOPSCLI_SELLER_SPRITE_USERNAMEPath__Pyx_PyDict_NextRefSellerSpriteSettingsSellerSpriteSettings.to_public_dictaccount_countaccount_nameaccounts__annotations__api_runsasdictasyncio.coroutinescline_in_tracebackcurrentcwddataclassdataclassesdefaultdefault_perioddefault_sitedirectory__doc__dotenvencodingenvironexistsexpanduserfrozen__func__gethas_passwordhas_usernameint_is_coroutineitemitemsjsonkeyline_load_env_valuesload_settingsloads__main____metaclass____module__name__name__opscli.configopscli.seller_sprite.configosoutput_dirpage_sizeparents_parse_accounts_parse_dotenv_parse_intparsedpasswordpathpathlibpayloadpop__prepare____qualname__raw_line_read_dotenvread_textresolvereturnselfseller_sprite__set_name__setdefaultsplitsplitlinesstartswithstrstrip__test__to_public_dicttypingususernamevaluevalues\320\000\026\320\026+\2508\2601\340\004\007\200t\2101\330\010\017\210q\330\004\005\330\010\021\220\023\220A\220Q\330\013\014\330\010\017\210q\330\004\013\210:\220W\230B\230g\240Q\320\000\030\230\t\240\021\340\004\035\230Q\330\004\010\210\014\220D\230\n\240!\2409\250H\260K\270q\330\010\017\210x\220v\230Q\330\010\013\2104\210u\220C\220t\230;\240a\240u\250C\250t\2607\270!\330\014\r\330\010\r\210X\220T""\230\026\230q\240\005\240Q\330\010\016\210c\220\026\220q\330\010\020\220\005\220V\2302\230V\2401\240D\250\006\250a\250q\330\010\013\2101\330\014\022\220!\2207\230!\330\004\013\2101\320\000\026\220a\340\004\016\210d\220$\220b\230\010\240\001\330\004\010\210\r\220Q\220j\240\007\240q\330\010\021\220\032\2302\230Q\330\010\013\2106\220\027\230\001\330\014\023\220=\240\001\240\021\330\004\013\2101\320\004 \240\001\340\010\022\220&\230\001\230\021\330\010\017\210q\320\020 \240\003\2401\240D\250\001\330\010\017\210q\320\020\"\240$\240a\240t\2501\330\010\017\210q\320\020\"\240$\240a\240t\2501\330\010\017\210q\320\020#\2403\240a\240t\250;\260c\270\023\270A\270T\300\021\300$\300a\330\010\017\210t\2201\220L\240\001\330\010\017\210t\2201\220L\240\001\330\010\017\210t\2201\220L\240\001\330\010\017\210q\320\000\027\220q\340\004\r\320\r\035\230Q\330\004\021\220\024\220Q\220f\230D\240\001\320!1\260\023\3204G\300{\320RS\330\004\020\220\n\230!\2306\240\024\240Q\320&6\260a\330\004\013\320\013\037\230q\330\010\025\220V\2304\230q\320 2\260#\260Q\330\010\021\220\026\220t\2301\230N\250#\250Q\330\010\021\220\026\220t\2301\230N\250#\250Q\330\010\021\220\037\240\001\240\026\240t\2501\250A\330\010\023\2201\330\010\022\220!\320\000\032\230!\340\004\r\210\\\230\021\330\004\010\210\007\210q\220\016\230n\320,>\270n\320L\\\320\\]\330\010\020\220\002\220(\230$\230a\230q\330\010\013\2101\330\014\022\220!\2207\230!\330\004\013\2101\320\000\033\230?\250!\340\004\007\200t\2101\330\010\017\210q\330\004\005\330\010\022\220$\220f\230A\230Q\330\013\017\210q\330\010\017\210q\330\004\007\200t\210:\220Q\220i\230q\330\010\017\210q\340\004%\240Q\330\004\010\210\010\220\001\330\010\013\2104\210z\230\021\230&\240\001\330\014\r\330\010\017\210s\220!\2204\220t\2301\230H\240C\240s\250&\260\001\330\010\023\2203\220a\220t\2304\230q\240\014\250C\250s\260&\270\001\330\010\023\2203\220a\220t\2304\230q\240\014\250C\250s\260&\270\001\330\010\013\2104\210u\220C\220t\2309\240C\240t\2501\330\014\r\330\010\020\220\007\220r\230""\030\240\026\240|\260:\270\\\310\021\330\004\013\2105\220\001\220\021";
+    #else /* compression: none (2429 bytes) */
+const char* const bytes = "#30dNote that Cython is deliberately stricter than PEP-484 and rejects subclasses of builtin types. If you need to pass subclasses then set the 'annotation_typing' directive to False.=\"'.\345\215\226\345\256\266\347\262\276\347\201\265\346\216\245\345\217\243\347\233\264\350\277\236\350\277\220\350\241\214\351\205\215\347\275\256\343\200\202?add_notedict[str, Any]dict[str, str].envopscli/seller_sprite/config.pystr | Nonetuple[dict[str, str], ...]utf-8AnyCONFIG_DIRDEFAULT_ACCOUNT_CACHE_TTL_SECONDSDEFAULT_ACCOUNT_NAMEDEFAULT_OUTPUT_DIRDEFAULT_PAGE_SIZEDEFAULT_PERIODDEFAULT_SITEENV_ACCOUNTSENV_ACCOUNT_CACHE_TTL_SECONDSENV_ACCOUNT_NAMEENV_OUTPUT_DIRENV_PAGE_SIZEENV_PASSWORDENV_USERNAMEJSONDecodeErrorOPSCLI_SELLER_SPRITE_ACCOUNTSOPSCLI_SELLER_SPRITE_ACCOUNT_CACHE_TTL_SECONDSOPSCLI_SELLER_SPRITE_ACCOUNT_NAMEOPSCLI_SELLER_SPRITE_OUTPUT_DIROPSCLI_SELLER_SPRITE_PAGE_SIZEOPSCLI_SELLER_SPRITE_PASSWORDOPSCLI_SELLER_SPRITE_USERNAMEPath__Pyx_PyDict_NextRefSellerSpriteSettingsSellerSpriteSettings.to_public_dictaccount_cache_ttl_secondsaccount_countaccount_nameaccounts__annotations__api_runsasdictasyncio.coroutinescline_in_tracebackcurrentcwddataclassdataclassesdefaultdefault_perioddefault_sitedirectory__doc__dotenvencodingenvironexistsexpanduserfrozen__func__gethas_passwordhas_usernameint_is_coroutineitemitemsjsonkeyline_load_env_valuesload_settingsloads__main____metaclass____module__name__name__opscli.configopscli.seller_sprite.configosoutput_dirpage_sizeparents_parse_accounts_parse_dotenv_parse_intparsedpasswordpathpathlibpayloadpop__prepare____qualname__raw_line_read_dotenvread_textresolvereturnselfseller_sprite__set_name__setdefaultsplitsplitlinesstartswithstrstrip__test__to_public_dicttypingususernamevaluevalues\320\000\026\320\026+\2508\2601\340\004\007\200t\2101\330\010\017\210q\330\004\005\330\010\021\220\023\220A\220Q\330\013\014\330\010\017\210q\330\004\013\210:\220W\230B\230g\240Q\320\000\030\230\t\240\021\340\004\035\230Q\330\004\010\210\014\220D\230\n\240!\2409\250H""\260K\270q\330\010\017\210x\220v\230Q\330\010\013\2104\210u\220C\220t\230;\240a\240u\250C\250t\2607\270!\330\014\r\330\010\r\210X\220T\230\026\230q\240\005\240Q\330\010\016\210c\220\026\220q\330\010\020\220\005\220V\2302\230V\2401\240D\250\006\250a\250q\330\010\013\2101\330\014\022\220!\2207\230!\330\004\013\2101\320\000\026\220a\340\004\016\210d\220$\220b\230\010\240\001\330\004\010\210\r\220Q\220j\240\007\240q\330\010\021\220\032\2302\230Q\330\010\013\2106\220\027\230\001\330\014\023\220=\240\001\240\021\330\004\013\2101\320\004 \240\001\340\010\022\220&\230\001\230\021\330\010\017\210q\320\020 \240\003\2401\240D\250\001\330\010\017\210q\320\020\"\240$\240a\240t\2501\330\010\017\210q\320\020\"\240$\240a\240t\2501\330\010\017\210q\320\020#\2403\240a\240t\250;\260c\270\023\270A\270T\300\021\300$\300a\330\010\017\210t\2201\220L\240\001\330\010\017\210t\2201\220L\240\001\330\010\017\210t\2201\220L\240\001\330\010\017\210q\320\000\027\220q\340\004\r\320\r\035\230Q\330\004\021\220\024\220Q\220f\230D\240\001\320!1\260\023\3204G\300{\320RS\330\004\020\220\n\230!\2306\240\024\240Q\320&6\260a\330\004\013\320\013\037\230q\330\010\025\220V\2304\230q\320 2\260#\260Q\330\010\021\220\026\220t\2301\230N\250#\250Q\330\010\021\220\026\220t\2301\230N\250#\250Q\330\010\021\220\037\240\001\240\026\240t\2501\250A\330\010\023\2201\330\010\022\220!\330\010\"\240*\250A\330\014\022\220$\220a\220q\330\014\r\320\000\032\230!\340\004\r\210\\\230\021\330\004\010\210\007\210q\330\010\t\330\010\t\330\010\t\330\010\t\330\010\t\330\010\t\330\010\t\340\010\020\220\002\220(\230$\230a\230q\330\010\013\2101\330\014\022\220!\2207\230!\330\004\013\2101\320\000\033\230?\250!\340\004\007\200t\2101\330\010\017\210q\330\004\005\330\010\022\220$\220f\230A\230Q\330\013\017\210q\330\010\017\210q\330\004\007\200t\210:\220Q\220i\230q\330\010\017\210q\340\004%\240Q\330\004\010\210\010\220\001\330\010\013\2104\210z\230\021\230&\240\001\330\014\r\330\010\017\210s\220!\2204\220t\2301\230H\240C\240s\250&\260\001\330""\010\023\2203\220a\220t\2304\230q\240\014\250C\250s\260&\270\001\330\010\023\2203\220a\220t\2304\230q\240\014\250C\250s\260&\270\001\330\010\013\2104\210u\220C\220t\2309\240C\240t\2501\330\014\r\330\010\020\220\007\220r\230\030\240\026\240|\260:\270\\\310\021\330\004\013\2105\220\001\220\021";
     PyObject *data = NULL;
     CYTHON_UNUSED_VAR(__Pyx_DecompressString);
     #endif
     PyObject **stringtab = __pyx_mstate->__pyx_string_tab;
     Py_ssize_t pos = 0;
-    for (int i = 0; i < 122; i++) {
+    for (int i = 0; i < 126; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyUnicode_DecodeUTF8(bytes + pos, bytes_length, NULL);
       if (likely(string) && i >= 18) PyUnicode_InternInPlace(&string);
@@ -6477,7 +6636,7 @@ const char* const bytes = "#30dNote that Cython is deliberately stricter than PE
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 122; i < 129; i++) {
+    for (int i = 126; i < 133; i++) {
       Py_ssize_t bytes_length = index[i].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
@@ -6488,14 +6647,14 @@ const char* const bytes = "#30dNote that Cython is deliberately stricter than PE
       }
     }
     Py_XDECREF(data);
-    for (Py_ssize_t i = 0; i < 129; i++) {
+    for (Py_ssize_t i = 0; i < 133; i++) {
       if (unlikely(PyObject_Hash(stringtab[i]) == -1)) {
         __PYX_ERR(0, 1, __pyx_L1_error)
       }
     }
     #if CYTHON_IMMORTAL_CONSTANTS
     {
-      PyObject **table = stringtab + 122;
+      PyObject **table = stringtab + 126;
       for (Py_ssize_t i=0; i<7; ++i) {
         #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
         #if PY_VERSION_HEX < 0x030E0000
@@ -6516,15 +6675,16 @@ const char* const bytes = "#30dNote that Cython is deliberately stricter than PE
   {
     PyObject **numbertab = __pyx_mstate->__pyx_number_tab + 0;
     int8_t const cint_constants_1[] = {0,1,100};
-    for (int i = 0; i < 3; i++) {
-      numbertab[i] = PyLong_FromLong(cint_constants_1[i - 0]);
+    int16_t const cint_constants_2[] = {600};
+    for (int i = 0; i < 4; i++) {
+      numbertab[i] = PyLong_FromLong((i < 3 ? cint_constants_1[i - 0] : cint_constants_2[i - 3]));
       if (unlikely(!numbertab[i])) __PYX_ERR(0, 1, __pyx_L1_error)
     }
   }
   #if CYTHON_IMMORTAL_CONSTANTS
   {
     PyObject **table = __pyx_mstate->__pyx_number_tab;
-    for (Py_ssize_t i=0; i<3; ++i) {
+    for (Py_ssize_t i=0; i<4; ++i) {
       #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
       #if PY_VERSION_HEX < 0x030E0000
       if (_Py_IsOwnedByCurrentThread(table[i]) && Py_REFCNT(table[i]) == 1)
@@ -6551,7 +6711,7 @@ typedef struct {
     unsigned int num_kwonly_args : 1;
     unsigned int nlocals : 3;
     unsigned int flags : 10;
-    unsigned int first_line : 7;
+    unsigned int first_line : 8;
 } __Pyx_PyCode_New_function_description;
 /* NewCodeObj.proto */
 static PyObject* __Pyx_PyCode_New(
@@ -6568,37 +6728,37 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
   PyObject* tuple_dedup_map = PyDict_New();
   if (unlikely(!tuple_dedup_map)) return -1;
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 41};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 2, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 44};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_payload};
     __pyx_mstate_global->__pyx_codeobj_tab[0] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_config_py, __pyx_mstate->__pyx_n_u_to_public_dict, __pyx_mstate->__pyx_kp_b_iso88591_q_1D_q_at1_q_at1_q_3at_c_AT_a_t, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[0])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 54};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 57};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_values, __pyx_mstate->__pyx_n_u_output_dir, __pyx_mstate->__pyx_n_u_page_size};
     __pyx_mstate_global->__pyx_codeobj_tab[1] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_config_py, __pyx_mstate->__pyx_n_u_load_settings, __pyx_mstate->__pyx_kp_b_iso88591_q_Q_QfD_1_4G_RS_6_Q_6a_q_V4q_2, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[1])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 69};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 76};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_values, __pyx_mstate->__pyx_n_u_key, __pyx_mstate->__pyx_n_u_value};
-    __pyx_mstate_global->__pyx_codeobj_tab[2] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_config_py, __pyx_mstate->__pyx_n_u_load_env_values, __pyx_mstate->__pyx_kp_b_iso88591_q_n_nL_aq_1_7_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[2])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[2] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_config_py, __pyx_mstate->__pyx_n_u_load_env_values, __pyx_mstate->__pyx_kp_b_iso88591_q_aq_1_7_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[2])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 79};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 94};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_current, __pyx_mstate->__pyx_n_u_directory, __pyx_mstate->__pyx_n_u_dotenv};
     __pyx_mstate_global->__pyx_codeobj_tab[3] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_config_py, __pyx_mstate->__pyx_n_u_read_dotenv, __pyx_mstate->__pyx_kp_b_iso88591_a_d_b_Qj_q_2Q_6_1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[3])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 89};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 6, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 104};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_path, __pyx_mstate->__pyx_n_u_values, __pyx_mstate->__pyx_n_u_raw_line, __pyx_mstate->__pyx_n_u_line, __pyx_mstate->__pyx_n_u_key, __pyx_mstate->__pyx_n_u_value};
     __pyx_mstate_global->__pyx_codeobj_tab[4] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_config_py, __pyx_mstate->__pyx_n_u_parse_dotenv, __pyx_mstate->__pyx_kp_b_iso88591_Q_D_9HKq_xvQ_4uCt_auCt7_XT_q_Q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[4])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 104};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 3, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 119};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_value, __pyx_mstate->__pyx_n_u_default, __pyx_mstate->__pyx_n_u_parsed};
     __pyx_mstate_global->__pyx_codeobj_tab[5] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_config_py, __pyx_mstate->__pyx_n_u_parse_int, __pyx_mstate->__pyx_kp_b_iso88591_81_t1_q_AQ_q_WBgQ, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[5])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 7, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 115};
+    const __Pyx_PyCode_New_function_description descr = {1, 0, 0, 7, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 130};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_value, __pyx_mstate->__pyx_n_u_payload, __pyx_mstate->__pyx_n_u_accounts, __pyx_mstate->__pyx_n_u_item, __pyx_mstate->__pyx_n_u_name, __pyx_mstate->__pyx_n_u_username, __pyx_mstate->__pyx_n_u_password};
     __pyx_mstate_global->__pyx_codeobj_tab[6] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_opscli_seller_sprite_config_py, __pyx_mstate->__pyx_n_u_parse_accounts, __pyx_mstate->__pyx_kp_b_iso88591_t1_q_fAQ_q_q_t_Qiq_q_Q_4z_s_4t1, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[6])) goto bad;
   }

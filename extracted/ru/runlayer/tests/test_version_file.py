@@ -90,7 +90,7 @@ def test_write_version_file(version_str: str, tmp_path: Path):
     assert _extract_filevers(content) == expected_tuple
 
 
-def test_enforce_name(tmp_path: Path):
+def test_hook_name(tmp_path: Path):
     _make_pyproject(tmp_path, "1.2.3")
     (tmp_path / "packaging").mkdir()
     build_dir = tmp_path / "build"
@@ -100,17 +100,16 @@ def test_enforce_name(tmp_path: Path):
     _version_file.__file__ = str(tmp_path / "packaging" / "_version_file.py")
     try:
         path = write_version_file(
-            name="aiwatch-enforce",
-            description="Runlayer AI Watch Enforce Hook",
+            name="aiwatch-hook",
+            description="Runlayer AI Watch Hook",
             build_dir=build_dir,
         )
     finally:
         _version_file.__file__ = orig
 
     content = Path(path).read_text()
-    assert _extract_string_struct(content, "InternalName") == "aiwatch-enforce"
-    assert _extract_string_struct(content, "OriginalFilename") == "aiwatch-enforce.exe"
+    assert _extract_string_struct(content, "InternalName") == "aiwatch-hook"
+    assert _extract_string_struct(content, "OriginalFilename") == "aiwatch-hook.exe"
     assert (
-        _extract_string_struct(content, "FileDescription")
-        == "Runlayer AI Watch Enforce Hook"
+        _extract_string_struct(content, "FileDescription") == "Runlayer AI Watch Hook"
     )

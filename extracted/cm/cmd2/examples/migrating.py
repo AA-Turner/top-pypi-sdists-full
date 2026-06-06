@@ -3,15 +3,19 @@
 
 # import cmd2 as cmd  # noqa: ERA001
 import cmd  # Comment this line and uncomment the one above to migrate to cmd2
-import random
+import secrets
 
 
 class CmdLineApp(cmd.Cmd):
     """Example cmd application."""
 
-    MUMBLES = ('like', '...', 'um', 'er', 'hmmm', 'ahh')
-    MUMBLE_FIRST = ('so', 'like', 'well')
-    MUMBLE_LAST = ('right?',)
+    MUMBLES = ("like", "...", "um", "er", "hmmm", "ahh")
+    MUMBLE_FIRST = ("so", "like", "well")
+    MUMBLE_LAST = ("right?",)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._secure_generator = secrets.SystemRandom()
 
     def do_exit(self, _line) -> bool:
         """Exit the application."""
@@ -28,20 +32,20 @@ class CmdLineApp(cmd.Cmd):
 
     def do_mumble(self, line) -> None:
         """Mumbles what you tell me to."""
-        words = line.split(' ')
+        words = line.split(" ")
         output = []
-        if random.random() < 0.33:
-            output.append(random.choice(self.MUMBLE_FIRST))
+        if self._secure_generator.random() < 0.33:
+            output.append(secrets.choice(self.MUMBLE_FIRST))
         for word in words:
-            if random.random() < 0.40:
-                output.append(random.choice(self.MUMBLES))
+            if self._secure_generator.random() < 0.40:
+                output.append(secrets.choice(self.MUMBLES))
             output.append(word)
-        if random.random() < 0.25:
-            output.append(random.choice(self.MUMBLE_LAST))
-        print(' '.join(output), file=self.stdout)
+        if self._secure_generator.random() < 0.25:
+            output.append(secrets.choice(self.MUMBLE_LAST))
+        print(" ".join(output), file=self.stdout)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
 
     c = CmdLineApp()

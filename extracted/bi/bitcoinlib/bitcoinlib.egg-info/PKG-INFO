@@ -1,13 +1,13 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: bitcoinlib
-Version: 0.7.8
+Version: 0.7.9
 Summary: Bitcoin cryptocurrency Library
 Home-page: http://github.com/1200wd/bitcoinlib
 Author: 1200wd
 Author-email: info@1200wd.com
 License: GNU3
 Keywords: bitcoin library cryptocurrency wallet crypto keys segwit transactions blocks
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Financial and Insurance Industry
@@ -28,14 +28,15 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Security :: Cryptography
 Classifier: Topic :: Office/Business :: Financial :: Accounting
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: requests>=2.25.0
-Requires-Dist: fastecdsa>=2.3.0; platform_system != "Windows"
+Requires-Dist: fastecdsa>=2.3.2; platform_system != "Windows"
 Requires-Dist: ecdsa>=0.18; platform_system == "Windows"
-Requires-Dist: pycryptodome>=3.19.0
+Requires-Dist: pycryptodome>=3.20.0
 Requires-Dist: SQLAlchemy>=2.0.20
 Provides-Extra: dev
-Requires-Dist: scrypt>=0.8.20; platform_system != "Windows" and extra == "dev"
+Requires-Dist: scrypt>=0.9.0; platform_system != "Windows" and extra == "dev"
 Requires-Dist: sphinx>=7.1.0; python_version < "3.9" and extra == "dev"
 Requires-Dist: sphinx>=7.2.0; python_version >= "3.9" and extra == "dev"
 Requires-Dist: psycopg>=3.1.16; extra == "dev"
@@ -45,6 +46,7 @@ Requires-Dist: mysqlclient>=2.2.0; extra == "dev"
 Requires-Dist: sphinx_rtd_theme>=2.0.0; extra == "dev"
 Requires-Dist: Cython>=3.0.8; extra == "dev"
 Requires-Dist: win-unicode-console; platform_system == "Windows" and extra == "dev"
+Dynamic: license-file
 
 Python Bitcoin Library
 ======================

@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+import asyncio
 import time
 import uuid
 from collections import OrderedDict
 from http import HTTPStatus
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 import structlog
 
+from mistralai.workflows.core._events.event_encoder import maybe_encode_event
 from mistralai.workflows.core.temporal.context_handler_interceptor import retrieve_context
+
+if TYPE_CHECKING:
+    from mistralai.workflows.core._events.event_encoder import EventPayloadEncoder
 from mistralai.workflows.exceptions import ErrorCode, WorkflowsException
 from mistralai.workflows.protocol.v1.events import WorkflowEvent
 from mistralai.workflows.protocol.v2.worker import (
@@ -80,7 +85,12 @@ class EventRoutePublisher:
     _EVENT_ROUTE_TOKEN_CACHE_SIZE = 100
     _EVENT_ROUTE_TOKEN_REFRESH_MARGIN_SECONDS = 5
 
-    def __init__(self, worker_client: PrivateWorkerClient, events_api_version: str = "v1") -> None:
+    def __init__(
+        self,
+        worker_client: PrivateWorkerClient,
+        events_api_version: str = "v1",
+        event_encoder: EventPayloadEncoder | None = None,
+    ) -> None:
         self._events_api_version = events_api_version
         async_client = worker_client.sdk_configuration.async_client
         if async_client is None:
@@ -88,8 +98,23 @@ class EventRoutePublisher:
         self._async_client: AsyncHttpClient = async_client
         self._server_url = worker_client.sdk_configuration.server_url.rstrip("/")
         self._event_route_token_cache: OrderedDict[tuple[str, str], tuple[str, float]] = OrderedDict()
+        self._event_encoder = event_encoder
 
-    async def publish_events(self, events: list[WorkflowEvent]) -> bool:
+    async def publish_events(
+        self,
+        events: list[WorkflowEvent],
+        already_encoded: bool = False,
+    ) -> bool:
+        """Publish events via v2 event route.
+
+        Args:
+            events: List of workflow events to publish.
+            already_encoded: If True, skip encoding (events are already encoded).
+                           If False (default), encode events before publishing.
+
+        Returns:
+            True if events were published via v2, False if v2 is not available.
+        """
         if not events:
             return False
 
@@ -105,6 +130,9 @@ class EventRoutePublisher:
             for event in events
         ):
             return False
+
+        if not already_encoded:
+            events = list(await asyncio.gather(*[maybe_encode_event(event, self._event_encoder) for event in events]))
 
         try:
             await self._publish_events_v2(events, execution_token)

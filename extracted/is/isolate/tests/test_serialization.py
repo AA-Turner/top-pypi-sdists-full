@@ -70,6 +70,7 @@ def test_deserialize_raised_exception_with_unimportable_type_preserves_traceback
 
     assert exc_info.value.message == "Error while deserializing the given object"
     assert exc_info.value.original_traceback is not None
+    assert exc_info.value.original_stringized_traceback == stringized_traceback
     assert isinstance(exc_info.value.__cause__, ModuleNotFoundError)
 
 

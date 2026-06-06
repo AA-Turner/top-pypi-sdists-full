@@ -175,6 +175,25 @@ _PRICING: dict[str, ModelPrice] = {
         output_per_mtok_usd=0.40,
         as_of="2026-05-27",
     ),
+    # OpenAI models served on AWS Bedrock via the `bedrock-mantle` endpoint
+    # (`bedrock_openai` backend, v0.1.216). Keyed by the Bedrock model ID
+    # (`openai.gpt-5.4` / `openai.gpt-5.5`). Rates are a PROXY using the
+    # OpenAI-direct GPT-5.4 family numbers — Bedrock-Mantle pricing varies by
+    # region/tier; see the AWS Bedrock pricing page. The cost summary already
+    # appends a `via bedrock` qualifier for `openai.`-prefixed IDs
+    # (is_bedrock_model). Revisit when AWS publishes exact Mantle rates.
+    "openai.gpt-5.4": ModelPrice(
+        model_id="openai.gpt-5.4",
+        input_per_mtok_usd=1.25,
+        output_per_mtok_usd=10.00,
+        as_of="2026-06-03",
+    ),
+    "openai.gpt-5.5": ModelPrice(
+        model_id="openai.gpt-5.5",
+        input_per_mtok_usd=1.25,
+        output_per_mtok_usd=10.00,
+        as_of="2026-06-03",
+    ),
 }
 
 

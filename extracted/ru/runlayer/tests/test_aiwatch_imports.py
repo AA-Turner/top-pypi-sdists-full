@@ -1,17 +1,9 @@
-"""Regression test: `aiwatch` must not import excluded modules at module load.
+"""Regression: ``aiwatch`` + ``aiwatch-hook`` closures must not import bundle-excluded modules.
 
-The PyInstaller bundle for `aiwatch` excludes `mcp`, `dotenv`, `anyio`, and
-friends to keep the binary small. If anything in the scan/auth/logs/org-api-key
-import chain pulls one in at top level, the packaged binary crashes on startup
-with `ModuleNotFoundError`.
-
-We simulate the packaged environment by spawning a fresh Python subprocess
-with each excluded module blocked at import, then assert
-`runlayer_cli.aiwatch` still imports cleanly.
-
-`_BLOCKED_TOPLEVEL` MUST stay in sync with `excludes=` in
-`cli/packaging/aiwatch.spec`. `tests/test_aiwatch_excludes_in_sync` enforces
-this — adding to one without the other fails CI.
+Spawns a subprocess with each excluded module blocked at import and asserts
+``runlayer_cli.aiwatch`` + the hook closure still load. ``_BLOCKED_TOPLEVEL``
+must stay in sync with ``excludes=`` in ``cli/packaging/aiwatch.spec``;
+``test_blocked_list_matches_spec_excludes`` enforces this.
 """
 
 from __future__ import annotations
@@ -136,6 +128,61 @@ def test_api_module_imports_without_mcp():
     result = _run_import_probe("import runlayer_cli.api")
     assert result.returncode == 0, (
         f"api module import pulled in a blocked module:\n"
+        f"stdout:\n{result.stdout}\n"
+        f"stderr:\n{result.stderr}"
+    )
+
+
+def test_hook_closure_imports_under_blocklist():
+    """The merged ``aiwatch-hook`` closure must also import cleanly.
+
+    Both ``aiwatch[.exe]`` and ``aiwatch-hook[.exe]`` share one
+    PyInstaller Analysis; an import-time pull of a blocked module from any
+    hook module would crash the hook exe at startup just like it would
+    crash scan.
+    """
+    probe = "\n        ".join(
+        [
+            "import runlayer_cli.aiwatch",
+            "import runlayer_cli.hook.dispatch",
+            "import runlayer_cli.hook.relay",
+            "import runlayer_cli.enrollment",
+        ]
+    )
+    result = _run_import_probe(probe)
+    assert result.returncode == 0, (
+        f"hook closure pulled in a blocked module:\n"
+        f"stdout:\n{result.stdout}\n"
+        f"stderr:\n{result.stderr}"
+    )
+
+
+def test_bootstrap_closure_imports_under_blocklist():
+    """The ``aiwatch bootstrap`` closure must import cleanly under bundle excludes.
+
+    ``aiwatch setup hooks install`` / ``aiwatch bootstrap`` is invoked by the
+    macOS enroll LaunchAgent + bootstrap LaunchDaemon pair (user + root) and
+    the Windows Intune Remediations pair (SYSTEM). An import-time
+    pull of a blocked module (``questionary`` / ``json5`` / etc.) would crash
+    the bundled exe at startup. ``hook_install`` is the slim re-implementation
+    of the per-client write logic precisely so these paths stay clean.
+    """
+    probe = "\n        ".join(
+        [
+            "import runlayer_cli.commands.enroll",
+            "import runlayer_cli.commands.aiwatch_setup",
+            "import runlayer_cli.commands.bootstrap",
+            "import runlayer_cli.hook_install",
+            "import runlayer_cli.hook_install.clients",
+            "import runlayer_cli.hook_install.check",
+            "import runlayer_cli.hook_install.console_user",
+            "import runlayer_cli.hook_install.paths",
+            "import runlayer_cli.hook_install.tolerant_json",
+        ]
+    )
+    result = _run_import_probe(probe)
+    assert result.returncode == 0, (
+        f"bootstrap closure pulled in a blocked module:\n"
         f"stdout:\n{result.stdout}\n"
         f"stderr:\n{result.stderr}"
     )

@@ -13,12 +13,12 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-  "grpcio==1.78.0",
-  "grpcio-tools==1.78.0",
-  "requests==2.33.0",
+  "grpcio==1.80.0",
+  "grpcio-tools==1.80.0",
+  "requests==2.33.1",
   "pipreqs-fivetran==1.1.2",
   "prompt-toolkit==3.0.52",
-  "pathspec==1.0.4",
+  "pathspec==1.1.1",
   "tqdm==4.67.1"
 ]
 
@@ -27,7 +27,7 @@ fivetran = "fivetran_connector_sdk:main"
 
 [project.urls]
 Homepage = "https://fivetran.com/docs/connectors/connector-sdk"
-Github = "https://github.com/fivetran/fivetran_connector_sdk"
+Github = "https://github.com/fivetran/connector_sdk"
 Changelog = "https://fivetran.com/docs/connectors/connector-sdk/changelog"
 
 [build-system]

@@ -58,6 +58,7 @@ use crate::construction::{KroneckerReparamResult, ReparamResult};
 use crate::estimate::EstimationError;
 use crate::faer_ndarray::fast_ab;
 use crate::matrix::{DesignMatrix, LinearOperator, ReparamOperator, SymmetricMatrix};
+use crate::mixture_link::inverse_link_has_fisher_weight_jet;
 use crate::probability::standard_normal_quantile;
 use crate::solver::active_set;
 use crate::types::{
@@ -676,17 +677,27 @@ pub fn fit_model_for_fixed_rho<'a, X: Into<DesignMatrix> + Clone>(
     )
 }
 
-/// `refine_gamma_dispersion`: when `true`, after the inner P-IRLS solve
-/// converges, re-estimate the Gamma dispersion shape ν = 1/φ at the *converged*
-/// linear predictor and iterate (β, ν) to their joint fixed point at the current
-/// λ (see the in-body comment at the refresh loop). This is ON only for the
-/// single final, reported fit at the REML-selected λ (#678). It is deliberately
-/// OFF for every REML cost / sigma-point evaluation: re-profiling ν against each
-/// trial λ's converged residuals would couple the scale to the smoothing
-/// parameter (a flat over-smoothed μ inflates the Gamma deviance ⇒ smaller ν ⇒
-/// larger φ ⇒ a smaller `deviance/(2φ)` REML term), perversely rewarding
-/// over-smoothing and biasing λ selection. mgcv likewise estimates the Gamma
-/// scale at the converged fit, not inside the λ search.
+/// `refine_dispersion_at_converged_eta`: when `true`, after the inner P-IRLS
+/// solve converges, re-estimate the family's estimated dispersion nuisance — the
+/// Gamma shape ν = 1/φ or the Beta precision φ — at the *converged* linear
+/// predictor and iterate the (β, dispersion) pair to its joint fixed point at the
+/// current λ (see the in-body comments at each refresh loop). This is ON only for
+/// the single final, reported fit at the REML-selected λ (#678 for Gamma, #769
+/// for Beta). It is deliberately OFF for every REML cost / sigma-point evaluation:
+/// re-profiling the dispersion against each trial λ's converged residuals would
+/// couple the scale to the smoothing parameter (a flat over-smoothed μ inflates
+/// the deviance ⇒ a smaller effective precision ⇒ a smaller `deviance/(2φ)` REML
+/// term), perversely rewarding over-smoothing and biasing λ selection. mgcv
+/// likewise estimates the scale at the converged fit, not inside the λ search.
+///
+/// The Gamma and Beta cases differ in what the re-solve buys. For Gamma the shape
+/// is a pure nuisance — β̂ is essentially scale-free — so the re-solve only keeps
+/// the reported dispersion and SEs self-consistent. For Beta the precision φ
+/// enters the *mean* score through the digamma terms
+/// `μ*ᵢ = ψ(μᵢφ) − ψ((1−μᵢ)φ)`, so a φ measured at the cold null predictor
+/// (μ ≈ 0.5) attenuates every slope toward zero; here the fixed point is
+/// load-bearing — it is what recovers the correct mean coefficients (the betareg
+/// alternating mean-fit ↔ φ-estimate scheme).
 pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix> + Clone>(
     rho: LogSmoothingParamsView<'_>,
     problem: PirlsProblem<'a, X>,
@@ -694,7 +705,7 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
     config: &PirlsConfig,
     warm_start_beta: Option<&Coefficients>,
     adaptive_kkt_tolerance: Option<AdaptiveKktTolerance>,
-    refine_gamma_dispersion: bool,
+    refine_dispersion_at_converged_eta: bool,
 ) -> Result<(PirlsResult, WorkingModelPirlsResult), EstimationError> {
     let PirlsProblem {
         x,
@@ -1205,16 +1216,10 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
         workspace,
         config.likelihood.clone(),
         config.link_kind.clone(),
-        (config.firth_bias_reduction
-            || !matches!(
-                config.robust_identification,
-                crate::solver::workflow::RobustIdentification::Off
-            ))
-            && matches!(
-                &config.link_kind,
-                InverseLink::Standard(StandardLink::Logit)
-                    | InverseLink::Standard(StandardLink::Probit)
-            ),
+        // Robustness is unconditionally on: the inner Firth/Jeffreys activation
+        // covers every binomial inverse link with a Fisher-weight jet.
+        matches!(config.likelihood.spec.response, ResponseFamily::Binomial)
+            && inverse_link_has_fisher_weight_jet(&config.link_kind),
         transform_active.clone(),
         quadctx,
     );
@@ -1262,16 +1267,11 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
     } else {
         initial_beta
     };
-    let robust_on = !matches!(
-        config.robust_identification,
-        crate::solver::workflow::RobustIdentification::Off
-    );
-    // Inner P-IRLS Firth activation. The released path is the legacy
-    // `firth_bias_reduction` flag restricted to logit; under the robustness
-    // flag it broadens to every link with a closed-form Fisher-weight jet
-    // (currently `{Logit, Probit}`). With the flag `Off` this is byte-identical.
-    let firth_active = (config.firth_bias_reduction || robust_on)
-        && matches!(link_function, LinkFunction::Logit | LinkFunction::Probit);
+    // Inner P-IRLS Firth activation. Robustness is unconditionally on, so the
+    // family-general Jeffreys/Firth term is armed on every binomial inverse link
+    // with a Fisher-weight jet.
+    let firth_active = matches!(config.likelihood.spec.response, ResponseFamily::Binomial)
+        && inverse_link_has_fisher_weight_jet(&config.link_kind);
     let base_max_step_halving = if firth_active { 60 } else { 30 };
     let options = WorkingModelPirlsOptions {
         // Firth logit fits often need more inner iterations to settle.
@@ -1365,7 +1365,9 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
     // Warm-started solves (every REML cost eval) already sit near the converged
     // η, so the first refresh check confirms ν and exits without a re-solve; the
     // added cost there is a single O(n) shape evaluation.
-    if refine_gamma_dispersion && working_model.likelihood.scale.gamma_shape_is_estimated() {
+    if refine_dispersion_at_converged_eta
+        && working_model.likelihood.scale.gamma_shape_is_estimated()
+    {
         // A few passes suffice: the converged-η shape map is a strong
         // contraction (β̂ barely moves once the mean is captured), so cold
         // starts settle in 1–2 re-solves and warm starts in zero.
@@ -1417,6 +1419,168 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
             // The shape moved: re-solve β at the corrected shape, warm-started
             // at the converged β, so the final working state is rebuilt with the
             // refreshed ν.
+            working_summary = runworking_model_pirls(
+                &mut working_model,
+                working_summary.beta.clone(),
+                &options,
+                &mut iteration_logger,
+            )?;
+        }
+    }
+
+    // ── Tweedie dispersion φ: re-estimate at the *converged* η (#771) ─────────
+    //
+    // Identical in spirit to the Gamma-shape refresh above: the inner LM solve
+    // estimates φ **once** from the warm-start η and freezes it (the
+    // `tweedie_phi_locked` lock), keeping the product φ·λ — and hence β̂ — a
+    // stationary LM target. φ enters only the working weight `prior·μ^{2−p}/φ`
+    // and not the working response, so (like the Gamma shape, and unlike the
+    // Beta precision which couples through the digamma mean score) the mean
+    // surface is essentially scale-free and β̂ barely moves when φ is corrected.
+    // But the frozen warm-start φ is the value that survives into
+    // `FitInference::dispersion` and the covariance `Vb = H⁻¹` (whose √φ scaling
+    // lives in the weight); at a cold-started η ≈ 0 the Pearson residuals carry
+    // the *marginal* spread of y, biasing the estimate. Re-estimating at the
+    // converged η — re-solving β only if φ moved materially — drives (β, φ) to
+    // their joint fixed point, so the reported φ is the converged-mean Pearson
+    // estimate and the final weights/Hessian/SE are internally consistent with
+    // it. Held OFF inside the REML λ search (the flag), φ is refreshed only at
+    // the reported fit, so it cannot couple to the smoothing parameter.
+    if refine_dispersion_at_converged_eta
+        && working_model.likelihood.scale.tweedie_phi_is_estimated()
+    {
+        if let ResponseFamily::Tweedie { p } = working_model.likelihood.spec.response {
+            // The converged-η Pearson map is a strong contraction (β̂ scale-free
+            // here), so cold starts settle in 1–2 re-solves and warm starts in
+            // zero.
+            const MAX_PHI_REFRESH: usize = 5;
+            // Relative φ tolerance below which a re-solve cannot move any reported
+            // quantity meaningfully (far under statistical resolution).
+            const PHI_REFRESH_REL_TOL: f64 = 1e-4;
+            for refresh_iter in 0..MAX_PHI_REFRESH {
+                let refreshed_phi = super::estimate_tweedie_phi_from_eta(
+                    y,
+                    working_summary.state.eta.as_ref(),
+                    priorweights,
+                    p,
+                );
+                let prior_phi = working_model.likelihood.fixed_phi().unwrap_or(1.0);
+                let rel_change =
+                    (refreshed_phi - prior_phi).abs() / prior_phi.max(f64::MIN_POSITIVE);
+                // Install the refreshed φ (the scale metadata the working weight
+                // reads via `fixed_phi()`) and re-arm the lock so a following
+                // re-solve does not overwrite this converged-η value. Because the
+                // exit paths below evaluate φ at the *current* η with no following
+                // re-solve, the reported φ always equals
+                // `estimate_tweedie_phi_from_eta(final_eta)`.
+                working_model.likelihood = working_model
+                    .likelihood
+                    .clone()
+                    .with_tweedie_phi(refreshed_phi);
+                working_model.tweedie_phi_locked = true;
+                if rel_change <= PHI_REFRESH_REL_TOL {
+                    // Converged: the working state already reflects a φ within
+                    // tolerance of `refreshed_phi`. Nothing left to rebuild.
+                    break;
+                }
+                if refresh_iter + 1 == MAX_PHI_REFRESH {
+                    // Final allowed pass and φ is still drifting. Do NOT re-solve:
+                    // re-solving would advance η past the point φ was evaluated at,
+                    // breaking the stored-φ == estimate(final_eta) invariant.
+                    break;
+                }
+                // φ moved materially: re-solve β at the corrected φ, warm-started
+                // at the converged β, so the final working state is rebuilt with
+                // the refreshed φ.
+                working_summary = runworking_model_pirls(
+                    &mut working_model,
+                    working_summary.beta.clone(),
+                    &options,
+                    &mut iteration_logger,
+                )?;
+            }
+        }
+    }
+
+    // ── Beta precision φ: re-estimate at the *converged* η and drive (β, φ) to
+    //    their joint fixed point (#769) ──────────────────────────────────────
+    //
+    // Like the Gamma shape above, the inner LM solve estimates φ **once** from
+    // the warm-start η and freezes it for the rest of the solve (the
+    // `beta_phi_locked` doc on `GamWorkingModel`): holding φ fixed keeps the
+    // penalized argmin β̂ a stationary LM target so the gain ratio compares one
+    // objective. But that lock pins φ to whatever η the solve started from, and
+    // for the final dedicated fit at the converged ρ the warm-start is the cold
+    // default guess (η ≈ 0, μ ≈ 0.5 everywhere). At the null predictor the
+    // Pearson residuals `(y−μ)²/(μ(1−μ))` capture the full *marginal* spread of
+    // y rather than its *conditional* spread, so the moment estimator
+    // `1+φ = Σw / Σ w·s` returns a precision far too small (≈3 when the truth is
+    // ≈20 here).
+    //
+    // Crucially — and unlike the Gamma shape — φ does **not** factor out of the
+    // Beta mean score. With the logit link the score for β is
+    //     ∂ℓ/∂β = φ · Σᵢ xᵢ (y*ᵢ − μ*ᵢ),   y*ᵢ = logit(yᵢ),
+    //     μ*ᵢ = ψ(μᵢφ) − ψ((1−μᵢ)φ),
+    // so the root β̂ depends on φ through the digamma terms. A φ that is too
+    // small shrinks every fitted coefficient toward zero. So this refresh is not
+    // cosmetic (as it is for Gamma): the re-solve is what *recovers the mean*.
+    //
+    // Fix: after the cold solve converges, re-estimate φ at the converged η,
+    // re-solve β at the corrected φ (warm-started), and repeat. This is the
+    // betareg alternating mean-fit ↔ φ-estimate scheme; the moment estimator is
+    // a strong contraction once the mean has any structure, so the pair settles
+    // in a handful of passes. Held OFF inside the REML λ search (see the flag
+    // doc), φ is refreshed only here at the reported fit, so it cannot couple to
+    // the smoothing parameter and reward over-smoothing. As with Gamma, every
+    // exit path installs φ evaluated at the *current* η with no following
+    // re-solve, so the reported φ (which flows into `EstimatedBetaPhi`, the
+    // embedded `Beta { phi }`, `dispersion`, and every SE) always equals
+    // `estimate_beta_phi_from_eta(final_eta)`.
+    if refine_dispersion_at_converged_eta && working_model.likelihood.scale.beta_phi_is_estimated()
+    {
+        // The mean moves between passes (φ feeds back through the digamma
+        // score), so allow a few more passes than the scale-free Gamma case;
+        // the contraction is fast and warm-started re-solves are cheap.
+        const MAX_PHI_REFRESH: usize = 30;
+        // Relative φ tolerance below which a re-solve cannot move β̂ — and hence
+        // any reported quantity — by a statistically meaningful amount.
+        const PHI_REFRESH_REL_TOL: f64 = 1e-4;
+        for refresh_iter in 0..MAX_PHI_REFRESH {
+            let refreshed_phi = super::estimate_beta_phi_from_eta(
+                y,
+                working_summary.state.eta.as_ref(),
+                priorweights,
+            );
+            let prior_phi = working_model.likelihood.fixed_phi().unwrap_or(1.0);
+            let rel_change = (refreshed_phi - prior_phi).abs() / prior_phi.max(f64::MIN_POSITIVE);
+            // Install the refreshed φ (updates BOTH the `Beta { phi }` family
+            // variant every weight/deviance expression reads and the
+            // `EstimatedBetaPhi` scale metadata) and re-arm the lock so a
+            // following re-solve's `update_with_curvature` does not overwrite
+            // this deliberately chosen value with a fresh cold estimate.
+            working_model.likelihood = working_model
+                .likelihood
+                .clone()
+                .with_beta_phi(refreshed_phi);
+            working_model.beta_phi_locked = true;
+            if rel_change <= PHI_REFRESH_REL_TOL {
+                // Converged: the just-installed φ matches (to tolerance) the φ
+                // the current working state was solved at, so β̂, the weights,
+                // the Hessian and the deviance are already self-consistent with
+                // the reported φ. Nothing left to rebuild.
+                break;
+            }
+            if refresh_iter + 1 == MAX_PHI_REFRESH {
+                // Final allowed pass and φ is still drifting. Do NOT re-solve:
+                // re-solving would advance η past the point the just-installed φ
+                // was evaluated at, breaking the stored-φ == estimate(final_eta)
+                // invariant. Stop here so the reported φ is exactly the moment
+                // estimate at the reported η.
+                break;
+            }
+            // φ moved materially: re-solve β at the corrected φ, warm-started at
+            // the converged β, so the mean is refit under the better precision
+            // and the final working state is rebuilt consistently.
             working_summary = runworking_model_pirls(
                 &mut working_model,
                 working_summary.beta.clone(),
@@ -1562,10 +1726,6 @@ pub struct PirlsConfig {
     pub max_iterations: usize,
     pub convergence_tolerance: f64,
     pub firth_bias_reduction: bool,
-    /// Universal under-identification robustness policy. `Off` (default) leaves
-    /// the inner P-IRLS Firth activation byte-identical to released behavior
-    /// (legacy `firth_bias_reduction` on Binomial-Logit only).
-    pub robust_identification: crate::solver::workflow::RobustIdentification,
     /// Optional warm-start hint for `WorkingModelPirlsOptions::initial_lm_lambda`.
     /// Forwarded directly when `fit_model_for_fixed_rho` builds its
     /// internal options. See the field doc on `WorkingModelPirlsOptions`

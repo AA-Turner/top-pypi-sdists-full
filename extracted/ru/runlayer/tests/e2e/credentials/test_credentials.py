@@ -200,14 +200,18 @@ def test_enroll_minimal_body(runner, runlayer_home, httpserver):
 
     host = httpserver.url_for("")
 
-    with patch("runlayer_cli.config.get_keyring_store", return_value=None):
+    with (
+        patch("runlayer_cli.config.get_keyring_store", return_value=None),
+        patch("runlayer_cli.enrollment.getpass.getuser", return_value="osuser"),
+        patch("runlayer_cli.enrollment.socket.gethostname", return_value="oshost"),
+    ):
         result = runner.invoke(
             app,
             ["credentials", "enroll", "rl_enroll_key", "--host", host],
         )
     assert result.exit_code == 0
     assert len(received) == 1
-    assert received[0].get_json() == {}
+    assert received[0].get_json() == {"username": "osuser", "device_name": "oshost"}
 
 
 def test_enroll_server_error(runner, runlayer_home, httpserver):

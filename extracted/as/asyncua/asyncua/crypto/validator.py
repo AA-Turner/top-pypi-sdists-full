@@ -1,13 +1,15 @@
-from typing import Callable, Awaitable, Optional
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from enum import Flag, auto
+
 from cryptography import x509
 from cryptography.x509.oid import ExtendedKeyUsageOID
+
 from asyncua import ua
 from asyncua.common.utils import ServiceError
-from asyncua.ua import ApplicationDescription
 from asyncua.crypto.truststore import TrustStore
+from asyncua.ua import ApplicationDescription
 
 _logger = logging.getLogger(__name__)
 
@@ -57,10 +59,10 @@ class CertificateValidator:
         self,
         options: CertificateValidatorOptions = CertificateValidatorOptions.BASIC_VALIDATION
         | CertificateValidatorOptions.PEER_CLIENT,
-        trust_store: Optional[TrustStore] = None,
+        trust_store: TrustStore | None = None,
     ):
         self._options = options
-        self._trust_store: Optional[TrustStore] = trust_store
+        self._trust_store: TrustStore | None = trust_store
 
     def set_validate_options(self, options: CertificateValidatorOptions):
         """Change the use validation options at runtime"""
@@ -88,7 +90,7 @@ class CertificateValidator:
             now = datetime.now(timezone.utc)
             if cert.not_valid_after_utc < now:
                 raise ServiceError(ua.StatusCodes.BadCertificateTimeInvalid)
-            elif cert.not_valid_before_utc > now:
+            if cert.not_valid_before_utc > now:
                 raise ServiceError(ua.StatusCodes.BadCertificateTimeInvalid)
         try:
             san = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName)
@@ -121,11 +123,10 @@ class CertificateValidator:
                 ]:
                     _logger.warning("mismatch between application type and certificate ExtendedKeyUsage")
                     raise ServiceError(ua.StatusCodes.BadCertificateUseNotAllowed)
-                elif (
-                    CertificateValidatorOptions.PEER_CLIENT in self._options
-                    and app_description.ApplicationType
-                    not in [ua.ApplicationType.Client, ua.ApplicationType.ClientAndServer]
-                ):
+                if CertificateValidatorOptions.PEER_CLIENT in self._options and app_description.ApplicationType not in [
+                    ua.ApplicationType.Client,
+                    ua.ApplicationType.ClientAndServer,
+                ]:
                     _logger.warning("mismatch between application type and certificate ExtendedKeyUsage")
                     raise ServiceError(ua.StatusCodes.BadCertificateUseNotAllowed)
 

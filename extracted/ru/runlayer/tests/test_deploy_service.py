@@ -235,12 +235,14 @@ def test_push_to_ecr_success(mock_api_client):
         mock_tag.return_value = (
             "123456789.dkr.ecr.us-east-1.amazonaws.com/my-repo:test-deployment-id"
         )
-        mock_push.return_value = "sha256:def789ghi012"
+        # push_image returns the registry-served digest (resolved internally).
+        mock_push.return_value = "sha256:registry-served-digest"
 
         result = _push_to_ecr(mock_api_client, image_id, deployment_id)
 
         expected_uri = (
-            "123456789.dkr.ecr.us-east-1.amazonaws.com/my-repo@sha256:def789ghi012"
+            "123456789.dkr.ecr.us-east-1.amazonaws.com/my-repo"
+            "@sha256:registry-served-digest"
         )
         assert result == expected_uri
         mock_auth.assert_called_once()

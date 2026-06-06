@@ -8,9 +8,9 @@ from collections.abc import MutableSequence, Sequence
 from contextlib import closing, suppress
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional, TypeVar, Union, cast
+from typing import Any, Literal, Optional, TypeVar, Union, cast
 
-from sqlalchemy import and_, create_engine, func, or_, text
+from sqlalchemy import and_, create_engine, exists, func, or_, text
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import InstrumentedAttribute, joinedload, sessionmaker
@@ -18,6 +18,7 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.pool import StaticPool
 from sqlalchemy.sql.expression import TextClause
 
+from pyrit.common.deprecation import print_deprecation_message
 from pyrit.common.path import DB_DATA_PATH
 from pyrit.common.singleton import Singleton
 from pyrit.memory.memory_interface import MemoryInterface
@@ -39,7 +40,7 @@ class _ExportableConversationPiece:
     def __init__(self, data: dict[str, Any]) -> None:
         self._data = data
 
-    def to_dict(self) -> dict[str, Any]:
+    def model_dump(self, *, mode: str = "python") -> dict[str, Any]:
         return self._data
 
 
@@ -60,7 +61,9 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
         *,
         db_path: Optional[Union[Path, str]] = None,
         verbose: bool = False,
-    ):
+        skip_schema_migration: bool = False,
+        silent: bool = False,
+    ) -> None:
         """
         Initialize the SQLiteMemory instance.
 
@@ -68,6 +71,10 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
             db_path (Optional[Union[Path, str]]): Path to the SQLite database file.
                 Defaults to "pyrit.db".
             verbose (bool): Whether to enable verbose logging.
+                Defaults to False.
+            skip_schema_migration (bool): Whether to skip schema migration.
+                Defaults to False.
+            silent (bool): If True, suppresses schema migration console output.
                 Defaults to False.
         """
         super().__init__()
@@ -80,7 +87,8 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
 
         self.engine = self._create_engine(has_echo=verbose)
         self.SessionFactory = sessionmaker(bind=self.engine)
-        self._create_tables_if_not_exist()
+        if not skip_schema_migration:
+            self._run_schema_migration(silent=silent)
 
     def _init_storage_io(self) -> None:
         # Handles disk-based storage for SQLite local memory.
@@ -128,20 +136,6 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
             logger.exception(f"Error creating the engine for the database: {e}")
             raise
 
-    def _create_tables_if_not_exist(self) -> None:
-        """
-        Create all tables defined in the Base metadata, if they don't already exist in the database.
-
-        Raises:
-            Exception: If there's an issue creating the tables in the database.
-        """
-        try:
-            # Using the 'checkfirst=True' parameter to avoid attempting to recreate existing tables
-            Base.metadata.create_all(self.engine, checkfirst=True)
-        except Exception as e:
-            logger.exception(f"Error during table creation: {e}")
-            raise
-
     def get_all_embeddings(self) -> Sequence[EmbeddingDataEntry]:
         """
         Fetch all entries from the specified table and returns them as model instances.
@@ -152,21 +146,37 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
         result: Sequence[EmbeddingDataEntry] = self._query_entries(EmbeddingDataEntry)
         return result
 
-    def _get_message_pieces_memory_label_conditions(self, *, memory_labels: dict[str, str]) -> list[TextClause]:
+    def _get_message_pieces_memory_label_conditions(self, *, memory_labels: dict[str, str]) -> list[Any]:
         """
         Generate SQLAlchemy filter conditions for filtering conversation pieces by memory labels.
         For SQLite, we use JSON_EXTRACT function to handle JSON fields.
 
+        Matches if labels are on the PromptMemoryEntry itself OR on any
+        AttackResultEntry that shares the same conversation_id.
+
         Returns:
             list: A list of SQLAlchemy conditions.
         """
-        # For SQLite, we use JSON_EXTRACT with text() and bindparams similar to Azure SQL approach
-        json_conditions = " AND ".join([f"JSON_EXTRACT(labels, '$.{key}') = :{key}" for key in memory_labels])
+        per_key_pme_conditions = []
+        per_key_are_conditions = []
+        for key, value in memory_labels.items():
+            pme_col = func.json_extract(PromptMemoryEntry.labels, f"$.{key}")
+            per_key_pme_conditions.append(pme_col == str(value))
+            are_col = func.json_extract(AttackResultEntry.labels, f"$.{key}")
+            per_key_are_conditions.append(are_col == str(value))
 
-        # Create SQL condition using SQLAlchemy's text() with bindparams
-        # for safe parameter passing, preventing SQL injection
-        condition = text(json_conditions).bindparams(**{key: str(value) for key, value in memory_labels.items()})
-        return [condition]
+        pme_match = and_(
+            PromptMemoryEntry.labels.isnot(None),
+            *per_key_pme_conditions,
+        )
+        are_match = exists().where(
+            and_(
+                AttackResultEntry.conversation_id == PromptMemoryEntry.conversation_id,
+                AttackResultEntry.labels.isnot(None),
+                *per_key_are_conditions,
+            )
+        )
+        return [or_(pme_match, are_match)]
 
     def _get_message_pieces_prompt_metadata_conditions(
         self, *, prompt_metadata: dict[str, Union[str, int]]
@@ -214,7 +224,7 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
             json_column (InstrumentedAttribute[Any]): The JSON-backed model field to query.
             property_path (str): The JSON path for the property to match.
             value (str): The string value that must match the extracted JSON property value.
-            partial_match (bool): Whether to perform a substring match.
+            partial_match (bool): Whether to perform a substring match. Defaults to False.
             case_sensitive (bool): Whether the match should be case-sensitive. Defaults to False.
 
         Returns:
@@ -238,6 +248,7 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
         property_path: str,
         array_element_path: str | None = None,
         array_to_match: Sequence[str],
+        match_mode: Literal["all", "any"] = "all",
     ) -> Any:
         """
         Return a SQLite DB condition for matching an array at a given path within a JSON object.
@@ -247,8 +258,12 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
             property_path (str): The JSON path for the target array.
             array_element_path (Optional[str]): An optional JSON path applied to each array item before matching.
             array_to_match (Sequence[str]): The array that must match the extracted JSON array values.
-                For a match, ALL values in this array must be present in the JSON array.
-                If `array_to_match` is empty, the condition matches only if the target is also an empty array or None.
+                Combination semantics for multiple entries are controlled by ``match_mode``.
+                If ``array_to_match`` is empty, the condition matches only if the target is also an
+                empty array or None (overloaded "absence" semantics, regardless of ``match_mode``).
+            match_mode (Literal["all", "any"]): How to combine multiple entries in ``array_to_match``.
+                ``"all"`` (default) requires every listed value to be present in the JSON array.
+                ``"any"`` requires at least one listed value to be present.
 
         Returns:
             Any: A database-specific SQLAlchemy condition.
@@ -282,14 +297,22 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
             )
             bindparams_dict[mv_param] = match_value.lower()
 
-        combined = " AND ".join(conditions)
-        return text(combined).bindparams(**bindparams_dict)
+        joiner = " OR " if match_mode == "any" else " AND "
+        combined = joiner.join(conditions)
+        return text(f"({combined})").bindparams(**bindparams_dict)
 
     def add_message_pieces_to_memory(self, *, message_pieces: Sequence[MessagePiece]) -> None:
         """
         Insert a list of message pieces into the memory storage.
+
+        Pieces flagged via ``MessagePiece.not_in_memory = True`` are
+        silently filtered out so callers don't need to track persistence policy
+        themselves.
         """
-        self._insert_entries(entries=[PromptMemoryEntry(entry=piece) for piece in message_pieces])
+        pieces_to_insert = [piece for piece in message_pieces if not piece.not_in_memory]
+        if not pieces_to_insert:
+            return
+        self._insert_entries(entries=[PromptMemoryEntry(entry=piece) for piece in pieces_to_insert])
 
     def _add_embeddings_to_memory(self, *, embedding_data: Sequence[EmbeddingDataEntry]) -> None:
         """
@@ -314,6 +337,8 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
         conditions: Optional[Any] = None,
         distinct: bool = False,
         join_scores: bool = False,
+        order_by: Optional[Any] = None,
+        limit: int | None = None,
     ) -> MutableSequence[Model]:
         """
         Fetch data from the specified table model with optional conditions.
@@ -323,6 +348,8 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
             conditions: SQLAlchemy filter conditions (Optional).
             distinct: Flag to return distinct rows (default is False).
             join_scores: Flag to join the scores table (default is False).
+            order_by: SQLAlchemy order_by clause (Optional).
+            limit (int | None): Maximum number of rows to return. Defaults to None (no limit).
 
         Returns:
             List of model instances representing the rows fetched from the table.
@@ -342,11 +369,15 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
                     )
                 if conditions is not None:
                     query = query.filter(conditions)
+                if order_by is not None:
+                    query = query.order_by(order_by)
                 if distinct:
-                    return query.distinct().all()
+                    query = query.distinct()
+                if limit is not None:
+                    query = query.limit(limit)
                 return query.all()
             except SQLAlchemyError as e:
-                logger.exception(f"Error fetching data from table {model_class.__tablename__}: {e}")  # type: ignore[attr-defined]
+                logger.exception(f"Error fetching data from table {model_class.__tablename__}: {e}")  # type: ignore[ty:unresolved-attribute]
                 raise
 
     def _insert_entry(self, entry: Base) -> None:
@@ -409,7 +440,7 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
                     # attributes from the (potentially stale) detached object
                     # and silently overwrite concurrent updates to columns
                     # that are NOT in update_fields.
-                    entry_in_session = session.get(type(entry), entry.id)  # type: ignore[attr-defined]
+                    entry_in_session = session.get(type(entry), entry.id)
                     if entry_in_session is None:
                         entry_in_session = session.merge(entry)
                     for field, value in update_fields.items():
@@ -436,13 +467,6 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
             Session: A SQLAlchemy session bound to the engine.
         """
         return self.SessionFactory()
-
-    def reset_database(self) -> None:
-        """
-        Drop and recreates all tables in the database.
-        """
-        Base.metadata.drop_all(self.engine)
-        Base.metadata.create_all(self.engine)
 
     def dispose_engine(self) -> None:
         """
@@ -486,6 +510,11 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
         Raises:
             ValueError: If the specified export format is not supported.
         """
+        print_deprecation_message(
+            old_item="SQLiteMemory.export_conversations",
+            new_item="the pyrit.output module or direct serialization of get_message_pieces results",
+            removed_in="0.15.0",
+        )
         # Import here to avoid circular import issues
         from pyrit.memory.memory_exporter import MemoryExporter
 
@@ -527,10 +556,10 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
         # Merge conversations and scores - create the data structure manually
         merged_data = []
         for piece in message_pieces:
-            piece_data = piece.to_dict()
+            piece_data = piece.model_dump(mode="json")
             # Find associated scores
             piece_scores = [score for score in scores if score.message_piece_id == piece.id]
-            piece_data["scores"] = [score.to_dict() for score in piece_scores]
+            piece_data["scores"] = [score.model_dump(mode="json") for score in piece_scores]
             merged_data.append(piece_data)
 
         if not merged_data:
@@ -572,6 +601,11 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
         Args:
             export_type (str): The format to export the data in (defaults to "json").
         """
+        print_deprecation_message(
+            old_item="SQLiteMemory.export_all_tables",
+            new_item="the pyrit.output module or direct serialization of table query results",
+            removed_in="0.15.0",
+        )
         table_models = self.get_all_table_models()
 
         for model in table_models:
@@ -580,7 +614,7 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
             file_extension = f".{export_type}"
             file_path = DB_DATA_PATH / f"{table_name}{file_extension}"
             # Convert to list for exporter compatibility
-            self.exporter.export_data(list(data), file_path=file_path, export_type=export_type)  # type: ignore[arg-type]
+            self.exporter.export_data(list(data), file_path=file_path, export_type=export_type)
 
     def _get_attack_result_harm_category_condition(self, *, targeted_harm_categories: Sequence[str]) -> Any:
         """
@@ -590,10 +624,6 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
         Returns:
             Any: A SQLAlchemy subquery for filtering by targeted harm categories.
         """
-        from sqlalchemy import and_, exists, func
-
-        from pyrit.memory.memory_models import AttackResultEntry, PromptMemoryEntry
-
         targeted_harm_categories_subquery = exists().where(
             and_(
                 PromptMemoryEntry.conversation_id == AttackResultEntry.conversation_id,
@@ -611,28 +641,44 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
         )
         return targeted_harm_categories_subquery  # noqa: RET504
 
-    def _get_attack_result_label_condition(self, *, labels: dict[str, str]) -> Any:
+    def _get_attack_result_label_condition(self, *, labels: dict[str, str | Sequence[str]]) -> Any:
         """
         SQLite implementation for filtering AttackResults by labels.
         Uses json_extract() function specific to SQLite.
 
+        Matches if labels are on any associated PromptMemoryEntry OR directly
+        on the AttackResultEntry itself.
+
+        Keys are AND-combined. For each key, a string value is an equality match;
+        a sequence value is an OR-within-key match (any listed value matches).
+        Empty sequences are no-ops (no constraint on that key).
+
         Returns:
-            Any: A SQLAlchemy subquery for filtering by labels.
+            Any: A SQLAlchemy condition for filtering by labels.
         """
-        from sqlalchemy import and_, exists, func
+        per_key_pme_conditions = []
+        per_key_are_conditions = []
+        for key, raw_value in labels.items():
+            values = [raw_value] if isinstance(raw_value, str) else list(raw_value)
+            if not values:
+                continue
+            pme_col = func.json_extract(PromptMemoryEntry.labels, f"$.{key}")
+            per_key_pme_conditions.append(pme_col.in_(values))
+            are_col = func.json_extract(AttackResultEntry.labels, f"$.{key}")
+            per_key_are_conditions.append(are_col.in_(values))
 
-        from pyrit.memory.memory_models import AttackResultEntry, PromptMemoryEntry
-
-        labels_subquery = exists().where(
+        pme_match = exists().where(
             and_(
                 PromptMemoryEntry.conversation_id == AttackResultEntry.conversation_id,
                 PromptMemoryEntry.labels.isnot(None),
-                and_(
-                    *[func.json_extract(PromptMemoryEntry.labels, f"$.{key}") == value for key, value in labels.items()]
-                ),
+                and_(*per_key_pme_conditions),
             )
         )
-        return labels_subquery  # noqa: RET504
+        are_match = and_(
+            AttackResultEntry.labels.isnot(None),
+            *per_key_are_conditions,
+        )
+        return or_(pme_match, are_match)
 
     def get_unique_attack_class_names(self) -> list[str]:
         """
@@ -693,19 +739,25 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
         placeholders = ", ".join(f":cid{i}" for i in range(len(conversation_ids)))
         params = {f"cid{i}": cid for i, cid in enumerate(conversation_ids)}
 
-        max_len = ConversationStats.PREVIEW_MAX_LEN
         sql = text(
             f"""
             SELECT
                 pme.conversation_id,
                 COUNT(DISTINCT pme.sequence) AS msg_count,
                 (
-                    SELECT SUBSTR(p2.converted_value, 1, {max_len + 3})
+                    SELECT SUBSTR(p2.converted_value, 1, {ConversationStats.PREVIEW_FETCH_MAX_LEN})
                     FROM "PromptMemoryEntries" p2
                     WHERE p2.conversation_id = pme.conversation_id
                     ORDER BY p2.sequence DESC, p2.id DESC
                     LIMIT 1
                 ) AS last_preview,
+                (
+                    SELECT p2b.converted_value_data_type
+                    FROM "PromptMemoryEntries" p2b
+                    WHERE p2b.conversation_id = pme.conversation_id
+                    ORDER BY p2b.sequence DESC, p2b.id DESC
+                    LIMIT 1
+                ) AS last_data_type,
                 (
                     SELECT p3.labels
                     FROM "PromptMemoryEntries" p3
@@ -728,11 +780,7 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
 
         result: dict[str, ConversationStats] = {}
         for row in rows:
-            conv_id, msg_count, last_preview, raw_labels, raw_created_at = row
-
-            preview = None
-            if last_preview:
-                preview = last_preview[:max_len] + "..." if len(last_preview) > max_len else last_preview
+            conv_id, msg_count, last_preview, last_data_type, raw_labels, raw_created_at = row
 
             labels: dict[str, str] = {}
             if raw_labels and raw_labels not in ("null", "{}"):
@@ -748,7 +796,8 @@ class SQLiteMemory(MemoryInterface, metaclass=Singleton):
 
             result[conv_id] = ConversationStats(
                 message_count=msg_count,
-                last_message_preview=preview,
+                last_message_preview=last_preview,
+                last_message_data_type=last_data_type,
                 labels=labels,
                 created_at=created_at,
             )

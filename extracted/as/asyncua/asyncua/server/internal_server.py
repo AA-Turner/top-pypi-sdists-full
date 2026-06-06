@@ -3,34 +3,37 @@ Internal server implementing opcu-ua interface.
 Can be used on server side or to implement binary/https opc-ua servers
 """
 
-from typing import Callable, Optional
+from __future__ import annotations
+
 import asyncio
-from datetime import datetime, timedelta, timezone
-from copy import copy
-from struct import unpack_from
-from pathlib import Path
 import logging
+from collections.abc import Callable
+from copy import copy
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from struct import unpack_from
+from typing import Any
 from urllib.parse import urlparse
 
 from asyncua import ua
-from .user_managers import PermissiveUserManager, UserManager
+from asyncua.crypto.permission_rules import User, UserRole
+
 from ..common.callback import CallbackService
 from ..common.node import Node
-from .history import HistoryManager
-from .address_space import NodeData, AddressSpace, AttributeService, ViewService, NodeManagementService, MethodService
-from .subscription_service import SubscriptionService
-from .standard_address_space import standard_address_space
-from asyncua.crypto.permission_rules import User, UserRole
-from .internal_session import InternalSession
-from .event_generator import EventGenerator
-from ..crypto.validator import CertificateValidatorMethod
 from ..crypto import uacrypto
+from ..crypto.validator import CertificateValidatorMethod
+from .address_space import AddressSpace, AttributeService, MethodService, NodeData, NodeManagementService, ViewService
+from .event_generator import EventGenerator
+from .history import HistoryManager
+from .internal_session import InternalSession
+from .subscription_service import SubscriptionService
+from .user_managers import PermissiveUserManager, UserManager
 
 _logger = logging.getLogger(__name__)
 
 
 class ServerDesc:
-    def __init__(self, serv, cap=None):
+    def __init__(self, serv: Any, cap: Any = None) -> None:
         self.Server = serv
         self.Capabilities = cap
 
@@ -40,43 +43,73 @@ class InternalServer:
     There is one `InternalServer` for every `Server`.
     """
 
-    def __init__(self, user_manager: UserManager = None):
+    def __init__(self, user_manager: UserManager | None = None) -> None:
         self.logger = logging.getLogger(__name__)
         self.callback_service = CallbackService()
-        self.endpoints = []
+        self.endpoints: list[ua.EndpointDescription] = []
         self._channel_id_counter = 5
         self.allow_remote_admin = True
-        self.bind_condition_methods = False
+        self.bind_condition_methods: bool | int = False
         self.disabled_clock = False  # for debugging, we may want to disable clock that writes too much in log
-        self._known_servers = {}  # used if we are a discovery server
-        self.certificate = None
-        self.private_key = None
+        self._known_servers: dict[str, ServerDesc] = {}  # used if we are a discovery server
+        # auth_token -> InternalSession: lets a fresh UaProcessor reattach to an existing
+        # session on ActivateSession (spec Part 4 §6.7 reconnect path).
+        self._external_sessions: dict[ua.NodeId, "InternalSession"] = {}
+        # Server-side limits — clamp client-requested values to avoid resource exhaustion
+        # when clients abandon long-lived sessions. Tighten on a per-deployment basis.
+        self.max_session_timeout_ms: float = 600_000
+        self.min_session_timeout_ms: float = 5_000
+        self.max_unacked_messages_per_subscription: int = 5_000
+        self.max_monitored_item_queue_size: int = 10_000
+        # Per-connection inbound message queue depth. data_received() refuses
+        # further frames and closes the transport once this many parsed
+        # messages are queued behind the processor coroutine.
+        self.max_pending_messages_per_connection: int = 500
+        # Maximum number of accepted TCP connections (pre-activation included).
+        # Refused at connection_made() to prevent FD exhaustion via parked sockets
+        # that never call ActivateSession.
+        self.max_connections: int = 1_000
+        # Connections that haven't activated a session this many seconds after
+        # connecting are closed by the binary server. 0 disables the watchdog.
+        self.max_pending_activation_seconds: float = 30.0
+        # Subscription parameter clamps — protect against clients that ask for
+        # near-infinite RevisedLifetimeCount and then close the session without
+        # deleting subscriptions (CVE-2022-24298 family). Orphaned-subscription
+        # lifetime is RevisedLifetimeCount * RevisedPublishingInterval, so the
+        # count cap is what matters; PublishingInterval is left to the client.
+        self.max_lifetime_count: int = 15_000
+        self.max_keep_alive_count: int = 5_000
+        # Total subscription count cap across the whole server. Past this,
+        # CreateSubscription returns BadTooManySubscriptions.
+        self.max_subscriptions: int = 1_000
+        self.certificate: Any = None
+        self.private_key: Any = None
         self.aspace = AddressSpace()
         self.attribute_service = AttributeService(self.aspace)
         self.view_service = ViewService(self.aspace)
         self.method_service = MethodService(self.aspace)
         self.node_mgt_service = NodeManagementService(self.aspace)
-        self.asyncio_transports = []
-        self.subscription_service: SubscriptionService = SubscriptionService(self.aspace)
+        self.asyncio_transports: list[Any] = []
+        self.subscription_service: SubscriptionService = SubscriptionService(self.aspace, iserver=self)
         self.history_manager = HistoryManager(self)
         if user_manager is None:
             _logger.info("No user manager specified. Using default permissive manager instead.")
             user_manager = PermissiveUserManager()
         self.user_manager = user_manager
-        self.certificate_validator: Optional[CertificateValidatorMethod] = None
+        self.certificate_validator: CertificateValidatorMethod | None = None
         """hook to validate a certificate, raises a ServiceError when not valid"""
         # create a session to use on server side
         self.isession = InternalSession(
             self, self.aspace, self.subscription_service, "Internal", user=User(role=UserRole.Admin)
         )
         self.current_time_node = Node(self.isession, ua.NodeId(ua.ObjectIds.Server_ServerStatus_CurrentTime))
-        self.time_task = None
+        self.time_task: asyncio.Task[None] | None = None
         self._time_task_stop = False
         self.match_discovery_endpoint_url: bool = True
         self.match_discovery_source_ip: bool = True
         self.supported_tokens = (ua.AnonymousIdentityToken, ua.X509IdentityToken, ua.UserNameIdentityToken)
 
-    async def init(self, shelffile: Optional[Path] = None):
+    async def init(self, shelffile: Path | None = None) -> None:
         await self.load_standard_address_space(shelffile)
         await self._address_space_fixes()
         await self.setup_nodes()
@@ -84,7 +117,7 @@ class InternalServer:
         if self.bind_condition_methods:
             await self.setup_condition_methods()
 
-    async def setup_condition_methods(self):
+    async def setup_condition_methods(self) -> None:
         for etype in (ua.ObjectIds.RefreshStartEventType, ua.ObjectIds.RefreshEndEventType):
             evgen = EventGenerator(self.isession)
             await evgen.init(etype, add_generates_event=False)
@@ -100,7 +133,7 @@ class InternalServer:
             ua.NodeId(ua.ObjectIds.ConditionType_ConditionRefresh2), self.subscription_service.condition_refresh
         )
 
-    async def setup_nodes(self):
+    async def setup_nodes(self) -> None:
         """
         Set up some nodes as defined by spec
         """
@@ -128,29 +161,31 @@ class InternalServer:
             attr.AttributeId = ua.AttributeIds.Value
             attr.Value = ua.DataValue(
                 ua.Variant(10000, ua.VariantType.UInt32),
-                StatusCode_=ua.StatusCode(ua.StatusCodes.Good),
+                StatusCode=ua.StatusCode(ua.StatusCodes.Good),
                 SourceTimestamp=datetime.now(timezone.utc),
             )
             params.NodesToWrite.append(attr)
         result = await self.isession.write(params)
         result[0].check()
 
-    async def load_standard_address_space(self, shelf_file: Optional[Path] = None):
+    async def load_standard_address_space(self, shelf_file: Path | None = None) -> None:
         if shelf_file:
-            if shelf_file.is_file() or (shelf_file / ".db").is_file():
+            if shelf_file.is_file() or shelf_file.with_suffix(".db").is_file():  # noqa: ASYNC240
                 # import address space from shelf
                 self.aspace.load_aspace_shelf(shelf_file)
                 return
         # import address space from code generated from xml
-        standard_address_space.fill_address_space(self.node_mgt_service)
+        from .standard_address_space import standard_address_space
+
+        await asyncio.to_thread(standard_address_space.fill_address_space, self.node_mgt_service)
         # import address space directly from xml, this has performance impact so disabled
         # importer = xmlimporter.XmlImporter(self.node_mgt_service)
         # importer.import_xml("/path/to/python-asyncua/schemas/Opc.Ua.NodeSet2.xml", self)
         if shelf_file:
             # path was supplied, but file doesn't exist - create one for next start up
-            self.aspace.make_aspace_shelf(shelf_file)
+            await asyncio.to_thread(self.aspace.make_aspace_shelf, shelf_file)
 
-    async def _address_space_fixes(self):  # type: ignore
+    async def _address_space_fixes(self) -> None:
         """
         Looks like the xml definition of address space has some error. This is a good place to fix them
         """
@@ -172,19 +207,19 @@ class InternalServer:
         for res in results:
             res.check()
 
-    def load_address_space(self, path):
+    def load_address_space(self, path: str | Path) -> None:
         """
         Load address space from path
         """
         self.aspace.load(path)
 
-    def dump_address_space(self, path):
+    def dump_address_space(self, path: str | Path) -> None:
         """
         Dump current address space to path
         """
         self.aspace.dump(path)
 
-    async def start(self):
+    async def start(self) -> None:
         self.logger.info("starting internal server")
         for edp in self.endpoints:
             self._known_servers[edp.Server.ApplicationUri] = ServerDesc(edp.Server)
@@ -197,7 +232,7 @@ class InternalServer:
         if not self.disabled_clock:
             self.time_task = asyncio.create_task(self._set_current_time_loop())
 
-    async def stop(self):
+    async def stop(self) -> None:
         self.logger.info("stopping internal server")
         if self.time_task:
             self._time_task_stop = True
@@ -206,19 +241,24 @@ class InternalServer:
         await self.isession.close_session()
         await self.history_manager.stop()
 
-    async def _set_current_time_loop(self):
+    async def _set_current_time_loop(self) -> None:
         while not self._time_task_stop:
             await self.current_time_node.write_value(datetime.now(timezone.utc))
             await asyncio.sleep(1)
 
-    def get_new_channel_id(self):
+    def get_new_channel_id(self) -> int:
         self._channel_id_counter += 1
         return self._channel_id_counter
 
-    def add_endpoint(self, endpoint):
+    def add_endpoint(self, endpoint: ua.EndpointDescription) -> None:
         self.endpoints.append(endpoint)
 
-    def _mangle_endpoint_url(self, ep_url, params_ep_url=None, sockname=None):
+    def _mangle_endpoint_url(
+        self,
+        ep_url: str,
+        params_ep_url: str | None = None,
+        sockname: tuple[str, int] | None = None,
+    ) -> str:
         url = urlparse(ep_url)
         if self.match_discovery_endpoint_url and params_ep_url:
             try:
@@ -231,7 +271,9 @@ class InternalServer:
             return url._replace(netloc=sockname[0] + ":" + str(sockname[1])).geturl()
         return url.geturl()
 
-    async def get_endpoints(self, params=None, sockname=None):
+    async def get_endpoints(
+        self, params: ua.GetEndpointsParameters | None = None, sockname: tuple[str, int] | None = None
+    ) -> list[ua.EndpointDescription]:
         self.logger.info("get endpoint")
         edps = []
         params_ep_url = params.EndpointUrl if params else None
@@ -246,7 +288,9 @@ class InternalServer:
             edps.append(edp)
         return edps
 
-    def find_servers(self, params, sockname=None):
+    def find_servers(
+        self, params: ua.FindServersParameters, sockname: tuple[str, int] | None = None
+    ) -> list[ua.ApplicationDescription]:
         servers = []
         params_server_uris = [uri.split(":") for uri in params.ServerUris] if params.ServerUris else []
         our_application_uris = [edp.Server.ApplicationUri for edp in self.endpoints]
@@ -266,7 +310,7 @@ class InternalServer:
             servers.append(serv)
         return servers
 
-    def register_server(self, server, conf=None):
+    def register_server(self, server: Any, conf: Any = None) -> None:
         appdesc = ua.ApplicationDescription()
         appdesc.ApplicationUri = server.ServerUri
         appdesc.ProductUri = server.ProductUri
@@ -278,13 +322,26 @@ class InternalServer:
         appdesc.GatewayServerUri = server.GatewayServerUri
         self._known_servers[server.ServerUri] = ServerDesc(appdesc, conf)
 
-    def register_server2(self, params):
+    def register_server2(self, params: ua.RegisterServer2Parameters) -> None:
         return self.register_server(params.Server, params.DiscoveryConfiguration)
 
-    def create_session(self, name, user=User(role=UserRole.Anonymous), external=False):
+    def create_session(
+        self, name: str, user: User = User(role=UserRole.Anonymous), external: bool = False
+    ) -> InternalSession:
         return InternalSession(self, self.aspace, self.subscription_service, name, user=user, external=external)
 
-    async def enable_history_data_change(self, node, period=timedelta(days=7), count=0):
+    def lookup_external_session(self, auth_token: ua.NodeId) -> "InternalSession | None":
+        return self._external_sessions.get(auth_token)
+
+    def register_external_session(self, session: "InternalSession") -> None:
+        self._external_sessions[session.auth_token] = session
+
+    def unregister_external_session(self, session: "InternalSession") -> None:
+        self._external_sessions.pop(session.auth_token, None)
+
+    async def enable_history_data_change(
+        self, node: Node, period: timedelta | None = timedelta(days=7), count: int = 0
+    ) -> None:
         """
         Set attribute Historizing of node to True and start storing data for history
         """
@@ -293,7 +350,7 @@ class InternalServer:
         await node.set_attr_bit(ua.AttributeIds.UserAccessLevel, ua.AccessLevel.HistoryRead)
         await self.history_manager.historize_data_change(node, period, count)
 
-    async def disable_history_data_change(self, node):
+    async def disable_history_data_change(self, node: Node) -> None:
         """
         Set attribute Historizing of node to False and stop storing data for history
         """
@@ -302,7 +359,9 @@ class InternalServer:
         await node.unset_attr_bit(ua.AttributeIds.UserAccessLevel, ua.AccessLevel.HistoryRead)
         await self.history_manager.dehistorize(node)
 
-    async def enable_history_event(self, source, period=timedelta(days=7), count=0):
+    async def enable_history_event(
+        self, source: Node, period: timedelta | None = timedelta(days=7), count: int = 0
+    ) -> None:
         """
         Set attribute History Read of object events to True and start storing data for history
         """
@@ -314,26 +373,28 @@ class InternalServer:
             await source.set_event_notifier(event_notifier)
         await self.history_manager.historize_event(source, period, count)
 
-    async def disable_history_event(self, source):
+    async def disable_history_event(self, source: Node) -> None:
         """
         Set attribute History Read of node to False and stop storing data for history
         """
         await source.unset_attr_bit(ua.AttributeIds.EventNotifier, ua.EventNotifier.HistoryRead)
         await self.history_manager.dehistorize(source)
 
-    def subscribe_server_callback(self, event, handle):
+    def subscribe_server_callback(self, event: str, handle: Callable[..., Any]) -> None:
         """
         Create a subscription from event to handle
         """
         self.callback_service.addListener(event, handle)
 
-    def unsubscribe_server_callback(self, event, handle):
+    def unsubscribe_server_callback(self, event: str, handle: Callable[..., Any]) -> None:
         """
         Remove a subscription from event to handle
         """
         self.callback_service.removeListener(event, handle)
 
-    async def write_attribute_value(self, nodeid, datavalue, attr=ua.AttributeIds.Value):
+    async def write_attribute_value(
+        self, nodeid: ua.NodeId, datavalue: ua.DataValue, attr: ua.AttributeIds = ua.AttributeIds.Value
+    ) -> None:
         """
         directly write datavalue to the Attribute, bypassing some checks and structure creation,
         so it is a little faster
@@ -344,7 +405,7 @@ class InternalServer:
         self,
         nodeid: ua.NodeId,
         callback: Callable[[ua.NodeId, ua.AttributeIds], ua.DataValue],
-        attr=ua.AttributeIds.Value,
+        attr: ua.AttributeIds = ua.AttributeIds.Value,
     ) -> None:
         """
         Set a callback function to the Attribute that returns a value for read_attribute_value() instead of the
@@ -356,7 +417,7 @@ class InternalServer:
         self,
         nodeid: ua.NodeId,
         setter: Callable[[NodeData, ua.AttributeIds, ua.DataValue], None],
-        attr=ua.AttributeIds.Value,
+        attr: ua.AttributeIds = ua.AttributeIds.Value,
     ) -> None:
         """
         Set a setter function for the Attribute. This setter will be called when a new value is set using
@@ -366,20 +427,22 @@ class InternalServer:
         """
         self.aspace.set_attribute_value_setter(nodeid, attr, setter)
 
-    def read_attribute_value(self, nodeid, attr=ua.AttributeIds.Value):
+    def read_attribute_value(
+        self, nodeid: ua.NodeId, attr: ua.AttributeIds = ua.AttributeIds.Value
+    ) -> ua.DataValue:
         """
         directly read datavalue of the Attribute
         """
         return self.aspace.read_attribute_value(nodeid, attr)
 
-    def set_user_manager(self, user_manager):
+    def set_user_manager(self, user_manager: UserManager) -> None:
         """
         set up a function which that will check for authorize users. Input function takes username
         and password as parameters and returns True of user is allowed access, False otherwise.
         """
         self.user_manager = user_manager
 
-    def decrypt_user_token(self, isession, token):
+    def decrypt_user_token(self, isession: Any, token: ua.UserNameIdentityToken) -> tuple[str, str]:
         """
         unpack the username and password for the benefit of the user defined user manager
         """
@@ -407,7 +470,7 @@ class InternalServer:
 
         return user_name, password
 
-    def verify_x509_token(self, isession, token, signature):
+    def verify_x509_token(self, isession: Any, token: ua.X509IdentityToken, signature: ua.SignatureData) -> bytes:
         """
         verify certificate signature
         """

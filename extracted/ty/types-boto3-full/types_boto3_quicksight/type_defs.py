@@ -43,6 +43,7 @@ from .literals import (
     AssetBundleImportFailureActionType,
     AssetBundleImportJobStatusType,
     AssignmentStatusType,
+    AudioExtractionStatusType,
     AuthenticationMethodOptionType,
     AuthenticationTypeType,
     AuthorSpecifiedAggregationType,
@@ -93,6 +94,7 @@ from .literals import (
     DataSetImportModeType,
     DataSetNumericComparisonFilterOperatorType,
     DatasetParameterValueTypeType,
+    DataSetStatusType,
     DataSetStringComparisonFilterOperatorType,
     DataSetStringListFilterOperatorType,
     DataSourceErrorInfoTypeType,
@@ -133,6 +135,7 @@ from .literals import (
     IconType,
     IdentityTypeType,
     ImageCustomActionTriggerType,
+    ImageExtractionStatusType,
     IncludeFolderMembersType,
     IncludeGeneratedAnswerType,
     IncludeQuickSightQIndexType,
@@ -144,6 +147,10 @@ from .literals import (
     InputColumnDataTypeType,
     JoinOperationTypeType,
     JoinTypeType,
+    KbIngestionStatusType,
+    KnowledgeBaseSearchFilterNameType,
+    KnowledgeBaseSearchOperatorType,
+    KnowledgeBaseSortByFieldType,
     KPISparklineTypeType,
     KPIVisualStandardLayoutTypeType,
     LayerCustomActionTriggerType,
@@ -231,6 +238,7 @@ from .literals import (
     SnapshotFileSheetSelectionScopeType,
     SnapshotJobStatusType,
     SortDirectionType,
+    SortOrderType,
     SpaceQuickSightResourceTypeType,
     SpaceQuickSightSearchFilterNameType,
     SpaceSearchOperatorType,
@@ -268,10 +276,13 @@ from .literals import (
     TransposedColumnTypeType,
     UndefinedSpecifiedValueTypeType,
     URLTargetConfigurationType,
+    UserIndexCapacitySortOrderType,
     UserRoleType,
     ValidationStrategyModeType,
     ValueWhenUnsetOptionType,
     VerticalTextAlignmentType,
+    VideoExtractionStatusType,
+    VideoExtractionTypeType,
     VisibilityType,
     VisualCustomActionTriggerType,
     VisualHighlightTriggerType,
@@ -435,6 +446,7 @@ __all__ = (
     "AssetOptionsTypeDef",
     "AthenaParametersTypeDef",
     "AttributeAggregationFunctionTypeDef",
+    "AudioExtractionConfigurationTypeDef",
     "AuroraParametersTypeDef",
     "AuroraPostgreSqlParametersTypeDef",
     "AuthConfigTypeDef",
@@ -473,6 +485,10 @@ __all__ = (
     "BasicAuthConnectionMetadataTypeDef",
     "BatchCreateTopicReviewedAnswerRequestTypeDef",
     "BatchCreateTopicReviewedAnswerResponseTypeDef",
+    "BatchDeleteKnowledgeBaseFailureTypeDef",
+    "BatchDeleteKnowledgeBaseRequestTypeDef",
+    "BatchDeleteKnowledgeBaseResponseTypeDef",
+    "BatchDeleteKnowledgeBaseSuccessTypeDef",
     "BatchDeleteTopicReviewedAnswerRequestTypeDef",
     "BatchDeleteTopicReviewedAnswerResponseTypeDef",
     "BigQueryParametersTypeDef",
@@ -518,6 +534,7 @@ __all__ = (
     "CancelIngestionRequestTypeDef",
     "CancelIngestionResponseTypeDef",
     "CapabilitiesTypeDef",
+    "CapacityBytesRangeFilterTypeDef",
     "CascadingControlConfigurationOutputTypeDef",
     "CascadingControlConfigurationTypeDef",
     "CascadingControlSourceTypeDef",
@@ -910,6 +927,8 @@ __all__ = (
     "DeleteIAMPolicyAssignmentResponseTypeDef",
     "DeleteIdentityPropagationConfigRequestTypeDef",
     "DeleteIdentityPropagationConfigResponseTypeDef",
+    "DeleteKnowledgeBaseRequestTypeDef",
+    "DeleteKnowledgeBaseResponseTypeDef",
     "DeleteNamespaceRequestTypeDef",
     "DeleteNamespaceResponseTypeDef",
     "DeleteOAuthClientApplicationRequestTypeDef",
@@ -1024,6 +1043,10 @@ __all__ = (
     "DescribeIpRestrictionResponseTypeDef",
     "DescribeKeyRegistrationRequestTypeDef",
     "DescribeKeyRegistrationResponseTypeDef",
+    "DescribeKnowledgeBasePermissionsRequestTypeDef",
+    "DescribeKnowledgeBasePermissionsResponseTypeDef",
+    "DescribeKnowledgeBaseRequestTypeDef",
+    "DescribeKnowledgeBaseResponseTypeDef",
     "DescribeNamespaceRequestTypeDef",
     "DescribeNamespaceResponseTypeDef",
     "DescribeOAuthClientApplicationRequestTypeDef",
@@ -1344,6 +1367,7 @@ __all__ = (
     "ImageCustomActionOperationTypeDef",
     "ImageCustomActionOutputTypeDef",
     "ImageCustomActionTypeDef",
+    "ImageExtractionConfigurationTypeDef",
     "ImageInteractionOptionsTypeDef",
     "ImageMenuOptionTypeDef",
     "ImageSetConfigurationTypeDef",
@@ -1412,7 +1436,14 @@ __all__ = (
     "KPIVisualOutputTypeDef",
     "KPIVisualStandardLayoutTypeDef",
     "KPIVisualTypeDef",
+    "KbTemplateConfigurationTypeDef",
     "KeyPairCredentialsTypeDef",
+    "KnowledgeBaseConfigurationTypeDef",
+    "KnowledgeBaseIngestionSummaryTypeDef",
+    "KnowledgeBaseSearchFilterTypeDef",
+    "KnowledgeBaseSortByTypeDef",
+    "KnowledgeBaseSummaryTypeDef",
+    "KnowledgeBaseTypeDef",
     "LabelOptionsTypeDef",
     "LayerCustomActionOperationOutputTypeDef",
     "LayerCustomActionOperationTypeDef",
@@ -1508,6 +1539,9 @@ __all__ = (
     "ListIngestionsRequestPaginateTypeDef",
     "ListIngestionsRequestTypeDef",
     "ListIngestionsResponseTypeDef",
+    "ListKnowledgeBasesRequestPaginateTypeDef",
+    "ListKnowledgeBasesRequestTypeDef",
+    "ListKnowledgeBasesResponseTypeDef",
     "ListNamespacesRequestPaginateTypeDef",
     "ListNamespacesRequestTypeDef",
     "ListNamespacesResponseTypeDef",
@@ -1553,6 +1587,8 @@ __all__ = (
     "ListUserGroupsRequestPaginateTypeDef",
     "ListUserGroupsRequestTypeDef",
     "ListUserGroupsResponseTypeDef",
+    "ListUsersIndexCapacityRequestTypeDef",
+    "ListUsersIndexCapacityResponseTypeDef",
     "ListUsersRequestPaginateTypeDef",
     "ListUsersRequestTypeDef",
     "ListUsersResponseTypeDef",
@@ -1577,6 +1613,7 @@ __all__ = (
     "MaximumLabelTypeTypeDef",
     "MaximumMinimumComputationTypeDef",
     "MeasureFieldTypeDef",
+    "MediaExtractionConfigurationTypeDef",
     "MemberIdArnPairTypeDef",
     "MetricComparisonComputationTypeDef",
     "MinimumLabelTypeTypeDef",
@@ -1899,6 +1936,9 @@ __all__ = (
     "SearchGroupsRequestPaginateTypeDef",
     "SearchGroupsRequestTypeDef",
     "SearchGroupsResponseTypeDef",
+    "SearchKnowledgeBasesRequestPaginateTypeDef",
+    "SearchKnowledgeBasesRequestTypeDef",
+    "SearchKnowledgeBasesResponseTypeDef",
     "SearchSpacesRequestTypeDef",
     "SearchSpacesResponseTypeDef",
     "SearchTopicsRequestPaginateTypeDef",
@@ -2310,6 +2350,8 @@ __all__ = (
     "UpdateIpRestrictionResponseTypeDef",
     "UpdateKeyRegistrationRequestTypeDef",
     "UpdateKeyRegistrationResponseTypeDef",
+    "UpdateKnowledgeBasePermissionsRequestTypeDef",
+    "UpdateKnowledgeBasePermissionsResponseTypeDef",
     "UpdateOAuthClientApplicationRequestTypeDef",
     "UpdateOAuthClientApplicationResponseTypeDef",
     "UpdatePublicSharingSettingsRequestTypeDef",
@@ -2361,11 +2403,15 @@ __all__ = (
     "UploadSettingsTypeDef",
     "UploadedDocumentMetadataTypeDef",
     "UserIdentifierTypeDef",
+    "UserIndexCapacityFilterTypeDef",
+    "UserIndexCapacityTypeDef",
+    "UserNameOrEmailFilterTypeDef",
     "UserTypeDef",
     "VPCConnectionSummaryTypeDef",
     "VPCConnectionTypeDef",
     "ValidationStrategyTypeDef",
     "ValueColumnConfigurationTypeDef",
+    "VideoExtractionConfigurationTypeDef",
     "VisibleRangeOptionsTypeDef",
     "VisualAxisSortOptionTypeDef",
     "VisualCustomActionDefaultsTypeDef",
@@ -2884,6 +2930,10 @@ class IdentityCenterConfigurationTypeDef(TypedDict):
     EnableIdentityPropagation: NotRequired[bool]
 
 
+class AudioExtractionConfigurationTypeDef(TypedDict):
+    audioExtractionStatus: AudioExtractionStatusType
+
+
 class AuroraParametersTypeDef(TypedDict):
     Host: str
     Port: int
@@ -2978,6 +3028,22 @@ class ResponseMetadataTypeDef(TypedDict):
 
 class SucceededTopicReviewedAnswerTypeDef(TypedDict):
     AnswerId: NotRequired[str]
+
+
+class BatchDeleteKnowledgeBaseFailureTypeDef(TypedDict):
+    KnowledgeBaseId: str
+    ErrorCode: str
+    ErrorMessage: str
+
+
+class BatchDeleteKnowledgeBaseRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    KnowledgeBaseIds: Sequence[str]
+
+
+class BatchDeleteKnowledgeBaseSuccessTypeDef(TypedDict):
+    KnowledgeBaseId: str
+    KnowledgeBaseArn: str
 
 
 class BatchDeleteTopicReviewedAnswerRequestTypeDef(TypedDict):
@@ -3284,6 +3350,11 @@ class CapabilitiesTypeDef(TypedDict):
     GenerateAnalyses: NotRequired[Literal["DENY"]]
     Story: NotRequired[Literal["DENY"]]
     Scenario: NotRequired[Literal["DENY"]]
+
+
+class CapacityBytesRangeFilterTypeDef(TypedDict):
+    minBytes: NotRequired[int]
+    maxBytes: NotRequired[int]
 
 
 class CastColumnTypeOperationTypeDef(TypedDict):
@@ -4236,6 +4307,11 @@ class DeleteIdentityPropagationConfigRequestTypeDef(TypedDict):
     Service: ServiceTypeType
 
 
+class DeleteKnowledgeBaseRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    KnowledgeBaseId: str
+
+
 class DeleteNamespaceRequestTypeDef(TypedDict):
     AwsAccountId: str
     Namespace: str
@@ -4590,6 +4666,16 @@ class QDataKeyTypeDef(TypedDict):
 class RegisteredCustomerManagedKeyTypeDef(TypedDict):
     KeyArn: NotRequired[str]
     DefaultKey: NotRequired[bool]
+
+
+class DescribeKnowledgeBasePermissionsRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    KnowledgeBaseId: str
+
+
+class DescribeKnowledgeBaseRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    KnowledgeBaseId: str
 
 
 class DescribeNamespaceRequestTypeDef(TypedDict):
@@ -5100,6 +5186,10 @@ class ImageSourceTypeDef(TypedDict):
     S3Uri: NotRequired[str]
 
 
+class ImageExtractionConfigurationTypeDef(TypedDict):
+    imageExtractionStatus: ImageExtractionStatusType
+
+
 class ImageMenuOptionTypeDef(TypedDict):
     AvailabilityStatus: NotRequired[DashboardBehaviorType]
 
@@ -5184,6 +5274,51 @@ KPIVisualStandardLayoutTypeDef = TypedDict(
     "KPIVisualStandardLayoutTypeDef",
     {
         "Type": KPIVisualStandardLayoutTypeType,
+    },
+)
+
+
+class KbTemplateConfigurationTypeDef(TypedDict):
+    template: NotRequired[dict[str, Any]]
+
+
+class KnowledgeBaseIngestionSummaryTypeDef(TypedDict):
+    IngestionId: str
+    IngestionStatus: KbIngestionStatusType
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+
+
+KnowledgeBaseSearchFilterTypeDef = TypedDict(
+    "KnowledgeBaseSearchFilterTypeDef",
+    {
+        "name": KnowledgeBaseSearchFilterNameType,
+        "operator": KnowledgeBaseSearchOperatorType,
+        "value": str,
+    },
+)
+
+
+class KnowledgeBaseSortByTypeDef(TypedDict):
+    sortByField: KnowledgeBaseSortByFieldType
+    sortOrder: SortOrderType
+
+
+KnowledgeBaseSummaryTypeDef = TypedDict(
+    "KnowledgeBaseSummaryTypeDef",
+    {
+        "KnowledgeBaseArn": str,
+        "KnowledgeBaseId": str,
+        "Name": str,
+        "Status": DataSetStatusType,
+        "DataSourceArn": str,
+        "Type": NotRequired[str],
+        "CreatedAt": NotRequired[datetime],
+        "UpdatedAt": NotRequired[datetime],
+        "KnowledgeBaseSizeBytes": NotRequired[int],
+        "DocumentCount": NotRequired[int],
+        "PrimaryOwnerArn": NotRequired[str],
+        "PrimaryOwnerUsername": NotRequired[str],
     },
 )
 
@@ -5341,6 +5476,12 @@ class ListIngestionsRequestTypeDef(TypedDict):
     AwsAccountId: str
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+
+class ListKnowledgeBasesRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 
 class ListNamespacesRequestTypeDef(TypedDict):
@@ -5526,6 +5667,18 @@ class ListUserGroupsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
 
 
+class UserIndexCapacityTypeDef(TypedDict):
+    userArn: NotRequired[str]
+    userName: NotRequired[str]
+    email: NotRequired[str]
+    role: NotRequired[str]
+    totalCapacityBytes: NotRequired[int]
+    totalKBCapacityBytes: NotRequired[int]
+    totalSpaceCapacityBytes: NotRequired[int]
+    kbCount: NotRequired[int]
+    spaceCount: NotRequired[int]
+
+
 class ListUsersRequestTypeDef(TypedDict):
     AwsAccountId: str
     Namespace: str
@@ -5551,6 +5704,11 @@ class ManifestFileLocationTypeDef(TypedDict):
 
 class MarginStyleTypeDef(TypedDict):
     Show: NotRequired[bool]
+
+
+class VideoExtractionConfigurationTypeDef(TypedDict):
+    videoExtractionStatus: VideoExtractionStatusType
+    videoExtractionType: NotRequired[VideoExtractionTypeType]
 
 
 class NamedEntityDefinitionMetricOutputTypeDef(TypedDict):
@@ -6324,6 +6482,10 @@ class UpdateVPCConnectionRequestTypeDef(TypedDict):
     SecurityGroupIds: Sequence[str]
     RoleArn: str
     DnsResolvers: NotRequired[Sequence[str]]
+
+
+class UserNameOrEmailFilterTypeDef(TypedDict):
+    prefix: str
 
 
 class VisualHighlightOperationTypeDef(TypedDict):
@@ -7300,6 +7462,14 @@ class DeleteIdentityPropagationConfigResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DeleteKnowledgeBaseResponseTypeDef(TypedDict):
+    KnowledgeBaseArn: str
+    KnowledgeBaseId: str
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DeleteNamespaceResponseTypeDef(TypedDict):
     RequestId: str
     Status: int
@@ -8038,6 +8208,14 @@ class BatchDeleteTopicReviewedAnswerResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class BatchDeleteKnowledgeBaseResponseTypeDef(TypedDict):
+    Deleted: list[BatchDeleteKnowledgeBaseSuccessTypeDef]
+    Errors: list[BatchDeleteKnowledgeBaseFailureTypeDef]
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class HistogramBinOptionsTypeDef(TypedDict):
     SelectedBinType: NotRequired[HistogramBinTypeType]
     BinCount: NotRequired[BinCountOptionsTypeDef]
@@ -8702,6 +8880,15 @@ class DescribeFolderResolvedPermissionsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class DescribeKnowledgeBasePermissionsResponseTypeDef(TypedDict):
+    KnowledgeBaseArn: str
+    KnowledgeBaseId: str
+    Permissions: list[ResourcePermissionOutputTypeDef]
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DescribeSpacePermissionsResponseTypeDef(TypedDict):
     spaceId: str
     spaceArn: str
@@ -8773,6 +8960,15 @@ class UpdateFolderPermissionsResponseTypeDef(TypedDict):
     FolderId: str
     Permissions: list[ResourcePermissionOutputTypeDef]
     RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateKnowledgeBasePermissionsResponseTypeDef(TypedDict):
+    KnowledgeBaseArn: str
+    KnowledgeBaseId: str
+    Permissions: list[ResourcePermissionOutputTypeDef]
+    RequestId: str
+    Status: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -8927,6 +9123,11 @@ class ListIAMPolicyAssignmentsRequestPaginateTypeDef(TypedDict):
 
 class ListIngestionsRequestPaginateTypeDef(TypedDict):
     DataSetId: str
+    AwsAccountId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListKnowledgeBasesRequestPaginateTypeDef(TypedDict):
     AwsAccountId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -9474,6 +9675,42 @@ class KPIVisualLayoutOptionsTypeDef(TypedDict):
     StandardLayout: NotRequired[KPIVisualStandardLayoutTypeDef]
 
 
+class KnowledgeBaseConfigurationTypeDef(TypedDict):
+    templateConfiguration: NotRequired[KbTemplateConfigurationTypeDef]
+    eventEnabled: NotRequired[bool]
+
+
+class SearchKnowledgeBasesRequestPaginateTypeDef(TypedDict):
+    AwsAccountId: str
+    Filters: NotRequired[Sequence[KnowledgeBaseSearchFilterTypeDef]]
+    SortBy: NotRequired[KnowledgeBaseSortByTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class SearchKnowledgeBasesRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    Filters: NotRequired[Sequence[KnowledgeBaseSearchFilterTypeDef]]
+    SortBy: NotRequired[KnowledgeBaseSortByTypeDef]
+
+
+class ListKnowledgeBasesResponseTypeDef(TypedDict):
+    KnowledgeBaseSummaries: list[KnowledgeBaseSummaryTypeDef]
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class SearchKnowledgeBasesResponseTypeDef(TypedDict):
+    KnowledgeBaseSummaries: list[KnowledgeBaseSummaryTypeDef]
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class LinkSharingConfigurationTypeDef(TypedDict):
     Permissions: NotRequired[Sequence[ResourcePermissionTypeDef]]
 
@@ -9570,6 +9807,13 @@ class SearchTopicsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class ListUsersIndexCapacityResponseTypeDef(TypedDict):
+    users: list[UserIndexCapacityTypeDef]
+    requestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class VisualSubtitleLabelOptionsTypeDef(TypedDict):
     Visibility: NotRequired[VisibilityType]
     FormatText: NotRequired[LongFormatTextTypeDef]
@@ -9583,6 +9827,12 @@ class S3ParametersTypeDef(TypedDict):
 class TileLayoutStyleTypeDef(TypedDict):
     Gutter: NotRequired[GutterStyleTypeDef]
     Margin: NotRequired[MarginStyleTypeDef]
+
+
+class MediaExtractionConfigurationTypeDef(TypedDict):
+    imageExtractionConfiguration: NotRequired[ImageExtractionConfigurationTypeDef]
+    audioExtractionConfiguration: NotRequired[AudioExtractionConfigurationTypeDef]
+    videoExtractionConfiguration: NotRequired[VideoExtractionConfigurationTypeDef]
 
 
 class NamedEntityDefinitionOutputTypeDef(TypedDict):
@@ -9948,6 +10198,11 @@ class TotalAggregationOptionTypeDef(TypedDict):
 UntagColumnOperationUnionTypeDef = Union[
     UntagColumnOperationTypeDef, UntagColumnOperationOutputTypeDef
 ]
+
+
+class UserIndexCapacityFilterTypeDef(TypedDict):
+    userNameOrEmail: NotRequired[UserNameOrEmailFilterTypeDef]
+    totalCapacityBytes: NotRequired[CapacityBytesRangeFilterTypeDef]
 
 
 class VisualCustomActionDefaultsTypeDef(TypedDict):
@@ -11061,6 +11316,13 @@ class UpdateFolderPermissionsRequestTypeDef(TypedDict):
     RevokePermissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
 
 
+class UpdateKnowledgeBasePermissionsRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    KnowledgeBaseId: str
+    GrantPermissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
+    RevokePermissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
+
+
 class UpdateSpacePermissionsRequestTypeDef(TypedDict):
     AwsAccountId: str
     SpaceId: str
@@ -11093,6 +11355,32 @@ class SheetStyleTypeDef(TypedDict):
     Tile: NotRequired[TileStyleTypeDef]
     TileLayout: NotRequired[TileLayoutStyleTypeDef]
     Background: NotRequired[SheetBackgroundStyleTypeDef]
+
+
+KnowledgeBaseTypeDef = TypedDict(
+    "KnowledgeBaseTypeDef",
+    {
+        "KnowledgeBaseArn": str,
+        "KnowledgeBaseId": str,
+        "Name": str,
+        "Status": DataSetStatusType,
+        "DataSourceArn": str,
+        "KnowledgeBaseConfiguration": KnowledgeBaseConfigurationTypeDef,
+        "MediaExtractionConfiguration": NotRequired[MediaExtractionConfigurationTypeDef],
+        "Type": NotRequired[str],
+        "CreatedAt": NotRequired[datetime],
+        "UpdatedAt": NotRequired[datetime],
+        "Description": NotRequired[str],
+        "IsEmailNotificationOptedForIngestionFailures": NotRequired[bool],
+        "FirstCompletedIngestionSummary": NotRequired[KnowledgeBaseIngestionSummaryTypeDef],
+        "FirstIncompleteIngestionSummary": NotRequired[KnowledgeBaseIngestionSummaryTypeDef],
+        "LatestIngestionSummary": NotRequired[KnowledgeBaseIngestionSummaryTypeDef],
+        "KnowledgeBaseSizeBytes": NotRequired[int],
+        "DocumentCount": NotRequired[int],
+        "PrimaryOwnerArn": NotRequired[str],
+        "PrimaryOwnerUsername": NotRequired[str],
+    },
+)
 
 
 class TopicNamedEntityOutputTypeDef(TypedDict):
@@ -11384,6 +11672,16 @@ class SheetTextBoxTypeDef(TypedDict):
     SheetTextBoxId: str
     Content: NotRequired[str]
     Interactions: NotRequired[TextBoxInteractionOptionsTypeDef]
+
+
+class ListUsersIndexCapacityRequestTypeDef(TypedDict):
+    awsAccountId: str
+    namespace: NotRequired[str]
+    filters: NotRequired[Sequence[UserIndexCapacityFilterTypeDef]]
+    sortBy: NotRequired[Literal["TOTAL_CAPACITY_BYTES"]]
+    sortOrder: NotRequired[UserIndexCapacitySortOrderType]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 
 class AssetOptionsOutputTypeDef(TypedDict):
@@ -12112,6 +12410,13 @@ class DataSetSemanticMetadataTypeDef(TypedDict):
 IntegerDatasetParameterUnionTypeDef = Union[
     IntegerDatasetParameterTypeDef, IntegerDatasetParameterOutputTypeDef
 ]
+
+
+class DescribeKnowledgeBaseResponseTypeDef(TypedDict):
+    KnowledgeBase: KnowledgeBaseTypeDef
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ComparisonFormatConfigurationTypeDef(TypedDict):

@@ -85,6 +85,7 @@ from ..._response import (
 )
 from ...pagination import SyncOffsetPagination, AsyncOffsetPagination
 from ..._base_client import AsyncPaginator, make_request_options
+from ...types.tags_param import TagsParam
 from ...types.browser_curl_response import BrowserCurlResponse
 from ...types.browser_list_response import BrowserListResponse
 from ...lib.browser_routing.raw_http import (
@@ -169,10 +170,12 @@ class BrowsersResource(SyncAPIResource):
         headless: bool | Omit = omit,
         invocation_id: str | Omit = omit,
         kiosk_mode: bool | Omit = omit,
+        name: str | Omit = omit,
         profile: BrowserProfile | Omit = omit,
         proxy_id: str | Omit = omit,
         start_url: str | Omit = omit,
         stealth: bool | Omit = omit,
+        tags: TagsParam | Omit = omit,
         telemetry: Optional[browser_create_params.Telemetry] | Omit = omit,
         timeout_seconds: int | Omit = omit,
         viewport: BrowserViewport | Omit = omit,
@@ -205,6 +208,10 @@ class BrowsersResource(SyncAPIResource):
           kiosk_mode: If true, launches the browser in kiosk mode to hide address bar and tabs in live
               view.
 
+          name: Optional human-readable name for the browser session, used to find it later in
+              the dashboard. Must be unique among active sessions within the project. Set at
+              creation time only.
+
           profile: Profile selection for the browser session. Provide either id or name. If
               specified, the matching profile will be loaded into the browser session.
               Profiles must be created beforehand.
@@ -218,6 +225,9 @@ class BrowsersResource(SyncAPIResource):
 
           stealth: If true, launches the browser in stealth mode to reduce detection by anti-bot
               mechanisms.
+
+          tags: Optional user-defined key-value tags for the browser session, used to find and
+              group sessions later. Set at creation time only. Up to 50 pairs.
 
           telemetry: Telemetry configuration for the browser session. Set enabled to true to start
               capture using VM defaults, or provide browser category settings. If omitted,
@@ -262,10 +272,12 @@ class BrowsersResource(SyncAPIResource):
                     "headless": headless,
                     "invocation_id": invocation_id,
                     "kiosk_mode": kiosk_mode,
+                    "name": name,
                     "profile": profile,
                     "proxy_id": proxy_id,
                     "start_url": start_url,
                     "stealth": stealth,
+                    "tags": tags,
                     "telemetry": telemetry,
                     "timeout_seconds": timeout_seconds,
                     "viewport": viewport,
@@ -393,6 +405,7 @@ class BrowsersResource(SyncAPIResource):
         offset: int | Omit = omit,
         query: str | Omit = omit,
         status: Literal["active", "deleted", "all"] | Omit = omit,
+        tags: Dict[str, str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -413,10 +426,14 @@ class BrowsersResource(SyncAPIResource):
 
           offset: Number of results to skip. Defaults to 0.
 
-          query: Search browsers by session ID, profile ID, proxy ID, or pool name.
+          query: Search browsers by name, session ID, profile ID, proxy ID, or pool name.
 
           status: Filter sessions by status. "active" returns only active sessions (default),
               "deleted" returns only soft-deleted sessions, "all" returns both.
+
+          tags: Filter sessions by tag key-value pairs using deepObject style, e.g.
+              ?tags[team]=backend&tags[env]=staging. Multiple pairs are ANDed: a session must
+              match every supplied pair exactly.
 
           extra_headers: Send extra headers
 
@@ -441,6 +458,7 @@ class BrowsersResource(SyncAPIResource):
                         "offset": offset,
                         "query": query,
                         "status": status,
+                        "tags": tags,
                     },
                     browser_list_params.BrowserListParams,
                 ),
@@ -717,10 +735,12 @@ class AsyncBrowsersResource(AsyncAPIResource):
         headless: bool | Omit = omit,
         invocation_id: str | Omit = omit,
         kiosk_mode: bool | Omit = omit,
+        name: str | Omit = omit,
         profile: BrowserProfile | Omit = omit,
         proxy_id: str | Omit = omit,
         start_url: str | Omit = omit,
         stealth: bool | Omit = omit,
+        tags: TagsParam | Omit = omit,
         telemetry: Optional[browser_create_params.Telemetry] | Omit = omit,
         timeout_seconds: int | Omit = omit,
         viewport: BrowserViewport | Omit = omit,
@@ -753,6 +773,10 @@ class AsyncBrowsersResource(AsyncAPIResource):
           kiosk_mode: If true, launches the browser in kiosk mode to hide address bar and tabs in live
               view.
 
+          name: Optional human-readable name for the browser session, used to find it later in
+              the dashboard. Must be unique among active sessions within the project. Set at
+              creation time only.
+
           profile: Profile selection for the browser session. Provide either id or name. If
               specified, the matching profile will be loaded into the browser session.
               Profiles must be created beforehand.
@@ -766,6 +790,9 @@ class AsyncBrowsersResource(AsyncAPIResource):
 
           stealth: If true, launches the browser in stealth mode to reduce detection by anti-bot
               mechanisms.
+
+          tags: Optional user-defined key-value tags for the browser session, used to find and
+              group sessions later. Set at creation time only. Up to 50 pairs.
 
           telemetry: Telemetry configuration for the browser session. Set enabled to true to start
               capture using VM defaults, or provide browser category settings. If omitted,
@@ -810,10 +837,12 @@ class AsyncBrowsersResource(AsyncAPIResource):
                     "headless": headless,
                     "invocation_id": invocation_id,
                     "kiosk_mode": kiosk_mode,
+                    "name": name,
                     "profile": profile,
                     "proxy_id": proxy_id,
                     "start_url": start_url,
                     "stealth": stealth,
+                    "tags": tags,
                     "telemetry": telemetry,
                     "timeout_seconds": timeout_seconds,
                     "viewport": viewport,
@@ -941,6 +970,7 @@ class AsyncBrowsersResource(AsyncAPIResource):
         offset: int | Omit = omit,
         query: str | Omit = omit,
         status: Literal["active", "deleted", "all"] | Omit = omit,
+        tags: Dict[str, str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -961,10 +991,14 @@ class AsyncBrowsersResource(AsyncAPIResource):
 
           offset: Number of results to skip. Defaults to 0.
 
-          query: Search browsers by session ID, profile ID, proxy ID, or pool name.
+          query: Search browsers by name, session ID, profile ID, proxy ID, or pool name.
 
           status: Filter sessions by status. "active" returns only active sessions (default),
               "deleted" returns only soft-deleted sessions, "all" returns both.
+
+          tags: Filter sessions by tag key-value pairs using deepObject style, e.g.
+              ?tags[team]=backend&tags[env]=staging. Multiple pairs are ANDed: a session must
+              match every supplied pair exactly.
 
           extra_headers: Send extra headers
 
@@ -989,6 +1023,7 @@ class AsyncBrowsersResource(AsyncAPIResource):
                         "offset": offset,
                         "query": query,
                         "status": status,
+                        "tags": tags,
                     },
                     browser_list_params.BrowserListParams,
                 ),

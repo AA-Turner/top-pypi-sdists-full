@@ -3,8 +3,7 @@
 
 from typing import TYPE_CHECKING, Optional
 
-from pyrit.identifiers import ComponentIdentifier
-from pyrit.models import MessagePiece, Score
+from pyrit.models import ComponentIdentifier, MessagePiece, Score
 from pyrit.score.float_scale.float_scale_score_aggregator import (
     FloatScaleAggregatorFunc,
     FloatScaleScorerByCategory,
@@ -106,7 +105,7 @@ class VideoFloatScaleScorer(
 
         return self._create_identifier(
             params={
-                "score_aggregator": self._score_aggregator.__name__,
+                "score_aggregator": self._score_aggregator.__name__,  # type: ignore[ty:unresolved-attribute]
                 "num_sampled_frames": self._video_helper.num_sampled_frames,
                 "has_audio_scorer": self.audio_scorer is not None,
                 "image_objective_template": self._video_helper.image_objective_template,

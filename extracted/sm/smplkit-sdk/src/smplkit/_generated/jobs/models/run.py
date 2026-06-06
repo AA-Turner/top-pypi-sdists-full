@@ -32,7 +32,7 @@ class Run:
     """One occurrence of a job executing.
 
     Attributes:
-        job (str): The slug of the job this run belongs to.
+        job (str): The id of the job this run belongs to.
         trigger (RunTrigger): Why the run exists: `SCHEDULE`, `MANUAL` (Run now), or `RERUN`.
         status (RunStatus): Lifecycle state of the run.
         job_version (int | None | Unset): The job's version at the time the run executed.

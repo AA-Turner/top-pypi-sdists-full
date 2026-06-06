@@ -1,16 +1,37 @@
-"""Tests for the hooks relay command."""
+"""Tests for the hooks relay command.
+
+The typer command is a thin wrapper over ``runlayer_cli.hook.relay`` — the
+patches target that shared module rather than ``commands.hooks`` so the
+test surface mirrors the production credential / POST contract used by
+both the bash shim and the in-process ``aiwatch-hook`` paths.
+"""
 
 import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import httpx
+import pytest
 from typer.testing import CliRunner
 
 from runlayer_cli.commands.hooks import app
 from runlayer_cli.config import Config, HostConfig
 
 runner = CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def _no_managed_config():
+    """Neutralize MDM lookup for every test in this file.
+
+    ``hook.relay._load_credentials`` calls ``read_managed_config`` on every
+    invocation. On a dev Mac with a real AI Watch profile installed, the
+    ``no_host`` test would resolve a host from there and the suite would
+    fail. Pin to an empty mapping so config-only credentials drive the
+    tests deterministically.
+    """
+    with patch("runlayer_cli.hook.relay.read_managed_config", return_value={}):
+        yield
 
 
 def _make_config(*, host: str = "https://app.example.com", secret: str = "test-key"):
@@ -35,7 +56,7 @@ def test_relay_enforce_success():
     mock_response.is_success = True
 
     with (
-        patch("runlayer_cli.commands.hooks.load_config", return_value=config),
+        patch("runlayer_cli.hook.relay.load_config", return_value=config),
         patch("runlayer_cli.config.get_keyring_store", return_value=mock_store),
         patch("httpx.Client") as mock_client_cls,
     ):
@@ -64,7 +85,7 @@ def test_relay_event_success():
     mock_response.is_success = True
 
     with (
-        patch("runlayer_cli.commands.hooks.load_config", return_value=config),
+        patch("runlayer_cli.hook.relay.load_config", return_value=config),
         patch("runlayer_cli.config.get_keyring_store", return_value=mock_store),
         patch("httpx.Client") as mock_client_cls,
     ):
@@ -90,7 +111,7 @@ def test_relay_tool_lifecycle_targets():
     mock_response.is_success = True
 
     with (
-        patch("runlayer_cli.commands.hooks.load_config", return_value=config),
+        patch("runlayer_cli.hook.relay.load_config", return_value=config),
         patch("runlayer_cli.config.get_keyring_store", return_value=mock_store),
         patch("httpx.Client") as mock_client_cls,
     ):
@@ -121,7 +142,7 @@ def test_relay_no_host_exits_1():
     """Missing host in config exits with code 1."""
     config = Config()
 
-    with patch("runlayer_cli.commands.hooks.load_config", return_value=config):
+    with patch("runlayer_cli.hook.relay.load_config", return_value=config):
         result = runner.invoke(app, ["enforce"], input="{}")
         assert result.exit_code == 1
 
@@ -134,7 +155,7 @@ def test_relay_no_secret_exits_1():
     )
 
     with (
-        patch("runlayer_cli.commands.hooks.load_config", return_value=config),
+        patch("runlayer_cli.hook.relay.load_config", return_value=config),
         patch("runlayer_cli.config.get_keyring_store", return_value=None),
     ):
         result = runner.invoke(app, ["enforce"], input="{}")
@@ -146,7 +167,7 @@ def test_relay_network_error_exits_2():
     config, mock_store = _make_config()
 
     with (
-        patch("runlayer_cli.commands.hooks.load_config", return_value=config),
+        patch("runlayer_cli.hook.relay.load_config", return_value=config),
         patch("runlayer_cli.config.get_keyring_store", return_value=mock_store),
         patch("httpx.Client") as mock_client_cls,
     ):
@@ -166,10 +187,11 @@ def test_relay_api_error_exits_2():
 
     mock_response = MagicMock(spec=httpx.Response)
     mock_response.text = '{"error": "unauthorized"}'
+    mock_response.status_code = 401
     mock_response.is_success = False
 
     with (
-        patch("runlayer_cli.commands.hooks.load_config", return_value=config),
+        patch("runlayer_cli.hook.relay.load_config", return_value=config),
         patch("runlayer_cli.config.get_keyring_store", return_value=mock_store),
         patch("httpx.Client") as mock_client_cls,
     ):
@@ -192,7 +214,7 @@ def test_relay_timeout_override():
     mock_response.is_success = True
 
     with (
-        patch("runlayer_cli.commands.hooks.load_config", return_value=config),
+        patch("runlayer_cli.hook.relay.load_config", return_value=config),
         patch("runlayer_cli.config.get_keyring_store", return_value=mock_store),
         patch("httpx.Client") as mock_client_cls,
     ):
@@ -223,10 +245,10 @@ def test_relay_debug_writes_file(tmp_path: Path):
     mock_response.is_success = True
 
     with (
-        patch("runlayer_cli.commands.hooks.load_config", return_value=config),
+        patch("runlayer_cli.hook.relay.load_config", return_value=config),
         patch("runlayer_cli.config.get_keyring_store", return_value=mock_store),
         patch("httpx.Client") as mock_client_cls,
-        patch("runlayer_cli.commands.hooks._DEBUG_DIR", tmp_path),
+        patch("runlayer_cli.hook.relay._DEBUG_DIR", tmp_path),
     ):
         mock_client = MagicMock()
         mock_client.__enter__ = MagicMock(return_value=mock_client)
@@ -261,10 +283,10 @@ def test_relay_debug_does_not_alter_exit_code(tmp_path: Path):
     mock_response.is_success = False
 
     with (
-        patch("runlayer_cli.commands.hooks.load_config", return_value=config),
+        patch("runlayer_cli.hook.relay.load_config", return_value=config),
         patch("runlayer_cli.config.get_keyring_store", return_value=mock_store),
         patch("httpx.Client") as mock_client_cls,
-        patch("runlayer_cli.commands.hooks._DEBUG_DIR", tmp_path),
+        patch("runlayer_cli.hook.relay._DEBUG_DIR", tmp_path),
     ):
         mock_client = MagicMock()
         mock_client.__enter__ = MagicMock(return_value=mock_client)
@@ -290,10 +312,10 @@ def test_relay_debug_io_failure_ignored(tmp_path: Path):
     mock_response.is_success = True
 
     with (
-        patch("runlayer_cli.commands.hooks.load_config", return_value=config),
+        patch("runlayer_cli.hook.relay.load_config", return_value=config),
         patch("runlayer_cli.config.get_keyring_store", return_value=mock_store),
         patch("httpx.Client") as mock_client_cls,
-        patch("runlayer_cli.commands.hooks._write_debug", side_effect=OSError("boom")),
+        patch("runlayer_cli.hook.relay._write_debug", side_effect=OSError("boom")),
     ):
         mock_client = MagicMock()
         mock_client.__enter__ = MagicMock(return_value=mock_client)
@@ -310,10 +332,10 @@ def test_relay_debug_on_network_error(tmp_path: Path):
     config, mock_store = _make_config()
 
     with (
-        patch("runlayer_cli.commands.hooks.load_config", return_value=config),
+        patch("runlayer_cli.hook.relay.load_config", return_value=config),
         patch("runlayer_cli.config.get_keyring_store", return_value=mock_store),
         patch("httpx.Client") as mock_client_cls,
-        patch("runlayer_cli.commands.hooks._DEBUG_DIR", tmp_path),
+        patch("runlayer_cli.hook.relay._DEBUG_DIR", tmp_path),
     ):
         mock_client = MagicMock()
         mock_client.__enter__ = MagicMock(return_value=mock_client)

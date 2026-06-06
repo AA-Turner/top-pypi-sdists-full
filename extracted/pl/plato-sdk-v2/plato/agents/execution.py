@@ -156,8 +156,19 @@ class AgentExecutionManager:
             workspace_paths=[mount.agent_path for mount in run_mounts],
         )
 
-        # Only auto-merge if no review gate handled it
-        if review_fn is None and published_transport is not None and published_transport.published_ref is not None:
+        # Only auto-merge if no review gate handled it AND the mount opts in.
+        # A task that publishes a route/feature branch purely to produce side
+        # artifacts (e.g. a code reviewer publishing repro tests) sets
+        # git_sync.integrate_to_main=False so we do NOT squash its full checkout
+        # — the unapproved route's code, schema, and migrations — into shared main.
+        primary_sync = run_mounts[0].git_sync if run_mounts else None
+        integrate_to_main = primary_sync is None or getattr(primary_sync, "integrate_to_main", True)
+        if (
+            review_fn is None
+            and integrate_to_main
+            and published_transport is not None
+            and published_transport.published_ref is not None
+        ):
             await self._integrate_published_ref(
                 task_name=task_name,
                 published_ref=published_transport.published_ref,

@@ -2,6 +2,8 @@ import re
 
 from typing import Pattern
 
+from pytest import raises
+
 from graphql.language import parse
 from graphql.utilities import build_schema, get_introspection_query
 from graphql.validation import validate
@@ -27,6 +29,12 @@ class ExcpectIntrospectionQuery:
     def to_not_match(self, name: str) -> None:
         pattern = self.to_reg_exp(name)
         assert not pattern.search(self.query)
+
+    def to_contain(self, text: str) -> None:
+        assert text in self.query
+
+    def to_not_contain(self, text: str) -> None:
+        assert text not in self.query
 
     @staticmethod
     def to_reg_exp(name: str) -> Pattern:
@@ -77,6 +85,28 @@ def describe_get_introspection_query():
             "deprecationReason", 2
         )
 
+    def includes_is_deprecated_field_on_directives():
+        ExcpectIntrospectionQuery().to_match("isDeprecated", 2)
+        ExcpectIntrospectionQuery(experimental_directive_deprecation=True).to_match(
+            "isDeprecated", 3
+        )
+        ExcpectIntrospectionQuery(experimental_directive_deprecation=False).to_match(
+            "isDeprecated", 2
+        )
+
+    def includes_deprecation_reason_field_on_directives():
+        query = ExcpectIntrospectionQuery()
+        query.to_not_contain("directives(includeDeprecated: true) {")
+        query.to_match("deprecationReason", 2)
+
+        query = ExcpectIntrospectionQuery(experimental_directive_deprecation=True)
+        query.to_contain("directives(includeDeprecated: true) {")
+        query.to_match("deprecationReason", 3)
+
+        query = ExcpectIntrospectionQuery(experimental_directive_deprecation=False)
+        query.to_not_contain("directives(includeDeprecated: true) {")
+        query.to_match("deprecationReason", 2)
+
     def includes_input_object_one_of_field():
         ExcpectIntrospectionQuery().to_not_match("isOneOf")
         ExcpectIntrospectionQuery(input_object_one_of=True).to_match("isOneOf")
@@ -89,4 +119,12 @@ def describe_get_introspection_query():
         )
         ExcpectIntrospectionQuery(input_value_deprecation=False).to_match(
             "includeDeprecated: true", 2
+        )
+
+    def throws_error_if_type_depth_is_too_high():
+        with raises(ValueError) as exc_info:
+            get_introspection_query(type_depth=101)
+        assert str(exc_info.value) == (
+            "Please set type_depth to a reasonable value"
+            " between 0 and 100; the default is 9."
         )

@@ -7,6 +7,7 @@ import hashlib
 import hmac
 import os
 import secrets
+import tempfile
 import urllib.parse
 from pathlib import Path
 
@@ -30,6 +31,8 @@ class TotpSecretStore:
         if self._fernet is not None:
             return
         self.base_dir.mkdir(parents=True, exist_ok=True)
+        # Owner-only directory access is required for encrypted TOTP seed storage.
+        # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
         os.chmod(self.base_dir, 0o700)
         if not self.key_path.exists():
             self._atomic_write_bytes(self.key_path, Fernet.generate_key(), 0o600)
@@ -74,20 +77,26 @@ class TotpSecretStore:
     @staticmethod
     def _atomic_write_bytes(path: Path, payload: bytes, mode: int) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_path = path.with_suffix(path.suffix + ".tmp")
-        tmp_path.write_bytes(payload)
-        os.chmod(tmp_path, mode)
-        tmp_path.replace(path)
-        os.chmod(path, mode)
+        tmp_path = _temporary_atomic_path(path)
+        try:
+            tmp_path.write_bytes(payload)
+            os.chmod(tmp_path, mode)
+            tmp_path.replace(path)
+            os.chmod(path, mode)
+        finally:
+            tmp_path.unlink(missing_ok=True)
 
     @staticmethod
     def _atomic_write_text(path: Path, payload: str, mode: int) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_path = path.with_suffix(path.suffix + ".tmp")
-        tmp_path.write_text(payload, encoding="utf-8")
-        os.chmod(tmp_path, mode)
-        tmp_path.replace(path)
-        os.chmod(path, mode)
+        tmp_path = _temporary_atomic_path(path)
+        try:
+            tmp_path.write_text(payload, encoding="utf-8")
+            os.chmod(tmp_path, mode)
+            tmp_path.replace(path)
+            os.chmod(path, mode)
+        finally:
+            tmp_path.unlink(missing_ok=True)
 
 
 def generate_totp_secret() -> str:
@@ -151,3 +160,11 @@ def _normalize_base32(value: str) -> str:
     normalized = value.strip().replace(" ", "").replace("-", "").upper()
     padding = "=" * ((8 - len(normalized) % 8) % 8)
     return normalized + padding
+
+
+def _temporary_atomic_path(path: Path) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    prefix = f"{path.name}."
+    fd, raw_path = tempfile.mkstemp(prefix=prefix, suffix=".tmp", dir=path.parent)
+    os.close(fd)
+    return Path(raw_path)

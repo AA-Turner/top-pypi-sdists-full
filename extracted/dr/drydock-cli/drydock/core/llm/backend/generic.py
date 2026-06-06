@@ -184,6 +184,39 @@ class OpenAIAdapter(APIAdapter):
             )
             for msg in merged_messages
         ]
+        # 2026-06-05: vision support. read_file embeds image data with
+        # [[DRYDOCK_IMG_BEGIN:<mime>]]<b64>[[DRYDOCK_IMG_END]] markers.
+        # Transform those messages to OpenAI multimodal `content: [parts]`
+        # format that llama.cpp (with --mmproj) and OpenAI both accept.
+        # Skip transformation if the env var disables it.
+        if os.environ.get("DRYDOCK_VISION_DISABLE", "0").strip() != "1":
+            import re as _re_img
+            _IMG_RE = _re_img.compile(
+                r"\[\[DRYDOCK_IMG_BEGIN:([\w./+-]+)\]\](.*?)\[\[DRYDOCK_IMG_END\]\]",
+                _re_img.DOTALL,
+            )
+            for md in converted_messages:
+                c = md.get("content")
+                if not isinstance(c, str) or "DRYDOCK_IMG_BEGIN" not in c:
+                    continue
+                parts: list[dict[str, Any]] = []
+                last_end = 0
+                for m in _IMG_RE.finditer(c):
+                    text_before = c[last_end:m.start()].strip()
+                    if text_before:
+                        parts.append({"type": "text", "text": text_before})
+                    mime = m.group(1)
+                    b64 = m.group(2)
+                    parts.append({
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{mime};base64,{b64}"},
+                    })
+                    last_end = m.end()
+                text_after = c[last_end:].strip()
+                if text_after:
+                    parts.append({"type": "text", "text": text_after})
+                if parts:
+                    md["content"] = parts
 
         payload = self.build_payload(
             model_name, converted_messages, temperature, tools, max_tokens, tool_choice,
@@ -278,7 +311,7 @@ class GenericBackend:
         *,
         client: httpx.AsyncClient | None = None,
         provider: ProviderConfig,
-        timeout: float = 720.0,
+        timeout: float = 300.0,
     ) -> None:
         """Initialize the backend.
 
@@ -288,6 +321,17 @@ class GenericBackend:
         self._client = client
         self._owns_client = client is None
         self._provider = provider
+        # 2026-06-05: default 720s → 300s. Operator session: LLM backend
+        # down, drydock waited 10+ min before giving up because read
+        # timeout was 12 min. 300s still allows long completions (Gemma
+        # 4 large generations finish in 60-120s) but bounds the
+        # backend-down recovery time. Override via DRYDOCK_LLM_TIMEOUT.
+        env_to = os.environ.get("DRYDOCK_LLM_TIMEOUT", "").strip()
+        if env_to:
+            try:
+                timeout = float(env_to)
+            except ValueError:
+                pass
         self._timeout = timeout
 
     async def __aenter__(self) -> GenericBackend:

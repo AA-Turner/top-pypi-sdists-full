@@ -142,6 +142,9 @@ x-documentation:
     - `post.recycled` - Post recycled (cloned and re-scheduled)
     - `post.platform.published` - A single platform target inside a post finished publishing successfully. Fires once per platform-account as it terminates, without waiting for other platforms on the same post. Use this for incremental UIs; use `post.published` for the post-level rollup.
     - `post.platform.failed` - A single platform target inside a post failed permanently. Temporary/retryable failures do NOT fire this event, only permanent ones, so retry loops stay quiet.
+    - `post.external.created` - A native post authored outside Zernio (e.g. a Google Business Profile localPost created in the Google UI) was detected by our sync for the first time. Poll-driven (~hourly), not real-time. Payload carries `post.source: "external"`.
+    - `post.external.updated` - A tracked native post's text or media changed on the platform. Edits are detected by comparing text/media structure and (where the platform exposes it) the platform's own edit timestamp; media-URL-only refreshes do not fire this.
+    - `post.external.deleted` - A tracked native post was detected as removed from the platform. `post.deletedAt` carries the detection time. Coverage is bounded to the most recent posts the platform listing returns.
     - `account.connected` - Social account connected
     - `account.disconnected` - Social account disconnected (token expired)
     - `account.ads.initial_sync_completed` - Initial ads sync (discovery + 90-day backfill) completed for an ads-enabled account
@@ -294,7 +297,7 @@ tags:
   - name: Webhooks
     description: |
       Configure webhooks for real-time notifications. Webhooks can be created from the dashboard (Settings → Webhooks) or via this API.
-      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.verification_required, webhook.test.
+      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, webhook.test.
       Security: optional HMAC-SHA256 signature in X-Zernio-Signature header. Configure a secret key to enable verification. Custom headers supported.
   - name: Webhook Events
     description: |
@@ -1264,7 +1267,7 @@ components:
           type: array
           items:
             type: string
-            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, ad.status_changed, whatsapp.template.status_updated, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.verification_required]
+            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, ad.status_changed, whatsapp.template.status_updated, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released]
           description: Events subscribed to
         isActive:
           type: boolean
@@ -1830,6 +1833,80 @@ components:
           enum: [review.updated]
         review:
           $ref: '#/components/schemas/ReviewWebhookReview'
+        account:
+          type: object
+          required: [id, platform, username]
+          properties:
+            id:
+              type: string
+            platform:
+              type: string
+            username:
+              type: string
+        timestamp:
+          type: string
+          format: date-time
+    ExternalPostWebhookPost:
+      type: object
+      description: Native (external) post data shared by all post.external.* payloads.
+      required: [id, platform, accountId, url, content, mediaType, mediaItems, thumbnailUrl, publishedAt, source]
+      properties:
+        id:
+          type: string
+          description: Platform-native post ID (NOT a Zernio post ID).
+        platform:
+          type: string
+          description: Platform the post lives on (e.g. "googlebusiness").
+        accountId:
+          type: string
+          description: Zernio social account ID the post belongs to.
+        url:
+          type: string
+          nullable: true
+          description: Direct URL to the post on the platform, when available.
+        content:
+          type: string
+          description: Post text. May be empty.
+        mediaType:
+          type: string
+          description: One of image, video, gif, document, text, carousel.
+        mediaItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExternalPostMediaItem'
+        thumbnailUrl:
+          type: string
+          nullable: true
+        publishedAt:
+          type: string
+          format: date-time
+        source:
+          type: string
+          enum: [external]
+          description: Always "external" — distinguishes these from Zernio-originated post.* events.
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Detection time of deletion. Present on post.external.deleted; null/absent otherwise.
+    WebhookPayloadExternalPost:
+      type: object
+      description: |
+        Webhook payload for post.external.created / post.external.updated /
+        post.external.deleted. Fired by Zernio's background sync when it detects a
+        natively-authored post (e.g. a Google Business Profile localPost created in
+        the Google UI), NOT a post published through Zernio. Poll-driven (~hourly),
+        not real-time. On post.external.deleted, post.deletedAt is populated.
+      required: [id, event, post, account, timestamp]
+      properties:
+        id:
+          type: string
+          description: Stable webhook event ID
+        event:
+          type: string
+          enum: [post.external.created, post.external.updated, post.external.deleted]
+        post:
+          $ref: '#/components/schemas/ExternalPostWebhookPost'
         account:
           type: object
           required: [id, platform, username]
@@ -2912,6 +2989,23 @@ components:
         tiktokProcessed:
           type: boolean
           description: Internal flag indicating the image was resized for TikTok
+    ExternalPostMediaItem:
+      type: object
+      description: >
+        A media item on a native (external/synced) post, as carried by post.external.*
+        webhook payloads. Distinct from the richer MediaItem used for Zernio-authored
+        posts: external items are always already-published (url required) and limited to
+        image or video. Kept as a separate schema so the generated SDK model does not
+        collide with MediaItem.
+      required: [type, url]
+      properties:
+        type:
+          type: string
+          enum: [image, video]
+        url:
+          type: string
+        thumbnail:
+          type: string
     PlatformTarget:
       type: object
       properties:
@@ -4933,7 +5027,7 @@ components:
         platform: { type: string, enum: [facebook, instagram, tiktok, linkedin, pinterest, google, twitter] }
         status: { $ref: '#/components/schemas/AdStatus' }
         adType: { type: string, enum: [boost, standalone] }
-        goal: { type: string, enum: [engagement, traffic, awareness, video_views, lead_generation, conversions, app_promotion], description: "Available goals vary by platform. Meta (Facebook/Instagram) and TikTok support all 7. LinkedIn supports all except app_promotion. Twitter/X supports engagement, traffic, awareness, video_views, app_promotion. Pinterest and Google Ads support only engagement, traffic, awareness, video_views." }
+        goal: { type: string, enum: [engagement, traffic, awareness, video_views, lead_generation, lead_conversion, conversions, app_promotion], description: "Available goals vary by platform. Meta (Facebook/Instagram) supports all 8 (incl. `lead_conversion` = website pixel lead optimization). TikTok supports the 7 non-`lead_conversion` goals. LinkedIn supports all except app_promotion / lead_conversion. Twitter/X supports engagement, traffic, awareness, video_views, app_promotion. Pinterest and Google Ads support only engagement, traffic, awareness, video_views." }
         isExternal: { type: boolean, description: True for ads synced from platform ad managers }
         budget:
           type: object
@@ -5978,6 +6072,61 @@ webhooks:
       responses:
         '200':
           description: Webhook received successfully
+  post.external.created:
+    post:
+      operationId: onPostExternalCreated
+      summary: External post created event
+      description: |
+        Fired when Zernio's background sync detects a natively-authored post
+        (created outside Zernio, e.g. a Google Business Profile localPost made in
+        the Google UI) for the first time. Poll-driven (~hourly), not real-time.
+        `post.source` is always "external".
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayloadExternalPost'
+      responses:
+        '200':
+          description: Webhook received successfully
+  post.external.updated:
+    post:
+      operationId: onPostExternalUpdated
+      summary: External post updated event
+      description: |
+        Fired when a tracked native post's text or media changed on the platform.
+        Detected by comparing text/media structure and, where available, the
+        platform's own edit timestamp; a media-URL-only refresh does not fire this.
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayloadExternalPost'
+      responses:
+        '200':
+          description: Webhook received successfully
+  post.external.deleted:
+    post:
+      operationId: onPostExternalDeleted
+      summary: External post deleted event
+      description: |
+        Fired when a tracked native post is detected as removed from the platform.
+        `post.deletedAt` carries the detection time. Coverage is bounded to the
+        most recent posts the platform listing returns.
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayloadExternalPost'
+      responses:
+        '200':
+          description: Webhook received successfully
   lead.received:
     post:
       operationId: onLeadReceived
@@ -6205,6 +6354,95 @@ webhooks:
                     country: { type: string }
                     profileId: { type: string }
                 verificationUrl: { type: string }
+      responses:
+        '200':
+          description: Webhook received successfully
+  whatsapp.number.suspended:
+    post:
+      operationId: onWhatsAppNumberSuspended
+      summary: WhatsApp number suspended event
+      description: |
+        Fired when an active number is suspended (e.g. a failed payment). The
+        number stops working until the issue is resolved, after which a
+        `whatsapp.number.reactivated` event is sent. `reason` carries the cause
+        (e.g. `payment_failed`, `subscription_ended`).
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: { type: string }
+                event: { type: string, enum: [whatsapp.number.suspended] }
+                timestamp: { type: string, format: date-time }
+                number:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    phoneNumber: { type: string }
+                    country: { type: string }
+                    profileId: { type: string }
+                reason: { type: string, nullable: true }
+      responses:
+        '200':
+          description: Webhook received successfully
+  whatsapp.number.reactivated:
+    post:
+      operationId: onWhatsAppNumberReactivated
+      summary: WhatsApp number reactivated event
+      description: |
+        Fired when a suspended number is reactivated (e.g. the payment
+        recovered) and is usable again.
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: { type: string }
+                event: { type: string, enum: [whatsapp.number.reactivated] }
+                timestamp: { type: string, format: date-time }
+                number:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    phoneNumber: { type: string }
+                    country: { type: string }
+                    profileId: { type: string }
+      responses:
+        '200':
+          description: Webhook received successfully
+  whatsapp.number.released:
+    post:
+      operationId: onWhatsAppNumberReleased
+      summary: WhatsApp number released event
+      description: |
+        Fired when a number is released and is no longer usable (by the user, a
+        billing cleanup, or an admin). Terminal. `reason` carries the cause
+        (e.g. `user_requested`, `cleanup_suspended`).
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: { type: string }
+                event: { type: string, enum: [whatsapp.number.released] }
+                timestamp: { type: string, format: date-time }
+                number:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    phoneNumber: { type: string }
+                    country: { type: string }
+                    profileId: { type: string }
+                reason: { type: string, nullable: true }
       responses:
         '200':
           description: Webhook received successfully
@@ -8342,6 +8580,612 @@ paths:
                 type: object
                 properties:
                   error: { type: string, example: "Access denied to this account" }
+
+  # ─── Inbox analytics ───────────────────────────────────────────────────
+  # Same `[Analytics]` tag as the posting endpoints above so the rendered
+  # docs keep posting + inbox analytics centralized in one group. Every
+  # endpoint here requires `fromDate` (YYYY-MM-DD) and caps the date span
+  # at 365 days.
+  /v1/analytics/inbox/volume:
+    get:
+      operationId: getInboxVolume
+      tags: [Inbox Analytics]
+      summary: Get inbox messaging volume
+      description: |
+        Daily inbox messaging volume + breakdowns. Folds the raw messaging
+        events into three projections so the client can render the volume
+        chart, KPI strip, and per-platform stacked bar from a single call.
+        Max date range is 365 days.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: fromDate
+          in: query
+          required: true
+          schema: { type: string, format: date }
+          description: Inclusive lower bound (YYYY-MM-DD). Required.
+        - name: toDate
+          in: query
+          schema: { type: string, format: date }
+          description: Inclusive upper bound (YYYY-MM-DD). Defaults to today.
+        - name: profileId
+          in: query
+          schema: { type: string }
+        - name: platform
+          in: query
+          schema: { type: string }
+          description: Filter by single platform (facebook, instagram, twitter, etc.).
+        - name: accountId
+          in: query
+          schema: { type: string }
+        - name: source
+          in: query
+          schema: { type: string }
+          description: "Filter by metadata.source lineage (human, workflow, sequence, broadcast, comment_automation, api, contact, platform)."
+      responses:
+        '200':
+          description: Volume breakdown
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  from: { type: string, format: date }
+                  to: { type: string, format: date, nullable: true }
+                  summary:
+                    type: object
+                    properties:
+                      received: { type: integer }
+                      sent: { type: integer }
+                      read: { type: integer }
+                      failed: { type: integer }
+                      uniqueConversations: { type: integer }
+                  timeseries:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date: { type: string, format: date }
+                        sent: { type: integer }
+                        received: { type: integer }
+                        read: { type: integer }
+                        failed: { type: integer }
+                  byPlatform:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        platform: { type: string }
+                        sent: { type: integer }
+                        received: { type: integer }
+                        read: { type: integer }
+                        failed: { type: integer }
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  details: { type: object }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/analytics/inbox/heatmap:
+    get:
+      operationId: getInboxHeatmap
+      tags: [Inbox Analytics]
+      summary: Get inbox day-of-week × hour-of-day heatmap
+      description: |
+        Day-of-week × hour-of-day breakdown of inbox messages. Buckets are
+        sparse — only cells with at least one event are returned; clients
+        zero-fill the rest to render the full 7×24 grid. The `dow` field
+        follows ClickHouse's `toDayOfWeek` convention (1 = Monday … 7 =
+        Sunday). Max date range is 365 days.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: fromDate
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: toDate
+          in: query
+          schema: { type: string, format: date }
+        - name: profileId
+          in: query
+          schema: { type: string }
+        - name: platform
+          in: query
+          schema: { type: string }
+        - name: accountId
+          in: query
+          schema: { type: string }
+        - name: source
+          in: query
+          schema: { type: string }
+        - name: action
+          in: query
+          schema: { type: string, enum: [message.received, message.sent, message.read, all] }
+          description: Narrow to a single event type. "all" or omitted means no filter.
+      responses:
+        '200':
+          description: Heatmap buckets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  from: { type: string, format: date }
+                  to: { type: string, format: date, nullable: true }
+                  buckets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        dow: { type: integer, minimum: 1, maximum: 7, description: "1 = Monday, 7 = Sunday" }
+                        hour: { type: integer, minimum: 0, maximum: 23 }
+                        received: { type: integer }
+                        sent: { type: integer }
+                        read: { type: integer }
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  details: { type: object }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/analytics/inbox/source-breakdown:
+    get:
+      operationId: getInboxSourceBreakdown
+      tags: [Inbox Analytics]
+      summary: Get inbox source breakdown
+      description: |
+        Breakdown of inbox messages by their lineage source (the
+        `metadata.source` field set at ingest time: human / workflow /
+        sequence / broadcast / comment_automation / api / contact /
+        platform). Each source row also carries a per-platform sub-split.
+        Max date range is 365 days.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: fromDate
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: toDate
+          in: query
+          schema: { type: string, format: date }
+        - name: profileId
+          in: query
+          schema: { type: string }
+        - name: platform
+          in: query
+          schema: { type: string }
+        - name: accountId
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Source breakdown
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  from: { type: string, format: date }
+                  to: { type: string, format: date, nullable: true }
+                  sources:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        source: { type: string }
+                        received: { type: integer }
+                        sent: { type: integer }
+                        read: { type: integer }
+                        byPlatform:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              platform: { type: string }
+                              received: { type: integer }
+                              sent: { type: integer }
+                              read: { type: integer }
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  details: { type: object }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/analytics/inbox/response-time:
+    get:
+      operationId: getInboxResponseTime
+      tags: [Inbox Analytics]
+      summary: Get inbox response-time stats
+      description: |
+        Time-to-first-response stats. Pairs each received message with the
+        next sent message in the same conversation and reports the delta
+        as both summary statistics and a fixed-bucket histogram suited
+        for the analytics page's TTR chart.
+
+        `sampleSize` reflects only conversations that received AND got a
+        reply in the window — received-but-never-answered conversations
+        are excluded. Compare against /v1/analytics/inbox/volume's
+        `summary.received` to compute reply rate.
+
+        Max date range is 365 days.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: fromDate
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: toDate
+          in: query
+          schema: { type: string, format: date }
+        - name: profileId
+          in: query
+          schema: { type: string }
+        - name: platform
+          in: query
+          schema: { type: string }
+        - name: accountId
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Response-time summary + histogram
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  from: { type: string, format: date }
+                  to: { type: string, format: date, nullable: true }
+                  summary:
+                    type: object
+                    properties:
+                      sampleSize: { type: integer }
+                      medianSeconds: { type: integer }
+                      p90Seconds: { type: integer }
+                      p99Seconds: { type: integer }
+                      meanSeconds: { type: integer }
+                      fastestSeconds: { type: integer }
+                      slowestSeconds: { type: integer }
+                  histogram:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        bucket: { type: string, description: "Human label (0-1m, 1-5m, 5-15m, 15-60m, 1-4h, 4-24h, 1d+)" }
+                        lowerSeconds: { type: integer }
+                        upperSeconds: { type: integer, nullable: true, description: "null on the open-ended last bucket" }
+                        count: { type: integer }
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  details: { type: object }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/analytics/inbox/top-accounts:
+    get:
+      operationId: getInboxTopAccounts
+      tags: [Inbox Analytics]
+      summary: Get top accounts by inbox volume
+      description: |
+        Leaderboard of social accounts by inbox message volume. Decorates
+        each row with display labels from the live SocialAccount record
+        (so the UI shows username + displayName, not just an ID). Accounts
+        that no longer map to a SocialAccount surface as "(disconnected)"
+        so the row stays visible. Max date range is 365 days.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: fromDate
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: toDate
+          in: query
+          schema: { type: string, format: date }
+        - name: profileId
+          in: query
+          schema: { type: string }
+        - name: platform
+          in: query
+          schema: { type: string }
+        - name: source
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+          description: "Cap on returned rows. Lower than the posting listing's 100 because each row triggers a SocialAccount Mongo lookup."
+      responses:
+        '200':
+          description: Top accounts leaderboard
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  from: { type: string, format: date }
+                  to: { type: string, format: date, nullable: true }
+                  accounts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        accountId: { type: string }
+                        platform: { type: string }
+                        displayName: { type: string, description: "(disconnected) when the SocialAccount no longer exists" }
+                        username: { type: string }
+                        received: { type: integer }
+                        sent: { type: integer }
+                        total: { type: integer }
+                        conversations: { type: integer }
+                        medianResponseSeconds: { type: integer }
+                        repliedCount: { type: integer, description: "Distinguishes 'instant replies' from 'no replies at all' so a zero medianResponseSeconds with repliedCount=0 renders as '—' instead of '0s'" }
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  details: { type: object }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/analytics/inbox/conversations:
+    get:
+      operationId: listInboxConversationAnalytics
+      tags: [Inbox Analytics]
+      summary: List conversations with inbox analytics
+      description: |
+        Per-conversation listing with per-row totals + first/last message
+        timestamps. The inbox analog of GET /v1/analytics (posts listing) —
+        same filter shape, same pagination, same sort/order semantics.
+        Use as the entry point for the per-conversation analytics drawer
+        at /v1/analytics/inbox/conversations/{conversationId}.
+
+        Rows are enriched with the conversation's participant info
+        (`participantName`, `participantUsername`, `participantPicture`)
+        and last-message preview by joining the Conversation document
+        scoped to the caller's team. Max date range is 365 days.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: fromDate
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: toDate
+          in: query
+          schema: { type: string, format: date }
+        - name: profileId
+          in: query
+          schema: { type: string }
+        - name: platform
+          in: query
+          schema: { type: string }
+        - name: accountId
+          in: query
+          schema: { type: string }
+        - name: source
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: sortBy
+          in: query
+          schema: { type: string, enum: [lastMessageAt, firstMessageAt, totalMessages, received, sent, read, failed], default: lastMessageAt }
+        - name: order
+          in: query
+          schema: { type: string, enum: [asc, desc], default: desc }
+      responses:
+        '200':
+          description: Paginated conversation analytics list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  from: { type: string, format: date }
+                  to: { type: string, format: date, nullable: true }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        conversationId: { type: string, description: "The platformConversationId (the same identity used by metadata.conversationId)" }
+                        mongoId: { type: string, nullable: true, description: "The Conversation document _id, when a matching doc exists" }
+                        accountId: { type: string }
+                        platform: { type: string }
+                        participantName: { type: string, nullable: true }
+                        participantUsername: { type: string, nullable: true }
+                        participantPicture: { type: string, nullable: true }
+                        lastMessage: { type: string, nullable: true, description: "Cached preview from the Conversation doc" }
+                        totalMessages: { type: integer }
+                        received: { type: integer }
+                        sent: { type: integer }
+                        read: { type: integer }
+                        failed: { type: integer }
+                        firstMessageAt: { type: string, format: date-time }
+                        lastMessageAt: { type: string, format: date-time }
+                  pagination:
+                    type: object
+                    properties:
+                      page: { type: integer }
+                      limit: { type: integer }
+                      total: { type: integer }
+                      totalPages: { type: integer }
+                      hasMore: { type: boolean }
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  details: { type: object }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/analytics/inbox/conversations/{conversationId}:
+    get:
+      operationId: getInboxConversationAnalytics
+      tags: [Inbox Analytics]
+      summary: Get analytics for a single conversation
+      description: |
+        Per-conversation inbox analytics. The inbox analog of
+        /v1/analytics/post-timeline — one conversation, daily totals,
+        source mix.
+
+        The {conversationId} path param accepts EITHER the Mongo `_id` of
+        the Conversation document OR its `platformConversationId` (the
+        same identity used by metadata.conversationId at ingest time).
+        Ownership is verified in MongoDB against the caller's team
+        before the Tinybird query fires.
+
+        Max date range is 365 days.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string }
+          description: Mongo _id or platformConversationId.
+        - name: fromDate
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: toDate
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Per-conversation analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  conversationId: { type: string, description: "The platformConversationId" }
+                  mongoId: { type: string }
+                  platform: { type: string, nullable: true }
+                  from: { type: string, format: date }
+                  to: { type: string, format: date, nullable: true }
+                  summary:
+                    type: object
+                    properties:
+                      received: { type: integer }
+                      sent: { type: integer }
+                      read: { type: integer }
+                      failed: { type: integer }
+                      totalMessages: { type: integer }
+                      firstMessageAt: { type: string, format: date-time, nullable: true }
+                      lastMessageAt: { type: string, format: date-time, nullable: true }
+                  timeseries:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date: { type: string, format: date }
+                        sent: { type: integer }
+                        received: { type: integer }
+                        read: { type: integer }
+                        failed: { type: integer }
+                  bySource:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        source: { type: string, description: "(unspecified) for legacy rows with no metadata.source" }
+                        count: { type: integer }
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  details: { type: object }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: Conversation not found or not owned by the caller's team
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string, example: "Conversation not found." }
+                  code: { type: string, example: conversation_not_found }
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /v1/account-groups:
     get:
@@ -13371,7 +14215,9 @@ paths:
       description: |
         Fetches reviews across multiple locations in a single request.
         More efficient than calling GET /gmb-reviews per location for multi-location businesses.
-        Reviews are grouped by location in the response.
+        Returns a flat list of individual reviews, each tagged with its review resource name.
+        Note: this endpoint does not return aggregate metrics (averageRating / totalReviewCount).
+        For those, use the single-location GET /gmb-reviews endpoint.
       parameters:
         - name: accountId
           in: path
@@ -13417,10 +14263,8 @@ paths:
                     items:
                       type: object
                       properties:
-                        locationName: { type: string }
-                        reviews: { type: array, items: { type: object } }
-                        averageRating: { type: number }
-                        totalReviewCount: { type: integer }
+                        name: { type: string, description: Full review resource name (accounts/*/locations/*/reviews/*) }
+                        review: { type: object, description: The review object (reviewId, starRating, comment, reviewer, createTime, updateTime, reviewReply) }
                   nextPageToken: { type: string }
         '400':
           description: Invalid request
@@ -17126,7 +17970,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, ad.status_changed, whatsapp.template.status_updated, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.verification_required]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, ad.status_changed, whatsapp.template.status_updated, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released]
                   description: Events to subscribe to (at least one required)
                 isActive:
                   type: boolean
@@ -17200,7 +18044,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, ad.status_changed, whatsapp.template.status_updated, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.verification_required]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, ad.status_changed, whatsapp.template.status_updated, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released]
                   description: Events to subscribe to. Must contain at least one event if provided.
                 isActive:
                   type: boolean
@@ -21103,10 +21947,13 @@ paths:
             still in review PLUS recently-declined (last 30 days) ones, so a
             failed registration surfaces (with `regulatoryDeclineReason`) instead
             of silently disappearing. Declined numbers can be re-submitted via
-            POST /v1/whatsapp/phone-numbers/{id}/remediate.
+            POST /v1/whatsapp/phone-numbers/{id}/remediate. `verifying` is the
+            short-lived state after the number is provisioned on our side while
+            WhatsApp confirms the activation code; the number is not billed until
+            it reaches `active`.
           schema:
             type: string
-            enum: [provisioning, pending_payment, pending_regulatory, regulatory_declined, active, suspended, releasing, released]
+            enum: [provisioning, verifying, pending_payment, pending_regulatory, regulatory_declined, active, suspended, releasing, released]
         - name: profileId
           in: query
           required: false
@@ -21129,7 +21976,7 @@ paths:
                         _id: { type: string }
                         phoneNumber: { type: string }
                         country: { type: string }
-                        status: { type: string, enum: [pending_payment, pending_regulatory, regulatory_declined, provisioning, active, suspended, releasing, released] }
+                        status: { type: string, enum: [pending_payment, pending_regulatory, regulatory_declined, provisioning, verifying, active, suspended, releasing, released] }
                         registrantName: { type: string, nullable: true, description: For regulated numbers, who it's registered for (company or person) — set from the submitted KYC. }
                         telnyxOrderId: { type: string, nullable: true, description: Present once the number order has been placed (i.e. the requirement group was approved). Absent while still in identity review. }
                         monthlyCents: { type: integer, description: Per-country monthly price in cents ($2..$25). }
@@ -21514,6 +22361,75 @@ paths:
         '400': { description: "Missing X-Filename, empty body, or file too large (over 20MB)." }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /v1/whatsapp/phone-numbers/kyc/validate-address:
+    post:
+      operationId: validateWhatsAppNumberKycAddress
+      tags: [WhatsApp Phone Numbers]
+      summary: Pre-validate a regulated-number KYC address (Tier 4)
+      description: |
+        Optional early check for the address step of a Tier 4 (end-user identity)
+        registration: validates a postal address for deliverability BEFORE the full
+        KYC submit, so it can be corrected before any documents are uploaded. The
+        full submit (POST /v1/whatsapp/phone-numbers/kyc) re-validates the address,
+        so this call is purely a fast feedback path and skipping it is safe. Only
+        the postal address is sent (no documents, no gov-ID fields). A region
+        (`administrative_area`) is required by the validator; when it is omitted the
+        pre-check is skipped and `{ ok: true, skipped: true }` is returned (the
+        final submit still validates).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [country, street_address, locality, postal_code]
+              properties:
+                country: { type: string, minLength: 2, maxLength: 2, description: ISO 3166-1 alpha-2 country code. }
+                street_address: { type: string }
+                locality: { type: string, description: City / town. }
+                administrative_area: { type: string, description: State / province / region. When omitted, the pre-check is skipped (the final submit still validates). }
+                postal_code: { type: string }
+      responses:
+        '200':
+          description: Address is deliverable, or the pre-check was skipped (no region supplied).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean, example: true }
+                  skipped: { type: boolean, description: "true when no `administrative_area` was supplied, so no pre-check ran." }
+        '400':
+          description: |
+            The country isn't offered, or the address could not be verified. When the
+            provider returned usable corrections, `details.addressSuggestions` carries
+            them per field for a one-click "apply suggestion" card. (Flat error
+            envelope: `error` is the human message; `code`/`param`/`details` are
+            top-level siblings.)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string, description: Human-readable message. }
+                  type: { type: string }
+                  code: { type: string, example: INVALID_FIELD_VALUE }
+                  param: { type: string, example: address }
+                  details:
+                    type: object
+                    properties:
+                      addressSuggestions:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            field: { type: string, example: administrative_area }
+                            label: { type: string, example: State / Province }
+                            value: { type: string, example: Dublin }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /v1/whatsapp/phone-numbers/{id}/remediate:
     get:
       operationId: getWhatsAppNumberRemediation
@@ -21622,7 +22538,7 @@ paths:
                     properties:
                       id: { type: string }
                       phoneNumber: { type: string }
-                      status: { type: string, enum: [pending_payment, pending_regulatory, regulatory_declined, provisioning, active, suspended, releasing, released] }
+                      status: { type: string, enum: [pending_payment, pending_regulatory, regulatory_declined, provisioning, verifying, active, suspended, releasing, released] }
                       country: { type: string }
                       metaPreverifiedId: { type: string }
                       metaVerificationStatus: { type: string }
@@ -24568,6 +25484,7 @@ paths:
                             dmsSent: { type: integer }
                             dmsFailed: { type: integer }
                             uniqueContacts: { type: integer }
+                            trackedSends: { type: integer, description: "DMs sent with a trackable (wrapped) link. CTR denominator: divide clicks by this, not dmsSent. Lags dmsSent for campaigns that predate click tracking." }
                             linkClicks: { type: integer, description: "Total clicks on tracked links (bots/prefetch excluded)." }
                             uniqueClicks: { type: integer, description: "Distinct people who clicked a tracked link." }
                             delivered: { type: integer, description: "DMs confirmed delivered (Messenger; IG emits no delivery receipt)." }
@@ -26068,7 +26985,22 @@ paths:
                 name: { type: string, maxLength: 255 }
                 campaignName: { type: string, maxLength: 255, description: "Meta only. Exact campaign name. Overrides the default `<name> - Campaign`." }
                 adSetName: { type: string, maxLength: 255, description: "Meta only. Exact ad set name. Overrides the default `<name> - Ad Set`. (For per-ad names on the multi-creative shape, set `name` on each `creatives[]` entry.)" }
-                goal: { type: string, enum: [engagement, traffic, awareness, video_views, lead_generation, conversions, app_promotion], description: "Required on legacy + multi-creative shapes. Inherited from the ad set on the attach shape. Available goals vary by platform. Meta-specific: `conversions` requires `promotedObject.pixelId` + `promotedObject.customEventType`; `app_promotion` requires `promotedObject.applicationId` + `promotedObject.objectStoreUrl`; `lead_generation` accepts an optional `promotedObject.pageId` (auto-filled from the connected Page when omitted). TikTok-specific: `conversions` (website-conversion ad group) requires `promotedObject.pixelId` (your TikTok Pixel ID) and accepts an optional `promotedObject.customEventType` (a TikTok `optimization_event` code like `ON_WEB_ORDER`, `INITIATE_ORDER`, `ON_WEB_REGISTER`, `FORM`); to inherit a pixel + event from an existing ad group, pass `adSetId` instead. LinkedIn-specific: `engagement`, `traffic`, `awareness`, and `video_views` are supported for standalone ads (creates a Direct Sponsored Content single image or single video ad). `traffic` requires `linkUrl`; `video_views` requires the `video` field. For `lead_generation` / `conversions` on LinkedIn — or to promote an existing post — use `POST /v1/ads/boost`." }
+                adName: { type: string, maxLength: 255, description: "Meta only. Exact ad name (the single-creative ad object's name). Overrides the default, which is `name`. (For per-ad names on the multi-creative shape, set `name` on each `creatives[]` entry instead.)" }
+                tracking:
+                  type: object
+                  description: "Meta only. Attaches pixel measurement to the ad regardless of the optimization goal (the \"Website events\" tracking row in Ads Manager). `pixelId` becomes the ad's `tracking_specs` (offsite_conversion + fb_pixel); `urlTags` becomes the ad's `url_tags` (click-tracking query params). Applied to every ad on the legacy single-creative and multi-creative shapes."
+                  properties:
+                    pixelId: { type: string, description: "Meta Pixel ID to attach for offsite-conversion measurement." }
+                    urlTags:
+                      type: array
+                      description: "Click-URL params appended to the ad's destination as `url_tags` (e.g. utm_source)."
+                      items:
+                        type: object
+                        required: [key, value]
+                        properties:
+                          key: { type: string }
+                          value: { type: string }
+                goal: { type: string, enum: [engagement, traffic, awareness, video_views, lead_generation, lead_conversion, conversions, app_promotion], description: "Required on legacy + multi-creative shapes. Inherited from the ad set on the attach shape. Available goals vary by platform. Meta-specific: `conversions` (OUTCOME_SALES) requires `promotedObject.pixelId` + `promotedObject.customEventType` (use a commerce event, e.g. PURCHASE, START_TRIAL); `lead_conversion` (OUTCOME_LEADS, website pixel leads) requires the same pixel + event but with a leads-class event (e.g. LEAD, SUBMIT_APPLICATION, SCHEDULE, CONTACT) — these are rejected under `conversions` because Meta gates conversion events by objective; `lead_generation` is OUTCOME_LEADS with instant forms (`leadGenFormId`), distinct from `lead_conversion`'s website pixel optimization; `app_promotion` requires `promotedObject.applicationId` + `promotedObject.objectStoreUrl`; `lead_generation` accepts an optional `promotedObject.pageId` (auto-filled from the connected Page when omitted). TikTok-specific: `conversions` (website-conversion ad group) requires `promotedObject.pixelId` (your TikTok Pixel ID) and accepts an optional `promotedObject.customEventType` (a TikTok `optimization_event` code like `ON_WEB_ORDER`, `INITIATE_ORDER`, `ON_WEB_REGISTER`, `FORM`); to inherit a pixel + event from an existing ad group, pass `adSetId` instead. LinkedIn-specific: `engagement`, `traffic`, `awareness`, and `video_views` are supported for standalone ads (creates a Direct Sponsored Content single image or single video ad). `traffic` requires `linkUrl`; `video_views` requires the `video` field. For `lead_generation` / `conversions` on LinkedIn — or to promote an existing post — use `POST /v1/ads/boost`." }
                 budgetAmount: { type: number, description: "Required on legacy + multi-creative shapes. Inherited on attach." }
                 budgetType: { type: string, enum: [daily, lifetime], description: "Required on legacy + multi-creative shapes. Inherited on attach." }
                 budgetLevel:
@@ -27373,6 +28305,126 @@ paths:
             LinkedIn token-level rate limit hit (600 requests/min, 300k/day
             per token). Retry with backoff. Meta and Google have their own
             rate-limit semantics surfaced via platform-specific 4xx responses.
+
+  /v1/ads/conversions/adjustments:
+    post:
+      operationId: adjustConversions
+      tags: [Ads]
+      summary: Adjust already-uploaded conversions (Google only)
+      description: |
+        Adjust conversions that were previously uploaded via `POST /v1/ads/conversions` —
+        retract them, restate their value, or enhance them with first-party data. Requires
+        the Ads add-on.
+
+        **Google Ads only.** Google handles adjustments through the classic Google Ads API
+        (`ConversionAdjustmentUploadService`); the Data Manager `ingestEvents` path used for
+        sending conversions is ingest-only. Meta and LinkedIn have no equivalent, so this
+        endpoint returns `405` for those platforms.
+
+        Adjustment types:
+
+        - `RETRACTION` — remove the conversion entirely (refund, chargeback, cancelled order, churn).
+        - `RESTATEMENT` — change the conversion's value (upgrade / downgrade / partial refund). Send the corrected **total** value in `restatementValue` (not a delta).
+        - `ENHANCEMENT` — attach first-party identifiers (hashed email / phone) to an existing conversion (enhanced conversions applied after the fact).
+
+        Identifying the original conversion (per adjustment):
+
+        - `orderId` — the transaction ID you sent as `eventId` on the original conversion. Recommended, and **required** for `ENHANCEMENT`.
+        - or `gclid` + `conversionTime` — the click ID and the original conversion's time (unix seconds). Not available for `ENHANCEMENT`.
+
+        `destinationId` is the conversion action resource name, e.g.
+        `customers/1234567890/conversionActions/987654321` (same value you send to
+        `POST /v1/ads/conversions`). PII in `user` is hashed with SHA-256 server-side
+        (Gmail-specific normalization included). Send plaintext.
+
+        Times are unix seconds; we convert to Google's required
+        `yyyy-MM-dd HH:mm:ss+00:00` format. Up to 2000 adjustments per request; partial
+        failure is supported (inspect `adjustmentsFailed` / `failures[]`).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, destinationId, adjustments]
+              properties:
+                accountId:
+                  type: string
+                  description: SocialAccount ID. Must be a `googleads` account.
+                destinationId:
+                  type: string
+                  description: Conversion action resource name, e.g. `customers/1234567890/conversionActions/987654321`.
+                adjustments:
+                  type: array
+                  minItems: 1
+                  maxItems: 2000
+                  items:
+                    type: object
+                    required: [adjustmentType, adjustmentTime]
+                    properties:
+                      adjustmentType:
+                        type: string
+                        enum: [RETRACTION, RESTATEMENT, ENHANCEMENT]
+                      adjustmentTime:
+                        type: number
+                        description: When the adjustment occurred, unix seconds.
+                      orderId:
+                        type: string
+                        description: Transaction ID of the original conversion (the `eventId` you sent). Recommended; required for ENHANCEMENT.
+                      gclid:
+                        type: string
+                        description: Alternative key — the original click ID. Pair with `conversionTime`. Not valid for ENHANCEMENT.
+                      conversionTime:
+                        type: number
+                        description: The original conversion's time, unix seconds. Required when identifying by `gclid`.
+                      restatementValue:
+                        type: number
+                        description: RESTATEMENT only — the corrected TOTAL conversion value.
+                      currency:
+                        type: string
+                        description: RESTATEMENT only — ISO 4217 currency for `restatementValue`.
+                      user:
+                        type: object
+                        description: ENHANCEMENT only — first-party identifiers (hashed server-side). At least one of email/phone required.
+                        properties:
+                          email: { type: string }
+                          phone: { type: string }
+                      userAgent:
+                        type: string
+                        description: ENHANCEMENT only — the original conversion's user agent (improves match quality).
+      responses:
+        '200':
+          description: |
+            Adjustments processed. Inspect `adjustmentsFailed` and `failures[]` for
+            partial failure (Google reports per-row errors via partial failure).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  platform: { type: string, enum: [googleads] }
+                  adjustmentsReceived: { type: integer, description: Adjustments accepted by Google. }
+                  adjustmentsFailed: { type: integer, description: Adjustments rejected (see failures). }
+                  failures:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        adjustmentIndex: { type: integer, description: Index into the submitted adjustments array. }
+                        message: { type: string }
+                        code: { oneOf: [{ type: string }, { type: integer }] }
+                  traceId: { type: string }
+        '400':
+          description: Invalid body, or a malformed adjustment (missing key, missing restatementValue for RESTATEMENT, missing identifiers for ENHANCEMENT).
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Ads access required (Ads add-on on legacy plans, included on usage-based plans).
+        '404':
+          description: Account not found or not accessible.
+        '405':
+          description: Conversion adjustments are only available for Google Ads (the account's platform is not `googleads`).
 
   /v1/accounts/{accountId}/conversion-destinations:
     get:

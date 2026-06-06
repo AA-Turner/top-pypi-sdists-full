@@ -29,7 +29,7 @@ use std::fmt;
 use std::time::Instant;
 
 // Crate-level imports
-use crate::construction::ReparamInvariant;
+use crate::construction::{CanonicalPenalty, ReparamInvariant};
 use crate::inference::diagnostics::should_emit_h_min_eig_diag;
 use crate::inference::predict::se_from_covariance;
 use crate::linalg::utils::{
@@ -484,21 +484,41 @@ impl ParametricColumnConditioning {
         )))
     }
 
+    /// Map a constraint matrix from original (user-scale) coefficients to the
+    /// internally-conditioned coordinates the solver actually optimizes.
+    ///
+    /// Constraints are authored on the *original* design-column coefficients:
+    /// `A_orig · β_orig {≥,≤} b` (e.g. a `linear(x, min, max)` box pushes rows
+    /// `β_col ≥ min` and `β_col ≤ max`). The inner solve works with the
+    /// conditioned coefficients `β_int`, where the back-transform `β_orig = M·β_int`
+    /// is exactly the one implemented by [`Self::backtransform_beta`]:
+    ///
+    /// ```text
+    ///   β_orig[j]         = β_int[j] / scale_j                         (conditioned col j)
+    ///   β_orig[intercept] = β_int[intercept] − Σ_j (mean_j / scale_j) · β_int[j]
+    /// ```
+    ///
+    /// so `M[j][j] = 1/scale_j`, `M[intercept][j] = −mean_j/scale_j`, and `M` is
+    /// the identity elsewhere. Substituting into `A_orig · β_orig` gives the
+    /// equivalent internal constraint `A_int · β_int {≥,≤} b` with `A_int = A_orig·M`.
+    /// Only the conditioned columns of `A_int` differ from `A_orig`:
+    ///
+    /// ```text
+    ///   A_int[:, j] = (A_orig[:, j] − mean_j · A_orig[:, intercept]) / scale_j
+    /// ```
+    ///
+    /// The RHS `b` is unchanged, so [`Self::transform_linear_constraints_to_internal`]
+    /// carries it through verbatim. `A_orig · M` is precisely `M` applied to the
+    /// columns of `A_orig`, which is the canonical back-transform primitive
+    /// [`Self::transform_matrix_columnswith_a`] already used by
+    /// [`Self::backtransform_covariance`] — so delegate to it rather than carry a
+    /// second copy of the per-column algebra. The previous hand-rolled body applied
+    /// the *inverse* conditioning map ([`Self::transform_matrix_columnswith_b`]:
+    /// `+mean`, `×scale`) instead, which let a box constraint escape its interval
+    /// by exactly `1/scale_j²` (and mixed the intercept column with the wrong sign,
+    /// harmless only because a single-coefficient box has a zero intercept entry).
     fn transform_constraint_matrix_to_internal(&self, a_original: &Array2<f64>) -> Array2<f64> {
-        let mut out = a_original.clone();
-        for &(j, mean, scale) in &self.columns {
-            let intercept_col = self.intercept_idx.map(|idx| out.column(idx).to_owned());
-            let mut target = out.column_mut(j);
-            if mean != 0.0
-                && let Some(intercept_col) = intercept_col
-            {
-                target += &(intercept_col * mean);
-            }
-            if scale != 1.0 {
-                target.mapv_inplace(|v| v * scale);
-            }
-        }
-        out
+        self.transform_matrix_columnswith_a(a_original)
     }
 
     fn transform_linear_constraints_to_internal(
@@ -702,7 +722,17 @@ fn dispersion_from_likelihood(
             }
         }
         ResponseFamily::Tweedie { .. } => {
-            Dispersion::Known(likelihood.fixed_phi().unwrap_or(1.0).max(1e-300))
+            // `Var(y) = phi · mu^p`, so the response-level dispersion is `phi`
+            // itself, read from the scale metadata (now the converged-η Pearson
+            // estimate, issue #771). Reported as `Estimated` when the default
+            // estimate-phi metadata is in force so downstream consumers know the
+            // scale came from the data, not a frozen seed.
+            let phi = likelihood.fixed_phi().unwrap_or(1.0).max(1e-300);
+            if likelihood.scale.tweedie_phi_is_estimated() {
+                Dispersion::Estimated(phi)
+            } else {
+                Dispersion::Known(phi)
+            }
         }
         ResponseFamily::NegativeBinomial { theta } => {
             Dispersion::Known(likelihood.fixed_phi().unwrap_or(*theta).max(1e-300))
@@ -758,9 +788,6 @@ pub(crate) struct RemlConfig {
     max_iterations: usize,
     reml_convergence_tolerance: f64,
     firth_bias_reduction: bool,
-    /// Universal under-identification robustness policy. `Off` (default) leaves
-    /// the REML path byte-identical to released behavior.
-    robust_identification: crate::solver::workflow::RobustIdentification,
     /// Forwarded to `pirls::PirlsConfig::geodesic_acceleration`. Off by default.
     geodesic_acceleration: bool,
 }
@@ -783,7 +810,6 @@ impl RemlConfig {
             max_iterations: 0,
             reml_convergence_tolerance: reml_tol,
             firth_bias_reduction,
-            robust_identification: crate::solver::workflow::RobustIdentification::Off,
             geodesic_acceleration: false,
         }
         .with_max_iterations(300)
@@ -805,7 +831,6 @@ impl RemlConfig {
             max_iterations: self.max_iterations,
             convergence_tolerance: self.pirls_convergence_tolerance,
             firth_bias_reduction: self.firth_bias_reduction,
-            robust_identification: self.robust_identification,
             // Caller (the REML runtime) populates this hint just before
             // each `execute_pirls_if_needed` call from the cached final
             // λ of the previous successful PIRLS solve.
@@ -1691,6 +1716,57 @@ pub enum EstimationError {
     PerfectSeparationDetected { iteration: usize, max_abs_eta: f64 },
 
     #[error(
+        "Pre-fit perfect separation detected in the realized binomial inverse-link design: column {column_index} \
+        has a threshold {threshold:.6e} that separates the binary outcomes \
+        (positive_above_threshold={positive_above_threshold}). The unpenalized MLE is not finite; \
+        enable Firth/Jeffreys bias reduction or remove/reparameterize the separating column."
+    )]
+    PrefitPerfectSeparationDetected {
+        column_index: usize,
+        threshold: f64,
+        positive_above_threshold: bool,
+    },
+
+    #[error(
+        "Pre-fit linear separation detected in the realized binomial inverse-link design: \
+        {num_unpenalized_columns} effectively unpenalized columns admit a separating direction \
+        with minimum signed margin {min_signed_margin:.6e} (columns {column_indices:?}). \
+        The unpenalized MLE is not finite; enable Firth/Jeffreys bias reduction or \
+        remove/reparameterize/penalize the separating columns."
+    )]
+    PrefitLinearSeparationDetected {
+        min_signed_margin: f64,
+        num_unpenalized_columns: usize,
+        column_indices: Vec<usize>,
+    },
+
+    #[error(
+        "Pre-fit rank deficiency detected in the realized unpenalized design: rank {rank} < {num_unpenalized_columns} \
+        unpenalized columns (min eigenvalue {min_eigenvalue:.3e}, tolerance {tolerance:.3e}, columns {column_indices:?}). \
+        Remove/reparameterize the aliased columns or add an explicit penalty/constraint before fitting."
+    )]
+    PrefitRankDeficientDesignDetected {
+        rank: usize,
+        num_unpenalized_columns: usize,
+        min_eigenvalue: f64,
+        tolerance: f64,
+        column_indices: Vec<usize>,
+    },
+
+    #[error(
+        "Perfect or quasi-perfect separation detected during multinomial fitting at iteration {iteration}. \
+        The active class-{active_class_index} logit against the reference class is saturated at training row {row_index}, \
+        so the unpenalized softmax MLE is not finite in that direction. \
+        (Diagnostic: max|eta| = {max_abs_eta:.2e})."
+    )]
+    MultinomialSeparationDetected {
+        iteration: usize,
+        max_abs_eta: f64,
+        active_class_index: usize,
+        row_index: usize,
+    },
+
+    #[error(
         "Hessian matrix is not positive definite (minimum eigenvalue: {min_eigenvalue:.4e}). This indicates a numerical instability."
     )]
     HessianNotPositiveDefinite { min_eigenvalue: f64 },
@@ -1772,6 +1848,7 @@ impl EstimationError {
             self,
             EstimationError::ModelIsIllConditioned { .. }
                 | EstimationError::PerfectSeparationDetected { .. }
+                | EstimationError::MultinomialSeparationDetected { .. }
                 | EstimationError::PirlsDidNotConverge { .. }
         )
     }
@@ -1841,9 +1918,6 @@ pub struct ExternalOptimOptions {
     /// - `Some(false)`: force Firth off
     /// - `None`: use family default behavior
     pub firth_bias_reduction: Option<bool>,
-    /// Universal under-identification robustness policy. `Off` (default) leaves
-    /// the external optimization path byte-identical to released behavior.
-    pub robust_identification: crate::solver::workflow::RobustIdentification,
     /// Relative shrinkage floor for penalized block eigenvalues.
     /// See [`FitOptions::penalty_shrinkage_floor`] for details.
     pub penalty_shrinkage_floor: Option<f64>,
@@ -1867,16 +1941,10 @@ fn resolve_external_family(
         );
     }
 
-    let supports_firth = matches!(
-        (&family.response, &family.link),
-        (
-            ResponseFamily::Binomial,
-            InverseLink::Standard(StandardLink::Logit),
-        ),
-    );
+    let supports_firth = family.supports_firth();
     if firth_override == Some(true) && !supports_firth {
         crate::bail_invalid_estim!(
-            "firth_bias_reduction is currently implemented only for Binomial Logit; {} does not support it",
+            "firth_bias_reduction requires a Binomial inverse link with a Fisher-weight jet; {} does not support it",
             family.pretty_name(),
         );
     }
@@ -1970,7 +2038,6 @@ fn resolved_external_config(
         resolve_external_family(&opts.family, opts.firth_bias_reduction)?;
     let link = likelihood.link_function();
     let mut cfg = RemlConfig::external(likelihood, opts.tol, firth_active);
-    cfg.robust_identification = opts.robust_identification;
     cfg.link_kind = resolved_external_inverse_link(
         link,
         opts.latent_cloglog,
@@ -2026,6 +2093,502 @@ fn validate_penalty_specs(
             }
         }
     }
+    Ok(())
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct PrefitSeparationDiagnostic {
+    column_index: usize,
+    threshold: f64,
+    positive_above_threshold: bool,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct PrefitLinearSeparationDiagnostic {
+    min_signed_margin: f64,
+    num_unpenalized_columns: usize,
+    column_indices: Vec<usize>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct PrefitRankDiagnostic {
+    rank: usize,
+    num_unpenalized_columns: usize,
+    min_eigenvalue: f64,
+    tolerance: f64,
+    column_indices: Vec<usize>,
+}
+
+fn prefit_binary_response_classes(
+    y: ArrayView1<'_, f64>,
+    w: ArrayView1<'_, f64>,
+) -> Option<Vec<Option<bool>>> {
+    let mut class = Vec::with_capacity(y.len());
+    let mut active_rows = 0usize;
+    let mut has_negative = false;
+    let mut has_positive = false;
+    for (&yi, &wi) in y.iter().zip(w.iter()) {
+        if !wi.is_finite() || wi <= 0.0 {
+            class.push(None);
+            continue;
+        }
+        if !yi.is_finite() {
+            return None;
+        }
+        active_rows += 1;
+        if yi <= f64::EPSILON {
+            has_negative = true;
+            class.push(Some(false));
+        } else if yi >= 1.0 - f64::EPSILON {
+            has_positive = true;
+            class.push(Some(true));
+        } else {
+            return None;
+        }
+    }
+    if active_rows == 0 || !has_negative || !has_positive {
+        return None;
+    }
+    Some(class)
+}
+
+fn canonical_unpenalized_column_mask(penalties: &[CanonicalPenalty], p: usize) -> Vec<bool> {
+    let mut unpenalized = vec![true; p];
+    for penalty in penalties {
+        let scale = penalty
+            .local
+            .diag()
+            .iter()
+            .fold(0.0_f64, |acc, value| acc.max(value.abs()))
+            .max(1.0);
+        let tol = 1e-12 * scale;
+        for local_col in 0..penalty.col_range.len() {
+            let global_col = penalty.col_range.start + local_col;
+            if global_col < p && penalty.local[[local_col, local_col]].abs() > tol {
+                unpenalized[global_col] = false;
+            }
+        }
+    }
+    unpenalized
+}
+
+fn unpenalized_column_indices(unpenalized_columns: &[bool]) -> Vec<usize> {
+    unpenalized_columns
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, &unpenalized)| unpenalized.then_some(idx))
+        .collect()
+}
+
+fn detect_prefit_unpenalized_rank_deficiency_in_design(
+    w: ArrayView1<'_, f64>,
+    x: &DesignMatrix,
+    unpenalized_columns: &[bool],
+) -> Result<Option<PrefitRankDiagnostic>, EstimationError> {
+    if x.nrows() != w.len() || x.ncols() != unpenalized_columns.len() {
+        return Ok(None);
+    }
+
+    let column_indices = unpenalized_column_indices(unpenalized_columns);
+    let q = column_indices.len();
+    if q <= 1 {
+        return Ok(None);
+    }
+
+    let mut active_rows = 0usize;
+    let mut gram = Array2::<f64>::zeros((q, q));
+    let target_cells = 1_000_000usize;
+    let p = x.ncols();
+    let chunk_rows = (target_cells / p.max(1)).clamp(1, x.nrows().max(1));
+    let mut chunk = Array2::<f64>::zeros((chunk_rows, p));
+    for start in (0..x.nrows()).step_by(chunk_rows) {
+        let end = (start + chunk_rows).min(x.nrows());
+        let rows = end - start;
+        x.row_chunk_into(start..end, chunk.slice_mut(s![0..rows, ..]))
+            .map_err(|err| {
+                EstimationError::LayoutError(format!(
+                    "pre-fit rank check failed to stream design rows: {err}"
+                ))
+            })?;
+        for local_row in 0..rows {
+            let weight = w[start + local_row];
+            if !weight.is_finite() {
+                return Ok(None);
+            }
+            if weight <= 0.0 {
+                continue;
+            }
+            active_rows += 1;
+            for (local_col_a, &global_col_a) in column_indices.iter().enumerate() {
+                let value_a = chunk[[local_row, global_col_a]];
+                if !value_a.is_finite() {
+                    return Ok(None);
+                }
+                for (local_col_b, &global_col_b) in
+                    column_indices[..=local_col_a].iter().enumerate()
+                {
+                    let value_b = chunk[[local_row, global_col_b]];
+                    if !value_b.is_finite() {
+                        return Ok(None);
+                    }
+                    gram[[local_col_a, local_col_b]] += weight * value_a * value_b;
+                }
+            }
+        }
+    }
+    if active_rows == 0 {
+        return Ok(None);
+    }
+    for row in 0..q {
+        for col in 0..row {
+            gram[[col, row]] = gram[[row, col]];
+        }
+    }
+
+    let (eigenvalues, _) = gram
+        .eigh(Side::Lower)
+        .map_err(EstimationError::EigendecompositionFailed)?;
+    if eigenvalues.iter().any(|value| !value.is_finite()) {
+        return Ok(None);
+    }
+    let spectral_scale = eigenvalues
+        .iter()
+        .fold(0.0_f64, |scale, &value| scale.max(value.abs()))
+        .max(1.0);
+    let tolerance = 1e-10 * spectral_scale;
+    let rank = eigenvalues
+        .iter()
+        .filter(|&&value| value > tolerance)
+        .count();
+    if rank < q {
+        return Ok(Some(PrefitRankDiagnostic {
+            rank,
+            num_unpenalized_columns: q,
+            min_eigenvalue: eigenvalues.iter().copied().fold(f64::INFINITY, f64::min),
+            tolerance,
+            column_indices,
+        }));
+    }
+
+    Ok(None)
+}
+
+fn reject_prefit_unpenalized_rank_deficiency(
+    w: ArrayView1<'_, f64>,
+    x_fit: &DesignMatrix,
+    penalties: &[CanonicalPenalty],
+) -> Result<(), EstimationError> {
+    let unpenalized_columns = canonical_unpenalized_column_mask(penalties, x_fit.ncols());
+    if let Some(diagnostic) =
+        detect_prefit_unpenalized_rank_deficiency_in_design(w, x_fit, &unpenalized_columns)?
+    {
+        return Err(EstimationError::PrefitRankDeficientDesignDetected {
+            rank: diagnostic.rank,
+            num_unpenalized_columns: diagnostic.num_unpenalized_columns,
+            min_eigenvalue: diagnostic.min_eigenvalue,
+            tolerance: diagnostic.tolerance,
+            column_indices: diagnostic.column_indices,
+        });
+    }
+    Ok(())
+}
+
+fn separator_from_column_extrema(
+    unpenalized_columns: &[bool],
+    min_pos: &[f64],
+    max_pos: &[f64],
+    min_neg: &[f64],
+    max_neg: &[f64],
+) -> Option<PrefitSeparationDiagnostic> {
+    const GAP_TOL: f64 = 1e-12;
+    for col in 0..unpenalized_columns.len() {
+        if !unpenalized_columns[col] {
+            continue;
+        }
+        if min_pos[col] > max_neg[col] + GAP_TOL {
+            return Some(PrefitSeparationDiagnostic {
+                column_index: col,
+                threshold: 0.5 * (min_pos[col] + max_neg[col]),
+                positive_above_threshold: true,
+            });
+        }
+        if min_neg[col] > max_pos[col] + GAP_TOL {
+            return Some(PrefitSeparationDiagnostic {
+                column_index: col,
+                threshold: 0.5 * (min_neg[col] + max_pos[col]),
+                positive_above_threshold: false,
+            });
+        }
+    }
+
+    None
+}
+
+fn detect_prefit_binomial_single_column_separation_in_design(
+    y: ArrayView1<'_, f64>,
+    w: ArrayView1<'_, f64>,
+    x: &DesignMatrix,
+    unpenalized_columns: &[bool],
+) -> Result<Option<PrefitSeparationDiagnostic>, EstimationError> {
+    if x.nrows() != y.len() || x.nrows() != w.len() || x.ncols() != unpenalized_columns.len() {
+        return Ok(None);
+    }
+    let Some(class) = prefit_binary_response_classes(y, w) else {
+        return Ok(None);
+    };
+    let p = x.ncols();
+    if p == 0 {
+        return Ok(None);
+    }
+
+    let mut min_pos = vec![f64::INFINITY; p];
+    let mut max_pos = vec![f64::NEG_INFINITY; p];
+    let mut min_neg = vec![f64::INFINITY; p];
+    let mut max_neg = vec![f64::NEG_INFINITY; p];
+    let target_cells = 1_000_000usize;
+    let chunk_rows = (target_cells / p.max(1)).clamp(1, x.nrows().max(1));
+    let mut chunk = Array2::<f64>::zeros((chunk_rows, p));
+    for start in (0..x.nrows()).step_by(chunk_rows) {
+        let end = (start + chunk_rows).min(x.nrows());
+        let rows = end - start;
+        x.row_chunk_into(start..end, chunk.slice_mut(s![0..rows, ..]))
+            .map_err(|err| {
+                EstimationError::LayoutError(format!(
+                    "pre-fit binomial separation check failed to stream design rows: {err}"
+                ))
+            })?;
+        for local_row in 0..rows {
+            let Some(is_positive) = class[start + local_row] else {
+                continue;
+            };
+            for col in 0..p {
+                if !unpenalized_columns[col] {
+                    continue;
+                }
+                let value = chunk[[local_row, col]];
+                if !value.is_finite() {
+                    return Ok(None);
+                }
+                if is_positive {
+                    min_pos[col] = min_pos[col].min(value);
+                    max_pos[col] = max_pos[col].max(value);
+                } else {
+                    min_neg[col] = min_neg[col].min(value);
+                    max_neg[col] = max_neg[col].max(value);
+                }
+            }
+        }
+    }
+
+    Ok(separator_from_column_extrema(
+        unpenalized_columns,
+        &min_pos,
+        &max_pos,
+        &min_neg,
+        &max_neg,
+    ))
+}
+
+fn certify_prefit_binomial_linear_separator(
+    class: &[Option<bool>],
+    x: &DesignMatrix,
+    column_indices: &[usize],
+    direction: &[f64],
+) -> Result<Option<PrefitLinearSeparationDiagnostic>, EstimationError> {
+    if x.nrows() != class.len() || column_indices.len() != direction.len() {
+        return Ok(None);
+    }
+    let direction_norm = direction
+        .iter()
+        .map(|value| value * value)
+        .sum::<f64>()
+        .sqrt();
+    if !direction_norm.is_finite() || direction_norm <= 0.0 {
+        return Ok(None);
+    }
+
+    let p = x.ncols();
+    let target_cells = 1_000_000usize;
+    let chunk_rows = (target_cells / p.max(1)).clamp(1, x.nrows().max(1));
+    let mut chunk = Array2::<f64>::zeros((chunk_rows, p));
+    let mut min_signed_margin = f64::INFINITY;
+    for start in (0..x.nrows()).step_by(chunk_rows) {
+        let end = (start + chunk_rows).min(x.nrows());
+        let rows = end - start;
+        x.row_chunk_into(start..end, chunk.slice_mut(s![0..rows, ..]))
+            .map_err(|err| {
+                EstimationError::LayoutError(format!(
+                    "pre-fit binomial linear-separation certification failed to stream design rows: {err}"
+                ))
+            })?;
+        for local_row in 0..rows {
+            let Some(is_positive) = class[start + local_row] else {
+                continue;
+            };
+            let mut dot = 0.0;
+            let mut row_norm_sq = 0.0;
+            for (local_col, &global_col) in column_indices.iter().enumerate() {
+                let value = chunk[[local_row, global_col]];
+                if !value.is_finite() {
+                    return Ok(None);
+                }
+                dot += direction[local_col] * value;
+                row_norm_sq += value * value;
+            }
+            let row_norm = row_norm_sq.sqrt();
+            if !row_norm.is_finite() {
+                return Ok(None);
+            }
+            let signed_margin = if is_positive { dot } else { -dot };
+            let tolerance = 1e-12 * direction_norm * row_norm.max(1.0);
+            if signed_margin <= tolerance {
+                return Ok(None);
+            }
+            min_signed_margin = min_signed_margin.min(signed_margin / direction_norm);
+        }
+    }
+    if !min_signed_margin.is_finite() {
+        return Ok(None);
+    }
+
+    Ok(Some(PrefitLinearSeparationDiagnostic {
+        min_signed_margin,
+        num_unpenalized_columns: column_indices.len(),
+        column_indices: column_indices.to_vec(),
+    }))
+}
+
+fn detect_prefit_binomial_linear_combination_separation_in_design(
+    y: ArrayView1<'_, f64>,
+    w: ArrayView1<'_, f64>,
+    x: &DesignMatrix,
+    unpenalized_columns: &[bool],
+) -> Result<Option<PrefitLinearSeparationDiagnostic>, EstimationError> {
+    if x.nrows() != y.len() || x.nrows() != w.len() || x.ncols() != unpenalized_columns.len() {
+        return Ok(None);
+    }
+    let Some(class) = prefit_binary_response_classes(y, w) else {
+        return Ok(None);
+    };
+    let column_indices = unpenalized_column_indices(unpenalized_columns);
+    let q = column_indices.len();
+    if q == 0 {
+        return Ok(None);
+    }
+
+    let p = x.ncols();
+    let target_cells = 1_000_000usize;
+    let chunk_rows = (target_cells / p.max(1)).clamp(1, x.nrows().max(1));
+    let mut chunk = Array2::<f64>::zeros((chunk_rows, p));
+    let mut direction = vec![0.0_f64; q];
+    let max_passes = (8 * q.max(1)).clamp(16, 128);
+    for _ in 0..max_passes {
+        let mut mistakes = 0usize;
+        for start in (0..x.nrows()).step_by(chunk_rows) {
+            let end = (start + chunk_rows).min(x.nrows());
+            let rows = end - start;
+            x.row_chunk_into(start..end, chunk.slice_mut(s![0..rows, ..]))
+                .map_err(|err| {
+                    EstimationError::LayoutError(format!(
+                        "pre-fit binomial linear-separation check failed to stream design rows: {err}"
+                    ))
+                })?;
+            for local_row in 0..rows {
+                let Some(is_positive) = class[start + local_row] else {
+                    continue;
+                };
+                let sign = if is_positive { 1.0 } else { -1.0 };
+                let mut dot = 0.0;
+                let mut row_norm_sq = 0.0;
+                for (local_col, &global_col) in column_indices.iter().enumerate() {
+                    let value = chunk[[local_row, global_col]];
+                    if !value.is_finite() {
+                        return Ok(None);
+                    }
+                    dot += direction[local_col] * value;
+                    row_norm_sq += value * value;
+                }
+                if !row_norm_sq.is_finite() {
+                    return Ok(None);
+                }
+                let signed_margin = sign * dot;
+                let margin_tolerance = 1e-12 * row_norm_sq.sqrt().max(1.0);
+                if signed_margin > margin_tolerance {
+                    continue;
+                }
+                mistakes += 1;
+                if row_norm_sq <= 0.0 {
+                    continue;
+                }
+                let update_scale = sign / row_norm_sq;
+                for (local_col, &global_col) in column_indices.iter().enumerate() {
+                    direction[local_col] += update_scale * chunk[[local_row, global_col]];
+                }
+            }
+        }
+        if mistakes == 0 {
+            return certify_prefit_binomial_linear_separator(
+                &class,
+                x,
+                &column_indices,
+                &direction,
+            );
+        }
+    }
+
+    certify_prefit_binomial_linear_separator(&class, x, &column_indices, &direction)
+}
+
+fn prefit_binomial_separation_supported_link(link: &InverseLink) -> bool {
+    matches!(
+        link,
+        InverseLink::Standard(StandardLink::Logit | StandardLink::Probit | StandardLink::CLogLog)
+            | InverseLink::LatentCLogLog(_)
+            | InverseLink::Sas(_)
+            | InverseLink::BetaLogistic(_)
+            | InverseLink::Mixture(_)
+    )
+}
+
+fn reject_prefit_binomial_separation(
+    cfg: &RemlConfig,
+    y: ArrayView1<'_, f64>,
+    w: ArrayView1<'_, f64>,
+    x_fit: &DesignMatrix,
+    penalties: &[CanonicalPenalty],
+) -> Result<(), EstimationError> {
+    if !matches!(cfg.likelihood.spec.response, ResponseFamily::Binomial)
+        || !prefit_binomial_separation_supported_link(&cfg.link_kind)
+        || cfg.firth_bias_reduction
+    {
+        return Ok(());
+    }
+    let unpenalized_columns = canonical_unpenalized_column_mask(penalties, x_fit.ncols());
+    if let Some(diagnostic) = detect_prefit_binomial_single_column_separation_in_design(
+        y,
+        w,
+        x_fit,
+        &unpenalized_columns,
+    )? {
+        return Err(EstimationError::PrefitPerfectSeparationDetected {
+            column_index: diagnostic.column_index,
+            threshold: diagnostic.threshold,
+            positive_above_threshold: diagnostic.positive_above_threshold,
+        });
+    }
+    if let Some(diagnostic) = detect_prefit_binomial_linear_combination_separation_in_design(
+        y,
+        w,
+        x_fit,
+        &unpenalized_columns,
+    )? {
+        return Err(EstimationError::PrefitLinearSeparationDetected {
+            min_signed_margin: diagnostic.min_signed_margin,
+            num_unpenalized_columns: diagnostic.num_unpenalized_columns,
+            column_indices: diagnostic.column_indices,
+        });
+    }
+
     Ok(())
 }
 
@@ -2787,6 +3350,8 @@ where
         );
     }
     let (cfg, effective_sas_link) = resolved_external_config(opts)?;
+    reject_prefit_unpenalized_rank_deficiency(w, &x_fit, &canonical)?;
+    reject_prefit_binomial_separation(&cfg, y, w, &x_fit, &canonical)?;
 
     let design_kind = match &x {
         DesignMatrix::Dense(_) => "dense",
@@ -3492,10 +4057,13 @@ where
         },
         None,
         None,
-        // Final, reported fit at the REML-selected λ: refine the Gamma
-        // dispersion shape at the converged η so `dispersion_phi()` and every
-        // SE / interval derived from it reflect the conditional noise, not the
-        // spread of μ (#678). λ is fixed here, so there is no scale↔λ feedback.
+        // Final, reported fit at the REML-selected λ: refine the family's
+        // estimated dispersion nuisance at the converged η. For Gamma this
+        // re-estimates the shape so `dispersion_phi()` and every SE / interval
+        // reflect the conditional noise, not the spread of μ (#678); for Beta
+        // it drives the precision φ and the mean β̂ to their joint fixed point,
+        // undoing the slope attenuation from a φ frozen at the null predictor
+        // (#769). λ is fixed here, so there is no scale↔λ feedback.
         true,
     )?;
 
@@ -4034,9 +4602,6 @@ pub struct FitOptions {
     /// evaluator so baseline fits, spatial hyperparameter evaluations, outer
     /// line searches, final refits, and inference all optimize the same target.
     pub firth_bias_reduction: bool,
-    /// Universal under-identification robustness policy. `Off` (default) leaves
-    /// every objective evaluation byte-identical to released behavior.
-    pub robust_identification: crate::solver::workflow::RobustIdentification,
     pub adaptive_regularization: Option<AdaptiveRegularizationOptions>,
     /// Relative shrinkage floor for penalized block eigenvalues.
     ///
@@ -4081,7 +4646,6 @@ impl Default for FitOptions {
             nullspace_dims: Vec::new(),
             linear_constraints: None,
             firth_bias_reduction: false,
-            robust_identification: crate::solver::workflow::RobustIdentification::Off,
             adaptive_regularization: None,
             penalty_shrinkage_floor: Some(1e-6),
             rho_prior: crate::types::RhoPrior::default(),
@@ -4526,7 +5090,8 @@ fn validate_likelihood_scale_estimation(
     match scale {
         LikelihoodScaleMetadata::ProfiledGaussian | LikelihoodScaleMetadata::Unspecified => Ok(()),
         LikelihoodScaleMetadata::FixedDispersion { phi }
-        | LikelihoodScaleMetadata::EstimatedBetaPhi { phi } => {
+        | LikelihoodScaleMetadata::EstimatedBetaPhi { phi }
+        | LikelihoodScaleMetadata::EstimatedTweediePhi { phi } => {
             ensure_finite_scalar_estimation("fit_result.likelihood_scale.phi", phi)?;
             if phi > 0.0 {
                 Ok(())
@@ -6313,7 +6878,6 @@ where
         nullspace_dims,
         linear_constraints: opts.linear_constraints.clone(),
         firth_bias_reduction: Some(opts.firth_bias_reduction),
-        robust_identification: opts.robust_identification,
         penalty_shrinkage_floor: opts.penalty_shrinkage_floor,
         // Propagate caller's rho_prior so inner outer-REML minimizes the
         // same objective as paths that build ExternalOptimOptions directly.
@@ -6899,6 +7463,271 @@ mod estimate_policy_tests {
     }
 
     #[test]
+    fn constraint_matrix_internal_transform_equals_backtransform_composition() {
+        // Conditioning: intercept at col 0, a centered+scaled col 1
+        // (mean=0.37, scale=2.5), and a plain unconditioned col 2.
+        let conditioning = ParametricColumnConditioning {
+            intercept_idx: Some(0),
+            columns: vec![(1, 0.37, 2.5)],
+        };
+
+        // Constraint matrix authored on the ORIGINAL (user-scale) coefficients.
+        // Row 0/1 are a pure box on β1 (β1 ≥ ·, β1 ≤ ·) with a *zero* intercept
+        // entry — the case the old `+mean·scale` bug still mangled via the scale
+        // power. Row 2 genuinely touches the intercept column, exercising the
+        // mean-mixing term that a single-coefficient box leaves at zero (so it
+        // also pins the sign of that term).
+        let a_orig = array![[0.0, 1.0, 0.0], [0.0, -1.0, 0.0], [1.0, 0.5, -3.0],];
+        let a_int = conditioning.transform_constraint_matrix_to_internal(&a_orig);
+
+        // The defining invariant: A_int·β_int must equal A_orig·β_orig for the
+        // β_orig the solver will actually report, i.e. A_int = A_orig·M where
+        // β_orig = M·β_int = backtransform_beta(β_int). Anything else lets the
+        // user-scale coefficient escape the box it satisfies internally.
+        for beta_int in [
+            array![0.3, 2.0, -1.5],
+            array![-1.1, 4.7, 0.9],
+            array![0.0, 1.0, 0.0],
+        ] {
+            let beta_orig = conditioning.backtransform_beta(&beta_int);
+            let lhs_int = a_int.dot(&beta_int);
+            let lhs_orig = a_orig.dot(&beta_orig);
+            for k in 0..lhs_int.len() {
+                assert!(
+                    (lhs_int[k] - lhs_orig[k]).abs() < 1e-12,
+                    "row {k}: internal constraint value {} != original-at-backtransform {} \
+                     — A_int must equal A_orig·M",
+                    lhs_int[k],
+                    lhs_orig[k]
+                );
+            }
+        }
+
+        // Pin the box-escape mechanism directly: a pure `β1 ≤ ub` becomes
+        // `(1/scale)·β1_int ≤ ub` internally, so the active-set row entry is
+        // 1/scale (= 0.4), NOT scale (= 2.5, the old `1/scale²` escape).
+        assert!(
+            (a_int[[1, 1]] - (-1.0 / 2.5)).abs() < 1e-12,
+            "internal box row entry is {}, expected -1/scale = -0.4",
+            a_int[[1, 1]]
+        );
+        // The intercept column (M's identity column) and plain column are
+        // carried through untouched.
+        assert_eq!(a_int[[2, 0]], 1.0);
+        assert_eq!(a_int[[2, 2]], -3.0);
+    }
+
+    #[test]
+    fn prefit_binomial_detects_unpenalized_realized_design_separator() {
+        let x = array![[1.0, -2.0], [1.0, -1.0], [1.0, 1.0], [1.0, 2.0]];
+        let y = array![0.0, 0.0, 1.0, 1.0];
+        let w = Array1::ones(y.len());
+        let design = DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(x));
+        let diagnostic = detect_prefit_binomial_single_column_separation_in_design(
+            y.view(),
+            w.view(),
+            &design,
+            &[true, true],
+        )
+        .expect("separation screen must complete without a layout error")
+        .expect("second column exactly separates the binary response");
+
+        assert_eq!(diagnostic.column_index, 1);
+        assert!(diagnostic.positive_above_threshold);
+        assert_eq!(diagnostic.threshold, 0.0);
+    }
+
+    #[test]
+    fn prefit_binomial_screen_respects_penalties_and_fractional_responses() {
+        let x = array![[1.0, -2.0], [1.0, -1.0], [1.0, 1.0], [1.0, 2.0]];
+        let binary_y = array![0.0, 0.0, 1.0, 1.0];
+        let fractional_y = array![0.0, 0.25, 0.75, 1.0];
+        let w = Array1::ones(binary_y.len());
+        let design = DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(x));
+
+        assert_eq!(
+            detect_prefit_binomial_single_column_separation_in_design(
+                binary_y.view(),
+                w.view(),
+                &design,
+                &[true, false],
+            )
+            .expect("separation screen must complete without a layout error"),
+            None,
+            "a separating column with effective quadratic penalty should not be pre-fit rejected"
+        );
+        assert_eq!(
+            detect_prefit_binomial_single_column_separation_in_design(
+                fractional_y.view(),
+                w.view(),
+                &design,
+                &[true, true],
+            )
+            .expect("separation screen must complete without a layout error"),
+            None,
+            "fractional binomial proportions are not exact binary separation"
+        );
+    }
+
+    #[test]
+    fn prefit_binomial_logit_rejects_before_outer_solver() {
+        let x = array![[1.0, -2.0], [1.0, -1.0], [1.0, 1.0], [1.0, 2.0]];
+        let y = array![0.0, 0.0, 1.0, 1.0];
+        let w = Array1::ones(y.len());
+        let design = DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(x));
+        let cfg = RemlConfig::external(
+            GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
+                ResponseFamily::Binomial,
+                InverseLink::Standard(StandardLink::Logit),
+            )),
+            1e-7,
+            false,
+        );
+        let err = reject_prefit_binomial_separation(&cfg, y.view(), w.view(), &design, &[])
+            .expect_err("unpenalized exact separator should fail before REML/PIRLS");
+
+        assert!(matches!(
+            err,
+            EstimationError::PrefitPerfectSeparationDetected {
+                column_index: 1,
+                positive_above_threshold: true,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn prefit_binomial_probit_rejects_before_outer_solver() {
+        let x = array![[1.0, -2.0], [1.0, -1.0], [1.0, 1.0], [1.0, 2.0]];
+        let y = array![0.0, 0.0, 1.0, 1.0];
+        let w = Array1::ones(y.len());
+        let design = DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(x));
+        let cfg = RemlConfig::external(
+            GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
+                ResponseFamily::Binomial,
+                InverseLink::Standard(StandardLink::Probit),
+            )),
+            1e-7,
+            false,
+        );
+        let err = reject_prefit_binomial_separation(&cfg, y.view(), w.view(), &design, &[])
+            .expect_err("unpenalized exact separator should fail before REML/PIRLS");
+
+        assert!(matches!(
+            err,
+            EstimationError::PrefitPerfectSeparationDetected {
+                column_index: 1,
+                positive_above_threshold: true,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn prefit_binomial_rejects_linear_combination_separator() {
+        let x = array![
+            [1.0, 1.0, 0.0],
+            [1.0, 0.0, 1.0],
+            [1.0, -1.0, 0.0],
+            [1.0, 0.0, -1.0]
+        ];
+        let y = array![1.0, 1.0, 0.0, 0.0];
+        let w = Array1::ones(y.len());
+        let design = DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(x));
+        let cfg = RemlConfig::external(
+            GlmLikelihoodSpec::canonical(LikelihoodSpec::new(
+                ResponseFamily::Binomial,
+                InverseLink::Standard(StandardLink::Logit),
+            )),
+            1e-7,
+            false,
+        );
+        let err = reject_prefit_binomial_separation(&cfg, y.view(), w.view(), &design, &[])
+            .expect_err("x1 + x2 separates although neither coordinate separates alone");
+
+        assert!(matches!(
+            err,
+            EstimationError::PrefitLinearSeparationDetected {
+                num_unpenalized_columns: 3,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn prefit_rank_check_detects_unpenalized_duplicate_column() {
+        let x = array![
+            [1.0, -2.0, -2.0],
+            [1.0, -1.0, -1.0],
+            [1.0, 1.0, 1.0],
+            [1.0, 2.0, 2.0]
+        ];
+        let w = Array1::ones(x.nrows());
+        let design = DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(x));
+        let diagnostic = detect_prefit_unpenalized_rank_deficiency_in_design(
+            w.view(),
+            &design,
+            &[true, true, true],
+        )
+        .expect("rank check should stream dense design")
+        .expect("duplicate unpenalized columns are rank deficient");
+
+        assert_eq!(diagnostic.rank, 2);
+        assert_eq!(diagnostic.num_unpenalized_columns, 3);
+        assert_eq!(diagnostic.column_indices, vec![0, 1, 2]);
+        assert!(
+            diagnostic.min_eigenvalue.abs() <= diagnostic.tolerance,
+            "duplicate-column min eigenvalue should be at the rank tolerance"
+        );
+    }
+
+    #[test]
+    fn prefit_rank_check_ignores_alias_carried_only_by_penalized_column() {
+        let x = array![
+            [1.0, -2.0, -2.0],
+            [1.0, -1.0, -1.0],
+            [1.0, 1.0, 1.0],
+            [1.0, 2.0, 2.0]
+        ];
+        let w = Array1::ones(x.nrows());
+        let design = DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(x));
+        let diagnostic = detect_prefit_unpenalized_rank_deficiency_in_design(
+            w.view(),
+            &design,
+            &[true, true, false],
+        )
+        .expect("rank check should stream dense design");
+
+        assert_eq!(
+            diagnostic, None,
+            "aliasing that is removed from the unpenalized subspace by a penalty should not be pre-fit rejected"
+        );
+    }
+
+    #[test]
+    fn prefit_rank_check_rejects_before_reml_state_construction() {
+        let x = array![
+            [1.0, -2.0, -2.0],
+            [1.0, -1.0, -1.0],
+            [1.0, 1.0, 1.0],
+            [1.0, 2.0, 2.0]
+        ];
+        let w = Array1::ones(x.nrows());
+        let design = DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(x));
+        let err = reject_prefit_unpenalized_rank_deficiency(w.view(), &design, &[])
+            .expect_err("rank-deficient unpenalized design should fail before REML/PIRLS");
+
+        assert!(matches!(
+            err,
+            EstimationError::PrefitRankDeficientDesignDetected {
+                rank: 2,
+                num_unpenalized_columns: 3,
+                ..
+            }
+        ));
+    }
+
+    #[test]
     fn sas_raw_epsilon_hessian_chain_rule_matches_chained_gradient_slope() {
         let raw0 = 1.3_f64;
         let (eps0, d1, d2) = sas_effective_epsilon_second(raw0);
@@ -7042,9 +7871,22 @@ mod estimate_policy_tests {
         .expect_err("Poisson fitting should reject unsupported Firth requests explicitly");
         assert!(
             err.to_string()
-                .contains("firth_bias_reduction is currently implemented only for"),
+                .contains("requires a Binomial inverse link with a Fisher-weight jet"),
             "unexpected error: {err}"
         );
+    }
+
+    #[test]
+    fn resolve_external_family_accepts_supported_nonlogit_firth_request() {
+        let (_, firth) = resolve_external_family(
+            &LikelihoodSpec::new(
+                ResponseFamily::Binomial,
+                InverseLink::Standard(StandardLink::CLogLog),
+            ),
+            Some(true),
+        )
+        .expect("CLogLog has a Fisher-weight jet");
+        assert!(firth);
     }
 
     #[test]
@@ -7213,7 +8055,6 @@ mod estimate_policy_tests {
             nullspace_dims: vec![1],
             linear_constraints: None,
             firth_bias_reduction: None,
-            robust_identification: crate::solver::workflow::RobustIdentification::Off,
             penalty_shrinkage_floor: None,
             rho_prior: Default::default(),
             kronecker_penalty_system: None,
@@ -7439,7 +8280,6 @@ mod estimate_policy_tests {
             nullspace_dims: vec![1],
             linear_constraints: None,
             firth_bias_reduction: None,
-            robust_identification: crate::solver::workflow::RobustIdentification::Off,
             penalty_shrinkage_floor: None,
             rho_prior: Default::default(),
             kronecker_penalty_system: None,
@@ -7608,7 +8448,6 @@ mod estimate_policy_tests {
             nullspace_dims: vec![1],
             linear_constraints: None,
             firth_bias_reduction: None,
-            robust_identification: crate::solver::workflow::RobustIdentification::Off,
             penalty_shrinkage_floor: None,
             rho_prior: Default::default(),
             kronecker_penalty_system: None,

@@ -79,6 +79,8 @@ def handle_add(km: KnowledgeManager, args: list[str]) -> dict:
             except json.JSONDecodeError:
                 kwargs["source"] = {"raw": args[i + 1]}
             i += 2
+        elif args[i] == "--evidence" and i + 1 < len(args):
+            kwargs["evidence"] = args[i + 1]; i += 2
         else:
             if not kwargs.get("_positional_used"):
                 if not kwargs["content"]:
@@ -154,6 +156,8 @@ def handle_import(km: KnowledgeManager, args: list[str]) -> dict:
             add_kwargs["entry_id"] = e["id"]
         if e.get("status"):
             add_kwargs["status"] = e["status"]
+        if e.get("evidence"):
+            add_kwargs["evidence"] = e["evidence"]
         entry = km.add_entry(**add_kwargs)
         if entry.get("skipped"):
             skipped.append({"id": e.get("id"), "reason": entry.get("reason")})

@@ -129,6 +129,154 @@ async def test_on_call_tool_calls_pre_and_post():
 
 
 @pytest.mark.asyncio
+async def test_on_call_tool_applies_modified_args_to_upstream():
+    """Input masking: modified_args from pre are sent to the upstream call."""
+    mock_client = MagicMock()
+    server = create_test_server()
+
+    masked_args = {"token": "[MASKED]"}
+    mock_client.pre.return_value = MagicMock(
+        status_code=200,
+        json=lambda: {"correlation_id": "corr-in", "modified_args": masked_args},
+    )
+    mock_client.post.return_value = MagicMock(status_code=200, json=lambda: {})
+
+    middleware = RunlayerMiddleware(
+        runlayer_api_client=mock_client, proxy=MagicMock(), server=server
+    )
+
+    mock_context = MagicMock(spec=MiddlewareContext)
+    mock_context.message = mt.CallToolRequestParams(
+        name="test_tool", arguments={"token": "sk-secret-1234"}
+    )
+
+    seen = {}
+    mock_result = MagicMock(spec=ToolResult)
+    mock_result.to_mcp_result.return_value = [mt.TextContent(type="text", text="ok")]
+
+    async def mock_call_next(context):
+        seen["arguments"] = dict(context.message.arguments)
+        return mock_result
+
+    await middleware.on_call_tool(mock_context, mock_call_next)
+
+    # Upstream received the masked arguments, not the raw secret.
+    assert seen["arguments"] == masked_args
+    # Post audit payload also carries the masked arguments.
+    post_payload = mock_client.post.call_args[0][1]
+    assert post_payload.params["arguments"] == masked_args
+
+
+@pytest.mark.asyncio
+async def test_on_call_tool_applies_modified_output():
+    """Output masking: modified_output from post replaces the client result."""
+    mock_client = MagicMock()
+    server = create_test_server()
+
+    masked = mt.CallToolResult(
+        content=[mt.TextContent(type="text", text="server ip [IP_ADDRESS]")],
+        isError=False,
+    )
+    mock_client.pre.return_value = MagicMock(
+        status_code=200, json=lambda: {"correlation_id": "corr-out"}
+    )
+    mock_client.post.return_value = MagicMock(
+        status_code=200,
+        json=lambda: {"modified_output": masked.model_dump(mode="json")},
+    )
+
+    middleware = RunlayerMiddleware(
+        runlayer_api_client=mock_client, proxy=MagicMock(), server=server
+    )
+
+    mock_context = MagicMock(spec=MiddlewareContext)
+    mock_context.message = mt.CallToolRequestParams(name="test_tool", arguments={})
+
+    result = ToolResult(
+        content=[mt.TextContent(type="text", text="server ip 192.168.1.1")]
+    )
+
+    async def mock_call_next(context):
+        return result
+
+    out = await middleware.on_call_tool(mock_context, mock_call_next)
+
+    text = out.content[0].text  # type: ignore[union-attr]
+    assert "192.168.1.1" not in text
+    assert "[IP_ADDRESS]" in text
+
+
+@pytest.mark.asyncio
+async def test_on_call_tool_applies_modified_output_to_structured_content():
+    """Output masking also rewrites structured_content (e.g. BigQuery rows),
+    not just text blocks."""
+    mock_client = MagicMock()
+    server = create_test_server()
+
+    masked = mt.CallToolResult(
+        content=[mt.TextContent(type="text", text="see structured")],
+        structuredContent={"rows": [{"ssn": "[SSN]"}]},
+        isError=False,
+    )
+    mock_client.pre.return_value = MagicMock(
+        status_code=200, json=lambda: {"correlation_id": "corr-struct"}
+    )
+    mock_client.post.return_value = MagicMock(
+        status_code=200,
+        json=lambda: {"modified_output": masked.model_dump(mode="json")},
+    )
+
+    middleware = RunlayerMiddleware(
+        runlayer_api_client=mock_client, proxy=MagicMock(), server=server
+    )
+
+    mock_context = MagicMock(spec=MiddlewareContext)
+    mock_context.message = mt.CallToolRequestParams(name="test_tool", arguments={})
+
+    result = ToolResult(
+        content=[mt.TextContent(type="text", text="see structured")],
+        structured_content={"rows": [{"ssn": "123-45-6789"}]},
+    )
+
+    async def mock_call_next(context):
+        return result
+
+    out = await middleware.on_call_tool(mock_context, mock_call_next)
+
+    assert out.structured_content == {"rows": [{"ssn": "[SSN]"}]}
+    assert "123-45-6789" not in str(out.structured_content)
+
+
+@pytest.mark.asyncio
+async def test_on_call_tool_no_modified_output_returns_original():
+    """No modified_output: the original upstream result is returned untouched."""
+    mock_client = MagicMock()
+    server = create_test_server()
+
+    mock_client.pre.return_value = MagicMock(
+        status_code=200, json=lambda: {"correlation_id": "corr-noop"}
+    )
+    mock_client.post.return_value = MagicMock(status_code=200, json=lambda: {})
+
+    middleware = RunlayerMiddleware(
+        runlayer_api_client=mock_client, proxy=MagicMock(), server=server
+    )
+
+    mock_context = MagicMock(spec=MiddlewareContext)
+    mock_context.message = mt.CallToolRequestParams(name="test_tool", arguments={})
+
+    result = ToolResult(content=[mt.TextContent(type="text", text="clean output")])
+
+    async def mock_call_next(context):
+        return result
+
+    out = await middleware.on_call_tool(mock_context, mock_call_next)
+
+    assert out is result
+    assert out.content[0].text == "clean output"  # type: ignore[union-attr]
+
+
+@pytest.mark.asyncio
 async def test_on_list_tools_calls_pre_and_post():
     """Test that on_list_tools calls pre and post with correct data."""
     mock_client = MagicMock()

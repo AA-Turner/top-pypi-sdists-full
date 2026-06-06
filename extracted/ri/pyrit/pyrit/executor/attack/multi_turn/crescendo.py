@@ -1,8 +1,11 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
+from __future__ import annotations
+
 import json
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Union, cast
@@ -30,7 +33,6 @@ from pyrit.executor.attack.multi_turn.multi_turn_attack_strategy import (
     MultiTurnAttackContext,
     MultiTurnAttackStrategy,
 )
-from pyrit.identifiers import build_atomic_attack_identifier
 from pyrit.memory.central_memory import CentralMemory
 from pyrit.message_normalizer import ConversationContextNormalizer
 from pyrit.models import (
@@ -41,9 +43,10 @@ from pyrit.models import (
     Message,
     Score,
     SeedPrompt,
+    build_atomic_attack_identifier,
 )
 from pyrit.prompt_normalizer import PromptNormalizer
-from pyrit.prompt_target import PromptChatTarget
+from pyrit.prompt_target import CapabilityName, TargetRequirements
 from pyrit.score import (
     FloatScaleThresholdScorer,
     Scorer,
@@ -55,7 +58,16 @@ from pyrit.score.score_utils import normalize_score_to_float
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from pyrit.prompt_target.common.prompt_target import PromptTarget
+
 logger = logging.getLogger(__name__)
+
+# Crescendo sets a system prompt on its adversarial target and drives a multi-turn dialogue through it.
+# Both capabilities must be natively supported — adaptation would silently change the semantics
+# (e.g. history-squash normalization would collapse the escalation into a single turn).
+_ADVERSARIAL_REQUIREMENTS = TargetRequirements(
+    native_required=frozenset({CapabilityName.MULTI_TURN, CapabilityName.SYSTEM_PROMPT}),
+)
 
 
 @dataclass
@@ -69,7 +81,6 @@ class CrescendoAttackContext(MultiTurnAttackContext[Any]):
     backtrack_count: int = 0
 
 
-@dataclass
 class CrescendoAttackResult(AttackResult):
     """Result of the Crescendo attack strategy execution."""
 
@@ -112,6 +123,16 @@ class CrescendoAttack(MultiTurnAttackStrategy[CrescendoAttackContext, CrescendoA
     You can learn more about the Crescendo attack [@russinovich2024crescendo].
     """
 
+    # Crescendo fundamentally relies on multi-turn conversation history to
+    # gradually escalate prompts; history-squash adaptation would collapse the
+    # conversation into a single prompt and silently break the attack's
+    # semantics. Declare MULTI_TURN as native_required so adaptation is
+    # rejected at construction time.
+    TARGET_REQUIREMENTS = TargetRequirements(
+        required=frozenset({CapabilityName.EDITABLE_HISTORY, CapabilityName.MULTI_TURN}),
+        native_required=frozenset({CapabilityName.MULTI_TURN}),
+    )
+
     # Default system prompt template path for Crescendo attack
     DEFAULT_ADVERSARIAL_CHAT_SYSTEM_PROMPT_TEMPLATE_PATH: Path = (
         Path(EXECUTOR_SEED_PROMPT_PATH) / "crescendo" / "crescendo_variant_1.yaml"
@@ -121,7 +142,7 @@ class CrescendoAttack(MultiTurnAttackStrategy[CrescendoAttackContext, CrescendoA
     def __init__(
         self,
         *,
-        objective_target: PromptChatTarget = REQUIRED_VALUE,  # type: ignore[assignment]
+        objective_target: PromptTarget = REQUIRED_VALUE,  # type: ignore[ty:invalid-parameter-default]
         attack_adversarial_config: AttackAdversarialConfig,
         attack_converter_config: Optional[AttackConverterConfig] = None,
         attack_scoring_config: Optional[AttackScoringConfig] = None,
@@ -134,7 +155,8 @@ class CrescendoAttack(MultiTurnAttackStrategy[CrescendoAttackContext, CrescendoA
         Initialize the Crescendo attack strategy.
 
         Args:
-            objective_target (PromptChatTarget): The target system to attack. Must be a PromptChatTarget.
+            objective_target (PromptTarget): The target system to attack. Must
+                support editable conversation history.
             attack_adversarial_config (AttackAdversarialConfig): Configuration for the adversarial component,
                 including the adversarial chat target and optional system prompt path.
             attack_converter_config (Optional[AttackConverterConfig]): Configuration for attack converters,
@@ -148,7 +170,7 @@ class CrescendoAttack(MultiTurnAttackStrategy[CrescendoAttackContext, CrescendoA
                 application by role, message normalization, and non-chat target behavior.
 
         Raises:
-            ValueError: If objective_target is not a PromptChatTarget.
+            ValueError: If objective_target does not natively support editable history.
         """
         # Initialize base class
         super().__init__(objective_target=objective_target, logger=logger, context_type=CrescendoAttackContext)
@@ -188,6 +210,15 @@ class CrescendoAttack(MultiTurnAttackStrategy[CrescendoAttackContext, CrescendoA
 
         # Initialize adversarial configuration
         self._adversarial_chat = attack_adversarial_config.target
+        # Crescendo sets a system prompt on the adversarial target and drives a
+        # multi-turn dialogue through it; both capabilities must be native.
+        # (The class-level ``TARGET_REQUIREMENTS`` only covers ``objective_target``;
+        # this is a separate target.)
+        try:
+            _ADVERSARIAL_REQUIREMENTS.validate(target=self._adversarial_chat)
+        except ValueError as exc:
+            raise ValueError(f"CrescendoAttack {exc}") from exc
+
         system_prompt_template_path = (
             attack_adversarial_config.system_prompt_path
             or CrescendoAttack.DEFAULT_ADVERSARIAL_CHAT_SYSTEM_PROMPT_TEMPLATE_PATH
@@ -257,17 +288,7 @@ class CrescendoAttack(MultiTurnAttackStrategy[CrescendoAttackContext, CrescendoA
 
         Args:
             context (CrescendoAttackContext): Attack context with configuration
-
-        Raises:
-            ValueError: If the objective target does not support multi-turn conversations.
         """
-        if not self._objective_target.capabilities.supports_multi_turn:
-            raise ValueError(
-                "CrescendoAttack requires a multi-turn target. Crescendo fundamentally relies on "
-                "multi-turn conversation history to gradually escalate prompts. "
-                "Use RedTeamingAttack or TreeOfAttacksWithPruning instead."
-            )
-
         # Ensure the context has a session
         context.session = ConversationSession()
 
@@ -311,7 +332,7 @@ class CrescendoAttack(MultiTurnAttackStrategy[CrescendoAttackContext, CrescendoA
             system_prompt=system_prompt,
             conversation_id=context.session.adversarial_chat_conversation_id,
             attack_identifier=self.get_identifier(),
-            labels=context.memory_labels,
+            labels=context.memory_labels,  # deprecated
         )
 
         # Initialize backtrack count in context
@@ -402,6 +423,7 @@ class CrescendoAttack(MultiTurnAttackStrategy[CrescendoAttackContext, CrescendoA
             last_response=context.last_response.get_piece() if context.last_response else None,
             last_score=context.last_score,
             related_conversations=context.related_conversations,
+            labels=context.memory_labels,
         )
         # setting metadata for backtrack count
         result.backtrack_count = context.backtrack_count
@@ -546,6 +568,10 @@ class CrescendoAttack(MultiTurnAttackStrategy[CrescendoAttackContext, CrescendoA
         """
         Parse and validate the JSON response from the adversarial chat.
 
+        Keys are normalized from camelCase to snake_case before validation, so
+        backends that drift to ``generatedQuestion`` still parse correctly
+        without burning retries on a casing mismatch.
+
         Args:
             response_text (str): The response text to parse.
 
@@ -560,24 +586,40 @@ class CrescendoAttack(MultiTurnAttackStrategy[CrescendoAttackContext, CrescendoA
         try:
             parsed_output = json.loads(response_text)
 
-            # Check for required keys
-            missing_keys = expected_keys - set(parsed_output.keys())
+            normalized_output = {self._camel_to_snake(key): value for key, value in parsed_output.items()}
+
+            missing_keys = expected_keys - set(normalized_output.keys())
             if missing_keys:
                 raise InvalidJsonException(
                     message=f"Missing required keys {missing_keys} in JSON response: {response_text}"
                 )
 
-            # Check for unexpected keys
-            extra_keys = set(parsed_output.keys()) - expected_keys
+            extra_keys = set(normalized_output.keys()) - expected_keys
             if extra_keys:
                 raise InvalidJsonException(
                     message=f"Unexpected keys {extra_keys} found in JSON response: {response_text}"
                 )
 
-            return str(parsed_output["generated_question"])
+            return str(normalized_output["generated_question"])
 
         except json.JSONDecodeError as e:
             raise InvalidJsonException(message=f"Invalid JSON encountered: {response_text}") from e
+
+    @staticmethod
+    def _camel_to_snake(name: str) -> str:
+        """
+        Convert a ``camelCase`` or ``PascalCase`` identifier to ``snake_case``.
+
+        Existing snake_case identifiers are returned unchanged.
+
+        Args:
+            name (str): The identifier to convert.
+
+        Returns:
+            str: The snake_case form of ``name``.
+        """
+        intermediate = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", name)
+        return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", intermediate).lower()
 
     async def _send_prompt_to_objective_target_async(
         self,
@@ -653,7 +695,9 @@ class CrescendoAttack(MultiTurnAttackStrategy[CrescendoAttackContext, CrescendoA
             objective=context.objective,
         ):
             scores = await self._refusal_scorer.score_async(
-                message=context.last_response, objective=objective, skip_on_error_result=False
+                message=context.last_response,
+                objective=objective,
+                skip_on_error_result=False,
             )
         return scores[0]
 
@@ -750,7 +794,7 @@ class CrescendoAttack(MultiTurnAttackStrategy[CrescendoAttackContext, CrescendoA
         if context.next_message:
             self._logger.debug("Using custom message, bypassing adversarial chat")
             # Duplicate to ensure fresh IDs (avoids conflicts if message was already in memory)
-            message = context.next_message.duplicate_message()
+            message = context.next_message.duplicate()
             context.next_message = None  # Clear for future turns
             return message
 
@@ -785,7 +829,9 @@ class CrescendoAttack(MultiTurnAttackStrategy[CrescendoAttackContext, CrescendoA
 
         # Check for refusal using the scorer (handles blocked/error responses internally)
         refusal_score = await self._check_refusal_async(context, prompt_sent)
-        self._logger.debug(f"Refusal check: {refusal_score.get_value()} - {refusal_score.score_rationale[:100]}...")
+        self._logger.debug(
+            f"Refusal check: {refusal_score.get_value()} - {(refusal_score.score_rationale or '')[:100]}..."
+        )
         is_refusal = bool(refusal_score.get_value())
 
         if not is_refusal:

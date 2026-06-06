@@ -10,14 +10,13 @@ from typing import Any, Optional
 
 import httpx
 
-from pyrit.identifiers import ComponentIdentifier
 from pyrit.models import (
+    ComponentIdentifier,
     Message,
     MessagePiece,
     construct_response_from_request,
 )
 from pyrit.prompt_target.common.prompt_target import PromptTarget
-from pyrit.prompt_target.common.target_capabilities import TargetCapabilities
 from pyrit.prompt_target.common.target_configuration import TargetConfiguration
 from pyrit.prompt_target.common.utils import limit_requests_per_minute
 
@@ -43,7 +42,6 @@ class HTTPTarget(PromptTarget):
         client: Optional[httpx.AsyncClient] = None,
         model_name: str = "",
         custom_configuration: Optional[TargetConfiguration] = None,
-        custom_capabilities: Optional[TargetCapabilities] = None,
         **httpx_client_kwargs: Any,
     ) -> None:
         """
@@ -61,8 +59,6 @@ class HTTPTarget(PromptTarget):
             model_name (str): The model name. Defaults to empty string.
             custom_configuration (TargetConfiguration, Optional): Override the default configuration for
                 this target instance. Defaults to None.
-            custom_capabilities (TargetCapabilities, Optional): **Deprecated.** Use
-                ``custom_configuration`` instead. Will be removed in v0.14.0.
             **httpx_client_kwargs: Additional keyword arguments for httpx.AsyncClient.
 
         Raises:
@@ -81,7 +77,6 @@ class HTTPTarget(PromptTarget):
             endpoint=endpoint,
             model_name=model_name,
             custom_configuration=custom_configuration,
-            custom_capabilities=custom_capabilities,
         )
         self.http_request = http_request
         self.callback_function = callback_function
@@ -155,17 +150,19 @@ class HTTPTarget(PromptTarget):
         return http_request_w_prompt
 
     @limit_requests_per_minute
-    async def send_prompt_async(self, *, message: Message) -> list[Message]:
+    async def _send_prompt_to_target_async(self, *, normalized_conversation: list[Message]) -> list[Message]:
         """
         Asynchronously send a message to the HTTP target.
 
         Args:
-            message (Message): The message object containing the prompt to send.
+            normalized_conversation (list[Message]): The full conversation
+                (history + current message) after running the normalization
+                pipeline. The current message is the last element.
 
         Returns:
             list[Message]: A list containing the response from the prompt target.
         """
-        self._validate_request(message=message)
+        message = normalized_conversation[-1]
         request = message.message_pieces[0]
 
         http_request_w_prompt = self._inject_prompt_into_request(request)

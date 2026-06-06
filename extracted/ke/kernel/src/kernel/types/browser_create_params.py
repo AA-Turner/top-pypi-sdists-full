@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Dict, Iterable, Optional
 from typing_extensions import TypedDict
 
+from .tags_param import TagsParam
 from .shared_params.browser_profile import BrowserProfile
 from .shared_params.browser_viewport import BrowserViewport
 from .shared_params.browser_extension import BrowserExtension
@@ -49,6 +50,13 @@ class BrowserCreateParams(TypedDict, total=False):
     view.
     """
 
+    name: str
+    """
+    Optional human-readable name for the browser session, used to find it later in
+    the dashboard. Must be unique among active sessions within the project. Set at
+    creation time only.
+    """
+
     profile: BrowserProfile
     """Profile selection for the browser session.
 
@@ -73,6 +81,12 @@ class BrowserCreateParams(TypedDict, total=False):
     """
     If true, launches the browser in stealth mode to reduce detection by anti-bot
     mechanisms.
+    """
+
+    tags: TagsParam
+    """
+    Optional user-defined key-value tags for the browser session, used to find and
+    group sessions later. Set at creation time only. Up to 50 pairs.
     """
 
     telemetry: Optional[Telemetry]

@@ -1,4 +1,4 @@
-.PHONY: build clean test-release release install-test version-bump test test-e2e typecheck lint lint-fix format check check-fix package-aiwatch-binary package-aiwatch-macos package-aiwatch-windows package-aiwatch-py2exe package-enforce-binary package-enforce-macos package-enforce-windows
+.PHONY: build clean test-release release install-test version-bump test test-e2e typecheck lint lint-fix format check check-fix package-aiwatch-binary package-aiwatch-macos package-aiwatch-windows package-aiwatch-py2exe package-cli-binary package-cli-macos package-cli-windows package-cli-linux
 
 
 clean:
@@ -48,11 +48,8 @@ lint-fix:
 check: lint typecheck
 check-fix: lint-fix typecheck
 
-# --- AI Watch packaging ---
-#
-# macOS .pkgs are built natively per-arch (arm64 on Apple Silicon, x86_64 on
-# Intel). CI ships both via the matrix in .github/workflows/release-aiwatch.yml.
-# Local `make package-aiwatch-macos` produces a .pkg for the host arch only.
+# --- AI Watch packaging (single onedir, one `aiwatch` EXE; hook via `aiwatch hook`) ---
+# Local builds produce host-arch only; CI matrix in release-aiwatch.yml ships both arches.
 
 package-aiwatch-binary:
 	uv pip install pyinstaller
@@ -71,17 +68,22 @@ package-aiwatch-py2exe:
 	uv pip install py2exe
 	uv run python packaging/py2exe/setup_py2exe.py py2exe
 
-# --- aiwatch-enforce (hook binary) packaging ---
+# --- Full Runlayer CLI packaging (single onedir, one `runlayer` EXE) ---
+# Local builds produce host-arch only; CI matrix in release-runlayer-cli.yml
+# ships macOS arm64+x86_64, Windows x64, and Linux x86_64.
 
-package-enforce-binary:
+package-cli-binary:
 	uv pip install pyinstaller
-	uv run pyinstaller packaging/aiwatch-enforce.spec
+	uv run pyinstaller packaging/runlayer.spec
 
-package-enforce-macos: package-enforce-binary
-	./packaging/aiwatch-enforce-macos/build_pkg.sh
+package-cli-macos: package-cli-binary
+	./packaging/macos/build_pkg_runlayer.sh
 
-package-enforce-windows:
+package-cli-windows:
 	uv pip install pyinstaller
-	uv run pyinstaller packaging/aiwatch-enforce.spec
-	powershell -ExecutionPolicy Bypass -File packaging\windows\build_enforce_msi.ps1
-	powershell -ExecutionPolicy Bypass -File packaging\windows\build_enforce_intunewin.ps1
+	uv run pyinstaller packaging/runlayer.spec
+	powershell -ExecutionPolicy Bypass -File packaging\windows\build_msi_runlayer.ps1
+	powershell -ExecutionPolicy Bypass -File packaging\windows\build_intunewin_runlayer.ps1
+
+package-cli-linux: package-cli-binary
+	./packaging/linux/build_packages.sh

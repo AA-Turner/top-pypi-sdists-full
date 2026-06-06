@@ -8,7 +8,7 @@ from uuid import uuid4
 from pyrit.datasets.seed_datasets.remote.remote_dataset_loader import (
     _RemoteDatasetLoader,
 )
-from pyrit.models import SeedDataset, SeedPrompt
+from pyrit.models import Modality, SeedDataset, SeedPrompt
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +24,16 @@ class _RedTeamSocialBiasDataset(_RemoteDatasetLoader):
     Reference: [@vantaylor2024socialbias]
     """
 
+    # Metadata
+    modalities: tuple[Modality, ...] = (Modality.TEXT,)
+    size: str = "huge"  # 40750 social-bias prompts (multi-turn expansion of source rows)
+    tags: frozenset[str] = frozenset({"safety", "bias", "multiturn"})
+
     def __init__(
         self,
         *,
         source: str = "svannie678/red_team_repo_social_bias_prompts",
-    ):
+    ) -> None:
         """
         Initialize the Red Team Social Bias dataset loader.
 
@@ -42,7 +47,7 @@ class _RedTeamSocialBiasDataset(_RemoteDatasetLoader):
         """Return the dataset name."""
         return "red_team_social_bias"
 
-    async def fetch_dataset(self, *, cache: bool = True) -> SeedDataset:
+    async def fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
         """
         Fetch Red Team Social Bias dataset and return as SeedDataset.
 
@@ -57,7 +62,7 @@ class _RedTeamSocialBiasDataset(_RemoteDatasetLoader):
         """
         logger.info(f"Loading Red Team Social Bias dataset from {self.source}")
 
-        data = await self._fetch_from_huggingface(
+        data = await self._fetch_from_huggingface_async(
             dataset_name=self.source,
             config="default",
             split="train",
@@ -116,7 +121,7 @@ class _RedTeamSocialBiasDataset(_RemoteDatasetLoader):
                             data_type="text",
                             prompt_group_id=group_id,
                             sequence=i,
-                            **prompt_metadata,  # type: ignore[arg-type]
+                            **prompt_metadata,  # type: ignore[ty:invalid-argument-type]
                         )
                     )
             else:
@@ -133,7 +138,7 @@ class _RedTeamSocialBiasDataset(_RemoteDatasetLoader):
                     SeedPrompt(
                         value=escaped_cleaned_value,
                         data_type="text",
-                        **prompt_metadata,  # type: ignore[arg-type]
+                        **prompt_metadata,  # type: ignore[ty:invalid-argument-type]
                     )
                 )
 

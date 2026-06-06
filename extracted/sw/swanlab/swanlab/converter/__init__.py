@@ -1,36 +1,73 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-r"""
-@DATE: 2024/6/14 00:51
-@File: __init__.py.py
-@IDE: pycharm
-@Description:
-    转换部分，兼容其他可视化工具，转换为swanlab格式
+"""
+Public converter API — convert experiment logs from other tracking tools into SwanLab.
+
+Usage::
+
+    from swanlab.converter import WandbConverter
+
+    wb = WandbConverter(
+        project="my-project",   # optional SwanLab project name
+        mode="online",          # online | local | offline | disabled
+    )
+    wb.run(wb_project="WANDB_PROJECT", wb_entity="WANDB_ENTITY")
+
+For local wandb files::
+
+    from swanlab.converter import WandbLocalConverter
+
+    wb = WandbLocalConverter(project="my-project")
+    wb.run(root_wandb_dir="./wandb")
+
+For TensorBoard::
+
+    from swanlab.converter import TFBConverter
+
+    tb_converter = TFBConverter(convert_dir="[TFEVENT_LOGDIR]")
+    tb_converter.run()
+
+For MLflow::
+
+    from swanlab.converter import MLFlowConverter
+
+    mlf = MLFlowConverter(project="my-project")
+    # Optional: `experiment`
+    mlf.run(tracking_uri="http://localhost:5000", experiment: Optional[str]="1")
+
+Runtime sync (monkey-patch)::
+
+    import swanlab
+    swanlab.sync_wandb()           # intercept wandb calls → SwanLab
+
+    import wandb
+    wandb.init(project="test")
+    wandb.log({"loss": 0.5})
+    wandb.finish()
+
+Or sync MLflow::
+
+    import swanlab
+    swanlab.sync_mlflow()
+
+    import mlflow
+    mlflow.set_experiment("my_experiment")
+    with mlflow.start_run(run_name="my_run"):
+        mlflow.log_metric("loss", 0.5, step=0)
 """
 
+from swanlab.converter.mlf import MLFlowConverter
+from swanlab.converter.mlf.sync import sync_mlflow
+from swanlab.converter.tfb import TFBConverter
+from swanlab.converter.tfb.sync import sync_tensorboard_torch, sync_tensorboardX
+from swanlab.converter.wb import WandbConverter, WandbLocalConverter
+from swanlab.converter.wb.sync import sync_wandb
 
-# 使用延迟导入的方式
-def __getattr__(name):
-    if name == "TFBConverter":
-        from .tfb import TFBConverter
-
-        return TFBConverter
-    if name == "WandbConverter":
-        from .wb import WandbConverter
-
-        return WandbConverter
-    
-    if name == "WandbLocalConverter":
-        from .wb import WandbLocalConverter
-
-        return WandbLocalConverter
-    
-    if name == "MLFlowConverter":
-        from .mlf import MLFLowConverter
-        
-        return MLFLowConverter
-
-    raise AttributeError(f"module 'convert' has no attribute '{name}'")
-
-
-__all__ = ["TFBConverter", "WandbConverter", "WandbLocalConverter", "MLFlowConverter"]
+__all__ = [
+    "WandbConverter",
+    "WandbLocalConverter",
+    "TFBConverter",
+    "MLFlowConverter",
+    "sync_wandb",
+    "sync_tensorboardX",
+    "sync_tensorboard_torch",
+    "sync_mlflow",
+]

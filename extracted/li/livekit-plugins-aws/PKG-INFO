@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: livekit-plugins-aws
-Version: 1.5.17
+Version: 1.5.18
 Summary: LiveKit Agents Plugin for services from AWS
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/
@@ -20,7 +20,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10.0
 Requires-Dist: aioboto3>=14.1.0
 Requires-Dist: aws-sdk-transcribe-streaming>=0.2.0; python_version >= '3.12'
-Requires-Dist: livekit-agents>=1.5.17
+Requires-Dist: livekit-agents>=1.5.18
 Provides-Extra: realtime
 Requires-Dist: aws-sdk-bedrock-runtime>=0.2.0; (python_version >= '3.12') and extra == 'realtime'
 Requires-Dist: aws-sdk-signers>=0.0.3; (python_version >= '3.12') and extra == 'realtime'

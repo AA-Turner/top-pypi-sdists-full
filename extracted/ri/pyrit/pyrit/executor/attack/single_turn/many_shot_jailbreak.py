@@ -6,7 +6,6 @@ import logging
 from typing import Any, Optional
 
 from pyrit.common.apply_defaults import REQUIRED_VALUE, apply_defaults
-from pyrit.common.deprecation import print_deprecation_message
 from pyrit.common.path import DATASETS_PATH, JAILBREAK_TEMPLATES_PATH
 from pyrit.executor.attack.core.attack_config import AttackConverterConfig, AttackScoringConfig
 from pyrit.executor.attack.core.attack_parameters import AttackParameters
@@ -37,21 +36,6 @@ def load_many_shot_jailbreaking_dataset() -> list[dict[str, str]]:
         return data
 
 
-def fetch_many_shot_jailbreaking_dataset() -> list[dict[str, str]]:
-    """
-    Load many-shot jailbreaking examples (deprecated, use load_many_shot_jailbreaking_dataset).
-
-    Returns:
-        list[dict[str, str]]: A list of many-shot jailbreaking examples.
-    """
-    print_deprecation_message(
-        old_item=fetch_many_shot_jailbreaking_dataset,
-        new_item=load_many_shot_jailbreaking_dataset,
-        removed_in="0.14.0",
-    )
-    return load_many_shot_jailbreaking_dataset()
-
-
 class ManyShotJailbreakAttack(PromptSendingAttack):
     """
     Implement the Many Shot Jailbreak method [@anthropic2024manyshot].
@@ -65,7 +49,7 @@ class ManyShotJailbreakAttack(PromptSendingAttack):
     def __init__(
         self,
         *,
-        objective_target: PromptTarget = REQUIRED_VALUE,  # type: ignore[assignment]
+        objective_target: PromptTarget = REQUIRED_VALUE,  # type: ignore[ty:invalid-parameter-default]
         attack_converter_config: Optional[AttackConverterConfig] = None,
         attack_scoring_config: Optional[AttackScoringConfig] = None,
         prompt_normalizer: Optional[PromptNormalizer] = None,

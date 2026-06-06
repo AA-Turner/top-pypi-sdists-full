@@ -8,7 +8,7 @@ from typing import Literal, Optional
 from pyrit.datasets.seed_datasets.remote.remote_dataset_loader import (
     _RemoteDatasetLoader,
 )
-from pyrit.models import SeedDataset, SeedPrompt
+from pyrit.models import Modality, SeedDataset, SeedPrompt
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +39,11 @@ class _AyaRedteamingDataset(_RemoteDatasetLoader):
         "Tagalog": "tgl",
     }
 
+    # Metadata
+    modalities: tuple[Modality, ...] = (Modality.TEXT,)
+    size: str = "medium"  # 987 prompts across multiple languages
+    tags: frozenset[str] = frozenset({"safety", "multilingual"})
+
     def __init__(
         self,
         *,
@@ -61,7 +66,7 @@ class _AyaRedteamingDataset(_RemoteDatasetLoader):
             ]
         ] = None,
         harm_scope: Optional[Literal["global", "local"]] = None,
-    ):
+    ) -> None:
         """
         Initialize the Aya Red-teaming dataset loader.
 
@@ -84,7 +89,7 @@ class _AyaRedteamingDataset(_RemoteDatasetLoader):
         """Return the dataset name."""
         return "aya_redteaming"
 
-    async def fetch_dataset(self, *, cache: bool = True) -> SeedDataset:
+    async def fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
         """
         Fetch Aya Red-teaming dataset with optional filtering and return as SeedDataset.
 

@@ -61,7 +61,9 @@
 //! [`crate::families::binomial_multi`] is the same engine with a row-diagonal
 //! Fisher block instead.
 
-use crate::families::custom_family::{BlockwiseFitOptions, fit_custom_family_with_rho_prior};
+use crate::families::custom_family::{
+    BlockwiseFitOptions, ParameterBlockState, fit_custom_family_with_rho_prior,
+};
 use crate::families::multinomial_reml::MultinomialFamily;
 use crate::families::penalized_vector_glm::{PenalizedVectorGlmInputs, fit_penalized_vector_glm};
 use crate::families::vector_response::{MultinomialLogitLikelihood, validate_multinomial_simplex};
@@ -109,12 +111,30 @@ use std::sync::Arc;
 /// optimized objective is the true penalized REML criterion, and the floor
 /// only has to be large enough to keep the linear algebra finite.
 ///
-/// Caveat (the real upstream defect, tracked separately): if the multinomial
-/// MLE is genuinely at infinity for an unpenalized/null-space direction
-/// (complete/quasi-complete separation, #722), no solver floor makes that
-/// direction's estimate finite — the principled response there is a
-/// model-declared bias-reduction prior (Firth/Jeffreys) or an explicit
-/// separation diagnostic, not a magnitude on this floor.
+/// The separation defect (#753) is no longer this floor's job. If the
+/// multinomial MLE is genuinely at infinity for an unpenalized/null-space
+/// direction (complete/quasi-complete separation), no solver floor makes that
+/// direction's estimate finite — the principled response is a model-declared
+/// bias-reduction prior, not a magnitude on this floor. The formula REML path
+/// below supplies exactly that: because `MultinomialFamily` is a `CustomFamily`
+/// routed through [`fit_custom_family_with_rho_prior`], it inherits the
+/// UNIVERSAL, always-on full-span Jeffreys/Firth proper prior
+/// `Φ = ½ log|Z_Jᵀ H Z_J|` that the joint-Newton path folds into every coupled
+/// custom-family inner solve (see
+/// [`crate::solver::reml::jeffreys_subspace::joint_jeffreys_term`] and
+/// `build_joint_jeffreys_subspace` / `custom_family_joint_jeffreys_term` in
+/// `custom_family.rs`). The conditioning gate keeps it byte-identical to the
+/// un-penalized Newton on an identified fit and supplies the missing
+/// `O(1)`-bounding curvature only on a separating direction, where the
+/// multinomial family's exact joint Hessian and its analytic directional
+/// derivatives (`exact_newton_joint_hessian{,_directional_derivative}` in
+/// [`crate::families::multinomial_reml`]) drive both the score `∇Φ` and the
+/// Gauss-Newton curvature `H_Φ`. So a separating multinomial REML fit now
+/// converges to FINITE Firth-reduced coefficients rather than drifting to the
+/// screening cap. The bare fixed-λ inner driver [`fit_penalized_multinomial`]
+/// (no outer REML, no Jeffreys term) instead surfaces the explicit
+/// `MultinomialSeparationDetected` diagnostic — the same #753 acceptance,
+/// option (b), for the path that has no proper prior to lean on.
 const MULTINOMIAL_FORMULA_RIDGE_FLOOR: f64 = 1.0e-4;
 
 /// Largest smoothing-parameter dimension where exact dense outer curvature is
@@ -129,6 +149,58 @@ const MULTINOMIAL_EXACT_OUTER_HESSIAN_MAX_DIM: usize = 6;
 
 fn multinomial_formula_use_outer_hessian(total_rho_dim: usize) -> bool {
     total_rho_dim <= MULTINOMIAL_EXACT_OUTER_HESSIAN_MAX_DIM
+}
+
+/// Logit magnitude beyond which fitted probabilities are saturated at ordinary
+/// double precision diagnostic scale. If a multinomial Newton solve exhausts
+/// its iteration budget at this scale, the returned iterate is a separation
+/// artifact, not a finite MLE.
+const MULTINOMIAL_SEPARATION_ETA_THRESHOLD: f64 = 25.0;
+
+fn max_abs_eta_location(eta: ArrayView2<'_, f64>) -> (f64, usize, usize) {
+    let mut best = (0.0_f64, 0usize, 0usize);
+    for ((row, active_class), &value) in eta.indexed_iter() {
+        let abs = value.abs();
+        if abs > best.0 {
+            best = (abs, row, active_class);
+        }
+    }
+    best
+}
+
+fn max_abs_eta_location_from_block_states(
+    block_states: &[ParameterBlockState],
+) -> (f64, usize, usize) {
+    let mut best = (0.0_f64, 0usize, 0usize);
+    for (active_class, state) in block_states.iter().enumerate() {
+        for (row, &value) in state.eta.iter().enumerate() {
+            let abs = value.abs();
+            if abs > best.0 {
+                best = (abs, row, active_class);
+            }
+        }
+    }
+    best
+}
+
+fn multinomial_formula_separation_diagnostic(
+    outer_converged: bool,
+    inner_cycles: usize,
+    outer_iterations: usize,
+    block_states: &[ParameterBlockState],
+) -> Option<EstimationError> {
+    let (max_abs_eta, row_index, active_class_index) =
+        max_abs_eta_location_from_block_states(block_states);
+    if !outer_converged && max_abs_eta >= MULTINOMIAL_SEPARATION_ETA_THRESHOLD {
+        Some(EstimationError::MultinomialSeparationDetected {
+            iteration: inner_cycles.max(outer_iterations),
+            max_abs_eta,
+            active_class_index,
+            row_index,
+        })
+    } else {
+        None
+    }
 }
 
 /// Inputs to [`fit_penalized_multinomial`].
@@ -288,6 +360,16 @@ pub fn fit_penalized_multinomial(
         &likelihood,
         "fit_penalized_multinomial",
     )?;
+
+    let (max_abs_eta, row_index, active_class_index) = max_abs_eta_location(fit.eta.view());
+    if !fit.converged && max_abs_eta >= MULTINOMIAL_SEPARATION_ETA_THRESHOLD {
+        return Err(EstimationError::MultinomialSeparationDetected {
+            iteration: fit.iterations,
+            max_abs_eta,
+            active_class_index,
+            row_index,
+        });
+    }
 
     let fitted_probabilities = likelihood.probabilities(fit.eta.view());
 
@@ -653,6 +735,14 @@ pub fn fit_penalized_multinomial_formula(
     let fit =
         fit_custom_family_with_rho_prior(&family, &blocks, &options, crate::types::RhoPrior::Flat)
             .map_err(|err| EstimationError::InvalidInput(format!("multinomial REML: {err}")))?;
+    if let Some(err) = multinomial_formula_separation_diagnostic(
+        fit.outer_converged,
+        fit.inner_cycles,
+        fit.outer_iterations,
+        &fit.block_states,
+    ) {
+        return Err(err);
+    }
 
     // ── Repack coefficients (P, K-1) from per-block β vectors ─────────────
     if fit.blocks.len() != m {
@@ -829,6 +919,99 @@ mod fisher_override_tests {
         assert!(
             !multinomial_formula_use_outer_hessian(8),
             "D=8 smooth-by-factor multinomial fits must avoid the O(D^2) dense outer Hessian"
+        );
+    }
+
+    #[test]
+    fn fixed_lambda_multinomial_reports_complete_separation() {
+        let n = 90;
+        let design = Array2::<f64>::from_shape_fn((n, 2), |(row, col)| match col {
+            0 => 1.0,
+            _ => -3.0 + 6.0 * (row as f64) / ((n - 1) as f64),
+        });
+        let mut y = Array2::<f64>::zeros((n, 3));
+        for row in 0..n {
+            let x = design[[row, 1]];
+            let class = if x < -1.0 {
+                0
+            } else if x > 1.0 {
+                1
+            } else {
+                2
+            };
+            y[[row, class]] = 1.0;
+        }
+        let penalty = Array2::<f64>::zeros((2, 2));
+        let lambdas = Array1::<f64>::zeros(2);
+        let err = fit_penalized_multinomial(MultinomialFitInputs {
+            design: design.view(),
+            y_one_hot: y.view(),
+            penalty: penalty.view(),
+            lambdas: lambdas.view(),
+            row_weights: None,
+            fisher_w_override: None,
+            max_iter: 80,
+            tol: 1.0e-12,
+        })
+        .expect_err("complete softmax separation must be a hard diagnostic");
+        assert!(
+            matches!(err, EstimationError::MultinomialSeparationDetected { .. }),
+            "expected MultinomialSeparationDetected, got {err:?}"
+        );
+        assert!(
+            err.to_string().contains("separation"),
+            "diagnostic should mention separation, got {err}"
+        );
+        assert!(
+            err.to_string().contains("active class-"),
+            "diagnostic should name the separated active class logit, got {err}"
+        );
+        assert!(
+            !err.to_string().contains("binary outcomes"),
+            "multinomial diagnostic must not reuse the binary separation text, got {err}"
+        );
+    }
+
+    #[test]
+    fn formula_multinomial_reports_saturated_nonconvergence_as_separation() {
+        let block_states = vec![
+            ParameterBlockState {
+                beta: Array1::from_vec(vec![1.0, 2.0]),
+                eta: Array1::from_vec(vec![0.2, 4.0, -7.0]),
+            },
+            ParameterBlockState {
+                beta: Array1::from_vec(vec![-1.0, 3.0]),
+                eta: Array1::from_vec(vec![1.0, 25.5, -0.1]),
+            },
+        ];
+
+        let err = multinomial_formula_separation_diagnostic(false, 17, 9, &block_states)
+            .expect("nonconverged formula fit at saturated logits must be diagnostic");
+        assert!(
+            matches!(
+                err,
+                EstimationError::MultinomialSeparationDetected {
+                    iteration: 17,
+                    max_abs_eta,
+                    active_class_index: 1,
+                    row_index: 1,
+                } if (max_abs_eta - 25.5).abs() <= f64::EPSILON
+            ),
+            "expected typed multinomial separation diagnostic with final max|eta| and channel location, got {err:?}"
+        );
+
+        assert!(
+            multinomial_formula_separation_diagnostic(true, 17, 9, &block_states).is_none(),
+            "a converged robust/Firth formula fit is a finite fit, not a separation diagnostic"
+        );
+
+        let finite_states = vec![ParameterBlockState {
+            beta: Array1::from_vec(vec![0.0]),
+            eta: Array1::from_vec(vec![24.9]),
+        }];
+        assert!(
+            multinomial_formula_separation_diagnostic(false, 3, 11, &finite_states).is_none(),
+            "nonconvergence below the saturation threshold should remain a convergence failure"
         );
     }
 

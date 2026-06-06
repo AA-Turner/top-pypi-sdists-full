@@ -45,8 +45,12 @@ use faer::Side;
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
 
 use crate::linalg::faer_ndarray::FaerEigh;
+use crate::linalg::lanczos::{
+    SymmetricLanczosOptions, symmetric_lanczos_eigenpairs, symmetric_lanczos_log_quadrature,
+};
 use crate::linalg::triangular::cholesky_solve_vector;
 use crate::solver::arrow_schur::{ArrowFactorCache, ArrowSchurSystem};
+use crate::solver::priority_selection::{PriorityCandidate, rank_priority_candidates};
 
 pub const ANALYTIC_LOGDET_DENSE_DIM_THRESHOLD: usize = 1024;
 const EVIDENCE_LOGDET_SLQ_PROBES: usize = 16;
@@ -423,78 +427,33 @@ fn stochastic_hvp_log_det(hvp: EvidenceHvpLogDet<'_>) -> Result<f64, String> {
 
 fn lanczos_log_quadrature_hvp(
     hvp: EvidenceHvpLogDet<'_>,
-    mut q: Vec<f64>,
+    q: Vec<f64>,
     max_steps: usize,
 ) -> Result<f64, String> {
     let n = hvp.dim;
-    let mut q_prev = vec![0.0_f64; n];
-    let mut alphas = Vec::<f64>::with_capacity(max_steps);
-    let mut betas = Vec::<f64>::with_capacity(max_steps.saturating_sub(1));
-    let mut beta_prev = 0.0_f64;
-    let tol = 1e-12_f64;
-
-    for step in 0..max_steps {
-        let applied = (hvp.apply)(&q);
-        if applied.len() != n || applied.iter().any(|v| !v.is_finite()) {
-            return Err(format!(
-                "evidence HVP SLQ expected finite vector of length {n}, got {}",
-                applied.len()
-            ));
-        }
-        let mut w = applied;
-        if step > 0 {
-            for i in 0..n {
-                w[i] -= beta_prev * q_prev[i];
+    let eigen = symmetric_lanczos_eigenpairs(
+        n,
+        &q,
+        SymmetricLanczosOptions {
+            max_steps,
+            residual_tol: 1e-12,
+            local_reorthogonalize: false,
+            full_reorthogonalize: false,
+        },
+        |q, out| {
+            let applied = (hvp.apply)(q);
+            if applied.len() != n || applied.iter().any(|v| !v.is_finite()) {
+                return Err(format!(
+                    "evidence HVP SLQ expected finite vector of length {n}, got {}",
+                    applied.len()
+                ));
             }
-        }
-        let alpha = dot_slice(&q, &w);
-        if !alpha.is_finite() {
-            return Err("evidence HVP SLQ produced non-finite alpha".to_string());
-        }
-        for i in 0..n {
-            w[i] -= alpha * q[i];
-        }
-        let beta = norm2_slice(&w);
-        alphas.push(alpha);
-        if step + 1 == max_steps || beta <= tol {
-            break;
-        }
-        if !beta.is_finite() {
-            return Err("evidence HVP SLQ produced non-finite beta".to_string());
-        }
-        betas.push(beta);
-        q_prev = q;
-        q = w;
-        for v in q.iter_mut() {
-            *v /= beta;
-        }
-        beta_prev = beta;
-    }
-
-    let k = alphas.len();
-    let mut tri = Array2::<f64>::zeros((k, k));
-    for i in 0..k {
-        tri[[i, i]] = alphas[i];
-        if i + 1 < k {
-            tri[[i, i + 1]] = betas[i];
-            tri[[i + 1, i]] = betas[i];
-        }
-    }
-    let (evals, evecs) = tri
-        .eigh(Side::Lower)
-        .map_err(|e| format!("evidence HVP SLQ eigendecomposition failed: {e}"))?;
-    let mut quad = 0.0_f64;
-    for j in 0..k {
-        let theta = evals[j];
-        if !theta.is_finite() || theta <= 0.0 {
-            return Err(format!(
-                "evidence HVP SLQ expected SPD Hessian, Lanczos Ritz value {j} is {theta:.3e}"
-            ));
-        }
-        let weight = evecs[[0, j]] * evecs[[0, j]];
-        quad += weight * theta.ln();
-    }
-    Ok(quad)
+            out.copy_from_slice(&applied);
+            Ok(())
+        },
+    )
+    .map_err(|e| format!("evidence HVP SLQ Lanczos failed: {e}"))?;
+    symmetric_lanczos_log_quadrature(&eigen, "evidence HVP SLQ expected SPD Hessian")
 }
 
 #[inline]
@@ -1061,13 +1020,23 @@ pub fn select_topology(
     );
 
     // Sort by normalized negative log evidence (ascending = best first),
-    // breaking ties by complexity_rank (smaller wins).
-    valid.sort_by(|a, b| {
-        topology_selection_score(a, options.score_scale)
-            .partial_cmp(&topology_selection_score(b, options.score_scale))
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| a.kind.complexity_rank().cmp(&b.kind.complexity_rank()))
-    });
+    // breaking ties by complexity_rank (smaller wins). The shared selector is
+    // the single lower-is-better ordering contract used by topology ranking,
+    // seed screening, and REML model comparison (#782).
+    valid = rank_priority_candidates(
+        valid
+            .into_iter()
+            .enumerate()
+            .map(|(idx, row)| {
+                let score = topology_selection_score(&row, options.score_scale);
+                let tie_break = usize::from(row.kind.complexity_rank());
+                PriorityCandidate::new(row, idx, score, tie_break)
+            })
+            .collect(),
+    )
+    .into_iter()
+    .map(|row| row.item)
+    .collect();
 
     // Detect numerical tie at the top.
     let tie = if valid.len() >= 2 {

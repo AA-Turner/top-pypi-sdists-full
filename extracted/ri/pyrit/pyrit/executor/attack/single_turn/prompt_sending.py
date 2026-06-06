@@ -15,7 +15,6 @@ from pyrit.executor.attack.single_turn.single_turn_attack_strategy import (
     SingleTurnAttackContext,
     SingleTurnAttackStrategy,
 )
-from pyrit.identifiers import build_atomic_attack_identifier
 from pyrit.models import (
     AttackOutcome,
     AttackResult,
@@ -23,6 +22,7 @@ from pyrit.models import (
     ConversationType,
     Message,
     Score,
+    build_atomic_attack_identifier,
 )
 from pyrit.prompt_normalizer import PromptNormalizer
 from pyrit.prompt_target import PromptTarget
@@ -54,12 +54,12 @@ class PromptSendingAttack(SingleTurnAttackStrategy):
     def __init__(
         self,
         *,
-        objective_target: PromptTarget = REQUIRED_VALUE,  # type: ignore[assignment]
+        objective_target: PromptTarget = REQUIRED_VALUE,  # type: ignore[ty:invalid-parameter-default]
         attack_converter_config: Optional[AttackConverterConfig] = None,
         attack_scoring_config: Optional[AttackScoringConfig] = None,
         prompt_normalizer: Optional[PromptNormalizer] = None,
         max_attempts_on_failure: int = 0,
-        params_type: type[AttackParamsT] = AttackParameters,  # type: ignore[assignment]
+        params_type: type[AttackParamsT] = AttackParameters,  # type: ignore[ty:invalid-parameter-default]
         prepended_conversation_config: Optional[PrependedConversationConfig] = None,
     ) -> None:
         """
@@ -238,6 +238,7 @@ class PromptSendingAttack(SingleTurnAttackStrategy):
             outcome=outcome,
             outcome_reason=outcome_reason,
             executed_turns=1,
+            labels=context.memory_labels,
         )
 
     def _determine_attack_outcome(
@@ -292,7 +293,7 @@ class PromptSendingAttack(SingleTurnAttackStrategy):
         """
         if context.next_message:
             # Deep copy the message to preserve all fields, then assign new IDs
-            return context.next_message.duplicate_message()
+            return context.next_message.duplicate()
 
         return Message.from_prompt(prompt=context.objective, role="user")
 

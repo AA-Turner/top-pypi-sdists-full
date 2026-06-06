@@ -6,7 +6,7 @@ import logging
 from pyrit.datasets.seed_datasets.remote.remote_dataset_loader import (
     _RemoteDatasetLoader,
 )
-from pyrit.models import SeedDataset, SeedPrompt
+from pyrit.models import Modality, SeedDataset, SeedPrompt
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +22,16 @@ class _LibrAIDoNotAnswerDataset(_RemoteDatasetLoader):
     GitHub: https://github.com/libr-ai/do-not-answer
     """
 
+    # Metadata
+    modalities: tuple[Modality, ...] = (Modality.TEXT,)
+    size: str = "large"  # 939 prompts across multiple risk areas
+    tags: frozenset[str] = frozenset({"default", "safety", "refusal"})
+
     def __init__(
         self,
         *,
         source: str = "LibrAI/do-not-answer",
-    ):
+    ) -> None:
         """
         Initialize the LibrAI Do Not Answer dataset loader.
 
@@ -40,7 +45,7 @@ class _LibrAIDoNotAnswerDataset(_RemoteDatasetLoader):
         """Return the dataset name."""
         return "librai_do_not_answer"
 
-    async def fetch_dataset(self, *, cache: bool = True) -> SeedDataset:
+    async def fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
         """
         Fetch LibrAI Do Not Answer dataset and return as SeedDataset.
 
@@ -52,7 +57,7 @@ class _LibrAIDoNotAnswerDataset(_RemoteDatasetLoader):
         """
         logger.info(f"Loading LibrAI Do Not Answer dataset from {self.source}")
 
-        data = await self._fetch_from_huggingface(
+        data = await self._fetch_from_huggingface_async(
             dataset_name=self.source,
             split="train",
             cache=cache,

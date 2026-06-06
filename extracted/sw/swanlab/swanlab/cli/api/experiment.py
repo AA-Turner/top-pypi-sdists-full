@@ -1,0 +1,507 @@
+from typing import Optional
+
+import click
+import orjson
+
+from swanlab.api import Api
+from swanlab.api.typings.common import ApiResponseType
+from swanlab.cli.api.helper import (
+    COLUMN_CLASS_TYPE,
+    COLUMN_DATA_TYPE,
+    METRIC_LOG_LEVEL_TYPE,
+    PAGE_SIZE_TYPE,
+    format_output,
+    parse_keys,
+    save_output,
+    validate_filter_query,
+    with_custom_host,
+)
+
+
+@click.group("run")
+def run_cli():
+    """Experiment(Run) management commands."""
+    pass
+
+
+@run_cli.command("info")
+@click.argument("path", required=True)
+@click.option(
+    "--save",
+    "save_name",
+    is_flag=False,
+    flag_value=".",
+    help="Save output as JSON to current directory.",
+)
+@with_custom_host
+def get_experiment(path: str, save_name: str, api: Api):
+    """Get experiment info by path.
+
+    PATH format: username/project_name/run_id
+    """
+    resp = api.run(path).wrapper()
+    payload = format_output(resp)
+    if payload["ok"] and save_name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+
+
+@run_cli.command("list")
+@click.option(
+    "--page_num",
+    "-n",
+    default=1,
+    type=click.IntRange(min=1),
+    help="Page number.",
+)
+@click.option(
+    "--page_size",
+    "-s",
+    default="20",
+    type=PAGE_SIZE_TYPE,
+    help="Page size.",
+)
+@click.option(
+    "--project_path",
+    "-p",
+    required=True,
+    type=str,
+    help="Project path (e.g. username/project_name).",
+)
+@click.option("--all", "fetch_all", is_flag=True, default=False, help="Fetch all pages.")
+@click.option(
+    "--save",
+    "save_name",
+    is_flag=False,
+    flag_value=".",
+    help="Save output as JSON to current directory.",
+)
+@with_custom_host
+def list_experiments(page_num: int, page_size: str, project_path: str, fetch_all: bool, save_name: str, api: Api):
+    """List experiments under a project.
+
+    PROJECT_PATH format: username/project_name
+    """
+    resp = ApiResponseType(
+        ok=True, data=api.runs_get(path=project_path, page=page_num, size=int(page_size), all=fetch_all)
+    )
+    payload = format_output(resp)
+    if payload["ok"] and save_name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+
+
+@run_cli.command("filter")
+@click.option(
+    "--project_path",
+    "-p",
+    required=True,
+    type=str,
+    help="Project path (e.g. username/project_name).",
+)
+@click.option(
+    "--filter_query",
+    "-f",
+    required=True,
+    type=str,
+    help="Filter query as a JSON string or path to a JSON file.",
+)
+@click.option(
+    "--save",
+    "save_name",
+    is_flag=False,
+    flag_value=".",
+    help="Save output as JSON to current directory.",
+)
+@with_custom_host
+def filter_experiments(project_path: str, filter_query: str, save_name: str, api: Api):
+    """Filter experiments under a project by query.
+
+    PROJECT_PATH format: username/project_name
+    """
+    filters = validate_filter_query(filter_query)
+    resp = ApiResponseType(ok=True, data=api.runs(path=project_path, filters=filters))
+    payload = format_output(resp)
+    if payload["ok"] and save_name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+
+
+@run_cli.command("columns")
+@click.argument("path", required=True)
+@click.option(
+    "--page_num",
+    "-n",
+    default=1,
+    type=click.IntRange(min=1),
+    help="Page number.",
+)
+@click.option(
+    "--page_size",
+    "-s",
+    default="20",
+    type=PAGE_SIZE_TYPE,
+    help="Page size.",
+)
+@click.option(
+    "--class",
+    "column_class",
+    default="CUSTOM",
+    type=COLUMN_CLASS_TYPE,
+    help="Column class, such as CUSTOM or SYSTEM.",
+)
+@click.option(
+    "--type",
+    "column_type",
+    default=None,
+    type=COLUMN_DATA_TYPE,
+    help="Column type, such as IMAGE, FLOAT, or STRING.",
+)
+@click.option("--all", "fetch_all", is_flag=True, default=False, help="Fetch all pages.")
+@click.option(
+    "--save",
+    "save_name",
+    is_flag=False,
+    flag_value=".",
+    help="Save output as JSON to current directory.",
+)
+@with_custom_host
+def list_experiment_columns(
+    path: str,
+    page_num: int,
+    page_size: str,
+    column_class: str,
+    column_type: str,
+    fetch_all: bool,
+    save_name: str,
+    api: Api,
+):
+    """List columns of an experiment.
+
+    PATH format: username/project_name/run_id
+    """
+    resp = ApiResponseType(
+        ok=True,
+        data=api.columns(
+            path=path,
+            page=page_num,
+            size=int(page_size),
+            column_class=column_class.upper(),  # type: ignore
+            column_type=column_type.upper() if column_type else None,  # type: ignore
+            all=fetch_all,
+        ),
+    )
+    payload = format_output(resp)
+    if payload["ok"] and save_name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+
+
+@run_cli.command("metrics")
+@click.argument("path", required=True)
+@click.option(
+    "--keys",
+    required=True,
+    type=str,
+    help="Comma-separated metric keys, e.g. 'loss,acc'.",
+)
+@click.option(
+    "--sample",
+    "-s",
+    default=1500,
+    type=click.IntRange(min=1),
+    help="Sample size for scalar metrics. Default 1500.",
+)
+@click.option(
+    "--ignore-timestamp",
+    "ignore_timestamp",
+    is_flag=True,
+    default=False,
+    help="Remove timestamp from metric data.",
+)
+@click.option("--all", "fetch_all", is_flag=True, default=False, help="Fetch all data (CSV export for scalars).")
+@click.option(
+    "--range-type",
+    "range_type",
+    default=None,
+    type=click.Choice(["step", "timestamp"], case_sensitive=False),
+    help="Range query type: 'step' or 'timestamp'.",
+)
+@click.option(
+    "--range-start",
+    "range_start",
+    default=None,
+    type=click.IntRange(min=0),
+    help="Range start (inclusive). Step number or Unix timestamp in milliseconds.",
+)
+@click.option(
+    "--range-end",
+    "range_end",
+    default=None,
+    type=click.IntRange(min=0),
+    help="Range end (inclusive). Step number or Unix timestamp in milliseconds.",
+)
+@click.option("--range-head", "range_head", default=None, type=click.IntRange(min=1), help="First N data points.")
+@click.option("--range-tail", "range_tail", default=None, type=click.IntRange(min=1), help="Last N data points.")
+@click.option(
+    "--save",
+    "save_name",
+    is_flag=False,
+    flag_value=".",
+    help="Save output as JSON to current directory.",
+)
+@with_custom_host
+def get_experiment_metrics(
+    path: str,
+    keys: str,
+    sample: int,
+    ignore_timestamp: bool,
+    fetch_all: bool,
+    range_type: Optional[str],
+    range_start: Optional[int],
+    range_end: Optional[int],
+    range_head: Optional[int],
+    range_tail: Optional[int],
+    save_name: str,
+    api: Api,
+):
+    """Get scalar metrics of an experiment.
+
+    PATH format: username/project_name/run_id
+    """
+    if range_head is not None and range_tail is not None:
+        raise click.BadParameter("--range-head and --range-tail are mutually exclusive.")
+    if range_start is not None and range_end is not None and range_start > range_end:
+        raise click.BadParameter(f"--range-start must be <= --range-end, got ({range_start}, {range_end}).")
+
+    range_query = None
+    has_range = any(v is not None for v in (range_type, range_start, range_end, range_head, range_tail))
+    if has_range:
+        range_query = {
+            "type": (range_type or "step"),
+            "start": range_start,
+            "end": range_end,
+            "head": range_head,
+            "tail": range_tail,
+        }
+
+    key_list = parse_keys(keys)
+    experiment = api.run(path)
+    data = experiment.metrics(
+        keys=key_list,
+        sample=sample,
+        ignore_timestamp=ignore_timestamp,
+        all=fetch_all,
+        range_query=range_query,
+    )
+    payload = format_output(ApiResponseType(ok=True, data=data))
+    if payload["ok"] and save_name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+
+
+@run_cli.command("summary")
+@click.argument("path", required=True)
+@click.option(
+    "--keys",
+    required=False,
+    type=str,
+    help="Comma-separated scalar keys, e.g. 'loss,acc'. Omit to query all keys.",
+)
+@click.option(
+    "--save",
+    "save_name",
+    is_flag=False,
+    flag_value=".",
+    help="Save output as JSON to current directory.",
+)
+@with_custom_host
+def get_experiment_summary(path: str, keys: Optional[str], save_name: str, api: Api):
+    """Get scalar metric summaries of an experiment.
+
+    PATH format: username/project_name/run_id
+    """
+    key_list = parse_keys(keys) if keys else None
+    experiment = api.run(path)
+    data = experiment.summary(keys=key_list)
+    payload = format_output(ApiResponseType(ok=True, data=data))
+    if payload["ok"] and save_name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+
+
+@run_cli.command("column")
+@click.argument("path", required=True)
+@click.option(
+    "--key",
+    required=True,
+    type=str,
+    help="Column key name.",
+)
+@click.option(
+    "--class",
+    "column_class",
+    default="CUSTOM",
+    type=COLUMN_CLASS_TYPE,
+    help="Column class, such as CUSTOM or SYSTEM.",
+)
+@click.option(
+    "--type",
+    "column_type",
+    default=None,
+    type=COLUMN_DATA_TYPE,
+    help="Column type, such as IMAGE, FLOAT, or STRING.",
+)
+@click.option(
+    "--save",
+    "save_name",
+    is_flag=False,
+    flag_value=".",
+    help="Save output as JSON to current directory.",
+)
+@with_custom_host
+def get_experiment_column(
+    path: str,
+    key: str,
+    column_class: str,
+    column_type: str,
+    save_name: str,
+    api: Api,
+):
+    """Get a single column of an experiment.
+
+    PATH format: username/project_name/run_id
+    """
+    col = api.column(
+        path=path,
+        key=key,
+        column_class=column_class.upper(),  # type: ignore
+        column_type=column_type.upper() if column_type else None,  # type: ignore
+    )
+    resp = col.wrapper()
+    payload = format_output(resp)
+    if payload["ok"] and save_name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+
+
+@run_cli.command("medias")
+@click.argument("path", required=True)
+@click.option(
+    "--keys",
+    required=True,
+    type=str,
+    help="Comma-separated media keys, e.g. 'image,audio'.",
+)
+@click.option(
+    "--step",
+    "-s",
+    default=0,
+    type=int,
+    help="Step number for media data. Default 0.",
+)
+@click.option("--all", "fetch_all", is_flag=True, default=False, help="Fetch all media steps.")
+@click.option(
+    "--save",
+    "save_name",
+    is_flag=False,
+    flag_value=".",
+    help="Save output as JSON to current directory.",
+)
+@with_custom_host
+def get_experiment_medias(
+    path: str,
+    keys: str,
+    step: int,
+    fetch_all: bool,
+    save_name: str,
+    api: Api,
+):
+    """Get media metrics of an experiment.
+
+    PATH format: username/project_name/run_id
+    """
+    key_list = parse_keys(keys)
+    experiment = api.run(path)
+    data = experiment.medias(keys=key_list, step=step, all=fetch_all)
+    payload = format_output(ApiResponseType(ok=True, data=data))
+    if payload["ok"] and save_name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+
+
+@run_cli.command("logs")
+@click.argument("path", required=True)
+@click.option(
+    "--offset",
+    "-o",
+    default=0,
+    type=int,
+    help="Log offset (shard index). Default 0.",
+)
+@click.option(
+    "--level",
+    "-l",
+    default="INFO",
+    type=METRIC_LOG_LEVEL_TYPE,
+    help="Log level: DEBUG, INFO, WARN, ERROR. Default INFO.",
+)
+@click.option(
+    "--ignore-timestamp",
+    "ignore_timestamp",
+    is_flag=True,
+    default=False,
+    help="Remove timestamp from log data.",
+)
+@click.option(
+    "--save",
+    "save_name",
+    is_flag=False,
+    flag_value=".",
+    help="Save output as JSON to current directory.",
+)
+@with_custom_host
+def get_experiment_logs(
+    path: str,
+    offset: int,
+    level: str,
+    ignore_timestamp: bool,
+    save_name: str,
+    api: Api,
+):
+    """Get console logs of an experiment.
+
+    PATH format: username/project_name/run_id
+    """
+    experiment = api.run(path)
+    data = experiment.logs(offset=offset, level=level.upper(), ignore_timestamp=ignore_timestamp)  # type: ignore
+    payload = format_output(ApiResponseType(ok=True, data=data))
+    if payload["ok"] and save_name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)
+
+
+@run_cli.command("export-logs")
+@click.argument("path", required=True)
+@click.option(
+    "--start",
+    default=0,
+    type=click.IntRange(min=0),
+    help="Start row index (0-based). Default 0.",
+)
+@click.option(
+    "--rows",
+    "-r",
+    default=500_000,
+    type=click.IntRange(min=1, max=500_000),
+    help="Number of rows to export. Default 500000, max 500000.",
+)
+@click.option(
+    "--save",
+    "save_name",
+    is_flag=False,
+    flag_value=".",
+    help="Save export URL as JSON to current directory.",
+)
+@with_custom_host
+def export_experiment_logs(path: str, start: int, rows: int, save_name: str, api: Api):
+    """Export experiment logs as downloadable .log file.
+
+    PATH format: username/project_name/run_id
+    """
+    experiment = api.run(path)
+    resp = experiment.export_logs(start=start, rows=rows)
+    payload = format_output(resp)
+    if payload["ok"] and save_name is not None:
+        save_output(orjson.dumps(payload, option=orjson.OPT_INDENT_2), name=save_name)

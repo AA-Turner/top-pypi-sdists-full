@@ -19,9 +19,10 @@ from azure.core.credentials import AzureKeyCredential
 
 from pyrit.auth import AsyncTokenProviderCredential, ensure_async_token_provider, get_azure_async_token_provider
 from pyrit.common import default_values
-from pyrit.identifiers import ComponentIdentifier
 from pyrit.models import (
+    ComponentIdentifier,
     DataTypeSerializer,
+    Message,
     MessagePiece,
     Score,
     data_serializer_factory,
@@ -118,6 +119,7 @@ class AzureContentFilterScorer(FloatScaleScorer):
 
         Raises:
             ValueError: If no endpoint is provided.
+            RuntimeError: If the API key is not a string when validation is performed.
         """
         if harm_categories:
             self._harm_categories = harm_categories
@@ -147,10 +149,12 @@ class AzureContentFilterScorer(FloatScaleScorer):
         if self._endpoint is not None:
             if callable(self._api_key):
                 # Token provider - create an AsyncTokenCredential wrapper
-                credential = AsyncTokenProviderCredential(self._api_key)
+                credential = AsyncTokenProviderCredential(self._api_key)  # type: ignore[ty:invalid-argument-type]
                 self._azure_cf_client = ContentSafetyClient(self._endpoint, credential=credential)
             else:
                 # String API key
+                if not isinstance(self._api_key, str):
+                    raise RuntimeError("Expected string API key")
                 self._azure_cf_client = ContentSafetyClient(self._endpoint, AzureKeyCredential(self._api_key))
         else:
             raise ValueError("Please provide the Azure Content Safety endpoint")
@@ -180,7 +184,7 @@ class AzureContentFilterScorer(FloatScaleScorer):
         file_mapping: Optional["ScorerEvalDatasetFiles"] = None,
         *,
         num_scorer_trials: int = 3,
-        update_registry_behavior: "RegistryUpdateBehavior" = None,
+        update_registry_behavior: "RegistryUpdateBehavior | None" = None,
         max_concurrency: int = 10,
     ) -> Optional["ScorerMetrics"]:
         """
@@ -284,7 +288,7 @@ class AzureContentFilterScorer(FloatScaleScorer):
                 filter_results.append(text_result)
 
         elif message_piece.converted_value_data_type == "image_path":
-            base64_encoded_data = await self._get_base64_image_data(message_piece)
+            base64_encoded_data = await self._get_base64_image_data_async(message_piece)
             # Decode base64 string to raw bytes for Azure API
             image_data = ImageData(content=base64.b64decode(base64_encoded_data))
             image_request_options = AnalyzeImageOptions(
@@ -339,7 +343,67 @@ class AzureContentFilterScorer(FloatScaleScorer):
             for result in aggregated_results
         ]
 
-    async def _get_base64_image_data(self, message_piece: MessagePiece) -> str:
+    def _build_fallback_score(self, *, message: Message, objective: Optional[str]) -> list[Score]:
+        """
+        Build one neutral ``0.0`` fallback score per configured harm category.
+
+        AzureContentFilterScorer's normal output is one score per category in
+        ``self._harm_categories``. To preserve that shape on blocked / error / filtered
+        input, this override emits one neutral ``0.0`` score per configured category
+        (each tagged with the category name and matching the normal-path metadata),
+        instead of the single category-less score produced by the base
+        ``FloatScaleScorer._build_fallback_score``.
+
+        Inspects the first message piece to tailor the rationale/description for
+        blocked, error, and filtered cases.
+
+        Args:
+            message (Message): The message whose first piece is inspected for status.
+            objective (Optional[str]): The objective associated with this scoring call.
+
+        Returns:
+            list[Score]: One ``0.0`` ``float_scale`` score per configured harm category,
+                each attributed to the first piece.
+
+        Raises:
+            ValueError: If the first message piece has no ``id`` or ``original_prompt_id``.
+        """
+        first_piece = message.message_pieces[0]
+        piece_id = first_piece.id or first_piece.original_prompt_id
+        if piece_id is None:
+            raise ValueError("Cannot create score: message piece has no id or original_prompt_id")
+
+        if first_piece.is_blocked():
+            status = (
+                "The request was blocked by the target (score_blocked_content is False or no partial content available)"
+            )
+            description = "Blocked response; returning 0.0 per configured category."
+        elif first_piece.has_error():
+            status = f"Response had an error: {first_piece.response_error}"
+            description = "Error response; returning 0.0 per configured category."
+        else:
+            status = "No supported pieces to score after filtering"
+            description = "No pieces to score after filtering; returning 0.0 per configured category."
+
+        rationale = f"{status}; returning 0.0 for each configured harm category."
+        metadata: dict[str, str | int | float] = {"azure_severity": 0}
+
+        return [
+            Score(
+                score_value="0.0",
+                score_value_description=description,
+                score_type="float_scale",
+                score_category=[category.value],
+                score_metadata=metadata,
+                score_rationale=rationale,
+                scorer_class_identifier=self.get_identifier(),
+                message_piece_id=piece_id,
+                objective=objective,
+            )
+            for category in self._harm_categories
+        ]
+
+    async def _get_base64_image_data_async(self, message_piece: MessagePiece) -> str:
         """
         Get base64-encoded image data from a message piece.
 
@@ -354,4 +418,4 @@ class AzureContentFilterScorer(FloatScaleScorer):
         image_serializer = data_serializer_factory(
             category="prompt-memory-entries", value=image_path, data_type="image_path", extension=ext
         )
-        return await image_serializer.read_data_base64()
+        return await image_serializer.read_data_base64_async()

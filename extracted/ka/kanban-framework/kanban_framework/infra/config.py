@@ -99,6 +99,23 @@ class Config:
         return "builtin"
 
     @property
+    def embedding_model(self) -> str:
+        """Embedding model for semantic search. Default: BAAI/bge-small-zh-v1.5."""
+        from kanban_framework.infra.consts import Consts
+        kb_cfg = self._config.get("knowledge", {})
+        if isinstance(kb_cfg, dict):
+            return kb_cfg.get("embedding_model", Consts.DEFAULT_EMBEDDING_MODEL)
+        return Consts.DEFAULT_EMBEDDING_MODEL
+
+    @property
+    def evidence_max_length(self) -> int:
+        """Max characters for evidence field in knowledge entries. Default: 1000."""
+        kb_cfg = self._config.get("knowledge", {})
+        if isinstance(kb_cfg, dict):
+            return int(kb_cfg.get("evidence_max_length", 1000))
+        return 1000
+
+    @property
     def knowledge_scope(self) -> str:
         """Personal knowledge base ID prefix. Default: '' (uses K001 format).
         Set via config.json: {"knowledge": {"scope": "alice"}}
@@ -125,17 +142,33 @@ class Config:
     def prompt_hooks(self) -> dict[str, str]:
         """Custom prompt injections per phase or step.
 
-        config.json example:
+        Reads from workflow.json "prompt_hooks" (preferred), falls back to
+        config.json "prompt_hooks" for backward compatibility.
+
+        workflow.json example:
         {
           "prompt_hooks": {
-            "qa_spec": "本项目使用 Playwright E2E 测试...",
-            "execute.spawn": "所有代码必须通过 ruff check"
+            "execute": "禁止使用 any 类型",
+            "execute.spawn": "修改前先跑测试",
+            "quick.execute": "最多改 3 个文件"
           }
         }
-        Keys can be phase names (e.g. "plan", "execute") or specific
-        step IDs (e.g. "execute.spawn", "plan.plan_A").
+
+        Also supports mode-level hooks in workflow.json modes:
+        {
+          "modes": {
+            "lightweight": {
+              "prompt_hooks": {
+                "execute.spawn": "使用 TDD 方式开发"
+              }
+            }
+          }
+        }
+
+        Keys can be phase names, step IDs, or mode-prefixed step IDs.
         """
-        raw = self._config.get("prompt_hooks", {})
+        # Prefer workflow.json, fall back to config.json
+        raw = self._workflow.get("prompt_hooks", self._config.get("prompt_hooks", {}))
         if isinstance(raw, dict):
             return {str(k): str(v) for k, v in raw.items()}
         return {}

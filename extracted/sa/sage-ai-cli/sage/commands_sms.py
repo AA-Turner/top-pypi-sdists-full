@@ -486,6 +486,39 @@ def sms_logs() -> None:
         pass
 
 
+@sms_app.command("test-imessage")
+def sms_test_imessage(
+    recipient: Annotated[str, typer.Argument(help="Email or phone number to test")],
+    text: Annotated[str, typer.Option("--text", "-t", help="Test message text")] = "Test iMessage from SAGE",
+) -> None:
+    """Manually test iMessage delivery from this Mac to a specific handle."""
+    if platform.system() != "Darwin":
+        renderer.error("iMessage testing is only supported on macOS.")
+        raise typer.Exit(1)
+        
+    from sage.core.sms_bridge import _send_imessage
+    
+    renderer.console.print(f"\n[bold blue]Testing iMessage delivery...[/bold blue]")
+    renderer.console.print(f"Handle: [cyan]{recipient}[/cyan]")
+    renderer.console.print(f"Text:   {text}\n")
+    
+    with renderer.console.status("[bold yellow]Dispatching and verifying...[/bold yellow]"):
+        success = _send_imessage(recipient, text)
+        
+    if success:
+        renderer.console.print(f"\n✅ [bold green]SUCCESS![/bold green] iMessage was successfully sent and verified in chat.db.")
+        renderer.console.print(f"Recipent [cyan]{recipient}[/cyan] should receive it momentarily.")
+    else:
+        renderer.console.print(f"\n❌ [bold red]FAILURE![/bold red] Delivery could not be verified.")
+        renderer.console.print("[dim]Common fixes:[/dim]")
+        renderer.console.print("  1. Ensure Messages.app is [bold]signed into iCloud[/bold].")
+        renderer.console.print("  2. Ensure the recipient's handle is [bold]iMessage-capable[/bold].")
+        renderer.console.print("  3. Grant Sage CLI [bold]Full Disk Access[/bold] in System Settings → Privacy & Security.")
+        renderer.console.print("  4. Try a different format (e.g. phone with/without country code).")
+    
+    renderer.console.print()
+
+
 @sms_app.command("status")
 def sms_status() -> None:
     """Show this computer's bridge status and your account-wide devices/contacts."""
@@ -760,7 +793,8 @@ def sms_kde_takeover() -> None:
             pass
     elif sys.platform == "win32":
         try:
-            _sp.run(["taskkill", "/IM", "kdeconnect-app.exe", "/F", "/T"], capture_output=True, timeout=5)
+            from sage.core.kdeconnect_listener import _win32_kill_process_by_name
+            _win32_kill_process_by_name("kdeconnect-app.exe")
         except Exception:
             pass
     else:
@@ -1334,5 +1368,45 @@ def sms_contacts_remove(
         raise typer.Exit(1)
     except Exception as exc:
         renderer.error(str(exc)); raise typer.Exit(1)
+
+
+@sms_contacts_app.command("clear")
+def sms_contacts_clear(
+    force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation prompt")] = False,
+) -> None:
+    """Remove ALL authorized contacts from this account."""
+    from sage.main import _sms_backend
+
+    try:
+        be = _sms_backend()
+        contacts = be.list_contacts()
+    except Exception as exc:
+        renderer.error(f"Could not fetch contacts: {exc}")
+        raise typer.Exit(1)
+
+    if not contacts:
+        renderer.info("Contact list is already empty.")
+        return
+
+    if not force:
+        renderer.console.print(f"\n[bold red]WARNING:[/bold red] This will remove [bold]{len(contacts)}[/bold] authorized contacts.")
+        if not typer.confirm("Are you sure you want to clear ALL contacts?"):
+            renderer.info("Cancelled.")
+            return
+
+    count = 0
+    with renderer.console.status("[bold yellow]Clearing contacts...[/bold yellow]"):
+        for c in contacts:
+            email = c.get("email")
+            if not email:
+                continue
+            try:
+                # Backend remove_contact handles both phone: and plain email
+                be.remove_contact(email)
+                count += 1
+            except Exception as exc:
+                renderer.warning(f"Failed to remove {email}: {exc}")
+
+    renderer.success(f"Cleared {count} contacts. Your list is now empty.")
 
 

@@ -1,0 +1,138 @@
+"""
+@author: cunyue
+@file: __init__.py.py
+@time: 2026/4/21 15:11
+@description: SwanLab SDK 内部系统组件，如硬件监控、元数据采集、终端日志收集等
+与core设计理念一致，未来作为单独微服务实现
+"""
+
+import sys
+from typing import List, Optional
+
+from swanlab.proto.swanlab.grpc.probe.v1.probe_pb2 import DeliverProbeStartRequest, GetMetadataSnapshotResponse
+from swanlab.proto.swanlab.save.v1.save_pb2 import SaveRecord, SaveType
+from swanlab.sdk.internal.pkg import console, fs
+from swanlab.sdk.internal.probe_python.context import ProbeContext
+from swanlab.sdk.internal.probe_python.environment import conda, git, requirements, runtime, swanlab
+from swanlab.sdk.internal.probe_python.hardware_vendor import ACCELERATOR_REGISTRY, CPU, Apple, Memory
+from swanlab.sdk.internal.probe_python.monitor import Monitor
+from swanlab.sdk.internal.probe_python.typings import HardwareSnapshot, MetadataSnapshot, SystemEnvironment, SystemShim
+from swanlab.sdk.protocol.core import CoreProtocol
+from swanlab.sdk.protocol.probe import ProbeProtocol
+
+
+class ProbePython(ProbeProtocol):
+    def __init__(self, core: Optional[CoreProtocol], disabled: bool = False):
+        super().__init__(disabled)
+        self._core: Optional[CoreProtocol] = core
+        # self._monitor is not None 作为硬件监控是否开启的标记
+        self._monitor: Optional[Monitor] = None
+        self._metadta_snapshot: Optional[MetadataSnapshot] = None
+
+    def _start_when_enabled(self, start_request: DeliverProbeStartRequest):
+        """
+        启动硬件采集
+        """
+        ctx = ProbeContext.from_proto(start_request.probe_settings)
+        # 1. 系统环境信息采集
+        git_snapshot = git.get() if ctx.config.git else None
+        runtime_snapshot = runtime.get() if ctx.config.runtime else None
+        conda_snapshot = conda.get() if ctx.config.conda else None
+        requirements_snapshot = requirements.get() if ctx.config.requirements else None
+        swanlab_snapshot = swanlab.get(ctx) if ctx.config.swanlab else None
+
+        # 2. 系统硬件信息采集，只有在硬件采集和监控都不开启时才不采集
+        hardware_snapshot = None
+        if ctx.config.hardware or ctx.config.monitor:
+            # 2.1 苹果
+            apple_snapshot = Apple.get()
+
+            # 2.2 通用硬件
+            cpu_snapshot = None
+            memory_snapshot = None
+            if apple_snapshot is None:
+                cpu_snapshot = CPU.get()
+                memory_snapshot = Memory.get()
+
+            # 2.3 各家加速器厂商
+            accelerators = []
+            for vendor_cls in ACCELERATOR_REGISTRY.values():
+                snapshot = vendor_cls.get()
+                if snapshot is not None:
+                    accelerators.append(snapshot)
+
+            # 2.4 组合数据
+            hardware_snapshot = HardwareSnapshot(
+                cpu=cpu_snapshot,
+                memory=memory_snapshot,
+                apple_silicon=apple_snapshot,
+                accelerators=accelerators,
+            )
+        metadata = MetadataSnapshot(
+            hardware=hardware_snapshot,
+            git=git_snapshot,
+            runtime=runtime_snapshot,
+            swanlab=swanlab_snapshot,
+        )
+        self._metadta_snapshot = metadata
+        system_shim = SystemShim.from_snapshot(metadata, platform=sys.platform)
+        # 如果硬采集被设置为False，删除硬件信息
+        if not ctx.config.hardware:
+            metadata = metadata.del_hardware()
+
+        sys_info = SystemEnvironment(
+            shim=system_shim,
+            metadata=metadata,
+            requirements=requirements_snapshot,
+            conda=conda_snapshot,
+        )
+        if self._core is not None:
+            # 4. 向core发送记录
+            payload: List[SaveRecord] = []
+            if sys_info.metadata:
+                fs.safe_write(ctx.metadata_file, sys_info.metadata.model_dump_json(by_alias=True))
+                metadata_record = SaveRecord(
+                    name="metadata",
+                    source_path=ctx.metadata_file.absolute().as_posix(),
+                    type=SaveType.SAVE_TYPE_METADATA,
+                )
+                payload.append(metadata_record)
+            if sys_info.requirements:
+                fs.safe_write(ctx.requirements_file, sys_info.requirements)
+                requirements_record = SaveRecord(
+                    name="requirements",
+                    source_path=ctx.requirements_file.absolute().as_posix(),
+                    type=SaveType.SAVE_TYPE_REQUIREMENTS,
+                )
+                payload.append(requirements_record)
+            if sys_info.conda:
+                fs.safe_write(ctx.conda_file, sys_info.conda)
+                conda_record = SaveRecord(
+                    name="conda",
+                    source_path=ctx.conda_file.absolute().as_posix(),
+                    type=SaveType.SAVE_TYPE_CONDA,
+                )
+                payload.append(conda_record)
+            if payload:
+                self._core.upsert_saves(payload)
+            else:
+                console.debug(
+                    "ProbePython has no metadata to send; metadata will be collected for snapshots only and will not be sent."
+                )
+            # 5. 设置硬件监控
+            if ctx.config.monitor:
+                if (hm := Monitor(system_shim, self._core).start(ctx)) is not None:
+                    self._monitor = hm
+        else:
+            console.debug(
+                "ProbePython has no core attached; metadata will be collected for snapshots only and will not be sent."
+            )
+
+    def _get_metadata_snapshot_when_enabled(self) -> GetMetadataSnapshotResponse:
+        if self._metadta_snapshot is None:
+            return GetMetadataSnapshotResponse(success=False, message="Metadata snapshot is not available.")
+        return GetMetadataSnapshotResponse(success=True, metadata=self._metadta_snapshot.to_proto())
+
+    def _finish_when_enabled(self):
+        if self._monitor is not None:
+            self._monitor.stop()

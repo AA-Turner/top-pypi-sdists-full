@@ -1,16 +1,17 @@
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Optional, Set
+from typing import Any
 
-from asyncua import ua
 from sortedcontainers import SortedDict  # type: ignore
 
+from asyncua import ua
 
 TypeSubHandler = Any
 
 
 @dataclass(frozen=True)
 class NodeAttr:
-    attr: Optional[ua.AttributeIds] = None
+    attr: ua.AttributeIds | None = None
     queuesize: int = 0
 
 
@@ -20,7 +21,7 @@ class VirtualSubscription:
     handler: TypeSubHandler
     publishing: bool
     monitoring: ua.MonitoringMode
-    # type annotation (not supported yet): SortedDict[str, NodeAttr]
+    # type annotation (not supported yet): Sorteddict[str, NodeAttr]
     # see: https://github.com/grantjenks/python-sortedcontainers/pull/107
     nodes: SortedDict = field(default_factory=SortedDict)
 
@@ -39,5 +40,5 @@ class VirtualSubscription:
     def set_publishing_mode(self, mode: bool) -> None:
         self.publishing = mode
 
-    def get_nodes(self) -> Set[str]:
+    def get_nodes(self) -> set[str]:
         return set(self.nodes)

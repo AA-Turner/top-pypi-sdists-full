@@ -290,8 +290,7 @@ def describe_schema_parser():
             extend type Hello {
               world: String
             }""",
-            "Unexpected description,"
-            " descriptions are supported only on type definitions.",
+            "Unexpected description," " only GraphQL definitions support descriptions.",
             (2, 13),
         )
         assert_syntax_error(
@@ -310,8 +309,7 @@ def describe_schema_parser():
             extend interface Hello {
               world: String
             }""",
-            "Unexpected description,"
-            " descriptions are supported only on type definitions.",
+            "Unexpected description," " only GraphQL definitions support descriptions.",
             (2, 13),
         )
         assert_syntax_error(
@@ -747,6 +745,7 @@ def describe_schema_parser():
         assert definition.name == name_node("foo", (11, 14))
         assert definition.description is None
         assert definition.arguments == ()
+        assert definition.directives == ()
         assert definition.repeatable is False
         assert definition.locations == (
             name_node("OBJECT", (18, 24)),
@@ -760,10 +759,18 @@ def describe_schema_parser():
         assert definition.name == name_node("foo", (11, 14))
         assert definition.description is None
         assert definition.arguments == ()
+        assert definition.directives == ()
         assert definition.repeatable is True
         assert definition.locations == (
             name_node("OBJECT", (29, 35)),
             name_node("INTERFACE", (38, 47)),
+        )
+
+    def directive_definition_extensions_require_the_experimental_flag():
+        assert_syntax_error(
+            "extend directive @foo @bar",
+            "Unexpected Name 'directive'.",
+            (1, 8),
         )
 
     def directive_with_incorrect_locations():

@@ -421,6 +421,20 @@ class TestParseConfigFileWithFixtures:
         assert "filesystem" in server_names
         assert "github" in server_names
 
+    def test_parse_warp_config(self, fixtures_dir):
+        """Parse Warp config fixture (mcpServers with stdio + remote)."""
+        client_def = get_client_by_name("warp")
+        assert client_def is not None
+        result = parse_config_file(client_def, fixtures_dir / "warp_config.json")
+
+        assert result is not None
+        assert len(result.servers) == 2
+        by_name = {s.name: s for s in result.servers}
+        assert by_name["filesystem"].type == "stdio"
+        assert by_name["filesystem"].command == "npx"
+        assert by_name["github-remote"].type == "sse"
+        assert by_name["github-remote"].url == "https://api.githubcopilot.com/mcp/"
+
     def test_parse_vscode_config_with_servers_key(self, fixtures_dir):
         """Parse VS Code config which uses 'servers' not 'mcpServers'."""
         client_def = get_client_by_name("vscode")

@@ -15,7 +15,7 @@ import json
 import importlib
 import traceback
 import sys
-from typing import Optional, Union, List, Any, Tuple, Dict, TYPE_CHECKING
+from typing import Optional, Union, List, Any, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .connection import ConnectionBase
@@ -98,7 +98,6 @@ class DAG:
             self.debug_level = int(self.debug_level)
         except (Exception,):
             self.debug_level = 0
-
 
         # Prevent duplicate edges to be added.
         # The goal is to prevent unneeded edges.
@@ -441,6 +440,27 @@ class DAG:
 
         return None
 
+    def get_vertex_by_uid(self, uid: str) -> Optional[DAGVertex]:
+        """
+        Get a single vertex by its UID only.
+
+        Unlike get_vertex, this never falls back to path or name matching, so it
+        can never raise DAGPathException. Use this where the key is known to be a
+        UID (for example, the graph load and the add_vertex existence check),
+        otherwise an unloaded UID that happens to collide with a shared path
+        value would be misinterpreted as an ambiguous path.
+
+        :param uid: The UID of the vertex.
+        :return: DAGVertex instance, if it exists.
+        """
+
+        if uid is None:
+            return None
+        index = self._uid_lookup.get(uid)
+        if index is None:
+            return None
+        return self._vertices[index]
+
     @property
     def get_root(self) -> Optional[DAGVertex]:
         """
@@ -462,7 +482,12 @@ class DAG:
         :return:
         """
 
-        return self.get_vertex(key) is not None
+        try:
+            return self.get_vertex(key) is not None
+        except DAGPathException:
+            # The key matched multiple vertices by path value. We cannot pick a
+            # single vertex, but a matching vertex does exist.
+            return True
 
     def get_vertices_by_path_value(self, path: str, inc_deleted: bool = False) -> List[DAGVertex]:
         """
@@ -484,23 +509,6 @@ class DAG:
         return results
 
     def _sync(self, sync_point: int = 0) -> Tuple[List[DAGData], int]:
-        """Dispatch to legacy single-stream sync or per-graph multi-stream sync.
-
-        When `read_endpoint` is set, the server uses the per-graph URL pattern
-        (`/api/user/graph-sync/<name>/...`). That model splits the graph across
-        multiple streams, so a single-stream `sync` returns only a fragment.
-        Web Vault uses `get_leafs` -> `multi_sync` to read the full graph;
-        this client follows the same pattern.
-
-        When only `graph_id` is set (legacy single-endpoint transport), the
-        single-stream sync remains correct.
-        """
-        if self.read_endpoint is not None:
-            return self._sync_per_graph(sync_point)
-        return self._sync_legacy(sync_point)
-
-    def _sync_legacy(self, sync_point: int = 0) -> Tuple[List[DAGData], int]:
-        """Single-stream sync against the legacy `/sync` endpoint."""
 
         # The web service will send 500 items, if there is more the 'has_more' flag is set to True.
         has_more = True
@@ -534,61 +542,6 @@ class DAG:
             sync_point = results.syncPoint
 
         return all_data, sync_point
-
-    def _sync_per_graph(self, sync_point: int = 0) -> Tuple[List[DAGData], int]:
-        """Multi-stream read against the per-graph endpoints.
-
-        The graph's data lives in a single stream keyed by the graph's origin
-        (e.g. the PAM Configuration record's UID for TunnelDAG). We multi_sync
-        that stream directly — no `get_leafs` discovery step needed for this
-        caller pattern. (`Connection.get_leafs` remains available for callers
-        that start from leaf vertices and need to discover stream roots.)
-
-        Returns aggregated (data, max_sync_point) just like `_sync_legacy`.
-        """
-
-        origin_bytes = urlsafe_str_to_bytes(self.uid)
-
-        # Stream keyed by the graph's origin (e.g. config_uid for PAM linking).
-        per_stream_sync_point: Dict[bytes, int] = {origin_bytes: sync_point}
-        all_data: List[DAGData] = []
-        max_sync_point = sync_point
-
-        while per_stream_sync_point:
-            stream_ids = list(per_stream_sync_point.keys())
-            multi_query = self.read_struct_obj.multi_sync_query(
-                stream_ids=stream_ids,
-                origin=origin_bytes,
-                sync_point=sync_point,
-            )
-            # Per-stream syncPoint adjustment so each stream advances
-            # independently across pagination rounds (proto variant only;
-            # JSON variant builds via SyncQuery which already carries syncPoint).
-            try:
-                for inner, sid in zip(multi_query.queries, stream_ids):
-                    inner.syncPoint = per_stream_sync_point[sid]
-            except Exception:  # pragma: no cover - JSON variant has no .queries
-                pass
-
-            multi_response = self.conn.multi_sync(
-                multi_query=multi_query,
-                graph_id=self.graph_id,
-                endpoint=self.read_endpoint,
-                agent=self.agent,
-            )
-            multi_results = self.read_struct_obj.get_multi_sync_result(multi_response)
-
-            next_per_stream: Dict[bytes, int] = {}
-            for result in multi_results:
-                all_data += result.data
-                if result.syncPoint and result.syncPoint > max_sync_point:
-                    max_sync_point = result.syncPoint
-                if result.hasMore and result.streamId is not None:
-                    next_per_stream[bytes(result.streamId)] = result.syncPoint
-
-            per_stream_sync_point = next_per_stream
-
-        return all_data, max_sync_point
 
     def _load(self, sync_point: int = 0):
 
@@ -630,14 +583,16 @@ class DAG:
             tail_uid = data.ref.value
 
             # The parentRef is the head. It's the arrowhead on the edge. For DATA edges, it will be None.
+            # An empty parentRef.value (malformed/deletion edge) is treated as a missing head so it
+            # falls back to tail_uid below, instead of crashing add_vertex() with an empty UID.
             head_uid = None
-            if data.parentRef is not None:
+            if data.parentRef is not None and data.parentRef.value:
                 head_uid = data.parentRef.value
 
             self.debug(f"  * edge {edge_type}, tail {tail_uid} to head {head_uid}", level=3)
 
             # We want to store this edge in the Vertex with the same value/UID as the ref.
-            if not self.vertex_exists(tail_uid):
+            if self.get_vertex_by_uid(tail_uid) is None:
                 self.debug(f"    * tail vertex {tail_uid} does not exists. create.", level=3)
                 self.add_vertex(
                     uid=tail_uid,
@@ -649,7 +604,7 @@ class DAG:
                 )
 
             # Get the tail vertex.
-            tail = self.get_vertex(tail_uid)
+            tail = self.get_vertex_by_uid(tail_uid)
 
             # This most likely is a DELETION edge of a DATA edge.
             # Set the head to be the same as the tail.
@@ -657,7 +612,7 @@ class DAG:
                 head_uid = tail_uid
 
             # If the head vertex doesn't exist, we need to create.
-            if not self.vertex_exists(head_uid):
+            if head_uid is not None and head_uid != "" and not self.get_vertex_by_uid(head_uid):
                 self.debug(f"    * head vertex {head_uid} does not exists. create.", level=3)
                 self.add_vertex(
                     uid=head_uid,
@@ -666,6 +621,9 @@ class DAG:
                 )
             # Get the head vertex, which will exist now.
             head = self.get_vertex(head_uid)
+            if head is None or head == "":
+                head = tail
+            head = self.get_vertex_by_uid(head_uid)
             self.debug(f"    * tail {tail_uid} belongs to {head_uid}, "
                        f"edge type {edge_type}", level=3)
 
@@ -704,7 +662,7 @@ class DAG:
             # Get the tail vertex.
             tail_uid = data.ref.value
             # We want to store this edge in the Vertex with the same value/UID as the ref.
-            if not self.vertex_exists(tail_uid):
+            if self.get_vertex_by_uid(tail_uid) is None:
                 self.debug(f"    * tail vertex {tail_uid} does not exists. create.", level=3)
                 self.add_vertex(
                     uid=tail_uid,
@@ -714,7 +672,7 @@ class DAG:
                     # future.
                     vertex_type=RefType.find_enum(data.ref.type)
                 )
-            tail = self.get_vertex(tail_uid)
+            tail = self.get_vertex_by_uid(tail_uid)
 
             content = data.content
             if content is not None:
@@ -1264,7 +1222,7 @@ class DAG:
             keychain=keychain,
             vertex_type=vertex_type
         )
-        if self.vertex_exists(vertex.uid):
+        if self.get_vertex_by_uid(vertex.uid) is not None:
             raise DAGVertexAlreadyExistsException(f"Vertex {vertex.uid} already exists.")
 
         # Set the UID to array index lookup.

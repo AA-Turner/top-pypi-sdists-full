@@ -1,6 +1,6 @@
-import json
 import uuid
 from datetime import timedelta
+from functools import cache
 from typing import Any, Type
 
 import structlog
@@ -23,6 +23,7 @@ from mistralai.workflows.core._events.event_utils import create_base_event_field
 from mistralai.workflows.core._events.json_patch import make_json_patch
 from mistralai.workflows.core.temporal.utils import require_activity_context_value
 from mistralai.workflows.core.tracing._otel_config import _get_calling_module_name
+from mistralai.workflows.core.tracing._temporal_tracing_interceptor import TraceDataSerializer
 from mistralai.workflows.core.utils.contextvars import unwrap_contextual_result
 from mistralai.workflows.models import EventSpanType
 from mistralai.workflows.protocol.v1.events import (
@@ -39,6 +40,12 @@ from mistralai.workflows.protocol.v1.events import (
     JSONPayload,
     WorkflowEvent,
 )
+
+
+@cache
+def _get_trace_serializer() -> TraceDataSerializer:
+    return TraceDataSerializer()
+
 
 logger = structlog.get_logger(__name__)
 tracer = trace.get_tracer(_get_calling_module_name())
@@ -116,12 +123,13 @@ class Task[T]:
         self._span_context = None
 
     def _truncate_state_preview(self, state: Any, max_length: int = 1024) -> str:
-        """Create a truncated JSON preview of the state to avoid backend ingestion limits"""
+        """Create a truncated JSON preview of the state, with encryption masking applied."""
         try:
-            state_json = json.dumps(_to_json(state), default=str)
-            if len(state_json) > max_length:
-                return state_json[: max_length - 3] + "..."
-            return state_json
+            # Use TraceDataSerializer to ensure encryption masking is applied
+            serialized = _get_trace_serializer().serialize(state)
+            if len(serialized) > max_length:
+                return serialized[: max_length - 3] + "..."
+            return serialized
         except Exception:
             return "<serialization error>"
 
@@ -368,22 +376,27 @@ class Task[T]:
             return
 
         try:
-            patches = make_json_patch(previous, state)
+            patches, encrypted_paths = make_json_patch(previous, state)
 
             if temporalio.workflow.in_workflow():
+                # Serialize patches to dicts for local activity (Temporal serialization)
+                patch_dicts = [p.model_dump(mode="json") for p in patches]
                 await temporalio.workflow.execute_local_activity(
                     _emit_task_in_progress,
-                    args=[self._id, self._type, patches],
+                    args=[self._id, self._type, patch_dicts, list(encrypted_paths)],
                     start_to_close_timeout=timedelta(seconds=10),
                 )
             else:
+                # Use JSONPatch models directly
+                payload = JSONPatchPayload(value=patches)
+                payload._encrypted_paths = encrypted_paths
                 _publish_task_event(
                     CustomTaskInProgress(
                         **create_base_event_fields(),
                         attributes=CustomTaskInProgressAttributes(
                             custom_task_id=self._id,
                             custom_task_type=self._type,
-                            payload=JSONPatchPayload(value=patches),
+                            payload=payload,
                         ),
                     )
                 )

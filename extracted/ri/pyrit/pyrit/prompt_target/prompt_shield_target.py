@@ -7,13 +7,12 @@ from collections.abc import Callable
 from typing import Any, Literal, Optional
 
 from pyrit.common import default_values, net_utility
-from pyrit.identifiers import ComponentIdentifier
 from pyrit.models import (
+    ComponentIdentifier,
     Message,
     construct_response_from_request,
 )
 from pyrit.prompt_target.common.prompt_target import PromptTarget
-from pyrit.prompt_target.common.target_capabilities import TargetCapabilities
 from pyrit.prompt_target.common.target_configuration import TargetConfiguration
 from pyrit.prompt_target.common.utils import limit_requests_per_minute
 
@@ -63,7 +62,6 @@ class PromptShieldTarget(PromptTarget):
         field: Optional[PromptShieldEntryField] = None,
         max_requests_per_minute: Optional[int] = None,
         custom_configuration: Optional[TargetConfiguration] = None,
-        custom_capabilities: Optional[TargetCapabilities] = None,
     ) -> None:
         """
         Class that initializes an Azure Content Safety Prompt Shield Target.
@@ -86,25 +84,30 @@ class PromptShieldTarget(PromptTarget):
                 will be capped at the value provided.
             custom_configuration (TargetConfiguration, Optional): Override the default configuration for
                 this target instance. Defaults to None.
-            custom_capabilities (TargetCapabilities, Optional): **Deprecated.** Use
-                ``custom_configuration`` instead. Will be removed in v0.14.0.
+
+        Raises:
+            ValueError: If the endpoint value is not provided.
         """
         endpoint_value = default_values.get_required_value(
             env_var_name=self.ENDPOINT_URI_ENVIRONMENT_VARIABLE, passed_value=endpoint
         )
+        if endpoint_value is None:
+            raise ValueError("Endpoint value is required")
         super().__init__(
             max_requests_per_minute=max_requests_per_minute,
             endpoint=endpoint_value,
             custom_configuration=custom_configuration,
-            custom_capabilities=custom_capabilities,
         )
 
-        self._api_version = api_version
+        self._api_version = api_version or "2024-09-01"
 
         # API key is required - either from parameter or environment variable
-        self._api_key = default_values.get_required_value(
+        _api_key_value = default_values.get_required_value(
             env_var_name=self.API_KEY_ENVIRONMENT_VARIABLE, passed_value=api_key
         )
+        if _api_key_value is None:
+            raise ValueError("API key is required")
+        self._api_key = _api_key_value
 
         self._force_entry_field: PromptShieldEntryField = field
 
@@ -123,7 +126,7 @@ class PromptShieldTarget(PromptTarget):
         )
 
     @limit_requests_per_minute
-    async def send_prompt_async(self, *, message: Message) -> list[Message]:
+    async def _send_prompt_to_target_async(self, *, normalized_conversation: list[Message]) -> list[Message]:
         """
         Parse the text in message to separate the userPrompt and documents contents,
         then send an HTTP request to the endpoint and obtain a response in JSON. For more info, visit
@@ -132,8 +135,7 @@ class PromptShieldTarget(PromptTarget):
         Returns:
             list[Message]: A list containing the response object with generated text pieces.
         """
-        self._validate_request(message=message)
-
+        message = normalized_conversation[-1]
         request = message.message_pieces[0]
 
         logger.info(f"Sending the following prompt to the prompt target: {request}")
@@ -240,7 +242,7 @@ class PromptShieldTarget(PromptTarget):
         if self._api_key:
             # If callable, call it to get the token
             if callable(self._api_key):
-                token = self._api_key()
+                token = self._api_key()  # type: ignore[ty:call-top-callable]
                 headers["Authorization"] = f"Bearer {token}"
             else:
                 # String API key

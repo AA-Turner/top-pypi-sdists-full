@@ -2,7 +2,14 @@ from copy import deepcopy
 
 from pytest import raises
 
-from graphql.language import FieldNode, NameNode, parse, print_ast
+from graphql.error import GraphQLSyntaxError
+from graphql.language import (
+    FieldNode,
+    NameNode,
+    parse,
+    parse_schema_coordinate,
+    print_ast,
+)
 
 from ..fixtures import kitchen_sink_query  # noqa: F401
 from ..utils import dedent
@@ -107,6 +114,20 @@ def describe_printer_query_document():
             }
             """)
 
+    def experimental_prints_directives_on_directives():
+        query_ast_with_variable_directive = parse(
+            """
+            directive @foo @bar on FIELD_DEFINITION
+            extend directive @foo @baz
+            """,
+            experimental_directives_on_directive_definitions=True,
+        )
+        assert print_ast(query_ast_with_variable_directive) == dedent("""
+            directive @foo @bar on FIELD_DEFINITION
+
+            extend directive @foo @baz
+            """)
+
     def legacy_correctly_prints_fragment_defined_variables():
         source = """
             fragment Foo($a: ComplexType, $b: Boolean = false) on TestType {
@@ -115,6 +136,43 @@ def describe_printer_query_document():
             """
         fragment_with_variable = parse(source, allow_legacy_fragment_variables=True)
         assert print_ast(fragment_with_variable) == dedent(source)
+
+    def prints_fragment():
+        printed = print_ast(parse('"Fragment description" fragment Foo on Bar { baz }'))
+        assert printed == dedent("""
+            "Fragment description"
+            fragment Foo on Bar {
+              baz
+            }
+            """)
+
+    def prints_schema_coordinates():
+        assert print_ast(parse_schema_coordinate("Name")) == "Name"
+        assert print_ast(parse_schema_coordinate("Name.field")) == "Name.field"
+        assert (
+            print_ast(parse_schema_coordinate("Name.field(arg:)")) == "Name.field(arg:)"
+        )
+        assert print_ast(parse_schema_coordinate("@name")) == "@name"
+        assert print_ast(parse_schema_coordinate("@name(arg:)")) == "@name(arg:)"
+        assert print_ast(parse_schema_coordinate("__Type")) == "__Type"
+        assert (
+            print_ast(parse_schema_coordinate("Type.__metafield")) == "Type.__metafield"
+        )
+        assert (
+            print_ast(parse_schema_coordinate("Type.__metafield(arg:)"))
+            == "Type.__metafield(arg:)"
+        )
+
+    def throws_syntax_error_for_ignored_tokens_in_schema_coordinates():
+        with raises(GraphQLSyntaxError) as exc_info:
+            print_ast(parse_schema_coordinate("# foo\nName"))
+        assert "Syntax Error: Invalid character: '#'" in str(exc_info.value)
+        with raises(GraphQLSyntaxError) as exc_info:
+            print_ast(parse_schema_coordinate("\nName"))
+        assert "Syntax Error: Invalid character: U+000A." in str(exc_info.value)
+        with raises(GraphQLSyntaxError) as exc_info:
+            print_ast(parse_schema_coordinate("Name .field"))
+        assert "Syntax Error: Invalid character: ' '" in str(exc_info.value)
 
     def prints_kitchen_sink_without_altering_ast(kitchen_sink_query):  # noqa: F811
         ast = parse(kitchen_sink_query, no_location=True)
@@ -126,7 +184,12 @@ def describe_printer_query_document():
         assert deepcopy(ast) == ast_before_print_call
 
         assert printed == dedent(r'''
-            query queryName($foo: ComplexType, $site: Site = MOBILE) @onQuery {
+            "Query description"
+            query queryName(
+            "Very complex variable"
+            $foo: ComplexType
+            $site: Site = MOBILE
+            ) @onQuery {
               whoever123is: node(id: [123, 456]) {
                 id
                 ... on User @onInlineFragment {
@@ -168,6 +231,7 @@ def describe_printer_query_document():
               }
             }
 
+            """Fragment description"""
             fragment frag on Friend @onFragmentDefinition {
               foo(
                 size: $size

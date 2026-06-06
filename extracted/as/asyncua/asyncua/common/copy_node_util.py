@@ -1,21 +1,22 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, List, Optional
+from dataclasses import fields
+from typing import Any
 
 import asyncua
 from asyncua import ua
 from asyncua.common.session_interface import AbstractSession
 from asyncua.ua.uaerrors import UaInvalidParameterError
-from .node_factory import make_node
 
+from .node_factory import make_node
 
 _logger = logging.getLogger(__name__)
 
 
 async def copy_node(
-    parent: asyncua.Node, node: asyncua.Node, nodeid: Optional[ua.NodeId] = None, recursive: bool = True
-) -> List[asyncua.Node]:
+    parent: asyncua.Node, node: asyncua.Node, nodeid: ua.NodeId | None = None, recursive: bool = True
+) -> list[asyncua.Node]:
     """
     Copy a node or node tree as child of parent node
     """
@@ -32,7 +33,7 @@ async def _copy_node(
     rdesc: ua.ReferenceDescription,
     nodeid: ua.NodeId,
     recursive: bool,
-):
+) -> list[ua.NodeId]:
     addnode = ua.AddNodesItem()
     addnode.RequestedNewNodeId = nodeid
     addnode.BrowseName = rdesc.BrowseName
@@ -68,8 +69,9 @@ async def _rdesc_from_node(parent: asyncua.Node, node: asyncua.Node) -> ua.Refer
             ua.AttributeIds.DisplayName,
         ]
     )
-    variants: List[ua.Variant] = []
+    variants: list[ua.Variant] = []
     for res in results:
+        assert res.StatusCode is not None
         res.StatusCode.check()
         if res.Value is None:
             raise UaInvalidParameterError("Value must not be None if the result is in Good status")
@@ -92,10 +94,10 @@ async def _rdesc_from_node(parent: asyncua.Node, node: asyncua.Node) -> ua.Refer
 
 async def _read_and_copy_attrs(node_type: asyncua.Node, struct: Any, addnode: ua.AddNodesItem) -> None:
     names = [
-        name
-        for name in struct.__dict__.keys()
-        if not name.startswith("_")
-        and name
+        f.name
+        for f in fields(struct)
+        if not f.name.startswith("_")
+        and f.name
         not in (
             "BodyLength",
             "TypeId",
@@ -108,8 +110,10 @@ async def _read_and_copy_attrs(node_type: asyncua.Node, struct: Any, addnode: ua
     attrs = [getattr(ua.AttributeIds, name) for name in names]
     results = await node_type.read_attributes(attrs)
     for idx, name in enumerate(names):
-        if results[idx].StatusCode.is_good():
-            variant = results[idx].Value
+        res = results[idx]
+        assert res.StatusCode is not None
+        if res.StatusCode.is_good():
+            variant = res.Value
             if variant is None:
                 raise UaInvalidParameterError("Value must not be None if the result is in Good status")
             if name == "Value":
@@ -121,6 +125,6 @@ async def _read_and_copy_attrs(node_type: asyncua.Node, struct: Any, addnode: ua
                 "Instantiate: while copying attributes from node type %s, attribute %s, statuscode is %s",
                 str(node_type),
                 str(name),
-                str(results[idx].StatusCode),
+                str(res.StatusCode),
             )
     addnode.NodeAttributes = struct

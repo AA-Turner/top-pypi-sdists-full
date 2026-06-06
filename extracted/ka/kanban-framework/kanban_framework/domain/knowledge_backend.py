@@ -18,15 +18,25 @@ class KnowledgeBackend(Protocol):
     """Protocol that all knowledge backend adapters must implement."""
 
     def search(self, keyword: str, limit: int = 20, *, biz_context: str | None = None) -> list[dict]:
-        """Full-text keyword search. Returns [{id, title, content, score, ...}]."""
+        """Full-text keyword search.
+
+        Returns list of dicts, each containing at minimum:
+          {id, title, content, relevance (0-1 normalized), score (raw), ...}
+        """
         ...
 
     def search_semantic(self, query: str, limit: int = 20, *, biz_context: str | None = None) -> list[dict]:
-        """Semantic (vector embedding) search."""
+        """Semantic (vector embedding) search.
+
+        Returns list of dicts with 'relevance' (0-1) field.
+        """
         ...
 
     def search_hybrid(self, keyword: str, limit: int = 20, *, biz_context: str | None = None) -> list[dict]:
-        """Hybrid search combining keyword and semantic results."""
+        """Hybrid search combining keyword and semantic results.
+
+        Returns list of dicts with 'relevance' (0-1) field.
+        """
         ...
 
     def add_entry(self, **kwargs) -> dict:
@@ -89,6 +99,7 @@ class MemoryBackend:
         results = []
         for e in self._entries.values():
             if kw in e.get("title", "").lower() or kw in e.get("content", "").lower():
+                e["relevance"] = 0.5
                 e["score"] = 0.5
                 results.append(e)
         if biz_context is not None:

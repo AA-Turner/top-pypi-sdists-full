@@ -6,6 +6,7 @@ creates an independent kanban task instead of executing inline.
 from __future__ import annotations
 
 import json
+import re
 import time
 from typing import Optional
 
@@ -93,7 +94,7 @@ def inject_subtask_steps(
             )
 
         # Legacy inline executor
-        plan_slug = st_title.lower().replace(" ", "_")
+        plan_slug = re.sub(r'[^a-z0-9_]', '', st_title.lower().replace(" ", "_"))
         plan_file = f"{st_id}_{plan_slug}.md"
         td_path = str(td)
         iter_dir = str(td / f"iteration-{task.iteration}")

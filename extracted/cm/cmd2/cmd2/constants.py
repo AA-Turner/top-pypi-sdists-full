@@ -3,52 +3,89 @@
 # Unless documented in https://cmd2.readthedocs.io/en/latest/api/index.html
 # nothing here should be considered part of the public API of this module
 
-INFINITY = float('inf')
+INFINITY = float("inf")
 
-# Used for command parsing, output redirection, tab completion and word
-# breaks. Do not change.
+# Used for command parsing, output redirection, completion, and word breaks. Do not change.
 QUOTES = ('"', "'")
-REDIRECTION_PIPE = '|'
-REDIRECTION_OUTPUT = '>'
-REDIRECTION_APPEND = '>>'
-REDIRECTION_CHARS = (REDIRECTION_PIPE, REDIRECTION_OUTPUT)
-REDIRECTION_TOKENS = (REDIRECTION_PIPE, REDIRECTION_OUTPUT, REDIRECTION_APPEND)
-COMMENT_CHAR = '#'
-MULTILINE_TERMINATOR = ';'
+REDIRECTION_PIPE = "|"
+REDIRECTION_OVERWRITE = ">"
+REDIRECTION_APPEND = ">>"
+REDIRECTION_CHARS = (REDIRECTION_PIPE, REDIRECTION_OVERWRITE)
+REDIRECTION_TOKENS = (REDIRECTION_PIPE, REDIRECTION_OVERWRITE, REDIRECTION_APPEND)
+COMMENT_CHAR = "#"
+MULTILINE_TERMINATOR = ";"
 
-LINE_FEED = '\n'
+LINE_FEED = "\n"
 
-DEFAULT_SHORTCUTS = {'?': 'help', '!': 'shell', '@': 'run_script', '@@': '_relative_run_script'}
+DEFAULT_SHORTCUTS = {"?": "help", "!": "shell", "@": "run_script", "@@": "_relative_run_script"}
 
 # Used as the command name placeholder in disabled command messages.
 COMMAND_NAME = "<COMMAND_NAME>"
 
 # All command functions start with this
-COMMAND_FUNC_PREFIX = 'do_'
+COMMAND_FUNC_PREFIX = "do_"
 
 # All help functions start with this
-HELP_FUNC_PREFIX = 'help_'
+HELP_FUNC_PREFIX = "help_"
 
 # All command completer functions start with this
-COMPLETER_FUNC_PREFIX = 'complete_'
+COMPLETER_FUNC_PREFIX = "complete_"
 
-# The custom help category a command belongs to
-CMD_ATTR_HELP_CATEGORY = 'help_category'
-CLASS_ATTR_DEFAULT_HELP_CATEGORY = 'cmd2_default_help_category'
+# Prefix for private attributes injected by cmd2
+PRIVATE_ATTR_PREFIX = "_cmd2_"
 
-# The argparse parser for the command
-CMD_ATTR_ARGPARSER = 'argparser'
+# Prefix for public attributes injected by cmd2
+PUBLIC_ATTR_PREFIX = "cmd2_"
 
-# Whether or not tokens are unquoted before sending to argparse
-CMD_ATTR_PRESERVE_QUOTES = 'preserve_quotes'
 
-# subcommand attributes for the base command name and the subcommand name
-SUBCMD_ATTR_COMMAND = 'parent_command'
-SUBCMD_ATTR_NAME = 'subcommand_name'
-SUBCMD_ATTR_ADD_PARSER_KWARGS = 'subcommand_add_parser_kwargs'
+def cmd2_private_attr_name(name: str) -> str:
+    """Build a private attribute name with the _cmd2_ prefix.
 
-# arpparse attribute uniquely identifying the command set instance
-PARSER_ATTR_COMMANDSET_ID = 'command_set_id'
+    :param name: the name of the attribute
+    :return: the prefixed attribute name
+    """
+    return f"{PRIVATE_ATTR_PREFIX}{name}"
 
-# custom attributes added to argparse Namespaces
-NS_ATTR_SUBCMD_HANDLER = '__subcmd_handler__'
+
+def cmd2_public_attr_name(name: str) -> str:
+    """Build a public attribute name with the cmd2_ prefix.
+
+    :param name: the name of the attribute
+    :return: the prefixed attribute name
+    """
+    return f"{PUBLIC_ATTR_PREFIX}{name}"
+
+
+##################################################################################################
+# Attribute Injection Constants
+#
+# cmd2 attaches custom attributes to various objects (functions, classes, and parsers) to
+# track metadata and manage command state.
+#
+# Private attributes (_cmd2_ prefix) are for internal framework logic.
+# Public attributes (cmd2_ prefix) are available for developer use, typically within
+# argparse Namespaces.
+##################################################################################################
+
+# --- Private Internal Attributes ---
+
+# Attached to a command function; defines its help section category
+COMMAND_ATTR_HELP_CATEGORY = cmd2_private_attr_name("help_category")
+
+# Attached to an argparse-based command function; defines its ArgparseCommandSpec instance
+ARGPARSE_COMMAND_ATTR_SPEC = cmd2_private_attr_name("argparse_command_spec")
+
+# Attached to a subcommand function; defines its SubcommandSpec instance
+SUBCOMMAND_ATTR_SPEC = cmd2_private_attr_name("subcommand_spec")
+
+# Attached to a subcommand parser; stores the id() of the Cmd or CommandSet instance that registered it
+PARSER_ATTR_OWNER_ID = cmd2_private_attr_name("owner_id")
+
+
+# --- Public Developer Attributes ---
+
+# Attached to an argparse Namespace; contains the Statement object created during parsing
+NS_ATTR_STATEMENT = cmd2_public_attr_name("statement")
+
+# Attached to an argparse Namespace; the function to handle the subcommand (or None)
+NS_ATTR_SUBCOMMAND_FUNC = cmd2_public_attr_name("subcommand_func")

@@ -6,7 +6,7 @@ import logging
 from pyrit.datasets.seed_datasets.remote.remote_dataset_loader import (
     _RemoteDatasetLoader,
 )
-from pyrit.models import SeedDataset, SeedPrompt
+from pyrit.models import Modality, SeedDataset, SeedPrompt
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +24,17 @@ class _JBBBehaviorsDataset(_RemoteDatasetLoader):
     before using these prompts against production LLMs.
     """
 
+    # Metadata
+    modalities: tuple[Modality, ...] = (Modality.TEXT,)
+    size: str = "small"  # 100 harmful behaviors across 10 categories
+    tags: frozenset[str] = frozenset({"safety", "jailbreak"})
+
     def __init__(
         self,
         *,
         source: str = "JailbreakBench/JBB-Behaviors",
         split: str = "behaviors",
-    ):
+    ) -> None:
         """
         Initialize the JBB-Behaviors dataset loader.
 
@@ -45,7 +50,7 @@ class _JBBBehaviorsDataset(_RemoteDatasetLoader):
         """Return the dataset name."""
         return "jbb_behaviors"
 
-    async def fetch_dataset(self, *, cache: bool = True) -> SeedDataset:
+    async def fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
         """
         Fetch JBB-Behaviors dataset and return as SeedDataset.
 
@@ -64,7 +69,7 @@ class _JBBBehaviorsDataset(_RemoteDatasetLoader):
 
             # Load from HuggingFace
             # Note: JBB-Behaviors has 'harmful' and 'benign' splits
-            data = await self._fetch_from_huggingface(
+            data = await self._fetch_from_huggingface_async(
                 dataset_name=self.source,
                 config=self.split,
                 split="harmful",
@@ -107,7 +112,7 @@ class _JBBBehaviorsDataset(_RemoteDatasetLoader):
                         "jbb_category": category,
                         "original_source": "JailbreakBench",
                     },
-                    **common_metadata,  # type: ignore[arg-type]
+                    **common_metadata,  # type: ignore[ty:invalid-argument-type]
                 )
 
                 seed_prompts.append(seed_prompt)

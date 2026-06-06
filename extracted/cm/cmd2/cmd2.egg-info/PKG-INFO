@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cmd2
-Version: 3.5.1
+Version: 4.0.0
 Summary: cmd2 - quickly build feature-rich and user-friendly interactive command line applications in Python
 Author: cmd2 Contributors
 License-Expression: MIT
@@ -11,7 +11,6 @@ Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -19,16 +18,13 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Free Threading :: 3 - Stable
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: backports.strenum; python_version == "3.10"
-Requires-Dist: gnureadline>=8; platform_system == "Darwin"
+Requires-Dist: prompt-toolkit>=3.0.52
 Requires-Dist: pyperclip>=1.8.2
-Requires-Dist: pyreadline3>=3.4; platform_system == "Windows"
 Requires-Dist: rich>=15.0.0
 Requires-Dist: rich-argparse>=1.7.2
-Requires-Dist: typing-extensions; python_version == "3.10"
 Dynamic: license-file
 
 <h1 align="center">cmd2 : immersive interactive command line applications</h1>
@@ -58,10 +54,11 @@ applications. It provides a simple API which is an extension of Python's built-i
 of cmd to make your life easier and eliminates much of the boilerplate code which would be necessary
 when using cmd.
 
-> :warning: **`cmd2` 3.0.0 has been released and there are some significant backwards
-> incompatibilities from version `2.x`. Please see the
-> [Migration Guide](https://cmd2.readthedocs.io/en/latest/upgrades/) for tips on upgrading from
-> `cmd2` 2.x to 3.x.**
+> :warning: **If you are upgrading from an older version of `cmd2`, both `3.x` and `4.x` have some
+> significant backwards incompatibilities from previous versions. Please see the
+> [CHANGELOG](./CHANGELOG.md) for info on what has changed and the
+> [Migration Guide](https://cmd2.readthedocs.io/en/latest/upgrades/) for tips on upgrading from an
+> older version of `cmd2` to `4.x`**
 
 ## The developers toolbox
 
@@ -110,8 +107,6 @@ command line argument parsing and execution of cmd2 scripting.
 - Text file scripting of your application with `run_script` (`@`) and `_relative_run_script` (`@@`)
 - Powerful and flexible built-in Python scripting of your application using the `run_pyscript`
   command
-- Transcripts for use with built-in regression can be automatically generated from `history -t` or
-  `run_script -t`
 
 ## Installation
 
@@ -121,7 +116,7 @@ On all operating systems, the latest stable version of `cmd2` can be installed u
 pip install -U cmd2
 ```
 
-cmd2 works with Python 3.10+ on Windows, macOS, and Linux. It is pure Python code with few 3rd-party
+cmd2 works with Python 3.11+ on Windows, macOS, and Linux. It is pure Python code with few 3rd-party
 dependencies. It works with both conventional CPython and free-threaded variants.
 
 For information on other installation options, see
@@ -142,7 +137,7 @@ examples.
 - [cmd2 example applications](https://github.com/python-cmd2/cmd2/tree/main/examples)
     - Basic cmd2 examples to demonstrate how to use various features
 - [Advanced Examples](https://github.com/jayrod/cmd2-example-apps)
-    - More complex examples that demonstrate more featuers about how to put together a complete
+    - More complex examples that demonstrate more features about how to put together a complete
       application
 - [Cookiecutter](https://github.com/cookiecutter/cookiecutter) Templates from community
     - Basic cookiecutter template for cmd2 application :

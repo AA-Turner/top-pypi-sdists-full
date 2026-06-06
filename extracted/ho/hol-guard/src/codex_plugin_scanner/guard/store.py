@@ -9,9 +9,10 @@ import logging
 import os
 import sqlite3
 import subprocess
+import sys
 import time
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from datetime import datetime, timedelta, timezone
 from hashlib import pbkdf2_hmac, sha256
 from pathlib import Path
@@ -25,9 +26,11 @@ from .approval_gate import ApprovalGateGrant, require_policy_clear, require_poli
 from .cli.oauth_client import resolve_guard_oauth_client_config, validate_guard_sync_endpoint
 from .edge_events import build_receipt_event
 from .models import GuardApprovalRequest, GuardArtifact, GuardReceipt, GuardRuntimeState, PolicyDecision
+from .runtime.actions import GuardActionEnvelope
 from .runtime.scanner_cache import scanner_cache_key
 from .schemas.guard_event_v1 import GuardEventV1
 from .store_approvals import (
+    _json_object,
     _json_object_list,
     approval_index_statements,
     approval_schema_statement,
@@ -140,6 +143,7 @@ _SYNC_TOKEN_HASH_KEY = "token_sha256"
 _OAUTH_LOCAL_CREDENTIALS_STATE_KEY = "oauth_local_credentials"
 _OAUTH_LOCAL_CREDENTIALS_HASH_KEY = "credentials_sha256"
 _OAUTH_LOCAL_CREDENTIALS_REF_KEY = "credentials_ref"
+_OAUTH_PRIMARY_SECRET_TIMEOUT_SECONDS = 2.0
 _GUARD_CLOUD_RESET_STATE_KEYS = (
     "credentials",
     "sync_summary",
@@ -159,12 +163,25 @@ _MAX_RESOLVED_SCOPE_IDS = 200
 _SQLITE_ID_BATCH_SIZE = 500
 _WORKSPACE_POLICY_KEY_PREFIX = "workspace:"
 _SCOPED_HARNESS_FAMILIES = frozenset(
-    {"file-read", "mcp-tool", "prompt", "prompt-env-read", "prompt-file", "tool-action"}
+    {
+        "file-read",
+        "mcp",
+        "mcp-tool",
+        "package-request",
+        "prompt",
+        "prompt-env-read",
+        "prompt-file",
+        "tool-action",
+    }
 )
 _POLICY_SCOPES = frozenset({"artifact", "workspace", "publisher", "harness", "global"})
 _SLOW_STORE_WARNING_ENV = "HOL_GUARD_WARN_SLOW_STORE"
 _SECRET_FINGERPRINT_PREFIX = "pbkdf2-sha256$"
 _SECRET_FINGERPRINT_SALT = b"hol-guard-secret-fingerprint:v1"
+_OAUTH_REFRESH_LOCK_TIMEOUT_SECONDS = 30.0
+_OAUTH_REFRESH_LOCK_POLL_SECONDS = 0.05
+_GUARD_STORE_PRIVATE_DIR_MODE = 0o700
+_GUARD_STORE_PRIVATE_FILE_MODE = 0o600
 
 
 def _oauth_sync_url_from_issuer(issuer: str) -> str:
@@ -200,6 +217,42 @@ def _secret_matches_hash(value: str, expected_hash: str) -> bool:
     if expected_hash.startswith(_SECRET_FINGERPRINT_PREFIX):
         return _secret_fingerprint(value) == expected_hash
     return _legacy_secret_sha256(value) == expected_hash
+
+
+def _acquire_advisory_file_lock(handle) -> None:
+    if os.name == "nt":
+        import msvcrt
+
+        try:
+            handle.seek(0)
+            if not handle.read(1):
+                handle.write(b"0")
+                handle.flush()
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+        except OSError as error:
+            raise BlockingIOError from error
+        return
+
+    import fcntl
+
+    try:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError as error:
+        raise BlockingIOError from error
+
+
+def _release_advisory_file_lock(handle) -> None:
+    if os.name == "nt":
+        import msvcrt
+
+        handle.seek(0)
+        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        return
+
+    import fcntl
+
+    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
 
 class SecretStore(Protocol):
@@ -289,12 +342,101 @@ class KeychainSecretStore:
 class SystemKeyringSecretStore:
     """Cross-platform OS credential store backed by the Python keyring library."""
 
+    _MACOS_KEYCHAIN_HEALTH_CACHE_TTL_SECONDS = 5.0
+    _macos_keychain_health_cache: tuple[float, bool] | None = None
+
     def __init__(self, service_name: str) -> None:
         self.service_name = service_name
 
     @staticmethod
     def _load_keyring_module():
         return importlib.import_module("keyring")
+
+    @staticmethod
+    def _macos_default_keychain_path() -> Path | None:
+        result = SystemKeyringSecretStore._run_macos_security_command("default-keychain", "-d", "user")
+        if result is None:
+            return None
+        raw_path = result.stdout.strip().strip('"').strip("'")
+        if not raw_path:
+            return None
+        return Path(raw_path).expanduser()
+
+    @staticmethod
+    def _run_macos_security_command(*args: str) -> subprocess.CompletedProcess[str] | None:
+        if sys.platform != "darwin":
+            return None
+        security_path = Path("/usr/bin/security")
+        if not security_path.exists():
+            return None
+        try:
+            result = subprocess.run(
+                [str(security_path), *args],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except Exception:
+            return None
+        return result if result.returncode == 0 else None
+
+    @classmethod
+    def _macos_user_keychain_paths(cls) -> tuple[Path, ...]:
+        result = cls._run_macos_security_command("list-keychains", "-d", "user")
+        if result is None:
+            return ()
+        paths: list[Path] = []
+        for line in result.stdout.splitlines():
+            raw_path = line.strip().strip('"').strip("'")
+            if raw_path:
+                paths.append(Path(raw_path).expanduser())
+        return tuple(paths)
+
+    @classmethod
+    def _macos_keychain_path_is_usable(cls, path: Path | None) -> bool:
+        if path is None:
+            return False
+        expanded = path.expanduser()
+        if not expanded.exists():
+            return False
+        return cls._run_macos_security_command("show-keychain-info", str(expanded)) is not None
+
+    @staticmethod
+    def _normalized_macos_keychain_path(path: Path) -> str:
+        return os.path.realpath(os.fspath(path.expanduser()))
+
+    @classmethod
+    def _clear_macos_keychain_health_cache(cls) -> None:
+        cls._macos_keychain_health_cache = None
+
+    @classmethod
+    def _macos_default_keychain_is_usable_uncached(cls) -> bool:
+        path = cls._macos_default_keychain_path()
+        if path is None:
+            return False
+        user_keychain_paths = cls._macos_user_keychain_paths()
+        if not user_keychain_paths:
+            return False
+        normalized_default = cls._normalized_macos_keychain_path(path)
+        normalized_user_paths: dict[str, Path] = {}
+        for item in user_keychain_paths:
+            normalized_user_paths.setdefault(cls._normalized_macos_keychain_path(item), item)
+        if normalized_default not in normalized_user_paths:
+            return False
+        return all(cls._macos_keychain_path_is_usable(item) for item in normalized_user_paths.values())
+
+    @classmethod
+    def _macos_default_keychain_is_usable(cls) -> bool:
+        if sys.platform != "darwin":
+            return False
+        cached = cls._macos_keychain_health_cache
+        now = time.monotonic()
+        if cached is not None and (now - cached[0]) < cls._MACOS_KEYCHAIN_HEALTH_CACHE_TTL_SECONDS:
+            return cached[1]
+        result = cls._macos_default_keychain_is_usable_uncached()
+        cls._macos_keychain_health_cache = (now, result)
+        return result
 
     @classmethod
     def _is_available(cls) -> bool:
@@ -307,7 +449,11 @@ class SystemKeyringSecretStore:
         if backend_name == "failkeyring":
             return False
         priority = getattr(backend, "priority", None)
-        return not (isinstance(priority, (int, float)) and priority <= 0)
+        if isinstance(priority, (int, float)) and priority <= 0:
+            return False
+        if sys.platform == "darwin" and not cls._macos_default_keychain_is_usable():
+            return False
+        return True
 
     def set_secret(self, secret_id: str, value: str) -> None:
         keyring_module = self._load_keyring_module()
@@ -317,6 +463,35 @@ class SystemKeyringSecretStore:
         keyring_module = self._load_keyring_module()
         value = keyring_module.get_password(self.service_name, secret_id)
         return value if isinstance(value, str) and value else None
+
+    def get_secret_with_timeout(self, secret_id: str, *, timeout_seconds: float) -> str | None:
+        if sys.platform != "darwin":
+            return self.get_secret(secret_id)
+        security_path = Path("/usr/bin/security")
+        if not security_path.exists():
+            return None
+        try:
+            result = subprocess.run(
+                [
+                    str(security_path),
+                    "find-generic-password",
+                    "-a",
+                    secret_id,
+                    "-s",
+                    self.service_name,
+                    "-w",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=timeout_seconds,
+            )
+        except Exception:
+            return None
+        if result.returncode != 0:
+            return None
+        value = result.stdout.rstrip("\r\n")
+        return value if value else None
 
     def delete_secret(self, secret_id: str) -> None:
         keyring_module = self._load_keyring_module()
@@ -343,6 +518,8 @@ class EncryptedFileSecretStore:
         if self._fernet is not None:
             return
         self.base_dir.mkdir(parents=True, exist_ok=True)
+        # Owner-only directory access is required for encrypted secret material.
+        # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
         os.chmod(self.base_dir, 0o700)
         if not self.key_path.exists():
             self._atomic_write_bytes(self.key_path, Fernet.generate_key(), 0o600)
@@ -533,10 +710,23 @@ def _expand_keystream(*, key: bytes, nonce: bytes, length: int) -> bytes:
     return b"".join(chunks)[:length]
 
 
+def _set_private_mode(path: Path, mode: int) -> None:
+    if os.name == "nt":
+        return
+    try:
+        os.chmod(path, mode)
+    except OSError as exc:
+        _store_logger.debug("Could not set private mode %o on %s: %s", mode, path, exc)
+        return
+
+
 def _build_secret_store(guard_home: Path) -> SecretStore:
     fallback_store = EncryptedFileSecretStore(guard_home)
     if KeychainSecretStore._is_available():
-        return FallbackSecretStore(fallback_store, KeychainSecretStore(service_name="hol-guard.sync"))
+        keychain_store = KeychainSecretStore(service_name="hol-guard.sync")
+        if sys.platform == "darwin":
+            return FallbackSecretStore(keychain_store, fallback_store)
+        return FallbackSecretStore(fallback_store, keychain_store)
     return fallback_store
 
 
@@ -583,6 +773,7 @@ class GuardStore:
     def __init__(self, guard_home: Path, *, guard_event_queue_limit: int = 1000) -> None:
         self.guard_home = guard_home
         self.guard_home.mkdir(parents=True, exist_ok=True)
+        _set_private_mode(self.guard_home, _GUARD_STORE_PRIVATE_DIR_MODE)
         self._secret_store = _build_secret_store(self.guard_home)
         self._oauth_secret_store = _build_oauth_secret_store(self.guard_home)
         self._sync_token_ref = self._build_scoped_secret_ref(_SYNC_TOKEN_REF)
@@ -604,20 +795,82 @@ class GuardStore:
         if isinstance(secret_store, FallbackSecretStore):
             secret_store.promote_secret(secret_id, value)
 
+    def _mirror_oauth_secret_to_fallback(self, secret_id: str, value: str) -> None:
+        secret_store = self._oauth_secret_store
+        if not isinstance(secret_store, FallbackSecretStore):
+            return
+        if not isinstance(secret_store.fallback, EncryptedFileSecretStore):
+            return
+        fallback_value = self._get_secret_from_store(secret_store.fallback, secret_id)
+        if fallback_value == value:
+            return
+        try:
+            secret_store.fallback.set_secret(secret_id, value)
+        except Exception:
+            _store_logger.warning(
+                "Failed to mirror OAuth credentials into encrypted fallback store; "
+                "headless environments may not be able to read credentials."
+            )
+            return
+
+    def _assert_oauth_secret_persisted(self, secret_id: str, value: str) -> None:
+        secret_store = self._oauth_secret_store
+        if isinstance(secret_store, FallbackSecretStore) and isinstance(
+            secret_store.fallback,
+            EncryptedFileSecretStore,
+        ):
+            fallback_value = self._get_secret_from_store(secret_store.fallback, secret_id)
+            if fallback_value == value:
+                return
+            raise RuntimeError(
+                "Guard could not persist local Guard Cloud authorization into the encrypted local store."
+            )
+        persisted_value = self._get_secret_from_store(secret_store, secret_id)
+        if persisted_value == value:
+            return
+        raise RuntimeError("Guard could not persist local Guard Cloud authorization securely.")
+
     def _get_secret_from_store(self, store: SecretStore, secret_id: str) -> str | None:
         try:
             return store.get_secret(secret_id)
         except Exception:
             return None
 
+    def _get_secret_from_primary_store(self, store: SecretStore, secret_id: str) -> str | None:
+        if isinstance(store, SystemKeyringSecretStore):
+            return store.get_secret_with_timeout(
+                secret_id,
+                timeout_seconds=_OAUTH_PRIMARY_SECRET_TIMEOUT_SECONDS,
+            )
+        return self._get_secret_from_store(store, secret_id)
+
     def _get_secret_candidates(
         self,
         secret_store: SecretStore,
         secret_id: str,
         expected_hash_value: str | None,
+        *,
+        prefer_fallback_first: bool = False,
     ) -> list[str]:
         if isinstance(secret_store, FallbackSecretStore):
-            primary_token = self._get_secret_from_store(secret_store.primary, secret_id)
+            if prefer_fallback_first and isinstance(secret_store.fallback, EncryptedFileSecretStore):
+                fallback_token = self._get_secret_from_store(secret_store.fallback, secret_id)
+                if fallback_token is not None and (
+                    expected_hash_value is None or _secret_matches_hash(fallback_token, expected_hash_value)
+                ):
+                    return [fallback_token]
+                primary_token = self._get_secret_from_primary_store(secret_store.primary, secret_id)
+                if primary_token is not None and (
+                    expected_hash_value is None or _secret_matches_hash(primary_token, expected_hash_value)
+                ):
+                    return [primary_token]
+                if fallback_token is not None and expected_hash_value is not None:
+                    return []
+            primary_token = (
+                self._get_secret_from_primary_store(secret_store.primary, secret_id)
+                if prefer_fallback_first
+                else self._get_secret_from_store(secret_store.primary, secret_id)
+            )
             if primary_token is not None:
                 if expected_hash_value is None or _secret_matches_hash(primary_token, expected_hash_value):
                     return [primary_token]
@@ -634,6 +887,17 @@ class GuardStore:
             return []
         return [token]
 
+    def _repair_store_permissions(self) -> None:
+        _set_private_mode(self.guard_home, _GUARD_STORE_PRIVATE_DIR_MODE)
+        for candidate in (
+            self.path,
+            self.guard_home / "guard.db-journal",
+            self.guard_home / "guard.db-shm",
+            self.guard_home / "guard.db-wal",
+        ):
+            if candidate.exists():
+                _set_private_mode(candidate, _GUARD_STORE_PRIVATE_FILE_MODE)
+
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
         connection = sqlite3.connect(self.path)
@@ -645,12 +909,36 @@ class GuardStore:
         finally:
             connection.close()
             elapsed_ms = (time.monotonic() - start) * 1000
+            self._repair_store_permissions()
             if elapsed_ms >= _SLOW_QUERY_THRESHOLD_MS:
                 log = _store_logger.warning if _should_warn_on_slow_store_transactions() else _store_logger.debug
                 log(
                     "Guard store slow transaction (%.0fms); consider indexing hot query paths.",
                     elapsed_ms,
                 )
+
+    @contextmanager
+    def hold_oauth_refresh_lock(
+        self,
+        *,
+        timeout_seconds: float = _OAUTH_REFRESH_LOCK_TIMEOUT_SECONDS,
+    ) -> Iterator[None]:
+        lock_path = self.guard_home / "oauth-refresh.lock"
+        deadline = time.monotonic() + max(timeout_seconds, 0.0)
+        with lock_path.open("a+b") as handle:
+            while True:
+                try:
+                    _acquire_advisory_file_lock(handle)
+                    break
+                except BlockingIOError:
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError("Timed out waiting for Guard OAuth refresh lock.") from None
+                    time.sleep(_OAUTH_REFRESH_LOCK_POLL_SECONDS)
+            try:
+                yield
+            finally:
+                with suppress(OSError):
+                    _release_advisory_file_lock(handle)
 
     def _initialize(self) -> None:
         statements = (
@@ -764,6 +1052,13 @@ class GuardStore:
               source_scope text,
               scanner_evidence_json text not null default '[]',
               timestamp text not null
+            )
+            """,
+            """
+            create table if not exists runtime_receipt_envelopes (
+              receipt_id text primary key references runtime_receipts(receipt_id) on delete cascade,
+              envelope_full_json text,
+              envelope_redacted_json text not null
             )
             """,
             """
@@ -943,6 +1238,11 @@ class GuardStore:
             self._ensure_runtime_receipts_column(connection, "scanner_evidence_json", "text not null default '[]'")
             self._ensure_runtime_receipts_column(connection, "diff_summary", "text")
             self._ensure_runtime_receipts_column(connection, "approval_source", "text")
+            self._ensure_runtime_receipts_column(connection, "approval_request_id", "text")
+            self._ensure_runtime_receipt_envelopes_table(connection)
+            if not self._schema_version_applied(connection, version=5):
+                self._migrate_v5_receipt_envelopes(connection)
+                self._record_schema_version(connection, version=5)
             self._ensure_approval_column(connection, "artifact_type", "text not null default 'artifact'")
             self._ensure_approval_column(connection, "launch_target", "text")
             self._ensure_approval_column(connection, "transport", "text")
@@ -991,6 +1291,78 @@ class GuardStore:
         if column_name in existing:
             return
         connection.execute(f"alter table runtime_receipts add column {column_name} {column_type}")
+
+    @staticmethod
+    def _ensure_runtime_receipt_envelopes_table(connection: sqlite3.Connection) -> None:
+        connection.execute(
+            """
+            create table if not exists runtime_receipt_envelopes (
+              receipt_id text primary key references runtime_receipts(receipt_id) on delete cascade,
+              envelope_full_json text,
+              envelope_redacted_json text not null
+            )
+            """
+        )
+
+    @staticmethod
+    def _migrate_v5_receipt_envelopes(connection: sqlite3.Connection) -> None:
+        rows = connection.execute("pragma table_info(runtime_receipts)").fetchall()
+        existing = {str(row["name"]) for row in rows}
+        if "action_envelope_json" not in existing:
+            return
+        connection.execute(
+            """
+            insert into runtime_receipt_envelopes (receipt_id, envelope_full_json, envelope_redacted_json)
+            select receipt_id, action_envelope_json, '{}'
+            from runtime_receipts
+            where action_envelope_json is not null
+              and not exists (
+                select 1 from runtime_receipt_envelopes
+                where runtime_receipt_envelopes.receipt_id = runtime_receipts.receipt_id
+              )
+            """
+        )
+        connection.execute("drop table if exists runtime_receipts_new")
+        connection.execute(
+            """
+            create table runtime_receipts_new (
+              receipt_id text primary key,
+              harness text not null,
+              artifact_id text not null,
+              artifact_hash text not null,
+              policy_decision text not null,
+              capabilities_summary text not null default '',
+              changed_capabilities_json text not null,
+              provenance_summary text not null,
+              user_override text,
+              artifact_name text,
+              source_scope text,
+              scanner_evidence_json text not null default '[]',
+              timestamp text not null,
+              diff_summary text,
+              approval_source text,
+              approval_request_id text
+            )
+            """
+        )
+        connection.execute(
+            """
+            insert into runtime_receipts_new (
+              rowid, receipt_id, harness, artifact_id, artifact_hash, policy_decision,
+              capabilities_summary, changed_capabilities_json, provenance_summary, user_override,
+              artifact_name, source_scope, scanner_evidence_json, timestamp, diff_summary,
+              approval_source, approval_request_id
+            )
+            select
+              rowid, receipt_id, harness, artifact_id, artifact_hash, policy_decision,
+              capabilities_summary, changed_capabilities_json, provenance_summary, user_override,
+              artifact_name, source_scope, scanner_evidence_json, timestamp, diff_summary,
+              approval_source, null
+            from runtime_receipts
+            """
+        )
+        connection.execute("drop table runtime_receipts")
+        connection.execute("alter table runtime_receipts_new rename to runtime_receipts")
 
     @staticmethod
     def _ensure_approval_column(connection: sqlite3.Connection, column_name: str, column_type: str) -> None:
@@ -1557,7 +1929,9 @@ class GuardStore:
                 now=now,
             )
         with self._connect() as connection:
-            connection.execute("delete from policy_decisions where source in ('cloud-sync', 'team-policy')")
+            connection.execute(
+                "delete from policy_decisions where source in ('cloud-sync', 'team-policy', 'policy-bundle')"
+            )
             for decision in decisions:
                 artifact_id, artifact_hash, workspace, publisher = self._normalized_policy_keys(decision)
                 connection.execute(
@@ -1689,7 +2063,12 @@ class GuardStore:
         publisher = decision.publisher if decision.scope == "publisher" else None
         return artifact_id, artifact_hash, workspace, publisher
 
-    def add_receipt(self, receipt: GuardReceipt) -> None:
+    def add_receipt(
+        self,
+        receipt: GuardReceipt,
+        *,
+        action_envelope: GuardActionEnvelope | None = None,
+    ) -> None:
         with self._connect() as connection:
             connection.execute(
                 """
@@ -1697,9 +2076,9 @@ class GuardStore:
                   receipt_id, harness, artifact_id, artifact_hash, policy_decision, capabilities_summary,
                   changed_capabilities_json,
                   provenance_summary, user_override, artifact_name, source_scope, scanner_evidence_json,
-                  diff_summary, approval_source, timestamp
+                  diff_summary, approval_source, approval_request_id, timestamp
                 )
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     receipt.receipt_id,
@@ -1716,9 +2095,24 @@ class GuardStore:
                     json.dumps(list(receipt.scanner_evidence), sort_keys=True),
                     receipt.diff_summary,
                     receipt.approval_source,
+                    receipt.approval_request_id,
                     receipt.timestamp,
                 ),
             )
+            if action_envelope is not None:
+                from .receipts.manager import _redacted_envelope_dict
+
+                connection.execute(
+                    """
+                    insert into runtime_receipt_envelopes (receipt_id, envelope_full_json, envelope_redacted_json)
+                    values (?, ?, ?)
+                    """,
+                    (
+                        receipt.receipt_id,
+                        json.dumps(action_envelope.to_dict()),
+                        json.dumps(_redacted_envelope_dict(action_envelope)),
+                    ),
+                )
             self._ensure_local_device(connection)
             row = connection.execute(
                 "select installation_id from guard_devices where device_key = ?",
@@ -1735,37 +2129,61 @@ class GuardStore:
                 ),
             )
 
-    def list_receipts(self, limit: int = 50, harness: str | None = None) -> list[dict[str, object]]:
-        if harness is not None:
-            query = """
-                select rowid as receipt_rowid, receipt_id, harness, artifact_id, artifact_hash, policy_decision,
-                       capabilities_summary,
-                       changed_capabilities_json,
-                       provenance_summary, user_override, artifact_name, source_scope, scanner_evidence_json,
-                       diff_summary, approval_source, timestamp
-                from runtime_receipts
-                where harness = ?
-                order by timestamp desc
-                limit ?
-                """
-            params: tuple[object, ...] = (harness, limit)
-        else:
-            query = """
-                select rowid as receipt_rowid, receipt_id, harness, artifact_id, artifact_hash, policy_decision,
-                       capabilities_summary,
-                       changed_capabilities_json,
-                       provenance_summary, user_override, artifact_name, source_scope, scanner_evidence_json,
-                       diff_summary, approval_source, timestamp
-                from runtime_receipts
-                order by timestamp desc
-                limit ?
-                """
-            params = (limit,)
+    def set_receipt_action_envelope(self, receipt_id: str, action_envelope: dict[str, object]) -> None:
         with self._connect() as connection:
-            rows = connection.execute(query, params).fetchall()
-        return [
+            connection.execute(
+                """
+                insert into runtime_receipt_envelopes (receipt_id, envelope_full_json, envelope_redacted_json)
+                values (?, ?, ?)
+                on conflict(receipt_id) do update set
+                  envelope_full_json = excluded.envelope_full_json,
+                  envelope_redacted_json = excluded.envelope_redacted_json
+                """,
+                (
+                    receipt_id,
+                    json.dumps(action_envelope, sort_keys=True),
+                    json.dumps(action_envelope, sort_keys=True),
+                ),
+            )
+
+    @staticmethod
+    def _receipt_base_query(where_clause: str = "") -> str:
+        base = """
+            select
+              r.rowid as receipt_rowid,
+              r.receipt_id,
+              r.harness,
+              r.artifact_id,
+              r.artifact_hash,
+              r.policy_decision,
+              r.capabilities_summary,
+              r.changed_capabilities_json,
+              r.provenance_summary,
+              r.user_override,
+              r.artifact_name,
+              r.source_scope,
+              r.scanner_evidence_json,
+              r.diff_summary,
+              r.approval_source,
+              r.approval_request_id,
+              r.timestamp,
+              e.envelope_full_json as envelope_full_json,
+              e.envelope_redacted_json as envelope_redacted_json,
+              a.action_envelope_json as approval_envelope_json
+            from runtime_receipts r
+            left join runtime_receipt_envelopes e on e.receipt_id = r.receipt_id
+            left join approval_requests a on a.request_id = r.approval_request_id
+        """
+        return f"{base} {where_clause}".strip()
+
+    @staticmethod
+    def _receipt_dict_from_row(row: sqlite3.Row, *, include_rowid: bool = True) -> dict[str, object]:
+        envelope = _json_object(row["envelope_full_json"]) or _json_object(row["approval_envelope_json"])
+        result: dict[str, object] = {}
+        if include_rowid:
+            result["receipt_rowid"] = int(row["receipt_rowid"])
+        result.update(
             {
-                "receipt_rowid": int(row["receipt_rowid"]),
                 "receipt_id": str(row["receipt_id"]),
                 "harness": str(row["harness"]),
                 "artifact_id": str(row["artifact_id"]),
@@ -1780,10 +2198,24 @@ class GuardStore:
                 "scanner_evidence": _json_object_list(row["scanner_evidence_json"]),
                 "diff_summary": row["diff_summary"],
                 "approval_source": row["approval_source"],
+                "approval_request_id": row["approval_request_id"],
                 "timestamp": str(row["timestamp"]),
+                "action_envelope_json": envelope,
+                "envelope_redacted_json": _json_object(row["envelope_redacted_json"]),
             }
-            for row in rows
-        ]
+        )
+        return result
+
+    def list_receipts(self, limit: int = 50, harness: str | None = None) -> list[dict[str, object]]:
+        if harness is not None:
+            query = self._receipt_base_query("where r.harness = ? order by r.timestamp desc limit ?")
+            params: tuple[object, ...] = (harness, limit)
+        else:
+            query = self._receipt_base_query("order by r.timestamp desc limit ?")
+            params = (limit,)
+        with self._connect() as connection:
+            rows = connection.execute(query, params).fetchall()
+        return [self._receipt_dict_from_row(row) for row in rows]
 
     def list_receipts_since_rowid(
         self,
@@ -1793,54 +2225,18 @@ class GuardStore:
         harness: str | None = None,
     ) -> list[dict[str, object]]:
         if harness is not None:
-            query = """
-                select rowid as receipt_rowid, receipt_id, harness, artifact_id, artifact_hash, policy_decision,
-                       capabilities_summary, changed_capabilities_json, provenance_summary, user_override,
-                       artifact_name, source_scope, scanner_evidence_json, diff_summary, approval_source, timestamp
-                from runtime_receipts
-                where rowid > ? and harness = ?
-                order by rowid asc
-                limit ?
-                """
+            query = self._receipt_base_query("where r.rowid > ? and r.harness = ? order by r.rowid asc limit ?")
             params: tuple[object, ...] = (
                 after_rowid if after_rowid is not None else 0,
                 harness,
                 limit,
             )
         else:
-            query = """
-                select rowid as receipt_rowid, receipt_id, harness, artifact_id, artifact_hash, policy_decision,
-                       capabilities_summary, changed_capabilities_json, provenance_summary, user_override,
-                       artifact_name, source_scope, scanner_evidence_json, diff_summary, approval_source, timestamp
-                from runtime_receipts
-                where rowid > ?
-                order by rowid asc
-                limit ?
-                """
+            query = self._receipt_base_query("where r.rowid > ? order by r.rowid asc limit ?")
             params = (after_rowid if after_rowid is not None else 0, limit)
         with self._connect() as connection:
             rows = connection.execute(query, params).fetchall()
-        return [
-            {
-                "receipt_rowid": int(row["receipt_rowid"]),
-                "receipt_id": str(row["receipt_id"]),
-                "harness": str(row["harness"]),
-                "artifact_id": str(row["artifact_id"]),
-                "artifact_hash": str(row["artifact_hash"]),
-                "policy_decision": str(row["policy_decision"]),
-                "capabilities_summary": str(row["capabilities_summary"]),
-                "changed_capabilities": json.loads(str(row["changed_capabilities_json"])),
-                "provenance_summary": str(row["provenance_summary"]),
-                "user_override": row["user_override"],
-                "artifact_name": row["artifact_name"],
-                "source_scope": row["source_scope"],
-                "scanner_evidence": _json_object_list(row["scanner_evidence_json"]),
-                "diff_summary": row["diff_summary"],
-                "approval_source": row["approval_source"],
-                "timestamp": str(row["timestamp"]),
-            }
-            for row in rows
-        ]
+        return [self._receipt_dict_from_row(row) for row in rows]
 
     def latest_receipt_rowid(self, *, harness: str | None = None) -> int | None:
         query = "select max(rowid) as max_rowid from runtime_receipts"
@@ -1860,72 +2256,20 @@ class GuardStore:
         return None
 
     def get_receipt(self, receipt_id: str) -> dict[str, object] | None:
+        query = self._receipt_base_query("where r.receipt_id = ?")
         with self._connect() as connection:
-            row = connection.execute(
-                """
-                select receipt_id, harness, artifact_id, artifact_hash, policy_decision, capabilities_summary,
-                        changed_capabilities_json,
-                       provenance_summary, user_override, artifact_name, source_scope, scanner_evidence_json,
-                       diff_summary, approval_source, timestamp
-                from runtime_receipts
-                where receipt_id = ?
-                """,
-                (receipt_id,),
-            ).fetchone()
+            row = connection.execute(query, (receipt_id,)).fetchone()
         if row is None:
             return None
-        return {
-            "receipt_id": str(row["receipt_id"]),
-            "harness": str(row["harness"]),
-            "artifact_id": str(row["artifact_id"]),
-            "artifact_hash": str(row["artifact_hash"]),
-            "policy_decision": str(row["policy_decision"]),
-            "capabilities_summary": str(row["capabilities_summary"]),
-            "changed_capabilities": json.loads(str(row["changed_capabilities_json"])),
-            "provenance_summary": str(row["provenance_summary"]),
-            "user_override": row["user_override"],
-            "artifact_name": row["artifact_name"],
-            "source_scope": row["source_scope"],
-            "scanner_evidence": _json_object_list(row["scanner_evidence_json"]),
-            "diff_summary": row["diff_summary"],
-            "approval_source": row["approval_source"],
-            "timestamp": str(row["timestamp"]),
-        }
+        return self._receipt_dict_from_row(row, include_rowid=False)
 
     def get_latest_receipt(self, harness: str, artifact_id: str) -> dict[str, object] | None:
+        query = self._receipt_base_query("where r.harness = ? and r.artifact_id = ? order by r.timestamp desc limit 1")
         with self._connect() as connection:
-            row = connection.execute(
-                """
-                select receipt_id, harness, artifact_id, artifact_hash, policy_decision, capabilities_summary,
-                        changed_capabilities_json,
-                       provenance_summary, user_override, artifact_name, source_scope, scanner_evidence_json,
-                       diff_summary, approval_source, timestamp
-                from runtime_receipts
-                where harness = ? and artifact_id = ?
-                order by timestamp desc
-                limit 1
-                """,
-                (harness, artifact_id),
-            ).fetchone()
+            row = connection.execute(query, (harness, artifact_id)).fetchone()
         if row is None:
             return None
-        return {
-            "receipt_id": str(row["receipt_id"]),
-            "harness": str(row["harness"]),
-            "artifact_id": str(row["artifact_id"]),
-            "artifact_hash": str(row["artifact_hash"]),
-            "policy_decision": str(row["policy_decision"]),
-            "capabilities_summary": str(row["capabilities_summary"]),
-            "changed_capabilities": json.loads(str(row["changed_capabilities_json"])),
-            "provenance_summary": str(row["provenance_summary"]),
-            "user_override": row["user_override"],
-            "artifact_name": row["artifact_name"],
-            "source_scope": row["source_scope"],
-            "scanner_evidence": _json_object_list(row["scanner_evidence_json"]),
-            "diff_summary": row["diff_summary"],
-            "approval_source": row["approval_source"],
-            "timestamp": str(row["timestamp"]),
-        }
+        return self._receipt_dict_from_row(row, include_rowid=False)
 
     def count_receipts(self, harness: str | None = None) -> int:
         query = "select count(*) as total from runtime_receipts"
@@ -3101,6 +3445,8 @@ class GuardStore:
         if runtime_label:
             payload["runtime_label"] = runtime_label
         self._oauth_secret_store.set_secret(self._oauth_local_credentials_ref, secret_json)
+        self._mirror_oauth_secret_to_fallback(self._oauth_local_credentials_ref, secret_json)
+        self._assert_oauth_secret_persisted(self._oauth_local_credentials_ref, secret_json)
         self.set_sync_payload(_OAUTH_LOCAL_CREDENTIALS_STATE_KEY, payload, now)
 
     def get_oauth_local_credentials(self) -> dict[str, object] | None:
@@ -3111,6 +3457,18 @@ class GuardStore:
         if metadata is None:
             return None
         secret_payload = self._load_oauth_secret_payload(payload)
+        if secret_payload is None:
+            return None
+        return self._build_oauth_local_credentials_result(metadata=metadata, secret_payload=secret_payload)
+
+    def get_recoverable_oauth_local_credentials(self) -> dict[str, object] | None:
+        payload = self.get_sync_payload(_OAUTH_LOCAL_CREDENTIALS_STATE_KEY)
+        if not isinstance(payload, dict):
+            return None
+        metadata = self._oauth_local_credentials_metadata(payload)
+        if metadata is None:
+            return None
+        secret_payload = self._load_oauth_fallback_secret_payload(payload)
         if secret_payload is None:
             return None
         return self._build_oauth_local_credentials_result(metadata=metadata, secret_payload=secret_payload)
@@ -3151,6 +3509,44 @@ class GuardStore:
                 health[key] = value
         return health
 
+    def get_sync_credential_health(self) -> dict[str, object]:
+        payload = self.get_sync_payload("credentials")
+        health: dict[str, object] = {
+            "configured": isinstance(payload, dict),
+            "state": "not_configured",
+            "backend": _secret_store_backend_name(self._secret_store),
+            "fallback_backend": _secret_store_fallback_backend_name(self._secret_store),
+        }
+        if not isinstance(payload, dict):
+            return health
+        sync_url = payload.get("sync_url")
+        token_reference = payload.get("token_ref")
+        if not isinstance(sync_url, str) or not sync_url:
+            health["state"] = "degraded"
+            return health
+        if not isinstance(token_reference, str) or not token_reference or token_reference != self._sync_token_ref:
+            health["state"] = "degraded"
+            return health
+        expected_hash = payload.get(_SYNC_TOKEN_HASH_KEY)
+        expected_hash_value = expected_hash if isinstance(expected_hash, str) and expected_hash else None
+        secret_candidates = self._get_secret_candidates(
+            self._secret_store,
+            self._sync_token_ref,
+            expected_hash_value,
+        )
+        if not any(
+            expected_hash_value is None or _secret_matches_hash(candidate, expected_hash_value)
+            for candidate in secret_candidates
+        ):
+            health["state"] = "degraded"
+            return health
+        health["state"] = "healthy"
+        health["sync_url"] = sync_url
+        workspace_id = payload.get("workspace_id")
+        if isinstance(workspace_id, str) and workspace_id:
+            health["workspace_id"] = workspace_id
+        return health
+
     @staticmethod
     def _oauth_local_credentials_metadata(payload: dict[str, object]) -> dict[str, object] | None:
         issuer = payload.get("issuer")
@@ -3188,7 +3584,12 @@ class GuardStore:
             return None
         if not isinstance(secret_hash, str) or not secret_hash:
             return None
-        for candidate in self._get_secret_candidates(self._oauth_secret_store, secret_ref, secret_hash):
+        for candidate in self._get_secret_candidates(
+            self._oauth_secret_store,
+            secret_ref,
+            secret_hash,
+            prefer_fallback_first=True,
+        ):
             if not _secret_matches_hash(candidate, secret_hash):
                 continue
             try:
@@ -3199,8 +3600,34 @@ class GuardStore:
                 continue
             if promote:
                 self._promote_secret_to_primary(self._oauth_secret_store, secret_ref, candidate)
+                self._mirror_oauth_secret_to_fallback(secret_ref, candidate)
             return secret_payload
         return None
+
+    def _load_oauth_fallback_secret_payload(self, payload: dict[str, object]) -> dict[str, object] | None:
+        secret_ref = payload.get(_OAUTH_LOCAL_CREDENTIALS_REF_KEY)
+        if not isinstance(secret_ref, str) or not secret_ref:
+            return None
+        secret_store = self._oauth_secret_store
+        fallback_store: EncryptedFileSecretStore | None
+        if isinstance(secret_store, FallbackSecretStore):
+            fallback_store = (
+                secret_store.fallback if isinstance(secret_store.fallback, EncryptedFileSecretStore) else None
+            )
+        elif isinstance(secret_store, EncryptedFileSecretStore):
+            fallback_store = secret_store
+        else:
+            fallback_store = None
+        if fallback_store is None:
+            return None
+        secret_json = self._get_secret_from_store(fallback_store, secret_ref)
+        if not isinstance(secret_json, str) or not secret_json:
+            return None
+        try:
+            secret_payload = json.loads(secret_json)
+        except json.JSONDecodeError:
+            return None
+        return secret_payload if isinstance(secret_payload, dict) else None
 
     @staticmethod
     def _build_oauth_local_credentials_result(
@@ -3604,7 +4031,9 @@ class GuardStore:
             connection.execute("delete from guard_supply_chain_bundle_cache")
             connection.execute("delete from guard_supply_chain_eval_cache")
             connection.execute("delete from publisher_cache")
-            connection.execute("delete from policy_decisions where source in ('cloud-sync', 'team-policy')")
+            connection.execute(
+                "delete from policy_decisions where source in ('cloud-sync', 'team-policy', 'policy-bundle')"
+            )
 
     @staticmethod
     def _cloud_workspace_id_from_connection(connection: sqlite3.Connection) -> str | None:
@@ -4250,6 +4679,9 @@ def _stored_workspace_policy_key(workspace: str) -> str:
 def _artifact_family_key(artifact_id: str | None) -> str | None:
     if artifact_id is None or not artifact_id.strip():
         return None
+    if artifact_id.startswith("family:"):
+        family = artifact_id.removeprefix("family:").strip().lower()
+        return artifact_id if family in _SCOPED_HARNESS_FAMILIES else None
     parts = artifact_id.split(":")
     if len(parts) < 3:
         return None

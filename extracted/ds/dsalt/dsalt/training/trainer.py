@@ -1,6 +1,4 @@
 import math
-import os
-import time
 from pathlib import Path
 import contextlib
 
@@ -45,8 +43,25 @@ def compute_metrics(
     ids: torch.Tensor,
     cu_seqlens: torch.Tensor,
     max_seqlen: int,
+    heavy: bool = True,
     ) -> dict:
-    t0 = time.perf_counter()
+    """Model diagnostics for the paper (rank/entropy/sink/noise + window/alpha).
+
+    Two cost tiers controlled by ``heavy``:
+      * ``heavy=False`` (cheap, every ``log_every``): only quantities that come
+        straight from weights / a single forward pass — per-head ``alpha``, the
+        adaptive ``window`` spread, and the kernel ``scan`` cost. No SVD, no dense
+        ``_last_P`` materialisation, no perturbed forward. A few ms.
+      * ``heavy=True`` (full, every ``metrics_every``): the above plus effective
+        rank (GPU SVD), attention entropy, attention sink, residual norms, token
+        distance and the noise-propagation probe (a second, perturbed forward).
+        Seconds, not minutes, now that the SVDs run on the GPU.
+
+    The heavy block needs the per-layer dense attention ``_last_P``, which the
+    attention module only stores in ``eval``; for the cheap tier we still run a
+    forward (needed for the window sizes from each block input) but skip every
+    SVD / entropy / sink computation.
+    """
     m = _unwrap_model(model)
     m.eval()
 
@@ -66,82 +81,88 @@ def compute_metrics(
     eff_rank = float("nan")
     sigma2_per_layer = []
     eff_rank_per_layer_attn = []
-
-    if hasattr(last_attn, "_last_P") and last_attn._last_P is not None:
-        P = last_attn._last_P.float()
-        P_avg = P.mean(dim=0).detach().cpu()
-        sv = torch.linalg.svdvals(P_avg)
-        sigma2 = sv[1].item() if sv.shape[0] > 1 else 0.0
-        sv_norm = sv / (sv.sum() + 1e-9)
-        eff_rank = torch.exp(-(sv_norm * (sv_norm + 1e-9).log()).sum()).item()
-    else:
-        print(f"--- [trainer] compute_metrics | WARNING: _last_P not available (training mode or packed?)")
-
-    for li, layer in enumerate(m.layers):
-        attn = layer.attn
-        if hasattr(attn, "_last_P") and attn._last_P is not None:
-            sv_l = torch.linalg.svdvals(attn._last_P.float().mean(dim=0).detach().cpu())
-            sigma2_per_layer.append(sv_l[1].item() if sv_l.shape[0] > 1 else 0.0)
-            sv_ln = sv_l / (sv_l.sum() + 1e-9)
-            eff_rank_per_layer_attn.append(torch.exp(-(sv_ln * (sv_ln + 1e-9).log()).sum()).item())
-        else:
-            sigma2_per_layer.append(float("nan"))
-            eff_rank_per_layer_attn.append(float("nan"))
-
     eff_rank_per_layer = []
-    for li, h_l in enumerate(layer_hiddens[1:]):
-        sv_h = torch.linalg.svdvals(h_l.float().detach().cpu())
-        sv_hn = sv_h / (sv_h.sum() + 1e-9)
-        er = torch.exp(-(sv_hn * (sv_hn + 1e-9).log()).sum()).item()
-        eff_rank_per_layer.append(er)
+    res_per_layer = []
+    attn_entropy = float("nan")
+    entropy_per_layer = []
+    token_dist = float("nan")
+    token_dist_per_layer = []
 
+    # residual norm is cheap (no SVD) and used by the noise gate below, keep it.
     h_final = layer_hiddens[-1]
     h_mean = h_final.mean(dim=0, keepdim=True)
     res_norm = ((h_final - h_mean).norm() / (layer_hiddens[0].norm() + 1e-9)).item()
 
-    res_per_layer = []
-    h0_norm = layer_hiddens[0].norm().item()
-    for li, h_l in enumerate(layer_hiddens[1:]):
-        xm = h_l.mean(dim=0, keepdim=True)
-        rn = ((h_l - xm).norm() / (h0_norm + 1e-9)).item()
-        res_per_layer.append(rn)
-
-    attn_entropy = float("nan")
-    entropy_per_layer = []
-    if hasattr(last_attn, "_last_P") and last_attn._last_P is not None:
-        P_safe = last_attn._last_P.float().clamp(min=1e-9)
-        attn_entropy = -(P_safe * P_safe.log()).sum(dim=-1).mean().item()
-
-    for li, layer in enumerate(m.layers):
-        attn = layer.attn
-        if hasattr(attn, "_last_P") and attn._last_P is not None:
-            P_l = attn._last_P.float().clamp(min=1e-9)
-            H = -(P_l * P_l.log()).sum(dim=-1).mean().item()
-            entropy_per_layer.append(H)
+    if heavy:
+        if hasattr(last_attn, "_last_P") and last_attn._last_P is not None:
+            # SVD on the GPU (no .cpu()): svdvals of a [T,T] attention matrix on the
+            # CPU costs ~seconds and is called ~once per layer, which dominated the
+            # whole metrics pass (~minutes/log). On the A100 it is orders of magnitude
+            # faster and avoids the D2H copy of the dense [H,T,T] matrix.
+            P = last_attn._last_P.float()
+            P_avg = P.mean(dim=0).detach()
+            sv = torch.linalg.svdvals(P_avg)
+            sigma2 = sv[1].item() if sv.shape[0] > 1 else 0.0
+            sv_norm = sv / (sv.sum() + 1e-9)
+            eff_rank = torch.exp(-(sv_norm * (sv_norm + 1e-9).log()).sum()).item()
         else:
-            entropy_per_layer.append(float("nan"))
+            print("[trainer] compute_metrics: _last_P unavailable (training mode / packed), skipping rank/entropy stats")
 
-    min_dist = 64
-    n_pairs = min(64, total_len - min_dist)
-    token_dist = float("nan")
-    token_dist_per_layer = []
-    if n_pairs > 0:
-        pairs_i = torch.randint(min_dist, total_len, (n_pairs,), device=device)
-        pairs_j = pairs_i - min_dist
-        hi = layer_hiddens[-1][pairs_i]
-        hj = layer_hiddens[-1][pairs_j]
-        token_dist = (hi - hj).norm(dim=-1).mean().item()
+        for li, layer in enumerate(m.layers):
+            attn = layer.attn
+            if hasattr(attn, "_last_P") and attn._last_P is not None:
+                sv_l = torch.linalg.svdvals(attn._last_P.float().mean(dim=0).detach())
+                sigma2_per_layer.append(sv_l[1].item() if sv_l.shape[0] > 1 else 0.0)
+                sv_ln = sv_l / (sv_l.sum() + 1e-9)
+                eff_rank_per_layer_attn.append(torch.exp(-(sv_ln * (sv_ln + 1e-9).log()).sum()).item())
+            else:
+                sigma2_per_layer.append(float("nan"))
+                eff_rank_per_layer_attn.append(float("nan"))
+
         for li, h_l in enumerate(layer_hiddens[1:]):
-            hi_l = h_l[pairs_i]
-            hj_l = h_l[pairs_j]
-            td = (hi_l - hj_l).norm(dim=-1).mean().item()
-            token_dist_per_layer.append(td)
+            sv_h = torch.linalg.svdvals(h_l.float().detach())
+            sv_hn = sv_h / (sv_h.sum() + 1e-9)
+            er = torch.exp(-(sv_hn * (sv_hn + 1e-9).log()).sum()).item()
+            eff_rank_per_layer.append(er)
+
+        h0_norm = layer_hiddens[0].norm().item()
+        for li, h_l in enumerate(layer_hiddens[1:]):
+            xm = h_l.mean(dim=0, keepdim=True)
+            rn = ((h_l - xm).norm() / (h0_norm + 1e-9)).item()
+            res_per_layer.append(rn)
+
+        if hasattr(last_attn, "_last_P") and last_attn._last_P is not None:
+            P_safe = last_attn._last_P.float().clamp(min=1e-9)
+            attn_entropy = -(P_safe * P_safe.log()).sum(dim=-1).mean().item()
+
+        for li, layer in enumerate(m.layers):
+            attn = layer.attn
+            if hasattr(attn, "_last_P") and attn._last_P is not None:
+                P_l = attn._last_P.float().clamp(min=1e-9)
+                H = -(P_l * P_l.log()).sum(dim=-1).mean().item()
+                entropy_per_layer.append(H)
+            else:
+                entropy_per_layer.append(float("nan"))
+
+        min_dist = 64
+        n_pairs = min(64, total_len - min_dist)
+        if n_pairs > 0:
+            pairs_i = torch.randint(min_dist, total_len, (n_pairs,), device=device)
+            pairs_j = pairs_i - min_dist
+            hi = layer_hiddens[-1][pairs_i]
+            hj = layer_hiddens[-1][pairs_j]
+            token_dist = (hi - hj).norm(dim=-1).mean().item()
+            for li, h_l in enumerate(layer_hiddens[1:]):
+                hi_l = h_l[pairs_i]
+                hj_l = h_l[pairs_j]
+                td = (hi_l - hj_l).norm(dim=-1).mean().item()
+                token_dist_per_layer.append(td)
 
     noise_norm = float("nan")
     noise_per_layer = []
     seq0_len = (cu_seqlens[1] - cu_seqlens[0]).item()
 
-    run_noise = seq0_len > 128 and math.isfinite(res_norm) and res_norm < 200.0
+    run_noise = heavy and seq0_len > 128 and math.isfinite(res_norm) and res_norm < 200.0
 
     if run_noise:
         inject_pos = int(seq0_len // 4)
@@ -169,7 +190,7 @@ def compute_metrics(
 
     head_spec_std = float("nan")
     attn_sink = float("nan")
-    if hasattr(last_attn, "_last_P") and last_attn._last_P is not None:
+    if heavy and hasattr(last_attn, "_last_P") and last_attn._last_P is not None:
         P = last_attn._last_P.float().clamp(min=1e-9)
         entropy_heads = -(P * P.log()).sum(dim=-1).mean(dim=-1)
         head_spec_std = entropy_heads.std(correction=0).item() if entropy_heads.numel() > 0 else float("nan")
@@ -217,7 +238,7 @@ def compute_metrics(
     # block of queries (kernels/dsalt_triton_train.py:132). So ONE wide query in
     # a block widens the scan for all 32. This metric reproduces that: it averages
     # the per-block win-MAX across all query blocks, which is what actually grows
-    # as heads specialise — NOT the global mean. ``scan_ratio`` normalises it by
+    # as heads specialise, NOT the global mean. ``scan_ratio`` normalises it by
     # the global win-mean so >1 quantifies the per-block MAX inflation tax.
     scan_block_max = float("nan")
     scan_ratio     = float("nan")
@@ -235,18 +256,19 @@ def compute_metrics(
             scan_ratio = scan_block_max / win_mean
 
     oow_mass_per_layer = []
-    for li, layer in enumerate(m.layers):
-        attn = layer.attn
-        if hasattr(attn, "_last_P") and attn._last_P is not None and hasattr(attn, "n_min"):
-            P_l = attn._last_P.float()
-            T_l = P_l.shape[-1]
-            positions = torch.arange(T_l, device=P_l.device).float()
-            dist = (positions.unsqueeze(0) - positions.unsqueeze(1)).abs()
-            in_window = (dist < attn.n_min).unsqueeze(0).unsqueeze(0)
-            oow = P_l.masked_fill(in_window, 0.0).sum(dim=-1).mean().item()
-            oow_mass_per_layer.append(oow)
-        else:
-            oow_mass_per_layer.append(float("nan"))
+    if heavy:
+        for li, layer in enumerate(m.layers):
+            attn = layer.attn
+            if hasattr(attn, "_last_P") and attn._last_P is not None and hasattr(attn, "n_min"):
+                P_l = attn._last_P.float()
+                T_l = P_l.shape[-1]
+                positions = torch.arange(T_l, device=P_l.device).float()
+                dist = (positions.unsqueeze(0) - positions.unsqueeze(1)).abs()
+                in_window = (dist < attn.n_min).unsqueeze(0).unsqueeze(0)
+                oow = P_l.masked_fill(in_window, 0.0).sum(dim=-1).mean().item()
+                oow_mass_per_layer.append(oow)
+            else:
+                oow_mass_per_layer.append(float("nan"))
 
     m.train()
 
@@ -295,7 +317,9 @@ class DSALTTrainer:
         total_steps: int = 10000,
         grad_accum: int = 1,
         log_every: int = 100,
+        metrics_every: int | None = None,
         val_every: int = 500,
+        max_val_batches: int | None = None,
         save_every: int = 1000,
         save_dir: str = "./checkpoints_dsalt",
         mixed_precision: str = "auto",
@@ -316,7 +340,14 @@ class DSALTTrainer:
         self.total_steps            = total_steps
         self.grad_accum             = grad_accum
         self.log_every              = log_every
+        # Heavy diagnostics (SVD rank / entropy / sink / noise probe) cadence. They
+        # cost a full extra forward + per-layer SVDs, so by default we run them only
+        # once every 20 logs; cheap metrics (loss/ppl/lr/mem + alpha/window/scan)
+        # still print every ``log_every``. Set ``metrics_every`` to ``log_every`` to
+        # get the full pack on every log, or large to keep production runs fast.
+        self.metrics_every          = metrics_every if metrics_every is not None else log_every * 20
         self.val_every              = val_every
+        self.max_val_batches        = max_val_batches
         self.save_every             = save_every
         self.save_dir               = Path(save_dir)
         self.gradient_checkpointing = gradient_checkpointing
@@ -330,7 +361,7 @@ class DSALTTrainer:
         self.device = get_device(local_rank)
 
         # Portable perf knobs: TF32 speeds up fp32 GEMMs (FFN/lm_head matmuls) on
-        # Ampere+ (A100/H100/L4) — inert on T4 (sm_75 has no TF32), so harmless on
+        # Ampere+ (A100/H100/L4), inert on T4 (sm_75 has no TF32), so harmless on
         # Kaggle but a real win the day this runs on a newer GPU. cudnn.benchmark
         # picks the fastest conv/algo per shape (shapes here are fixed-length).
         if self.device.type == "cuda":
@@ -345,23 +376,13 @@ class DSALTTrainer:
             if self._use_amp and self._amp_dtype == torch.float16
             else None
         )
-        #print(f"--- [trainer] AMP | _amp_dtype={self._amp_dtype} _use_amp={self._use_amp} scaler={'GradScaler' if self._scaler else 'None'}")
 
         if gradient_checkpointing and hasattr(model, "gradient_checkpointing_enable"):
             model.gradient_checkpointing_enable()
-            #print(f"--- [trainer] gradient_checkpointing_enable() called")
 
-        #print(f"--- [trainer] moving model to {self.device}")
-        t_to = time.perf_counter()
         model = model.to(self.device)
-        #print(f"--- [trainer] model on device | t={time.perf_counter()-t_to:.2f}s")
-
-        if torch.cuda.is_available():
-            mem = torch.cuda.memory_allocated(self.device) / 1e9
-            #print(f"--- [trainer] GPU mem dopo .to(device): {mem:.3f}GB")
 
         if world_size > 1:
-            #print(f"--- [trainer] wrapping in DDP | backend={ddp_backend} device_ids=[{local_rank}]")
             model = DDP(
                 model,
                 device_ids=[local_rank],
@@ -369,23 +390,34 @@ class DSALTTrainer:
                 find_unused_parameters=False,
                 gradient_as_bucket_view=True,
             )
-            #print(f"--- [trainer] DDP wrapping DONE")
 
-        # Compile AFTER wrapping in DDP — the PyTorch-recommended order for
-        # DDP + torch.compile. Compiling the bare module first and then wrapping in
-        # DDP broke the autograd graph here (loss lost its grad_fn: "element 0 ...
-        # does not require grad") because of the interaction between DDP's allreduce
-        # hooks, the compiled graph, and the opaque custom autograd Function
-        # (DSALTTrainFunction). With DDP outside, Dynamo's `DDPOptimizer` splits the
-        # graph at the allreduce buckets and the custom Function stays a clean
-        # graph-break. The DSALT Triton kernels are `torch._dynamo.disable`'d
+        # Compile AFTER wrapping in DDP, the PyTorch-recommended order for
+        # DDP + torch.compile. The DSALT Triton kernels are `torch._dynamo.disable`'d
         # (opaque), so compile still fuses all the eager code around them (RoPE,
-        # selectors, RMSNorm, residuals, FFN, loss) — where the launch overhead
-        # lives. fullgraph=False allows those graph-breaks; a hard compile failure
-        # falls back to eager (compile is a perf knob, never a correctness gate).
+        # selectors, RMSNorm, residuals, FFN, loss), where the launch overhead lives.
+        # fullgraph=False allows those graph-breaks; a hard compile failure falls back
+        # to eager (compile is a perf knob, never a correctness gate).
+        #
+        # DDPOptimizer OFF under DDP: Dynamo's `DDPOptimizer` splits the compiled
+        # graph at DDP allreduce buckets, but it does NOT cope with our opaque custom
+        # autograd Function (DSALTTrainFunction) sitting mid-graph, the backward link
+        # between the post-kernel subgraph (loss) and the pre-kernel params is severed,
+        # so `loss.backward()` raises "element 0 ... does not require grad". Disabling
+        # DDPOptimizer keeps a single fused graph with clean graph-breaks at the kernel
+        # and lets DDP's eager allreduce hooks fire normally. We lose the bucket/compute
+        # overlap DDPOptimizer would give, but that overlap was never the bottleneck
+        # here (the kernel is), and correctness wins. Single-GPU compile is unaffected.
         if compile_model and hasattr(torch, "compile"):
             try:
-                model = torch.compile(model, fullgraph=False)
+                if world_size > 1 and hasattr(torch, "_dynamo"):
+                    torch._dynamo.config.optimize_ddp = False
+                # dynamic=True: the packed varlen format gives a different total
+                # token count (and cu_seqlens length) on almost every step. With
+                # the default dynamic=None, Dynamo specializes on the first shape
+                # then RE-COMPILES whenever it changes — i.e. nearly every step,
+                # which dominated wall-clock (~82s/step vs ~17s of real compute).
+                # Forcing symbolic shapes compiles once and reuses the graph.
+                model = torch.compile(model, fullgraph=False, dynamic=True)
             except Exception as e:  # pragma: no cover - environment dependent
                 print(f"[trainer] torch.compile failed ({type(e).__name__}); running eager.")
 
@@ -415,8 +447,12 @@ class DSALTTrainer:
             "scan_block_max", "scan_ratio",
             "oow_mass_per_layer",
             "val_ppl", "val_steps", "gpu_mem_gb", "it_s", "tok_s",
+            # cheap-history (train_loss/it_s/...) is appended every log_every, while
+            # the heavy metrics above are appended only every metrics_every, so the
+            # two groups have different lengths; metrics_steps records the step of
+            # each heavy entry so they can be aligned back to the timeline.
+            "metrics_steps",
         ]}
-        #print(f"--- [trainer] DSALTTrainer init DONE")
 
     def _resolve_amp_dtype(self, mixed_precision: str) -> torch.dtype | None:
         if self.device.type != "cuda":
@@ -456,7 +492,6 @@ class DSALTTrainer:
         n_decay   = sum(p.numel() for p in decay)
         n_nodecay = sum(p.numel() for p in nodecay)
         n_dsalt   = sum(p.numel() for p in dsalt_params)
-        #print(f"--- [trainer] _build_optimizer | decay={n_decay:,} nodecay={n_nodecay:,} dsalt={n_dsalt:,}")
 
         opt = torch.optim.AdamW(
             [
@@ -468,7 +503,6 @@ class DSALTTrainer:
             eps=1e-8,
             fused=self.device.type == "cuda",
         )
-        #print(f"--- [trainer] AdamW built | fused={self.device.type == 'cuda'}")
         return opt
 
     def _build_scheduler(self, optimizer: torch.optim.Optimizer):
@@ -477,7 +511,6 @@ class DSALTTrainer:
                 return float(step) / max(1, self.warmup_steps)
             progress = float(step - self.warmup_steps) / max(1, self.total_steps - self.warmup_steps)
             return max(0.1, 0.5 * (1.0 + math.cos(math.pi * progress)))
-        #print(f"--- [trainer] LambdaLR scheduler built | warmup={self.warmup_steps} total={self.total_steps}")
         return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
     def _extract_batch(self, batch):
@@ -486,9 +519,8 @@ class DSALTTrainer:
         labels     = labels.to(self.device, non_blocking=True)
         cu_seqlens = cu_seqlens.to(self.device, non_blocking=True)
         max_seqlen = int(max_seqlen)
-        #print(f"--- [trainer] _extract_batch | ids={tuple(ids.shape)} labels={tuple(labels.shape)} cu_seqlens={tuple(cu_seqlens.shape)} max_seqlen={max_seqlen}")
         # NOTE: removed a per-batch ``(labels != -100).sum().item()`` that only fed a
-        # commented-out debug print — ``.item()`` forces a D2H sync that stalls the
+        # commented-out debug print, ``.item()`` forces a D2H sync that stalls the
         # GPU queue every batch. Pure waste; the loss already counts valid tokens.
         return ids, labels, cu_seqlens, max_seqlen
 
@@ -514,15 +546,18 @@ class DSALTTrainer:
 
     @torch.no_grad()
     def _validate(self) -> float:
-        t0 = time.perf_counter()
-        #print(f"--- [trainer] _validate START | step={self.global_step}")
         self.model.eval()
         total_loss, total_tokens = 0.0, 0
 
+        # Cap the number of validation batches: the full val set can be thousands
+        # of batches, and validating every ``val_every`` steps over all of them can
+        # cost more wall-time than the training itself. A few dozen batches give a
+        # stable enough perplexity estimate. ``None`` keeps the full sweep.
         for vi, batch in enumerate(self.val_loader):
+            if self.max_val_batches is not None and vi >= self.max_val_batches:
+                break
             ids, labels, cu_seqlens, max_seqlen = self._extract_batch(batch)
             valid_tokens  = (labels != -100).sum().item()
-            #print(f"--- [trainer] _validate batch {vi} | valid_tokens={valid_tokens}")
 
             out           = self.model(
                 ids,
@@ -532,28 +567,23 @@ class DSALTTrainer:
                 gradient_checkpointing=False,
             )
             batch_loss = out["loss"].item()
-            #print(f"--- [trainer] _validate batch {vi} | loss={batch_loss:.4f}")
             total_loss   += batch_loss * valid_tokens
             total_tokens += valid_tokens
 
         self.model.train()
 
         if self.world_size > 1:
-            #print(f"--- [trainer] _validate all_reduce | world_size={self.world_size}")
             t = torch.tensor([total_loss, float(total_tokens)], device=self.device)
             torch.distributed.all_reduce(t)
             total_loss, total_tokens = t[0].item(), t[1].item()
 
         avg_loss = total_loss / max(total_tokens, 1)
         val_ppl  = math.exp(min(avg_loss, 20.0))
-        #print(f"--- [trainer] _validate DONE | avg_loss={avg_loss:.4f} val_ppl={val_ppl:.4f} | t={time.perf_counter()-t0:.4f}s")
         return val_ppl
 
     def _save_checkpoint(self, tag: str) -> None:
         if not self.is_main:
-            #print(f"--- [trainer] _save_checkpoint skip (non main rank={self.rank})")
             return
-        #print(f"--- [trainer] _save_checkpoint | tag={tag} step={self.global_step}")
         ckpt = {
             "step":                 self.global_step,
             "model_state_dict":     _unwrap_model(self.model).state_dict(),
@@ -563,13 +593,10 @@ class DSALTTrainer:
             "history":              self.history,
         }
         path = self.save_dir / f"checkpoint_{tag}.pt"
-        t0   = time.perf_counter()
         torch.save(ckpt, path)
-        #print(f"--- [trainer] checkpoint saved → {path} | t={time.perf_counter()-t0:.2f}s")
         self.logger.info(f"checkpoint saved → {path}")
 
     def load_checkpoint(self, path: str):
-        #print(f"--- [trainer] load_checkpoint | path={path}")
         ckpt = torch.load(path, map_location=self.device)
         _unwrap_model(self.model).load_state_dict(ckpt["model_state_dict"])
         self.optimizer.load_state_dict(ckpt["optimizer_state_dict"])
@@ -577,7 +604,6 @@ class DSALTTrainer:
         self.global_step  = ckpt["step"]
         self.best_val_ppl = ckpt.get("best_val_ppl", float("inf"))
         self.history      = ckpt.get("history", self.history)
-        #print(f"--- [trainer] load_checkpoint DONE | step={self.global_step} best_val_ppl={self.best_val_ppl:.4f}")
         if self.is_main:
             self.logger.info(f"checkpoint resumed from step {self.global_step}")
 
@@ -604,21 +630,44 @@ class DSALTTrainer:
         lr_now    = self.scheduler.get_last_lr()[0]
         train_ppl = math.exp(min(accum_loss, 20.0))
 
+        def _fs(v) -> str:
+            return f"{v:.6f}" if math.isfinite(v) else "nan"
+
+        # --- cheap line, EVERY log_every: only free quantities already in hand
+        # (loss/ppl/lr + it_s/tok_s/mem). No model re-run, no SVD, no forward.
+        msg = (
+            f"step={self.global_step} | "
+            f"loss={accum_loss:.4f} | "
+            f"ppl={train_ppl:.4f} | "
+            f"lr={lr_now:.2e}"
+        )
+        self.logger.info(msg, extra={"it_s": it_s, "tok_s": tok_s, "mem_gb": mem_gb, "peak_gb": peak_gb, "total_gb": stats.get("total_gb", 0.0)})
+
+        # always record the cheap history
+        self.history["gpu_peak_gb"] = self.history.get("gpu_peak_gb", [])
+        self.history["gpu_peak_gb"].append(peak_gb)
+        self.history["train_loss"].append(accum_loss)
+        self.history["train_ppl"].append(train_ppl)
+        self.history["it_s"].append(it_s)
+        self.history["tok_s"].append(tok_s)
+        self.history["gpu_mem_gb"].append(mem_gb)
+
+        # --- heavy diagnostics, only every metrics_every: the model re-run + SVDs
+        # (rank/entropy/sink/noise) AND the window/alpha/scan probe. This is the
+        # expensive part (full extra forward + per-layer GPU SVDs), kept rare so
+        # the steady ``log_every`` line stays free. Skipped entirely otherwise.
+        if self.global_step % self.metrics_every != 0:
+            return
+
         metrics = compute_metrics(
             _unwrap_model(self.model),
             self._last_ids,
             self._last_cu_seqlens,
             self._last_max_seqlen,
+            heavy=True,
         )
-
-        def _fs(v) -> str:
-            return f"{v:.6f}" if math.isfinite(v) else "nan"
-
-        msg = (
-            f"step={self.global_step} | "
-            f"loss={accum_loss:.4f} | "
-            f"ppl={train_ppl:.4f} | "
-            f"lr={lr_now:.2e} | "
+        self.logger.info(
+            f"step={self.global_step} [metrics] | "
             f"σ²={_fs(metrics['sigma2'])} | "
             f"rank={_fs(metrics['eff_rank'])} | "
             f"res={metrics['res_norm']:.4f} | "
@@ -630,18 +679,6 @@ class DSALTTrainer:
             f"scan={metrics['scan_block_max']:.1f} x{metrics['scan_ratio']:.2f} | "
             f"alpha={metrics['alpha_min']:.3f}/{metrics['alpha_mean']:.3f}/{metrics['alpha_max']:.3f}"
         )
-        #print(f"--- [trainer] _log_step | {msg}")
-
-        self.logger.info(msg, extra={"it_s": it_s, "tok_s": tok_s, "mem_gb": mem_gb, "peak_gb": peak_gb, "total_gb": stats.get("total_gb", 0.0)})
-
-        self.history["gpu_peak_gb"] = self.history.get("gpu_peak_gb", [])
-        self.history["gpu_peak_gb"].append(peak_gb)
-
-        self.history["train_loss"].append(accum_loss)
-        self.history["train_ppl"].append(train_ppl)
-        self.history["it_s"].append(it_s)
-        self.history["tok_s"].append(tok_s)
-        self.history["gpu_mem_gb"].append(mem_gb)
         for k in ["sigma2", "eff_rank", "res_norm", "attn_entropy", "noise_norm",
                   "token_dist", "head_spec_std", "attn_sink",
                   "sigma2_per_layer", "entropy_per_layer", "noise_per_layer",
@@ -651,6 +688,7 @@ class DSALTTrainer:
                   "scan_block_max", "scan_ratio",
                   "oow_mass_per_layer"]:
             self.history[k].append(metrics[k])
+        self.history["metrics_steps"].append(self.global_step)
 
     def train(self):
         self.model.train()
@@ -711,8 +749,8 @@ class DSALTTrainer:
                 self.optimizer.step()
 
             gn_val = grad_norm.item() if grad_norm is not None else 0.0
-            #if self.rank == 0 and self.global_step%5==0:
-                #print(f"Step {self.global_step} | Loss: {accum_loss:.4f} | Grad Norm: {gn_val:.4f}")
+            if self.rank == 0:
+                print(f"step {self.global_step} | grad_norm={gn_val:.4f} | accum_loss={accum_loss:.4f}")
 
             self.scheduler.step()
             self.optimizer.zero_grad(set_to_none=True)

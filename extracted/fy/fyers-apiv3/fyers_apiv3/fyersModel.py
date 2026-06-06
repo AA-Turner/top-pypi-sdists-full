@@ -55,7 +55,11 @@ class Config:
     smartexit_trigger="/flows/tc/se"
     activate_smartexit_trigger="/flows/tc/se/activate"
     orderhistory = "/order-history"
-    tradeHistory = "/trade-history"    
+    tradeHistory = "/trade-history"
+    charges_history = "/charges-history"
+    realised_profit_history = "/realised-pnl-history"
+    tax_pnl_history = "/tax-pnl-history"
+    ledger_history = "/ledger-history"    
     
     
 
@@ -1881,4 +1885,85 @@ class FyersModel:
             response = self.service.get_call(Config.tradeHistory, self.header, data)
         return response
 
+    def charges_history(self, data) -> dict:
+        """
+        Retrieves charges history based on the provided data.
+
+        Args:
+            data (dict): A dictionary containing the charges history details.
+            page_size (int):	The number of records to be fetched in one page (default is 100)
+            page_no (int):	The page number to fetch (default is 1)
+            from_date (str):	The start date for fetching orders in “YYYY-MM-DD” format (default is the start of the current financial year)
+            to_date (str):	The end date for fetching orders in “YYYY-MM-DD” format (default is the current date)
+            segment_type (str):	
+            0 → Includes all segments
+            1 → Includes only Equity
+            2 → Includes only Equity Derivatives
+            3 → Includes Mutal Funds
+            4 → Includes only Currency Derivatives
+            5 → Includes only Commodity Derivatives
+            exchange_type (str):	
+            0 → Includes all exchanges
+            1 → Includes only NSE
+            2 → Includes only BSE
+            3 → Includes only MCX
+            report_type (str):	
+            1 → Includes only date wise
+            2 → Includes summarized data (segment wise)
+
+        Returns:
+            The response JSON as a dictionary.
+        """
+        if self.is_async:
+            response = self.service.get_async_call(Config.charges_history, self.header, data)
+        else:
+            response = self.service.get_call(Config.charges_history, self.header, data)
+        return response
     
+    def realised_profit_history(self, data) -> dict:
+        """
+        Retrieves realised profit history based on the provided data.
+
+        Args:
+            data (dict): A dictionary containing the realised profit history details.
+
+        Returns:
+            The response JSON as a dictionary.
+        """
+        if self.is_async:
+            response = self.service.get_async_call(Config.realised_profit_history, self.header, data)
+        else:
+            response = self.service.get_call(Config.realised_profit_history, self.header, data)
+        return response
+    
+    def tax_pnl_history(self, data) -> dict:
+        """
+        Retrieves tax pnl history based on the provided data.
+
+        Args:
+            data (dict): A dictionary containing the tax pnl history details.
+        
+        Returns:
+            The response JSON as a dictionary.
+        """
+        if self.is_async:
+            response = self.service.get_async_call(Config.tax_pnl_history, self.header, data)
+        else:
+            response = self.service.get_call(Config.tax_pnl_history, self.header, data)
+        return response
+    
+    def ledger_history(self, data) -> dict:
+        """
+        Retrieves ledger history based on the provided data.
+
+        Args:
+            data (dict): A dictionary containing the ledger history details.
+
+        Returns:
+            The response JSON as a dictionary.
+        """
+        if self.is_async:
+            response = self.service.get_async_call(Config.ledger_history, self.header, data)
+        else:
+            response = self.service.get_call(Config.ledger_history, self.header, data)
+        return response

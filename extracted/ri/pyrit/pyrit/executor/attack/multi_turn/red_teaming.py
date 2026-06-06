@@ -26,7 +26,6 @@ from pyrit.executor.attack.multi_turn.multi_turn_attack_strategy import (
     MultiTurnAttackContext,
     MultiTurnAttackStrategy,
 )
-from pyrit.identifiers import build_atomic_attack_identifier
 from pyrit.memory import CentralMemory
 from pyrit.models import (
     AttackOutcome,
@@ -36,8 +35,11 @@ from pyrit.models import (
     Message,
     Score,
     SeedPrompt,
+    build_atomic_attack_identifier,
 )
 from pyrit.prompt_normalizer import PromptNormalizer
+from pyrit.prompt_target import CapabilityName
+from pyrit.prompt_target.common.target_requirements import TargetRequirements
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -45,6 +47,13 @@ if TYPE_CHECKING:
     from pyrit.prompt_target.common.prompt_target import PromptTarget
 
 logger = logging.getLogger(__name__)
+
+# RedTeamingAttack sets a system prompt on its adversarial target and drives a multi-turn dialogue
+# through it. Both capabilities must be natively supported — adaptation would silently change the
+# semantics (e.g. history-squash normalization would collapse the dialogue into a single turn).
+_ADVERSARIAL_REQUIREMENTS = TargetRequirements(
+    native_required=frozenset({CapabilityName.MULTI_TURN, CapabilityName.SYSTEM_PROMPT}),
+)
 
 
 class RTASystemPromptPaths(enum.Enum):
@@ -89,14 +98,14 @@ class RedTeamingAttack(MultiTurnAttackStrategy[MultiTurnAttackContext[Any], Atta
     def __init__(
         self,
         *,
-        objective_target: PromptTarget = REQUIRED_VALUE,  # type: ignore[assignment]
+        objective_target: PromptTarget = REQUIRED_VALUE,  # type: ignore[ty:invalid-parameter-default]
         attack_adversarial_config: AttackAdversarialConfig,
         attack_converter_config: Optional[AttackConverterConfig] = None,
         attack_scoring_config: Optional[AttackScoringConfig] = None,
         prompt_normalizer: Optional[PromptNormalizer] = None,
         max_turns: int = 10,
         score_last_turn_only: bool = False,
-    ):
+    ) -> None:
         """
         Initialize the red teaming attack strategy.
 
@@ -137,6 +146,13 @@ class RedTeamingAttack(MultiTurnAttackStrategy[MultiTurnAttackContext[Any], Atta
 
         # Initialize adversarial configuration
         self._adversarial_chat = attack_adversarial_config.target
+        # The adversarial target must natively support multi-turn dialogue and system prompts;
+        # the class-level ``TARGET_REQUIREMENTS`` only covers ``objective_target``.
+        try:
+            _ADVERSARIAL_REQUIREMENTS.validate(target=self._adversarial_chat)
+        except ValueError as exc:
+            raise ValueError(f"RedTeamingAttack {exc}") from exc
+
         system_prompt_template_path = (
             attack_adversarial_config.system_prompt_path or RTASystemPromptPaths.TEXT_GENERATION.value
         )
@@ -231,6 +247,23 @@ class RedTeamingAttack(MultiTurnAttackStrategy[MultiTurnAttackContext[Any], Atta
             memory_labels=self._memory_labels,
         )
 
+        adversarial_system_prompt = self._adversarial_chat_system_prompt_template.render_template_value(
+            objective=context.objective,
+            max_turns=self._max_turns,
+        )
+        if not adversarial_system_prompt:
+            raise ValueError("Adversarial chat system prompt must be defined")
+
+        # ``set_system_prompt`` rejects any conversation that already has messages,
+        # so it must run before we hydrate the adversarial chat with the swapped
+        # prepended turns below.
+        self._adversarial_chat.set_system_prompt(
+            system_prompt=adversarial_system_prompt,
+            conversation_id=context.session.adversarial_chat_conversation_id,
+            attack_identifier=self.get_identifier(),
+            labels=context.memory_labels,  # deprecated
+        )
+
         # Set up adversarial chat with prepended conversation
         if context.prepended_conversation:
             # Get adversarial messages with swapped roles
@@ -244,20 +277,6 @@ class RedTeamingAttack(MultiTurnAttackStrategy[MultiTurnAttackContext[Any], Atta
 
             for msg in adversarial_messages:
                 self._memory.add_message_to_memory(request=msg)
-
-        adversarial_system_prompt = self._adversarial_chat_system_prompt_template.render_template_value(
-            objective=context.objective,
-            max_turns=self._max_turns,
-        )
-        if not adversarial_system_prompt:
-            raise ValueError("Adversarial chat system prompt must be defined")
-
-        self._adversarial_chat.set_system_prompt(
-            system_prompt=adversarial_system_prompt,
-            conversation_id=context.session.adversarial_chat_conversation_id,
-            attack_identifier=self.get_identifier(),
-            labels=context.memory_labels,
-        )
 
     async def _perform_async(self, *, context: MultiTurnAttackContext[Any]) -> AttackResult:
         """
@@ -322,6 +341,7 @@ class RedTeamingAttack(MultiTurnAttackStrategy[MultiTurnAttackContext[Any], Atta
             last_response=context.last_response.get_piece() if context.last_response else None,
             last_score=context.last_score,
             related_conversations=context.related_conversations,
+            labels=context.memory_labels,
         )
 
     async def _teardown_async(self, *, context: MultiTurnAttackContext[Any]) -> None:
@@ -359,7 +379,7 @@ class RedTeamingAttack(MultiTurnAttackStrategy[MultiTurnAttackContext[Any], Atta
         logger.debug(f"Generating prompt for turn {context.executed_turns + 1}")
 
         # Prepare prompt for the adversarial chat
-        prompt_text = await self._build_adversarial_prompt(context)
+        prompt_text = await self._build_adversarial_prompt_async(context)
 
         # Send the prompt to the adversarial chat and get the response
         logger.debug(f"Sending prompt to adversarial chat: {prompt_text[:50]}...")
@@ -388,7 +408,7 @@ class RedTeamingAttack(MultiTurnAttackStrategy[MultiTurnAttackContext[Any], Atta
         # Return as a user message for sending to objective target
         return Message.from_prompt(prompt=response.get_value(), role="user")
 
-    async def _build_adversarial_prompt(
+    async def _build_adversarial_prompt_async(
         self,
         context: MultiTurnAttackContext[Any],
     ) -> str:

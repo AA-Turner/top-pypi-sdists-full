@@ -10,11 +10,11 @@ https://reference.opcfoundation.org/Core/docs/Part5/C.1/
 """
 
 import logging
-from typing import Tuple
+from types import TracebackType
+from typing import Any
 
 from asyncua.common.node import Node
 from asyncua.ua import NodeId, OpenFileMode, Variant, VariantType
-
 
 _logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ class UaFile:
     Provides the functionality to work with "C.2 FileType".
     """
 
-    def __init__(self, file_node: Node, open_mode: OpenFileMode = OpenFileMode.Read.value):
+    def __init__(self, file_node: Node, open_mode: OpenFileMode = OpenFileMode.Read.value) -> None:
         """
         Initializes a new instance of the UaFile class.
         :param file_node: The node of the file to open.
@@ -33,20 +33,25 @@ class UaFile:
         self._file_node = file_node
         self._open_mode = open_mode
 
-        self._file_handle = None
-        self._read_node = None
-        self._write_node = None
-        self._get_position_node = None
-        self._set_position_node = None
+        self._file_handle: int | None = None
+        self._read_node: Node | None = None
+        self._write_node: Node | None = None
+        self._get_position_node: Node | None = None
+        self._set_position_node: Node | None = None
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "UaFile":
         await self.open(self._open_mode)
         return self
 
-    async def __aexit__(self, exc_type, exc_value, traceback):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> Any:
         return await self.close()
 
-    async def open(self, open_mode: OpenFileMode = None) -> None:
+    async def open(self, open_mode: OpenFileMode | None = None) -> None:
         """
         Open is used to open a file represented by an Object of FileType.
         The open mode of OPC UA differs significantly from the
@@ -162,7 +167,7 @@ class UaFile:
         user_writable_node = await self._file_node.get_child("UserWritable")
         return await user_writable_node.read_value()
 
-    async def get_open_count(self):
+    async def get_open_count(self) -> Any:
         """
         OpenCount indicates the number of currently valid file handles on the file.
         :return: Amount of currently valid file handles on the file
@@ -177,7 +182,7 @@ class UaDirectory:
     Provides the functionality to work with "C.3 File System".
     """
 
-    def __init__(self, directory_node):
+    def __init__(self, directory_node: Node) -> None:
         self._directory_node = directory_node
 
     async def create_directory(self, directory_name: str) -> NodeId:
@@ -197,7 +202,7 @@ class UaDirectory:
         arg1_directory_name = Variant(directory_name, VariantType.String)
         return await self._directory_node.call_method(create_directory_node, arg1_directory_name)
 
-    async def create_file(self, file_name: str, request_file_open: bool) -> Tuple[NodeId, int]:
+    async def create_file(self, file_name: str, request_file_open: bool) -> tuple[NodeId, int]:
         """
         CreateFile is used to create a new FileType Object organized by this Object.
         The created file can be written using the Write Method of the FileType.

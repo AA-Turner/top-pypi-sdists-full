@@ -19,6 +19,7 @@ from runlayer_cli.commands.setup import (
     Client,
     _generate_claude_settings,
     _install_ignorefile,
+    _is_runlayer_command,
     _merge_claude_hooks,
     _merge_cursor_hooks,
     _migrate_claude_code_user_to_enterprise,
@@ -28,6 +29,36 @@ from runlayer_cli.commands.setup import (
 from runlayer_cli.main import app
 
 runner = CliRunner()
+
+
+class TestIsRunlayerCommand:
+    """``_is_runlayer_command`` must recognize both install paths' output.
+
+    The MDM bundle path (``hook_install/clients.py``) writes the converged
+    ``aiwatch hook --client <name>`` form (space, not hyphen). The operator
+    path's filter has to treat those as Runlayer-owned so it rewrites/cleans
+    them instead of leaving duplicates behind.
+    """
+
+    def test_recognizes_converged_bundle_command(self):
+        assert _is_runlayer_command("/usr/local/bin/aiwatch hook --client cursor")
+
+    def test_recognizes_quoted_converged_command(self):
+        assert _is_runlayer_command('"/opt/Runlayer App/aiwatch" hook --client claude')
+
+    def test_recognizes_windows_converged_command(self):
+        assert _is_runlayer_command(
+            r'"C:\Program Files\Runlayer\aiwatch.exe" hook --client cursor'
+        )
+
+    def test_recognizes_legacy_script_names(self):
+        assert _is_runlayer_command("/old/aiwatch-hook --client cursor")
+
+    def test_ignores_empty_command(self):
+        assert not _is_runlayer_command("")
+
+    def test_ignores_third_party_command(self):
+        assert not _is_runlayer_command("/usr/bin/some-other-hook --flag")
 
 
 def strip_ansi(text: str) -> str:
@@ -3276,20 +3307,18 @@ def test_uninstall_hooks_removes_cursorignore():
 
 
 def test_setup_hooks_install_claude_code_mdm():
-    """Test that --mdm installs Claude Code hooks to enterprise managed-settings.json."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        enterprise_dir = Path(temp_dir) / "enterprise"
-        user_dir = Path(temp_dir) / ".claude"
+    """--mdm installs Claude Code hooks to the console user's ~/.claude/settings.json.
 
-        with (
-            patch.dict(
-                "runlayer_cli.commands.setup.ENTERPRISE_CONFIG_DIRS",
-                {Client.CLAUDE_CODE: enterprise_dir},
-            ),
-            patch.dict(
-                "runlayer_cli.commands.setup.CLIENT_CONFIG_DIRS",
-                {Client.CLAUDE_CODE: user_dir},
-            ),
+    Claude Code managed-settings hooks regressed (ENG-3204), so MDM scope
+    targets the console user's user-scope settings (user hooks still fire).
+    """
+    with tempfile.TemporaryDirectory() as temp_dir:
+        console_home = Path(temp_dir) / "console_user"
+        console_home.mkdir()
+
+        with patch(
+            "runlayer_cli.hook_install.console_user.find_console_user_home",
+            return_value=console_home,
         ):
             result = runner.invoke(
                 app,
@@ -3308,43 +3337,39 @@ def test_setup_hooks_install_claude_code_mdm():
             assert result.exit_code == 0
             assert "Hooks installed" in plain_output
 
-            hook_script = enterprise_dir / "hooks" / "runlayer-hook.sh"
+            claude_dir = console_home / ".claude"
+            hook_script = claude_dir / "hooks" / "runlayer-hook.sh"
             assert hook_script.exists()
 
-            managed_settings = enterprise_dir / "managed-settings.json"
-            assert managed_settings.exists()
-            settings = json.loads(managed_settings.read_text())
+            settings_path = claude_dir / "settings.json"
+            assert settings_path.exists()
+            settings = json.loads(settings_path.read_text())
             assert "hooks" in settings
             assert "PreToolUse" in settings["hooks"]
 
             assert settings.get("showThinkingSummaries") is True
 
-            config_path = enterprise_dir / "hooks" / "runlayer-config.json"
+            config_path = claude_dir / "hooks" / "runlayer-config.json"
             assert config_path.exists()
             config = json.loads(config_path.read_text())
             assert config["enforcement"] is True
 
-            # User-level settings.json should NOT exist
-            user_settings = user_dir / "settings.json"
-            assert not user_settings.exists()
+            # Managed-settings.json must NOT be written (regressed; ENG-3204).
+            assert not (claude_dir / "managed-settings.json").exists()
 
 
 def test_setup_hooks_install_claude_code_mdm_skips_config_check():
     """Test that --mdm skips config.yaml check for Claude Code (runs as root)."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        enterprise_dir = Path(temp_dir) / "enterprise"
-        user_dir = Path(temp_dir) / ".claude"
+        console_home = Path(temp_dir) / "console_user"
+        console_home.mkdir()
         fake_home = Path(temp_dir) / "root_home"
         fake_home.mkdir()
 
         with (
-            patch.dict(
-                "runlayer_cli.commands.setup.ENTERPRISE_CONFIG_DIRS",
-                {Client.CLAUDE_CODE: enterprise_dir},
-            ),
-            patch.dict(
-                "runlayer_cli.commands.setup.CLIENT_CONFIG_DIRS",
-                {Client.CLAUDE_CODE: user_dir},
+            patch(
+                "runlayer_cli.hook_install.console_user.find_console_user_home",
+                return_value=console_home,
             ),
             patch("runlayer_cli.commands.setup.Path.home", return_value=fake_home),
         ):
@@ -3362,24 +3387,27 @@ def test_setup_hooks_install_claude_code_mdm_skips_config_check():
             )
 
             assert result.exit_code == 0
-            hook_script = enterprise_dir / "hooks" / "runlayer-hook.sh"
+            hook_script = console_home / ".claude" / "hooks" / "runlayer-hook.sh"
             assert hook_script.exists()
 
 
-def test_setup_hooks_install_claude_code_mdm_migrates_user():
-    """Test that --mdm migrates user-level Claude Code hooks to enterprise."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        enterprise_dir = Path(temp_dir) / "enterprise"
-        user_dir = Path(temp_dir) / ".claude"
-        user_hooks_dir = user_dir / "hooks"
-        user_hooks_dir.mkdir(parents=True)
+def test_setup_hooks_install_claude_code_mdm_does_not_migrate_user():
+    """--mdm merges into the console user's settings.json without migrating away.
 
-        user_hook = user_hooks_dir / "runlayer-hook.sh"
-        user_hook.write_text("#!/bin/bash\necho old")
-        user_hook_config = user_hooks_dir / "runlayer-config.json"
-        user_hook_config.write_text('{"enforcement": true}')
-        user_settings = user_dir / "settings.json"
-        user_settings.write_text(
+    The legacy user->enterprise migration is skipped (ENG-3204): MDM now writes
+    user hooks, so existing third-party settings are preserved and the Runlayer
+    hooks are re-pointed at the current script in place.
+    """
+    with tempfile.TemporaryDirectory() as temp_dir:
+        console_home = Path(temp_dir) / "console_user"
+        claude_dir = console_home / ".claude"
+        claude_hooks_dir = claude_dir / "hooks"
+        claude_hooks_dir.mkdir(parents=True)
+
+        old_hook = claude_hooks_dir / "runlayer-hook.sh"
+        old_hook.write_text("#!/bin/bash\necho old")
+        settings_path = claude_dir / "settings.json"
+        settings_path.write_text(
             json.dumps(
                 {
                     "permissions": {"allow": ["Bash"]},
@@ -3390,7 +3418,7 @@ def test_setup_hooks_install_claude_code_mdm_migrates_user():
                                 "hooks": [
                                     {
                                         "type": "command",
-                                        "command": str(user_hook),
+                                        "command": str(old_hook),
                                     }
                                 ],
                             }
@@ -3401,15 +3429,9 @@ def test_setup_hooks_install_claude_code_mdm_migrates_user():
             )
         )
 
-        with (
-            patch.dict(
-                "runlayer_cli.commands.setup.ENTERPRISE_CONFIG_DIRS",
-                {Client.CLAUDE_CODE: enterprise_dir},
-            ),
-            patch.dict(
-                "runlayer_cli.commands.setup.CLIENT_CONFIG_DIRS",
-                {Client.CLAUDE_CODE: user_dir},
-            ),
+        with patch(
+            "runlayer_cli.hook_install.console_user.find_console_user_home",
+            return_value=console_home,
         ):
             result = runner.invoke(
                 app,
@@ -3427,25 +3449,15 @@ def test_setup_hooks_install_claude_code_mdm_migrates_user():
             plain_output = strip_ansi(result.stdout)
             assert result.exit_code == 0
 
-            # User hooks should be gone
-            assert not user_hook.exists()
-            assert not user_hook_config.exists()
+            # No migration ran; managed-settings.json must not be written.
+            assert "Migrated from user to enterprise" not in plain_output
+            assert not (claude_dir / "managed-settings.json").exists()
 
-            # User settings.json should still exist but without hooks
-            assert user_settings.exists()
-            remaining = json.loads(user_settings.read_text())
-            assert "hooks" not in remaining
-            assert remaining["permissions"] == {"allow": ["Bash"]}
-
-            # Enterprise hooks should exist
-            ent_hook = enterprise_dir / "hooks" / "runlayer-hook.sh"
-            assert ent_hook.exists()
-            managed_settings = enterprise_dir / "managed-settings.json"
-            assert managed_settings.exists()
-            settings = json.loads(managed_settings.read_text())
+            # Third-party settings preserved; Runlayer hooks present in place.
+            settings = json.loads(settings_path.read_text())
+            assert settings["permissions"] == {"allow": ["Bash"]}
             assert "PreToolUse" in settings["hooks"]
-
-            assert "Migrated from user to enterprise" in plain_output
+            assert (claude_dir / "hooks" / "runlayer-hook.sh").exists()
 
 
 def test_setup_hooks_uninstall_claude_code_enterprise():
@@ -3514,6 +3526,84 @@ def test_setup_hooks_uninstall_claude_code_enterprise():
             assert remaining["permissions"] == {"deny": ["Bash(rm -rf /*)"]}
 
 
+def test_setup_hooks_uninstall_claude_code_console_user():
+    """--uninstall removes Claude Code hooks from the console user's ~/.claude.
+
+    MDM install (ENG-3204) writes the console user's ~/.claude/settings.json,
+    which is neither root's home (user_dir under root/SYSTEM) nor the old
+    enterprise dir. Uninstall must search the console-user path too, else it
+    leaves orphaned hooks after MDM install + root uninstall.
+    """
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # user_dir resolves to root's home when uninstall runs as root.
+        root_dir = Path(temp_dir) / "root" / ".claude"
+        root_dir.mkdir(parents=True)
+        enterprise_dir = Path(temp_dir) / "enterprise"
+
+        console_home = Path(temp_dir) / "console_user"
+        console_dir = console_home / ".claude"
+        console_hooks_dir = console_dir / "hooks"
+        console_hooks_dir.mkdir(parents=True)
+
+        hook_script = console_hooks_dir / "runlayer-hook.sh"
+        hook_script.write_text("#!/bin/bash\necho test")
+        hook_config = console_hooks_dir / "runlayer-config.json"
+        hook_config.write_text('{"enforcement": true}')
+        settings_path = console_dir / "settings.json"
+        settings_path.write_text(
+            json.dumps(
+                {
+                    "permissions": {"allow": ["Bash"]},
+                    "hooks": {
+                        "PreToolUse": [
+                            {
+                                "matcher": "",
+                                "hooks": [
+                                    {
+                                        "type": "command",
+                                        "command": str(hook_script),
+                                    }
+                                ],
+                            }
+                        ]
+                    },
+                },
+                indent=2,
+            )
+        )
+
+        with (
+            patch.dict(
+                "runlayer_cli.commands.setup.CLIENT_CONFIG_DIRS",
+                {Client.CLAUDE_CODE: root_dir},
+            ),
+            patch.dict(
+                "runlayer_cli.commands.setup.ENTERPRISE_CONFIG_DIRS",
+                {Client.CLAUDE_CODE: enterprise_dir},
+            ),
+            patch(
+                "runlayer_cli.hook_install.console_user.find_console_user_home",
+                return_value=console_home,
+            ),
+        ):
+            result = runner.invoke(
+                app,
+                ["setup", "hooks", "--client", "claude_code", "--uninstall", "--yes"],
+            )
+
+            plain_output = strip_ansi(result.stdout)
+            assert result.exit_code == 0
+            assert "Removed" in plain_output
+
+            assert not hook_script.exists()
+            assert not hook_config.exists()
+
+            assert settings_path.exists()
+            remaining = json.loads(settings_path.read_text())
+            assert "hooks" not in remaining
+            assert remaining["permissions"] == {"allow": ["Bash"]}
+
+
 def test_setup_hooks_uninstall_claude_code_managed_settings_permission_error():
     """PermissionError on managed-settings.json must warn, not be silently swallowed."""
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -3551,22 +3641,14 @@ def test_setup_hooks_uninstall_claude_code_managed_settings_permission_error():
 
 
 def test_setup_hooks_install_claude_code_mdm_quotes_path_with_spaces():
-    """Test that managed-settings.json quotes the command when path has spaces."""
+    """Test that settings.json quotes the command when the path has spaces."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        enterprise_dir = (
-            Path(temp_dir) / "Library" / "Application Support" / "ClaudeCode"
-        )
-        user_dir = Path(temp_dir) / ".claude"
+        console_home = Path(temp_dir) / "Library" / "Application Support" / "user"
+        console_home.mkdir(parents=True)
 
-        with (
-            patch.dict(
-                "runlayer_cli.commands.setup.ENTERPRISE_CONFIG_DIRS",
-                {Client.CLAUDE_CODE: enterprise_dir},
-            ),
-            patch.dict(
-                "runlayer_cli.commands.setup.CLIENT_CONFIG_DIRS",
-                {Client.CLAUDE_CODE: user_dir},
-            ),
+        with patch(
+            "runlayer_cli.hook_install.console_user.find_console_user_home",
+            return_value=console_home,
         ):
             result = runner.invoke(
                 app,
@@ -3582,8 +3664,8 @@ def test_setup_hooks_install_claude_code_mdm_quotes_path_with_spaces():
             )
 
             assert result.exit_code == 0
-            managed_settings = enterprise_dir / "managed-settings.json"
-            settings = json.loads(managed_settings.read_text())
+            settings_path = console_home / ".claude" / "settings.json"
+            settings = json.loads(settings_path.read_text())
             command = settings["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
             assert command.startswith('"')
             assert command.endswith('"')

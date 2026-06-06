@@ -6,7 +6,7 @@ import logging
 from pyrit.datasets.seed_datasets.remote.remote_dataset_loader import (
     _RemoteDatasetLoader,
 )
-from pyrit.models import SeedDataset, SeedPrompt
+from pyrit.models import Modality, SeedDataset, SeedPrompt
 
 logger = logging.getLogger(__name__)
 
@@ -21,11 +21,16 @@ class _CCPSensitivePromptsDataset(_RemoteDatasetLoader):
     Reference: [@promptfoo2025ccp]
     """
 
+    # Metadata
+    modalities: tuple[Modality, ...] = (Modality.TEXT,)
+    size: str = "large"  # 1360 censorship-sensitive prompts (single-language Mandarin)
+    tags: frozenset[str] = frozenset({"safety", "multilingual"})
+
     def __init__(
         self,
         *,
         source: str = "promptfoo/CCP-sensitive-prompts",
-    ):
+    ) -> None:
         """
         Initialize the CCP-sensitive prompts dataset loader.
 
@@ -39,7 +44,7 @@ class _CCPSensitivePromptsDataset(_RemoteDatasetLoader):
         """Return the dataset name."""
         return "ccp_sensitive_prompts"
 
-    async def fetch_dataset(self, *, cache: bool = True) -> SeedDataset:
+    async def fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
         """
         Fetch CCP-sensitive prompts dataset and return as SeedDataset.
 
@@ -52,7 +57,7 @@ class _CCPSensitivePromptsDataset(_RemoteDatasetLoader):
         logger.info(f"Loading CCP-sensitive prompts dataset from {self.source}")
 
         # Load from HuggingFace
-        data = await self._fetch_from_huggingface(
+        data = await self._fetch_from_huggingface_async(
             dataset_name=self.source,
             split="train",
             cache=cache,

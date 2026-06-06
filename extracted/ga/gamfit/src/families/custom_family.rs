@@ -3468,13 +3468,6 @@ pub struct BlockwiseFitOptions {
     /// box-constraint stationarity at iteration 0. Genuinely flexible regimes
     /// (smooth scale / spatial) leave this `true` and keep full screening.
     pub screen_initial_rho: bool,
-    /// Universal under-identification robustness policy threaded from the
-    /// workflow `FitConfig`. `Off` (default) is byte-identical to the released
-    /// solver: every pinned BMS ridge stays installed and no Firth/orthogonal
-    /// reparameterization machinery runs. `Auto`/`Force` arm the structural
-    /// cure on supported custom-family paths (BMS-probit). The struct's
-    /// `Default` keeps this `Off` so no existing caller changes behavior.
-    pub robust_identification: crate::solver::workflow::RobustIdentification,
 }
 
 pub const DEFAULT_CUSTOM_FAMILY_INNER_MAX_CYCLES: usize = 1200;
@@ -3523,7 +3516,6 @@ impl Default for BlockwiseFitOptions {
             cache_mirror_sessions: Vec::new(),
             joint_penalties: None,
             screen_initial_rho: true,
-            robust_identification: crate::solver::workflow::RobustIdentification::Off,
         }
     }
 }
@@ -4077,56 +4069,6 @@ pub struct BlockwiseFitResultParts {
     /// the one-cycle inner probe), in which case `blockwise_fit_from_parts`
     /// falls back to computing edf from whatever geometry it was handed.
     pub precomputed_edf: Option<(f64, Vec<f64>, Vec<f64>)>,
-}
-
-use crate::inference::diagnostics::format_top_abs as format_top_abs_array_entries;
-
-fn format_penalty_coord_labels(specs: &[ParameterBlockSpec]) -> String {
-    let mut labels = Vec::new();
-    for spec in specs {
-        for penalty_idx in 0..spec.penalties.len() {
-            labels.push(format!("{}[{penalty_idx}]", spec.name));
-        }
-    }
-    if labels.is_empty() {
-        "penalty_coords=<none>".to_string()
-    } else {
-        format!("penalty_coords=[{}]", labels.join(", "))
-    }
-}
-
-fn custom_outer_nonconvergence_error(
-    outer_result: &crate::solver::outer_strategy::OuterResult,
-    specs: &[ParameterBlockSpec],
-    last_error_detail: &str,
-) -> String {
-    let gradient_detail = outer_result
-        .final_gradient
-        .as_ref()
-        .map(|gradient| format_top_abs_array_entries(gradient, "top_abs_gradient", 8))
-        .unwrap_or_else(|| "top_abs_gradient=<unavailable>".to_string());
-    let lambdas = outer_result.rho.mapv(f64::exp);
-    let objective_error_detail = if last_error_detail.is_empty() {
-        String::new()
-    } else {
-        format!(" {last_error_detail}")
-    };
-    format!(
-        "outer smoothing optimization did not converge; plan={} iterations={} \
-         final_objective={:.6e} |g|={} {} {} {}.{}",
-        outer_result.plan_used,
-        outer_result.iterations,
-        outer_result.final_value,
-        outer_result.final_grad_norm_report(),
-        format_top_abs_array_entries(&outer_result.rho, "top_abs_log_lambda", 8),
-        format_top_abs_array_entries(&lambdas, "top_abs_lambda", 8),
-        gradient_detail,
-        format!(
-            " {}{}",
-            format_penalty_coord_labels(specs),
-            objective_error_detail
-        ),
-    )
 }
 
 fn validate_parameter_block_state_finiteness(
@@ -11883,6 +11825,51 @@ fn blockwise_logdet_terms_with_workspace<F: CustomFamily + Clone + Send + Sync +
     refresh_all_block_etas(family, specs, states)?;
     let ranges = block_param_ranges(specs);
     let total = ranges.last().map(|(_, e)| *e).unwrap_or(0);
+    // Universal full-span robustness: the outer REML logdet of the
+    // penalized Hessian must use the SAME Jeffreys-augmented Hessian
+    // `H + S_λ + H_Φ` the inner Newton converged on, or the LAML score and its
+    // analytic derivatives describe a different objective. Compute `H_Φ` once
+    // over the full-span basis `Z_J` and add it into whichever
+    // logdet path runs below. `None` ⇒ no logdet-H contribution (logdet-S only).
+    // Cheap matrix-free conditioning pre-check for the OUTER logdet H_Φ. When a
+    // matrix-free workspace exposes the Hessian-vector product, bound the joint
+    // information's spectrum from a few matvecs (no dense H, no O(p³) eigh): if it
+    // certifies well-conditioned the exact gate is certain to return H_Φ = 0, so
+    // we skip the whole dense formation and use `None` (no logdet-H Jeffreys
+    // contribution), byte-identical to the gated-off path. This keeps the outer
+    // LAML logdet consistent with the inner solve (which also gated the term off
+    // on the same well-conditioned geometry) while preserving the matrix-free path
+    // at outer-eval scale. Returns `false`/unsure ⇒ exact formation below.
+    let outer_precheck_eligible = include_logdet_h
+        && total >= crate::estimate::reml::jeffreys_subspace::CHEAP_CONDITIONING_PRECHECK_MIN_DIM;
+    let outer_jeffreys_precheck_skips = match preferred_workspace.as_ref() {
+        Some(ws) if outer_precheck_eligible && ws.hessian_matvec_available() => {
+            let hv = |v: &Array1<f64>| -> Result<Array1<f64>, String> {
+                match ws.hessian_matvec(v)? {
+                    Some(out) if out.len() == total => Ok(out),
+                    // Workspace declined this matvec ⇒ cannot certify ⇒ do not skip.
+                    // Return a non-finite sentinel so the cheap estimator bails to
+                    // the conservative `false` (never skip on an unresolved apply).
+                    _ => Ok(Array1::from_elem(total, f64::NAN)),
+                }
+            };
+            crate::estimate::reml::jeffreys_subspace::jeffreys_term_skippable_via_matvec(hv, total)
+                .unwrap_or(false)
+        }
+        _ => false,
+    };
+    let logdet_jeffreys_hphi: Option<Array2<f64>> =
+        if include_logdet_h && !outer_jeffreys_precheck_skips {
+            match build_joint_jeffreys_subspace(specs, &ranges)? {
+                Some(z_joint) => {
+                    custom_family_joint_jeffreys_term(family, states, specs, &ranges, &z_joint)?
+                        .map(|(_phi, _grad, hphi)| hphi)
+                }
+                None => None,
+            }
+        } else {
+            None
+        };
     let compute_block_logdet_term = |b: usize| -> Result<(Array2<f64>, f64), String> {
         let spec = &specs[b];
         let (start, end) = ranges[b];
@@ -11995,6 +11982,9 @@ fn blockwise_logdet_terms_with_workspace<F: CustomFamily + Clone + Send + Sync +
                 .slice_mut(ndarray::s![start..end, start..end])
                 .scaled_add(curvature.rho_curvature_scale, s_lambda);
         }
+        if let Some(hphi) = logdet_jeffreys_hphi.as_ref() {
+            h_joint.scaled_add(curvature.rho_curvature_scale, hphi);
+        }
         let logdet_h_scaled = if strict_spd {
             strict_exact_pseudo_logdet(&h_joint, joint_observation_count(states))?
         } else {
@@ -12050,6 +12040,9 @@ fn blockwise_logdet_terms_with_workspace<F: CustomFamily + Clone + Send + Sync +
                 .slice_mut(ndarray::s![start..end, start..end])
                 .scaled_add(1.0, s_lambda);
         }
+        if let Some(hphi) = logdet_jeffreys_hphi.as_ref() {
+            h_joint.scaled_add(1.0, hphi);
+        }
         let logdet_h_total = if strict_spd {
             strict_exact_pseudo_logdet(&h_joint, joint_observation_count(states))?
         } else {
@@ -12072,6 +12065,9 @@ fn blockwise_logdet_terms_with_workspace<F: CustomFamily + Clone + Send + Sync +
             h_joint
                 .slice_mut(ndarray::s![start..end, start..end])
                 .scaled_add(1.0, s_lambda);
+        }
+        if let Some(hphi) = logdet_jeffreys_hphi.as_ref() {
+            h_joint.scaled_add(1.0, hphi);
         }
         let logdet_h_total = if strict_spd {
             strict_exact_pseudo_logdet(&h_joint, joint_observation_count(states))?
@@ -12492,6 +12488,12 @@ fn joint_inner_kkt_converged(residual: f64, residual_tol: f64) -> bool {
     residual.is_finite() && residual_tol.is_finite() && residual <= residual_tol
 }
 
+fn generic_kkt_refusal_guidance() -> &'static str {
+    "check whether the named block has an unpenalized or weakly identified direction \
+     (penalty null space, marginal/logslope coupling, or callback-owned geometry), \
+     or whether a constrained fit has an incomplete active set"
+}
+
 /// Format a one-line diagnostic naming which block carries the dominant
 /// unresolved KKT residual when the joint Newton refuses to certify
 /// convergence. This is the actionable signal a user needs to recognise
@@ -12577,10 +12579,8 @@ fn block_residual_diagnostic_string(
     format!(
         "{dominant}; |∇L − Sβ|∞ = {exit_kkt_inf:.3e}, block_widths = {block_widths:?}, \
          block_names = {names:?}, block_beta_inf = {block_beta_inf:?}, \
-         block_residual_inf = {block_residual_inf:?}; check whether the named block's \
-         penalty has a polynomial null space not constrained by the data \
-         (reduce knots, add identifiability constraint, or use a basis whose \
-         null space is absorbed into the parametric block)"
+         block_residual_inf = {block_residual_inf:?}; {}",
+        generic_kkt_refusal_guidance()
     )
 }
 
@@ -12677,6 +12677,33 @@ impl KktRefusalDiagnosis {
             "active_set_incomplete" => Some(KktRefusalDiagnosis::ActiveSetIncomplete),
             "aliasing_detected_at_fit" => Some(KktRefusalDiagnosis::AliasingDetectedAtFit),
             _ => None,
+        }
+    }
+
+    fn guidance(self) -> &'static str {
+        match self {
+            KktRefusalDiagnosis::RankDeficientHPen => {
+                "check whether the named block has a structural or numerical null direction \
+                 not identified by the likelihood/penalty combination; for Duchon-style \
+                 smooths this may be a polynomial null space, while marginal-slope fits can \
+                 also expose callback-owned weak directions"
+            }
+            KktRefusalDiagnosis::PhantomMultiplierWithWellConditionedH => {
+                "check whether the named block has a near-separated or weakly identified \
+                 direction despite a well-conditioned penalized Hessian; in marginal-slope \
+                 fits this often indicates marginal/logslope coupling rather than a \
+                 Matérn/Duchon polynomial-nullspace failure"
+            }
+            KktRefusalDiagnosis::ActiveSetIncomplete => {
+                "check whether the named block's linear constraints need an additional \
+                 active row or a tighter constrained re-solve; this is an active-set \
+                 certification failure, not a polynomial-nullspace diagnosis"
+            }
+            KktRefusalDiagnosis::AliasingDetectedAtFit => {
+                "check whether the named block aliases another block after runtime \
+                 constraints or callbacks materialize; drop or reparameterize the aliased \
+                 direction before fitting"
+            }
         }
     }
 }
@@ -13315,10 +13342,7 @@ impl KktRefusalReport {
              free-null diagnostic: {}; \
              cert math: linearized_rel={:.3e}, scalar_relerr={:.3e}, |Δobj|={:.3e}, \
              accepted_step_inf={:.3e}, proposal_step_inf={:.3e}, trust_radius={:.3e}, \
-             |β|∞={:.3e}, active_set_rows_total={}; diagnosis: {}; \
-             check whether the named block's penalty has a polynomial null space not \
-             constrained by the data (reduce knots, add identifiability constraint, or \
-             use a basis whose null space is absorbed into the parametric block)",
+             |β|∞={:.3e}, active_set_rows_total={}; diagnosis: {}; {}",
             self.cycle,
             self.projected_residual_inf,
             4.0 * self.residual_tol,
@@ -13344,6 +13368,7 @@ impl KktRefusalReport {
             self.beta_inf(),
             self.active_set_rows_total,
             self.diagnosis.as_str(),
+            self.diagnosis.guidance(),
         )
     }
 }
@@ -14085,6 +14110,23 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
         };
         let total_p: usize = ranges.last().map_or(0, |r| r.1);
 
+        // Universal full-span Jeffreys/Firth robustness. Build `Z_J` once and
+        // use the same term in the coupled Newton step, objective value, and
+        // stationarity checks so a near-separating coefficient is bounded by
+        // the likelihood's own Fisher geometry instead of an ad-hoc ridge.
+        // `None` (empty coefficient system) leaves every step and objective at
+        // the un-augmented inner Newton.
+        let joint_jeffreys_subspace = build_joint_jeffreys_subspace(specs, &ranges)?;
+        // Fold the Jeffreys objective value into the cycle-0 baseline so the
+        // first trust-region accept/reject compares like-for-like against the
+        // Jeffreys-augmented trial objectives below. No-op when there is no
+        // coefficient system or the term is condition-gated to zero.
+        if let Some(z_joint) = joint_jeffreys_subspace.as_ref() {
+            let phi0 = custom_family_joint_jeffreys_value(family, &states, specs, &ranges, z_joint);
+            current_penalty += phi0;
+            lastobjective = -current_log_likelihood + current_penalty;
+        }
+
         let joint_mode_diagonal_ridge =
             if ridge > 0.0 && options.ridge_policy.include_quadratic_penalty {
                 ridge
@@ -14357,6 +14399,28 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                 options.ridge_floor,
                 joint_bundle,
             );
+            // CHEAP CONDITIONING PRE-CHECK (always-on robustness, zero-cost on
+            // easy/large fits). Before paying for the dense joint-Hessian
+            // materialization + `O(p³)` reduced eigendecomposition inside the
+            // Jeffreys term, ask whether the term is PROVABLY skippable from a few
+            // matrix-free Hessian-vector products against the source we just built.
+            // When `true`, the exact conditioning gate is certain to return the
+            // zero term, so every Jeffreys call this cycle short-circuits to the
+            // exact-zero contribution WITHOUT forming anything dense — byte-
+            // identical to the gated-off path, and preserving the matrix-free path
+            // on wide well-conditioned fits. Only runs the estimate when a Jeffreys
+            // subspace exists and `total_p` is wide enough that the dense eigh is
+            // the cost we want to avoid (the helper itself gates on the size
+            // threshold and conservatively returns `false` if unsure). Computed
+            // once per inner cycle and reused across the cycle's head-KKT, step,
+            // and trial-value calls; the conditioning changes slowly across cycles
+            // so re-estimating per cycle (one `O(p·k)` burst) is already cheap
+            // against the work it guards.
+            let jeffreys_skippable_this_cycle: bool = if joint_jeffreys_subspace.is_some() {
+                jeffreys_term_skippable_for_source(&joint_hessian_source, total_p).unwrap_or(false)
+            } else {
+                false
+            };
             let joint_trust_metric_diag = match &joint_hessian_source {
                 JointHessianSource::Dense(h_joint) => joint_penalty_preconditioner_diag(
                     &h_joint.diag().to_owned(),
@@ -14373,8 +14437,30 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                     joint_bundle,
                 ),
             };
+            // Fold the Firth/Jeffreys score `∇Φ` into the head-of-cycle KKT
+            // residual when the term is armed, for the same reason as the
+            // post-step residual below: the inner objective is `−ℓ + ½βᵀSβ − Φ`,
+            // so the certifiable stationarity is `∇L − Sβ + ∇Φ = 0`. Without
+            // this the head-of-cycle KKT exit (`current_stationarity_residual ≤
+            // residual_tol`) can never fire on the near-separating span, even
+            // when the iterate is the Firth optimum. No-op when the Jeffreys
+            // term is unavailable or condition-gated to zero.
+            let head_kkt_gradient: Option<Array1<f64>> = if jeffreys_skippable_this_cycle {
+                // Pre-check certified well-conditioned ⇒ exact term is the zero
+                // contribution ⇒ ∇Φ = 0, so the head-KKT gradient is unchanged.
+                None
+            } else if let Some(z_joint) = joint_jeffreys_subspace.as_ref() {
+                match custom_family_joint_jeffreys_term(family, &states, specs, &ranges, z_joint)? {
+                    Some((_phi, grad_phi, _hphi)) if grad_phi.len() == grad_joint.len() => {
+                        Some(&grad_joint + &grad_phi)
+                    }
+                    _ => None,
+                }
+            } else {
+                None
+            };
             let current_kkt_norm = exact_newton_joint_stationarity_inf_norm_from_gradient(
-                &grad_joint,
+                head_kkt_gradient.as_ref().unwrap_or(&grad_joint),
                 &states,
                 specs,
                 &s_lambdas,
@@ -14441,7 +14527,28 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                         joint_mode_diagonal_ridge,
                         joint_bundle,
                     );
-                    let rhs_step = &grad_joint - &penalty_beta_joint;
+                    let mut rhs_step = &grad_joint - &penalty_beta_joint;
+                    if !jeffreys_skippable_this_cycle
+                        && let Some(z_joint) = joint_jeffreys_subspace.as_ref()
+                    {
+                        // Skipped when the cheap pre-check certifies well-
+                        // conditioning: ∇Φ = 0 and H_Φ = 0 there, so neither
+                        // rhs_step nor lhs change — byte-identical to the gated-off
+                        // dense path, without forming dense H/H_Φ.
+                        match custom_family_joint_jeffreys_term(
+                            family, &states, specs, &ranges, z_joint,
+                        )? {
+                            Some((_phi, grad_phi, hphi))
+                                if grad_phi.len() == rhs_step.len()
+                                    && hphi.nrows() == total_p
+                                    && hphi.ncols() == total_p =>
+                            {
+                                rhs_step += &grad_phi;
+                                lhs += &hphi;
+                            }
+                            _ => {}
+                        }
+                    }
                     // Self-vanishing Levenberg–Marquardt damping for the
                     // CONSTRAINED active-set QP, mirroring the spectral-range
                     // branch below (μ = JOINT_SPECTRAL_LEVENBERG_FACTOR·‖rhs‖∞).
@@ -14543,7 +14650,59 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                         joint_mode_diagonal_ridge,
                         joint_bundle,
                     );
-                    let rhs = &grad_joint - &penalty_beta;
+                    let mut rhs = &grad_joint - &penalty_beta;
+                    // Universal robustness: fold the family-general
+                    // Jeffreys/Firth curvature `H_Φ` and score `∇Φ` into BOTH the
+                    // matrix-free PCG step AND the dense spectral fallback below,
+                    // scoped to the full-span basis `Z_J`. Computed ONCE here
+                    // so the matvec closure and the RHS share the SAME term and the
+                    // fallback does not recompute it. The inner objective is
+                    // `−ℓ + ½βᵀSβ − Φ`, so the Newton system the step must solve is
+                    //   (H + S_λ + H_Φ) δ = (∇ℓ − S_λβ) + ∇Φ.
+                    // Previously the PCG matvec applied only `H + S_λ` and its RHS
+                    // omitted `∇Φ`, so on the matrix-free path (large p / large n)
+                    // Firth was a SILENT NO-OP: the proper-prior never reached the
+                    // step that actually moves β, leaving separation/under-
+                    // identification uncured exactly where the dense route is not
+                    // taken. The dense route (small p, e.g. BMS p≈51) was already
+                    // correct. `H_Φ` is the full-span Gauss-Newton surrogate
+                    // `½ J H_id⁻¹ Jᵀ` (Z_J = identity ⇒ p×p, not low-rank), but the
+                    // conditioning gate in `joint_jeffreys_term` returns the zero
+                    // term on every well-conditioned fit, so this only arms on the
+                    // near-separating span
+                    // — and `hphi` is materialized once per cycle regardless, so the
+                    // matvec adds only one O(p²) HVP, preserving the matrix-free
+                    // path's asymptotics where Firth is negligible (term = `None`).
+                    // Cheap pre-check certified well-conditioned ⇒ the exact term
+                    // is the zero contribution (∇Φ = 0, H_Φ = 0). Short-circuit to
+                    // `None` WITHOUT materializing the dense joint Hessian or running
+                    // the O(p³) reduced eigendecomposition — this is the matrix-free
+                    // PCG hot path, where forming a dense p×p H_Φ every cycle was the
+                    // regression. Byte-identical to the gated-off dense path: `rhs`
+                    // is left as `∇ℓ − S_λβ` and no H_Φ is folded into the matvec.
+                    let inner_jeffreys_term: Option<(Array1<f64>, Array2<f64>)> =
+                        if jeffreys_skippable_this_cycle {
+                            None
+                        } else if let Some(z_joint) = joint_jeffreys_subspace.as_ref() {
+                            match custom_family_joint_jeffreys_term(
+                                family, &states, specs, &ranges, z_joint,
+                            )? {
+                                Some((_phi, grad_phi, hphi))
+                                    if grad_phi.len() == rhs.len()
+                                        && hphi.nrows() == total_p
+                                        && hphi.ncols() == total_p =>
+                                {
+                                    rhs += &grad_phi;
+                                    Some((grad_phi, hphi))
+                                }
+                                _ => None,
+                            }
+                        } else {
+                            None
+                        };
+                    let inner_jeffreys_hphi: Option<Arc<Array2<f64>>> = inner_jeffreys_term
+                        .as_ref()
+                        .map(|(_grad_phi, hphi)| Arc::new(hphi.clone()));
                     let grad_inf_for_solve = grad_joint
                         .iter()
                         .map(|x: &f64| x.abs())
@@ -14586,6 +14745,13 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                         // borrow of captures) and we need interior mutability
                         // to write into the workspace.
                         let penalty_workspace = RefCell::new(Array1::<f64>::zeros(total_p));
+                        // Capture the Jeffreys/Firth curvature for the matvec. When
+                        // armed (and nonzero past the conditioning gate) the PCG
+                        // operator becomes `H + S_λ + H_Φ`, matching the augmented
+                        // RHS `(∇ℓ − S_λβ) + ∇Φ` set above and the dense spectral
+                        // fallback. `None` keeps the unaugmented matvec.
+                        let pcg_hphi_dense = inner_jeffreys_hphi.clone();
+                        let pcg_hphi_op = inner_jeffreys_hphi.clone();
                         match &joint_hessian_source {
                             JointHessianSource::Dense(h_joint) => {
                                 crate::linalg::utils::solve_spd_pcg_with_info_into(
@@ -14606,6 +14772,9 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                                             joint_bundle,
                                         );
                                         *out += &*pen;
+                                        if let Some(hphi) = pcg_hphi_dense.as_ref() {
+                                            *out += &hphi.dot(v);
+                                        }
                                     },
                                     &rhs,
                                     &preconditioner_diag,
@@ -14643,6 +14812,9 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                                             joint_bundle,
                                         );
                                         *out += &*pen;
+                                        if let Some(hphi) = pcg_hphi_op.as_ref() {
+                                            *out += &hphi.dot(v);
+                                        }
                                     },
                                     &rhs,
                                     &preconditioner_diag,
@@ -14693,6 +14865,24 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                             joint_mode_diagonal_ridge,
                             joint_bundle,
                         );
+                        // Universal robustness: add the
+                        // family-general Jeffreys curvature `H_Phi` to the
+                        // penalized Hessian. This is the Tier-B coupled-Newton form
+                        // of Firth: the reduced Fisher information `Z_J^T H Z_J`
+                        // supplies the missing O(n) curvature that bounds a
+                        // near-separating coefficient to O(1). When the Jeffreys
+                        // term is unavailable, the step stays unaugmented.
+                        //
+                        // `∇Φ` is NOT re-added here: `rhs` (and thus `spectral_rhs`)
+                        // already carries `+∇Φ` from the single shared computation
+                        // above, and we REUSE that same `H_Φ` here rather than
+                        // recomputing the (O(p) directional-derivative) term — the
+                        // dense fallback and the matrix-free PCG step now solve the
+                        // SAME Jeffreys-augmented Newton system.
+                        let spectral_rhs = rhs.clone();
+                        if let Some((_grad_phi, hphi)) = inner_jeffreys_term.as_ref() {
+                            lhs_true += hphi;
+                        }
                         // Self-vanishing Levenberg–Marquardt damping for the
                         // range-restricted spectral step. Scaled to the current
                         // stationarity-residual magnitude ‖∇L − Sβ‖∞ so it is
@@ -14706,11 +14896,11 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                         // unbounded component/λ step along ill-conditioned modes
                         // and stops the oscillation that prevented the n=23
                         // binary-covariate CTM from settling (#733/#734).
-                        let rhs_inf = rhs.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
+                        let rhs_inf = spectral_rhs.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
                         let spectral_levenberg_mu = JOINT_SPECTRAL_LEVENBERG_FACTOR * rhs_inf;
                         let spectral_step = solve_joint_newton_step_on_spectral_range(
                             &lhs_true,
-                            &rhs,
+                            &spectral_rhs,
                             KKT_REFUSAL_RANK_TOL,
                             residual_tol_for_solve,
                             spectral_levenberg_mu,
@@ -15042,7 +15232,7 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                     states[b].beta.assign(&projected);
                 }
                 refresh_all_block_etas(family, specs, &mut states)?;
-                let trial_penalty = total_quadratic_penalty(
+                let mut trial_penalty = total_quadratic_penalty(
                     &states,
                     &s_lambdas,
                     ridge,
@@ -15050,6 +15240,24 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                     joint_bundle,
                     Some(specs),
                 );
+                // Jeffreys objective contribution at the trial point keeps the
+                // accept/reject objective consistent with the Jeffreys-modified
+                // Newton step. `states` already holds the trial coefficients
+                // (assigned + eta-refreshed above). No-op when the Jeffreys term
+                // is unavailable or condition-gated to zero. When the cheap pre-
+                // check certified this cycle well-conditioned, the step used H_Φ=0
+                // / ∇Φ=0, so the consistent accept/reject objective also uses Φ=0:
+                // skipping here keeps value and step on the SAME objective (the
+                // value/step consistency the term exists to enforce) and avoids the
+                // dense H/eigh at the trial point. The 8× conditioning margin makes
+                // a single damped Newton step incapable of crossing the gate.
+                if !jeffreys_skippable_this_cycle
+                    && let Some(z_joint) = joint_jeffreys_subspace.as_ref()
+                {
+                    trial_penalty += custom_family_joint_jeffreys_value(
+                        family, &states, specs, &ranges, z_joint,
+                    );
+                }
                 // Cheap-LL line-search path: rejected backtracking attempts
                 // discard the exact-Newton workspace they build, so by default
                 // we evaluate just the scalar full-data log-likelihood for the
@@ -15472,6 +15680,18 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                 joint_bundle,
                 Some(specs),
             );
+            // Re-fold the Jeffreys objective at the accepted iterate so the
+            // post-accept baseline matches the augmented objective the next
+            // cycle's trial points are compared against. No-op when the
+            // Jeffreys term is unavailable or condition-gated to zero, or when the
+            // cheap pre-check certified this cycle well-conditioned (Φ=0, matching
+            // the H_Φ=0 the step used — keeps the baseline on the same objective).
+            if !jeffreys_skippable_this_cycle
+                && let Some(z_joint) = joint_jeffreys_subspace.as_ref()
+            {
+                current_penalty +=
+                    custom_family_joint_jeffreys_value(family, &states, specs, &ranges, z_joint);
+            }
             lastobjective = -current_log_likelihood + current_penalty;
             let accepted_step_inf = states
                 .iter()
@@ -15486,12 +15706,41 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                 .fold(0.0_f64, f64::max);
             cycles_done = cycle + 1;
 
-            // Check convergence via joint stationarity
+            // Check convergence via joint stationarity. When the family-general
+            // Firth/Jeffreys term is armed, the penalized objective the inner
+            // Newton actually optimizes is `−ℓ + ½βᵀSβ − Φ`, so its KKT
+            // stationarity is `∇L − Sβ + ∇Φ = 0`. The Newton STEP already folds
+            // `∇Φ` into its RHS (`spectral_rhs += grad_phi`), but the bare
+            // `exact_newton_joint_stationarity_*` residual omits it — at the
+            // Firth fixed point `∇L − Sβ = −∇Φ`, so the certificate floors at
+            // `‖∇Φ‖∞` and never certifies, stalling the inner solve on exactly
+            // the near-separating span Firth is meant to bound (the residual the
+            // outer REML then rejects). Fold `∇Φ` into the gradient used for the
+            // KKT residual so the convergence criterion matches the augmented
+            // objective the step descends. No-op when the Jeffreys term is
+            // unavailable or condition-gated to zero.
             let Some(gradient) = cached_joint_gradient.as_ref() else {
                 break;
             };
+            let jeffreys_augmented_gradient: Option<Array1<f64>> = if jeffreys_skippable_this_cycle
+            {
+                // Well-conditioned ⇒ ∇Φ = 0, so the KKT residual is the bare
+                // stationarity (and floors at 0, not ‖∇Φ‖) — matching the step,
+                // which folded H_Φ=0/∇Φ=0 this cycle. Avoids the dense H/eigh.
+                None
+            } else if let Some(z_joint) = joint_jeffreys_subspace.as_ref() {
+                match custom_family_joint_jeffreys_term(family, &states, specs, &ranges, z_joint)? {
+                    Some((_phi, grad_phi, _hphi)) if grad_phi.len() == gradient.len() => {
+                        Some(gradient + &grad_phi)
+                    }
+                    _ => None,
+                }
+            } else {
+                None
+            };
+            let residual_gradient = jeffreys_augmented_gradient.as_ref().unwrap_or(gradient);
             let residual = exact_newton_joint_stationarity_inf_norm_from_gradient(
-                gradient,
+                residual_gradient,
                 &states,
                 specs,
                 &s_lambdas,
@@ -17817,6 +18066,204 @@ impl HessianDerivativeProvider for OwnedJointDerivProvider {
     }
 }
 
+/// Drift closure producing the Tier-B Jeffreys-curvature drift
+/// `D_β H_Φ[δβ]` for a mode-response direction `δβ = dβ̂/dρ_k`.
+///
+/// The closure already expects the actual perturbation direction `δβ` (NOT the
+/// raw `v_k` the trait hands the provider); the wrapper negates `v_k → δβ = −v_k`
+/// before calling, exactly mirroring `BorrowedJointDerivProvider`'s sign
+/// convention and the inner `compute_dh` it composes with. Returns `None` when
+/// the Jeffreys term is gated out or the family lacks the exact derivatives, so
+/// the wrapper falls back to the inner provider's drift unchanged.
+type JeffreysHphiDriftFn =
+    Arc<dyn Fn(&Array1<f64>) -> Result<Option<Array2<f64>>, String> + Send + Sync>;
+
+/// Jeffreys-`H_Φ`-aware joint derivative provider.
+///
+/// Wraps an inner Tier-B joint provider (which supplies the likelihood-Hessian
+/// drift `D_β H_L[v_k]`) and ADDS the Jeffreys-curvature drift `D_β H_Φ[v_k]` to
+/// the first-order trace corrections. This closes the bug where the Tier-B outer
+/// LAML gradient omitted `H_Φ`'s ρ-dependence (through β̂): the objective folds
+/// `H_Φ` into `½ log|H + S_λ + H_Φ|`, so its exact gradient
+///   `½ tr[(H+S_λ+H_Φ)⁻¹ (∂_ρ S_λ + D_β H_L[v_k] + D_β H_Φ[v_k])]`
+/// MUST include the `D_β H_Φ[v_k]` term. It is the exact analogue of the Tier-A
+/// `FirthAwareGlmDerivatives` (`unified.rs`) `−D(Hφ)[B_k]` first-order term, and
+/// of `BarrierDerivativeProvider`'s additive-correction composition pattern.
+///
+/// SIGN. The trait passes `v_k = H⁻¹(A_kβ̂)`; the mode response is `δβ = −v_k`.
+/// We negate before invoking the drift closure, so `corr = + D_β H_Φ[δβ]` is
+/// added on top of the inner provider's already-correct likelihood drift.
+struct JeffreysHphiAwareJointDerivatives<'a> {
+    inner: Box<dyn HessianDerivativeProvider + 'a>,
+    drift: JeffreysHphiDriftFn,
+    p: usize,
+}
+
+impl<'a> JeffreysHphiAwareJointDerivatives<'a> {
+    fn new(
+        inner: Box<dyn HessianDerivativeProvider + 'a>,
+        drift: JeffreysHphiDriftFn,
+        p: usize,
+    ) -> Self {
+        Self { inner, drift, p }
+    }
+
+    /// `D_β H_Φ[δβ]` with the trait's `v_k → δβ = −v_k` mode-response convention.
+    fn hphi_drift(&self, v_k: &Array1<f64>) -> Result<Option<Array2<f64>>, String> {
+        let delta = v_k.mapv(|value| -value);
+        (self.drift)(&delta)
+    }
+}
+
+impl HessianDerivativeProvider for JeffreysHphiAwareJointDerivatives<'_> {
+    fn hessian_derivative_correction(
+        &self,
+        v_k: &Array1<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        let inner = self.inner.hessian_derivative_correction(v_k)?;
+        let drift = self.hphi_drift(v_k)?;
+        Ok(match (inner, drift) {
+            (Some(mut ic), Some(d)) => {
+                ic += &d;
+                Some(ic)
+            }
+            (Some(ic), None) => Some(ic),
+            (None, Some(d)) => Some(d),
+            (None, None) => None,
+        })
+    }
+
+    fn hessian_derivative_correction_result(
+        &self,
+        v_k: &Array1<f64>,
+    ) -> Result<Option<DriftDerivResult>, String> {
+        let inner = self.inner.hessian_derivative_correction_result(v_k)?;
+        let drift = self.hphi_drift(v_k)?;
+        Ok(match (inner, drift) {
+            (Some(DriftDerivResult::Dense(mut dense)), Some(d)) => {
+                dense += &d;
+                Some(DriftDerivResult::Dense(dense))
+            }
+            (Some(DriftDerivResult::Operator(operator)), Some(d)) => {
+                Some(DriftDerivResult::Operator(Arc::new(
+                    crate::solver::estimate::reml::unified::CompositeHyperOperator {
+                        dense: Some(d),
+                        operators: vec![operator],
+                        dim_hint: self.p,
+                    },
+                )))
+            }
+            (Some(other), None) => Some(other),
+            (None, Some(d)) => Some(DriftDerivResult::Dense(d)),
+            (None, None) => None,
+        })
+    }
+
+    fn hessian_derivative_corrections_result(
+        &self,
+        v_ks: &[Array1<f64>],
+    ) -> Result<Vec<Option<DriftDerivResult>>, String> {
+        // Delegate the (possibly batched) inner walk, then fold the per-direction
+        // H_Φ drift into each result so the batched path stays consistent with the
+        // singular one.
+        let inner = self.inner.hessian_derivative_corrections_result(v_ks)?;
+        inner
+            .into_iter()
+            .zip(v_ks.iter())
+            .map(|(inner_result, v_k)| {
+                let drift = self.hphi_drift(v_k)?;
+                Ok(match (inner_result, drift) {
+                    (Some(DriftDerivResult::Dense(mut dense)), Some(d)) => {
+                        dense += &d;
+                        Some(DriftDerivResult::Dense(dense))
+                    }
+                    (Some(DriftDerivResult::Operator(operator)), Some(d)) => {
+                        Some(DriftDerivResult::Operator(Arc::new(
+                            crate::solver::estimate::reml::unified::CompositeHyperOperator {
+                                dense: Some(d),
+                                operators: vec![operator],
+                                dim_hint: self.p,
+                            },
+                        )))
+                    }
+                    (Some(other), None) => Some(other),
+                    (None, Some(d)) => Some(DriftDerivResult::Dense(d)),
+                    (None, None) => None,
+                })
+            })
+            .collect()
+    }
+
+    fn has_batched_hessian_derivative_corrections(&self) -> bool {
+        self.inner.has_batched_hessian_derivative_corrections()
+    }
+
+    // SECOND-ORDER (outer Hessian) RESIDUAL GAP. The full second-order Jeffreys
+    // drift `D²_β H_Φ[v_k, v_l]` (the analogue of Tier-A's
+    // `−D(Hφ)[B_{kl}] − D²(Hφ)[B_k, B_l]`) is NOT yet folded in here: the
+    // second-derivative methods delegate to the inner likelihood drift only. This
+    // leaves the OUTER HESSIAN's Jeffreys contribution first-order-incomplete, but
+    // the FIRST-ORDER outer GRADIENT — the term the line search and KKT
+    // certification actually consume — is now exact. ARC/Newton on the outer
+    // problem still gets a consistent gradient; the Hessian is a (PD) curvature
+    // surrogate as before.
+    fn hessian_second_derivative_correction(
+        &self,
+        v_k: &Array1<f64>,
+        v_l: &Array1<f64>,
+        u_kl: &Array1<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        self.inner
+            .hessian_second_derivative_correction(v_k, v_l, u_kl)
+    }
+
+    fn hessian_second_derivative_correction_result(
+        &self,
+        v_k: &Array1<f64>,
+        v_l: &Array1<f64>,
+        u_kl: &Array1<f64>,
+    ) -> Result<Option<DriftDerivResult>, String> {
+        self.inner
+            .hessian_second_derivative_correction_result(v_k, v_l, u_kl)
+    }
+
+    fn hessian_second_derivative_corrections_result(
+        &self,
+        triples: &[(Array1<f64>, Array1<f64>, Array1<f64>)],
+    ) -> Result<Vec<Option<DriftDerivResult>>, String> {
+        self.inner
+            .hessian_second_derivative_corrections_result(triples)
+    }
+
+    fn has_batched_hessian_second_derivative_corrections(&self) -> bool {
+        self.inner
+            .has_batched_hessian_second_derivative_corrections()
+    }
+
+    fn has_corrections(&self) -> bool {
+        true
+    }
+
+    fn outer_hessian_derivative_kernel(
+        &self,
+    ) -> Option<crate::solver::estimate::reml::unified::OuterHessianDerivativeKernel> {
+        // Delegate to the inner provider so the matrix-free outer-HESSIAN route
+        // (the `Callback { first, second }` kernel) is preserved. This kernel
+        // feeds ONLY the outer Hessian, never the gradient (the gradient's
+        // first-order trace flows through `hessian_derivative_correction_result`,
+        // which IS wrapped above). The H_Φ SECOND-order drift is the documented
+        // residual gap; routing the kernel unchanged keeps the Hessian a
+        // consistent PD curvature surrogate without forcing dense assembly.
+        self.inner.outer_hessian_derivative_kernel()
+    }
+
+    fn family_outer_hessian_operator(
+        &self,
+    ) -> Option<Arc<dyn crate::solver::outer_strategy::OuterHessianOperator>> {
+        self.inner.family_outer_hessian_operator()
+    }
+}
+
 /// Optional bundle of extended (ψ) hyperparameter coordinate data to attach
 /// to an `InnerSolution` before calling the unified evaluator.
 struct ExtCoordBundle {
@@ -18526,6 +18973,12 @@ fn joint_penalty_subspace_trace_parts(
     s_lambdas: &[Array2<f64>],
     total: usize,
     hessian_diagonal_ridge: f64,
+    // Pre-scaled outer-REML Jeffreys curvature (already multiplied by
+    // `rho_curvature_scale` to live in the same scaled space as `s_lambdas`).
+    // Folded into `M = H + Sλ (+ H_Φ)` so the projected logdet AND its trace
+    // kernel `(H+Sλ+H_Φ)⁺` match the Jeffreys-augmented operator the LAML score
+    // runs on. `None` ⇒ byte-identical released projected logdet.
+    scaled_jeffreys_hphi: Option<&Array2<f64>>,
 ) -> Result<(f64, Option<PenaltySubspaceTrace>), String> {
     if total == 0 {
         return Ok((0.0, None));
@@ -18597,6 +19050,9 @@ fn joint_penalty_subspace_trace_parts(
         materialize_joint_hessian_source(h_joint_unpen, total, "joint penalty subspace logdet")?;
     let mut m = m_dense;
     add_joint_penalty_to_matrix(&mut m, ranges, s_lambdas, hessian_diagonal_ridge, None);
+    if let Some(hphi) = scaled_jeffreys_hphi {
+        m += hphi;
+    }
     symmetrize_dense_in_place(&mut m);
     let (m_evals, m_evecs) = m.eigh(Side::Lower).map_err(|e| {
         format!("joint penalty subspace full Hessian eigendecomposition failed: {e}")
@@ -18694,12 +19150,40 @@ fn joint_outer_evaluate(
     batched_outer_hessian_operator: Option<
         Arc<dyn crate::solver::outer_strategy::OuterHessianOperator>,
     >,
+    // Universal under-identification robustness (always armed when the family can
+    // expose an exact joint Hessian). The
+    // outer REML logdet AND its trace derivatives must run on the same
+    // Jeffreys-augmented Hessian `H + S_λ + H_Φ` the inner Newton converged on,
+    // or the LAML value and its analytic gradient describe different objectives.
+    // Folding `H_Φ` into the operator's matvec augments the inverse/logdet, but is
+    // NOT by itself sufficient: `H_Φ` depends on ρ THROUGH β̂, so the trace
+    // contraction also needs its mode-response drift `D_β H_Φ[v_k]` — supplied
+    // separately via `jeffreys_hphi_drift` and folded into the first-order trace
+    // by `JeffreysHphiAwareJointDerivatives`. `None` means this evaluation has
+    // no active Jeffreys curvature (empty system, unavailable exact derivatives,
+    // or the conditioning gate proved the term zero), not a user-selected
+    // robustness-off mode.
+    robust_jeffreys_hphi: Option<Array2<f64>>,
+    // Companion mode-response drift `D_β H_Φ[δβ]` for the outer gradient's trace
+    // identity. `Some` exactly when `robust_jeffreys_hphi` is `Some` (same
+    // under-identified span); installing it wraps the derivative provider so the
+    // first-order trace gains the `½ tr[(H+S_λ+H_Φ)⁻¹ D_β H_Φ[v_k]]` term that
+    // makes the analytic gradient match the augmented objective. `None` ⇒ the
+    // provider is used unwrapped.
+    jeffreys_hphi_drift: Option<JeffreysHphiDriftFn>,
 ) -> Result<OuterObjectiveEvalResult, String> {
     let joint_trace_diagonal_ridge = moderidge + if !strict_spd { extra_logdet_ridge } else { 0.0 };
     let scaled_joint_trace_diagonal_ridge = rho_curvature_scale * joint_trace_diagonal_ridge;
 
+    // Pre-scale the outer-REML Jeffreys curvature into the same rescaled space as
+    // the penalties so the projected-logdet path and the operator agree. `None`
+    // (flag OFF / no under-identified span) keeps the released outer REML exact.
+    let scaled_robust_jeffreys_hphi: Option<Array2<f64>> = robust_jeffreys_hphi
+        .as_ref()
+        .map(|hphi| hphi.mapv(|value| rho_curvature_scale * value));
+
     // Build derivative provider from the caller-supplied closures.
-    let provider_box: Box<dyn HessianDerivativeProvider + '_> =
+    let base_provider_box: Box<dyn HessianDerivativeProvider + '_> =
         if let (Some(owned_dh), Some(owned_d2h)) = (owned_compute_dh, owned_compute_d2h) {
             Box::new(OwnedJointDerivProvider {
                 compute_dh: owned_dh,
@@ -18717,6 +19201,21 @@ fn joint_outer_evaluate(
                 family_outer_hessian_operator: batched_outer_hessian_operator.clone(),
             })
         };
+
+    // Install the Jeffreys-`H_Φ` mode-response drift on top of the likelihood
+    // drift whenever the Jeffreys term is active. This is the term that makes the
+    // analytic outer gradient match the augmented objective `½ log|H+S_λ+H_Φ|`;
+    // without it the gradient omits `D_β H_Φ[v_k]` and the line search / KKT
+    // certification drifts in exactly the near-separating regime this machinery
+    // exists for. `None` ⇒ provider used unwrapped (byte-identical released path).
+    let provider_box: Box<dyn HessianDerivativeProvider + '_> = match jeffreys_hphi_drift {
+        Some(drift) => Box::new(JeffreysHphiAwareJointDerivatives::new(
+            base_provider_box,
+            drift,
+            total,
+        )),
+        None => base_provider_box,
+    };
 
     let scaled_s_lambdas: Vec<Array2<f64>> = inner
         .s_lambdas
@@ -18742,6 +19241,8 @@ fn joint_outer_evaluate(
                     let apply_h = Arc::clone(&h_joint);
                     let apply_ranges = ranges_vec.clone();
                     let apply_s = Arc::clone(&s_lambdas);
+                    let apply_hphi = robust_jeffreys_hphi.clone();
+                    let hphi_scale = rho_curvature_scale;
                     Arc::new(MatrixFreeSpdOperator::new_with_mode(
                         total,
                         move |v| {
@@ -18754,6 +19255,10 @@ fn joint_outer_evaluate(
                                 None,
                             );
                             out += &penalty;
+                            if let Some(hphi) = apply_hphi.as_ref() {
+                                let jeffreys = hphi.dot(v);
+                                out.scaled_add(hphi_scale, &jeffreys);
+                            }
                             out
                         },
                         pseudo_logdet_mode,
@@ -18763,6 +19268,8 @@ fn joint_outer_evaluate(
                     let apply_h = Arc::clone(apply);
                     let apply_ranges = ranges_vec.clone();
                     let apply_s = Arc::clone(&s_lambdas);
+                    let apply_hphi = robust_jeffreys_hphi.clone();
+                    let hphi_scale = rho_curvature_scale;
                     Arc::new(MatrixFreeSpdOperator::new_with_mode(
                         total,
                         move |v| {
@@ -18783,6 +19290,10 @@ fn joint_outer_evaluate(
                                 None,
                             );
                             out += &penalty;
+                            if let Some(hphi) = apply_hphi.as_ref() {
+                                let jeffreys = hphi.dot(v);
+                                out.scaled_add(hphi_scale, &jeffreys);
+                            }
                             out
                         },
                         pseudo_logdet_mode,
@@ -18802,6 +19313,9 @@ fn joint_outer_evaluate(
                 scaled_joint_trace_diagonal_ridge,
                 None,
             );
+            if let Some(hphi) = robust_jeffreys_hphi.as_ref() {
+                j_for_traces.scaled_add(rho_curvature_scale, hphi);
+            }
             Arc::new(
                 BlockCoupledOperator::from_joint_hessian_with_mode(
                     &j_for_traces,
@@ -18822,6 +19336,7 @@ fn joint_outer_evaluate(
             &scaled_s_lambdas,
             total,
             scaled_joint_trace_diagonal_ridge,
+            scaled_robust_jeffreys_hphi.as_ref(),
         )?;
         let correction = projected_logdet - hessian_op.logdet();
         if kernel.is_some() {
@@ -19148,6 +19663,7 @@ fn joint_outer_evaluate_efs(
             &scaled_s_lambdas,
             total,
             scaled_joint_trace_diagonal_ridge,
+            None,
         )?;
         let correction = projected_logdet - hessian_op.logdet();
         if kernel.is_some() {
@@ -20780,6 +21296,8 @@ fn evaluate_custom_family_hyper_internal_shared<F: CustomFamily + Clone + Send +
                 hessian_workspace.clone(),
                 eval_mode,
             )?,
+            custom_family_outer_jeffreys_hphi(family, &inner.block_states, specs, &ranges)?,
+            custom_family_outer_jeffreys_hphi_drift(family, &inner.block_states, specs, &ranges)?,
         )?;
 
         // The unified evaluator produces gradient/Hessian of size (rho_dim + psi_dim),
@@ -20801,10 +21319,17 @@ fn evaluate_custom_family_hyper_internal_shared<F: CustomFamily + Clone + Send +
     // a single streaming pass. Runs in both `ValueAndGradient` and
     // `ValueGradientHessian` modes; in VGH the Hessian still flows through the
     // standard joint_outer_evaluate path below and only the gradient is
-    // replaced. See `BatchedOuterGradientTerms`.
+    // replaced. See `BatchedOuterGradientTerms`. The replacement is permitted
+    // only when it differentiates the same objective: if robust Jeffreys
+    // curvature is nonzero, the unified H_phi-aware evaluator owns the gradient.
     let has_configured_rho_prior = !matches!(rho_prior, crate::types::RhoPrior::Flat);
+    let robust_jeffreys_hphi =
+        custom_family_outer_jeffreys_hphi(family, &inner.block_states, specs, &ranges)?;
+    let batched_gradient_contract_allows_override =
+        batched_outer_gradient_contract_allows_override(robust_jeffreys_hphi.as_ref());
     let mut batched_gradient_override: Option<Array1<f64>> = None;
     if !has_configured_rho_prior
+        && batched_gradient_contract_allows_override
         && (eval_mode == EvalMode::ValueAndGradient || eval_mode == EvalMode::ValueGradientHessian)
     {
         let beta_flat_for_batch = flatten_state_betas(&inner.block_states, specs);
@@ -20913,6 +21438,11 @@ fn evaluate_custom_family_hyper_internal_shared<F: CustomFamily + Clone + Send +
                         None,
                         None,
                         None,
+                        robust_jeffreys_hphi.clone(),
+                        // ValueOnly: the gradient is supplied separately below, so
+                        // the H_Φ mode-response drift (a gradient-only term) is not
+                        // needed here.
+                        None,
                     )?;
                     return Ok(OuterObjectiveEvalResult {
                         objective: value_only.objective,
@@ -20992,6 +21522,8 @@ fn evaluate_custom_family_hyper_internal_shared<F: CustomFamily + Clone + Send +
                 inner.joint_workspace.clone(),
                 eval_mode,
             )?,
+            custom_family_outer_jeffreys_hphi(family, &inner.block_states, specs, &ranges)?,
+            custom_family_outer_jeffreys_hphi_drift(family, &inner.block_states, specs, &ranges)?,
         )?;
 
         let mut eval_result = eval_result;
@@ -21302,6 +21834,8 @@ fn evaluate_custom_family_hyper_internal_shared<F: CustomFamily + Clone + Send +
             inner.joint_workspace.clone(),
             eval_mode,
         )?,
+        robust_jeffreys_hphi,
+        custom_family_outer_jeffreys_hphi_drift(family, &inner.block_states, specs, &ranges)?,
     )?;
 
     Ok(eval_result)
@@ -21855,6 +22389,308 @@ fn block_param_ranges(specs: &[ParameterBlockSpec]) -> Vec<(usize, usize)> {
         .iter()
         .map(|r| (r.start, r.end))
         .collect()
+}
+
+/// Build the joint Jeffreys/Firth basis `Z_J` (block-diagonal stack of each
+/// block's per-block span) for the universal robustness term.
+///
+/// Each block contributes its FULL reduced coefficient span (`I_p` per block) —
+/// the principled cure. Because the Jeffreys score is `O(1)` against the data's
+/// `O(n)` Fisher information, applying it on the full span is the `O(1/n)` Firth
+/// bias correction on data-identified directions (no bias on genuine smooth
+/// fits) and the missing `O(1)`-bounding curvature on ANY near-separating
+/// direction — penalized (`range(S)`) or not (`ker(S)`) — so the inner objective
+/// becomes coercive with a finite unique minimizer. The previous `ker(S)`-only
+/// scoping could not reach a near-separation on a penalized spline direction,
+/// which was the residual BMS-probit pathology.
+///
+/// The per-block bases are embedded block-diagonally into the joint
+/// `total_p x m_total` matrix. Returns `None` only for an empty system.
+///
+/// The Jeffreys conditioning gate, not the smoothing penalty null space,
+/// decides whether this basis contributes at the current iterate.
+fn build_joint_jeffreys_subspace(
+    specs: &[ParameterBlockSpec],
+    ranges: &[(usize, usize)],
+) -> Result<Option<Array2<f64>>, String> {
+    let total_p = ranges.last().map(|(_, e)| *e).unwrap_or(0);
+    if total_p == 0 {
+        return Ok(None);
+    }
+    let mut per_block: Vec<Array2<f64>> = Vec::with_capacity(specs.len());
+    let mut m_total = 0usize;
+    for (b, _spec) in specs.iter().enumerate() {
+        let (start, end) = ranges[b];
+        let p_block = end - start;
+        // Full identifiable-span Jeffreys: `Z_J = I_{p_block}` over the entire
+        // reduced block coefficient space. The aggregate penalty only fixes the
+        // block dimension; the span no longer depends on `ker(S)`.
+        let aggregate = Array2::<f64>::zeros((p_block, p_block));
+        let subspace = crate::estimate::reml::jeffreys_subspace::jeffreys_subspace_from_penalty(
+            aggregate.view(),
+        )?;
+        m_total += subspace.span_dim();
+        per_block.push(subspace.columns);
+    }
+    if m_total == 0 {
+        return Ok(None);
+    }
+    let mut z_joint = Array2::<f64>::zeros((total_p, m_total));
+    let mut col_cursor = 0usize;
+    for (b, columns) in per_block.iter().enumerate() {
+        let (start, _) = ranges[b];
+        let m_block = columns.ncols();
+        let p_block = columns.nrows();
+        for j in 0..m_block {
+            for i in 0..p_block {
+                z_joint[[start + i, col_cursor + j]] = columns[[i, j]];
+            }
+        }
+        col_cursor += m_block;
+    }
+    Ok(Some(z_joint))
+}
+
+/// CHEAP, matrix-free conditioning pre-check: can the always-on Jeffreys term be
+/// PROVABLY skipped at this working point WITHOUT forming the dense joint Hessian
+/// `H` or running the `O(p³)` reduced eigendecomposition?
+///
+/// This is the perf gate in front of the expensive `custom_family_joint_jeffreys_*`
+/// formation. On the FULL span (`Z_J = I`) the reduced information is `H_id = H`,
+/// so the conditioning gate only needs `H`'s extreme eigenvalues — and those can
+/// be bounded conservatively from a few Hessian-vector products against the SAME
+/// `joint_hessian_source` operator the inner Newton already built (matrix-free on
+/// the large-`p` path, dense otherwise). When the conservative bounds clear both
+/// gates with a safe margin (see `jeffreys_term_skippable_via_matvec`), the exact
+/// gate is CERTAIN to return the zero term, so the caller skips the dense `H`
+/// materialization, the `Z_JᵀHZ_J` build, the eigendecomposition, the `∇Φ`/`H_Φ`
+/// assembly, and the Q1 outer drift entirely — returning the EXACT-ZERO term,
+/// byte-identical to the gated-off dense path. Returns `false` (never skip)
+/// whenever the cheap bounds are unresolved or merely near the gate, so any fit
+/// where the term might bite still flows to the exact formation.
+///
+/// Matrix-free preservation: the pre-check issues only `O(p·k)` (`k≤12`) matvecs
+/// through `source` and forms nothing dense at `p`-scale; on a well-conditioned
+/// large-`p` matrix-free fit (the common case) it returns `true` and NOTHING
+/// dense is ever built — preserving the matrix-free path the dense `H_id`
+/// formation was defeating. Only on a genuinely near-separating large-`p` fit
+/// (rare) does it return `false` and fall through to the inherent `O(p²)` dense
+/// `H_id`/`H_Φ` formation, where that cost is justified.
+fn jeffreys_term_skippable_for_source(
+    source: &JointHessianSource,
+    total_p: usize,
+) -> Result<bool, String> {
+    // Below the dense-eigh-is-cheap threshold the inner `jeffreys_term_skippable_via_matvec`
+    // short-circuits to `false` anyway; bail early so small fits (e.g. BMS p≈51)
+    // pay nothing for the pre-check and run the exact dense path unchanged.
+    if total_p < crate::estimate::reml::jeffreys_subspace::CHEAP_CONDITIONING_PRECHECK_MIN_DIM {
+        return Ok(false);
+    }
+    // Matrix-free Hessian-vector product against the SAME observed information the
+    // exact gate sees. `joint_jeffreys_term`'s reduced information is `Z_JᵀHZ_J`
+    // with `Z_J = I`, i.e. exactly the UNRIDGED likelihood joint Hessian `H` that
+    // `exact_newton_joint_hessian_with_specs` materializes; the `Operator::apply`
+    // / `Dense` here is that SAME `H` (the workspace's `hessian_matvec`, which the
+    // dense source also reconstructs). So the pre-check estimates the spectrum of
+    // precisely the matrix the dense path eigendecomposes — the skip decision and
+    // the exact gate are consistent by construction, with no ridge discrepancy
+    // (the solver's separate ridged solve operator is not involved here).
+    let hv = |v: &Array1<f64>| -> Result<Array1<f64>, String> {
+        match source {
+            JointHessianSource::Dense(matrix) => Ok(matrix.dot(v)),
+            JointHessianSource::Operator { apply, .. } => apply(v),
+        }
+    };
+    crate::estimate::reml::jeffreys_subspace::jeffreys_term_skippable_via_matvec(hv, total_p)
+}
+
+/// Evaluate ONLY the Jeffreys objective value `Phi = 1/2 log|Z_J^T H Z_J|` at
+/// the current working point. Cheaper than the full term (no directional
+/// derivatives), used to keep the trust-region accept/reject objective
+/// consistent with the Jeffreys-modified Newton step. Returns `0.0` when there
+/// is no coefficient system, the family exposes no exact joint Hessian,
+/// or the reduced Fisher information is not yet SPD (the value contribution is
+/// then simply omitted for that trial point — the step machinery still bounds
+/// the coefficient, and the next accepted cycle re-folds a finite value).
+fn custom_family_joint_jeffreys_value<F: CustomFamily + Clone + Send + Sync + 'static>(
+    family: &F,
+    states: &[ParameterBlockState],
+    specs: &[ParameterBlockSpec],
+    ranges: &[(usize, usize)],
+    z_joint: &Array2<f64>,
+) -> f64 {
+    let total_p = ranges.last().map(|(_, e)| *e).unwrap_or(0);
+    if total_p == 0 || z_joint.ncols() == 0 {
+        return 0.0;
+    }
+    let h_joint = match family.exact_newton_joint_hessian_with_specs(states, specs) {
+        Ok(Some(h)) if h.nrows() == total_p && h.ncols() == total_p => h,
+        _ => return 0.0,
+    };
+    match crate::estimate::reml::jeffreys_subspace::joint_jeffreys_term(
+        h_joint.view(),
+        z_joint.view(),
+        |_direction: &Array1<f64>| Ok(None),
+    ) {
+        Ok((phi, _grad, _hphi)) => phi,
+        Err(_) => 0.0,
+    }
+}
+
+/// Evaluate the family-general Jeffreys term `(Phi, grad, H_Phi)` at the current
+/// working point from the coupled joint Hessian (Tier-B path). Returns `None`
+/// when there is no coefficient system or the family does not expose an
+/// exact joint Hessian (in which case the term is inapplicable and the caller
+/// proceeds unchanged).
+fn custom_family_joint_jeffreys_term<F: CustomFamily + Clone + Send + Sync + 'static>(
+    family: &F,
+    states: &[ParameterBlockState],
+    specs: &[ParameterBlockSpec],
+    ranges: &[(usize, usize)],
+    z_joint: &Array2<f64>,
+) -> Result<Option<(f64, Array1<f64>, Array2<f64>)>, String> {
+    let total_p = ranges.last().map(|(_, e)| *e).unwrap_or(0);
+    if total_p == 0 || z_joint.ncols() == 0 {
+        return Ok(None);
+    }
+    let h_joint = match family.exact_newton_joint_hessian_with_specs(states, specs)? {
+        Some(h) => h,
+        None => return Ok(None),
+    };
+    if h_joint.nrows() != total_p || h_joint.ncols() != total_p {
+        return Ok(None);
+    }
+    let term = crate::estimate::reml::jeffreys_subspace::joint_jeffreys_term(
+        h_joint.view(),
+        z_joint.view(),
+        |direction: &Array1<f64>| {
+            family.exact_newton_joint_hessian_directional_derivative_with_specs(
+                states, specs, direction,
+            )
+        },
+    )?;
+    Ok(Some(term))
+}
+
+/// Outer-REML full-span Jeffreys curvature `H_Φ` for the coupled joint Hessian.
+/// Returns `None` when there is no coefficient system or the family exposes no
+/// exact joint Hessian.
+///
+/// This is the OUTER-path companion to the inner-Newton wiring: the LAML score
+/// uses `log|H + S_λ + H_Φ|` and its analytic ρ-derivatives
+/// `tr((H+S_λ+H_Φ)⁻¹ ∂_ρ(H+S_λ+H_Φ))`.
+///
+/// CORRECTNESS NOTE (was a bug — see `custom_family_outer_jeffreys_hphi_drift`).
+/// `H_Φ` has no EXPLICIT ρ-dependence, but it DOES depend on ρ implicitly through
+/// the mode β̂(ρ): `H_Φ = H_Φ(β̂(ρ))` because it is built from `H_id = Z_Jᵀ H Z_J`
+/// and `D_a = Z_Jᵀ ∂_a H Z_J`, both functions of β̂. So the exact outer gradient
+/// of `½ log|H+S_λ+H_Φ|` carries a `½ tr[(·)⁻¹ D_β H_Φ[v_k]]` drift term ALONGSIDE
+/// the likelihood drift `D_β H[v_k]`. Folding `H_Φ` into the `HessianOperator`
+/// (the `(·)⁻¹` kernel and `logdet()`) is necessary but NOT sufficient: the
+/// trace contraction must ALSO include `D_β H_Φ[v_k]`, supplied by the companion
+/// drift wrapper. Without it the analytic gradient describes a DIFFERENT objective
+/// than the value, breaking the line search / KKT certification exactly in the
+/// near-separating regime where the Jeffreys term is active.
+fn custom_family_outer_jeffreys_hphi<F: CustomFamily + Clone + Send + Sync + 'static>(
+    family: &F,
+    states: &[ParameterBlockState],
+    specs: &[ParameterBlockSpec],
+    ranges: &[(usize, usize)],
+) -> Result<Option<Array2<f64>>, String> {
+    let z_joint = match build_joint_jeffreys_subspace(specs, ranges)? {
+        Some(z) => z,
+        None => return Ok(None),
+    };
+    let hphi = custom_family_joint_jeffreys_term(family, states, specs, ranges, &z_joint)?
+        .map(|(_phi, _grad, hphi)| hphi);
+    Ok(hphi)
+}
+
+fn batched_outer_gradient_contract_allows_override(
+    robust_jeffreys_hphi: Option<&Array2<f64>>,
+) -> bool {
+    match robust_jeffreys_hphi {
+        None => true,
+        Some(hphi) => hphi.iter().all(|value| *value == 0.0),
+    }
+}
+
+/// Build the Tier-B Jeffreys-curvature drift closure `D_β H_Φ[δβ]` for the outer
+/// gradient, evaluated at the current outer point (states = β̂(ρ)).
+///
+/// THE FIX. The outer LAML objective folds `H_Φ` into `½ log|H + S_λ + H_Φ|`;
+/// because `H_Φ` depends on ρ through β̂, the exact gradient's trace contraction
+/// must include `½ tr[(H+S_λ+H_Φ)⁻¹ D_β H_Φ[v_k]]`. The released Tier-B path
+/// supplied ONLY the likelihood-Hessian drift `D_β H[v_k]`, so the analytic
+/// gradient omitted `H_Φ`'s mode-response drift — wrong precisely when Jeffreys
+/// is active. This returns the missing drift as a `Send + Sync + 'static` closure
+/// the `JeffreysHphiAwareJointDerivatives` wrapper folds into the first-order
+/// trace, mirroring Tier-A's `FirthAwareGlmDerivatives` `−D(Hφ)[B_k]` term.
+///
+/// The closure takes the mode-response direction `δβ = dβ̂/dρ_k` (the wrapper
+/// performs `v_k → δβ = −v_k`) and returns `D_β H_Φ[δβ]`. Returns `None` when
+/// there is no coefficient system — i.e. exactly when
+/// `custom_family_outer_jeffreys_hphi` itself returns `None`. The per-direction
+/// conditioning gate and floored
+/// pseudo-inverse inside `joint_jeffreys_hphi_directional_derivative` reproduce
+/// the value path's, so when the value's `H_Φ` is zero (gated/clean fit) the
+/// drift is identically zero too.
+fn custom_family_outer_jeffreys_hphi_drift<F: CustomFamily + Clone + Send + Sync + 'static>(
+    family: &F,
+    states: &[ParameterBlockState],
+    specs: &[ParameterBlockSpec],
+    ranges: &[(usize, usize)],
+) -> Result<Option<JeffreysHphiDriftFn>, String> {
+    let z_joint = match build_joint_jeffreys_subspace(specs, ranges)? {
+        Some(z) => z,
+        None => return Ok(None),
+    };
+    let total_p = ranges.last().map(|(_, e)| *e).unwrap_or(0);
+    if total_p == 0 || z_joint.ncols() == 0 {
+        return Ok(None);
+    }
+    // Snapshot the joint Hessian H(β̂) at the current outer point. If the family
+    // exposes no exact joint Hessian the Jeffreys term is inapplicable (matching
+    // `custom_family_joint_jeffreys_term`), so no drift is installed.
+    let h_joint = match family.exact_newton_joint_hessian_with_specs(states, specs)? {
+        Some(h) => h,
+        None => return Ok(None),
+    };
+    if h_joint.nrows() != total_p || h_joint.ncols() != total_p {
+        return Ok(None);
+    }
+    // Own everything the closure needs so it is `'static + Send + Sync`. β̂ is
+    // fixed across the single outer evaluation, so capturing the snapshot states
+    // is correct; the closure recomputes the exact directional derivatives of the
+    // joint Hessian at that point for each mode-response direction.
+    let family_owned = family.clone();
+    let states_owned: Vec<ParameterBlockState> = states.to_vec();
+    let specs_owned: Vec<ParameterBlockSpec> = specs.to_vec();
+    let z_columns = z_joint.clone();
+    let drift: JeffreysHphiDriftFn = Arc::new(move |delta: &Array1<f64>| {
+        crate::estimate::reml::jeffreys_subspace::joint_jeffreys_hphi_directional_derivative(
+            h_joint.view(),
+            z_columns.view(),
+            delta,
+            |direction: &Array1<f64>| {
+                family_owned.exact_newton_joint_hessian_directional_derivative_with_specs(
+                    &states_owned,
+                    &specs_owned,
+                    direction,
+                )
+            },
+            |u: &Array1<f64>, v: &Array1<f64>| {
+                family_owned.exact_newton_joint_hessian_second_directional_derivative_with_specs(
+                    &states_owned,
+                    &specs_owned,
+                    u,
+                    v,
+                )
+            },
+        )
+        .map(Some)
+    });
+    Ok(Some(drift))
 }
 
 const JOINT_MATRIX_FREE_MIN_DIM: usize = 512;
@@ -23574,6 +24410,11 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         problem
     };
 
+    // Robustness is unconditional, so escalation is always armed: the inner-non-
+    // convergence branch inside `eval_outer` marks a trial rho *infeasible*
+    // (recoverable) rather than hard-erroring, letting the outer optimizer retreat
+    // and the run reach the terminal HMC sampling rung instead of dead-ending
+    // before it (the gap `verify` located at this site).
     let eval_outer = |outer: &mut CustomOuterState,
                       rho: &Array1<f64>,
                       order: OuterEvalOrder|
@@ -23598,9 +24439,12 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
             Ok(eval) if !eval.inner_converged => {
                 outer.warm_cache = Some(eval.warm_start.clone());
                 outer.last_error = Some("custom-family inner solve did not converge".to_string());
-                return Err(EstimationError::RemlOptimizationFailed(
-                    "custom-family inner solve did not converge".to_string(),
-                ));
+                // Recoverable: this trial rho is infeasible (inner solve did not
+                // converge), so the outer optimizer retreats rather than the whole
+                // run hard-erroring. When the search ultimately reports
+                // `converged == false`, the post-run rung samples the proper
+                // posterior (never-fail).
+                return Ok(OuterEval::infeasible(rho.len()));
             }
             Ok(eval)
                 if eval.objective.is_finite()
@@ -23642,11 +24486,20 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
             Ok(_) => {
                 outer.last_error =
                     Some("custom-family outer objective/derivatives became non-finite".to_string());
-                return Err(EstimationError::RemlOptimizationFailed(
-                    "custom-family outer objective/derivatives became non-finite".to_string(),
-                ));
+                // Recoverable (data-driven): the objective/derivatives became
+                // non-finite at this trial rho (e.g. separation / near-singular
+                // information), so the outer optimizer retreats from this infeasible
+                // point rather than the whole run hard-erroring. When the search
+                // ultimately reports `converged == false`, the post-run rung samples
+                // the proper posterior (never-fail).
+                return Ok(OuterEval::infeasible(rho.len()));
             }
             Err(e) => {
+                // Genuine eval-error (internal computation failure: linalg error,
+                // etc.) — NOT data-driven. Leave as a hard Err even when escalation
+                // is armed: a real bug must surface, not be silently sampled over.
+                // Only the "did not converge" / "non-finite objective" data-driven
+                // paths above convert to infeasible-when-armed.
                 outer.last_error = Some(e.clone());
                 return Err(EstimationError::RemlOptimizationFailed(e));
             }
@@ -23695,12 +24548,20 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                         "custom-family value-only inner solve did not converge or objective was non-finite"
                             .to_string(),
                     );
-                    Err(EstimationError::RemlOptimizationFailed(
-                        "custom-family value-only inner solve did not converge or objective was non-finite"
-                            .to_string(),
-                    ))
+                    // Recoverable (data-driven): this value-only probe is the
+                    // line-search cost the outer optimizer calls most often. A
+                    // non-converged inner solve / non-finite objective at this trial
+                    // rho means the point is infeasible — return an infinite cost so
+                    // the line search retreats, rather than hard-erroring out of
+                    // `problem.run` and bypassing the post-run escalation (sampling)
+                    // rung. When the search reports `converged == false` the never-fail
+                    // rung samples the proper posterior.
+                    Ok(f64::INFINITY)
                 }
                 Err(e) => {
+                    // Genuine eval-error (internal computation failure) — NOT
+                    // data-driven. Leave as a hard Err even when escalation is armed
+                    // so a real bug surfaces instead of being silently sampled over.
                     outer.last_error = Some(e.clone());
                     Err(EstimationError::RemlOptimizationFailed(e))
                 }
@@ -23749,11 +24610,28 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                     outer.warm_cache = Some(warm);
                     outer.last_error =
                         Some("custom-family EFS inner solve did not converge".to_string());
+                    // Intentionally LEFT as a hard Err even when escalation is armed.
+                    // Unlike the BFGS/value-only paths above, an EFS error does NOT
+                    // dead-end the run: it surfaces as a recoverable objective-eval
+                    // error at the fixed-point bridge (outer_strategy.rs:2409-2410
+                    // `into_objective_error` -> `ObjectiveEvalError::recoverable`),
+                    // so the EFS seed is rejected / the FixedPoint run returns Err,
+                    // and `run_outer`'s fallback cascade (outer_strategy.rs:5297) routes
+                    // to the fixed-point-disabled analytic-gradient BFGS attempt. That
+                    // attempt is always present here because custom-family declares an
+                    // analytic outer gradient (custom_family.rs:11826), so
+                    // `automatic_fallback_attempts` (outer_strategy.rs:1502) adds it.
+                    // BFGS then evaluates via `eval_outer` / the value-only cost
+                    // closure, both of which now retreat-when-armed, so the run reaches
+                    // `Ok(converged == false)` and the post-run sampling rung. No
+                    // analogous infeasible sentinel is needed at this site.
                     Err(EstimationError::RemlOptimizationFailed(
                         "custom-family EFS inner solve did not converge".to_string(),
                     ))
                 }
                 Err(e) => {
+                    // Genuine eval-error (internal computation failure) — NOT
+                    // data-driven. Hard Err so a real bug surfaces.
                     outer.last_error = Some(e.clone());
                     Err(EstimationError::RemlOptimizationFailed(e))
                 }
@@ -23814,11 +24692,27 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
             "outer smoothing optimization failed after exhausting strategy fallbacks: {e}.{last_error_detail}"
         )
     })?;
-    if !outer_result.converged {
-        return Err(CustomFamilyError::Optimization {
-            context: "fit_custom_family outer smoothing",
-            reason: custom_outer_nonconvergence_error(&outer_result, specs, &last_error_detail),
-        });
+    // Geometry-driven terminal escalation. When the outer smoothing optimizer
+    // cannot certify convergence, the objective is always *proper* (Jeffreys/PC
+    // term unconditionally armed), so a non-convergence here is a geometry signal
+    // (indefinite / non-smooth LAML landscape that stalled Strong-Wolfe) — not a
+    // reason to fail. Instead we AUTO-ESCALATE to sampling the proper posterior
+    // about the best mode the inner solve reached (the never-fail bottom rung;
+    // see `hmc::sample_gaussian_mode_posterior`). The fast Arc/EFS path is
+    // untouched: this branch is only reached after the optimizer reports
+    // non-convergence, so nice landscapes never pay any sampling cost. The
+    // trigger is purely geometry/optimizer-derived (`outer_result.converged`),
+    // never a user flag — robustness is the unconditional default, so the legacy
+    // hard-`Err` dead-end is deleted.
+    let nonconvergence_escalation = !outer_result.converged;
+    if nonconvergence_escalation {
+        log::info!(
+            "[robust] outer smoothing did not certify convergence (plan={} iters={} |g|={}); \
+             AUTO-ESCALATE to never-fail posterior sampling about the best mode",
+            outer_result.plan_used,
+            outer_result.iterations,
+            outer_result.final_grad_norm_report(),
+        );
     }
     let outer_grad_norm = outer_result.final_grad_norm;
     let rho_star = outer_result.rho;
@@ -23842,7 +24736,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                      {e}.{last_error_detail}"
         )
     })?;
-    if !inner.converged {
+    if !inner.converged && !nonconvergence_escalation {
         return Err(CustomFamilyError::Optimization {
             context: "fit_custom_family final inner refit",
             reason: format!(
@@ -23850,6 +24744,16 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                 inner.cycles, last_error_detail
             ),
         });
+    }
+    if !inner.converged && nonconvergence_escalation {
+        // The mode the inner solve reached is still the seed for the proper
+        // posterior; a marginal inner non-convergence only widens the sampled
+        // intervals (honest, not wrong). Proceed to assemble + sample.
+        log::info!(
+            "[robust] final inner refit did not fully converge ({} cycles) under escalation; \
+             sampling the proper posterior about the reached mode",
+            inner.cycles,
+        );
     }
     let final_warm_start = constrained_warm_start_from_inner(&rho_star, &inner);
     store_persistent_custom_family_warm_start(
@@ -23863,7 +24767,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
              {e}.{last_error_detail}"
         )
     })?;
-    let covariance_conditional =
+    let mut covariance_conditional =
         compute_joint_covariance_required(family, specs, &inner.block_states, &per_block, options)?;
 
     let geometry = compute_joint_geometry(family, specs, &inner.block_states, &per_block).map_err(
@@ -23890,6 +24794,145 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         context: "fit_custom_family penalized objective",
         reason,
     })?;
+    // Never-fail terminal rung. Under escalation, sample the proper posterior
+    // `N(β̂, H⁻¹)` whose precision `H` is the SAME penalized (Jeffreys-augmented)
+    // joint Hessian the inner solve produced at the reached mode `β̂`, and report
+    // its honest covariance in place of the optimizer-conditional one. Both `H`
+    // and `β̂` are in the reduced (canonical) coordinate space here; the joint
+    // lift below (`lift_fit_geometry_to_raw`) carries the sampled covariance back
+    // to raw space exactly like the conditional covariance it replaces.
+    //
+    // Sampling a multivariate normal cannot dead-end: `sample_gaussian_mode_posterior`
+    // jitters and Cholesky-factors `H`, so a marginally indefinite boundary
+    // Hessian only widens the intervals. If that structural factorization is
+    // genuinely impossible (e.g. a non-PSD precision after symmetrization) the
+    // sampler returns `Err`; rather than re-introducing the dead-end we then keep
+    // the optimizer-conditional covariance (a finite point with its existing SEs)
+    // and still return a fit — never an `Err` for non-convergence.
+    if nonconvergence_escalation {
+        if let Some(geom) = geometry.as_ref() {
+            let joint_mode: Array1<f64> = {
+                let mut mode = Vec::new();
+                for state in &inner.block_states {
+                    mode.extend(state.beta.iter().copied());
+                }
+                Array1::from(mode)
+            };
+            let precision = geom.penalized_hessian.as_array();
+            if joint_mode.len() == precision.nrows()
+                && precision.nrows() == precision.ncols()
+                && joint_mode.iter().all(|v| v.is_finite())
+            {
+                let sampling_config =
+                    crate::inference::hmc::NutsConfig::for_dimension(joint_mode.len());
+                match crate::inference::hmc::sample_gaussian_mode_posterior(
+                    joint_mode.view(),
+                    precision.view(),
+                    &sampling_config,
+                ) {
+                    Ok(posterior) => {
+                        let dim = joint_mode.len();
+                        let n = posterior.samples.nrows();
+                        if n > 1 {
+                            // Sample posterior covariance about the posterior mean
+                            // (honest intervals; not the Laplace inverse-Hessian).
+                            let mean = &posterior.posterior_mean;
+                            let mut cov = Array2::<f64>::zeros((dim, dim));
+                            for row in posterior.samples.rows() {
+                                let centered = &row.to_owned() - mean;
+                                for a in 0..dim {
+                                    for b in 0..dim {
+                                        cov[[a, b]] += centered[a] * centered[b];
+                                    }
+                                }
+                            }
+                            cov.mapv_inplace(|v| v / (n as f64 - 1.0));
+                            // DIAGNOSTIC GUARD (no false-confident intervals).
+                            // The sampler NEVER fails, so without checking its
+                            // mixing diagnostics a divergent (R̂ ≫ 1) / near-zero-
+                            // ESS draw would be reported as an "honest" covariance.
+                            // That is especially dangerous here: the seed `H` is
+                            // the Jeffreys-AUGMENTED precision evaluated at β̂, which
+                            // may be NON-converged on a flat (unidentified) joint
+                            // direction — so a poorly-mixed chain can report a
+                            // FINITE, NARROW interval around an arbitrary point on
+                            // that flat direction (the prior's interval), masquer-
+                            // ading as data-driven. We therefore only accept the
+                            // sampled covariance as honest when the chain actually
+                            // mixed; otherwise we INFLATE it to reflect the non-
+                            // convergence and flag it low-confidence rather than
+                            // silently reporting a Jeffreys-narrowed interval.
+                            //
+                            // R̂ ≤ 1.05 is the standard "mixed" gate (stricter than
+                            // the 1.1 used for a coarse converged/not flag, because
+                            // this covariance is reported as honest uncertainty).
+                            // The ESS floor scales with dimension (≥ 10 effective
+                            // draws per parameter, absolute floor 50) so a chain
+                            // that produced essentially no independent information
+                            // about the posterior is caught independent of model
+                            // size.
+                            const RHAT_MIXED_MAX: f64 = 1.05;
+                            let ess_floor = (10.0 * dim as f64).max(50.0);
+                            let rhat = posterior.rhat;
+                            let ess = posterior.ess;
+                            let diagnostics_ok = rhat.is_finite()
+                                && ess.is_finite()
+                                && rhat <= RHAT_MIXED_MAX
+                                && ess >= ess_floor;
+                            if diagnostics_ok {
+                                log::info!(
+                                    "[robust] never-fail posterior sampling mixed: dim={dim} \
+                                     draws={n} rhat={rhat:.3} ess={ess:.0}; reporting sampled \
+                                     covariance as honest intervals",
+                                );
+                                covariance_conditional = Some(cov);
+                            } else {
+                                // Non-converged: do NOT report the narrow sampled
+                                // covariance as data-driven. Inflate it so the
+                                // reported uncertainty reflects the failure to
+                                // resolve the posterior — widen by the R̂ excess (a
+                                // divergent chain widens hard) and an ESS-deficit
+                                // factor (too few independent draws ⇒ the sample
+                                // covariance is itself unreliable / too narrow). The
+                                // result is a clearly-flagged LOW-CONFIDENCE summary,
+                                // never an artificially tight interval, and we still
+                                // return a fit (the never-fail guarantee stands).
+                                let rhat_factor = if rhat.is_finite() {
+                                    rhat.max(1.0)
+                                } else {
+                                    // R̂ unestimable (too few chains/samples) ⇒
+                                    // treat as maximally unresolved.
+                                    RHAT_MIXED_MAX
+                                };
+                                let ess_factor = if ess.is_finite() && ess > 0.0 {
+                                    (ess_floor / ess).sqrt().max(1.0)
+                                } else {
+                                    ess_floor.sqrt()
+                                };
+                                let inflation = (rhat_factor * rhat_factor) * ess_factor;
+                                cov.mapv_inplace(|v| v * inflation);
+                                log::warn!(
+                                    "[robust] never-fail posterior sampling DID NOT MIX: dim={dim} \
+                                     draws={n} rhat={rhat:.3} (>{RHAT_MIXED_MAX}) ess={ess:.0} \
+                                     (<{ess_floor:.0}); reporting LOW-CONFIDENCE inflated covariance \
+                                     (x{inflation:.2}) instead of a possibly false-confident \
+                                     Jeffreys-narrowed interval (intervals are prior-dominated on \
+                                     any unidentified joint direction, NOT data-driven)",
+                                );
+                                covariance_conditional = Some(cov);
+                            }
+                        }
+                    }
+                    Err(reason) => {
+                        log::warn!(
+                            "[robust] never-fail posterior sampling could not factor the precision \
+                             ({reason}); retaining optimizer-conditional covariance (still no dead-end)",
+                        );
+                    }
+                }
+            }
+        }
+    }
     let rho_star_physical = expand_labeled_log_lambdas(&rho_star, &label_layout)?;
     let lambdas_final = rho_star_physical.mapv(f64::exp);
     let log_lambdas_final = lambdas_final.mapv(|v| v.max(1e-300).ln());
@@ -24219,6 +25262,26 @@ mod tests {
         );
     }
 
+    #[test]
+    fn batched_outer_gradient_override_rejected_when_jeffreys_curvature_is_active() {
+        assert!(
+            batched_outer_gradient_contract_allows_override(None),
+            "released objective without robust Jeffreys curvature may use a family-owned batched gradient"
+        );
+
+        let zero_hphi = Array2::<f64>::zeros((2, 2));
+        assert!(
+            batched_outer_gradient_contract_allows_override(Some(&zero_hphi)),
+            "a gated zero Jeffreys curvature leaves the batched gradient contract unchanged"
+        );
+
+        let active_hphi = array![[0.0, 0.0], [0.0, 1.0e-6]];
+        assert!(
+            !batched_outer_gradient_contract_allows_override(Some(&active_hphi)),
+            "nonzero H_phi changes the logdet operator and needs the unified H_phi-aware gradient"
+        );
+    }
+
     use super::*;
     use crate::basis::{CenterStrategy, MaternBasisSpec, MaternIdentifiability, MaternNu};
     use crate::families::gamlss::{BinomialLocationScaleFamily, BinomialLocationScaleWiggleFamily};
@@ -24341,6 +25404,7 @@ mod tests {
             &penalties,
             3,
             0.0,
+            None,
         )
         .expect("projection parts build");
         let kernel = kernel.expect("rank-deficient penalty still has an identified subspace");
@@ -24363,6 +25427,7 @@ mod tests {
             &penalties,
             3,
             0.0,
+            None,
         )
         .expect("plus projection parts build");
         let (logdet_minus, _) = joint_penalty_subspace_trace_parts(
@@ -24371,6 +25436,7 @@ mod tests {
             &penalties,
             3,
             0.0,
+            None,
         )
         .expect("minus projection parts build");
         let finite_difference = (logdet_plus - logdet_minus) / (2.0 * eps);
@@ -24468,6 +25534,8 @@ mod tests {
             None,
             None,
             None,
+            None,
+            None,
         )
         .expect("projected outer evaluation succeeds");
 
@@ -24504,6 +25572,8 @@ mod tests {
             None,
             None,
             None,
+            None,
+            None,
         )
         .expect("unprojected outer evaluation succeeds");
 
@@ -24513,6 +25583,7 @@ mod tests {
             std::slice::from_ref(&s_lambda),
             3,
             0.0,
+            None,
         )
         .expect("projection kernel builds");
         let projected_trace = kernel
@@ -24646,6 +25717,8 @@ mod tests {
                 None,
                 None,
                 None,
+                None,
+                None,
             )
             .expect("projected eval ok");
 
@@ -24675,6 +25748,8 @@ mod tests {
                 &no_dh,
                 None,
                 &no_d2h,
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -25017,6 +26092,8 @@ mod tests {
             &compute_dh,
             None,
             &no_d2h,
+            None,
+            None,
             None,
             None,
             None,
@@ -27394,7 +28471,6 @@ mod tests {
             cache_mirror_sessions: Vec::new(),
             joint_penalties: None,
             screen_initial_rho: true,
-            robust_identification: crate::solver::workflow::RobustIdentification::Off,
         };
 
         let result = fit_custom_family(&OneBlockIdentityFamily, &[spec], &options)
@@ -27448,7 +28524,6 @@ mod tests {
             cache_mirror_sessions: Vec::new(),
             joint_penalties: None,
             screen_initial_rho: true,
-            robust_identification: crate::solver::workflow::RobustIdentification::Off,
         };
         let per_block_log_lambdas = vec![array![10.0_f64.ln()]];
         let inner = inner_blockwise_fit(&family, &[spec], &per_block_log_lambdas, &options, None)
@@ -27505,7 +28580,6 @@ mod tests {
             cache_mirror_sessions: Vec::new(),
             joint_penalties: None,
             screen_initial_rho: true,
-            robust_identification: crate::solver::workflow::RobustIdentification::Off,
         };
         let inner = inner_blockwise_fit(&family, &[spec], &[Array1::zeros(0)], &options, None)
             .expect("inner blockwise fit should succeed");
@@ -31464,6 +32538,12 @@ mod tests {
                 .contains("block_c_rank_deficient"),
             "bubbled error must name the carrying block by spec.name",
         );
+        assert!(
+            report
+                .format_bubbled_error()
+                .contains("structural or numerical null direction"),
+            "rank-deficient refusals should no longer emit the old polynomial-only guidance",
+        );
     }
 
     /// Round-trip: every variant's `as_str()` output, when embedded in the
@@ -31479,6 +32559,7 @@ mod tests {
             KktRefusalDiagnosis::RankDeficientHPen,
             KktRefusalDiagnosis::PhantomMultiplierWithWellConditionedH,
             KktRefusalDiagnosis::ActiveSetIncomplete,
+            KktRefusalDiagnosis::AliasingDetectedAtFit,
         ] {
             let label = diagnosis.as_str();
             // Mimic the trailing slot exactly as `format_bubbled_error`
@@ -31496,6 +32577,21 @@ mod tests {
                 parsed,
             );
         }
+    }
+
+    #[test]
+    fn kkt_refusal_guidance_distinguishes_marginal_slope_coupling_from_polynomial_nullspace() {
+        let phantom = KktRefusalDiagnosis::PhantomMultiplierWithWellConditionedH.guidance();
+        assert!(phantom.contains("marginal/logslope coupling"));
+        assert!(phantom.contains("rather than a"));
+        assert!(phantom.contains("Matérn/Duchon polynomial-nullspace failure"));
+
+        let active = KktRefusalDiagnosis::ActiveSetIncomplete.guidance();
+        assert!(active.contains("active-set certification failure"));
+        assert!(active.contains("not a polynomial-nullspace diagnosis"));
+
+        let alias = KktRefusalDiagnosis::AliasingDetectedAtFit.guidance();
+        assert!(alias.contains("drop or reparameterize"));
     }
 
     /// Regression canary: a synthetic 3-block fixture chosen to mimic the
@@ -31627,6 +32723,10 @@ mod tests {
             KktRefusalDiagnosis::parse_from_error(&bubbled),
             Some(KktRefusalDiagnosis::RankDeficientHPen),
             "canary's bubbled-error string must parse back via the classifier's parser",
+        );
+        assert!(
+            bubbled.contains("marginal-slope fits can also expose callback-owned weak directions"),
+            "BMS-shaped refusal should mention the callback-owned weak-direction mechanism"
         );
     }
 

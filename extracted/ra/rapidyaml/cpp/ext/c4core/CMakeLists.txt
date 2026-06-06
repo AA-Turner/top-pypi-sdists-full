@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
 cmake_policy(SET CMP0048 NEW) # pass VERSION to project()
 project(c4core
-    VERSION 0.3.0
+    VERSION 0.4.0
     DESCRIPTION "Multiplatform low-level C++ utilities"
     HOMEPAGE_URL "https://github.com/biojppm/c4core"
     LANGUAGES CXX)
 include(./cmake/c4Project.cmake)
 include(./compat.cmake)
 
-c4_project(VERSION 0.3.0
+c4_project(VERSION 0.4.0
     AUTHOR "Joao Paulo Magalhaes <dev@jpmag.me>")
 
 option(C4CORE_INSTALL "create install target" ON)
@@ -40,6 +40,7 @@ set(C4CORE_SRC_FILES
     c4/export.hpp
     c4/format.hpp
     c4/format.cpp
+    c4/format_base64.hpp
     c4/gcc-4.8.hpp
     c4/hash.hpp
     c4/language.hpp
@@ -59,6 +60,7 @@ set(C4CORE_SRC_FILES
     c4/std/string.hpp
     c4/std/string_fwd.hpp
     c4/std/string_view.hpp
+    c4/std/string_view_fwd.hpp
     c4/std/tuple.hpp
     c4/std/vector.hpp
     c4/std/vector_fwd.hpp

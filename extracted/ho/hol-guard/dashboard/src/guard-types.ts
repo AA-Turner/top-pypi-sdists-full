@@ -277,8 +277,11 @@ export type GuardProofStatus = GuardConnectProof & {
 };
 
 export type PackageManagerProtection = {
-  path_status: "in_path" | "missing_from_path";
+  path_status: "in_path" | "restart_required" | "missing_from_path";
   path_contains_shim_dir: boolean;
+  restart_shell_required: boolean;
+  shell_profile_configured: boolean;
+  shell_profile_path: string | null;
   shim_dir: string;
   supported_managers: string[];
   installed_managers: string[];
@@ -309,6 +312,10 @@ export type GuardRuntimeSnapshot = {
   cloud_state: "local_only" | "paired_waiting" | "paired_active";
   cloud_state_label: string;
   cloud_state_detail: string;
+  cloud_policy_bundle_hash?: string | null;
+  cloud_policy_bundle_version?: string | null;
+  cloud_policy_rollout_state?: string | null;
+  cloud_policy_sync_error?: string | null;
   cloud_pairing_state: GuardCloudPairingState;
   cloud_sync_health: GuardCloudSyncHealth;
   dashboard_url: string;
@@ -335,8 +342,12 @@ export type GuardReceipt = {
   provenance_summary: string;
   user_override: string | null;
   artifact_name: string | null;
+  artifact_type?: string | null;
   source_scope: string | null;
   timestamp: string;
+  diff_summary?: string | null;
+  scanner_evidence?: RiskSignalV2[];
+  action_envelope_json?: GuardActionEnvelope | null;
 };
 
 export type GuardArtifactDiff = {
@@ -516,6 +527,7 @@ export type PackageFirewallGlobalActionType = (typeof PACKAGE_FIREWALL_GLOBAL_AC
 
 export type PackageFirewallActionState =
   | "available"
+  | "connect_required"
   | "paid_required"
   | "reconnect_required"
   | "pending"
@@ -531,6 +543,7 @@ export type PackageFirewallEntitlement = {
 
 export type PackageShimEntry = {
   active: boolean;
+  activation_state: "protected" | "restart_required" | "repair_required" | "uninstalled";
   installed: boolean;
   integrity: string;
   manager: string;
@@ -549,19 +562,34 @@ export type PackageFirewallReceipt = {
 };
 
 export type PackageFirewallCliFallback = {
+  connect?: string;
   install?: string;
   status?: string;
   remove?: string;
+};
+
+export type PackageFirewallConnectFlow = {
+  state: "idle" | "running" | "failed";
+  title: string;
+  detail: string;
+  action_label: string;
+  connect_url: string;
+  authorize_url: string | null;
+  browser_opened: boolean | null;
+  request_id: string | null;
+  poll_after_ms: number | null;
 };
 
 export type PackageFirewallStatusResponse = {
   operation: string;
   status: string;
   supported_managers: string[];
+  protection: PackageManagerProtection | null;
   package_shims: PackageShimEntry[];
   entitlement: PackageFirewallEntitlement;
   actions: Partial<Record<PackageFirewallActionType | PackageFirewallGlobalActionType, PackageFirewallActionState>>;
   cli_fallback: PackageFirewallCliFallback | null;
+  connect_flow: PackageFirewallConnectFlow | null;
 };
 
 export type PackageFirewallActionResponse = {

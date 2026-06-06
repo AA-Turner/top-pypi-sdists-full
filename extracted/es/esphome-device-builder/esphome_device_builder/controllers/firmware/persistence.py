@@ -23,16 +23,19 @@ from typing import TYPE_CHECKING
 from esphome.core import CORE
 
 from ...helpers.atomic_io import atomic_write
-from ...models import TERMINAL_JOB_STATUSES, FirmwareJob, JobStatus, JobType
+from ...models import (
+    FirmwareJob,
+    JobStatus,
+    JobType,
+)
 from ..config import _load_metadata, metadata_transaction
 from .constants import (
-    _ACTIVE_JOB_STATUSES,
     _JOBS_KEY,
     _MAX_AUX_TERMINAL_JOBS,
     _MAX_PRIMARY_TERMINAL_JOBS,
+    _PREREQUISITE_FAILED_ERROR,
     _PRIMARY_JOB_TYPES,
 )
-from .helpers import _mark_job_terminal
 
 if TYPE_CHECKING:
     from .controller import FirmwareController
@@ -63,13 +66,11 @@ def prune_history(controller: FirmwareController) -> None:
     :data:`_MAX_AUX_TERMINAL_JOBS`. Caller persists the result;
     sidecars of dropped jobs are reaped by ``persist_jobs``.
     """
-    terminal_states = TERMINAL_JOB_STATUSES
-
     active: list[FirmwareJob] = []
     primary: list[FirmwareJob] = []
     aux: list[FirmwareJob] = []
     for job in controller.state.jobs.values():
-        if job.status not in terminal_states:
+        if not job.is_terminal:
             active.append(job)
         elif job.job_type in _PRIMARY_JOB_TYPES:
             primary.append(job)
@@ -112,10 +113,8 @@ def _restore_job_entry(
     try:
         job = FirmwareJob.from_dict(job_data)  # type: ignore[arg-type]
         controller.state.jobs[job.job_id] = job
-        if job.status in _ACTIVE_JOB_STATUSES:
-            if job.status == JobStatus.RUNNING:
-                job.reset()
-            job.status = JobStatus.QUEUED
+        if job.is_active:
+            job.restore_for_requeue()
             active.append(job)
         elif job.output:
             # Cleared from RAM only after the sidecar write lands, so a
@@ -145,7 +144,7 @@ def _restore_to_lane(controller: FirmwareController, job: FirmwareJob) -> None:
         controller.state.place_on_lane(job)
         return
     prereq = controller.state.jobs.get(job.depends_on)
-    if prereq is not None and prereq.status in _ACTIVE_JOB_STATUSES:
+    if prereq is not None and prereq.is_active:
         return
     # Prerequisite is gone (pruned from history) or terminal-but-not-completed:
     # the dependent can't run, so cancel it rather than hold it forever. Log so
@@ -157,8 +156,7 @@ def _restore_to_lane(controller: FirmwareController, job: FirmwareJob) -> None:
         job.depends_on,
         prereq_status,
     )
-    _mark_job_terminal(job, JobStatus.CANCELLED)
-    job.error = "prerequisite job did not complete successfully"
+    job.mark_terminal(JobStatus.CANCELLED, error=_PREREQUISITE_FAILED_ERROR)
 
 
 async def load_jobs(controller: FirmwareController) -> None:
@@ -225,7 +223,7 @@ async def _persist_jobs_locked(controller: FirmwareController) -> None:
         # drop it from RAM so idle memory holds metadata only. Runs
         # before ``to_dict`` so the persisted blob carries no output.
         for job in jobs:
-            if job.status in TERMINAL_JOB_STATUSES and job.output:
+            if job.is_terminal and job.output:
                 _write_job_sidecar(job.job_id, job.output)
                 job.output = []
         _reconcile_sidecars({job.job_id for job in jobs})
@@ -275,7 +273,7 @@ def _metadata_dict(job: FirmwareJob) -> dict:
     mid-build restart recovers the pre-crash log; there are no active
     jobs at idle, so this doesn't bloat the resting blob.
     """
-    if job.status in TERMINAL_JOB_STATUSES:
+    if job.is_terminal:
         return job_dict_without_output(job)
     return job.to_dict()
 

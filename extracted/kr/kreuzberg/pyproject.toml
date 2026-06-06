@@ -4,7 +4,7 @@ requires = [ "maturin>=1,<2" ]
 
 [project]
 name = "kreuzberg"
-version = "4.9.7"
+version = "4.9.9"
 description = """\
   High-performance document intelligence library for Python. Extract text, metadata, and structured data from PDFs, \
   Office documents, images, and 88+ formats. Powered by Rust core for 10-50x speed improvements.\
@@ -85,14 +85,14 @@ include = [
 manifest-path = "crates/kreuzberg-py/Cargo.toml"
 
 [tool.pytest]
-ini_options.asyncio_mode = "auto"
-ini_options.timeout = 60
-ini_options.timeout_method = "thread"
+ini_options.addopts = "--doctest-modules"
 ini_options.markers = [
+  "cli_features: marks tests that require CLI binary built with --features all (deselect with '-m \"not cli_features\"')",
+  "integration: marks tests as integration tests (requires running services)",
   "slow: marks tests as slow (deselect with '-m \"not slow\"')",
   "windows_slow: marks tests as too slow on Windows CI (deselect with '-m \"not windows_slow\"')",
-  "integration: marks tests as integration tests (requires running services)",
-  "cli_features: marks tests that require CLI binary built with --features all (deselect with '-m \"not cli_features\"')",
 ]
+ini_options.asyncio_mode = "auto"
+ini_options.timeout = 60
 ini_options.timeout_func_only = true
-ini_options.addopts = "--doctest-modules"
+ini_options.timeout_method = "thread"

@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: nats-py
-Version: 2.14.0
+Version: 2.15.0
 Summary: NATS client for Python
+Author: Waldemar Quevedo
 Author-email: Waldemar Quevedo <wally@synadia.com>
 License-Expression: Apache-2.0
-Project-URL: Homepage, https://github.com/nats-io/nats.py
-Project-URL: Bug Tracker, https://github.com/nats-io/nats.py/issues
+License-File: LICENSE
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -16,14 +16,16 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Requires-Dist: aiohttp ; extra == 'aiohttp'
+Requires-Dist: fast-mail-parser ; extra == 'fast-parse'
+Requires-Dist: nkeys ; extra == 'nkeys'
 Requires-Python: >=3.7
-Description-Content-Type: text/markdown
-Provides-Extra: nkeys
-Requires-Dist: nkeys; extra == "nkeys"
+Project-URL: Homepage, https://github.com/nats-io/nats.py
+Project-URL: Bug Tracker, https://github.com/nats-io/nats.py/issues
 Provides-Extra: aiohttp
-Requires-Dist: aiohttp; extra == "aiohttp"
 Provides-Extra: fast-parse
-Requires-Dist: fast-mail-parser; extra == "fast-parse"
+Provides-Extra: nkeys
+Description-Content-Type: text/markdown
 
 # NATS - Python3 Client for Asyncio
 

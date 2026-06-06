@@ -67,6 +67,7 @@ from smplkit._generated.app.api.services import (
 )
 from smplkit._generated.app.client import AuthenticatedClient as _AppAuthClient
 from smplkit._generated.audit.client import AuthenticatedClient as _AuditAuthClient
+from smplkit._generated.jobs.client import AuthenticatedClient as _JobsAuthClient
 from smplkit._generated.app.models import (
     Context as _GenContext,
     ContextAttributes as _GenContextAttributes,
@@ -2602,6 +2603,7 @@ class SmplManagementClient:
         flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
         logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
         audit_url = _service_url(cfg.scheme, "audit", cfg.base_domain)
+        jobs_url = _service_url(cfg.scheme, "jobs", cfg.base_domain)
 
         _extra = {**(cfg.extra_headers or {})}
         self._app_http = _AppAuthClient(base_url=app_url, token=cfg.api_key, headers=_extra)
@@ -2613,6 +2615,12 @@ class SmplManagementClient:
         # Accept header here mirrors the runtime audit client.
         self._audit_http = _AuditAuthClient(
             base_url=audit_url,
+            token=cfg.api_key,
+            headers={**_extra, "Accept": "application/vnd.api+json"},
+        )
+        # Smpl Jobs is JSON:API on its own service, like audit.
+        self._jobs_http = _JobsAuthClient(
+            base_url=jobs_url,
             token=cfg.api_key,
             headers={**_extra, "Accept": "application/vnd.api+json"},
         )
@@ -2634,8 +2642,10 @@ class SmplManagementClient:
         # types are still loading the runtime audit module for shared
         # dataclasses.
         from smplkit.management.audit import AuditClient as _MgmtAuditClient
+        from smplkit.management.jobs import JobsClient as _MgmtJobsClient
 
         self.audit = _MgmtAuditClient(auth_client=self._audit_http)
+        self.jobs = _MgmtJobsClient(auth_client=self._jobs_http)
 
     def close(self) -> None:
         """Release HTTP resources held by this client."""
@@ -2645,6 +2655,7 @@ class SmplManagementClient:
             self._flags_http,
             self._logging_http,
             self._audit_http,
+            self._jobs_http,
         ):
             client = http._client
             if client is not None:
@@ -2715,6 +2726,7 @@ class AsyncSmplManagementClient:
         flags_url = _service_url(cfg.scheme, "flags", cfg.base_domain)
         logging_url = _service_url(cfg.scheme, "logging", cfg.base_domain)
         audit_url = _service_url(cfg.scheme, "audit", cfg.base_domain)
+        jobs_url = _service_url(cfg.scheme, "jobs", cfg.base_domain)
 
         _extra = {**(cfg.extra_headers or {})}
         self._app_http = _AppAuthClient(base_url=app_url, token=cfg.api_key, headers=_extra)
@@ -2723,6 +2735,12 @@ class AsyncSmplManagementClient:
         self._logging_http = _LoggingAuthClient(base_url=logging_url, token=cfg.api_key, headers=_extra)
         self._audit_http = _AuditAuthClient(
             base_url=audit_url,
+            token=cfg.api_key,
+            headers={**_extra, "Accept": "application/vnd.api+json"},
+        )
+        # Smpl Jobs is JSON:API on its own service, like audit.
+        self._jobs_http = _JobsAuthClient(
+            base_url=jobs_url,
             token=cfg.api_key,
             headers={**_extra, "Accept": "application/vnd.api+json"},
         )
@@ -2741,8 +2759,10 @@ class AsyncSmplManagementClient:
         self.loggers = AsyncLoggersClient(self._logging_http, base_url=logging_url)
         self.log_groups = AsyncLogGroupsClient(self._logging_http, base_url=logging_url)
         from smplkit.management.audit import AsyncAuditClient as _MgmtAsyncAuditClient
+        from smplkit.management.jobs import AsyncJobsClient as _MgmtAsyncJobsClient
 
         self.audit = _MgmtAsyncAuditClient(auth_client=self._audit_http)
+        self.jobs = _MgmtAsyncJobsClient(auth_client=self._jobs_http)
 
     async def close(self) -> None:
         """Release HTTP resources held by this client."""
@@ -2752,6 +2772,7 @@ class AsyncSmplManagementClient:
             self._flags_http,
             self._logging_http,
             self._audit_http,
+            self._jobs_http,
         ):
             ac = http._async_client
             if ac is not None:

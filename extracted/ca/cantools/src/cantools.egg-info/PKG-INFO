@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cantools
-Version: 41.4.1
+Version: 41.4.2
 Summary: CAN BUS tools.
 Author-email: Erik Moqvist <erik.moqvist@gmail.com>
 License: MIT
@@ -20,6 +20,7 @@ Requires-Dist: crccheck
 Provides-Extra: cache
 Requires-Dist: diskcache; extra == "cache"
 Provides-Extra: dev
+Requires-Dist: matplotlib-stubs; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: pipx; extra == "dev"
 Requires-Dist: ruff; extra == "dev"

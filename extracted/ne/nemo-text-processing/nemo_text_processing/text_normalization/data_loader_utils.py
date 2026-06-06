@@ -17,12 +17,14 @@ import json
 import re
 import string
 import sys
+import unicodedata
 from collections import defaultdict, namedtuple
 from typing import Dict, List, Optional, Set, Tuple
 from unicodedata import category
 
 from nemo_text_processing.utils.logging import logger
 
+NFC = 'NFC'
 EOS_TYPE = "EOS"
 PUNCT_TYPE = "PUNCT"
 PLAIN_TYPE = "PLAIN"
@@ -43,6 +45,8 @@ known_types = [
     "FRACTION",
     "TIME",
     "ADDRESS",
+    "ROMAN",
+    "RANGE",
 ]
 
 
@@ -50,7 +54,7 @@ def _load_kaggle_text_norm_file(file_path: str, to_lower: bool) -> List[Instance
     """
     https://www.kaggle.com/richardwilliamsproat/text-normalization-for-english-russian-and-polish
     Loads text file in the Kaggle Google text normalization file format: <semiotic class>\t<unnormalized text>\t<`self` if trivial class or normalized text>
-    E.g. 
+    E.g.
     PLAIN   Brillantaisia   <self>
     PLAIN   is      <self>
     PLAIN   a       <self>
@@ -66,7 +70,7 @@ def _load_kaggle_text_norm_file(file_path: str, to_lower: bool) -> List[Instance
     Args:
         file_path: file path to text file
 
-    Returns: flat list of instances 
+    Returns: flat list of instances
     """
     res = []
     with open(file_path, 'r') as fp:
@@ -91,7 +95,7 @@ def load_files(file_paths: List[str], load_func=_load_kaggle_text_norm_file, to_
     """
     Load given list of text files using the `load_func` function.
 
-    Args: 
+    Args:
         file_paths: list of file paths
         load_func: loading function
 
@@ -119,7 +123,7 @@ def clean_generic(text: str) -> str:
 
 def evaluate(preds: List[str], labels: List[str], input: Optional[List[str]] = None, verbose: bool = True) -> float:
     """
-    Evaluates accuracy given predictions and labels. 
+    Evaluates accuracy given predictions and labels.
 
     Args:
         preds: predictions
@@ -138,7 +142,7 @@ def evaluate(preds: List[str], labels: List[str], input: Optional[List[str]] = N
             acc = acc + 1
         else:
             if input:
-                print(f"inpu: {json.dumps(input[i])}")
+                print(f"input: {json.dumps(input[i])}")
             print(f"gold: {json.dumps(label_norm)}")
             print(f"pred: {json.dumps(pred_norm)}")
     return acc / nums
@@ -160,8 +164,8 @@ def training_data_to_tokens(
     for instance in data:
         if instance.token_type != EOS_TYPE:
             if category is None or instance.token_type == category:
-                result[instance.token_type][0].append(instance.un_normalized)
-                result[instance.token_type][1].append(instance.normalized)
+                result[instance.token_type][0].append(unicodedata.normalize(NFC, instance.un_normalized))
+                result[instance.token_type][1].append(unicodedata.normalize(NFC, instance.normalized))
     return result
 
 
@@ -187,8 +191,13 @@ def training_data_to_sentences(data: List[Instance]) -> Tuple[List[str], List[st
         else:
             sentence.append(instance)
             sentence_categories.update([instance.token_type])
-    un_normalized = [" ".join([instance.un_normalized for instance in sentence]) for sentence in sentences]
-    normalized = [" ".join([instance.normalized for instance in sentence]) for sentence in sentences]
+    un_normalized = [
+        " ".join([unicodedata.normalize(NFC, instance.un_normalized) for instance in sentence])
+        for sentence in sentences
+    ]
+    normalized = [
+        " ".join([unicodedata.normalize(NFC, instance.normalized) for instance in sentence]) for sentence in sentences
+    ]
     return un_normalized, normalized, categories
 
 
@@ -250,7 +259,7 @@ def load_file(file_path: str) -> List[str]:
     """
     Loads given text file with separate lines into list of string.
 
-    Args: 
+    Args:
         file_path: file path
 
     Returns: flat list of string
@@ -269,7 +278,7 @@ def write_file(file_path: str, data: List[str]):
     Args:
         file_path: file path
         data: list of string
-        
+
     """
     with open(file_path, 'w') as fp:
         for line in data:

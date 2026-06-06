@@ -4,7 +4,11 @@ from typing import Any
 import pytest
 
 from mistralai.workflows import activity, get_workflow_definition, workflow
-from mistralai.workflows.core.logging import LogLevel, _add_temporal_context_processor, setup_logging
+from mistralai.workflows.core.logging import (
+    LogLevel,
+    _add_temporal_context_processor,
+    setup_logging,
+)
 
 from .utils import create_test_worker
 

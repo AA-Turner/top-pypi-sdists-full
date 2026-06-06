@@ -1,0 +1,822 @@
+"""Unit tests for cmd2/pt_utils.py"""
+
+import io
+import re
+from typing import Any, cast
+from unittest.mock import Mock
+
+import pytest
+from prompt_toolkit.document import Document
+from prompt_toolkit.formatted_text import (
+    ANSI,
+    to_formatted_text,
+)
+from rich.table import Table
+
+import cmd2
+from cmd2 import (
+    Cmd2Style,
+    pt_utils,
+    stylize,
+    utils,
+)
+from cmd2 import rich_utils as ru
+from cmd2 import string_utils as su
+from cmd2.pt_utils import (
+    Cmd2Lexer,
+    pt_filter_style,
+)
+
+from .conftest import with_ansi_style
+
+
+# Mock for cmd2.Cmd
+class MockCmd:
+    def __init__(self) -> None:
+        # Return empty completions by default
+        self.complete = Mock(return_value=cmd2.Completions())
+
+        self.stdout = io.StringIO()
+        self.statement_parser = Mock()
+        self.statement_parser.terminators = [";"]
+        self.statement_parser.shortcuts = []
+        self.statement_parser._command_pattern = re.compile(r"\A\s*(\S*?)(\s|\Z)")
+        self.aliases = {}
+        self.macros = {}
+        self.all_commands = []
+
+    def get_all_commands(self) -> list[str]:
+        return self.all_commands
+
+
+@pytest.fixture
+def mock_cmd_app() -> MockCmd:
+    return MockCmd()
+
+
+@with_ansi_style(ru.AllowStyle.ALWAYS)
+def test_pt_filter_style_always() -> None:
+    """This should preserve all styles and return ANSI."""
+    unstyled = "unstyled"
+    result = pt_filter_style(unstyled)
+    assert isinstance(result, ANSI)
+    assert result.value == unstyled
+
+    styled = stylize("styled", Cmd2Style.COMMAND_LINE)
+    result = pt_filter_style(styled)
+    assert isinstance(result, ANSI)
+    assert result.value == styled
+
+
+@with_ansi_style(ru.AllowStyle.TERMINAL)
+def test_pt_filter_style_terminal() -> None:
+    """This should preserve all styles and return ANSI."""
+    unstyled = "unstyled"
+    result = pt_filter_style(unstyled)
+    assert isinstance(result, ANSI)
+    assert result.value == unstyled
+
+    styled = stylize("styled", Cmd2Style.COMMAND_LINE)
+    result = pt_filter_style(styled)
+    assert isinstance(result, ANSI)
+    assert result.value == styled
+
+
+@with_ansi_style(ru.AllowStyle.NEVER)
+def test_pt_filter_style_never() -> None:
+    """This should strip all styles and return str."""
+    unstyled = "unstyled"
+    result = pt_filter_style(unstyled)
+    assert isinstance(result, str)
+    assert result == unstyled
+
+    styled = stylize("styled", Cmd2Style.COMMAND_LINE)
+    result = pt_filter_style(styled)
+    assert isinstance(result, str)
+    assert result == su.strip_style(styled)
+
+
+class TestCmd2Lexer:
+    @with_ansi_style(ru.AllowStyle.NEVER)
+    def test_lex_document_no_style(self, mock_cmd_app):
+        """Test lexing when styles are disallowed."""
+        lexer = pt_utils.Cmd2Lexer(cast(Any, mock_cmd_app))
+
+        line = "help something"
+        document = Document(line)
+        get_line = lexer.lex_document(document)
+        tokens = get_line(0)
+
+        assert tokens == [("", line)]
+
+    def test_lex_document_command(self, mock_cmd_app):
+        """Test lexing a command name."""
+        mock_cmd_app.all_commands = ["help"]
+        lexer = pt_utils.Cmd2Lexer(cast(Any, mock_cmd_app))
+
+        line = "help something"
+        document = Document(line)
+        get_line = lexer.lex_document(document)
+        tokens = get_line(0)
+
+        assert tokens == [
+            (Cmd2Lexer.COMMAND_STYLE, "help"),
+            ("", " "),
+            (Cmd2Lexer.ARGUMENT_STYLE, "something"),
+        ]
+
+    def test_lex_document_alias(self, mock_cmd_app):
+        """Test lexing an alias."""
+        mock_cmd_app.aliases = {"ls": "dir"}
+        lexer = pt_utils.Cmd2Lexer(cast(Any, mock_cmd_app))
+
+        line = "ls -l"
+        document = Document(line)
+        get_line = lexer.lex_document(document)
+        tokens = get_line(0)
+
+        assert tokens == [
+            (Cmd2Lexer.ALIAS_STYLE, "ls"),
+            ("", " "),
+            (Cmd2Lexer.FLAG_STYLE, "-l"),
+        ]
+
+    def test_lex_document_macro(self, mock_cmd_app):
+        """Test lexing a macro."""
+        mock_cmd_app.macros = {"my_macro": "some value"}
+        lexer = pt_utils.Cmd2Lexer(cast(Any, mock_cmd_app))
+
+        line = "my_macro arg1"
+        document = Document(line)
+        get_line = lexer.lex_document(document)
+        tokens = get_line(0)
+
+        assert tokens == [
+            (Cmd2Lexer.MACRO_STYLE, "my_macro"),
+            ("", " "),
+            (Cmd2Lexer.ARGUMENT_STYLE, "arg1"),
+        ]
+
+    def test_lex_document_leading_whitespace(self, mock_cmd_app):
+        """Test lexing with leading whitespace."""
+        mock_cmd_app.all_commands = ["help"]
+        lexer = pt_utils.Cmd2Lexer(cast(Any, mock_cmd_app))
+
+        line = "   help something"
+        document = Document(line)
+        get_line = lexer.lex_document(document)
+        tokens = get_line(0)
+
+        assert tokens == [
+            ("", "   "),
+            (Cmd2Lexer.COMMAND_STYLE, "help"),
+            ("", " "),
+            (Cmd2Lexer.ARGUMENT_STYLE, "something"),
+        ]
+
+    def test_lex_document_unknown_command(self, mock_cmd_app):
+        """Test lexing an unknown command."""
+        lexer = pt_utils.Cmd2Lexer(cast(Any, mock_cmd_app))
+
+        line = "unknown command"
+        document = Document(line)
+        get_line = lexer.lex_document(document)
+        tokens = get_line(0)
+
+        assert tokens == [
+            ("", "unknown"),
+            ("", " "),
+            (Cmd2Lexer.ARGUMENT_STYLE, "command"),
+        ]
+
+    def test_lex_document_no_command(self, mock_cmd_app):
+        """Test lexing an empty line or line with only whitespace."""
+        lexer = pt_utils.Cmd2Lexer(cast(Any, mock_cmd_app))
+
+        line = "   "
+        document = Document(line)
+        get_line = lexer.lex_document(document)
+        tokens = get_line(0)
+
+        assert tokens == [("", "   ")]
+
+    def test_lex_document_no_match(self, mock_cmd_app):
+        """Test lexing when command pattern fails to match."""
+        # Force the pattern to not match anything
+        mock_cmd_app.statement_parser._command_pattern = re.compile(r"something_impossible")
+        lexer = pt_utils.Cmd2Lexer(cast(Any, mock_cmd_app))
+
+        line = "test command"
+        document = Document(line)
+        get_line = lexer.lex_document(document)
+        tokens = get_line(0)
+
+        assert tokens == [("", line)]
+
+    def test_lex_document_arguments(self, mock_cmd_app):
+        """Test lexing a command with flags and values."""
+        mock_cmd_app.all_commands = ["help"]
+        lexer = pt_utils.Cmd2Lexer(cast(Any, mock_cmd_app))
+
+        line = 'help -v --name "John Doe" > out.txt'
+        document = Document(line)
+        get_line = lexer.lex_document(document)
+        tokens = get_line(0)
+
+        assert tokens == [
+            (Cmd2Lexer.COMMAND_STYLE, "help"),
+            ("", " "),
+            (Cmd2Lexer.FLAG_STYLE, "-v"),
+            ("", " "),
+            (Cmd2Lexer.FLAG_STYLE, "--name"),
+            ("", " "),
+            (Cmd2Lexer.ARGUMENT_STYLE, '"John Doe"'),
+            ("", " "),
+            ("", ">"),
+            ("", " "),
+            (Cmd2Lexer.ARGUMENT_STYLE, "out.txt"),
+        ]
+
+    def test_lex_document_unclosed_quote(self, mock_cmd_app):
+        """Test lexing with an unclosed quote."""
+        mock_cmd_app.all_commands = ["echo"]
+        lexer = pt_utils.Cmd2Lexer(cast(Any, mock_cmd_app))
+
+        line = 'echo "hello'
+        document = Document(line)
+        get_line = lexer.lex_document(document)
+        tokens = get_line(0)
+
+        assert tokens == [
+            (Cmd2Lexer.COMMAND_STYLE, "echo"),
+            ("", " "),
+            (Cmd2Lexer.ARGUMENT_STYLE, '"hello'),
+        ]
+
+    def test_lex_document_shortcut(self, mock_cmd_app):
+        """Test lexing a shortcut."""
+        mock_cmd_app.statement_parser.shortcuts = [("!", "shell")]
+        lexer = pt_utils.Cmd2Lexer(cast(Any, mock_cmd_app))
+
+        # Case 1: Shortcut glued to argument
+        line = "!ls"
+        document = Document(line)
+        get_line = lexer.lex_document(document)
+        tokens = get_line(0)
+        assert tokens == [
+            (Cmd2Lexer.COMMAND_STYLE, "!"),
+            (Cmd2Lexer.ARGUMENT_STYLE, "ls"),
+        ]
+
+        line = "! ls"
+        document = Document(line)
+        get_line = lexer.lex_document(document)
+        tokens = get_line(0)
+        assert tokens == [
+            (Cmd2Lexer.COMMAND_STYLE, "!"),
+            ("", " "),
+            (Cmd2Lexer.ARGUMENT_STYLE, "ls"),
+        ]
+
+    def test_lex_document_multiline(self, mock_cmd_app):
+        """Test lexing a multiline command."""
+        mock_cmd_app.all_commands = ["orate"]
+        lexer = pt_utils.Cmd2Lexer(cast(Any, mock_cmd_app))
+
+        # Command on first line, argument on second line that looks like a command
+        line = "orate\nhelp"
+        document = Document(line)
+        get_line = lexer.lex_document(document)
+
+        # First line should have command
+        tokens0 = get_line(0)
+        assert tokens0 == [(Cmd2Lexer.COMMAND_STYLE, "orate")]
+
+        # Second line should have argument (not command)
+        tokens1 = get_line(1)
+        assert tokens1 == [(Cmd2Lexer.ARGUMENT_STYLE, "help")]
+
+
+class TestCmd2Completer:
+    def test_get_completions(self, mock_cmd_app: MockCmd, monkeypatch) -> None:
+        """Test get_completions with matches."""
+        mock_print = Mock()
+        monkeypatch.setattr(pt_utils, "print_formatted_text", mock_print)
+
+        completer = pt_utils.Cmd2Completer(cast(Any, mock_cmd_app))
+
+        # Set up document
+        line = ""
+        document = Document(line, cursor_position=0)
+
+        # Test plain and styled values for display and display_meta
+        foo_text = "foo"
+        foo_display = "Foo Display"
+        foo_meta = "Foo Meta"
+
+        bar_text = "bar"
+        bar_display = stylize("Bar Display", Cmd2Style.SUCCESS)
+        bar_meta = stylize("Bar Meta", Cmd2Style.WARNING)
+
+        # Set up matches
+        completion_items = [
+            cmd2.CompletionItem(foo_text, display=foo_display, display_meta=foo_meta),
+            cmd2.CompletionItem(bar_text, display=bar_display, display_meta=bar_meta),
+        ]
+
+        table = Table("Table Header")
+        table.add_row("Table Data")
+        cmd2_completions = cmd2.Completions(completion_items, table=table)
+        mock_cmd_app.complete.return_value = cmd2_completions
+
+        # Call get_completions
+        completions = list(completer.get_completions(document, None))
+
+        assert len(completions) == len(cmd2_completions)
+
+        assert completions[0].text == bar_text
+        assert to_formatted_text(completions[0].display) == to_formatted_text(ANSI(bar_display))
+        assert to_formatted_text(completions[0].display_meta) == to_formatted_text(ANSI(bar_meta))
+
+        assert completions[1].text == foo_text
+        assert to_formatted_text(completions[1].display) == to_formatted_text(ANSI(foo_display))
+        assert to_formatted_text(completions[1].display_meta) == to_formatted_text(ANSI(foo_meta))
+
+        # Verify that only the completion table printed
+        assert mock_print.call_count == 1
+        args, _ = mock_print.call_args
+        assert "Table Header" in str(args[0])
+        assert "Table Data" in str(args[0])
+
+    def test_get_completions_no_matches(self, mock_cmd_app: MockCmd, monkeypatch) -> None:
+        """Test get_completions with no matches."""
+        mock_print = Mock()
+        monkeypatch.setattr(pt_utils, "print_formatted_text", mock_print)
+
+        completer = pt_utils.Cmd2Completer(cast(Any, mock_cmd_app))
+
+        document = Document("", cursor_position=0)
+
+        # Set up matches
+        cmd2_completions = cmd2.Completions(hint="Completion Hint")
+        mock_cmd_app.complete.return_value = cmd2_completions
+
+        completions = list(completer.get_completions(document, None))
+        assert not completions
+
+        # Verify that only the completion hint printed
+        assert mock_print.call_count == 1
+        args, _ = mock_print.call_args
+        assert cmd2_completions.hint in str(args[0])
+
+    def test_get_completions_with_error(self, mock_cmd_app: MockCmd, monkeypatch) -> None:
+        """Test get_completions with a completion error."""
+        mock_print = Mock()
+        monkeypatch.setattr(pt_utils, "print_formatted_text", mock_print)
+
+        completer = pt_utils.Cmd2Completer(cast(Any, mock_cmd_app))
+
+        document = Document("", cursor_position=0)
+
+        # Set up matches
+        cmd2_completions = cmd2.Completions(error="Completion Error")
+        mock_cmd_app.complete.return_value = cmd2_completions
+
+        completions = list(completer.get_completions(document, None))
+        assert not completions
+
+        # Verify that only the completion error printed
+        assert mock_print.call_count == 1
+        args, _ = mock_print.call_args
+        assert cmd2_completions.error in str(args[0])
+
+    @pytest.mark.parametrize(
+        # search_text_offset is the starting index of the user-provided search text within a full match.
+        # This accounts for leading shortcuts (e.g., in '@has', the offset is 1).
+        ("line", "match", "search_text_offset"),
+        [
+            ("has", "has space", 0),
+            ("@has", "@has space", 1),
+        ],
+    )
+    def test_get_completions_add_opening_quote_and_abort(self, line, match, search_text_offset, mock_cmd_app) -> None:
+        """Test case where adding an opening quote changes text before cursor.
+
+        This applies when there is search text.
+        """
+        completer = pt_utils.Cmd2Completer(cast(Any, mock_cmd_app))
+
+        # Set up document
+        document = Document(line, cursor_position=len(line))
+
+        # Set up matches
+        completion_items = [cmd2.CompletionItem(match)]
+        cmd2_completions = cmd2.Completions(
+            completion_items,
+            _add_opening_quote=True,
+            _search_text_offset=search_text_offset,
+            _quote_char='"',
+        )
+        mock_cmd_app.complete.return_value = cmd2_completions
+
+        # Call get_completions
+        completions = list(completer.get_completions(document, None))
+
+        # get_completions inserted an opening quote in the buffer and then aborted before returning completions
+        assert not completions
+
+    @pytest.mark.parametrize(
+        # search_text_offset is the starting index of the user-provided search text within a full match.
+        # This accounts for leading shortcuts (e.g., in '@has', the offset is 1).
+        ("line", "matches", "search_text_offset", "quote_char", "expected"),
+        [
+            # Single matches need opening quote, closing quote, and trailing space
+            ("", ["has space"], 0, '"', ['"has space" ']),
+            ("@", ["@has space"], 1, "'", ["@'has space' "]),
+            # Multiple matches only need opening quote
+            ("", ["has space", "more space"], 0, '"', ['"has space', '"more space']),
+            ("@", ["@has space", "@more space"], 1, "'", ["@'has space", "@'more space"]),
+        ],
+    )
+    def test_get_completions_add_opening_quote_and_return_results(
+        self, line, matches, search_text_offset, quote_char, expected, mock_cmd_app
+    ) -> None:
+        """Test case where adding an opening quote does not change text before cursor.
+
+        This applies when search text is empty.
+        """
+        completer = pt_utils.Cmd2Completer(cast(Any, mock_cmd_app))
+
+        # Set up document
+        document = Document(line, cursor_position=len(line))
+
+        # Set up matches
+        completion_items = [cmd2.CompletionItem(match) for match in matches]
+
+        cmd2_completions = cmd2.Completions(
+            completion_items,
+            _add_opening_quote=True,
+            _search_text_offset=search_text_offset,
+            _quote_char=quote_char,
+        )
+        mock_cmd_app.complete.return_value = cmd2_completions
+
+        # Call get_completions
+        completions = list(completer.get_completions(document, None))
+
+        # Compare results
+        completion_texts = [c.text for c in completions]
+        assert completion_texts == expected
+
+    @pytest.mark.parametrize(
+        ("line", "match", "quote_char", "end_of_line", "expected"),
+        [
+            # --- Unquoted search text ---
+            # Append a trailing space when end_of_line is True
+            ("ma", "match", "", True, "match "),
+            ("ma", "match", "", False, "match"),
+            # --- Quoted search text ---
+            # Ensure closing quotes are added
+            # Append a trailing space when end_of_line is True
+            ('"ma', '"match', '"', True, '"match" '),
+            ("'ma", "'match", "'", False, "'match'"),
+        ],
+    )
+    def test_get_completions_allow_finalization(
+        self, line, match, quote_char, end_of_line, expected, mock_cmd_app: MockCmd
+    ) -> None:
+        """Test that get_completions correctly handles finalizing single matches."""
+        completer = pt_utils.Cmd2Completer(cast(Any, mock_cmd_app))
+
+        # Set up document
+        cursor_position = len(line) if end_of_line else len(line) - 1
+        document = Document(line, cursor_position=cursor_position)
+
+        # Set up matches
+        completion_items = [cmd2.CompletionItem(match)]
+        cmd2_completions = cmd2.Completions(completion_items, _quote_char=quote_char)
+        mock_cmd_app.complete.return_value = cmd2_completions
+
+        # Call get_completions and compare results
+        completions = list(completer.get_completions(document, None))
+        assert completions[0].text == expected
+
+    @pytest.mark.parametrize(
+        ("line", "match", "quote_char", "end_of_line", "expected"),
+        [
+            # Do not add a trailing space or closing quote to any of the matches
+            ("ma", "match", "", True, "match"),
+            ("ma", "match", "", False, "match"),
+            ('"ma', '"match', '"', True, '"match'),
+            ("'ma", "'match", "'", False, "'match"),
+        ],
+    )
+    def test_get_completions_do_not_allow_finalization(
+        self, line, match, quote_char, end_of_line, expected, mock_cmd_app: MockCmd
+    ) -> None:
+        """Test that get_completions does not finalize single matches when allow_finalization if False."""
+        completer = pt_utils.Cmd2Completer(cast(Any, mock_cmd_app))
+
+        # Set up document
+        cursor_position = len(line) if end_of_line else len(line) - 1
+        document = Document(line, cursor_position=cursor_position)
+
+        # Set up matches
+        completion_items = [cmd2.CompletionItem(match)]
+        cmd2_completions = cmd2.Completions(
+            completion_items,
+            allow_finalization=False,
+            _quote_char=quote_char,
+        )
+        mock_cmd_app.complete.return_value = cmd2_completions
+
+        # Call get_completions and compare results
+        completions = list(completer.get_completions(document, None))
+        assert completions[0].text == expected
+
+    def test_init_with_custom_settings(self, mock_cmd_app: MockCmd) -> None:
+        """Test initializing with custom settings."""
+        mock_parser = Mock()
+        custom_settings = utils.CustomCompletionSettings(parser=mock_parser)
+        completer = pt_utils.Cmd2Completer(cast(Any, mock_cmd_app), custom_settings=custom_settings)
+
+        document = Document("", cursor_position=0)
+
+        mock_cmd_app.complete.return_value = cmd2.Completions()
+
+        list(completer.get_completions(document, None))
+
+        mock_cmd_app.complete.assert_called_once()
+        assert mock_cmd_app.complete.call_args[1]["custom_settings"] == custom_settings
+
+    def test_get_completions_custom_delimiters(self, mock_cmd_app: MockCmd) -> None:
+        """Test that custom delimiters (terminators) are respected."""
+        mock_cmd_app.statement_parser.terminators = ["#"]
+        completer = pt_utils.Cmd2Completer(cast(Any, mock_cmd_app))
+
+        # '#' should act as a word boundary
+        document = Document("cmd#arg", cursor_position=7)
+        list(completer.get_completions(document, None))
+
+        # text should be "arg", begidx=4, endidx=7
+        mock_cmd_app.complete.assert_called_with("arg", line="cmd#arg", begidx=4, endidx=7, custom_settings=None)
+
+
+class TestCmd2History:
+    def test_load_history_strings(self):
+        """Test loading history strings yields all items newest to oldest."""
+
+        history_strings = ["cmd1", "cmd2", "cmd2", "cmd3", "cmd2"]
+        history = pt_utils.Cmd2History(history_strings)
+        assert history._loaded
+
+        # Consecutive duplicates are removed
+        expected = ["cmd2", "cmd3", "cmd2", "cmd1"]
+        assert list(history.load_history_strings()) == expected
+
+    def test_load_history_strings_empty(self):
+        """Test loading history strings with empty history."""
+        history = pt_utils.Cmd2History()
+        assert history._loaded
+        assert list(history.load_history_strings()) == []
+
+        history = pt_utils.Cmd2History([])
+        assert history._loaded
+        assert list(history.load_history_strings()) == []
+
+        history = pt_utils.Cmd2History(None)
+        assert history._loaded
+        assert list(history.load_history_strings()) == []
+
+    def test_get_strings(self):
+        history_strings = ["cmd1", "cmd2", "cmd2", "cmd3", "cmd2"]
+        history = pt_utils.Cmd2History(history_strings)
+        assert history._loaded
+
+        # Consecutive duplicates are removed
+        expected = ["cmd1", "cmd2", "cmd3", "cmd2"]
+        assert history.get_strings() == expected
+
+    def test_append_string(self):
+        """Test that append_string() adds data."""
+        history = pt_utils.Cmd2History()
+        assert history._loaded
+        assert not history._loaded_strings
+
+        history.append_string("new command")
+        assert len(history._loaded_strings) == 1
+        assert history._loaded_strings[0] == "new command"
+
+        # Show that consecutive duplicates are filtered
+        history.append_string("new command")
+        assert len(history._loaded_strings) == 1
+        assert history._loaded_strings[0] == "new command"
+
+        # Show that new items are placed at the front
+        history.append_string("even newer command")
+        assert len(history._loaded_strings) == 2
+        assert history._loaded_strings[0] == "even newer command"
+        assert history._loaded_strings[1] == "new command"
+
+    def test_store_string(self):
+        """Test that store_string() does nothing."""
+        history = pt_utils.Cmd2History()
+        assert history._loaded
+        assert not history._loaded_strings
+
+        history.store_string("new command")
+        assert not history._loaded_strings
+
+    def test_clear(self):
+        history_strings = ["cmd1", "cmd2"]
+        history = pt_utils.Cmd2History(history_strings)
+        assert history._loaded
+        assert history.get_strings() == history_strings
+
+        history.clear()
+        assert not history.get_strings()
+
+
+class TestRichToPtColor:
+    def test_rich_to_pt_color_none(self):
+        assert pt_utils.rich_to_pt_color(None) == "default"
+
+    def test_rich_to_pt_color_default(self):
+        from rich.color import Color
+
+        c = Color.parse("default")
+        assert pt_utils.rich_to_pt_color(c) == "default"
+
+    def test_rich_to_pt_color_standard(self):
+        from rich.color import Color
+
+        c = Color.parse("red")
+        assert pt_utils.rich_to_pt_color(c) == "ansired"
+        c = Color.parse("bright_red")
+        assert pt_utils.rich_to_pt_color(c) == "ansibrightred"
+        # Test a standard color initialized by number
+        c = Color.from_ansi(2)
+        assert pt_utils.rich_to_pt_color(c) == "ansigreen"
+
+    def test_rich_to_pt_color_eight_bit(self):
+        from rich.color import Color
+
+        # 155 is an 8-bit color
+        c = Color.from_ansi(155)
+        # Should convert to truecolor hex equivalent #afff5f
+        assert pt_utils.rich_to_pt_color(c) == "#afff5f"
+
+    def test_rich_to_pt_color_truecolor(self):
+        from rich.color import Color
+
+        c = Color.parse("#123456")
+        assert pt_utils.rich_to_pt_color(c) == "#123456"
+
+
+class TestRichToPtStyle:
+    def test_rich_to_pt_style_none(self):
+        assert pt_utils.rich_to_pt_style(None) == ""
+
+    def test_rich_to_pt_style_string(self):
+        pt_style = pt_utils.rich_to_pt_style("bold red on blue")
+        assert "fg:ansired" in pt_style
+        assert "bg:ansiblue" in pt_style
+        assert "bold" in pt_style
+        assert "nobold" not in pt_style
+
+    def test_rich_to_pt_style_color(self):
+        from rich.style import Style
+
+        style = Style(color="#123456")
+        pt_style = pt_utils.rich_to_pt_style(style)
+        assert "fg:#123456" in pt_style
+        assert "bg:default" in pt_style
+
+    def test_rich_to_pt_style_bgcolor(self):
+        from rich.style import Style
+
+        style = Style(bgcolor="#654321")
+        pt_style = pt_utils.rich_to_pt_style(style)
+        assert "fg:default" in pt_style
+        assert "bg:#654321" in pt_style
+
+    def test_rich_to_pt_style_default_color(self):
+        from rich.style import Style
+
+        style = Style(color="default", bgcolor="default")
+        pt_style = pt_utils.rich_to_pt_style(style)
+        assert "fg:default" in pt_style
+        assert "bg:default" in pt_style
+
+    def test_rich_to_pt_style_bold(self):
+        from rich.style import Style
+
+        style = Style(bold=True)
+        pt_style = pt_utils.rich_to_pt_style(style)
+        assert "bold" in pt_style
+        assert "nobold" not in pt_style
+
+    def test_rich_to_pt_style_nobold(self):
+        from rich.style import Style
+
+        style = Style(bold=False)
+        pt_style = pt_utils.rich_to_pt_style(style)
+        assert "nobold" in pt_style
+
+    def test_rich_to_pt_style_underline(self):
+        from rich.style import Style
+
+        style = Style(underline=True)
+        pt_style = pt_utils.rich_to_pt_style(style)
+        assert "underline" in pt_style
+
+    def test_rich_to_pt_style_nounderline(self):
+        from rich.style import Style
+
+        style = Style(underline=False)
+        pt_style = pt_utils.rich_to_pt_style(style)
+        assert "nounderline" in pt_style
+
+    def test_rich_to_pt_style_strike(self):
+        from rich.style import Style
+
+        style = Style(strike=True)
+        pt_style = pt_utils.rich_to_pt_style(style)
+        assert "strike" in pt_style
+
+    def test_rich_to_pt_style_nostrike(self):
+        from rich.style import Style
+
+        style = Style(strike=False)
+        pt_style = pt_utils.rich_to_pt_style(style)
+        assert "nostrike" in pt_style
+
+    def test_rich_to_pt_style_italic(self):
+        from rich.style import Style
+
+        style = Style(italic=True)
+        pt_style = pt_utils.rich_to_pt_style(style)
+        assert "italic" in pt_style
+
+    def test_rich_to_pt_style_noitalic(self):
+        from rich.style import Style
+
+        style = Style(italic=False)
+        pt_style = pt_utils.rich_to_pt_style(style)
+        assert "noitalic" in pt_style
+
+    def test_rich_to_pt_style_blink(self):
+        from rich.style import Style
+
+        style = Style(blink=True)
+        pt_style = pt_utils.rich_to_pt_style(style)
+        assert "blink" in pt_style
+
+    def test_rich_to_pt_style_noblink(self):
+        from rich.style import Style
+
+        style = Style(blink=False)
+        pt_style = pt_utils.rich_to_pt_style(style)
+        assert "noblink" in pt_style
+
+    def test_rich_to_pt_style_reverse(self):
+        from rich.style import Style
+
+        style = Style(reverse=True)
+        pt_style = pt_utils.rich_to_pt_style(style)
+        assert "reverse" in pt_style
+
+    def test_rich_to_pt_style_noreverse(self):
+        from rich.style import Style
+
+        style = Style(reverse=False)
+        pt_style = pt_utils.rich_to_pt_style(style)
+        assert "noreverse" in pt_style
+
+    def test_rich_to_pt_style_hidden_conceal(self):
+        from rich.style import Style
+
+        style = Style(conceal=True)
+        pt_style = pt_utils.rich_to_pt_style(style)
+        assert "hidden" in pt_style
+
+    def test_rich_to_pt_style_nohidden_conceal(self):
+        from rich.style import Style
+
+        style = Style(conceal=False)
+        pt_style = pt_utils.rich_to_pt_style(style)
+        assert "nohidden" in pt_style
+
+    def test_rich_to_pt_style_dim(self):
+        from rich.style import Style
+
+        style = Style(dim=True)
+        pt_style = pt_utils.rich_to_pt_style(style)
+        assert "dim" in pt_style
+
+    def test_rich_to_pt_style_nodim(self):
+        from rich.style import Style
+
+        style = Style(dim=False)
+        pt_style = pt_utils.rich_to_pt_style(style)
+        assert "nodim" in pt_style

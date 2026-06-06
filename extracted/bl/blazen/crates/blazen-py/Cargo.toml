@@ -58,7 +58,7 @@ blazen-train = { workspace = true, optional = true }
 tokenizers = { workspace = true, optional = true }
 candle-core = { workspace = true, optional = true }
 tonic = { workspace = true, optional = true }
-blazen-3d = { version = "0.6.4", path = "../blazen-3d", default-features = false, optional = true }
+blazen-3d = { version = "0.6.5", path = "../blazen-3d", default-features = false, optional = true }
 blazen-audio-music = { workspace = true, optional = true }
 blazen-audio-codec = { workspace = true, optional = true }
 blazen-audio = { workspace = true, optional = true }

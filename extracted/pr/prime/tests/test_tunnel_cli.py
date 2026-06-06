@@ -1,8 +1,14 @@
 import json
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - Python 3.10 fallback
+    import tomli as tomllib
 
 import pytest
 from prime_cli.commands.tunnel import _format_tunnel_for_output
@@ -10,6 +16,74 @@ from prime_cli.main import app
 from typer.testing import CliRunner
 
 runner = CliRunner()
+
+
+def test_prime_requires_runtime_sdks_with_cli_feature_support() -> None:
+    pyproject_path = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    pyproject = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+
+    assert "prime-evals>=0.2.3" in pyproject["project"]["dependencies"]
+    assert "prime-tunnel>=0.1.8" in pyproject["project"]["dependencies"]
+
+
+def test_tunnel_start_cli_passes_labels_to_sdk(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PRIME_DISABLE_VERSION_CHECK", "1")
+    captured: dict[str, Any] = {}
+
+    class DoneEvent:
+        def is_set(self) -> bool:
+            return True
+
+        def set(self) -> None:
+            return None
+
+        async def wait(self) -> None:
+            return None
+
+    class FakeTunnel:
+        tunnel_id = "t-test123"
+        is_running = True
+        recent_output: list[str] = []
+
+        def __init__(
+            self,
+            *,
+            local_port: int,
+            name: str | None,
+            team_id: str | None,
+            labels: list[str] | None,
+        ) -> None:
+            captured.update(
+                {
+                    "local_port": local_port,
+                    "name": name,
+                    "team_id": team_id,
+                    "labels": labels,
+                }
+            )
+
+        async def start(self) -> str:
+            return "https://t-test123.example.com"
+
+        async def stop(self) -> None:
+            captured["stopped"] = True
+
+    monkeypatch.setattr("prime_cli.commands.tunnel.asyncio.Event", DoneEvent)
+    monkeypatch.setattr("prime_tunnel.Tunnel", FakeTunnel)
+
+    result = runner.invoke(
+        app,
+        ["tunnel", "start", "--port", "8765", "--label", "dev", "--label", "preview"],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert captured == {
+        "local_port": 8765,
+        "name": None,
+        "team_id": None,
+        "labels": ["dev", "preview"],
+        "stopped": True,
+    }
 
 
 def test_format_tunnel_does_not_derive_created_from_expiration() -> None:

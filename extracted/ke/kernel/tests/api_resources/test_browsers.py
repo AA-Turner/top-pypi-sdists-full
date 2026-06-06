@@ -45,6 +45,7 @@ class TestBrowsers:
             headless=False,
             invocation_id="rr33xuugxj9h0bkf1rdt2bet",
             kiosk_mode=True,
+            name="checkout-flow-1",
             profile={
                 "id": "id",
                 "name": "name",
@@ -53,6 +54,10 @@ class TestBrowsers:
             proxy_id="proxy_id",
             start_url="https://example.com",
             stealth=True,
+            tags={
+                "team": "backend",
+                "env": "staging",
+            },
             telemetry={
                 "browser": {
                     "console": {"enabled": True},
@@ -231,6 +236,7 @@ class TestBrowsers:
             offset=0,
             query="query",
             status="active",
+            tags={"foo": "string"},
         )
         assert_matches_type(SyncOffsetPagination[BrowserListResponse], browser, path=["response"])
 
@@ -451,6 +457,7 @@ class TestAsyncBrowsers:
             headless=False,
             invocation_id="rr33xuugxj9h0bkf1rdt2bet",
             kiosk_mode=True,
+            name="checkout-flow-1",
             profile={
                 "id": "id",
                 "name": "name",
@@ -459,6 +466,10 @@ class TestAsyncBrowsers:
             proxy_id="proxy_id",
             start_url="https://example.com",
             stealth=True,
+            tags={
+                "team": "backend",
+                "env": "staging",
+            },
             telemetry={
                 "browser": {
                     "console": {"enabled": True},
@@ -637,6 +648,7 @@ class TestAsyncBrowsers:
             offset=0,
             query="query",
             status="active",
+            tags={"foo": "string"},
         )
         assert_matches_type(AsyncOffsetPagination[BrowserListResponse], browser, path=["response"])
 

@@ -4,15 +4,16 @@ High level method related functions
 
 from __future__ import annotations
 
-from asyncio import iscoroutinefunction
+import inspect
 from functools import wraps
-from typing import Any, Iterable, List, Union
+from typing import Any
 
 import asyncua
 from asyncua import ua
+from asyncua.common.session_interface import AbstractSession
 
 
-async def call_method(parent: asyncua.Node, methodid: Union[ua.NodeId, ua.QualifiedName, str], *args) -> Any:
+async def call_method(parent: asyncua.Node, methodid: ua.NodeId | ua.QualifiedName | str, *args: Any) -> Any:
     """
     Call an OPC-UA method. methodid is browse name of child method or the
     nodeid of method as a NodeId object
@@ -25,14 +26,13 @@ async def call_method(parent: asyncua.Node, methodid: Union[ua.NodeId, ua.Qualif
 
     if len(result.OutputArguments) == 0:
         return None
-    elif len(result.OutputArguments) == 1:
+    if len(result.OutputArguments) == 1:
         return result.OutputArguments[0]
-    else:
-        return result.OutputArguments
+    return result.OutputArguments
 
 
 async def call_method_full(
-    parent: asyncua.Node, methodid: Union[ua.NodeId, ua.QualifiedName, str], *args
+    parent: asyncua.Node, methodid: ua.NodeId | ua.QualifiedName | str, *args: Any
 ) -> ua.CallMethodResult:
     """
     Call an OPC-UA method. methodid is browse name of child method or the
@@ -42,7 +42,7 @@ async def call_method_full(
     returns a CallMethodResult object with converted OutputArguments
     : param: parent `Node`
     """
-    if isinstance(methodid, (str, ua.uatypes.QualifiedName)):
+    if isinstance(methodid, str | ua.uatypes.QualifiedName):
         methodid = (await parent.get_child(methodid)).nodeid
     elif hasattr(methodid, "nodeid"):
         methodid = methodid.nodeid
@@ -54,7 +54,12 @@ async def call_method_full(
     return result
 
 
-async def _call_method(session, parentnodeid, methodid, arguments):
+async def _call_method(
+    session: AbstractSession,
+    parentnodeid: ua.NodeId,
+    methodid: ua.NodeId,
+    arguments: list[ua.Variant],
+) -> ua.CallMethodResult:
     """
     :param server: `UaClient` or `InternalSession`
     :param parentnodeid:
@@ -73,16 +78,16 @@ async def _call_method(session, parentnodeid, methodid, arguments):
     return res
 
 
-def uamethod(func):
+def uamethod(func: Any) -> Any:
     """
     Method decorator to automatically convert
     arguments and output to and from variants
     """
 
-    if iscoroutinefunction(func):
+    if inspect.iscoroutinefunction(func):
 
         @wraps(func)
-        async def wrapper(parent, *args):
+        async def wrapper(parent: Any, *args: Any) -> Any:
             func_args = _format_call_inputs(parent, *args)
             result = await func(*func_args)
             return _format_call_outputs(result)
@@ -90,7 +95,7 @@ def uamethod(func):
     else:
 
         @wraps(func)
-        def wrapper(parent, *args):
+        def wrapper(parent: Any, *args: Any) -> Any:
             func_args = _format_call_inputs(parent, *args)
             result = func(*func_args)
             return _format_call_outputs(result)
@@ -98,33 +103,31 @@ def uamethod(func):
     return wrapper
 
 
-def _format_call_inputs(parent, *args):
+def _format_call_inputs(parent: Any, *args: Any) -> tuple[Any, ...]:
     if isinstance(parent, ua.NodeId):
         return (parent, *[arg.Value for arg in args])
-    else:
-        self = parent
-        parent = args[0]
-        args = args[1:]
+    self = parent
+    parent = args[0]
+    args = args[1:]
     return (self, parent, *[arg.Value for arg in args])
 
 
-def _format_call_outputs(result):
+def _format_call_outputs(result: Any) -> Any:
     if result is None:
         return []
-    elif isinstance(result, ua.CallMethodResult):
+    if isinstance(result, ua.CallMethodResult):
         result.OutputArguments = to_variant(*result.OutputArguments)
         return result
-    elif isinstance(result, ua.StatusCode):
+    if isinstance(result, ua.StatusCode):
         return result
-    elif isinstance(result, tuple):
+    if isinstance(result, tuple):
         return to_variant(*result)
-    else:
-        return to_variant(result)
+    return to_variant(result)
 
 
-def to_variant(*args: Iterable) -> List[ua.Variant]:
+def to_variant(*args: Any) -> list[ua.Variant]:
     """Create a list of ua.Variants from a given iterable of arguments."""
-    uaargs: List[ua.Variant] = []
+    uaargs: list[ua.Variant] = []
     for arg in args:
         if not isinstance(arg, ua.Variant):
             arg = ua.Variant(arg)

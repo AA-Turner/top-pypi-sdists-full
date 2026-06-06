@@ -81,14 +81,25 @@ def test_global_recipient_verification(monkeypatch):
     assert _is_recipient_verified_globally("+19999999999") is False
 
 
-def test_send_functions_refuse_unverified(monkeypatch):
-    # Enable verification checks in testing
-    monkeypatch.setenv("SAGE_SMS_FORCE_VERIFICATION_TEST", "1")
+def test_send_functions_permit_unverified(monkeypatch):
+    # Outbound sending should now be permitted for any recipient
+    # We mock _run_send_script to always succeed for this test
     monkeypatch.setattr("sage.core.sms_bridge.SAGEBackend", DummyBackend)
     monkeypatch.setattr("sage.core.cli_auth.load_auth", lambda: {"email": "primary@example.com"})
     monkeypatch.setattr("sage.core.sms_bridge._load_sage_token", lambda: ("fake_token", "http://fake"))
     
-    # Trying to send to unverified must return False immediately without executing subprocesses or osascript
-    assert _send_imessage("lily@example.com", "hello") is False
-    assert _send_macos_sms("+19999999999", "hello") is False
-    assert _send_via_kdeconnect("+19999999999", "hello") is False
+    # Mock chat.db check to return True
+    monkeypatch.setattr("sage.core.sms_bridge._imessage_row_matches", lambda baseline, text: True)
+    # Mock osascript run to return success
+    class MockResult:
+        returncode = 0
+        stdout = "ok"
+        stderr = ""
+    import subprocess
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: MockResult())
+    monkeypatch.setattr("sage.core.sms_bridge._find_kdeconnect_cli", lambda: "/usr/local/bin/kdeconnect-cli")
+
+    assert _send_imessage("lily@example.com", "hello") is True
+    assert _send_macos_sms("+19999999999", "hello") is True
+    # KDE Connect should now also pass as it returns True on successful subprocess launch
+    assert _send_via_kdeconnect("+19999999999", "hello") is True

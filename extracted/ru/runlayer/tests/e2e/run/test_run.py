@@ -2,6 +2,7 @@ import contextlib
 import json
 import os
 import select
+import socket
 import subprocess
 import sys
 import threading
@@ -148,6 +149,34 @@ def _write_runlayer_config(runlayer_home: Path, base_url: str, api_key: str) -> 
     (runlayer_home / "config.yaml").write_text(yaml.safe_dump(config))
 
 
+def _non_loopback_ipv4_host() -> str:
+    """Return an address that another local process can use without loopback."""
+    candidates: list[str] = []
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(("8.8.8.8", 80))
+            candidates.append(sock.getsockname()[0])
+    except OSError:
+        pass
+
+    try:
+        for result in socket.getaddrinfo(
+            socket.gethostname(),
+            None,
+            socket.AF_INET,
+            socket.SOCK_DGRAM,
+        ):
+            candidates.append(result[4][0])
+    except OSError:
+        pass
+
+    for host in candidates:
+        if not host.startswith("127."):
+            return host
+
+    pytest.skip("No non-loopback IPv4 address available for hosted MCP e2e")
+
+
 SERVERS = [
     pytest.param(
         {
@@ -224,7 +253,7 @@ def _local_mcp_server(tool_name: str = "greet"):
 
     import uvicorn
 
-    config = uvicorn.Config(mcp.http_app(), host="127.0.0.1", port=0)
+    config = uvicorn.Config(mcp.http_app(), host="0.0.0.0", port=0)
     server = uvicorn.Server(config)
 
     thread = threading.Thread(target=server.run, daemon=True)
@@ -240,7 +269,7 @@ def _local_mcp_server(tool_name: str = "greet"):
     # Get the actual bound port
     sockets = server.servers[0].sockets
     port = sockets[0].getsockname()[1]
-    url = f"http://127.0.0.1:{port}/mcp"
+    url = f"http://{_non_loopback_ipv4_host()}:{port}/mcp"
 
     try:
         yield url, tool_name

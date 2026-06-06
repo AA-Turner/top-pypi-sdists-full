@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-parrot
-Version: 0.25.5
+Version: 0.25.6
 Summary: Framework for building AI agents for Navigator
 Author-email: Jesus Lara <jesuslara@phenobarbital.info>
 License-Expression: MIT
@@ -277,6 +277,8 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0,>=1.25; extra == "obse
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc<2.0,>=1.25; extra == "observability"
 Provides-Extra: observability-openlit
 Requires-Dist: openlit>=1.40.0; extra == "observability-openlit"
+Provides-Extra: observability-prometheus
+Requires-Dist: prometheus-client<1.0,>=0.20; extra == "observability-prometheus"
 Provides-Extra: dev
 Requires-Dist: pytest>=8.0; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.24; extra == "dev"

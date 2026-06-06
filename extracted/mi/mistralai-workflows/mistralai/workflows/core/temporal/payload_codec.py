@@ -3,11 +3,16 @@ from typing import Iterable
 
 import structlog
 from mistralai.extra.workflows import WorkflowEncodingConfig
+from mistralai.extra.workflows.encoding.payload_compressor import build_compressor
 from mistralai.extra.workflows.encoding.payload_encoder import PayloadEncoder
 from temporalio.api.common.v1 import Payload
 from temporalio.converter import PayloadCodec
 
-from mistralai.workflows.core.config.config import PayloadEncryptionConfig, PayloadOffloadingConfig
+from mistralai.workflows.core.config.config import (
+    PayloadCompressionConfig,
+    PayloadEncryptionConfig,
+    PayloadOffloadingConfig,
+)
 from mistralai.workflows.core.encoding import (
     CUSTOM_ENCODING_FORMAT,
     build_info_from_payload_metadata,
@@ -36,6 +41,7 @@ class MistralWorkflowsPayloadCodec(PayloadCodec):
         self,
         payload_offloading_config: PayloadOffloadingConfig | None,
         payload_encryption_config: PayloadEncryptionConfig | None,
+        payload_compression_config: PayloadCompressionConfig | None = None,
     ) -> None:
         self.payload_encoder = PayloadEncoder(
             encoding_config=WorkflowEncodingConfig(
@@ -43,6 +49,9 @@ class MistralWorkflowsPayloadCodec(PayloadCodec):
                 payload_encryption=payload_encryption_config,
             ),
         )
+        if payload_compression_config is not None:
+            self.payload_encoder.compression_config = payload_compression_config
+            self.payload_encoder.compressor = build_compressor(payload_compression_config)
 
     async def _encode(self, payload: Payload) -> Payload:
         encoding_bytes = payload.metadata.get(PayloadMetadataKeys.ENCODING, b"")

@@ -42,7 +42,6 @@ pub use config::{
     kreuzberg_config_get_field, kreuzberg_config_is_valid, kreuzberg_config_merge, kreuzberg_config_to_json,
     kreuzberg_load_extraction_config_from_file,
 };
-#[cfg(feature = "embeddings")]
 pub use config::{kreuzberg_get_embedding_preset, kreuzberg_list_embedding_presets};
 pub use config_builder::kreuzberg_config_builder_set_layout;
 pub use config_builder::{
@@ -108,7 +107,7 @@ pub use types::*;
 pub use util::{kreuzberg_last_error, kreuzberg_last_error_code, kreuzberg_last_panic_context, kreuzberg_version};
 pub use validation::*;
 
-#[ctor::ctor]
+#[ctor::ctor(unsafe)]
 fn setup_onnx_runtime_path() {
     kreuzberg::ort_discovery::ensure_ort_available();
 }

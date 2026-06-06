@@ -117,6 +117,16 @@ class TestWorkerHeartbeat:
         assert mock_logger.error.call_count == 1
         assert "re-registration also failed" in mock_logger.error.call_args.args[0]
 
+    async def test_heartbeat_suppresses_instrumentation(self) -> None:
+        client = _make_worker_client([None])
+
+        with patch("mistralai.workflows.core.worker.suppress_instrumentation") as suppress:
+            register = await _run_heartbeat(client, iterations=1)
+
+        suppress.assert_called_once_with()
+        client.heartbeat_async.assert_awaited_once()
+        register.assert_not_awaited()
+
     async def test_unexpected_error_raises_workflows_exception(self) -> None:
         client = AsyncMock()
         client.heartbeat_async = AsyncMock(side_effect=RuntimeError("unexpected"))

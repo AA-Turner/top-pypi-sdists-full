@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: runlayer
-Version: 0.24.14
+Version: 0.24.15
 Summary: A command-line interface for running MCP servers via HTTP transport
 Project-URL: Homepage, https://runlayer.com
 Project-URL: Documentation, https://docs.runlayer.com/
@@ -218,7 +218,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-Requires-Dist: authlib<1.7.0,>=1.6.5
+Requires-Dist: authlib<1.7.0,>=1.6.12
 Requires-Dist: docker>=7.0.0
 Requires-Dist: fakeredis<2.35.0
 Requires-Dist: fastmcp<3,>=2.14.5
@@ -230,6 +230,7 @@ Requires-Dist: python-dotenv>=1.0.0
 Requires-Dist: pyyaml>=6.0.0
 Requires-Dist: questionary>=2.0.0
 Requires-Dist: rich>=13.0.0
+Requires-Dist: runlayer-sdk==0.1.0
 Requires-Dist: structlog>=25.4.0
 Requires-Dist: tomli>=2.0.0; python_version < '3.11'
 Requires-Dist: truststore<0.11,>=0.10.4

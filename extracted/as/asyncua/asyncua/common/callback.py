@@ -2,9 +2,11 @@
 server side implementation of callback event
 """
 
+import inspect
 from collections import OrderedDict
+from collections.abc import Awaitable, Callable
 from enum import Enum
-import asyncio
+from typing import Any
 
 
 class CallbackType(Enum):
@@ -27,18 +29,19 @@ class CallbackType(Enum):
 
 
 class Callback:
-    def __init__(self):
-        self.__name = None
+    def __init__(self) -> None:
+        self.__name: str | None = None
 
-    def setName(self, name):
+    def setName(self, name: str | None) -> None:
         self.__name = name
 
-    def getName(self):
+    def getName(self) -> str | None:
         return self.__name
 
 
 class ServerItemCallback(Callback):
-    def __init__(self, request_params, response_params, user=None, is_external=False):
+    def __init__(self, request_params: Any, response_params: Any, user: Any = None, is_external: bool = False) -> None:
+        super().__init__()
         self.request_params = request_params
         self.response_params = response_params
         self.is_external = is_external
@@ -46,15 +49,18 @@ class ServerItemCallback(Callback):
 
 
 class CallbackSubscriberInterface:
-    def getSubscribedEvents(self):
+    def getSubscribedEvents(self) -> dict[str, Any]:
         raise NotImplementedError()
 
 
-class CallbackService:
-    def __init__(self):
-        self._listeners = {}
+Listener = Callable[[Callback, "CallbackService"], Awaitable[None] | None]
 
-    async def dispatch(self, eventName, event=None):
+
+class CallbackService:
+    def __init__(self) -> None:
+        self._listeners: dict[str, OrderedDict[int, Listener]] = {}
+
+    async def dispatch(self, eventName: str, event: Callback | None = None) -> Callback:
         if event is None:
             event = Callback()
         elif not isinstance(event, Callback):
@@ -67,19 +73,19 @@ class CallbackService:
 
         return event
 
-    async def call_listener(self, event, listener):
-        if asyncio.iscoroutinefunction(listener):
+    async def call_listener(self, event: Callback, listener: Listener) -> None:
+        if inspect.iscoroutinefunction(listener):
             await listener(event, self)
         else:
             listener(event, self)
 
-    def addListener(self, eventName, listener, priority=0):
+    def addListener(self, eventName: str, listener: Listener, priority: int = 0) -> None:
         if eventName not in self._listeners:
-            self._listeners[eventName] = {}
+            self._listeners[eventName] = OrderedDict()
         self._listeners[eventName][priority] = listener
         self._listeners[eventName] = OrderedDict(sorted(self._listeners[eventName].items(), key=lambda item: item[0]))
 
-    def removeListener(self, eventName, listener=None):
+    def removeListener(self, eventName: str, listener: Listener | None = None) -> None:
         if eventName not in self._listeners:
             return
         if not listener:
@@ -90,7 +96,7 @@ class CallbackService:
                     self._listeners[eventName].pop(name)
                     return
 
-    def addSubscriber(self, subscriber):
+    def addSubscriber(self, subscriber: CallbackSubscriberInterface) -> None:
         if not isinstance(subscriber, CallbackSubscriberInterface):
             raise ValueError("Unexpected subscriber type given")
         for eventName, params in subscriber.getSubscribedEvents().items():
@@ -98,7 +104,7 @@ class CallbackService:
                 self.addListener(eventName, getattr(subscriber, params))
             elif isinstance(params, list):
                 if not params:
-                    raise ValueError(f'Invalid params "{repr(params)}" for event "{str(eventName)}"')
+                    raise ValueError(f'Invalid params "{params!r}" for event "{eventName!s}"')
                 if len(params) <= 2 and isinstance(params[0], str):
                     priority = params[1] if len(params) > 1 else 0
                     self.addListener(eventName, getattr(subscriber, params[0]), priority)
@@ -107,4 +113,4 @@ class CallbackService:
                         priority = listener[1] if len(listener) > 1 else 0
                         self.addListener(eventName, getattr(subscriber, listener[0]), priority)
             else:
-                raise ValueError(f'Invalid params for event "{str(eventName)}"')
+                raise ValueError(f'Invalid params for event "{eventName!s}"')

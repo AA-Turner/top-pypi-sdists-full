@@ -25,7 +25,15 @@ from httpx import BasicAuth, Response
 from connector.auth_helper import parse_auth_code_and_redirect_uri
 from connector.httpx_rewrite import AsyncClient
 from connector.oai.capability import AuthRequest, CapabilityCallableProto
-from connector.oai.errors import InvalidResponseError, MissingParameterError
+from connector.oai.errors import (
+    AuthenticationError,
+    AuthenticationExpiredError,
+    AuthorizationError,
+    InvalidResponseError,
+    MissingParameterError,
+    RateLimitError,
+    UpstreamError,
+)
 from connector.oai.modules.base_module import BaseIntegrationModule
 from connector.oai.modules.oauth_module_types import (
     ClientAuthenticationMethod,
@@ -206,21 +214,39 @@ class OAuthModule(BaseIntegrationModule):
     def raise_for_oauth_status(cls, response: Response, url: str) -> None:
         """
         Utility method to call inside oauth capability implementations to handle errors.
-        This is to prevent retrying oauth requests.
+        This is to prevent retrying oauth requests, which is undesired during the authz flows.
 
-        Raises a ConnectorError with the error code API_ERROR (non retryable).
+        Maps HTTP status codes and RFC 6749 error fields to appropriate non-retryable errors.
         """
-        if response.status_code >= 300:
-            try:
-                error_data = response.json()
-                response_message = str(error_data)
-            except ValueError:
-                response_message = response.text
+        status = response.status_code
+        if status < 300:
+            return
 
-            response_code = response.status_code
-            raise InvalidResponseError(
-                message=f"[{response_code}][{url.split('?')[0]}] OAuth request failed: {response_message}",
-            )
+        try:
+            error_data = response.json()
+            oauth_error = error_data.get("error", "") if isinstance(error_data, dict) else ""
+            response_message = str(error_data)
+        except ValueError:
+            oauth_error = ""
+            response_message = response.text
+
+        msg = f"[{status}][{url.split('?')[0]}] OAuth request failed: {response_message}"
+
+        if status == 429:
+            # Unlikely to occur during an OAuth flow, but kept just in case
+            raise RateLimitError(message=msg, retryable=False, throttled=False)
+        elif status >= 500:
+            # Server-side error, customer would retry the connection
+            raise UpstreamError(message=msg, retryable=False)
+        elif status == 403 or oauth_error in ("access_denied", "unauthorized_client"):
+            # Customer lacks the required scope or credentials are invalid
+            raise AuthorizationError(message=msg, retryable=False)
+        elif oauth_error == "invalid_grant":
+            # Most likely expired credentials or revoked access, and other platform specific issues
+            raise AuthenticationExpiredError(message=msg, retryable=False, refreshable=False)
+        else:
+            # 400 (invalid_client, invalid_request, etc.) and 401, bad credentials, bad URL, etc.
+            raise AuthenticationError(message=msg, retryable=False, refreshable=False)
 
     async def _send_authorized_request(
         self,

@@ -10,6 +10,7 @@ from pyrit.registry.class_registries import (
     InitializerMetadata,
     InitializerRegistry,
     ScenarioMetadata,
+    ScenarioParameterMetadata,
     ScenarioRegistry,
 )
 from pyrit.registry.discovery import (
@@ -26,6 +27,7 @@ from pyrit.registry.object_registries import (
     ScorerRegistry,
     TargetRegistry,
 )
+from pyrit.registry.tag_query import TagQuery
 
 __all__ = [
     "AttackTechniqueRegistry",
@@ -42,7 +44,9 @@ __all__ = [
     "RegistryEntry",
     "RegistryProtocol",
     "ScenarioMetadata",
+    "ScenarioParameterMetadata",
     "ScenarioRegistry",
     "ScorerRegistry",
     "TargetRegistry",
+    "TagQuery",
 ]

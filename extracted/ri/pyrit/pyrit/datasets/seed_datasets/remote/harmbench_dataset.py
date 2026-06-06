@@ -6,7 +6,7 @@ from typing import Literal
 from pyrit.datasets.seed_datasets.remote.remote_dataset_loader import (
     _RemoteDatasetLoader,
 )
-from pyrit.models import SeedDataset, SeedObjective
+from pyrit.models import Modality, SeedDataset, SeedObjective
 
 
 class _HarmBenchDataset(_RemoteDatasetLoader):
@@ -21,8 +21,8 @@ class _HarmBenchDataset(_RemoteDatasetLoader):
 
     # Metadata
     harm_categories: list[str] = ["cybercrime", "illegal", "harmful", "chemical_biological", "harassment"]
-    modalities: list[str] = ["text"]
-    size: str = "large"  # 504 seeds
+    modalities: tuple[Modality, ...] = (Modality.TEXT,)
+    size: str = "medium"  # 400 harmful behaviors
     tags: set[str] = {"default", "safety"}
 
     def __init__(
@@ -33,7 +33,7 @@ class _HarmBenchDataset(_RemoteDatasetLoader):
             "harmbench_behaviors_text_all.csv"
         ),
         source_type: Literal["public_url", "file"] = "public_url",
-    ):
+    ) -> None:
         """
         Initialize the HarmBench dataset loader.
 
@@ -49,7 +49,7 @@ class _HarmBenchDataset(_RemoteDatasetLoader):
         """Return the dataset name."""
         return "harmbench"
 
-    async def fetch_dataset(self, *, cache: bool = True) -> SeedDataset:
+    async def fetch_dataset_async(self, *, cache: bool = True) -> SeedDataset:
         """
         Fetch HarmBench dataset and return as SeedDataset.
 

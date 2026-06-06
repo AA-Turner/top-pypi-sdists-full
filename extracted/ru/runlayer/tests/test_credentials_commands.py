@@ -197,7 +197,10 @@ class TestEnroll:
             patch("runlayer_cli.commands.credentials.load_config", return_value=config),
             patch("runlayer_cli.commands.credentials.save_config") as mock_save,
             patch(
-                "runlayer_cli.commands.credentials.httpx.Client",
+                "runlayer_cli.commands.credentials.write_enrollment_marker"
+            ) as mock_marker,
+            patch(
+                "runlayer_cli.enrollment.httpx.Client",
                 return_value=mock_client,
             ),
         ):
@@ -216,6 +219,7 @@ class TestEnroll:
             assert result.exit_code == 0
             assert "Enrollment successful" in result.output
             mock_save.assert_called_once()
+            mock_marker.assert_called_once_with("https://app.runlayer.com")
             call_args = mock_client.post.call_args
             assert "/api/v1/mdm/enroll" in call_args[0][0]
             body = call_args[1]["json"]
@@ -241,7 +245,7 @@ class TestEnroll:
         with (
             patch("runlayer_cli.commands.credentials.load_config", return_value=config),
             patch(
-                "runlayer_cli.commands.credentials.httpx.Client",
+                "runlayer_cli.enrollment.httpx.Client",
                 return_value=mock_client,
             ),
         ):
@@ -265,7 +269,7 @@ class TestEnroll:
         with (
             patch("runlayer_cli.commands.credentials.load_config", return_value=config),
             patch(
-                "runlayer_cli.commands.credentials.httpx.Client",
+                "runlayer_cli.enrollment.httpx.Client",
                 return_value=mock_client,
             ),
         ):
@@ -292,7 +296,7 @@ class TestEnroll:
         with (
             patch("runlayer_cli.commands.credentials.load_config", return_value=config),
             patch(
-                "runlayer_cli.commands.credentials.httpx.Client",
+                "runlayer_cli.enrollment.httpx.Client",
                 return_value=mock_client,
             ),
         ):
@@ -320,7 +324,7 @@ class TestEnroll:
         with (
             patch("runlayer_cli.commands.credentials.load_config", return_value=config),
             patch(
-                "runlayer_cli.commands.credentials.httpx.Client",
+                "runlayer_cli.enrollment.httpx.Client",
                 return_value=mock_client,
             ),
         ):

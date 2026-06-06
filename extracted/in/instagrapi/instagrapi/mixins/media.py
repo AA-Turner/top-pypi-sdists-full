@@ -556,6 +556,14 @@ class MediaMixin:
             ).dict()
         return extract_media_gql(data["shortcode_media"])
 
+    def _media_info_public(self, media_pk: str) -> Media:
+        try:
+            return self.media_info_gql(media_pk)
+        except ClientLoginRequired as e:
+            if not self.inject_sessionid_to_public():
+                raise e
+            return self.media_info_gql(media_pk)
+
     def media_info_v1(self, media_pk: str) -> Media:
         """
         Get Media from PK by Private Mobile API
@@ -631,19 +639,22 @@ class MediaMixin:
         """
         media_pk = self.media_pk(media_pk)
         if not use_cache or media_pk not in self._medias_cache:
-            try:
+            if self._has_private_auth():
                 try:
-                    media = self.media_info_gql(media_pk)
-                except ClientLoginRequired as e:
-                    if not self.inject_sessionid_to_public():
-                        raise e
-                    media = self.media_info_gql(media_pk)  # retry
-            except Exception as e:
-                if not isinstance(e, ClientError):
-                    self.logger.exception(e)  # Register unknown error
-                # Restricted Video: This video is not available in your country.
-                # Or private account
-                media = self.media_info_v1(media_pk)
+                    media = self.media_info_v1(media_pk)
+                except Exception as e:
+                    if not isinstance(e, ClientError):
+                        self.logger.exception(e)  # Register unknown error
+                    media = self._media_info_public(media_pk)
+            else:
+                try:
+                    media = self._media_info_public(media_pk)
+                except Exception as e:
+                    if not isinstance(e, ClientError):
+                        self.logger.exception(e)  # Register unknown error
+                    # Restricted Video: This video is not available in your country.
+                    # Or private account
+                    media = self.media_info_v1(media_pk)
             self._medias_cache[media_pk] = media
         return deepcopy(self._medias_cache[media_pk])  # return copy of cache (dict changes protection)
 
@@ -1155,27 +1166,36 @@ class MediaMixin:
             A tuple containing a list of medias and the next end_cursor value
         """
 
-        class EndCursorIsV1(Exception):
-            pass
-
-        try:
-            if end_cursor and "_" in end_cursor:
-                # end_cursor is a v1 next_max_id, so we need to use v1 API
-                raise EndCursorIsV1
+        def public_lookup():
             try:
-                medias, end_cursor = self.user_medias_paginated_gql(user_id, amount, end_cursor=end_cursor)
+                medias, next_cursor = self.user_medias_paginated_gql(user_id, amount, end_cursor=end_cursor)
             except ClientLoginRequired as e:
                 if not self.inject_sessionid_to_public():
                     raise e
-                medias, end_cursor = self.user_medias_paginated_gql(user_id, amount, end_cursor=end_cursor)
-        except PrivateError as e:
-            raise e
-        except Exception as e:
-            if isinstance(e, EndCursorIsV1):
-                pass
-            elif not isinstance(e, ClientError):
-                self.logger.exception(e)
-            medias, end_cursor = self.user_medias_paginated_v1(user_id, amount, end_cursor=end_cursor)
+                medias, next_cursor = self.user_medias_paginated_gql(user_id, amount, end_cursor=end_cursor)
+            return medias, next_cursor
+
+        end_cursor_is_v1 = bool(end_cursor and "_" in end_cursor)
+        if self._has_private_auth() or end_cursor_is_v1:
+            try:
+                medias, end_cursor = self.user_medias_paginated_v1(user_id, amount, end_cursor=end_cursor)
+            except PrivateError as e:
+                raise e
+            except Exception as e:
+                if end_cursor_is_v1:
+                    raise e
+                if not isinstance(e, ClientError):
+                    self.logger.exception(e)
+                medias, end_cursor = public_lookup()
+        else:
+            try:
+                medias, end_cursor = public_lookup()
+            except PrivateError as e:
+                raise e
+            except Exception as e:
+                if not isinstance(e, ClientError):
+                    self.logger.exception(e)
+                medias, end_cursor = self.user_medias_paginated_v1(user_id, amount, end_cursor=end_cursor)
         return medias, end_cursor
 
     def user_medias_chunk(self, user_id: str, end_cursor: str = "") -> Tuple[List[Media], str]:
@@ -1235,22 +1255,37 @@ class MediaMixin:
         amount = int(amount)
         user_id = int(user_id)
         sleep = int(sleep)
-        try:
+
+        def public_lookup():
             try:
                 medias = self.user_medias_gql(user_id, amount, sleep)
             except ClientLoginRequired as e:
                 if not self.inject_sessionid_to_public():
                     raise e
                 medias = self.user_medias_gql(user_id, amount, sleep)  # retry
-        except PrivateError as e:
-            raise e
-        except Exception as e:
-            if not isinstance(e, ClientError):
-                self.logger.exception(e)
-            # User may been private, attempt via Private API
-            # (You can check is_private, but there may be other reasons,
-            #  it is better to try through a Private API)
-            medias = self.user_medias_v1(user_id, amount)
+            return medias
+
+        if self._has_private_auth():
+            try:
+                medias = self.user_medias_v1(user_id, amount)
+            except PrivateError as e:
+                raise e
+            except Exception as e:
+                if not isinstance(e, ClientError):
+                    self.logger.exception(e)
+                medias = public_lookup()
+        else:
+            try:
+                medias = public_lookup()
+            except PrivateError as e:
+                raise e
+            except Exception as e:
+                if not isinstance(e, ClientError):
+                    self.logger.exception(e)
+                # User may been private, attempt via Private API
+                # (You can check is_private, but there may be other reasons,
+                #  it is better to try through a Private API)
+                medias = self.user_medias_v1(user_id, amount)
         return medias
 
     def user_clips_paginated_v1(self, user_id: str, amount: int = 50, end_cursor: str = "") -> Tuple[List[Media], str]:
@@ -1707,10 +1742,18 @@ class MediaMixin:
         """
         amount = int(amount)
         user_id = int(user_id)
-        try:
-            medias, end_cursor = self.usertag_medias_paginated_gql(user_id, amount, end_cursor=end_cursor)
-        except ClientError:
-            medias, end_cursor = self.usertag_medias_paginated_v1(user_id, amount, end_cursor=end_cursor)
+        if self._has_private_auth():
+            try:
+                medias, end_cursor = self.usertag_medias_paginated_v1(user_id, amount, end_cursor=end_cursor)
+            except Exception as e:
+                if not isinstance(e, ClientError):
+                    self.logger.exception(e)
+                medias, end_cursor = self.usertag_medias_paginated_gql(user_id, amount, end_cursor=end_cursor)
+        else:
+            try:
+                medias, end_cursor = self.usertag_medias_paginated_gql(user_id, amount, end_cursor=end_cursor)
+            except ClientError:
+                medias, end_cursor = self.usertag_medias_paginated_v1(user_id, amount, end_cursor=end_cursor)
         return medias, end_cursor
 
     def usertag_medias(self, user_id: str, amount: int = 0) -> List[Media]:
@@ -1730,10 +1773,18 @@ class MediaMixin:
         """
         amount = int(amount)
         user_id = int(user_id)
-        try:
-            medias = self.usertag_medias_gql(user_id, amount)
-        except ClientError:
-            medias = self.usertag_medias_v1(user_id, amount)
+        if self._has_private_auth():
+            try:
+                medias = self.usertag_medias_v1(user_id, amount)
+            except Exception as e:
+                if not isinstance(e, ClientError):
+                    self.logger.exception(e)
+                medias = self.usertag_medias_gql(user_id, amount)
+        else:
+            try:
+                medias = self.usertag_medias_gql(user_id, amount)
+            except ClientError:
+                medias = self.usertag_medias_v1(user_id, amount)
         return medias
 
     def media_configure_to_cutout_sticker(

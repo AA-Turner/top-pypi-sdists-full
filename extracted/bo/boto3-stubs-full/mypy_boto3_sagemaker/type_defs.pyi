@@ -389,6 +389,7 @@ __all__ = (
     "AIDatasetConfigOutputTypeDef",
     "AIDatasetConfigTypeDef",
     "AIDatasetConfigUnionTypeDef",
+    "AIMlflowConfigTypeDef",
     "AIModelSourceS3TypeDef",
     "AIModelSourceTypeDef",
     "AIRecommendationComputeSpecOutputTypeDef",
@@ -2244,8 +2245,10 @@ class VpcConfigTypeDef(TypedDict):
     SecurityGroupIds: Sequence[str]
     Subnets: Sequence[str]
 
-class AIBenchmarkOutputConfigTypeDef(TypedDict):
-    S3OutputLocation: str
+class AIMlflowConfigTypeDef(TypedDict):
+    MlflowResourceArn: str
+    MlflowExperimentName: NotRequired[str]
+    MlflowRunName: NotRequired[str]
 
 class AICloudWatchLogsTypeDef(TypedDict):
     LogGroupArn: NotRequired[str]
@@ -2287,14 +2290,6 @@ class AIRecommendationJobSummaryTypeDef(TypedDict):
 class AIRecommendationOptimizationDetailTypeDef(TypedDict):
     OptimizationType: AIRecommendationOptimizationTypeType
     OptimizationConfig: NotRequired[dict[str, str]]
-
-class AIRecommendationOutputConfigTypeDef(TypedDict):
-    S3OutputLocation: NotRequired[str]
-    ModelPackageGroupIdentifier: NotRequired[str]
-
-class AIRecommendationOutputResultTypeDef(TypedDict):
-    S3OutputLocation: str
-    ModelPackageGroupIdentifier: NotRequired[str]
 
 class AIRecommendationPerformanceMetricTypeDef(TypedDict):
     Metric: str
@@ -5743,9 +5738,24 @@ class NetworkConfigTypeDef(TypedDict):
 
 VpcConfigUnionTypeDef = Union[VpcConfigTypeDef, VpcConfigOutputTypeDef]
 
+class AIBenchmarkOutputConfigTypeDef(TypedDict):
+    S3OutputLocation: str
+    MlflowConfig: NotRequired[AIMlflowConfigTypeDef]
+
+class AIRecommendationOutputConfigTypeDef(TypedDict):
+    S3OutputLocation: NotRequired[str]
+    ModelPackageGroupIdentifier: NotRequired[str]
+    MlflowConfig: NotRequired[AIMlflowConfigTypeDef]
+
+class AIRecommendationOutputResultTypeDef(TypedDict):
+    S3OutputLocation: str
+    ModelPackageGroupIdentifier: NotRequired[str]
+    MlflowConfig: NotRequired[AIMlflowConfigTypeDef]
+
 class AIBenchmarkOutputResultTypeDef(TypedDict):
     S3OutputLocation: str
     CloudWatchLogs: NotRequired[list[AICloudWatchLogsTypeDef]]
+    MlflowConfig: NotRequired[AIMlflowConfigTypeDef]
 
 class AIRecommendationComputeSpecOutputTypeDef(TypedDict):
     InstanceTypes: NotRequired[list[AIRecommendationInstanceTypeType]]

@@ -47,6 +47,10 @@ class SessionConfig(BaseModel):
     chat_model_config: ChatModelConfig | None = None
     """The chat model config. None means no model has been configured yet."""
 
+    fallback_chat_model_config: ChatModelConfig | None = None
+    """The fallback chat model config. Used as a backup when the primary
+    model fails. None means no fallback configured."""
+
 
 class SessionRecord(_RecordBase):
     """The session record."""
@@ -62,6 +66,14 @@ class SessionRecord(_RecordBase):
 
     source_schedule_id: str | None = None
     """The source schedule Id."""
+
+    team_id: str | None = None
+    """The team this session participates in, if any.
+
+    Team membership is session-level: a user agent can lead multiple teams
+    across different sessions, and each worker session belongs to exactly
+    one team. ``None`` means the session is not part of any team.
+    """
 
     config: SessionConfig
     """Session configuration (workspace, name, model)."""

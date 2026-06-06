@@ -1826,8 +1826,9 @@ class OProc:
 
             pwrec = pwd.getpwuid(ca["uid"])
             target_gid = pwrec.pw_gid
+            target_name = pwrec.pw_name
         else:
-            target_uid, target_gid = None, None
+            target_uid, target_gid, target_name = None, None, None
 
         # I had issues with getting 'Input/Output error reading stdin' from dd,
         # until I set _tty_out=False
@@ -2076,7 +2077,8 @@ class OProc:
                     setwinsize(1, ca["tty_size"])
 
                 if ca["uid"] is not None:
-                    os.setgid(target_gid)
+                    os.initgroups(target_name, target_gid)
+
                     os.setuid(target_uid)
 
                 preexec_fn = ca["preexec_fn"]

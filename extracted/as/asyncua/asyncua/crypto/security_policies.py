@@ -1,17 +1,17 @@
 from __future__ import annotations
+
 import logging
 import struct
 import time
-from typing import TYPE_CHECKING, Optional
-
 from abc import ABCMeta, abstractmethod
-from ..ua import SecurityPolicyType, MessageSecurityMode, UaError
+from typing import TYPE_CHECKING
+
+from ..ua import MessageSecurityMode, SecurityPolicyType, UaError
 
 if TYPE_CHECKING:
     from ..crypto.permission_rules import PermissionRuleset
 
 from ..crypto import uacrypto
-
 
 _logger = logging.getLogger(__name__)
 
@@ -148,7 +148,6 @@ class CryptographyNone:
         """
         Verify signature and raise exception if signature is invalid
         """
-        pass
 
     def remove_padding(self, data):
         return data
@@ -263,8 +262,7 @@ class Cryptography(CryptographyNone):
             if self.Prev_Decryptor and self.Prev_Verifier:
                 return True
             raise uacrypto.InvalidSignature
-        else:
-            return False
+        return False
 
     @use_prev_key.setter
     def use_prev_key(self, value: bool):
@@ -485,12 +483,13 @@ class SecurityPolicy:
     asymmetric_cryptography: CryptographyNone
     symmetric_cryptography: CryptographyNone
     Mode: MessageSecurityMode
-    peer_certificate: Optional[bytes]
-    host_certificate: Optional[bytes]
-    permissions: Optional[PermissionRuleset]
+    peer_certificate: bytes | None
+    host_certificate: bytes | None
+    permissions: PermissionRuleset | None
+    host_certificate_chain: list[bytes]
 
     @abstractmethod
-    def __init__(self, peer_cert, host_cert, host_privkey, mode, permission_ruleset=None):
+    def __init__(self, peer_cert, host_cert, host_privkey, mode, permission_ruleset=None, host_cert_chain=None):
         pass
 
     @abstractmethod
@@ -509,7 +508,13 @@ class SecurityPolicyNone(SecurityPolicy):
     secure_channel_nonce_length: int = 0
 
     def __init__(
-        self, peer_cert=None, host_cert=None, host_privkey=None, mode=MessageSecurityMode.None_, permission_ruleset=None
+        self,
+        peer_cert=None,
+        host_cert=None,
+        host_privkey=None,
+        mode=MessageSecurityMode.None_,
+        permission_ruleset=None,
+        host_cert_chain=None,
     ):
         if isinstance(peer_cert, bytes):
             peer_cert = uacrypto.x509_from_der(peer_cert)
@@ -518,6 +523,8 @@ class SecurityPolicyNone(SecurityPolicy):
         self.Mode = mode
         self.peer_certificate = uacrypto.der_from_x509(peer_cert)
         self.host_certificate = uacrypto.der_from_x509(host_cert)
+        host_cert_chain = host_cert_chain or []
+        self.host_certificate_chain = [uacrypto.der_from_x509(cert) for cert in host_cert_chain]
         self.permissions = permission_ruleset
 
     def make_local_symmetric_key(self, secret, seed):
@@ -568,7 +575,7 @@ class SecurityPolicyAes128Sha256RsaOaep(SecurityPolicy):
     def sign_asymmetric(privkey, data):
         return uacrypto.sign_sha256(privkey, data)
 
-    def __init__(self, peer_cert, host_cert, host_privkey, mode, permission_ruleset=None):
+    def __init__(self, peer_cert, host_cert, host_privkey, mode, permission_ruleset=None, host_cert_chain=None):
         if isinstance(peer_cert, bytes):
             peer_cert = uacrypto.x509_from_der(peer_cert)
         # even in Sign mode we need to asymmetrically encrypt secrets
@@ -582,6 +589,8 @@ class SecurityPolicyAes128Sha256RsaOaep(SecurityPolicy):
         self.Mode = mode
         self.peer_certificate = uacrypto.der_from_x509(peer_cert)
         self.host_certificate = uacrypto.der_from_x509(host_cert)
+        host_cert_chain = host_cert_chain or []
+        self.host_certificate_chain = [uacrypto.der_from_x509(cert) for cert in host_cert_chain]
         self.permissions = permission_ruleset
 
     def make_local_symmetric_key(self, secret, seed):
@@ -646,7 +655,7 @@ class SecurityPolicyAes256Sha256RsaPss(SecurityPolicy):
     def sign_asymmetric(privkey, data):
         return uacrypto.sign_pss_sha256(privkey, data)
 
-    def __init__(self, peer_cert, host_cert, host_privkey, mode, permission_ruleset=None):
+    def __init__(self, peer_cert, host_cert, host_privkey, mode, permission_ruleset=None, host_cert_chain=None):
         if isinstance(peer_cert, bytes):
             peer_cert = uacrypto.x509_from_der(peer_cert)
         # even in Sign mode we need to asymmetrically encrypt secrets
@@ -660,6 +669,8 @@ class SecurityPolicyAes256Sha256RsaPss(SecurityPolicy):
         self.Mode = mode
         self.peer_certificate = uacrypto.der_from_x509(peer_cert)
         self.host_certificate = uacrypto.der_from_x509(host_cert)
+        host_cert_chain = host_cert_chain or []
+        self.host_certificate_chain = [uacrypto.der_from_x509(cert) for cert in host_cert_chain]
         self.permissions = permission_ruleset
 
     def make_local_symmetric_key(self, secret, seed):
@@ -730,7 +741,7 @@ class SecurityPolicyBasic128Rsa15(SecurityPolicy):
     def sign_asymmetric(privkey, data):
         return uacrypto.sign_sha1(privkey, data)
 
-    def __init__(self, peer_cert, host_cert, host_privkey, mode, permission_ruleset=None):
+    def __init__(self, peer_cert, host_cert, host_privkey, mode, permission_ruleset=None, host_cert_chain=None):
         _logger.warning("DEPRECATED! Do not use SecurityPolicyBasic128Rsa15 anymore!")
 
         if isinstance(peer_cert, bytes):
@@ -746,6 +757,8 @@ class SecurityPolicyBasic128Rsa15(SecurityPolicy):
         self.Mode = mode
         self.peer_certificate = uacrypto.der_from_x509(peer_cert)
         self.host_certificate = uacrypto.der_from_x509(host_cert)
+        host_cert_chain = host_cert_chain or []
+        self.host_certificate_chain = [uacrypto.der_from_x509(cert) for cert in host_cert_chain]
         self.permissions = permission_ruleset
 
     def make_local_symmetric_key(self, secret, seed):
@@ -814,7 +827,7 @@ class SecurityPolicyBasic256(SecurityPolicy):
     def sign_asymmetric(privkey, data):
         return uacrypto.sign_sha1(privkey, data)
 
-    def __init__(self, peer_cert, host_cert, host_privkey, mode, permission_ruleset=None):
+    def __init__(self, peer_cert, host_cert, host_privkey, mode, permission_ruleset=None, host_cert_chain=None):
         _logger.warning("DEPRECATED! Do not use SecurityPolicyBasic256 anymore!")
 
         if isinstance(peer_cert, bytes):
@@ -830,6 +843,8 @@ class SecurityPolicyBasic256(SecurityPolicy):
         self.Mode = mode
         self.peer_certificate = uacrypto.der_from_x509(peer_cert)
         self.host_certificate = uacrypto.der_from_x509(host_cert)
+        host_cert_chain = host_cert_chain or []
+        self.host_certificate_chain = [uacrypto.der_from_x509(cert) for cert in host_cert_chain]
         self.permissions = permission_ruleset
 
     def make_local_symmetric_key(self, secret, seed):
@@ -898,7 +913,7 @@ class SecurityPolicyBasic256Sha256(SecurityPolicy):
     def sign_asymmetric(privkey, data):
         return uacrypto.sign_sha256(privkey, data)
 
-    def __init__(self, peer_cert, host_cert, host_privkey, mode, permission_ruleset=None):
+    def __init__(self, peer_cert, host_cert, host_privkey, mode, permission_ruleset=None, host_cert_chain=None):
         if isinstance(peer_cert, bytes):
             peer_cert = uacrypto.x509_from_der(peer_cert)
         # even in Sign mode we need to asymmetrically encrypt secrets
@@ -912,6 +927,8 @@ class SecurityPolicyBasic256Sha256(SecurityPolicy):
         self.Mode = mode
         self.peer_certificate = uacrypto.der_from_x509(peer_cert)
         self.host_certificate = uacrypto.der_from_x509(host_cert)
+        host_cert_chain = host_cert_chain or []
+        self.host_certificate_chain = [uacrypto.der_from_x509(cert) for cert in host_cert_chain]
         self.permissions = permission_ruleset
 
     def make_local_symmetric_key(self, secret, seed):
@@ -965,11 +982,12 @@ class SecurityPolicyFactory:
     SecurityPolicy for every client and client's certificate
     """
 
-    def __init__(self, cls, mode, certificate=None, private_key=None, permission_ruleset=None):
+    def __init__(self, cls, mode, certificate=None, private_key=None, permission_ruleset=None, certificate_chain=None):
         self.cls = cls
         self.mode = mode
         self.certificate = certificate
         self.private_key = private_key
+        self.certificate_chain = certificate_chain
         self.permission_ruleset = permission_ruleset
 
     def matches(self, uri, mode=None):
@@ -977,7 +995,12 @@ class SecurityPolicyFactory:
 
     def create(self, peer_certificate):
         return self.cls(
-            peer_certificate, self.certificate, self.private_key, self.mode, permission_ruleset=self.permission_ruleset
+            peer_certificate,
+            self.certificate,
+            self.private_key,
+            self.mode,
+            permission_ruleset=self.permission_ruleset,
+            host_cert_chain=self.certificate_chain,
         )
 
 

@@ -19,7 +19,6 @@ from unittest.mock import MagicMock, Mock
 import nbformat
 import pytest
 import xmltodict
-from flaky import flaky  # type:ignore[import-untyped]
 from jupyter_client._version import version_info
 from jupyter_client.client import KernelClient
 from jupyter_client.kernelspec import KernelSpecManager
@@ -308,13 +307,31 @@ def notebook_resources():
 
 
 def filter_messages_on_error_output(err_output):
-    allowed_lines = [
+    allowed_prefixes = [
         # ipykernel might be installed without debugpy extension
-        "[IPKernelApp] WARNING | debugpy_stream undefined, debugging will not be enabled",
+        "[IPKernelApp] WARNING | debugpy_stream undefined",
+        # ipykernel warns when kernel runs over TCP without CurveZMQ encryption
+        "[IPKernelApp] WARNING | Kernel is running over TCP without encryption.",
     ]
-    filtered_result = [line for line in err_output.splitlines() if line not in allowed_lines]
+    filtered_result = [
+        line
+        for line in err_output.splitlines()
+        if not any(line.startswith(prefix) for prefix in allowed_prefixes)
+    ]
+    # Known benign race condition: kernel sends a status message on a socket already
+    # closed during parallel shutdown. Filter the entire traceback block.
+    in_zmq_traceback = False
+    final_filtered_result = []
+    for line in filtered_result:
+        if "ERROR:tornado.general:Uncaught exception in ZMQStream callback" in line:
+            in_zmq_traceback = True
+        if in_zmq_traceback:
+            if "zmq.error.ZMQError: Socket operation on non-socket" in line:
+                in_zmq_traceback = False
+            continue
+        final_filtered_result.append(line)
 
-    return os.linesep.join(filtered_result)
+    return os.linesep.join(final_filtered_result)
 
 
 @pytest.mark.parametrize(
@@ -354,7 +371,7 @@ def test_run_all_notebooks(input_name, opts):
     assert_notebooks_equal(input_nb, output_nb)
 
 
-@flaky
+@pytest.mark.flaky
 def test_parallel_notebooks(capfd, tmpdir):
     """Two notebooks should be able to be run simultaneously without problems.
 
@@ -380,7 +397,7 @@ def test_parallel_notebooks(capfd, tmpdir):
     assert filter_messages_on_error_output(captured.err) == ""
 
 
-@flaky
+@pytest.mark.flaky
 @pytest.mark.skipif(os.name == "nt", reason="warns about event loop on Windows")
 def test_many_parallel_notebooks(capfd):
     """Ensure that when many IPython kernels are run in parallel, nothing awful happens.
@@ -408,7 +425,7 @@ def test_many_parallel_notebooks(capfd):
     assert filter_messages_on_error_output(captured.err) == ""
 
 
-@flaky
+@pytest.mark.flaky
 def test_async_parallel_notebooks(capfd, tmpdir):
     """Two notebooks should be able to be run simultaneously without problems.
 
@@ -435,7 +452,7 @@ def test_async_parallel_notebooks(capfd, tmpdir):
     assert filter_messages_on_error_output(captured.err) == ""
 
 
-@flaky
+@pytest.mark.flaky
 def test_many_async_parallel_notebooks(capfd):
     """Ensure that when many IPython kernels are run in parallel, nothing awful happens.
 
@@ -673,7 +690,7 @@ while True: continue
             assert info_msg is not None
             assert "name" in info_msg["content"]["language_info"]
 
-    @flaky
+    @pytest.mark.flaky
     def test_kernel_death_after_timeout(self):
         """Check that an error is raised when the kernel is_alive is false after a cell timed out"""
         filename = os.path.join(current_dir, "files", "Interrupt.ipynb")

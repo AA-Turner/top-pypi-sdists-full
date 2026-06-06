@@ -1,18 +1,28 @@
 """Provides common utilities to support Rich in cmd2-based applications."""
 
+import argparse
 import re
-import threading
-from collections.abc import Mapping
+import sys
+from collections.abc import (
+    Iterable,
+    Iterator,
+)
 from enum import Enum
 from typing import (
     IO,
     Any,
-    TypedDict,
+    ClassVar,
+    Protocol,
+    TypeAlias,
+    runtime_checkable,
 )
 
+from rich.ansi import AnsiDecoder
+from rich.box import SIMPLE_HEAD
 from rich.console import (
     Console,
     ConsoleRenderable,
+    Group,
     JustifyMethod,
     OverflowMethod,
     RenderableType,
@@ -27,15 +37,55 @@ from rich.table import (
 )
 from rich.text import Text
 from rich.theme import Theme
-from rich_argparse import RichHelpFormatter
+from rich_argparse import (
+    ArgumentDefaultsRichHelpFormatter,
+    MetavarTypeRichHelpFormatter,
+    RawDescriptionRichHelpFormatter,
+    RawTextRichHelpFormatter,
+    RichHelpFormatter,
+)
 
-from .styles import DEFAULT_CMD2_STYLES
+from . import constants
+from .styles import (
+    DEFAULT_ARGPARSE_STYLES,
+    Cmd2Style,
+)
 
 # Matches ANSI SGR (Select Graphic Rendition) sequences for text styling.
 # \x1b[   - the CSI (Control Sequence Introducer)
 # [0-9;]* - zero or more digits or semicolons (parameters for the style)
 # m       - the SGR final character
 ANSI_STYLE_SEQUENCE_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _get_theme() -> Theme:
+    """Retrieve the global Rich theme while avoiding circular imports."""
+    from .theme import get_theme
+
+    return get_theme()
+
+
+@runtime_checkable
+class HelpFormatterRenderable(Protocol):
+    """Protocol for objects that require a Cmd2HelpFormatter to render."""
+
+    def __cmd2_argparse_help__(self, formatter: "Cmd2HelpFormatter") -> RenderableType | None:
+        """Provide a representation of this object for a Cmd2HelpFormatter.
+
+        Return a Rich renderable for this object.
+
+        This method is called by Cmd2HelpFormatter during the argparse help
+        generation process.
+
+        :param formatter: the active Cmd2HelpFormatter instance
+        :return: a Rich renderable or None to suppress output
+        """
+        ...
+
+
+# Union of types supported by Cmd2HelpFormatter, including custom cmd2
+# protocols and standard Rich types supported by rich-argparse.
+HelpContent: TypeAlias = RenderableType | HelpFormatterRenderable
 
 
 class AllowStyle(Enum):
@@ -58,69 +108,216 @@ class AllowStyle(Enum):
 ALLOW_STYLE = AllowStyle.TERMINAL
 
 
-def _create_default_theme() -> Theme:
-    """Create a default theme for the application.
+class Cmd2HelpFormatter(RichHelpFormatter):
+    """Custom help formatter to configure ordering of help text."""
 
-    This theme combines the default styles from cmd2, rich-argparse, and Rich.
+    # Create our own copy of the styles so cmd2 can synchronize them with
+    # the application theme without overwriting RichHelpFormatter's defaults.
+    styles: ClassVar[dict[str, StyleType]] = DEFAULT_ARGPARSE_STYLES.copy()
+
+    # Disable automatic highlighting in the help text.
+    highlights: ClassVar[list[str]] = []
+
+    # Disable markup rendering in usage, help, description, and epilog text.
+    # cmd2's built-in commands do not escape opening brackets in their help text
+    # and therefore rely on these settings being False. If you desire to use
+    # markup in your help text, inherit from Cmd2HelpFormatter and override
+    # these settings in that child class.
+    usage_markup: ClassVar[bool] = False
+    help_markup: ClassVar[bool] = False
+    text_markup: ClassVar[bool] = False
+
+    def __init__(
+        self,
+        prog: str,
+        indent_increment: int = 2,
+        max_help_position: int = 24,
+        width: int | None = None,
+        *,
+        file: IO[str] | None = None,
+        console: "Cmd2RichArgparseConsole | None" = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize Cmd2HelpFormatter."""
+        if file is not None and console is not None:
+            raise TypeError("cannot provide both 'file' and 'console' arguments")
+
+        self._file = file
+        super().__init__(prog, indent_increment, max_help_position, width, console=console, **kwargs)
+
+        # Recast to assist type checkers
+        self._console: Cmd2RichArgparseConsole | None
+
+    @property  # type: ignore[override]
+    def console(self) -> "Cmd2RichArgparseConsole":
+        """Return our console instance."""
+        if self._console is None:
+            self._console = Cmd2RichArgparseConsole(file=self._file)
+        return self._console
+
+    @console.setter
+    def console(self, console: "Cmd2RichArgparseConsole") -> None:
+        """Set our console instance."""
+        self._file = None
+        self._console = console
+
+    def add_text(self, text: Any) -> None:
+        """Override to support HelpFormatterRenderable objects."""
+        if isinstance(text, HelpFormatterRenderable):
+            text = text.__cmd2_argparse_help__(self)
+        super().add_text(text)
+
+    def _set_color(self, color: bool, **kwargs: Any) -> None:
+        """Set the color for the help output.
+
+        This override is needed because Python 3.15 added a 'file' keyword argument
+        to _set_color() which some versions of RichHelpFormatter don't support.
+        """
+        # Argparse didn't add color support until 3.14
+        if sys.version_info < (3, 14):
+            return
+
+        try:  # type: ignore[unreachable]
+            super()._set_color(color, **kwargs)
+        except TypeError:
+            # Fallback for older versions of RichHelpFormatter that don't support keyword arguments
+            super()._set_color(color)
+
+    def _build_nargs_range_str(self, nargs_range: tuple[int, int | float]) -> str:
+        """Build nargs range string for help text."""
+        if nargs_range[1] == constants.INFINITY:
+            # {min+}
+            range_str = f"{{{nargs_range[0]}+}}"
+        else:
+            # {min..max}
+            range_str = f"{{{nargs_range[0]}..{nargs_range[1]}}}"
+
+        return range_str
+
+    def _format_args(self, action: argparse.Action, default_metavar: str) -> str:
+        """Override to handle cmd2's custom nargs formatting.
+
+        All formats in this function need to be handled by _rich_metavar_parts().
+        """
+        get_metavar = self._metavar_formatter(action, default_metavar)
+
+        # Handle nargs specified as a range
+        nargs_range = action.get_nargs_range()  # type: ignore[attr-defined]
+        if nargs_range is not None:
+            arg_str = "%s" % get_metavar(1)  # noqa: UP031
+            range_str = self._build_nargs_range_str(nargs_range)
+            return f"{arg_str}{range_str}"
+
+        # When nargs is just a number, argparse repeats the arg in the help text.
+        # For instance, when nargs=5 the help text looks like: 'command arg arg arg arg arg'.
+        # To make this less verbose, format it like: 'command arg{5}'.
+        # Do not customize the output when metavar is a tuple of strings. Allow argparse's
+        # formatter to handle that instead.
+        if not isinstance(action.metavar, tuple) and isinstance(action.nargs, int) and action.nargs > 1:
+            arg_str = "%s" % get_metavar(1)  # noqa: UP031
+            return f"{arg_str}{{{action.nargs}}}"
+
+        # Fallback to parent for all other cases
+        return super()._format_args(action, default_metavar)
+
+    def _rich_metavar_parts(
+        self,
+        action: argparse.Action,
+        default_metavar: str,
+    ) -> Iterator[tuple[str, bool]]:
+        """Override to handle all cmd2-specific formatting in _format_args()."""
+        get_metavar = self._metavar_formatter(action, default_metavar)
+
+        # Handle nargs specified as a range
+        nargs_range = action.get_nargs_range()  # type: ignore[attr-defined]
+        if nargs_range is not None:
+            yield "%s" % get_metavar(1), True  # noqa: UP031
+            yield self._build_nargs_range_str(nargs_range), False
+            return
+
+        # Handle specific integer nargs (e.g., nargs=5 -> arg{5})
+        if not isinstance(action.metavar, tuple) and isinstance(action.nargs, int) and action.nargs > 1:
+            yield "%s" % get_metavar(1), True  # noqa: UP031
+            yield f"{{{action.nargs}}}", False
+            return
+
+        # Fallback to parent for all other cases
+        yield from super()._rich_metavar_parts(action, default_metavar)
+
+
+class RawDescriptionCmd2HelpFormatter(
+    RawDescriptionRichHelpFormatter,
+    Cmd2HelpFormatter,
+):
+    """Cmd2 help message formatter which retains any formatting in descriptions and epilogs."""
+
+
+class RawTextCmd2HelpFormatter(
+    RawTextRichHelpFormatter,
+    Cmd2HelpFormatter,
+):
+    """Cmd2 help message formatter which retains formatting of all help text."""
+
+
+class ArgumentDefaultsCmd2HelpFormatter(
+    ArgumentDefaultsRichHelpFormatter,
+    Cmd2HelpFormatter,
+):
+    """Cmd2 help message formatter which adds default values to argument help."""
+
+
+class MetavarTypeCmd2HelpFormatter(
+    MetavarTypeRichHelpFormatter,
+    Cmd2HelpFormatter,
+):
+    """Cmd2 help message formatter which uses the argument 'type' as the default
+    metavar value (instead of the argument 'dest').
+    """  # noqa: D205
+
+
+class TextGroup:
+    """A block of text which is formatted like an argparse argument group, including a title.
+
+    Title:
+      Here is the first row of text.
+      Here is yet another row of text.
     """
-    app_styles = DEFAULT_CMD2_STYLES.copy()
-    app_styles.update(RichHelpFormatter.styles.copy())
-    return Theme(app_styles, inherit=True)
 
+    def __init__(
+        self,
+        title: str,
+        text: RenderableType,
+    ) -> None:
+        """TextGroup initializer.
 
-def set_theme(styles: Mapping[str, StyleType] | None = None) -> None:
-    """Set the Rich theme used by cmd2.
+        :param title: the group's title
+        :param text: the group's text (string or object that may be rendered by Rich)
+        """
+        self.title = title
+        self.text = text
 
-    Call set_theme() with no arguments to reset to the default theme.
-    This will clear any custom styles that were previously applied.
+    def __cmd2_argparse_help__(self, formatter: Cmd2HelpFormatter) -> Group:
+        """Provide a representation of this object for a Cmd2HelpFormatter.
 
-    :param styles: optional mapping of style names to styles
-    """
-    global APP_THEME  # noqa: PLW0603
+        :param formatter: the active Cmd2HelpFormatter instance
+        :return: a Rich Group containing the formatted title and indented text
+        """
+        styled_title = Text(
+            type(formatter).group_name_formatter(f"{self.title}:"),
+            style=formatter.styles["argparse.groups"],
+        )
 
-    # Start with a fresh copy of the default styles.
-    app_styles: dict[str, StyleType] = {}
-    app_styles.update(_create_default_theme().styles)
+        # Indent text like an argparse argument group does
+        indented_text = indent(self.text, formatter._indent_increment)
 
-    # Incorporate custom styles.
-    if styles is not None:
-        app_styles.update(styles)
-
-    APP_THEME = Theme(app_styles)
-
-    # Synchronize rich-argparse styles with the main application theme.
-    for name in RichHelpFormatter.styles.keys() & APP_THEME.styles.keys():
-        RichHelpFormatter.styles[name] = APP_THEME.styles[name]
-
-
-# The application-wide theme. You can change it with set_theme().
-APP_THEME = _create_default_theme()
-
-
-class RichPrintKwargs(TypedDict, total=False):
-    """Keyword arguments that can be passed to rich.console.Console.print() via cmd2's print methods.
-
-    See Rich's Console.print() documentation for full details on these parameters.
-    https://rich.readthedocs.io/en/stable/reference/console.html#rich.console.Console.print
-
-    Note: All fields are optional (total=False). If a key is not present in the
-    dictionary, Rich's default behavior for that argument will apply.
-    """
-
-    justify: JustifyMethod | None
-    overflow: OverflowMethod | None
-    no_wrap: bool | None
-    width: int | None
-    height: int | None
-    crop: bool
-    new_line_start: bool
+        return Group(styled_title, indented_text)
 
 
 class Cmd2BaseConsole(Console):
     """Base class for all cmd2 Rich consoles.
 
     This class handles the core logic for managing Rich behavior based on
-    cmd2's global settings, such as `ALLOW_STYLE` and `APP_THEME`.
+    cmd2's global settings, such as ALLOW_STYLE and the application theme.
     """
 
     def __init__(
@@ -148,13 +345,13 @@ class Cmd2BaseConsole(Console):
                 "Passing 'force_interactive' is not allowed. Its behavior is controlled by the 'ALLOW_STYLE' setting."
             )
 
-        # Don't allow a theme to be passed in, as it is controlled by the global APP_THEME.
-        # Use cmd2.rich_utils.set_theme() to set the global theme or use a temporary
-        # theme with console.use_theme().
+        # Don't allow a theme to be passed in. Use update_theme() to modify the global theme
+        # or use a temporary theme with console.use_theme().
         if "theme" in kwargs:
-            raise TypeError(
-                "Passing 'theme' is not allowed. Its behavior is controlled by the global APP_THEME and set_theme()."
-            )
+            raise TypeError("Passing 'theme' is not allowed. Modify the global theme with update_theme().")
+
+        # Store the configuration key used by cmd2 to cache this console.
+        self._config_key = self._build_config_key(file=file, **kwargs)
 
         force_terminal: bool | None = None
         force_interactive: bool | None = None
@@ -164,7 +361,7 @@ class Cmd2BaseConsole(Console):
             force_terminal = True
             allow_style = True
 
-            # Turn off interactive mode if dest is not actually a terminal which supports it
+            # Turn off interactive mode if dest is not a terminal which supports it.
             tmp_console = Console(file=file)
             force_interactive = tmp_console.is_interactive
         elif ALLOW_STYLE == AllowStyle.TERMINAL:
@@ -178,33 +375,49 @@ class Cmd2BaseConsole(Console):
             color_system="truecolor" if allow_style else None,
             force_terminal=force_terminal,
             force_interactive=force_interactive,
-            theme=APP_THEME,
+            theme=_get_theme(),
             **kwargs,
         )
-        self._thread_local = threading.local()
+
+    @staticmethod
+    def _build_config_key(
+        *,
+        file: IO[str] | None,
+        **kwargs: Any,
+    ) -> tuple[Any, ...]:
+        """Build a key representing the settings used to initialize a console.
+
+        This key includes the file identity, global settings (ALLOW_STYLE, application theme),
+        and any other settings passed in via kwargs.
+
+        :param file: file stream being checked
+        :param kwargs: other console settings
+        """
+        return (
+            id(file),
+            ALLOW_STYLE,
+            id(_get_theme()),
+            tuple(sorted(kwargs.items())),
+        )
+
+    def matches_config(
+        self,
+        *,
+        file: IO[str] | None,
+        **kwargs: Any,
+    ) -> bool:
+        """Check if this console instance was initialized with the specified settings.
+
+        :param file: file stream being checked
+        :param kwargs: other console settings being checked
+        :return: True if the settings match this console's configuration
+        """
+        return self._config_key == self._build_config_key(file=file, **kwargs)
 
     def on_broken_pipe(self) -> None:
         """Override which raises BrokenPipeError instead of SystemExit."""
         self.quiet = True
         raise BrokenPipeError
-
-    def render_str(
-        self,
-        text: str,
-        highlight: bool | None = None,
-        markup: bool | None = None,
-        emoji: bool | None = None,
-        **kwargs: Any,
-    ) -> Text:
-        """Override to ensure formatting overrides passed to print() and log() are respected."""
-        if emoji is None:
-            emoji = getattr(self._thread_local, "emoji", None)
-        if markup is None:
-            markup = getattr(self._thread_local, "markup", None)
-        if highlight is None:
-            highlight = getattr(self._thread_local, "highlight", None)
-
-        return super().render_str(text, highlight=highlight, markup=markup, emoji=emoji, **kwargs)
 
     def print(
         self,
@@ -224,52 +437,32 @@ class Cmd2BaseConsole(Console):
         soft_wrap: bool | None = None,
         new_line_start: bool = False,
     ) -> None:
-        """Override to support ANSI sequences and address a bug in Rich.
+        """Override to support ANSI sequences.
 
         This method calls [cmd2.rich_utils.prepare_objects_for_rendering][] on the
         objects being printed. This ensures that strings containing ANSI style
         sequences are converted to Rich Text objects, so that Rich can correctly
         calculate their display width.
-
-        Additionally, it works around a bug in Rich where complex renderables
-        (like Table and Rule) may not receive formatting settings passed to print().
-        By temporarily injecting these settings into thread-local storage, we ensure
-        that all internal rendering calls within the print() operation respect the
-        requested overrides.
-
-        There is an issue on Rich to fix the latter:
-        https://github.com/Textualize/rich/issues/4028
         """
         prepared_objects = prepare_objects_for_rendering(*objects)
 
-        # Inject overrides into thread-local storage
-        self._thread_local.emoji = emoji
-        self._thread_local.markup = markup
-        self._thread_local.highlight = highlight
-
-        try:
-            super().print(
-                *prepared_objects,
-                sep=sep,
-                end=end,
-                style=style,
-                justify=justify,
-                overflow=overflow,
-                no_wrap=no_wrap,
-                emoji=emoji,
-                markup=markup,
-                highlight=highlight,
-                width=width,
-                height=height,
-                crop=crop,
-                soft_wrap=soft_wrap,
-                new_line_start=new_line_start,
-            )
-        finally:
-            # Clear overrides from thread-local storage
-            self._thread_local.emoji = None
-            self._thread_local.markup = None
-            self._thread_local.highlight = None
+        super().print(
+            *prepared_objects,
+            sep=sep,
+            end=end,
+            style=style,
+            justify=justify,
+            overflow=overflow,
+            no_wrap=no_wrap,
+            emoji=emoji,
+            markup=markup,
+            highlight=highlight,
+            width=width,
+            height=height,
+            crop=crop,
+            soft_wrap=soft_wrap,
+            new_line_start=new_line_start,
+        )
 
     def log(
         self,
@@ -284,56 +477,35 @@ class Cmd2BaseConsole(Console):
         log_locals: bool = False,
         _stack_offset: int = 1,
     ) -> None:
-        """Override to support ANSI sequences and address a bug in Rich.
+        """Override to support ANSI sequences.
 
         This method calls [cmd2.rich_utils.prepare_objects_for_rendering][] on the
         objects being logged. This ensures that strings containing ANSI style
         sequences are converted to Rich Text objects, so that Rich can correctly
         calculate their display width.
-
-        Additionally, it works around a bug in Rich where complex renderables
-        (like Table and Rule) may not receive formatting settings passed to log().
-        By temporarily injecting these settings into thread-local storage, we ensure
-        that all internal rendering calls within the log() operation respect the
-        requested overrides.
-
-        There is an issue on Rich to fix the latter:
-        https://github.com/Textualize/rich/issues/4028
         """
         prepared_objects = prepare_objects_for_rendering(*objects)
 
-        # Inject overrides into thread-local storage
-        self._thread_local.emoji = emoji
-        self._thread_local.markup = markup
-        self._thread_local.highlight = highlight
-
-        try:
-            # Increment _stack_offset because we added this wrapper frame
-            super().log(
-                *prepared_objects,
-                sep=sep,
-                end=end,
-                style=style,
-                justify=justify,
-                emoji=emoji,
-                markup=markup,
-                highlight=highlight,
-                log_locals=log_locals,
-                _stack_offset=_stack_offset + 1,
-            )
-        finally:
-            # Clear overrides from thread-local storage
-            self._thread_local.emoji = None
-            self._thread_local.markup = None
-            self._thread_local.highlight = None
+        # Increment _stack_offset because we added this wrapper frame
+        super().log(
+            *prepared_objects,
+            sep=sep,
+            end=end,
+            style=style,
+            justify=justify,
+            emoji=emoji,
+            markup=markup,
+            highlight=highlight,
+            log_locals=log_locals,
+            _stack_offset=_stack_offset + 1,
+        )
 
 
 class Cmd2GeneralConsole(Cmd2BaseConsole):
     """Rich console for general-purpose printing.
 
-    It enables soft wrap and disables Rich's automatic detection for markup,
-    emoji, and highlighting. These defaults can be overridden in calls to the
-    console's or cmd2's print methods.
+    It enables soft wrap and disables Rich's automatic detection
+    for markup, emoji, and highlighting.
     """
 
     def __init__(self, *, file: IO[str] | None = None) -> None:
@@ -402,6 +574,19 @@ class Cmd2ExceptionConsole(Cmd2BaseConsole):
         )
 
 
+class Cmd2SimpleTable(Table):
+    """A clean, lightweight Rich Table tailored for cmd2's internal use."""
+
+    def __init__(self, *headers: Column | str) -> None:
+        """Cmd2SimpleTable initializer."""
+        super().__init__(
+            *headers,
+            box=SIMPLE_HEAD,
+            show_edge=False,
+            border_style=Cmd2Style.TABLE_BORDER,
+        )
+
+
 def console_width() -> int:
     """Return the width of the console."""
     return Console().width
@@ -416,13 +601,19 @@ def rich_text_to_string(text: Text) -> str:
 
     :param text: the text object to convert
     :return: the resulting string with ANSI styles preserved.
+    :raises TypeError: if text is not a rich.text.Text object
     """
+    # Strictly enforce Text type. While console.print() can render any object,
+    # this function is specifically tailored to convert Text instances to strings.
+    if not isinstance(text, Text):
+        raise TypeError(f"rich_text_to_string() expected a rich.text.Text object, but got {type(text).__name__}")
+
     console = Console(
         force_terminal=True,
         color_system="truecolor",
         soft_wrap=True,
         no_color=False,
-        theme=APP_THEME,
+        theme=_get_theme(),
     )
     with console.capture() as capture:
         console.print(text, end="")
@@ -485,3 +676,38 @@ def prepare_objects_for_rendering(*objects: Any) -> tuple[Any, ...]:
             object_list[i] = Text.from_ansi(renderable_as_str)
 
     return tuple(object_list)
+
+
+###################################################################################
+# Rich Library Monkey Patches
+#
+# These patches fix specific bugs in the Rich library. They are conditional and
+# will only be applied if the bug is detected. When the bugs are fixed in a
+# future Rich release, these patches and their corresponding tests should be
+# removed.
+###################################################################################
+
+###################################################################################
+# AnsiDecoder.decode() monkey patch
+###################################################################################
+
+
+def _AnsiDecoder_decode(self: AnsiDecoder, terminal_text: str) -> Iterable[Text]:  # noqa: N802
+    """Patch AnsiDecoder.decode() to properly handle CRLF.
+
+    There is currently a pull request on Rich to fix this.
+    https://github.com/Textualize/rich/pull/4143
+    """
+    for line in re.split(r"(?<=\n)", terminal_text):
+        # Strip off any remaining line break characters from the end
+        yield self.decode_line(line.rstrip("\r\n"))
+
+
+def _decode_has_linebreak_bug() -> bool:
+    """Check if AnsiDecoder.decode() properly handles CRLF."""
+    return Text.from_ansi("hello\r\nworld").plain == "\nworld"
+
+
+# Only apply the monkey patch if the bug is present
+if _decode_has_linebreak_bug():
+    AnsiDecoder.decode = _AnsiDecoder_decode  # type: ignore[assignment]

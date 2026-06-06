@@ -1,23 +1,22 @@
 import asyncio
 import inspect
 import logging
-
+from collections.abc import Generator, Iterable, Sequence
 from dataclasses import dataclass, field
 from enum import IntEnum
 from functools import partial
 from itertools import chain
+
 from sortedcontainers import SortedDict  # type: ignore
-from asyncua import Node, ua, Client
-from asyncua.client.ua_client import UASocketProtocol
+
+from asyncua import Client, Node, ua
 from asyncua.ua.uaerrors import BadSessionClosed, BadSessionNotActivated
-from typing import Dict, Generator, Iterable, List, Optional, Set, Tuple, Type, Union, Sequence
 
-from .reconciliator import Reconciliator
-from .common import ClientNotFound, event_wait
-from .virtual_subscription import TypeSubHandler, VirtualSubscription
-from ...crypto.uacrypto import CertProperties
 from ...crypto.security_policies import SecurityPolicy
-
+from ...crypto.uacrypto import CertProperties
+from .common import ClientNotFound, event_wait
+from .reconciliator import Reconciliator
+from .virtual_subscription import TypeSubHandler, VirtualSubscription
 
 _logger = logging.getLogger(__name__)
 
@@ -60,16 +59,16 @@ class ConnectionStates(IntEnum):
 @dataclass
 class ServerInfo:
     url: str
-    status: ConnectionStates = ConnectionStates(1)
+    status: ConnectionStates = field(default_factory=lambda: ConnectionStates(1))
 
 
 @dataclass(frozen=True, eq=True)
 class HaSecurityConfig:
-    policy: Optional[Type[SecurityPolicy]] = None
-    certificate: Optional[CertProperties] = None
-    private_key: Optional[CertProperties] = None
-    server_certificate: Optional[CertProperties] = None
-    mode: Optional[ua.MessageSecurityMode] = None
+    policy: type[SecurityPolicy] | None = None
+    certificate: CertProperties | None = None
+    private_key: CertProperties | None = None
+    server_certificate: CertProperties | None = None
+    mode: ua.MessageSecurityMode | None = None
 
 
 @dataclass(frozen=True, eq=True)
@@ -87,7 +86,7 @@ class HaConfig:
     request_timeout: int = 30
     secure_channel_timeout: int = 3600
     session_name: str = "HaClient"
-    urls: List[str] = field(default_factory=list)
+    urls: list[str] = field(default_factory=list)
 
 
 class HaClient:
@@ -107,11 +106,11 @@ class HaClient:
     # i.e: You're using an OPC-UA proxy
     HEALTHY_STATE = ConnectionStates.HEALTHY
 
-    def __init__(self, config: HaConfig, security: Optional[HaSecurityConfig] = None) -> None:
+    def __init__(self, config: HaConfig, security: HaSecurityConfig | None = None) -> None:
         self._config: HaConfig = config
-        self._keepalive_task: Dict[KeepAlive, asyncio.Task] = {}
-        self._manager_task: Dict[HaManager, asyncio.Task] = {}
-        self._reconciliator_task: Dict[Reconciliator, asyncio.Task] = {}
+        self._keepalive_task: dict[KeepAlive, asyncio.Task] = {}
+        self._manager_task: dict[HaManager, asyncio.Task] = {}
+        self._reconciliator_task: dict[Reconciliator, asyncio.Task] = {}
         self._gen_sub: Generator[str, None, None] = self.generate_sub_name()
 
         # An event loop must be set in the current thread
@@ -119,12 +118,12 @@ class HaClient:
         self._ideal_map_lock: asyncio.Lock = asyncio.Lock()
         self._client_lock: asyncio.Lock = asyncio.Lock()
 
-        self.clients: Dict[Client, ServerInfo] = {}
-        self.active_client: Optional[Client] = None
-        # full type: Dict[str, SortedDict[str, VirtualSubscription]]
-        self.ideal_map: Dict[str, SortedDict] = {}
-        self.sub_names: Set[str] = set()
-        self.url_to_reset: Set[str] = set()
+        self.clients: dict[Client, ServerInfo] = {}
+        self.active_client: Client | None = None
+        # full type: dict[str, Sorteddict[str, VirtualSubscription]]
+        self.ideal_map: dict[str, SortedDict] = {}
+        self.sub_names: set[str] = set()
+        self.url_to_reset: set[str] = set()
         self.is_running = False
 
         if config.ha_mode != HaMode.WARM:
@@ -163,7 +162,7 @@ class HaClient:
         self.is_running = True
 
     async def stop(self):
-        to_stop: Sequence[Union[KeepAlive, HaManager, Reconciliator]] = chain(
+        to_stop: Sequence[KeepAlive | HaManager | Reconciliator] = chain(
             self._keepalive_task, self._manager_task, self._reconciliator_task
         )
         stop = [p.stop() for p in to_stop]
@@ -191,10 +190,10 @@ class HaClient:
 
     def set_security(
         self,
-        policy: Type[SecurityPolicy],
+        policy: type[SecurityPolicy],
         certificate: CertProperties,
         private_key: CertProperties,
-        server_certificate: Optional[CertProperties] = None,
+        server_certificate: CertProperties | None = None,
         mode: ua.MessageSecurityMode = ua.MessageSecurityMode.SignAndEncrypt,
     ) -> None:
         self.security_config = HaSecurityConfig(policy, certificate, private_key, server_certificate, mode)
@@ -224,7 +223,7 @@ class HaClient:
     async def subscribe_data_change(
         self,
         sub_name: str,
-        nodes: Union[Iterable[Node], Iterable[str]],
+        nodes: Iterable[Node] | Iterable[str],
         attr=ua.AttributeIds.Value,
         queuesize=0,
     ) -> None:
@@ -241,7 +240,7 @@ class HaClient:
                 vs.subscribe_data_change(nodes, attr, queuesize)
                 await self.hook_on_subscribe(nodes=nodes, attr=attr, queuesize=queuesize, url=url)
 
-    async def delete_subscriptions(self, sub_names: List[str]) -> None:
+    async def delete_subscriptions(self, sub_names: list[str]) -> None:
         async with self._ideal_map_lock:
             for sub_name in sub_names:
                 for url in self.urls:
@@ -268,7 +267,7 @@ class HaClient:
             await client.set_security(**self.security_config.__dict__)
         await client.connect()
 
-    async def unsubscribe(self, nodes: Union[Iterable[Node], Iterable[str]]) -> None:
+    async def unsubscribe(self, nodes: Iterable[Node] | Iterable[str]) -> None:
         async with self._ideal_map_lock:
             sub_to_nodes = {}
             first_url = self.urls[0]
@@ -287,7 +286,7 @@ class HaClient:
                     vs.unsubscribe(str_nodes)
                     await self.hook_on_unsubscribe(url=url, nodes=str_nodes)
 
-    async def failover_warm(self, primary: Optional[Client], secondaries: Iterable[Client]) -> None:
+    async def failover_warm(self, primary: Client | None, secondaries: Iterable[Client]) -> None:
         async with self._ideal_map_lock:
             if primary:
                 self._set_monitoring_mode(ua.MonitoringMode.Reporting, clients=[primary])
@@ -310,7 +309,7 @@ class HaClient:
                 vs = self.ideal_map[url][sub]
                 vs.publishing = publishing
 
-    async def group_clients_by_health(self) -> Tuple[List[Client], List[Client]]:
+    async def group_clients_by_health(self) -> tuple[list[Client], list[Client]]:
         healthy = []
         unhealthy = []
         async with self._client_lock:
@@ -321,7 +320,7 @@ class HaClient:
                     unhealthy.append(client)
             return healthy, unhealthy
 
-    async def get_serving_client(self, clients: List[Client], serving_client: Optional[Client]) -> Optional[Client]:
+    async def get_serving_client(self, clients: list[Client], serving_client: Client | None) -> Client | None:
         """
         Returns the client with the higher service level.
 
@@ -350,10 +349,10 @@ class HaClient:
             if not a[0].startswith("__") and not inspect.ismethod(a[1]):
                 _logger.debug(a)
 
-    def get_client_warm_mode(self) -> List[Client]:
+    def get_client_warm_mode(self) -> list[Client]:
         return list(self.clients)
 
-    def get_clients(self) -> List[Client]:
+    def get_clients(self) -> list[Client]:
         ha_mode = self.ha_mode
         func = f"get_client_{ha_mode}_mode"
         get_clients = getattr(self, func)
@@ -377,7 +376,7 @@ class HaClient:
         return self._config.ha_mode.name.lower()
 
     @property
-    def urls(self) -> List[str]:
+    def urls(self) -> list[str]:
         return self._config.urls
 
     def generate_sub_name(self) -> Generator[str, None, None]:
@@ -470,13 +469,13 @@ class HaManager:
     according to the selected HaMode
     """
 
-    def __init__(self, ha_client: HaClient, timer: Optional[int] = None) -> None:
+    def __init__(self, ha_client: HaClient, timer: int | None = None) -> None:
         self.ha_client = ha_client
         self.timer = self.set_loop_timer(timer)
         self.stop_event = asyncio.Event()
         self.is_running = False
 
-    def set_loop_timer(self, timer: Optional[int]):
+    def set_loop_timer(self, timer: int | None):
         return timer if timer else int(self.ha_client.session_timeout)
 
     async def run(self) -> None:
@@ -521,8 +520,7 @@ class HaManager:
             if (
                 force
                 or not client.uaclient.protocol
-                or client.uaclient.protocol
-                and client.uaclient.protocol.state == UASocketProtocol.CLOSED
+                or (client.uaclient.protocol and client.uaclient.protocol.is_closed)
             ):
                 _logger.info("Virtually reconnecting and resubscribing %s", client)
                 await self.ha_client.reconnect(client=client)

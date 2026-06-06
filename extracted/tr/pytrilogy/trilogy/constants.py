@@ -47,6 +47,7 @@ class Optimizations:
     upgrade_condition_joins: bool = True
     upgrade_outer_key_set_equivalence: bool = True
     simplify_null_safe_joins: bool = True
+    strip_redundant_not_null: bool = True
     join_hoist: bool = True
     union_dim_pushdown: bool = True
 
@@ -122,6 +123,9 @@ class Config:
     human_identifiers: bool = True
     randomize_cte_names: bool = False
     validate_missing: bool = True
+    # Route discovery through the v4 planner instead of the v3 search. Opt-in
+    # while v4 is stabilizing; v3 remains the default.
+    use_v4_discovery: bool = False
     comments: Comments = field(default_factory=Comments)
     optimizations: Optimizations = field(default_factory=Optimizations)
     rendering: Rendering = field(default_factory=Rendering)

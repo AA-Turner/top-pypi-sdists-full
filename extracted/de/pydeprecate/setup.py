@@ -76,18 +76,31 @@ setup(
     long_description_content_type="text/markdown",
     include_package_data=True,
     zip_safe=False,
-    keywords=["python", "development", "deprecation"],
+    keywords=[
+        "deprecation",
+        "decorator",
+        "API migration",
+        "call forwarding",
+        "argument renaming",
+        "backwards compatibility",
+        "CI audit",
+    ],
     python_requires=">=3.9",
     setup_requires=[],
     install_requires=[],
     extras_require={
-        "audit": ["packaging>=20.0"],  # For validate_deprecation_expiry and validation tools
+        "audit": [
+            "packaging>=20.0",
+            "tomli>=2.0; python_version<'3.11'",  # tomllib stdlib in 3.11+
+        ],  # For validate_deprecation_expiry and pyproject.toml version detection
         "cli": ["fire", "rich"],  # For pydeprecate CLI command and Rich output support
     },
     project_urls={
         "Documentation": ABOUT.__homepage__,
         "Source Code": ABOUT.__source_code__,
-        "Home page": ABOUT.__homepage__,
+        "Bug Tracker": f"{ABOUT.__source_code__}/issues",
+        "Changelog": f"{ABOUT.__source_code__}/blob/main/CHANGELOG.md",
+        "Agent Guide": "https://borda.github.io/pyDeprecate/llms.txt",
     },
     entry_points={
         "console_scripts": [
@@ -115,5 +128,7 @@ setup(
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.14",
         "Topic :: Software Development :: Libraries",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+        "Topic :: Software Development :: Quality Assurance",
     ],
 )

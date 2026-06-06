@@ -1,143 +1,102 @@
-"""
-Docs: https://docs.swanlab.cn/guide_cloud/integration/integration-huggingface-accelerate.html
+from __future__ import annotations
 
-For adaptation to the huggingface accelerate. You can used SwanLab as your tracker, experiment logs can be uploaded to
-SwanLab or viewed using the local version of SwanLab. Detailed of used swanlab in accelerate train scripts are as follows:
-------train.py in accelerate------
-...
-from swanlab.integration.accelerate import SwanLabTracker
-...
-tracker = SwanLabTracker("some_run_name")
-accelerator = Accelerator(log_with=[tracker])
-...
----------------------------------
-These also can be mixed with existing trackers, including with "all":
-------train.py in accelerate------
-...
-from swanlab.integration.accelerate import SwanLabTracker
-...
-tracker = SwanLabTracker("some_run_name")
-accelerator = Accelerator(log_with=[tracker, "all"])
-...
----------------------------------
-"""
-
-import os
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional
 
 import swanlab
+import swanlab.vendor
+from swanlab import Callback
 
-try:
-    from accelerate.tracking import GeneralTracker, on_main_process
-    from accelerate.logging import get_logger
-except ImportError:
-    raise RuntimeError(
-        "This contrib module requires Accelerate to be installed. "
-        "Please install it with command: \n pip install accelerate"
-    )
+_on_main_process = swanlab.vendor.accelerate.tracking.on_main_process
+_GeneralTracker = swanlab.vendor.accelerate.tracking.GeneralTracker
 
 
-logger = get_logger(__name__)
-
-
-class SwanLabTracker(GeneralTracker):
-    """
-    A `Tracker` class that supports `swanlab`. Should be initialized at the start of your script.
-
-    Args:
-        run_name (`str`):
-            The name of the experiment run.
-        **kwargs (additional keyword arguments, *optional*):
-            Additional key word arguments passed along to the `swanlab.init` method.
-    """
-
-    name = "swanlab"
+class SwanLabTracker(Callback, _GeneralTracker):
     requires_logging_directory = False
-    main_process_only = True  # it must be True in tracker module
+    main_process_only = True
 
-    def __init__(self, run_name: str, **kwargs):
-        super().__init__()
-        self.run_name = run_name
-        self.init_kwargs = kwargs
-        self.start()  # auto start swanlab when instantiation tracker
+    def __init__(
+        self,
+        *,
+        project: Optional[str] = None,
+        workspace: Optional[str] = None,
+        experiment_name: Optional[str] = None,
+        description: Optional[str] = None,
+        log_dir: Optional[str] = None,
+        logdir: Optional[str] = None,
+        mode: Optional[str] = None,
+        **kwargs: Any,
+    ) -> None:
+        if logdir is not None:
+            import warnings
 
-    @on_main_process
-    def start(self):
-        if hasattr(self, "run") and self.run is not None:
-            return
+            warnings.warn(
+                "The `logdir` parameter is deprecated, use `log_dir` instead.", DeprecationWarning, stacklevel=2
+            )
+            log_dir = logdir
+        self._init_kwargs: dict[str, Any] = {}
+        for key, value in [
+            ("project", project),
+            ("workspace", workspace),
+            ("experiment_name", experiment_name),
+            ("description", description),
+            ("log_dir", log_dir),
+            ("mode", mode),
+        ]:
+            if value is not None:
+                self._init_kwargs[key] = value
+        self._init_kwargs.update(kwargs)
+        self._initialized = False
 
-        self.run = swanlab.init(project=self.run_name, **self.init_kwargs)
-        swanlab.config["FRAMEWORK"] = "accelerate"  # add accelerate logo in config
-        logger.debug(f"Initialized SwanLab project {self.run_name}")
-        logger.debug(
-            "Make sure to log any initial configurations with `self.store_init_configuration` before training!"
-        )
+    @property
+    def name(self) -> str:
+        return "swanlab"
 
     @property
     def tracker(self):
-        return self.run
+        return self._get_active_run() or self
 
-    @on_main_process
-    def store_init_configuration(self, values: dict):
-        """
-        Logs `values` as hyperparameters for the run. Should be run at the beginning of your experiment.
+    # --- swanlab.Callback hooks ---
 
-        Args:
-            values (Dictionary `str` to `bool`, `str`, `float` or `int`):
-                Values to be stored as initial hyperparameters as key-value pairs. The values need to have type `bool`,
-                `str`, `float`, `int`, or `None`.
-        """
-        import swanlab
+    def on_run_initialized(self, run_dir, path, **kwargs) -> None:
+        run = self._get_active_run()
+        if run is not None:
+            run.config["FRAMEWORK"] = "accelerate"
+        self._initialized = True
 
-        swanlab.config.update(values, allow_val_change=True)
-        logger.debug("Stored initial configuration hyperparameters to SwanLab")
+    def on_run_finished(self, state: str, error: Optional[str] = None) -> None:
+        self._initialized = False
 
-    @on_main_process
-    def log(self, values: dict, step: Optional[int] = None, **kwargs):
-        """
-        Logs `values` to the current run.
+    # --- accelerate.GeneralTracker interface ---
 
-        Args:
-        data : Dict[str, DataType]
-            Data must be a dict.
-            The key must be a string with 0-9, a-z, A-Z, " ", "_", "-", "/".
-            The value must be a `float`, `float convertible object`, `int` or `swanlab.data.BaseType`.
-        step : int, optional
-            The step number of the current data, if not provided, it will be automatically incremented.
-            If step is duplicated, the latest data will overwrite the previous data on that step.
-            kwargs:
-                Additional key word arguments passed along to the `swanlab.log` method. Likes:
-                    print_to_console : bool, optional
-                        Whether to print the data to the console, the default is False.
-        """
-        self.run.log(values, step=step, **kwargs)
-        logger.debug("Successfully logged to SwanLab")
+    @_on_main_process
+    def store_init_configuration(self, values: dict) -> None:
+        self._ensure_init()
+        run = self._get_active_run()
+        if run is not None:
+            run.config.update(values)
 
-    @on_main_process
-    def log_images(self, values: dict, step: Optional[int] = None, **kwargs):
-        """
-        Logs `images` to the current run.
+    @_on_main_process
+    def log(self, values: dict, step: Optional[int] = None, **kwargs) -> None:
+        self._ensure_init()
+        swanlab.log(values, step=step, **kwargs)
 
-        Args:
-            values (Dictionary `str` to `List` of `np.ndarray` or `PIL.Image`):
-                Values to be logged as key-value pairs. The values need to have type `List` of `np.ndarray` or
-            step (`int`, *optional*):
-                The run step. If included, the log will be affiliated with this step.
-            kwargs:
-                Additional key word arguments passed along to the `swanlab.log` method. Likes:
-                    print_to_console : bool, optional
-                        Whether to print the data to the console, the default is False.
-        """
-        import swanlab
+    @_on_main_process
+    def finish(self) -> None:
+        pass
 
-        for k, v in values.items():
-            self.log({k: [swanlab.Image(image) for image in v]}, step=step, **kwargs)
-        logger.debug("Successfully logged images to SwanLab")
+    # --- helpers ---
 
-    @on_main_process
-    def finish(self):
-        """
-        Closes `swanlab` writer
-        """
-        self.run.finish()
-        logger.debug("SwanLab run closed")
+    def _ensure_init(self) -> None:
+        if self._initialized:
+            return
+        if self._get_active_run() is not None:
+            self._initialized = True
+            return
+        swanlab.init(callbacks=[self], **self._init_kwargs)
+
+    @staticmethod
+    def _get_active_run():
+        try:
+            return swanlab.get_run()
+        except RuntimeError:
+            return None

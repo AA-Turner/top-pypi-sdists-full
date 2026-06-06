@@ -42,6 +42,7 @@ use crate::terms::analytic_penalties::{
     ARDPenalty, AnalyticPenalty, AnalyticPenaltyKind, AnalyticPenaltyRegistry,
     DecoderIncoherencePenalty, IBPAssignmentPenalty, IsometryPenalty, MechanismSparsityPenalty,
     NuclearNormPenalty, PenaltyTier, PsiSlice, SoftmaxAssignmentSparsityPenalty, WeightField,
+    resolve_learnable_weight,
 };
 use crate::terms::latent_coord::{LatentCoordValues, LatentIdMode, LatentManifold};
 
@@ -2464,7 +2465,7 @@ impl SaeManifoldRho {
     /// Exponentiate a learnable log-strength with the exponent clamped into the
     /// finite-normal band, so the resulting strength is always a finite,
     /// strictly-positive `f64` (no overflow to `inf`, no underflow to `0.0`).
-    fn stable_exp_strength(log_strength: f64) -> f64 {
+    pub(crate) fn stable_exp_strength(log_strength: f64) -> f64 {
         const MAX_LOG_STRENGTH: f64 = 700.0;
         const MIN_LOG_STRENGTH: f64 = -700.0;
         log_strength.clamp(MIN_LOG_STRENGTH, MAX_LOG_STRENGTH).exp()
@@ -3573,6 +3574,17 @@ impl SaeManifoldTerm {
         Ok(value)
     }
 
+    /// Extra analytic-penalty energy that has no native `SaeManifoldLoss`
+    /// component but is part of the penalized objective ranked by the SAE
+    /// Laplace/REML criterion.
+    pub fn reml_extra_penalty_value_total(
+        &self,
+        registry: &AnalyticPenaltyRegistry,
+    ) -> Result<f64, ArrowSchurError> {
+        Ok(self.analytic_decoder_penalty_value_total(registry)?
+            + self.isometry_penalty_value_total(registry)?)
+    }
+
     pub fn penalized_objective_total(
         &self,
         target: ArrayView2<'_, f64>,
@@ -3640,7 +3652,11 @@ impl SaeManifoldTerm {
             let periods = coord.effective_axis_periods();
             for axis in 0..d {
                 let log_alpha = rho.log_ard[atom_idx][axis];
-                let alpha = log_alpha.exp();
+                // Clamp the log-precision before exponentiating: a raw
+                // `exp(log_ard)` overflows to `inf` for `log_ard ≳ 709`, and the
+                // `inf` precision then poisons the ARD energy / curvature with
+                // `inf · 0.0 = NaN` (#742, Issue 4).
+                let alpha = SaeManifoldRho::stable_exp_strength(log_alpha);
                 let period = periods[axis];
                 let mut energy = 0.0;
                 for row in 0..n {
@@ -4136,7 +4152,7 @@ impl SaeManifoldTerm {
                         // a fixed prior only damps the Newton step — it does not
                         // move the stationary point (the gradient, which sets the
                         // fixed point, stays the exact `V'`).
-                        let alpha = rho.log_ard[k][axis].exp();
+                        let alpha = SaeManifoldRho::stable_exp_strength(rho.log_ard[k][axis]);
                         let prior = ArdAxisPrior::eval(alpha, row_t[axis], periods[axis]);
                         block.gt[starts[j] + axis] += prior.grad;
                         block.htt[[starts[j] + axis, starts[j] + axis]] += prior.hess.max(0.0);
@@ -4164,7 +4180,8 @@ impl SaeManifoldTerm {
                         // branch above for why `max(V'', 0)` is required to keep
                         // `htt` PD (the exact `V'' = α·cos κt` is indefinite past a
                         // quarter period and breaks the Schur/log-det Cholesky).
-                        let alpha = rho.log_ard[atom_idx][axis].exp();
+                        let alpha =
+                            SaeManifoldRho::stable_exp_strength(rho.log_ard[atom_idx][axis]);
                         let prior = ArdAxisPrior::eval(alpha, row_t[axis], periods[axis]);
                         block.gt[off + axis] += prior.grad;
                         block.htt[[off + axis, off + axis]] += prior.hess.max(0.0);
@@ -4758,26 +4775,18 @@ impl SaeManifoldTerm {
         // deviance. Excludes the Psi-tier ARD/assignment penalties already
         // accounted for in `loss.total()` (see
         // `analytic_decoder_penalty_value_total`).
-        let decoder_penalty_energy = match registry {
+        // Extra analytic-penalty energy (#671/#737). Decoder-block penalties and
+        // coordinate-tier isometry enter the inner solve but have no `loss.*`
+        // representative, so the Laplace criterion must add them explicitly to
+        // rank the same penalized deviance the Newton solve descends.
+        let extra_penalty_energy = match registry {
             Some(reg) => self
-                .analytic_decoder_penalty_value_total(reg)
+                .reml_extra_penalty_value_total(reg)
                 .map_err(|err| format!("SaeManifoldTerm::reml_criterion: {err}"))?,
             None => 0.0,
         };
 
-        // Coordinate-tier isometry penalty value (the stated objective's
-        // metric-distortion term). The inner solve descends it (it enters the
-        // coord blocks gt/htt) but it has no `loss.*` twin, so without this the
-        // Laplace criterion would score a different objective than the one
-        // minimized. Add it so the ρ-sweep ranks the full penalized deviance.
-        let isometry_energy = match registry {
-            Some(reg) => self
-                .isometry_penalty_value_total(reg)
-                .map_err(|err| format!("SaeManifoldTerm::reml_criterion: {err}"))?,
-            None => 0.0,
-        };
-
-        let v = loss.total() + decoder_penalty_energy + isometry_energy + 0.5 * log_det - occam;
+        let v = loss.total() + extra_penalty_energy + 0.5 * log_det - occam;
         Ok((v, loss, cache))
     }
 
@@ -4812,23 +4821,17 @@ impl SaeManifoldTerm {
         )?;
         let log_det = self.streaming_exact_arrow_log_det(target, rho, registry)?;
         let occam = self.reml_occam_term(rho)?;
-        // Decoder-block analytic-penalty energy (#671/#672), matching the
-        // full-batch `reml_criterion_with_cache` path so streaming and dense
-        // criteria rank the identical penalized objective.
-        let decoder_penalty_energy = match registry {
+        // Extra analytic-penalty energy (#671/#737), matching the full-batch
+        // `reml_criterion_with_cache` path so streaming and dense criteria rank
+        // the identical penalized objective.
+        let extra_penalty_energy = match registry {
             Some(reg) => self
-                .analytic_decoder_penalty_value_total(reg)
-                .map_err(|err| format!("SaeManifoldTerm::reml_criterion_streaming_exact: {err}"))?,
-            None => 0.0,
-        };
-        let isometry_energy = match registry {
-            Some(reg) => self
-                .isometry_penalty_value_total(reg)
+                .reml_extra_penalty_value_total(reg)
                 .map_err(|err| format!("SaeManifoldTerm::reml_criterion_streaming_exact: {err}"))?,
             None => 0.0,
         };
         Ok((
-            loss.total() + decoder_penalty_energy + isometry_energy + 0.5 * log_det - occam,
+            loss.total() + extra_penalty_energy + 0.5 * log_det - occam,
             loss,
         ))
     }
@@ -5132,7 +5135,7 @@ impl SaeManifoldTerm {
                 continue;
             }
             for j in 0..d_k {
-                let alpha = rho.log_ard[k][j].exp();
+                let alpha = SaeManifoldRho::stable_exp_strength(rho.log_ard[k][j]);
                 // edf_kj ∈ [0, n_active_k]; clamp against numerical drift.
                 let edf_kj = (n_active_k - alpha * traces[k][j]).clamp(0.0, n_active_k);
                 coord_edf += edf_kj;
@@ -5577,7 +5580,12 @@ impl SaeManifoldTerm {
         let beta_off = self.beta_offsets()[atom_idx];
         let beta_block = m * p;
         let jet = &atom.basis_jacobian;
-        let mu = corrected.scalar_weight * rho_local[corrected.rho_index].exp();
+        // Resolve the learnable isometry strength `scalar_weight · exp(rho)` in
+        // log-space with a clamped exponent: the naive `scalar_weight *
+        // rho.exp()` overflows to `inf` for `rho ≳ 709`, and the downstream
+        // `inf · jacobian` / `inf · 0.0` then injects NaN into the GN curvature
+        // block and β-penalty, poisoning the joint solve (#742, Issue 4).
+        let mu = resolve_learnable_weight(corrected.scalar_weight, rho_local[corrected.rho_index]);
         // A negligible (or non-finite) effective isometry weight contributes a
         // zero curvature block; writing zeros would still flip the solver onto
         // the dense-supplement Schur path (and invalidate caches) for no model
@@ -5786,7 +5794,12 @@ impl SaeManifoldTerm {
             };
             weighted_jacobian_rows.push(wj);
         }
-        let mu = corrected.scalar_weight * rho_local[corrected.rho_index].exp();
+        // Resolve the learnable isometry strength `scalar_weight · exp(rho)` in
+        // log-space with a clamped exponent: the naive `scalar_weight *
+        // rho.exp()` overflows to `inf` for `rho ≳ 709`, and the downstream
+        // `inf · jacobian` / `inf · 0.0` then injects NaN into the GN curvature
+        // block and β-penalty, poisoning the joint solve (#742, Issue 4).
+        let mu = resolve_learnable_weight(corrected.scalar_weight, rho_local[corrected.rho_index]);
         let mut metric_jvp = Array2::<f64>::zeros((d, d));
         let mut jac_hvp = Array2::<f64>::zeros((p, d));
         let mut beta_hvp = Array2::<f64>::zeros((m, p));
@@ -6718,7 +6731,7 @@ impl SaeManifoldTerm {
                     armijo_c1: SAE_MANIFOLD_ARMIJO_C1,
                     ..ArrowProximalCorrectionOptions::default()
                 };
-                let accepted_step = solve_arrow_newton_step_with_proximal_correction(
+                let accepted_step = match solve_arrow_newton_step_with_proximal_correction(
                     &sys,
                     ridge_ext_coord,
                     ridge_beta,
@@ -6733,11 +6746,13 @@ impl SaeManifoldTerm {
                             })
                             .unwrap_or(f64::INFINITY)
                     },
-                )
-                .map_err(|err| {
-                    self.restore_mutable_state(&snapshot);
-                    format!("SaeManifoldTerm::run_joint_fit_arrow_schur: {err}")
-                })?;
+                ) {
+                    Ok(step) => step,
+                    Err(_err) => {
+                        self.restore_mutable_state(&snapshot);
+                        break;
+                    }
+                };
                 if !(accepted_step.trial_objective_value.is_finite()
                     && accepted_step.trial_objective_value < pre_step_total)
                 {
@@ -9429,6 +9444,75 @@ mod tests {
     }
 
     #[test]
+    fn reconstruction_dispersion_uses_ard_shrunk_coordinate_edf() {
+        let n = 24usize;
+        let p = 2usize;
+        let coords = Array2::from_shape_fn((n, 1), |(row, _)| (row as f64 + 0.25) / n as f64);
+        let (phi, jet) = periodic_basis(&coords);
+        let atom = SaeManifoldAtom::new(
+            "periodic",
+            SaeAtomBasisKind::Periodic,
+            1,
+            phi,
+            jet,
+            array![[0.30, -0.10], [0.20, 0.40], [-0.35, 0.15]],
+            Array2::<f64>::eye(3),
+        )
+        .unwrap()
+        .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
+        let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+            Array2::<f64>::zeros((n, 1)),
+            vec![coords],
+            vec![LatentManifold::Circle { period: 1.0 }],
+            AssignmentMode::softmax(1.0),
+        )
+        .unwrap();
+        let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+        let target = Array2::from_shape_fn((n, p), |(row, col)| {
+            let x = (row as f64 + 0.5) / n as f64;
+            if col == 0 {
+                0.45 * (std::f64::consts::TAU * x).sin() + 0.07
+            } else {
+                -0.20 * (std::f64::consts::TAU * x).cos() + 0.03 * row as f64
+            }
+        });
+        let alpha = 250.0_f64;
+        let rho = SaeManifoldRho::new(0.0, 0.8_f64.ln(), vec![array![alpha.ln()]]);
+        let loss = term.loss(target.view(), &rho).unwrap();
+        let sys = term
+            .assemble_arrow_schur(target.view(), &rho, None)
+            .unwrap();
+        let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+        let (_delta_t, _delta_beta, cache) =
+            solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options).unwrap();
+
+        let dispersion = term.reconstruction_dispersion(&loss, &cache, &rho).unwrap();
+        let smooth_edf = term
+            .decoder_smoothness_effective_dof(&cache, rho.lambda_smooth())
+            .unwrap();
+        let beta_edf = (term.beta_dim() as f64 - smooth_edf).max(0.0);
+        let traces = term.ard_inverse_traces(&cache).unwrap();
+        let coord_edf = (n as f64 - alpha * traces[0][0]).clamp(0.0, n as f64);
+        let rss = 2.0 * loss.data_fit;
+        let expected = rss / ((n * p) as f64 - beta_edf - coord_edf).max(1.0);
+        assert_abs_diff_eq!(dispersion, expected, epsilon = 1.0e-10);
+
+        let old_full_coordinate_edf = n as f64;
+        let old_full_coordinate_dispersion =
+            rss / ((n * p) as f64 - beta_edf - old_full_coordinate_edf).max(1.0);
+        assert!(
+            coord_edf < 0.25 * old_full_coordinate_edf,
+            "test setup must put the coordinate axis in an ARD-shrunk regime; \
+             coord_edf={coord_edf}, old_full_coordinate_edf={old_full_coordinate_edf}"
+        );
+        assert!(
+            dispersion < 0.75 * old_full_coordinate_dispersion,
+            "φ̂ must use the ARD-shrunk coordinate edf, not the old full \
+             coordinate count: got {dispersion}, old formula {old_full_coordinate_dispersion}"
+        );
+    }
+
+    #[test]
     fn streaming_plan_routes_by_memory_budget_with_identical_logdet() {
         let (term0, target, rho) = small_two_atom_periodic_term();
         let total_basis: usize = term0.atoms.iter().map(|atom| atom.basis_size()).sum();
@@ -10674,6 +10758,38 @@ mod tests {
             all_blocks_match,
             "SAE assembled gradient does not match central FD of the penalized objective"
         );
+    }
+
+    #[test]
+    fn sae_reml_extra_penalty_energy_counts_live_isometry_once() {
+        let p_out = 3usize;
+        let (term, _target, _rho, slice) = sae_pen_term(SaePenCaseKind::PeriodicD1);
+        let registry = sae_pen_registry(
+            SaePenKind::Isometry,
+            &slice,
+            term.n_obs(),
+            term.assignment.coords[0].latent_dim(),
+            term.beta_dim(),
+            p_out,
+        );
+
+        let isometry_energy = term
+            .isometry_penalty_value_total(&registry)
+            .expect("live isometry value");
+        assert!(
+            isometry_energy > 0.0,
+            "fixture must carry nonzero isometry energy"
+        );
+
+        let decoder_energy = term
+            .analytic_decoder_penalty_value_total(&registry)
+            .expect("decoder penalty value");
+        assert_abs_diff_eq!(decoder_energy, 0.0, epsilon = 1.0e-12);
+
+        let extra_energy = term
+            .reml_extra_penalty_value_total(&registry)
+            .expect("REML extra penalty value");
+        assert_abs_diff_eq!(extra_energy, isometry_energy, epsilon = 1.0e-12);
     }
 
     #[test]
@@ -12998,6 +13114,29 @@ mod tests {
         assert!(
             diff < 1e-9,
             "constant-speed atom's penalty was reweighted (should be identity): {diff}"
+        );
+    }
+
+    #[test]
+    fn pca_seed_handles_huge_equal_finite_columns_without_mean_overflow() {
+        let z = array![[1.0e308_f64, 1.0e308], [1.0e308, 1.0e308]];
+        let coords =
+            sae_pca_seed_initial_coords(z.view(), &[SaeAtomBasisKind::Periodic], &[1]).unwrap();
+        assert_eq!(coords.dim(), (1, 2, 1));
+        assert!(
+            coords.iter().all(|value| value.is_finite()),
+            "huge finite equal columns must not overflow the PCA seed mean: {coords:?}"
+        );
+    }
+
+    #[test]
+    fn pca_seed_rejects_huge_finite_span_that_overflows_centering() {
+        let z = array![[1.0e308_f64, 0.0], [-1.0e308, 0.0]];
+        let err = sae_pca_seed_initial_coords(z.view(), &[SaeAtomBasisKind::Periodic], &[1])
+            .expect_err("opposite huge finite values exceed f64 centering range");
+        assert!(
+            err.contains("centered Z is non-finite") || err.contains("SVD failed"),
+            "unexpected PCA seed error: {err}"
         );
     }
 }

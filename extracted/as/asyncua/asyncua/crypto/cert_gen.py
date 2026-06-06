@@ -2,30 +2,30 @@
 crypothelper contains helper functions to isolate the lower level cryto stuff from the GDS client.
 """
 
-from typing import Dict, List
 import datetime
 from pathlib import Path
 
+import anyio
 from cryptography import x509
+from cryptography.hazmat._oid import _OID_NAMES as OID_NAMES
+from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat._oid import _OID_NAMES as OID_NAMES
-from cryptography.x509.oid import NameOID
-from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, NoEncryption
-from cryptography.x509.extensions import _key_identifier_from_public_key as key_identifier_from_public_key
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
+from cryptography.x509.extensions import _key_identifier_from_public_key as key_identifier_from_public_key
+from cryptography.x509.oid import NameOID
 
-from asyncua.crypto.uacrypto import load_certificate, load_private_key, check_certificate
+from asyncua.crypto.uacrypto import check_certificate, load_certificate, load_private_key
 
 ONE_DAY = datetime.timedelta(1, 0, 0)
 """ Shorthand for delta of 1 day """
 
-OID_NAME_MAP: Dict[str, x509.ObjectIdentifier] = {name: oid for oid, name in OID_NAMES.items()}
+OID_NAME_MAP: dict[str, x509.ObjectIdentifier] = {name: oid for oid, name in OID_NAMES.items()}
 """ Create lookup table for x509.ObjectIdentifier based on textual name, by swapping key<>value of the available mapping"""
 
 
-def _names_to_nameattributes(names: Dict[str, str]) -> List[x509.NameAttribute]:
+def _names_to_nameattributes(names: dict[str, str]) -> list[x509.NameAttribute]:
     """Convert a dict with key/value of an x509.NameAttribute list
 
     Args:
@@ -64,9 +64,9 @@ def dump_private_key_as_pem(private_key: rsa.RSAPrivateKey) -> bytes:
 def generate_self_signed_app_certificate(
     private_key: rsa.RSAPrivateKey,
     common_name: str,
-    names: Dict[str, str],
-    subject_alt_names: List[x509.GeneralName],
-    extended: List[x509.ObjectIdentifier],
+    names: dict[str, str],
+    subject_alt_names: list[x509.GeneralName],
+    extended: list[x509.ObjectIdentifier],
     days: int = 365,
 ) -> x509.Certificate:
     """Generate a self signed certificate for OPC UA client/server application that is according to OPC 10000-4 6.1 / OPC 10000-6 6.2.2
@@ -84,7 +84,7 @@ def generate_self_signed_app_certificate(
         x509.Certificate: The generated certificate.
     """
     generate_ca = len(extended) == 0
-    name_attributes: List[x509.NameAttribute] = _names_to_nameattributes(names)
+    name_attributes: list[x509.NameAttribute] = _names_to_nameattributes(names)
     name_attributes.insert(0, x509.NameAttribute(NameOID.COMMON_NAME, common_name))
 
     public_key = private_key.public_key()
@@ -136,9 +136,9 @@ def generate_self_signed_app_certificate(
 def generate_app_certificate_signing_request(
     private_key: rsa.RSAPrivateKey,
     common_name: str,
-    names: Dict[str, str],
-    subject_alt_names: List[x509.GeneralName],
-    extended: List[x509.ObjectIdentifier],
+    names: dict[str, str],
+    subject_alt_names: list[x509.GeneralName],
+    extended: list[x509.ObjectIdentifier],
 ) -> x509.CertificateSigningRequest:
     """Generate a certificate signing request for a OPC UA client/server application that is according to OPC 10000-4 6.1 / OPC 10000-6 6.2.2
 
@@ -153,7 +153,7 @@ def generate_app_certificate_signing_request(
         x509.CertificateSigningRequest: The generated certificate signing request
     """
 
-    name_attributes: List[x509.NameAttribute] = _names_to_nameattributes(names)
+    name_attributes: list[x509.NameAttribute] = _names_to_nameattributes(names)
     name_attributes.insert(0, x509.NameAttribute(NameOID.COMMON_NAME, common_name))
 
     builder = x509.CertificateSigningRequestBuilder()
@@ -236,8 +236,8 @@ async def setup_self_signed_certificate(
     cert_file: Path,
     app_uri: str,
     host_name: str,
-    cert_use: List[x509.ObjectIdentifier],
-    subject_attrs: Dict[str, str],
+    cert_use: list[x509.ObjectIdentifier],
+    subject_attrs: dict[str, str],
 ):
     """Convenient helper for generating  a key and or basic certificate if needed:
     - The key/certificate doesn't exists (when key is missing, always regenerate the certificate)
@@ -250,18 +250,20 @@ async def setup_self_signed_certificate(
         cert_file (Path): file that should contains the certificate in DER formar
         app_uri (str): app uri for client or server
         host_name (str): hostname used in certificate sub alternative names
-        cert_use (List[x509.ObjectIdentifier]): constains the use of the cert (ExtendedKeyUsageOID.CLIENT_AUTH and or ExtendedKeyUsageOID.SERVER_AUTH)
-        subject_attrs (Dict[str, str]): subject fields
+        cert_use (list[x509.ObjectIdentifier]): constains the use of the cert (ExtendedKeyUsageOID.CLIENT_AUTH and or ExtendedKeyUsageOID.SERVER_AUTH)
+        subject_attrs (dict[str, str]): subject fields
     """
 
-    generate_key = key_file.is_file() is False
-    generate_cert = generate_key or cert_file.is_file() is False
+    generate_key = key_file.is_file() is False  # noqa: ASYNC240
+    generate_cert = generate_key or cert_file.is_file() is False  # noqa: ASYNC240
 
     key: RSAPrivateKey
     cert: x509.Certificate
     if generate_key:
         key = generate_private_key()
-        key_file.write_bytes(dump_private_key_as_pem(key))
+        key_bytes = dump_private_key_as_pem(key)
+        async with await anyio.open_file(str(key_file), "wb") as f:
+            await f.write(key_bytes)
     else:
         key = await load_private_key(key_file)
 
@@ -270,7 +272,7 @@ async def setup_self_signed_certificate(
         generate_cert = check_certificate(cert, app_uri, host_name)
 
     if generate_cert:
-        subject_alt_names: List[x509.GeneralName] = [
+        subject_alt_names: list[x509.GeneralName] = [
             x509.UniformResourceIdentifier(app_uri),
             x509.DNSName(f"{host_name}"),
         ]
@@ -279,4 +281,5 @@ async def setup_self_signed_certificate(
             key, app_uri, subject_attrs, subject_alt_names, extended=cert_use, days=365
         )
 
-        cert_file.write_bytes(cert.public_bytes(encoding=Encoding.DER))
+        async with await anyio.open_file(str(cert_file), "wb") as f:
+            await f.write(cert.public_bytes(encoding=Encoding.DER))

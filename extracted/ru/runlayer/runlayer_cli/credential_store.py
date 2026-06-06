@@ -1,11 +1,29 @@
 """Keyring helpers for Runlayer CLI."""
 
+import sys
+from pathlib import Path
+
 import keyring
 import keyring.backends.fail
 import keyring.errors
 import typer
 
-SERVICE_NAME = "runlayer-cli"
+
+def _service_name() -> str:
+    """Keychain service name. Splits the frozen-darwin *aiwatch* bundle off
+    `runlayer-cli` so the aiwatch .pkg writes to a service with no legacy ACL,
+    killing the macOS auth prompt on install / every `aiwatch hook` fire.
+
+    The full `runlayer` frozen bundle (`runlayer.spec`) codesigns with a
+    different identifier (`com.runlayer.cli`) and must NOT inherit the aiwatch
+    service — so gate on the bundle's exe name, not just `sys.frozen`. Dev
+    `uvx runlayer`, Linux, and Windows keep `runlayer-cli` untouched."""
+    is_aiwatch_bundle = getattr(sys, "frozen", False) and Path(
+        sys.executable
+    ).stem.lower().startswith("aiwatch")
+    if sys.platform == "darwin" and is_aiwatch_bundle:
+        return "runlayer-aiwatch"
+    return "runlayer-cli"
 
 
 class KeyringCredentialStore:
@@ -13,7 +31,7 @@ class KeyringCredentialStore:
 
     def get_secret(self, host_key: str) -> str | None:
         try:
-            return keyring.get_password(SERVICE_NAME, host_key)
+            return keyring.get_password(_service_name(), host_key)
         except keyring.errors.KeyringLocked:
             return None
         except keyring.errors.KeyringError:
@@ -21,7 +39,7 @@ class KeyringCredentialStore:
 
     def set_secret(self, host_key: str, secret: str) -> bool:
         try:
-            keyring.set_password(SERVICE_NAME, host_key, secret)
+            keyring.set_password(_service_name(), host_key, secret)
             return True
         except keyring.errors.KeyringError:
             typer.secho(
@@ -33,7 +51,7 @@ class KeyringCredentialStore:
 
     def delete_secret(self, host_key: str) -> None:
         try:
-            keyring.delete_password(SERVICE_NAME, host_key)
+            keyring.delete_password(_service_name(), host_key)
         except keyring.errors.KeyringError:
             pass
 
@@ -65,7 +83,7 @@ def get_keyring_store() -> KeyringCredentialStore | None:
             raise RuntimeError("null keyring backend")
 
         # Smoke test: try a get to verify the backend works
-        keyring.get_password(SERVICE_NAME, "__probe__")
+        keyring.get_password(_service_name(), "__probe__")
         _cached_store = KeyringCredentialStore()
     except Exception:
         _keyring_probe_failed = True

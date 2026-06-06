@@ -9,11 +9,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pygad"
-version = "3.6.0"
+dynamic = ["version"]
 description = "PyGAD: A Python Library for Building the Genetic Algorithm and Training Machine Learning Algoithms (Keras & PyTorch)."
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3"
 license = {file = "LICENSE"}
+# license = "BSD-3-Clause"
+# license-files = ["LICENSE"]
 authors = [
   {name = "Ahmed Gad", email = "ahmed.f.gad@gmail.com"},
 ]
@@ -21,7 +23,7 @@ maintainers = [
 {name = "Ahmed Gad", email = "ahmed.f.gad@gmail.com"}
 ]
 classifiers = [
-  "License :: OSI Approved :: BSD License",
+  # "License :: OSI Approved :: BSD License",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Natural Language :: English",
@@ -40,7 +42,6 @@ classifiers = [
 keywords = ["genetic algorithm", "GA", "optimization", "evolutionary algorithm", "natural evolution", "pygad", "machine learning", "deep learning", "neural networks", "tensorflow", "keras", "pytorch"]
 dependencies = [
   "numpy",
-  "matplotlib",
   "cloudpickle",
 ]
 
@@ -55,8 +56,17 @@ dependencies = [
 "Donation Paypal" = "http://paypal.me/ahmedfgad"
 
 [project.optional-dependencies]
-deep_learning = ["keras", "torch"]
+deep_learning = ["keras", "tensorflow", "torch"]
+visualize = ["matplotlib"]
+report = ["matplotlib", "reportlab"]
 
 # PyTest Configuration. Later, PyTest will support the [tool.pytest] table.
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.setuptools.dynamic]
+version = { attr = "pygad._version.__version__" }
+
+# Ship the logo image used by the PDF report alongside the package code.
+[tool.setuptools.package-data]
+"pygad.utils" = ["pygad_logo.png"]

@@ -1381,6 +1381,17 @@ class CollectionPreferenceEffectType(pycarlo.lib.types.Enum):
     __choices__ = ("allow", "block")
 
 
+class CollectionPreferenceFilterType(pycarlo.lib.types.Enum):
+    """Enumeration Choices:
+
+    * `expensive_collection`None
+    * `metadata`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("expensive_collection", "metadata")
+
+
 class CollectionPreferenceMatchType(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
@@ -9293,7 +9304,7 @@ class ClassifiedAssetScopeInput(sgqlc.types.Input):
 
 class CollectionBlockInput(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("resource_id", "project", "dataset")
+    __field_names__ = ("resource_id", "project", "dataset", "filter_type")
     resource_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="resourceId")
     """The resource UUID this collection block applies to."""
 
@@ -9302,6 +9313,14 @@ class CollectionBlockInput(sgqlc.types.Input):
 
     dataset = sgqlc.types.Field(String, graphql_name="dataset")
     """Intermediate object hierarchy e.g. schema, database, etc."""
+
+    filter_type = sgqlc.types.Field(CollectionPreferenceFilterType, graphql_name="filterType")
+    """Which filter list the rule belongs to. Defaults to 'metadata'
+    (decides whether the table is collected at all). Set to
+    'expensive_collection' to gate per-table expensive operations
+    (e.g. Databricks DESCRIBE DETAIL) while still collecting the
+    table.
+    """
 
 
 class CollectionBlockListParentScopeInput(sgqlc.types.Input):
@@ -47596,6 +47615,14 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "filter_type",
+                    sgqlc.types.Arg(
+                        CollectionPreferenceFilterType,
+                        graphql_name="filterType",
+                        default="metadata",
+                    ),
+                ),
+                (
                     "parent_scope",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(CollectionBlockListParentScopeInput),
@@ -47634,6 +47661,11 @@ class Mutation(sgqlc.types.Type):
     * `collection_blocks` (`[ModifyCollectionBlockListInput]!`): The
       complete list of rules for deciding which objects are excluded
       from metadata collection
+    * `filter_type` (`CollectionPreferenceFilterType`): Which filter
+      list to operate on. Defaults to 'metadata'. The mutation
+      replaces the complete set of rules in this scope for the
+      specified filter_type only; the other filter list is left
+      untouched. (default: `"metadata"`)
     * `parent_scope` (`CollectionBlockListParentScopeInput!`): The
       direct parent scope of target objects
     * `target_object_type` (`CollectionPreferenceTargetObjectType!`):
@@ -51413,10 +51445,13 @@ class Mutation(sgqlc.types.Type):
         ),
     )
     """(experimental) Export a selected set of agent spans (trace_id,
-    span_id, conversation_id, prompts, completions) to S3 as JSONL,
-    one span per line. Returns a job id; poll getAgentSpansExport for
-    the download URL when complete. Async because the warehouse fetch
-    can take longer than Django/ALB HTTP timeouts.
+    span_id, conversation_id, model_name, prompts, completions,
+    tool_call_input, tool_call_output) to S3 as JSONL, one span per
+    line. model_name is null for non-LLM spans; tool_call_input and
+    tool_call_output are null for non-tool spans. Returns a job id;
+    poll getAgentSpansExport for the download URL when complete. Async
+    because the warehouse fetch can take longer than Django/ALB HTTP
+    timeouts.
 
     Arguments:
 
@@ -68724,6 +68759,12 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "filter_type",
+                    sgqlc.types.Arg(
+                        CollectionPreferenceFilterType, graphql_name="filterType", default=None
+                    ),
+                ),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
@@ -68744,6 +68785,9 @@ class Query(sgqlc.types.Type):
     * `target_object_types`
       (`[CollectionPreferenceTargetObjectType]`): Only return
       collection blocks targeting these object types.
+    * `filter_type` (`CollectionPreferenceFilterType`): Return only
+      blocks belonging to this filter list. When omitted, blocks from
+      all filter lists are returned.
     * `offset` (`Int`)None
     * `before` (`String`)None
     * `after` (`String`)None
@@ -96906,6 +96950,7 @@ class CollectionBlock(sgqlc.types.Type, CollectionPreferenceNode):
         "match_type",
         "target_object_type",
         "effect",
+        "filter_type",
     )
     resource_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="resourceId")
     """The resource UUID this collection block applies to."""
@@ -96929,6 +96974,16 @@ class CollectionBlock(sgqlc.types.Type, CollectionPreferenceNode):
     effect = sgqlc.types.Field(CollectionPreferenceEffectType, graphql_name="effect")
     """Whether the rule is to allow or block collection. Rules that allow
     collection overrides rules that block collection.
+    """
+
+    filter_type = sgqlc.types.Field(
+        sgqlc.types.non_null(CollectionPreferenceFilterType), graphql_name="filterType"
+    )
+    """Which filter list the rule belongs to. 'metadata' (default)
+    decides whether the table is collected at all;
+    'expensive_collection' decides whether per-table expensive
+    operations (e.g. Databricks DESCRIBE DETAIL) are skipped for an
+    otherwise included table.
     """
 
 
@@ -101401,7 +101456,14 @@ class JobPerformanceSummary(sgqlc.types.Type, IEtlAssetPerformanceSummary):
     """ETL Job performance summary"""
 
     __schema__ = schema
-    __field_names__ = ()
+    __field_names__ = ("object_path",)
+    object_path = sgqlc.types.Field(String, graphql_name="objectPath")
+    """Parent-folder hierarchy of the asset within its source system
+    (e.g. 'Default / Customer Loads'), with the trailing object name
+    stripped. Currently populated for Informatica MTT jobs only; null
+    for other integration types or when the path has not yet been
+    resolved.
+    """
 
 
 class MergedAlert(sgqlc.types.Type, NodeWithUUID):

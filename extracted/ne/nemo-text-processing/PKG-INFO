@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: nemo_text_processing
-Version: 1.1.0
+Version: 1.2.0
 Summary: NeMo text processing for ASR and TTS
 Home-page: https://github.com/nvidia/nemo-text-processing
 Download-URL: https://github.com/NVIDIA/NeMo-text-processing/releases
@@ -44,9 +44,9 @@ Requires-Dist: transformers
 Requires-Dist: wget
 Requires-Dist: wrapt
 Provides-Extra: test
-Requires-Dist: black==19.10b0; extra == "test"
-Requires-Dist: click==8.0.2; extra == "test"
-Requires-Dist: isort[requirements]<6.0.0,>5.1.0; extra == "test"
+Requires-Dist: black==25.1.0; extra == "test"
+Requires-Dist: click>=8.0.2; extra == "test"
+Requires-Dist: isort[requirements]<=6.0.1,>5.1.0; extra == "test"
 Requires-Dist: parameterized; extra == "test"
 Requires-Dist: pynini==2.1.6.post1; extra == "test"
 Requires-Dist: pytest; extra == "test"
@@ -58,9 +58,9 @@ Requires-Dist: wandb; extra == "test"
 Requires-Dist: wget; extra == "test"
 Requires-Dist: wrapt; extra == "test"
 Provides-Extra: all
-Requires-Dist: black==19.10b0; extra == "all"
-Requires-Dist: click==8.0.2; extra == "all"
-Requires-Dist: isort[requirements]<6.0.0,>5.1.0; extra == "all"
+Requires-Dist: black==25.1.0; extra == "all"
+Requires-Dist: click>=8.0.2; extra == "all"
+Requires-Dist: isort[requirements]<=6.0.1,>5.1.0; extra == "all"
 Requires-Dist: parameterized; extra == "all"
 Requires-Dist: pynini==2.1.6.post1; extra == "all"
 Requires-Dist: pytest; extra == "all"
@@ -71,6 +71,21 @@ Requires-Dist: sphinxcontrib-bibtex; extra == "all"
 Requires-Dist: wandb; extra == "all"
 Requires-Dist: wget; extra == "all"
 Requires-Dist: wrapt; extra == "all"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 **NeMo Text Processing**
 ==========================

@@ -34,13 +34,20 @@ def get_introspection_query(
     directive_is_repeatable: bool = False,
     schema_description: bool = False,
     input_value_deprecation: bool = False,
+    experimental_directive_deprecation: bool = False,
     input_object_one_of: bool = False,
+    type_depth: int = 9,
 ) -> str:
     """Get a query for introspection.
 
     Optionally, you can exclude descriptions, include specification URLs,
     include repeatability of directives, and specify whether to include
     the schema description as well.
+
+    The ``type_depth`` argument controls how deep to recurse into nested types.
+    Larger values will result in more accurate results, but have a higher load
+    on the server. Some servers might restrict the maximum query depth or
+    complexity. If that's the case, try decreasing this value. The default is 9.
     """
     maybe_description = "description" if descriptions else ""
     maybe_specified_by_url = "specifiedByURL" if specified_by_url else ""
@@ -50,6 +57,25 @@ def get_introspection_query(
 
     def input_deprecation(string: str) -> Optional[str]:
         return string if input_value_deprecation else ""
+
+    def directive_deprecation(string: str) -> Optional[str]:
+        return string if experimental_directive_deprecation else ""
+
+    def of_type(level: int, indent: str) -> str:
+        if level <= 0:
+            return ""
+        if level > 100:
+            msg = (
+                "Please set type_depth to a reasonable value"
+                " between 0 and 100; the default is 9."
+            )
+            raise ValueError(msg)
+        return (
+            f"\n{indent}ofType {{"
+            f"\n{indent}  name"
+            f"\n{indent}  kind{of_type(level - 1, indent + '  ')}"
+            f"\n{indent}}}"
+        )
 
     return dedent(f"""
         query IntrospectionQuery {{
@@ -61,10 +87,12 @@ def get_introspection_query(
             types {{
               ...FullType
             }}
-            directives {{
+            directives{directive_deprecation("(includeDeprecated: true)")} {{
               name
               {maybe_description}
               {maybe_directive_is_repeatable}
+              {directive_deprecation("isDeprecated")}
+              {directive_deprecation("deprecationReason")}
               locations
               args{input_deprecation("(includeDeprecated: true)")} {{
                 ...InputValue
@@ -119,43 +147,7 @@ def get_introspection_query(
 
         fragment TypeRef on __Type {{
           kind
-          name
-          ofType {{
-            kind
-            name
-            ofType {{
-              kind
-              name
-              ofType {{
-                kind
-                name
-                ofType {{
-                  kind
-                  name
-                  ofType {{
-                    kind
-                    name
-                    ofType {{
-                      kind
-                      name
-                      ofType {{
-                        kind
-                        name
-                        ofType {{
-                          kind
-                          name
-                          ofType {{
-                            kind
-                            name
-                          }}
-                        }}
-                      }}
-                    }}
-                  }}
-                }}
-              }}
-            }}
-          }}
+          name{of_type(type_depth, "          ")}
         }}
         """)
 
@@ -209,7 +201,7 @@ class MaybeWithIsRepeatable(TypedDict, total=False):
     isRepeatable: bool
 
 
-class IntrospectionDirective(WithName, MaybeWithIsRepeatable):
+class IntrospectionDirective(WithName, MaybeWithIsRepeatable, MaybeWithDeprecated):
     locations: List[DirectiveLocation]
     args: List[IntrospectionInputValue]
 

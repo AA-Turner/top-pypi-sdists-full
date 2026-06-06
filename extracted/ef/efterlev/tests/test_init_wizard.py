@@ -210,3 +210,40 @@ def test_init_openai_with_explicit_model_is_honored(tmp_path: Path) -> None:
     config = load_config(tmp_path / ".efterlev" / "config.toml")
     assert config.llm.backend == "openai"
     assert config.llm.model == "gpt-5"
+
+
+# --- bedrock_openai backend (OpenAI on Bedrock via Mantle) --------------
+
+
+def test_init_bedrock_openai_defaults_model_and_keeps_region(tmp_path: Path) -> None:
+    """`init --llm-backend=bedrock_openai --llm-region us-east-2` (no model)
+    pins the validated default openai.gpt-5.5, keeps the region, and uses no
+    Claude fallback."""
+    from efterlev.config import DEFAULT_BEDROCK_OPENAI_MODEL
+
+    result = runner.invoke(
+        app,
+        [
+            "init",
+            "--target",
+            str(tmp_path),
+            "--llm-backend",
+            "bedrock_openai",
+            "--llm-region",
+            "us-east-2",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    config = load_config(tmp_path / ".efterlev" / "config.toml")
+    assert config.llm.backend == "bedrock_openai"
+    assert config.llm.model == DEFAULT_BEDROCK_OPENAI_MODEL == "openai.gpt-5.5"
+    assert config.llm.region == "us-east-2"
+    assert not config.llm.fallback_model.startswith("claude")
+
+
+def test_init_bedrock_openai_requires_region(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app, ["init", "--target", str(tmp_path), "--llm-backend", "bedrock_openai"]
+    )
+    assert result.exit_code == 2, result.output
+    assert "region is required" in result.output

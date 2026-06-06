@@ -42,7 +42,7 @@ def _check_scope(km: KnowledgeManager) -> dict | None:
 def _build_summary(results: list[dict], limit: int = 10) -> list[dict]:
     return [
         {"id": r["id"], "title": r.get("title", ""),
-         "relevance": r.get("relevance") or r.get("score", 0)}
+         "relevance": r.get("relevance", 0)}
         for r in results[:limit]
     ]
 
@@ -130,6 +130,10 @@ def dispatch(args: list[str]) -> dict:
     if sub == "reject":
         from kanban_framework.cli.knowledge_cmd import handle_reject
         return handle_reject(km, args[1:])
+    if sub == "history":
+        return _handle_history(km, args[1:])
+    if sub == "restore":
+        return _handle_restore(km, args[1:])
     return {"subcommand": sub, "results": []}
 
 
@@ -138,6 +142,31 @@ def dispatch(args: list[str]) -> dict:
 def _summary_only(args: list[str]) -> tuple[list[str], bool]:
     filtered = [a for a in args if a != "--summary-only"]
     return filtered, len(filtered) < len(args)
+
+
+def _handle_history(km: KnowledgeManager, args: list[str]) -> dict:
+    """kanban knowledge history <entry_id>"""
+    if not args:
+        return {"error": "usage: kanban knowledge history <entry_id>"}
+    entry_id = args[0]
+    versions = km.list_versions(entry_id)
+    return {"entry_id": entry_id, "versions": versions, "count": len(versions)}
+
+
+def _handle_restore(km: KnowledgeManager, args: list[str]) -> dict:
+    """kanban knowledge restore <entry_id> <version_id>"""
+    if len(args) < 2:
+        return {"error": "usage: kanban knowledge restore <entry_id> <version_id>"}
+    entry_id = args[0]
+    try:
+        version_id = int(args[1])
+    except ValueError:
+        return {"error": "version_id must be an integer"}
+    try:
+        result = km.restore_version(entry_id, version_id)
+        return {"restored": True, "entry_id": entry_id, "version_id": version_id, "entry": result}
+    except ValueError as e:
+        return {"error": str(e)}
 
 
 # ── Query handlers (remain in this file) ──────────────────────────────────
@@ -213,18 +242,20 @@ def _handle_hybrid(km: KnowledgeManager, args: list[str]) -> dict:
     args, summary_only = _summary_only(args)
     query_parts = []
     biz = None
+    min_score = None
     i = 0
     while i < len(args):
         if args[i] == "--biz" and i + 1 < len(args):
             biz = args[i + 1]; i += 2
+        elif args[i] == "--min-score" and i + 1 < len(args):
+            min_score = float(args[i + 1]); i += 2
         else:
             query_parts.append(args[i]); i += 1
     query = " ".join(query_parts) if query_parts else ""
     if not query:
         return {"error": "hybrid search requires a query"}
-    results = km.search_hybrid(query, biz_context=biz)
-    results = [r for r in results if float(r.get("relevance") or r.get("score", 0)) >= 0.1]
-    return {"query": query, "biz": biz, "count": len(results),
+    results = km.search_hybrid(query, biz_context=biz, score_threshold=min_score)
+    return {"query": query, "biz": biz, "min_score": min_score, "count": len(results),
             "results": _strip_heavy_fields(results) if summary_only else results,
             "summary": _build_summary(results), "summary_only": summary_only}
 
@@ -366,6 +397,8 @@ def _handle_health(km: KnowledgeManager) -> dict:
 
     entries = km.list_entries(limit=500, status="active")
     total = len(entries)
+    pending_entries = km.list_entries(status="pending", limit=500)
+    pending_count = len(pending_entries)
     cat_counts = Counter(e.get("category", "(uncategorized)") for e in entries)
 
     now = datetime.now(timezone.utc)
@@ -447,12 +480,51 @@ def _handle_health(km: KnowledgeManager) -> dict:
         if scores:
             eff_avg = round(sum(scores) / len(scores), 3)
 
+    # Zombie entries: never referenced
+    zombies = [{"id": e["id"], "title": e.get("title", ""), "age_days": (
+        (now - datetime.fromisoformat(e["created_at"]).replace(tzinfo=timezone.utc)).days
+    ) if e.get("created_at") else None} for e in entries
+        if (e.get("referenced_count") or 0) == 0 and e.get("created_at")]
+
+    # Reference effectiveness
+    ref_counts = [e.get("referenced_count", 0) or 0 for e in entries]
+    total_refs = sum(ref_counts)
+    referenced = sum(1 for r in ref_counts if r > 0)
+    ref_rate = round(referenced / total, 3) if total else 0.0
+
+    # Content conflict detection: same domain+category with similar titles
+    conflicts = []
+    from itertools import combinations
+    by_domain_cat: dict[str, list[dict]] = {}
+    for e in entries:
+        key = f"{e.get('domain', '')}/{e.get('category', '')}"
+        by_domain_cat.setdefault(key, []).append(e)
+    for key, group in by_domain_cat.items():
+        if len(group) < 2:
+            continue
+        for e1, e2 in combinations(group, 2):
+            sim = _title_similarity(e1.get("title", ""), e2.get("title", ""))
+            if sim > 0.8 and e1.get("id") != e2.get("id"):
+                conflicts.append({
+                    "pair": [e1["id"], e2["id"]], "titles": [e1.get("title", ""), e2.get("title", "")],
+                    "domain_category": key, "similarity": round(sim, 2),
+                })
+
     return {
         "total_entries": total,
+        "pending_entries": pending_count,
         "category_distribution": dict(cat_counts.most_common()),
         "by_type": by_type,
         "expired": expired, "expiring_soon": expiring_soon,
         "duplicates": duplicates, "low_quality": low_quality,
+        "zombies": zombies[:20], "zombie_count": len(zombies),
+        "conflicts": conflicts[:20], "conflict_count": len(conflicts),
+        "reference_effectiveness": {
+            "total_refs": total_refs,
+            "referenced_count": referenced,
+            "unreferenced_count": total - referenced,
+            "ref_rate": ref_rate,
+        },
         "stale_candidates": len(stale_candidates), "knowledge_gaps": gaps,
         "benchmark": {"total": benchmark_count, "coverage": benchmark_coverage},
         "effectiveness": {

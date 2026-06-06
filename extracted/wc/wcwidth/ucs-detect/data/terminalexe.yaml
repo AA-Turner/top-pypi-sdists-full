@@ -1,0 +1,5649 @@
+ambiguous_width: 1
+datetime: 2026-06-05 19:41:06 UTC
+environment: {}
+height: 30
+preferred_encoding: cp1252
+python_version: 3.14.3
+seconds_elapsed: 18.096060599999987
+session_arguments:
+  all: false
+  limit_category_time: 0
+  limit_codepoints: 0
+  limit_errors: 0
+  limit_graphemes: 0
+  limit_graphemes_pct: 0
+  stream: stderr
+  timeout_cps: 4
+software_name: WindowsTerminal
+software_version: 1.24.11321.0
+system: Windows
+terminal_results:
+  background_color_hex: '#0c0c0c0c0c0c'
+  background_color_rgb:
+  - 3084
+  - 3084
+  - 3084
+  cell_height: 20
+  cell_width: 10
+  color_scheme: false
+  colored_underlines: false
+  decrqcra: false
+  decrqss: true
+  decrqss_settings:
+    decsace: '1'
+    decsca: '0'
+    decscusr: '5'
+    decslrm: 1;120
+    decstbm: 1;30
+    sgr: 0;38:2::12:12:12
+  decrqss_truecolor_probe: false
+  device_attributes:
+    extensions:
+    - 4
+    - 6
+    - 7
+    - 14
+    - 21
+    - 22
+    - 23
+    - 24
+    - 28
+    - 32
+    - 42
+    - 52
+    service_class: 61
+  foreground_color_hex: '#cccccccccccc'
+  foreground_color_rgb:
+  - 52428
+  - 52428
+  - 52428
+  height: 30
+  iterm2_features:
+    features: {}
+    supported: false
+  kitty_clipboard_protocol: false
+  kitty_graphics: false
+  kitty_notifications: false
+  kitty_pointer_shapes: false
+  kitty_query: false
+  modes:
+    1004:
+      changeable: true
+      enabled: true
+      mode_description: Send FocusIn/FocusOut events
+      mode_name: FOCUS_IN_OUT_EVENTS
+      supported: true
+      value: 1
+      value_description: SET
+    1006:
+      changeable: true
+      enabled: false
+      mode_description: Enable SGR Mouse Mode
+      mode_name: MOUSE_EXTENDED_SGR
+      supported: true
+      value: 2
+      value_description: RESET
+    2004:
+      changeable: true
+      enabled: false
+      mode_description: Set bracketed paste mode
+      mode_name: BRACKETED_PASTE
+      supported: true
+      value: 2
+      value_description: RESET
+    2026:
+      changeable: true
+      enabled: false
+      mode_description: Synchronized Output
+      mode_name: SYNCHRONIZED_OUTPUT
+      supported: true
+      value: 2
+      value_description: RESET
+    2027:
+      changeable: false
+      enabled: true
+      mode_description: Grapheme Clustering
+      mode_name: GRAPHEME_CLUSTERING
+      supported: true
+      value: 3
+      value_description: PERMANENTLY_SET
+    2031:
+      changeable: false
+      enabled: false
+      mode_description: Color palette updates
+      mode_name: COLOR_PALETTE_UPDATES
+      supported: false
+      value: 0
+      value_description: NOT_RECOGNIZED
+    2048:
+      changeable: false
+      enabled: false
+      mode_description: In-Band Window Resize Notifications
+      mode_name: IN_BAND_WINDOW_RESIZE
+      supported: false
+      value: 0
+      value_description: NOT_RECOGNIZED
+    5522:
+      changeable: false
+      enabled: false
+      mode_description: Bracketed Paste MIME
+      mode_name: BRACKETED_PASTE_MIME
+      supported: false
+      value: 0
+      value_description: NOT_RECOGNIZED
+  number_of_colors: 16777216
+  osc52_clipboard: true
+  osc52_detection:
+    da1_extension_52: true
+    xtgettcap_ms: false
+  pixels_height: 600
+  pixels_width: 1200
+  screen_ratio: '16:9'
+  screen_ratio_name: HD
+  sixel: true
+  software_name: WindowsTerminal
+  software_version: 1.24.11321.0
+  styled_underlines: false
+  tab_stop_width: 8
+  text_sizing:
+    scale: false
+    width: false
+  ttype: ms-terminal
+  width: 120
+  xtgettcap:
+    capabilities: {}
+    supported: false
+  xtgettcap-bad-screenleak: false
+  xtversion-bad-screenleak: false
+test_results:
+  emoji_vs15_results:
+    17.0.0:
+      failed_codepoints:
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u231a\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u231b\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u23e9\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u23ea\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u23eb\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u23ec\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u23f0\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u23f3\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u25fd\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u25fe\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u2614\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u2615\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u2648\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u2649\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u264a\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u264b\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u264c\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u264d\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u264e\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u264f\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u2650\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u2651\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u2652\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u2653\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u267f\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u2693\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u26a1\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u26aa\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u26ab\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u26bd\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u26be\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u26c4\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u26c5\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u26ce\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u26d4\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u26ea\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u26f2\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u26f3\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u26f5\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u26fa\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u26fd\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u2705\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u270a\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u270b\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u2728\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u274c\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u274e\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u2753\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u2754\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u2755\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u2757\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u2795\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u2796\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u2797\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u27b0\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u27bf\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u2b1b\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u2b1c\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u2b50\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u2b55\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u3030\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u303d\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u3297\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u3299\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f004\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f202\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f21a\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f22f\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f237\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f30d\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f30e\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f30f\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f315\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f31c\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f378\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f393\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f3a7\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f3ac\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f3ad\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f3ae\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f3c2\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f3c4\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f3c6\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f3ca\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f3e0\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f3ed\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f408\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f415\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f41f\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f426\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f442\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f446\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f447\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f448\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f449\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f44d\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f44e\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f453\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f46a\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f47d\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f4a3\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f4b0\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f4b3\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f4bb\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f4bf\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f4cb\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f4da\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f4df\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f4e4\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f4e5\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f4e6\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f4ea\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f4eb\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f4ec\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f4ed\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f4f7\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f4f9\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f4fa\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f4fb\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f508\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f50d\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f512\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f513\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f550\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f551\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f552\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f553\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f554\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f555\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f556\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f557\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f558\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f559\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f55a\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f55b\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f55c\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f55d\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f55e\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f55f\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f560\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f561\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f562\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f563\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f564\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f565\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f566\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f567\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f610\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f687\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f68d\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f691\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f694\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f698\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f6ad\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f6b2\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f6b9\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f6ba\ufe0e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \U0001f6bc\ufe0e
+      n_errors: 158
+      n_total: 158
+      pct_success: 0.0
+  emoji_vs16_results:
+    17.0.0:
+      failed_codepoints: []
+      n_errors: 0
+      n_total: 426
+      pct_success: 100.0
+  emoji_zwj_results:
+    17.0.0:
+      failed_codepoints: []
+      n_errors: 0
+      n_total: 1445
+      pct_success: 100.0
+  language_results:
+    Aja:
+      failed: []
+      n_errors: 0
+      n_total: 3
+      pct_success: 100.0
+    Amarakaeri:
+      failed: []
+      n_errors: 0
+      n_total: 6
+      pct_success: 100.0
+    Arabic, Standard:
+      failed: []
+      n_errors: 0
+      n_total: 8
+      pct_success: 100.0
+    Assyrian Neo-Aramaic:
+      failed: []
+      n_errors: 0
+      n_total: 8
+      pct_success: 100.0
+    Baatonum:
+      failed: []
+      n_errors: 0
+      n_total: 1
+      pct_success: 100.0
+    Bamun:
+      failed: []
+      n_errors: 0
+      n_total: 17
+      pct_success: 100.0
+    Belanda Viri:
+      failed: []
+      n_errors: 0
+      n_total: 3
+      pct_success: 100.0
+    Bengali:
+      failed:
+      - grapheme_id: Bengali-4-00
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0995\u09cd\u09b7\u09cd\u09af\u09c7
+      - grapheme_id: Bengali-4-01
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u09a8\u09cd\u09a4\u09cd\u09b0\u09bf
+      - grapheme_id: Bengali-4-02
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u09a8\u09cd\u09a4\u09cd\u09b0\u09c7
+      - grapheme_id: Bengali-4-03
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u09b7\u09cd\u099f\u09cd\u09b0\u09c0
+      - grapheme_id: Bengali-4-04
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u09b7\u09cd\u099f\u09cd\u09b0\u09c7
+      - grapheme_id: Bengali-3-00
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0995\u09cd\u09a4\u09bf
+      - grapheme_id: Bengali-3-01
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0995\u09cd\u09b0\u09c0
+      - grapheme_id: Bengali-3-02
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0995\u09cd\u09b7\u09be
+      - grapheme_id: Bengali-3-03
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0995\u09cd\u09b7\u09bf
+      - grapheme_id: Bengali-3-04
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0995\u09cd\u09b7\u09c7
+      - grapheme_id: Bengali-3-05
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0995\u09cd\u09b7\u09cd\u09af
+      - grapheme_id: Bengali-3-06
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0996\u09cd\u09af\u09be
+      - grapheme_id: Bengali-3-07
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0997\u09cd\u09b0\u09be
+      - grapheme_id: Bengali-3-08
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0997\u09cd\u09b0\u09c7
+      - grapheme_id: Bengali-3-09
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0999\u09cd\u0996\u09be
+      - grapheme_id: Bengali-3-0a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0999\u09cd\u0997\u09c0
+      - grapheme_id: Bengali-3-0b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0999\u09cd\u0997\u09c7
+      - grapheme_id: Bengali-3-0c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u099a\u09cd\u099b\u09be
+      - grapheme_id: Bengali-3-0d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u099a\u09cd\u099b\u09be\u200c
+      - grapheme_id: Bengali-3-0e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u099a\u09cd\u099b\u09c7
+      - grapheme_id: Bengali-3-0f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u099c\u09cd\u099e\u09be
+      - grapheme_id: Bengali-3-10
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u099e\u09cd\u099a\u09bf
+      - grapheme_id: Bengali-3-11
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u099e\u09cd\u099b\u09bf
+      - grapheme_id: Bengali-3-12
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u099f\u09cd\u09b0\u09c7
+      - grapheme_id: Bengali-3-13
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a3\u09cd\u09a1\u09c7
+      - grapheme_id: Bengali-3-14
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a4\u09cd\u09a4\u09be
+      - grapheme_id: Bengali-3-15
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a4\u09cd\u09a4\u09bf
+      - grapheme_id: Bengali-3-16
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a4\u09cd\u09ac\u09c7
+      - grapheme_id: Bengali-3-17
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a4\u09cd\u09af\u09be
+      - grapheme_id: Bengali-3-18
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a4\u09cd\u09af\u09bf
+      - grapheme_id: Bengali-3-19
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a4\u09cd\u09af\u09c7
+      - grapheme_id: Bengali-3-1a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a4\u09cd\u09b0\u09be
+      - grapheme_id: Bengali-3-1b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a4\u09cd\u09b0\u09c7
+      - grapheme_id: Bengali-3-1e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a6\u09cd\u09a6\u09bf
+      - grapheme_id: Bengali-3-1f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a6\u09cd\u09a6\u09c7
+      - grapheme_id: Bengali-3-20
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a6\u09cd\u09a7\u09be
+      - grapheme_id: Bengali-3-21
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a6\u09cd\u09a7\u09bf
+      - grapheme_id: Bengali-3-22
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a6\u09cd\u09a7\u09c7
+      - grapheme_id: Bengali-3-23
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a6\u09cd\u09ac\u09be
+      - grapheme_id: Bengali-3-24
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a6\u09cd\u09b0\u09cb
+      - grapheme_id: Bengali-3-25
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a7\u09cd\u09af\u09c7
+      - grapheme_id: Bengali-3-26
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a8\u09cd\u09a4\u09be
+      - grapheme_id: Bengali-3-27
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a8\u09cd\u09a4\u09bf
+      - grapheme_id: Bengali-3-28
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a8\u09cd\u09a4\u09c7
+      - grapheme_id: Bengali-3-29
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a8\u09cd\u09a5\u09c0
+      - grapheme_id: Bengali-3-2a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a8\u09cd\u09a7\u09be
+      - grapheme_id: Bengali-3-2b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a8\u09cd\u09ae\u09be
+      - grapheme_id: Bengali-3-2c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a8\u09cd\u09af\u09be
+      - grapheme_id: Bengali-3-2d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09a8\u09cd\u09af\u09c7
+      - grapheme_id: Bengali-3-2e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09aa\u09cd\u09a4\u09be
+      - grapheme_id: Bengali-3-2f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09aa\u09cd\u09b0\u09be
+      - grapheme_id: Bengali-3-30
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09ac\u09cd\u09a7\u09bf
+      - grapheme_id: Bengali-3-31
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09ac\u09cd\u09af\u09be
+      - grapheme_id: Bengali-3-32
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09ad\u09cd\u09b0\u09be
+      - grapheme_id: Bengali-3-33
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09ae\u09cd\u09aa\u09be
+      - grapheme_id: Bengali-3-34
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09ae\u09cd\u09ae\u09be
+      - grapheme_id: Bengali-3-35
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b0\u09cd\u099c\u09be
+      - grapheme_id: Bengali-3-36
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b0\u09cd\u09a5\u09c7
+      - grapheme_id: Bengali-3-37
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b0\u09cd\u09a6\u09cb
+      - grapheme_id: Bengali-3-38
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b0\u09cd\u09a7\u09be
+      - grapheme_id: Bengali-3-39
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b0\u09cd\u09a8\u09c0
+      - grapheme_id: Bengali-3-3a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b0\u09cd\u09ac\u09be
+      - grapheme_id: Bengali-3-3b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b0\u09cd\u09ac\u09bf
+      - grapheme_id: Bengali-3-3c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b0\u09cd\u09ac\u09cb
+      - grapheme_id: Bengali-3-3d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b0\u09cd\u09ac\u09cd\u09af
+      - grapheme_id: Bengali-3-3e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b0\u09cd\u09ae\u09c7
+      - grapheme_id: Bengali-3-3f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b0\u09cd\u09af\u09be
+      - grapheme_id: Bengali-3-40
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b2\u09cd\u09af\u09be
+      - grapheme_id: Bengali-3-41
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b2\u09cd\u09af\u09c7
+      - grapheme_id: Bengali-3-42
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b2\u09cd\u09b2\u09c7
+      - grapheme_id: Bengali-3-43
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b6\u09cd\u099a\u09bf
+      - grapheme_id: Bengali-3-44
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b6\u09cd\u09ac\u09be
+      - grapheme_id: Bengali-3-45
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b6\u09cd\u09ac\u09c7
+      - grapheme_id: Bengali-3-46
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b6\u09cd\u09af\u09c7
+      - grapheme_id: Bengali-3-47
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b6\u09cd\u09b0\u09be
+      - grapheme_id: Bengali-3-48
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b7\u09cd\u099f\u09be
+      - grapheme_id: Bengali-3-49
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b7\u09cd\u099f\u09bf
+      - grapheme_id: Bengali-3-4a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b7\u09cd\u099f\u09cd\u09b0
+      - grapheme_id: Bengali-3-4b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b7\u09cd\u09a0\u09be
+      - grapheme_id: Bengali-3-4c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b7\u09cd\u09a0\u09bf
+      - grapheme_id: Bengali-3-4d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b7\u09cd\u09a0\u09c0
+      - grapheme_id: Bengali-3-4e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b8\u09cd\u09a4\u09bf
+      - grapheme_id: Bengali-3-4f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b8\u09cd\u09a4\u09bf\u200c
+      - grapheme_id: Bengali-3-50
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b8\u09cd\u09a4\u09cd\u09b0
+      - grapheme_id: Bengali-3-51
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b8\u09cd\u09a5\u09be
+      - grapheme_id: Bengali-3-52
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b8\u09cd\u09a5\u09cd\u09af
+      - grapheme_id: Bengali-3-53
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b8\u09cd\u09ac\u09be
+      - grapheme_id: Bengali-3-54
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b8\u09cd\u09ac\u09c0
+      - grapheme_id: Bengali-3-55
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b8\u09cd\u09af\u09be
+      - grapheme_id: Bengali-3-56
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u09b8\u09cd\u09af\u09c7
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u0995\u09cd\u09a4\u09bf
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u0995\u09cd\u09b0\u09c0
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u0995\u09cd\u09b7\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u0995\u09cd\u09b7\u09bf
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u0995\u09cd\u09b7\u09c7
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u0995\u09cd\u09b7\u09cd\u09af
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u0995\u09cd\u09b7\u09cd\u09af\u09c7
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u0996\u09cd\u09af\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u0997\u09cd\u09b0\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u0997\u09cd\u09b0\u09c7
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u0999\u09cd\u0996\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u0999\u09cd\u0997\u09c0
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u0999\u09cd\u0997\u09c7
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u099a\u09cd\u099b\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u099a\u09cd\u099b\u09be\u200c
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u099a\u09cd\u099b\u09c7
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u099c\u09cd\u099e\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u099e\u09cd\u099a\u09bf
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u099e\u09cd\u099b\u09bf
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u099f\u09cd\u09b0\u09c7
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a3\u09cd\u09a1\u09c7
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a4\u09cd\u09a4\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a4\u09cd\u09a4\u09bf
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a4\u09cd\u09ac\u09c7
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a4\u09cd\u09af\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a4\u09cd\u09af\u09bf
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a4\u09cd\u09af\u09c7
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a4\u09cd\u09b0\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a4\u09cd\u09b0\u09c7
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a6\u09cd\u09a6\u09bf
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a6\u09cd\u09a6\u09c7
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a6\u09cd\u09a7\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a6\u09cd\u09a7\u09bf
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a6\u09cd\u09a7\u09c7
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a6\u09cd\u09ac\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a6\u09cd\u09b0\u09cb
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a7\u09cd\u09af\u09c7
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a8\u09cd\u09a4\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a8\u09cd\u09a4\u09bf
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a8\u09cd\u09a4\u09c7
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a8\u09cd\u09a4\u09cd\u09b0\u09bf
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a8\u09cd\u09a4\u09cd\u09b0\u09c7
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a8\u09cd\u09a5\u09c0
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a8\u09cd\u09a7\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a8\u09cd\u09ae\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a8\u09cd\u09af\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09a8\u09cd\u09af\u09c7
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09aa\u09cd\u09a4\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09aa\u09cd\u09b0\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09ac\u09cd\u09a7\u09bf
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09ac\u09cd\u09af\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09ad\u09cd\u09b0\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09ae\u09cd\u09aa\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09ae\u09cd\u09ae\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b0\u09cd\u099c\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b0\u09cd\u09a5\u09c7
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b0\u09cd\u09a6\u09cb
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b0\u09cd\u09a7\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b0\u09cd\u09a8\u09c0
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b0\u09cd\u09ac\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b0\u09cd\u09ac\u09bf
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b0\u09cd\u09ac\u09cb
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b0\u09cd\u09ac\u09cd\u09af
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b0\u09cd\u09ae\u09c7
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b0\u09cd\u09af\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b2\u09cd\u09af\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b2\u09cd\u09af\u09c7
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b2\u09cd\u09b2\u09c7
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b6\u09cd\u099a\u09bf
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b6\u09cd\u09ac\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b6\u09cd\u09ac\u09c7
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b6\u09cd\u09af\u09c7
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b6\u09cd\u09b0\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b7\u09cd\u099f\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b7\u09cd\u099f\u09bf
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b7\u09cd\u099f\u09cd\u09b0
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b7\u09cd\u099f\u09cd\u09b0\u09c0
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b7\u09cd\u099f\u09cd\u09b0\u09c7
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b7\u09cd\u09a0\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b7\u09cd\u09a0\u09bf
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b7\u09cd\u09a0\u09c0
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b8\u09cd\u09a4\u09bf
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b8\u09cd\u09a4\u09bf\u200c
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b8\u09cd\u09a4\u09cd\u09b0
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b8\u09cd\u09a5\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b8\u09cd\u09a5\u09cd\u09af
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b8\u09cd\u09ac\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b8\u09cd\u09ac\u09c0
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b8\u09cd\u09af\u09be
+      - inherited_from: Bengali
+        measured_by_wcwidth: 2
+        wchars: \u09b8\u09cd\u09af\u09c7
+      n_errors: 180
+      n_total: 427
+      pct_success: 57.84543325526932
+    Bhojpuri:
+      failed:
+      - grapheme_id: Bhojpuri-4-00
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0915\u094d\u0918\u094d\u0918\u093f\u094d
+      - grapheme_id: Bhojpuri-4-01
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0918\u094d\u0930\u094d\u0935\u094d\u092f
+      - grapheme_id: Bhojpuri-4-02
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0937\u094d\u091f\u094d\u0930\u0940
+      - grapheme_id: Bhojpuri-3-00
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0915\u094d\u0924\u093f
+      - grapheme_id: Bhojpuri-3-01
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0915\u094d\u0937\u093e
+      - grapheme_id: Bhojpuri-3-02
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0918\u094d\u0915\u093e
+      - grapheme_id: Bhojpuri-3-03
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0918\u094d\u0932\u093f
+      - grapheme_id: Bhojpuri-3-04
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0918\u094d\u0936\u094d\u092f
+      - grapheme_id: Bhojpuri-3-05
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0918\u094d\u0938\u094d\u091f
+      - grapheme_id: Bhojpuri-3-06
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u091a\u094d\u091a\u093e
+      - grapheme_id: Bhojpuri-3-07
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u091a\u094d\u091b\u093e
+      - grapheme_id: Bhojpuri-3-08
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u091c\u094d\u091e\u093e
+      - grapheme_id: Bhojpuri-3-09
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u0924\u093f
+      - grapheme_id: Bhojpuri-3-0a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u092f\u093f
+      - grapheme_id: Bhojpuri-3-0b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u0930\u093e
+      - grapheme_id: Bhojpuri-3-0c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u0930\u093e\u093e
+      - grapheme_id: Bhojpuri-3-0d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u0930\u093f
+      - grapheme_id: Bhojpuri-3-0e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0926\u094d\u0935\u093e
+      - grapheme_id: Bhojpuri-3-0f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0928\u094d\u092f\u093e
+      - grapheme_id: Bhojpuri-3-10
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u092a\u094d\u0930\u093e
+      - grapheme_id: Bhojpuri-3-11
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u092e\u094d\u092e\u093e
+      - grapheme_id: Bhojpuri-3-12
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u092e\u094d\u092f\u093e
+      - grapheme_id: Bhojpuri-3-13
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u091c\u093f
+      - grapheme_id: Bhojpuri-3-14
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u091c\u0940
+      - grapheme_id: Bhojpuri-3-15
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0924\u093f
+      - grapheme_id: Bhojpuri-3-16
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0925\u093f
+      - grapheme_id: Bhojpuri-3-17
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0926\u094b
+      - grapheme_id: Bhojpuri-3-18
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0927\u093e
+      - grapheme_id: Bhojpuri-3-19
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u092e\u093f
+      - grapheme_id: Bhojpuri-3-1a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0930\u093e
+      - grapheme_id: Bhojpuri-3-1b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0932\u094d\u092f\u093e
+      - grapheme_id: Bhojpuri-3-1c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0935\u094d\u092f\u093e
+      - grapheme_id: Bhojpuri-3-1d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0936\u094d\u0935\u093e
+      - grapheme_id: Bhojpuri-3-1e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0937\u094d\u091f\u094d\u0930
+      - grapheme_id: Bhojpuri-3-1f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0938\u094d\u0924\u0940
+      - grapheme_id: Bhojpuri-3-20
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0938\u094d\u0925\u093e
+      - grapheme_id: Bhojpuri-3-21
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0938\u094d\u0925\u093f
+      - grapheme_id: Bhojpuri-3-22
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0938\u094d\u0925\u0940
+      - grapheme_id: Bhojpuri-3-23
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0938\u094d\u0925\u094d\u092f
+      - grapheme_id: Bhojpuri-3-24
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0938\u094d\u0935\u093e
+      - grapheme_id: Bhojpuri-3-25
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0938\u094d\u0938\u093e
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0915\u094d\u0918\u094d\u0918\u093f\u094d
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0915\u094d\u0924\u093f
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0915\u094d\u0937\u093e
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0918\u094d\u0915\u093e
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0918\u094d\u0930\u094d\u0935\u094d\u092f
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0918\u094d\u0932\u093f
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0918\u094d\u0936\u094d\u092f
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0918\u094d\u0938\u094d\u091f
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u091a\u094d\u091a\u093e
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u091a\u094d\u091b\u093e
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u091c\u094d\u091e\u093e
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u0924\u093f
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u092f\u093f
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u0930\u093e
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u0930\u093e\u093e
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u0930\u093f
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0926\u094d\u0935\u093e
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u092f\u093e
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u092a\u094d\u0930\u093e
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u092e\u094d\u092e\u093e
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u092e\u094d\u092f\u093e
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u091c\u093f
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u091c\u0940
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0924\u093f
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0925\u093f
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0926\u094b
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0927\u093e
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u092e\u093f
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0930\u093e
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0932\u094d\u092f\u093e
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0935\u094d\u092f\u093e
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0936\u094d\u0935\u093e
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0937\u094d\u091f\u094d\u0930
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0937\u094d\u091f\u094d\u0930\u0940
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u0924\u0940
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u0925\u093e
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u0925\u093f
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u0925\u0940
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u0925\u094d\u092f
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u0935\u093e
+      - inherited_from: Bhojpuri
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u0938\u093e
+      n_errors: 82
+      n_total: 293
+      pct_success: 72.01365187713311
+    Bora:
+      failed: []
+      n_errors: 0
+      n_total: 2
+      pct_success: 100.0
+    Burmese:
+      failed: []
+      n_errors: 0
+      n_total: 223
+      pct_success: 100.0
+    Catalan (2):
+      failed: []
+      n_errors: 0
+      n_total: 6
+      pct_success: 100.0
+    Chakma:
+      failed: []
+      n_errors: 0
+      n_total: 225
+      pct_success: 100.0
+    Chickasaw:
+      failed: []
+      n_errors: 0
+      n_total: 4
+      pct_success: 100.0
+    Chinantec, Chiltepec:
+      failed: []
+      n_errors: 0
+      n_total: 6
+      pct_success: 100.0
+    Dagaare, Southern:
+      failed: []
+      n_errors: 0
+      n_total: 3
+      pct_success: 100.0
+    Dari:
+      failed: []
+      n_errors: 0
+      n_total: 6
+      pct_success: 100.0
+    Dendi:
+      failed: []
+      n_errors: 0
+      n_total: 1
+      pct_success: 100.0
+    Dinka, Northeastern:
+      failed: []
+      n_errors: 0
+      n_total: 2
+      pct_success: 100.0
+    Dzongkha:
+      failed: []
+      n_errors: 0
+      n_total: 160
+      pct_success: 100.0
+    Evenki:
+      failed: []
+      n_errors: 0
+      n_total: 13
+      pct_success: 100.0
+    Farsi, Western:
+      failed: []
+      n_errors: 0
+      n_total: 3
+      pct_success: 100.0
+    Fon:
+      failed: []
+      n_errors: 0
+      n_total: 1
+      pct_success: 100.0
+    French (Welche):
+      failed: []
+      n_errors: 0
+      n_total: 2
+      pct_success: 100.0
+    Fur:
+      failed: []
+      n_errors: 0
+      n_total: 9
+      pct_success: 100.0
+    Ga:
+      failed: []
+      n_errors: 0
+      n_total: 1
+      pct_success: 100.0
+    Gen:
+      failed: []
+      n_errors: 0
+      n_total: 1
+      pct_success: 100.0
+    Gilyak:
+      failed: []
+      n_errors: 0
+      n_total: 2
+      pct_success: 100.0
+    Gujarati:
+      failed:
+      - grapheme_id: Gujarati-4-00
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0aa4\u0acd\u0aa4\u0acd\u0ab5\u0abe
+      - grapheme_id: Gujarati-4-01
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0ab7\u0acd\u0a9f\u0acd\u0ab0\u0ac0
+      - grapheme_id: Gujarati-4-02
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0ab7\u0acd\u0a9f\u0acd\u0ab0\u0acb
+      - grapheme_id: Gujarati-4-03
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0ab8\u0acd\u0aa4\u0acd\u0ab0\u0ac0
+      - grapheme_id: Gujarati-3-00
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0a95\u0acd\u0a95\u0abe
+      - grapheme_id: Gujarati-3-01
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0a95\u0acd\u0a95\u0acb
+      - grapheme_id: Gujarati-3-02
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0a95\u0acd\u0aa4\u0abf
+      - grapheme_id: Gujarati-3-03
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0a95\u0acd\u0ab7\u0abe
+      - grapheme_id: Gujarati-3-04
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0a9a\u0acd\u0a9a\u0abe
+      - grapheme_id: Gujarati-3-05
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0a9a\u0acd\u0a9b\u0abe
+      - grapheme_id: Gujarati-3-06
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0a9c\u0acd\u0a9e\u0abe
+      - grapheme_id: Gujarati-3-07
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0a9c\u0acd\u0aaf\u0acb
+      - grapheme_id: Gujarati-3-08
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0aa4\u0acd\u0aa4\u0abe
+      - grapheme_id: Gujarati-3-09
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0aa4\u0acd\u0aa4\u0abf
+      - grapheme_id: Gujarati-3-0a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0aa4\u0acd\u0aa4\u0acd\u0ab5
+      - grapheme_id: Gujarati-3-0b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0aa4\u0acd\u0aaf\u0abe
+      - grapheme_id: Gujarati-3-0c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0aa4\u0acd\u0aaf\u0abe\u0a82
+      - grapheme_id: Gujarati-3-0d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0aa4\u0acd\u0aaf\u0abf
+      - grapheme_id: Gujarati-3-0e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0aa4\u0acd\u0aaf\u0acb
+      - grapheme_id: Gujarati-3-0f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0aa4\u0acd\u0ab0\u0ac0
+      - grapheme_id: Gujarati-3-10
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0aa4\u0acd\u0ab0\u0acd\u0aaf
+      - grapheme_id: Gujarati-3-11
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0aa6\u0acd\u0aa7\u0abe
+      - grapheme_id: Gujarati-3-12
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0aa6\u0acd\u0aa7\u0abe\u0a82
+      - grapheme_id: Gujarati-3-13
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0aa6\u0acd\u0aa7\u0abf
+      - grapheme_id: Gujarati-3-14
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0aa6\u0acd\u0ab5\u0abe
+      - grapheme_id: Gujarati-3-15
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0aa7\u0acd\u0aaf\u0abe
+      - grapheme_id: Gujarati-3-16
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0aa8\u0acd\u0aa4\u0acb
+      - grapheme_id: Gujarati-3-17
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0aa8\u0acd\u0aae\u0abe
+      - grapheme_id: Gujarati-3-18
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0aa8\u0acd\u0aaf\u0abe
+      - grapheme_id: Gujarati-3-19
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0aaa\u0acd\u0ab0\u0abe
+      - grapheme_id: Gujarati-3-1a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0aae\u0acd\u0aaf\u0abe\u0a82
+      - grapheme_id: Gujarati-3-1b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0ab0\u0acd\u0aa4\u0abe
+      - grapheme_id: Gujarati-3-1c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0ab0\u0acd\u0aa5\u0abf
+      - grapheme_id: Gujarati-3-1d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0ab0\u0acd\u0aa6\u0acb
+      - grapheme_id: Gujarati-3-1e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0ab0\u0acd\u0aae\u0abf
+      - grapheme_id: Gujarati-3-1f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0ab0\u0acd\u0aaf\u0abe
+      - grapheme_id: Gujarati-3-20
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0ab0\u0acd\u0aaf\u0acb
+      - grapheme_id: Gujarati-3-21
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0ab5\u0acd\u0aaf\u0abe
+      - grapheme_id: Gujarati-3-22
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0ab5\u0acd\u0aaf\u0acb
+      - grapheme_id: Gujarati-3-23
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0ab7\u0acd\u0a9f\u0abf
+      - grapheme_id: Gujarati-3-24
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0ab7\u0acd\u0a9f\u0acd\u0ab0
+      - grapheme_id: Gujarati-3-25
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0ab7\u0acd\u0aa0\u0abe
+      - grapheme_id: Gujarati-3-26
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0ab8\u0acd\u0aa4\u0abf
+      - grapheme_id: Gujarati-3-27
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0ab8\u0acd\u0aa4\u0ac0
+      - grapheme_id: Gujarati-3-28
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0ab8\u0acd\u0aa5\u0abe
+      - grapheme_id: Gujarati-3-29
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0ab8\u0acd\u0aa5\u0abf
+      - grapheme_id: Gujarati-3-2a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0ab8\u0acd\u0ab0\u0ac0
+      - grapheme_id: Gujarati-3-2b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0ab8\u0acd\u0ab5\u0abe
+      - grapheme_id: Gujarati-3-2c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0ab8\u0acd\u0ab5\u0ac0
+      - grapheme_id: Gujarati-3-2d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0ab8\u0acd\u0ab8\u0abe
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0a95\u0acd\u0a95\u0abe
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0a95\u0acd\u0a95\u0acb
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0a95\u0acd\u0aa4\u0abf
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0a95\u0acd\u0ab7\u0abe
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0a9a\u0acd\u0a9a\u0abe
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0a9a\u0acd\u0a9b\u0abe
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0a9c\u0acd\u0a9e\u0abe
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0a9c\u0acd\u0aaf\u0acb
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0aa4\u0acd\u0aa4\u0abe
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0aa4\u0acd\u0aa4\u0abf
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0aa4\u0acd\u0aa4\u0acd\u0ab5
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0aa4\u0acd\u0aa4\u0acd\u0ab5\u0abe
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0aa4\u0acd\u0aaf\u0abe
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0aa4\u0acd\u0aaf\u0abe\u0a82
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0aa4\u0acd\u0aaf\u0abf
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0aa4\u0acd\u0aaf\u0acb
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0aa4\u0acd\u0ab0\u0ac0
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0aa4\u0acd\u0ab0\u0acd\u0aaf
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0aa6\u0acd\u0aa7\u0abe
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0aa6\u0acd\u0aa7\u0abe\u0a82
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0aa6\u0acd\u0aa7\u0abf
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0aa6\u0acd\u0ab5\u0abe
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0aa7\u0acd\u0aaf\u0abe
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0aa8\u0acd\u0aa4\u0acb
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0aa8\u0acd\u0aae\u0abe
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0aa8\u0acd\u0aaf\u0abe
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0aaa\u0acd\u0ab0\u0abe
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0aae\u0acd\u0aaf\u0abe\u0a82
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0ab0\u0acd\u0aa4\u0abe
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0ab0\u0acd\u0aa5\u0abf
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0ab0\u0acd\u0aa6\u0acb
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0ab0\u0acd\u0aae\u0abf
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0ab0\u0acd\u0aaf\u0abe
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0ab0\u0acd\u0aaf\u0acb
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0ab5\u0acd\u0aaf\u0abe
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0ab5\u0acd\u0aaf\u0acb
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0ab7\u0acd\u0a9f\u0abf
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0ab7\u0acd\u0a9f\u0acd\u0ab0
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0ab7\u0acd\u0a9f\u0acd\u0ab0\u0ac0
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0ab7\u0acd\u0a9f\u0acd\u0ab0\u0acb
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0ab7\u0acd\u0aa0\u0abe
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0ab8\u0acd\u0aa4\u0abf
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0ab8\u0acd\u0aa4\u0ac0
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0ab8\u0acd\u0aa4\u0acd\u0ab0\u0ac0
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0ab8\u0acd\u0aa5\u0abe
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0ab8\u0acd\u0aa5\u0abf
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0ab8\u0acd\u0ab0\u0ac0
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0ab8\u0acd\u0ab5\u0abe
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0ab8\u0acd\u0ab5\u0ac0
+      - inherited_from: Gujarati
+        measured_by_wcwidth: 2
+        wchars: \u0ab8\u0acd\u0ab8\u0abe
+      n_errors: 100
+      n_total: 340
+      pct_success: 70.58823529411765
+    Gumuz:
+      failed: []
+      n_errors: 0
+      n_total: 2
+      pct_success: 100.0
+    Hindi:
+      failed:
+      - grapheme_id: Hindi-4-00
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0928\u094d\u0924\u094d\u0930\u093e
+      - grapheme_id: Hindi-4-01
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0937\u094d\u091f\u094d\u0930\u094b\u0902
+      - grapheme_id: Hindi-4-02
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0938\u094d\u0924\u094d\u0930\u0940
+      - grapheme_id: Hindi-3-00
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0915\u094d\u0928\u093f
+      - grapheme_id: Hindi-3-01
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0915\u094d\u0930\u093f
+      - grapheme_id: Hindi-3-02
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0915\u094d\u0937\u093f
+      - grapheme_id: Hindi-3-03
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0916\u094d\u092f\u093e
+      - grapheme_id: Hindi-3-04
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u091a\u094d\u091a\u094b\u0902
+      - grapheme_id: Hindi-3-05
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u091a\u094d\u091b\u093f
+      - grapheme_id: Hindi-3-06
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u091f\u094d\u091f\u093f
+      - grapheme_id: Hindi-3-07
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u0915\u093e
+      - grapheme_id: Hindi-3-08
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u0924\u093e
+      - grapheme_id: Hindi-3-09
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u0928\u094b\u0902
+      - grapheme_id: Hindi-3-0a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u092a\u093e
+      - grapheme_id: Hindi-3-0b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u092e\u093e
+      - grapheme_id: Hindi-3-0c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u092f\u093e
+      - grapheme_id: Hindi-3-0d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u0930\u0940
+      - grapheme_id: Hindi-3-0e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u0938\u093e
+      - grapheme_id: Hindi-3-0f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0926\u094d\u0918\u093f
+      - grapheme_id: Hindi-3-10
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0926\u094d\u0927\u093e
+      - grapheme_id: Hindi-3-11
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0926\u094d\u0927\u093f
+      - grapheme_id: Hindi-3-12
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0926\u094d\u092d\u093e
+      - grapheme_id: Hindi-3-13
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0926\u094d\u0930\u094b
+      - grapheme_id: Hindi-3-14
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0927\u094d\u092f\u093e
+      - grapheme_id: Hindi-3-15
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0928\u094d\u0924\u093f
+      - grapheme_id: Hindi-3-16
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0928\u094d\u0924\u094b\u0902
+      - grapheme_id: Hindi-3-17
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0928\u094d\u0924\u094d\u0930
+      - grapheme_id: Hindi-3-18
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0928\u094d\u0926\u0940
+      - grapheme_id: Hindi-3-19
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0928\u094d\u0927\u093f
+      - grapheme_id: Hindi-3-1a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0928\u094d\u0927\u0940
+      - grapheme_id: Hindi-3-1b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0928\u094d\u0927\u094b\u0902
+      - grapheme_id: Hindi-3-1c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0928\u094d\u0928\u093f
+      - grapheme_id: Hindi-3-1d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0928\u094d\u092e\u093e
+      - grapheme_id: Hindi-3-1e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u092a\u094d\u0924\u093f
+      - grapheme_id: Hindi-3-1f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u092b\u094d\u0930\u093e\u0902
+      - grapheme_id: Hindi-3-20
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u092e\u094d\u092d\u093f
+      - grapheme_id: Hindi-3-21
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u092e\u094d\u092e\u093f
+      - grapheme_id: Hindi-3-22
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0924\u093e
+      - grapheme_id: Hindi-3-23
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u092f\u093e
+      - grapheme_id: Hindi-3-24
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u092f\u094b\u0902
+      - grapheme_id: Hindi-3-25
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0935\u094b
+      - grapheme_id: Hindi-3-26
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0932\u094d\u0932\u093f
+      - grapheme_id: Hindi-3-27
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0935\u094d\u092f\u094b\u0902
+      - grapheme_id: Hindi-3-28
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0936\u094d\u091a\u093f
+      - grapheme_id: Hindi-3-29
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0936\u094d\u092f\u094b\u0902
+      - grapheme_id: Hindi-3-2a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0936\u094d\u0930\u093e
+      - grapheme_id: Hindi-3-2b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0937\u094d\u0915\u093e
+      - grapheme_id: Hindi-3-2c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0937\u094d\u091f\u093f
+      - grapheme_id: Hindi-3-2d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0937\u094d\u0920\u094b\u0902
+      - grapheme_id: Hindi-3-2e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0937\u094d\u092f\u094b\u0902
+      - grapheme_id: Hindi-3-2f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0938\u094d\u0924\u093e
+      - grapheme_id: Hindi-3-30
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0938\u094d\u0924\u094d\u0930
+      - grapheme_id: Hindi-3-31
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0938\u094d\u092f\u094b\u0902
+      - grapheme_id: Hindi-3-32
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0938\u094d\u0935\u0940
+      - grapheme_id: Hindi-3-33
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u095e\u094d\u0924\u093e
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0915\u094d\u0928\u093f
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0915\u094d\u0930\u093f
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0915\u094d\u0937\u093f
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0916\u094d\u092f\u093e
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u091a\u094d\u091a\u094b\u0902
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u091a\u094d\u091b\u093f
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u091f\u094d\u091f\u093f
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u0915\u093e
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u0924\u093e
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u0928\u094b\u0902
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u092a\u093e
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u092e\u093e
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u092f\u093e
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u0930\u0940
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u0938\u093e
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0926\u094d\u0918\u093f
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0926\u094d\u0927\u093e
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0926\u094d\u0927\u093f
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0926\u094d\u092d\u093e
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0926\u094d\u0930\u094b
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0927\u094d\u092f\u093e
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0924\u093f
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0924\u094b\u0902
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0924\u094d\u0930
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0924\u094d\u0930\u093e
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0926\u0940
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0927\u093f
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0927\u0940
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0927\u094b\u0902
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0928\u093f
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u092e\u093e
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u092a\u094d\u0924\u093f
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u092b\u094d\u0930\u093e\u0902
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u092e\u094d\u092d\u093f
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u092e\u094d\u092e\u093f
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0924\u093e
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u092f\u093e
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u092f\u094b\u0902
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0935\u094b
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0932\u094d\u0932\u093f
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0935\u094d\u092f\u094b\u0902
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0936\u094d\u091a\u093f
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0936\u094d\u092f\u094b\u0902
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0936\u094d\u0930\u093e
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0937\u094d\u0915\u093e
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0937\u094d\u091f\u093f
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0937\u094d\u091f\u094d\u0930\u094b\u0902
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0937\u094d\u0920\u094b\u0902
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0937\u094d\u092f\u094b\u0902
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u0924\u093e
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u0924\u094d\u0930
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u0924\u094d\u0930\u0940
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u092f\u094b\u0902
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u0935\u0940
+      - inherited_from: Hindi
+        measured_by_wcwidth: 2
+        wchars: \u095e\u094d\u0924\u093e
+      n_errors: 110
+      n_total: 219
+      pct_success: 49.77168949771689
+    Javanese (Javanese):
+      failed:
+      - grapheme_id: Javanese (Javanese)-4-04
+        measured_by_terminal: 5
+        measured_by_wcwidth: 4
+        wchars: \ua9a0\ua9c0\ua9b1\ua9c0\ua9ae
+      - grapheme_id: Javanese (Javanese)-3-01
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua98f\ua9c0\ua98f\ua9ba
+      - grapheme_id: Javanese (Javanese)-3-04
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua98f\ua9c0\ua994\ua9bf
+      - grapheme_id: Javanese (Javanese)-3-07
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua98f\ua9c0\ua9a0\ua9ba
+      - grapheme_id: Javanese (Javanese)-3-0d
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua98f\ua9c0\ua9a7\ua9ba
+      - grapheme_id: Javanese (Javanese)-3-12
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua98f\ua9c0\ua9b1\ua9ba
+      - grapheme_id: Javanese (Javanese)-3-16
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua98f\ua9c0\ua9b2\ua9ba
+      - grapheme_id: Javanese (Javanese)-3-25
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua9a0\ua9c0\ua9a0\ua9ba
+      - grapheme_id: Javanese (Javanese)-3-28
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua9a0\ua9c0\ua9ad\ua9ba
+      - grapheme_id: Javanese (Javanese)-3-2a
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua9a0\ua9c0\ua9b1\ua9be
+      - grapheme_id: Javanese (Javanese)-3-34
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua9a4\ua9c0\ua994\ua9ba
+      - grapheme_id: Javanese (Javanese)-3-40
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua9a4\ua9c0\ua9a0\ua983
+      - grapheme_id: Javanese (Javanese)-3-44
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua9a4\ua9c0\ua9a0\ua9ba
+      - grapheme_id: Javanese (Javanese)-3-4c
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua9a4\ua9c0\ua9a2\ua9ba
+      - grapheme_id: Javanese (Javanese)-3-50
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua9a4\ua9c0\ua9a4\ua9ba
+      - grapheme_id: Javanese (Javanese)-3-56
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua9a4\ua9c0\ua9a5\ua9bf
+      - grapheme_id: Javanese (Javanese)-3-5a
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua9a4\ua9c0\ua9a7\ua9ba
+      - grapheme_id: Javanese (Javanese)-3-67
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua9a4\ua9c0\ua9b1\ua983
+      - grapheme_id: Javanese (Javanese)-3-75
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua9a5\ua9c0\ua9a5\ua9ba
+      - grapheme_id: Javanese (Javanese)-3-7b
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua9a7\ua9c0\ua9a7\ua9ba
+      - grapheme_id: Javanese (Javanese)-3-86
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua9a9\ua9c0\ua9a7\ua983
+      - grapheme_id: Javanese (Javanese)-3-8a
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua9a9\ua9c0\ua9a7\ua9ba
+      - grapheme_id: Javanese (Javanese)-3-8d
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua9a9\ua9c0\ua9ab\ua983
+      - grapheme_id: Javanese (Javanese)-3-96
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua9ad\ua9c0\ua9ad\ua9ba
+      - grapheme_id: Javanese (Javanese)-3-a0
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua9b1\ua9c0\ua9a0\ua9bf
+      - grapheme_id: Javanese (Javanese)-3-a7
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua9b1\ua9c0\ua9a9\ua9bf
+      - grapheme_id: Javanese (Javanese)-3-ac
+        measured_by_terminal: 4
+        measured_by_wcwidth: 3
+        wchars: \ua9b1\ua9c0\ua9b1\ua9ba
+      - grapheme_id: Javanese (Javanese)-2-07
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua98f\ua9c0\ua98f
+      - grapheme_id: Javanese (Javanese)-2-08
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua98f\ua9c0\ua994
+      - grapheme_id: Javanese (Javanese)-2-09
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua98f\ua9c0\ua995
+      - grapheme_id: Javanese (Javanese)-2-0a
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua98f\ua9c0\ua9a0
+      - grapheme_id: Javanese (Javanese)-2-0b
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua98f\ua9c0\ua9a2
+      - grapheme_id: Javanese (Javanese)-2-0c
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua98f\ua9c0\ua9a4
+      - grapheme_id: Javanese (Javanese)-2-0d
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua98f\ua9c0\ua9a5
+      - grapheme_id: Javanese (Javanese)-2-0e
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua98f\ua9c0\ua9a7
+      - grapheme_id: Javanese (Javanese)-2-0f
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua98f\ua9c0\ua9a9
+      - grapheme_id: Javanese (Javanese)-2-10
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua98f\ua9c0\ua9aa
+      - grapheme_id: Javanese (Javanese)-2-11
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua98f\ua9c0\ua9ad
+      - grapheme_id: Javanese (Javanese)-2-12
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua98f\ua9c0\ua9ae
+      - grapheme_id: Javanese (Javanese)-2-13
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua98f\ua9c0\ua9b1
+      - grapheme_id: Javanese (Javanese)-2-14
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua98f\ua9c0\ua9b2
+      - grapheme_id: Javanese (Javanese)-2-19
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua992\ua9c0\ua992
+      - grapheme_id: Javanese (Javanese)-2-1e
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua994\ua9c0\ua9ad
+      - grapheme_id: Javanese (Javanese)-2-24
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua99a\ua9c0\ua995
+      - grapheme_id: Javanese (Javanese)-2-25
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua99a\ua9c0\ua997
+      - grapheme_id: Javanese (Javanese)-2-32
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a0\ua9c0\ua992
+      - grapheme_id: Javanese (Javanese)-2-33
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a0\ua9c0\ua99a
+      - grapheme_id: Javanese (Javanese)-2-34
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a0\ua9c0\ua9a0
+      - grapheme_id: Javanese (Javanese)-2-35
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a0\ua9c0\ua9a4
+      - grapheme_id: Javanese (Javanese)-2-36
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a0\ua9c0\ua9a9
+      - grapheme_id: Javanese (Javanese)-2-37
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a0\ua9c0\ua9ad
+      - grapheme_id: Javanese (Javanese)-2-38
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a0\ua9c0\ua9b1
+      - grapheme_id: Javanese (Javanese)-2-39
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a0\ua9c0\ua9b2
+      - grapheme_id: Javanese (Javanese)-2-40
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a2\ua9c0\ua98f
+      - grapheme_id: Javanese (Javanese)-2-41
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a2\ua9c0\ua9a0
+      - grapheme_id: Javanese (Javanese)-2-42
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a2\ua9c0\ua9a2
+      - grapheme_id: Javanese (Javanese)-2-43
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a2\ua9c0\ua9a5
+      - grapheme_id: Javanese (Javanese)-2-44
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a2\ua9c0\ua9b2
+      - grapheme_id: Javanese (Javanese)-2-49
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a4\ua9c0\ua98f
+      - grapheme_id: Javanese (Javanese)-2-4a
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a4\ua9c0\ua992
+      - grapheme_id: Javanese (Javanese)-2-4b
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a4\ua9c0\ua994
+      - grapheme_id: Javanese (Javanese)-2-4c
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a4\ua9c0\ua997
+      - grapheme_id: Javanese (Javanese)-2-4d
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a4\ua9c0\ua99d
+      - grapheme_id: Javanese (Javanese)-2-4e
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a4\ua9c0\ua9a0
+      - grapheme_id: Javanese (Javanese)-2-4f
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a4\ua9c0\ua9a2
+      - grapheme_id: Javanese (Javanese)-2-50
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a4\ua9c0\ua9a4
+      - grapheme_id: Javanese (Javanese)-2-51
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a4\ua9c0\ua9a5
+      - grapheme_id: Javanese (Javanese)-2-52
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a4\ua9c0\ua9a7
+      - grapheme_id: Javanese (Javanese)-2-53
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a4\ua9c0\ua9a9
+      - grapheme_id: Javanese (Javanese)-2-54
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a4\ua9c0\ua9ad
+      - grapheme_id: Javanese (Javanese)-2-55
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a4\ua9c0\ua9ae
+      - grapheme_id: Javanese (Javanese)-2-56
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a4\ua9c0\ua9b1
+      - grapheme_id: Javanese (Javanese)-2-57
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a4\ua9c0\ua9b2
+      - grapheme_id: Javanese (Javanese)-2-61
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a5\ua9c0\ua98f
+      - grapheme_id: Javanese (Javanese)-2-62
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a5\ua9c0\ua9a0
+      - grapheme_id: Javanese (Javanese)-2-63
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a5\ua9c0\ua9a4
+      - grapheme_id: Javanese (Javanese)-2-64
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a5\ua9c0\ua9a5
+      - grapheme_id: Javanese (Javanese)-2-65
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a5\ua9c0\ua9a9
+      - grapheme_id: Javanese (Javanese)-2-66
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a5\ua9c0\ua9ad
+      - grapheme_id: Javanese (Javanese)-2-67
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a5\ua9c0\ua9b1
+      - grapheme_id: Javanese (Javanese)-2-68
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a5\ua9c0\ua9b2
+      - grapheme_id: Javanese (Javanese)-2-6e
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a7\ua9c0\ua98f
+      - grapheme_id: Javanese (Javanese)-2-6f
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a7\ua9c0\ua9a5
+      - grapheme_id: Javanese (Javanese)-2-70
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a7\ua9c0\ua9a7
+      - grapheme_id: Javanese (Javanese)-2-71
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a7\ua9c0\ua9b2
+      - grapheme_id: Javanese (Javanese)-2-7a
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a9\ua9c0\ua9a5
+      - grapheme_id: Javanese (Javanese)-2-7b
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a9\ua9c0\ua9a7
+      - grapheme_id: Javanese (Javanese)-2-7c
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a9\ua9c0\ua9a9
+      - grapheme_id: Javanese (Javanese)-2-7d
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a9\ua9c0\ua9ab
+      - grapheme_id: Javanese (Javanese)-2-7e
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9a9\ua9c0\ua9ad
+      - grapheme_id: Javanese (Javanese)-2-8d
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9ad\ua9c0\ua9ad
+      - grapheme_id: Javanese (Javanese)-2-8e
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9ad\ua9c0\ua9ae
+      - grapheme_id: Javanese (Javanese)-2-8f
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9ad\ua9c0\ua9b1
+      - grapheme_id: Javanese (Javanese)-2-90
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9ad\ua9c0\ua9b2
+      - grapheme_id: Javanese (Javanese)-2-a0
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9b1\ua9c0\ua98f
+      - grapheme_id: Javanese (Javanese)-2-a1
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9b1\ua9c0\ua992
+      - grapheme_id: Javanese (Javanese)-2-a2
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9b1\ua9c0\ua9a0
+      - grapheme_id: Javanese (Javanese)-2-a3
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9b1\ua9c0\ua9a5
+      - grapheme_id: Javanese (Javanese)-2-a4
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9b1\ua9c0\ua9a7
+      - grapheme_id: Javanese (Javanese)-2-a5
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9b1\ua9c0\ua9a9
+      - grapheme_id: Javanese (Javanese)-2-a6
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9b1\ua9c0\ua9ad
+      - grapheme_id: Javanese (Javanese)-2-a7
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9b1\ua9c0\ua9ae
+      - grapheme_id: Javanese (Javanese)-2-a8
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9b1\ua9c0\ua9b1
+      - grapheme_id: Javanese (Javanese)-2-a9
+        measured_by_terminal: 3
+        measured_by_wcwidth: 2
+        wchars: \ua9b1\ua9c0\ua9b2
+      n_errors: 104
+      n_total: 488
+      pct_success: 78.68852459016394
+    Kabyle:
+      failed: []
+      n_errors: 0
+      n_total: 8
+      pct_success: 100.0
+    Kannada:
+      failed: []
+      n_errors: 0
+      n_total: 236
+      pct_success: 100.0
+    Khmer, Central:
+      failed: []
+      n_errors: 0
+      n_total: 390
+      pct_success: 100.0
+    Khün:
+      failed: []
+      n_errors: 0
+      n_total: 354
+      pct_success: 100.0
+    Lamnso':
+      failed: []
+      n_errors: 0
+      n_total: 3
+      pct_success: 100.0
+    Lao:
+      failed: []
+      n_errors: 0
+      n_total: 227
+      pct_success: 100.0
+    Lingala (tones):
+      failed: []
+      n_errors: 0
+      n_total: 8
+      pct_success: 100.0
+    Magahi:
+      failed:
+      - grapheme_id: Magahi-3-00
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0915\u094d\u0937\u094d\u0923
+      - grapheme_id: Magahi-3-01
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u091f\u094d\u091f\u0940
+      - grapheme_id: Magahi-3-02
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u091f\u094d\u0930\u093e
+      - grapheme_id: Magahi-3-03
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u0930\u093e\u093f
+      - grapheme_id: Magahi-3-04
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0926\u094d\u0927\u093e\u0902
+      - grapheme_id: Magahi-3-05
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0924\u094d\u0924
+      - grapheme_id: Magahi-3-06
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0937\u094d\u0920\u093e
+      - inherited_from: Magahi
+        measured_by_wcwidth: 2
+        wchars: \u0915\u094d\u0937\u094d\u0923
+      - inherited_from: Magahi
+        measured_by_wcwidth: 2
+        wchars: \u091f\u094d\u091f\u0940
+      - inherited_from: Magahi
+        measured_by_wcwidth: 2
+        wchars: \u091f\u094d\u0930\u093e
+      - inherited_from: Magahi
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u0930\u093e\u093f
+      - inherited_from: Magahi
+        measured_by_wcwidth: 2
+        wchars: \u0926\u094d\u0927\u093e\u0902
+      - inherited_from: Magahi
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0924\u094d\u0924
+      - inherited_from: Magahi
+        measured_by_wcwidth: 2
+        wchars: \u0937\u094d\u0920\u093e
+      n_errors: 14
+      n_total: 29
+      pct_success: 51.724137931034484
+    Maithili:
+      failed:
+      - grapheme_id: Maithili-4-00
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0928\u094d\u0924\u094d\u0930\u093f
+      - grapheme_id: Maithili-3-00
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0915\u094d\u0937\u094d\u092f
+      - grapheme_id: Maithili-3-01
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u0924\u094d\u0935
+      - grapheme_id: Maithili-3-02
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u0928\u0940
+      - grapheme_id: Maithili-3-03
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u092a\u0940
+      - grapheme_id: Maithili-3-04
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u0930\u094d\u0924
+      - grapheme_id: Maithili-3-05
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0926\u094d\u0918\u094b
+      - grapheme_id: Maithili-3-06
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0928\u094d\u0924\u0903
+      - grapheme_id: Maithili-3-07
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0928\u094d\u0924\u093e
+      - grapheme_id: Maithili-3-08
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u092b\u094d\u0924\u093e
+      - grapheme_id: Maithili-3-09
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u092c\u094d\u0927\u093f
+      - grapheme_id: Maithili-3-0a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u092d\u094d\u092f\u093e
+      - grapheme_id: Maithili-3-0b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u092e\u094d\u092a\u094d\u0930
+      - grapheme_id: Maithili-3-0c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0915\u093f
+      - grapheme_id: Maithili-3-0d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u092c\u093e
+      - grapheme_id: Maithili-3-0e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u092e\u093e
+      - grapheme_id: Maithili-3-0f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0935\u093e
+      - grapheme_id: Maithili-3-10
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0932\u094d\u092a\u093f
+      - grapheme_id: Maithili-3-11
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0936\u094d\u092f\u093f
+      - inherited_from: Maithili
+        measured_by_wcwidth: 2
+        wchars: \u0915\u094d\u0937\u094d\u092f
+      - inherited_from: Maithili
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u0924\u094d\u0935
+      - inherited_from: Maithili
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u0928\u0940
+      - inherited_from: Maithili
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u092a\u0940
+      - inherited_from: Maithili
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u0930\u094d\u0924
+      - inherited_from: Maithili
+        measured_by_wcwidth: 2
+        wchars: \u0926\u094d\u0918\u094b
+      - inherited_from: Maithili
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0924\u0903
+      - inherited_from: Maithili
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0924\u093e
+      - inherited_from: Maithili
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0924\u094d\u0930\u093f
+      - inherited_from: Maithili
+        measured_by_wcwidth: 2
+        wchars: \u092b\u094d\u0924\u093e
+      - inherited_from: Maithili
+        measured_by_wcwidth: 2
+        wchars: \u092c\u094d\u0927\u093f
+      - inherited_from: Maithili
+        measured_by_wcwidth: 2
+        wchars: \u092d\u094d\u092f\u093e
+      - inherited_from: Maithili
+        measured_by_wcwidth: 2
+        wchars: \u092e\u094d\u092a\u094d\u0930
+      - inherited_from: Maithili
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0915\u093f
+      - inherited_from: Maithili
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u092c\u093e
+      - inherited_from: Maithili
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u092e\u093e
+      - inherited_from: Maithili
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0935\u093e
+      - inherited_from: Maithili
+        measured_by_wcwidth: 2
+        wchars: \u0932\u094d\u092a\u093f
+      - inherited_from: Maithili
+        measured_by_wcwidth: 2
+        wchars: \u0936\u094d\u092f\u093f
+      n_errors: 38
+      n_total: 85
+      pct_success: 55.294117647058826
+    Malayalam:
+      failed:
+      - grapheme_id: Malayalam-5-00
+        measured_by_terminal: 2
+        measured_by_wcwidth: 5
+        wchars: \u0d28\u0d4d\u0d24\u0d4d\u0d30\u0d4d\u0d2f\u0d02
+      - grapheme_id: Malayalam-4-00
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0d28\u0d4d\u0d24\u0d4d\u0d30\u0d4d\u0d2f
+      - grapheme_id: Malayalam-4-01
+        measured_by_terminal: 3
+        measured_by_wcwidth: 4
+        wchars: \u0d30\u0d4d\u200d\u0d15\u0d4d\u0d15\u0d41\u0d02
+      - grapheme_id: Malayalam-4-02
+        measured_by_terminal: 3
+        measured_by_wcwidth: 4
+        wchars: \u0d30\u0d4d\u200d\u0d17\u0d4d\u0d17\u0d02
+      - grapheme_id: Malayalam-4-03
+        measured_by_terminal: 3
+        measured_by_wcwidth: 4
+        wchars: \u0d30\u0d4d\u200d\u0d24\u0d4d\u0d24\u0d3f
+      - grapheme_id: Malayalam-4-04
+        measured_by_terminal: 3
+        measured_by_wcwidth: 4
+        wchars: \u0d30\u0d4d\u200d\u0d24\u0d4d\u0d24\u0d47
+      - grapheme_id: Malayalam-4-05
+        measured_by_terminal: 3
+        measured_by_wcwidth: 4
+        wchars: \u0d30\u0d4d\u200d\u0d2a\u0d4d\u0d2a\u0d46
+      - grapheme_id: Malayalam-4-06
+        measured_by_terminal: 3
+        measured_by_wcwidth: 4
+        wchars: \u0d30\u0d4d\u200d\u0d2e\u0d4d\u0d2e\u0d3f
+      - grapheme_id: Malayalam-4-07
+        measured_by_terminal: 3
+        measured_by_wcwidth: 4
+        wchars: \u0d33\u0d4d\u200d\u0d15\u0d4d\u0d15\u0d3f
+      - grapheme_id: Malayalam-4-08
+        measured_by_terminal: 3
+        measured_by_wcwidth: 4
+        wchars: \u0d33\u0d4d\u200d\u0d15\u0d4d\u0d15\u0d41\u0d02
+      - grapheme_id: Malayalam-4-09
+        measured_by_terminal: 3
+        measured_by_wcwidth: 4
+        wchars: \u0d33\u0d4d\u200d\u0d15\u0d4d\u0d15\u0d46
+      - grapheme_id: Malayalam-4-0a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0d37\u0d4d\u0d1f\u0d4d\u0d2f\u0d3e
+      - grapheme_id: Malayalam-4-0b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0d37\u0d4d\u0d1f\u0d4d\u0d30\u0d40
+      - grapheme_id: Malayalam-4-0c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0d38\u0d4d\u0d24\u0d4d\u0d30\u0d02
+      - grapheme_id: Malayalam-4-0d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0d38\u0d4d\u0d24\u0d4d\u0d30\u0d40
+      - grapheme_id: Malayalam-3-00
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d15\u0d4d\u0d15\u0d3e
+      - grapheme_id: Malayalam-3-01
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d15\u0d4d\u0d15\u0d3f
+      - grapheme_id: Malayalam-3-02
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d15\u0d4d\u0d15\u0d41\u0d02
+      - grapheme_id: Malayalam-3-03
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d15\u0d4d\u0d15\u0d46
+      - grapheme_id: Malayalam-3-04
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d15\u0d4d\u0d15\u0d47
+      - grapheme_id: Malayalam-3-05
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d15\u0d4d\u0d15\u0d4a
+      - grapheme_id: Malayalam-3-06
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d15\u0d4d\u0d15\u0d4b
+      - grapheme_id: Malayalam-3-07
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d15\u0d4d\u0d24\u0d3f
+      - grapheme_id: Malayalam-3-08
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d15\u0d4d\u0d2f\u0d02
+      - grapheme_id: Malayalam-3-09
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d15\u0d4d\u0d37\u0d3e
+      - grapheme_id: Malayalam-3-0a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d15\u0d4d\u0d37\u0d3f
+      - grapheme_id: Malayalam-3-0b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d15\u0d4d\u0d37\u0d47
+      - grapheme_id: Malayalam-3-0c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d16\u0d4d\u0d2f\u0d3e
+      - grapheme_id: Malayalam-3-0d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d17\u0d4d\u0d17\u0d02
+      - grapheme_id: Malayalam-3-0e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d17\u0d4d\u0d26\u0d3e
+      - grapheme_id: Malayalam-3-0f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d17\u0d4d\u0d2f\u0d02
+      - grapheme_id: Malayalam-3-10
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d19\u0d4d\u0d15\u0d3f
+      - grapheme_id: Malayalam-3-11
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d19\u0d4d\u0d15\u0d46
+      - grapheme_id: Malayalam-3-12
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d19\u0d4d\u0d15\u0d47
+      - grapheme_id: Malayalam-3-13
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d19\u0d4d\u0d19\u0d3f
+      - grapheme_id: Malayalam-3-14
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d1a\u0d4d\u0d1a\u0d3f
+      - grapheme_id: Malayalam-3-15
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d1a\u0d4d\u0d1a\u0d41\u0d02
+      - grapheme_id: Malayalam-3-16
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d1a\u0d4d\u0d1a\u0d46
+      - grapheme_id: Malayalam-3-17
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d1a\u0d4d\u0d1a\u0d47
+      - grapheme_id: Malayalam-3-18
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d1c\u0d4d\u0d2f\u0d3e
+      - grapheme_id: Malayalam-3-19
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d1e\u0d4d\u0d1e\u0d3f
+      - grapheme_id: Malayalam-3-1a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d1e\u0d4d\u0d1e\u0d46
+      - grapheme_id: Malayalam-3-1b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d1f\u0d4d\u0d1f\u0d3e
+      - grapheme_id: Malayalam-3-1c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d1f\u0d4d\u0d1f\u0d3f
+      - grapheme_id: Malayalam-3-1d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d1f\u0d4d\u0d1f\u0d4b
+      - grapheme_id: Malayalam-3-1e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d23\u0d4d\u0d1f\u0d3e
+      - grapheme_id: Malayalam-3-1f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d23\u0d4d\u0d1f\u0d3f
+      - grapheme_id: Malayalam-3-20
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d23\u0d4d\u0d1f\u0d41\u0d02
+      - grapheme_id: Malayalam-3-21
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d23\u0d4d\u0d1f\u0d46
+      - grapheme_id: Malayalam-3-22
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d24\u0d4d\u0d24\u0d3e
+      - grapheme_id: Malayalam-3-23
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d24\u0d4d\u0d24\u0d3f
+      - grapheme_id: Malayalam-3-24
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d24\u0d4d\u0d24\u0d41\u0d02
+      - grapheme_id: Malayalam-3-25
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d24\u0d4d\u0d24\u0d46
+      - grapheme_id: Malayalam-3-26
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d24\u0d4d\u0d24\u0d47
+      - grapheme_id: Malayalam-3-27
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d24\u0d4d\u0d24\u0d4b
+      - grapheme_id: Malayalam-3-28
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d24\u0d4d\u0d28\u0d02
+      - grapheme_id: Malayalam-3-29
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d24\u0d4d\u0d28\u0d3f
+      - grapheme_id: Malayalam-3-2a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d24\u0d4d\u0d2f\u0d3e
+      - grapheme_id: Malayalam-3-2b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d24\u0d4d\u0d2f\u0d47
+      - grapheme_id: Malayalam-3-2c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d24\u0d4d\u0d35\u0d02
+      - grapheme_id: Malayalam-3-2d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d26\u0d4d\u0d27\u0d3f
+      - grapheme_id: Malayalam-3-2e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d26\u0d4d\u0d2f\u0d3e
+      - grapheme_id: Malayalam-3-2f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d28\u0d4d\u0d24\u0d02
+      - grapheme_id: Malayalam-3-30
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d28\u0d4d\u0d24\u0d46
+      - grapheme_id: Malayalam-3-31
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d28\u0d4d\u0d24\u0d4d\u0d30
+      - grapheme_id: Malayalam-3-32
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d28\u0d4d\u0d27\u0d3f
+      - grapheme_id: Malayalam-3-33
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d28\u0d4d\u0d28\u0d3e
+      - grapheme_id: Malayalam-3-34
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d28\u0d4d\u0d28\u0d3f
+      - grapheme_id: Malayalam-3-35
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d28\u0d4d\u0d28\u0d40
+      - grapheme_id: Malayalam-3-36
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d28\u0d4d\u0d28\u0d41\u0d02
+      - grapheme_id: Malayalam-3-37
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d28\u0d4d\u0d28\u0d46
+      - grapheme_id: Malayalam-3-38
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d28\u0d4d\u0d28\u0d47
+      - grapheme_id: Malayalam-3-39
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d28\u0d4d\u0d28\u0d4b
+      - grapheme_id: Malayalam-3-3a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d28\u0d4d\u0d2e\u0d3e
+      - grapheme_id: Malayalam-3-3b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d28\u0d4d\u0d2f\u0d02
+      - grapheme_id: Malayalam-3-3c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d28\u0d4d\u0d2f\u0d3e
+      - grapheme_id: Malayalam-3-3d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d28\u0d4d\u0d2f\u0d47
+      - grapheme_id: Malayalam-3-3e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d28\u0d4d\u0d2f\u0d4b
+      - grapheme_id: Malayalam-3-3f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d28\u0d4d\u0d31\u0d46
+      - grapheme_id: Malayalam-3-41
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d2a\u0d4d\u0d2a\u0d3f
+      - grapheme_id: Malayalam-3-42
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d2a\u0d4d\u0d2a\u0d46
+      - grapheme_id: Malayalam-3-43
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d2a\u0d4d\u0d2a\u0d4b
+      - grapheme_id: Malayalam-3-44
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d2a\u0d4d\u0d30\u0d3e
+      - grapheme_id: Malayalam-3-45
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d2c\u0d4d\u0d32\u0d3f
+      - grapheme_id: Malayalam-3-46
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d2d\u0d4d\u0d2f\u0d3e
+      - grapheme_id: Malayalam-3-47
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d2d\u0d4d\u0d30\u0d3e
+      - grapheme_id: Malayalam-3-48
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d2e\u0d4d\u0d2a\u0d3e
+      - grapheme_id: Malayalam-3-49
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d2e\u0d4d\u0d2a\u0d4d\u0d30
+      - grapheme_id: Malayalam-3-4a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d2e\u0d4d\u0d2e\u0d3f
+      - grapheme_id: Malayalam-3-4b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d2f\u0d4d\u0d15\u0d4d\u0d15\u0d41
+      - grapheme_id: Malayalam-3-4c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d2f\u0d4d\u0d24\u0d3f
+      - grapheme_id: Malayalam-3-4d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d2f\u0d4d\u0d2f\u0d3e
+      - grapheme_id: Malayalam-3-4e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d2f\u0d4d\u0d2f\u0d3f
+      - grapheme_id: Malayalam-3-4f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d30\u0d4d\u0d2f\u0d02
+      - grapheme_id: Malayalam-3-5b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d31\u0d4d\u0d31\u0d02
+      - grapheme_id: Malayalam-3-5c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d31\u0d4d\u0d31\u0d47
+      - grapheme_id: Malayalam-3-5d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d32\u0d4d\u0d2f\u0d3e
+      - grapheme_id: Malayalam-3-5e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d32\u0d4d\u0d32\u0d3e
+      - grapheme_id: Malayalam-3-5f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d32\u0d4d\u0d32\u0d3e\u0d02
+      - grapheme_id: Malayalam-3-60
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d32\u0d4d\u0d32\u0d46
+      - grapheme_id: Malayalam-3-65
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d33\u0d4d\u0d33\u0d3e
+      - grapheme_id: Malayalam-3-66
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d33\u0d4d\u0d33\u0d3f
+      - grapheme_id: Malayalam-3-6b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d35\u0d4d\u0d2f\u0d02
+      - grapheme_id: Malayalam-3-6c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d35\u0d4d\u0d2f\u0d3e
+      - grapheme_id: Malayalam-3-6d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d36\u0d4d\u0d35\u0d3e
+      - grapheme_id: Malayalam-3-6e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d37\u0d4d\u0d1f\u0d4d\u0d30
+      - grapheme_id: Malayalam-3-6f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d37\u0d4d\u0d2f\u0d3e
+      - grapheme_id: Malayalam-3-70
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d38\u0d4d\u0d15\u0d3e
+      - grapheme_id: Malayalam-3-71
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d38\u0d4d\u0d25\u0d3e
+      - grapheme_id: Malayalam-3-72
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d38\u0d4d\u0d25\u0d3f
+      - grapheme_id: Malayalam-3-73
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d38\u0d4d\u0d31\u0d4d\u0d31\u0d4d\u200c
+      - grapheme_id: Malayalam-3-74
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d38\u0d4d\u0d35\u0d3e
+      - grapheme_id: Malayalam-3-75
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d38\u0d4d\u0d35\u0d40
+      - grapheme_id: Malayalam-3-76
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d38\u0d4d\u0d38\u0d3e
+      - grapheme_id: Malayalam-3-77
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d38\u0d4d\u0d38\u0d3f
+      - grapheme_id: Malayalam-3-78
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d38\u0d4d\u0d38\u0d41\u0d02
+      - grapheme_id: Malayalam-3-79
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0d38\u0d4d\u0d38\u0d4b
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d15\u0d4d\u0d15\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d15\u0d4d\u0d15\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d15\u0d4d\u0d15\u0d41\u0d02
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d15\u0d4d\u0d15\u0d46
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d15\u0d4d\u0d15\u0d47
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d15\u0d4d\u0d15\u0d4a
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d15\u0d4d\u0d15\u0d4b
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d15\u0d4d\u0d24\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d15\u0d4d\u0d2f\u0d02
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d15\u0d4d\u0d37\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d15\u0d4d\u0d37\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d15\u0d4d\u0d37\u0d47
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d16\u0d4d\u0d2f\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d17\u0d4d\u0d17\u0d02
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d17\u0d4d\u0d26\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d17\u0d4d\u0d2f\u0d02
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d19\u0d4d\u0d15\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d19\u0d4d\u0d15\u0d46
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d19\u0d4d\u0d15\u0d47
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d19\u0d4d\u0d19\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d1a\u0d4d\u0d1a\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d1a\u0d4d\u0d1a\u0d41\u0d02
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d1a\u0d4d\u0d1a\u0d46
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d1a\u0d4d\u0d1a\u0d47
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d1c\u0d4d\u0d2f\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d1e\u0d4d\u0d1e\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d1e\u0d4d\u0d1e\u0d46
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d1f\u0d4d\u0d1f\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d1f\u0d4d\u0d1f\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d1f\u0d4d\u0d1f\u0d4b
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d23\u0d4d\u0d1f\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d23\u0d4d\u0d1f\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d23\u0d4d\u0d1f\u0d41\u0d02
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d23\u0d4d\u0d1f\u0d46
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d24\u0d4d\u0d24\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d24\u0d4d\u0d24\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d24\u0d4d\u0d24\u0d41\u0d02
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d24\u0d4d\u0d24\u0d46
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d24\u0d4d\u0d24\u0d47
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d24\u0d4d\u0d24\u0d4b
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d24\u0d4d\u0d28\u0d02
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d24\u0d4d\u0d28\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d24\u0d4d\u0d2f\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d24\u0d4d\u0d2f\u0d47
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d24\u0d4d\u0d35\u0d02
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d26\u0d4d\u0d27\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d26\u0d4d\u0d2f\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d28\u0d4d\u0d24\u0d02
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d28\u0d4d\u0d24\u0d46
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d28\u0d4d\u0d24\u0d4d\u0d30
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d28\u0d4d\u0d24\u0d4d\u0d30\u0d4d\u0d2f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d28\u0d4d\u0d24\u0d4d\u0d30\u0d4d\u0d2f\u0d02
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d28\u0d4d\u0d27\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d28\u0d4d\u0d28\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d28\u0d4d\u0d28\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d28\u0d4d\u0d28\u0d40
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d28\u0d4d\u0d28\u0d41\u0d02
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d28\u0d4d\u0d28\u0d46
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d28\u0d4d\u0d28\u0d47
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d28\u0d4d\u0d28\u0d4b
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d28\u0d4d\u0d2e\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d28\u0d4d\u0d2f\u0d02
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d28\u0d4d\u0d2f\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d28\u0d4d\u0d2f\u0d47
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d28\u0d4d\u0d2f\u0d4b
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d28\u0d4d\u0d31\u0d46
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d2a\u0d4d\u0d2a\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d2a\u0d4d\u0d2a\u0d46
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d2a\u0d4d\u0d2a\u0d4b
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d2a\u0d4d\u0d30\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d2c\u0d4d\u0d32\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d2d\u0d4d\u0d2f\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d2d\u0d4d\u0d30\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d2e\u0d4d\u0d2a\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d2e\u0d4d\u0d2a\u0d4d\u0d30
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d2e\u0d4d\u0d2e\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d2f\u0d4d\u0d15\u0d4d\u0d15\u0d41
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d2f\u0d4d\u0d24\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d2f\u0d4d\u0d2f\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d2f\u0d4d\u0d2f\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d30\u0d4d\u0d2f\u0d02
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d30\u0d4d\u200d\u0d15\u0d4d\u0d15\u0d41\u0d02
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d30\u0d4d\u200d\u0d17\u0d4d\u0d17\u0d02
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d30\u0d4d\u200d\u0d24\u0d4d\u0d24\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d30\u0d4d\u200d\u0d24\u0d4d\u0d24\u0d47
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d30\u0d4d\u200d\u0d2a\u0d4d\u0d2a\u0d46
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d30\u0d4d\u200d\u0d2e\u0d4d\u0d2e\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d31\u0d4d\u0d31\u0d02
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d31\u0d4d\u0d31\u0d47
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d32\u0d4d\u0d2f\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d32\u0d4d\u0d32\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d32\u0d4d\u0d32\u0d3e\u0d02
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d32\u0d4d\u0d32\u0d46
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d33\u0d4d\u0d33\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d33\u0d4d\u0d33\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d33\u0d4d\u200d\u0d15\u0d4d\u0d15\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d33\u0d4d\u200d\u0d15\u0d4d\u0d15\u0d41\u0d02
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d33\u0d4d\u200d\u0d15\u0d4d\u0d15\u0d46
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d35\u0d4d\u0d2f\u0d02
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d35\u0d4d\u0d2f\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d36\u0d4d\u0d35\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d37\u0d4d\u0d1f\u0d4d\u0d2f\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d37\u0d4d\u0d1f\u0d4d\u0d30
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d37\u0d4d\u0d1f\u0d4d\u0d30\u0d40
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d37\u0d4d\u0d2f\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d38\u0d4d\u0d15\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d38\u0d4d\u0d24\u0d4d\u0d30\u0d02
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d38\u0d4d\u0d24\u0d4d\u0d30\u0d40
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d38\u0d4d\u0d25\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d38\u0d4d\u0d25\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d38\u0d4d\u0d31\u0d4d\u0d31\u0d4d\u200c
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d38\u0d4d\u0d35\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d38\u0d4d\u0d35\u0d40
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d38\u0d4d\u0d38\u0d3e
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d38\u0d4d\u0d38\u0d3f
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d38\u0d4d\u0d38\u0d41\u0d02
+      - inherited_from: Malayalam
+        measured_by_wcwidth: 2
+        wchars: \u0d38\u0d4d\u0d38\u0d4b
+      n_errors: 234
+      n_total: 519
+      pct_success: 54.91329479768786
+    Maldivian:
+      failed: []
+      n_errors: 0
+      n_total: 209
+      pct_success: 100.0
+    Maori (2):
+      failed: []
+      n_errors: 0
+      n_total: 6
+      pct_success: 100.0
+    Marathi:
+      failed:
+      - grapheme_id: Marathi-4-00
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0924\u094d\u0924\u094d\u0935\u093e
+      - grapheme_id: Marathi-4-01
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0924\u094d\u0930\u094d\u092f\u093e
+      - grapheme_id: Marathi-4-02
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0928\u094d\u0939\u094d\u092f\u093e\u0902
+      - grapheme_id: Marathi-4-03
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0937\u094d\u091f\u094d\u0930\u093e
+      - grapheme_id: Marathi-4-04
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0937\u094d\u091f\u094d\u0930\u093e\u0902
+      - grapheme_id: Marathi-4-05
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0938\u094d\u0924\u094d\u0930\u093f
+      - grapheme_id: Marathi-3-00
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0915\u094d\u0915\u093e\u0902
+      - grapheme_id: Marathi-3-01
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0915\u094d\u0924\u0940
+      - grapheme_id: Marathi-3-02
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0915\u094d\u0924\u0940\u0902
+      - grapheme_id: Marathi-3-03
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0915\u094d\u092f\u093e
+      - grapheme_id: Marathi-3-04
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u091a\u094d\u092f\u093e
+      - grapheme_id: Marathi-3-05
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u091a\u094d\u092f\u093e\u0902
+      - grapheme_id: Marathi-3-06
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u091c\u094d\u092f\u093e
+      - grapheme_id: Marathi-3-07
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u091c\u094d\u092f\u093e\u200c
+      - grapheme_id: Marathi-3-08
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u091f\u094d\u092f\u093e
+      - grapheme_id: Marathi-3-09
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0923\u094d\u092f\u093e
+      - grapheme_id: Marathi-3-0a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0923\u094d\u092f\u093e\u0902
+      - grapheme_id: Marathi-3-0b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u0924\u094d\u0935\u0947
+      - grapheme_id: Marathi-3-0c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u092f\u093e\u0902
+      - grapheme_id: Marathi-3-0d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u0930\u094d\u092f
+      - grapheme_id: Marathi-3-0e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u0930\u094d\u092f\u0947
+      - grapheme_id: Marathi-3-0f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u0935\u093e
+      - grapheme_id: Marathi-3-10
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u0935\u093e\u0902
+      - grapheme_id: Marathi-3-11
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0926\u094d\u0926\u093f
+      - grapheme_id: Marathi-3-12
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0926\u094d\u0926\u0940
+      - grapheme_id: Marathi-3-13
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0926\u094d\u0927\u093f\u0902
+      - grapheme_id: Marathi-3-14
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0926\u094d\u0927\u0940
+      - grapheme_id: Marathi-3-15
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0926\u094d\u0927\u0940\u0902
+      - grapheme_id: Marathi-3-16
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0926\u094d\u092f\u093e
+      - grapheme_id: Marathi-3-17
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0926\u094d\u0935\u093f
+      - grapheme_id: Marathi-3-18
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0928\u094d\u0939\u093e
+      - grapheme_id: Marathi-3-19
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u091c\u093e
+      - grapheme_id: Marathi-3-1a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0924\u0940
+      - grapheme_id: Marathi-3-1b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0925\u0940
+      - grapheme_id: Marathi-3-1c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u092d\u093e
+      - grapheme_id: Marathi-3-1d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u092f\u093e\u0902
+      - grapheme_id: Marathi-3-1e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0935\u093e\u0902
+      - grapheme_id: Marathi-3-20
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0932\u094d\u092f\u093e\u0902
+      - grapheme_id: Marathi-3-21
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0932\u094d\u0932\u093e
+      - grapheme_id: Marathi-3-22
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0936\u094d\u0930\u093e\u0902
+      - grapheme_id: Marathi-3-23
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0937\u094d\u091f\u093e\u0902
+      - grapheme_id: Marathi-3-24
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0937\u094d\u091f\u0940
+      - grapheme_id: Marathi-3-25
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0937\u094d\u091f\u0940\u0902
+      - grapheme_id: Marathi-3-26
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0938\u094d\u092f\u093e
+      - grapheme_id: Marathi-3-27
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0939\u094d\u092f\u093e
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0915\u094d\u0915\u093e\u0902
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0915\u094d\u0924\u0940
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0915\u094d\u0924\u0940\u0902
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0915\u094d\u092f\u093e
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u091a\u094d\u092f\u093e
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u091a\u094d\u092f\u093e\u0902
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u091c\u094d\u092f\u093e
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u091c\u094d\u092f\u093e\u200c
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u091f\u094d\u092f\u093e
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0923\u094d\u092f\u093e
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0923\u094d\u092f\u093e\u0902
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u0924\u094d\u0935\u093e
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u0924\u094d\u0935\u0947
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u092f\u093e\u0902
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u0930\u094d\u092f
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u0930\u094d\u092f\u093e
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u0930\u094d\u092f\u0947
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u0935\u093e
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u0935\u093e\u0902
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0926\u094d\u0926\u093f
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0926\u094d\u0926\u0940
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0926\u094d\u0927\u093f\u0902
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0926\u094d\u0927\u0940
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0926\u094d\u0927\u0940\u0902
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0926\u094d\u092f\u093e
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0926\u094d\u0935\u093f
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0939\u093e
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0939\u094d\u092f\u093e\u0902
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u091c\u093e
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0924\u0940
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0925\u0940
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u092d\u093e
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u092f\u093e\u0902
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0935\u093e\u0902
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0932\u094d\u092f\u093e\u0902
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0932\u094d\u0932\u093e
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0936\u094d\u0930\u093e\u0902
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0937\u094d\u091f\u093e\u0902
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0937\u094d\u091f\u0940
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0937\u094d\u091f\u0940\u0902
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0937\u094d\u091f\u094d\u0930\u093e
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0937\u094d\u091f\u094d\u0930\u093e\u0902
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u0924\u094d\u0930\u093f
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u092f\u093e
+      - inherited_from: Marathi
+        measured_by_wcwidth: 2
+        wchars: \u0939\u094d\u092f\u093e
+      n_errors: 90
+      n_total: 149
+      pct_success: 39.59731543624161
+    Mazahua Central:
+      failed: []
+      n_errors: 0
+      n_total: 3
+      pct_success: 100.0
+    Mon:
+      failed: []
+      n_errors: 0
+      n_total: 208
+      pct_success: 100.0
+    Mòoré:
+      failed: []
+      n_errors: 0
+      n_total: 1
+      pct_success: 100.0
+    Nanai:
+      failed: []
+      n_errors: 0
+      n_total: 2
+      pct_success: 100.0
+    Navajo:
+      failed: []
+      n_errors: 0
+      n_total: 4
+      pct_success: 100.0
+    Nepali:
+      failed:
+      - grapheme_id: Nepali-4-00
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0937\u094d\u091f\u094d\u0930\u093f
+      - grapheme_id: Nepali-4-01
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0938\u094d\u091f\u094d\u092f\u093e
+      - grapheme_id: Nepali-3-00
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0915\u094d\u0924\u093e
+      - grapheme_id: Nepali-3-01
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0915\u094d\u0928\u093e
+      - grapheme_id: Nepali-3-02
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0915\u094d\u0938\u093e
+      - grapheme_id: Nepali-3-03
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u091c\u094d\u0930\u093e
+      - grapheme_id: Nepali-3-04
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u091e\u094d\u091a\u093e
+      - grapheme_id: Nepali-3-05
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0926\u094d\u0926\u093e
+      - grapheme_id: Nepali-3-06
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0928\u094d\u0915\u093e
+      - grapheme_id: Nepali-3-07
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0928\u094d\u091a\u093f
+      - grapheme_id: Nepali-3-08
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0928\u094d\u0926\u093e
+      - grapheme_id: Nepali-3-09
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0928\u094d\u0926\u094b
+      - grapheme_id: Nepali-3-0a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u092b\u094d\u0928\u093e
+      - grapheme_id: Nepali-3-0b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u092b\u094d\u0928\u094b
+      - grapheme_id: Nepali-3-0c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u092e\u094d\u0924\u093f
+      - grapheme_id: Nepali-3-0d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u092e\u094d\u092a\u093e
+      - grapheme_id: Nepali-3-0e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0926\u093e
+      - grapheme_id: Nepali-3-0f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0926\u094d\u0927
+      - grapheme_id: Nepali-3-10
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0928\u093f
+      - grapheme_id: Nepali-3-11
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0938\u093e
+      - grapheme_id: Nepali-3-12
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0938\u094d\u0924\u094b
+      - grapheme_id: Nepali-3-13
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0938\u094d\u0930\u094b
+      - inherited_from: Nepali
+        measured_by_wcwidth: 2
+        wchars: \u0915\u094d\u0924\u093e
+      - inherited_from: Nepali
+        measured_by_wcwidth: 2
+        wchars: \u0915\u094d\u0928\u093e
+      - inherited_from: Nepali
+        measured_by_wcwidth: 2
+        wchars: \u0915\u094d\u0938\u093e
+      - inherited_from: Nepali
+        measured_by_wcwidth: 2
+        wchars: \u091c\u094d\u0930\u093e
+      - inherited_from: Nepali
+        measured_by_wcwidth: 2
+        wchars: \u091e\u094d\u091a\u093e
+      - inherited_from: Nepali
+        measured_by_wcwidth: 2
+        wchars: \u0926\u094d\u0926\u093e
+      - inherited_from: Nepali
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0915\u093e
+      - inherited_from: Nepali
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u091a\u093f
+      - inherited_from: Nepali
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0926\u093e
+      - inherited_from: Nepali
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0926\u094b
+      - inherited_from: Nepali
+        measured_by_wcwidth: 2
+        wchars: \u092b\u094d\u0928\u093e
+      - inherited_from: Nepali
+        measured_by_wcwidth: 2
+        wchars: \u092b\u094d\u0928\u094b
+      - inherited_from: Nepali
+        measured_by_wcwidth: 2
+        wchars: \u092e\u094d\u0924\u093f
+      - inherited_from: Nepali
+        measured_by_wcwidth: 2
+        wchars: \u092e\u094d\u092a\u093e
+      - inherited_from: Nepali
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0926\u093e
+      - inherited_from: Nepali
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0926\u094d\u0927
+      - inherited_from: Nepali
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0928\u093f
+      - inherited_from: Nepali
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0938\u093e
+      - inherited_from: Nepali
+        measured_by_wcwidth: 2
+        wchars: \u0937\u094d\u091f\u094d\u0930\u093f
+      - inherited_from: Nepali
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u091f\u094d\u092f\u093e
+      - inherited_from: Nepali
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u0924\u094b
+      - inherited_from: Nepali
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u0930\u094b
+      n_errors: 44
+      n_total: 93
+      pct_success: 52.68817204301075
+    Orok:
+      failed: []
+      n_errors: 0
+      n_total: 1
+      pct_success: 100.0
+    Otomi, Mezquital:
+      failed: []
+      n_errors: 0
+      n_total: 1
+      pct_success: 100.0
+    Panjabi, Eastern:
+      failed: []
+      n_errors: 0
+      n_total: 236
+      pct_success: 100.0
+    Panjabi, Western:
+      failed: []
+      n_errors: 0
+      n_total: 3
+      pct_success: 100.0
+    Pashto, Northern:
+      failed: []
+      n_errors: 0
+      n_total: 1
+      pct_success: 100.0
+    Picard:
+      failed: []
+      n_errors: 0
+      n_total: 1
+      pct_success: 100.0
+    Pular (Adlam):
+      failed: []
+      n_errors: 0
+      n_total: 24
+      pct_success: 100.0
+    Sanskrit:
+      failed:
+      - grapheme_id: Sanskrit-5-00
+        measured_by_terminal: 2
+        measured_by_wcwidth: 5
+        wchars: \u0928\u094d\u0924\u094d\u0930\u094d\u092f\u093e
+      - grapheme_id: Sanskrit-4-00
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0915\u094d\u0924\u094d\u092f\u094b\u0903
+      - grapheme_id: Sanskrit-4-01
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0915\u094d\u0937\u094d\u092f\u093e
+      - grapheme_id: Sanskrit-4-02
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0924\u094d\u0924\u094d\u0925\u093f
+      - grapheme_id: Sanskrit-4-03
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0924\u094d\u0938\u094d\u0935\u093e
+      - grapheme_id: Sanskrit-4-04
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0928\u094d\u091e\u094d\u092f\u093e
+      - grapheme_id: Sanskrit-4-05
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0928\u094d\u0924\u094d\u0930\u093e\u0903
+      - grapheme_id: Sanskrit-4-06
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0928\u094d\u0924\u094d\u0930\u0940
+      - grapheme_id: Sanskrit-4-07
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0928\u094d\u0924\u094d\u0930\u094d\u092f
+      - grapheme_id: Sanskrit-4-08
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0928\u094d\u0924\u094d\u0930\u094d\u092f\u0902
+      - grapheme_id: Sanskrit-4-09
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0928\u094d\u0924\u094d\u0930\u094d\u092f\u0947
+      - grapheme_id: Sanskrit-4-0a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0930\u094d\u0924\u094d\u0924\u093f
+      - grapheme_id: Sanskrit-4-0b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0937\u094d\u091f\u094d\u0930\u094b
+      - grapheme_id: Sanskrit-4-0c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 4
+        wchars: \u0938\u094d\u0924\u094d\u0930\u093e
+      - grapheme_id: Sanskrit-3-00
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0915\u094d\u0915\u093e
+      - grapheme_id: Sanskrit-3-01
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0915\u094d\u0924\u0947\u0903
+      - grapheme_id: Sanskrit-3-02
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0915\u094d\u0930\u093e
+      - grapheme_id: Sanskrit-3-03
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0915\u094d\u0937\u093e\u0902
+      - grapheme_id: Sanskrit-3-04
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0915\u094d\u0937\u093e\u0903
+      - grapheme_id: Sanskrit-3-05
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0915\u094d\u0937\u094b
+      - grapheme_id: Sanskrit-3-06
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0916\u094d\u092f\u0903
+      - grapheme_id: Sanskrit-3-07
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0917\u094d\u092f\u0948\u0903
+      - grapheme_id: Sanskrit-3-08
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0917\u094d\u0930\u094d\u092f
+      - grapheme_id: Sanskrit-3-09
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u091e\u094d\u091a\u093f
+      - grapheme_id: Sanskrit-3-0a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0923\u094d\u0921\u0903
+      - grapheme_id: Sanskrit-3-0b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0923\u094d\u0921\u093f
+      - grapheme_id: Sanskrit-3-0c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0924\u094d\u0938\u094b
+      - grapheme_id: Sanskrit-3-0d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0926\u094d\u0927\u0903
+      - grapheme_id: Sanskrit-3-0e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0926\u094d\u0927\u0948\u0903
+      - grapheme_id: Sanskrit-3-0f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0928\u094d\u0924\u094b
+      - grapheme_id: Sanskrit-3-10
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0928\u094d\u0927\u093e
+      - grapheme_id: Sanskrit-3-11
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0928\u094d\u0928\u093e
+      - grapheme_id: Sanskrit-3-12
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0928\u094d\u0928\u093e\u0903
+      - grapheme_id: Sanskrit-3-13
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0928\u094d\u092f\u094b
+      - grapheme_id: Sanskrit-3-14
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u092a\u094d\u0924\u094c
+      - grapheme_id: Sanskrit-3-15
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u092a\u094d\u092f\u093e
+      - grapheme_id: Sanskrit-3-16
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u092d\u094d\u092f\u0903
+      - grapheme_id: Sanskrit-3-17
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u092d\u094d\u092f\u093e\u0902
+      - grapheme_id: Sanskrit-3-18
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u092d\u094d\u092f\u094b
+      - grapheme_id: Sanskrit-3-19
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u092e\u094d\u0928\u093f
+      - grapheme_id: Sanskrit-3-1a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u092f\u094d\u092f\u094b
+      - grapheme_id: Sanskrit-3-1b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0917\u0940
+      - grapheme_id: Sanskrit-3-1c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u091a\u093f
+      - grapheme_id: Sanskrit-3-1d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0923\u093e\u0902
+      - grapheme_id: Sanskrit-3-1e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0923\u0940
+      - grapheme_id: Sanskrit-3-1f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0924\u093f\u0903
+      - grapheme_id: Sanskrit-3-20
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0926\u093f
+      - grapheme_id: Sanskrit-3-21
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0927\u093f
+      - grapheme_id: Sanskrit-3-22
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0939\u093e\u0903
+      - grapheme_id: Sanskrit-3-23
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0939\u093f
+      - grapheme_id: Sanskrit-3-24
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0930\u094d\u0939\u094b
+      - grapheme_id: Sanskrit-3-25
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0932\u094d\u0915\u093e
+      - grapheme_id: Sanskrit-3-26
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0932\u094d\u092f\u093e\u0903
+      - grapheme_id: Sanskrit-3-27
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0936\u094d\u092f\u093e
+      - grapheme_id: Sanskrit-3-28
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0936\u094d\u0935\u093f
+      - grapheme_id: Sanskrit-3-29
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0937\u094d\u091f\u0903
+      - grapheme_id: Sanskrit-3-2a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0937\u094d\u091f\u093e
+      - grapheme_id: Sanskrit-3-2b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0937\u094d\u091f\u093e\u0903
+      - grapheme_id: Sanskrit-3-2c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0937\u094d\u091f\u094d\u0930\u0947
+      - grapheme_id: Sanskrit-3-2d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0937\u094d\u092a\u094d\u0930
+      - grapheme_id: Sanskrit-3-2e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0937\u094d\u092f\u0903
+      - grapheme_id: Sanskrit-3-2f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0938\u094d\u0915\u093e
+      - grapheme_id: Sanskrit-3-30
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0938\u094d\u0915\u093e\u0903
+      - grapheme_id: Sanskrit-3-31
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0938\u094d\u0924\u093f
+      - grapheme_id: Sanskrit-3-32
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0938\u094d\u0925\u093e\u0902
+      - grapheme_id: Sanskrit-3-33
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0938\u094d\u0927\u0940
+      - grapheme_id: Sanskrit-3-34
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0938\u094d\u092e\u093f
+      - grapheme_id: Sanskrit-3-35
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0938\u094d\u092e\u093f\u0902
+      - grapheme_id: Sanskrit-3-36
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0938\u094d\u092f\u093e\u0902
+      - grapheme_id: Sanskrit-3-37
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0938\u094d\u092f\u093e\u0903
+      - grapheme_id: Sanskrit-3-38
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0938\u094d\u092f\u0941\u0903
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0915\u094d\u0915\u093e
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0915\u094d\u0924\u0947\u0903
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0915\u094d\u0924\u094d\u092f\u094b\u0903
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0915\u094d\u0930\u093e
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0915\u094d\u0937\u093e\u0902
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0915\u094d\u0937\u093e\u0903
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0915\u094d\u0937\u094b
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0915\u094d\u0937\u094d\u092f\u093e
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0916\u094d\u092f\u0903
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0917\u094d\u092f\u0948\u0903
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0917\u094d\u0930\u094d\u092f
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u091e\u094d\u091a\u093f
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0923\u094d\u0921\u0903
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0923\u094d\u0921\u093f
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u0924\u094d\u0925\u093f
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u0938\u094b
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0924\u094d\u0938\u094d\u0935\u093e
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0926\u094d\u0927\u0903
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0926\u094d\u0927\u0948\u0903
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u091e\u094d\u092f\u093e
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0924\u094b
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0924\u094d\u0930\u093e\u0903
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0924\u094d\u0930\u0940
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0924\u094d\u0930\u094d\u092f
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0924\u094d\u0930\u094d\u092f\u0902
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0924\u094d\u0930\u094d\u092f\u093e
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0924\u094d\u0930\u094d\u092f\u0947
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0927\u093e
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0928\u093e
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u0928\u093e\u0903
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0928\u094d\u092f\u094b
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u092a\u094d\u0924\u094c
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u092a\u094d\u092f\u093e
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u092d\u094d\u092f\u0903
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u092d\u094d\u092f\u093e\u0902
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u092d\u094d\u092f\u094b
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u092e\u094d\u0928\u093f
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u092f\u094d\u092f\u094b
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0917\u0940
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u091a\u093f
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0923\u093e\u0902
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0923\u0940
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0924\u093f\u0903
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0924\u094d\u0924\u093f
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0926\u093f
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0927\u093f
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0939\u093e\u0903
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0939\u093f
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0930\u094d\u0939\u094b
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0932\u094d\u0915\u093e
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0932\u094d\u092f\u093e\u0903
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0936\u094d\u092f\u093e
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0936\u094d\u0935\u093f
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0937\u094d\u091f\u0903
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0937\u094d\u091f\u093e
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0937\u094d\u091f\u093e\u0903
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0937\u094d\u091f\u094d\u0930\u0947
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0937\u094d\u091f\u094d\u0930\u094b
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0937\u094d\u092a\u094d\u0930
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0937\u094d\u092f\u0903
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u0915\u093e
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u0915\u093e\u0903
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u0924\u093f
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u0924\u094d\u0930\u093e
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u0925\u093e\u0902
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u0927\u0940
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u092e\u093f
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u092e\u093f\u0902
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u092f\u093e\u0902
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u092f\u093e\u0903
+      - inherited_from: Sanskrit
+        measured_by_wcwidth: 2
+        wchars: \u0938\u094d\u092f\u0941\u0903
+      n_errors: 142
+      n_total: 226
+      pct_success: 37.16814159292036
+    Sanskrit (Grantha):
+      failed: []
+      n_errors: 0
+      n_total: 237
+      pct_success: 100.0
+    Secoya:
+      failed: []
+      n_errors: 0
+      n_total: 1
+      pct_success: 100.0
+    Seraiki:
+      failed: []
+      n_errors: 0
+      n_total: 1
+      pct_success: 100.0
+    Shan:
+      failed: []
+      n_errors: 0
+      n_total: 106
+      pct_success: 100.0
+    Shipibo-Conibo:
+      failed: []
+      n_errors: 0
+      n_total: 2
+      pct_success: 100.0
+    Sinhala:
+      failed: []
+      n_errors: 0
+      n_total: 198
+      pct_success: 100.0
+    Siona:
+      failed: []
+      n_errors: 0
+      n_total: 1
+      pct_success: 100.0
+    South Azerbaijani:
+      failed: []
+      n_errors: 0
+      n_total: 6
+      pct_success: 100.0
+    Tagalog (Tagalog):
+      failed: []
+      n_errors: 0
+      n_total: 16
+      pct_success: 100.0
+    Tai Dam:
+      failed: []
+      n_errors: 0
+      n_total: 120
+      pct_success: 100.0
+    Tamang, Eastern:
+      failed:
+      - grapheme_id: Tamang, Eastern-3-00
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0915\u094d\u0915\u094b
+      - grapheme_id: Tamang, Eastern-3-01
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0917\u094d\u092f\u093e
+      - grapheme_id: Tamang, Eastern-3-02
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u091a\u094d\u092f\u094b
+      - grapheme_id: Tamang, Eastern-3-03
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u092e\u094d\u0939\u0940
+      - grapheme_id: Tamang, Eastern-3-04
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u092e\u094d\u0939\u094b
+      - grapheme_id: Tamang, Eastern-3-05
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0939\u094d\u0930\u093e
+      - inherited_from: Tamang, Eastern
+        measured_by_wcwidth: 2
+        wchars: \u0915\u094d\u0915\u094b
+      - inherited_from: Tamang, Eastern
+        measured_by_wcwidth: 2
+        wchars: \u0917\u094d\u092f\u093e
+      - inherited_from: Tamang, Eastern
+        measured_by_wcwidth: 2
+        wchars: \u091a\u094d\u092f\u094b
+      - inherited_from: Tamang, Eastern
+        measured_by_wcwidth: 2
+        wchars: \u092e\u094d\u0939\u0940
+      - inherited_from: Tamang, Eastern
+        measured_by_wcwidth: 2
+        wchars: \u092e\u094d\u0939\u094b
+      - inherited_from: Tamang, Eastern
+        measured_by_wcwidth: 2
+        wchars: \u0939\u094d\u0930\u093e
+      n_errors: 12
+      n_total: 17
+      pct_success: 29.411764705882355
+    Tamazight, Central Atlas:
+      failed: []
+      n_errors: 0
+      n_total: 5
+      pct_success: 100.0
+    Tamil:
+      failed: []
+      n_errors: 0
+      n_total: 132
+      pct_success: 100.0
+    Telugu:
+      failed:
+      - grapheme_id: Telugu-3-00
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c15\u0c4d\u0c15\u0c41
+      - grapheme_id: Telugu-3-01
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c15\u0c4d\u0c24\u0c41
+      - grapheme_id: Telugu-3-02
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c15\u0c4d\u0c30\u0c3e\u0c02
+      - grapheme_id: Telugu-3-03
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c15\u0c4d\u0c30\u0c42
+      - grapheme_id: Telugu-3-04
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c15\u0c4d\u0c37\u0c3f\u0c02
+      - grapheme_id: Telugu-3-05
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c15\u0c4d\u0c38\u0c4d\u0c35\u0c3e
+      - grapheme_id: Telugu-3-06
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c1a\u0c4d\u0c1a\u0c41
+      - grapheme_id: Telugu-3-07
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c1f\u0c4d\u0c32\u0c41
+      - grapheme_id: Telugu-3-08
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c21\u0c4d\u0c30\u0c41
+      - grapheme_id: Telugu-3-09
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c24\u0c4d\u0c24\u0c41
+      - grapheme_id: Telugu-3-0a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c24\u0c4d\u0c28\u0c3f\u0c02
+      - grapheme_id: Telugu-3-0b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c24\u0c4d\u0c2f\u0c02
+      - grapheme_id: Telugu-3-0c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c24\u0c4d\u0c30\u0c41
+      - grapheme_id: Telugu-3-0d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c24\u0c4d\u0c30\u0c4d\u0c2f
+      - grapheme_id: Telugu-3-0e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c26\u0c4d\u0c26\u0c41
+      - grapheme_id: Telugu-3-0f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c26\u0c4d\u0c27\u0c3f\u0c02
+      - grapheme_id: Telugu-3-10
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c26\u0c4d\u0c30\u0c4d\u0c2f
+      - grapheme_id: Telugu-3-11
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c28\u0c4d\u0c28\u0c41
+      - grapheme_id: Telugu-3-12
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c2d\u0c4d\u0c2f\u0c41
+      - grapheme_id: Telugu-3-13
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c30\u0c4d\u0c1a\u0c41
+      - grapheme_id: Telugu-3-14
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c30\u0c4d\u0c23\u0c3e\u0c02
+      - grapheme_id: Telugu-3-15
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c30\u0c4d\u0c23\u0c41
+      - grapheme_id: Telugu-3-16
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c30\u0c4d\u0c24\u0c3f\u0c02
+      - grapheme_id: Telugu-3-17
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c30\u0c4d\u0c24\u0c43
+      - grapheme_id: Telugu-3-18
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c30\u0c4d\u0c25\u0c3f\u0c02
+      - grapheme_id: Telugu-3-19
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c30\u0c4d\u0c2c\u0c02
+      - grapheme_id: Telugu-3-1a
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c30\u0c4d\u0c39\u0c3e\u0c02
+      - grapheme_id: Telugu-3-1b
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c30\u0c4d\u0c39\u0c41
+      - grapheme_id: Telugu-3-1c
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c36\u0c4d\u0c30\u0c3e\u0c02
+      - grapheme_id: Telugu-3-1d
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c37\u0c4d\u0c1f\u0c41
+      - grapheme_id: Telugu-3-1e
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c37\u0c4d\u0c1f\u0c4d\u0c30
+      - grapheme_id: Telugu-3-1f
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c37\u0c4d\u0c1f\u0c4d\u0c30\u0c40
+      - grapheme_id: Telugu-3-20
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c37\u0c4d\u0c20\u0c41
+      - grapheme_id: Telugu-3-21
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c38\u0c4d\u0c15\u0c43
+      - grapheme_id: Telugu-3-22
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c38\u0c4d\u0c24\u0c4d\u0c30
+      - grapheme_id: Telugu-3-23
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c38\u0c4d\u0c24\u0c4d\u0c30\u0c40
+      - grapheme_id: Telugu-3-24
+        measured_by_terminal: 2
+        measured_by_wcwidth: 3
+        wchars: \u0c38\u0c4d\u0c25\u0c4d\u0c2f
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c15\u0c4d\u0c15\u0c41
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c15\u0c4d\u0c24\u0c41
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c15\u0c4d\u0c30\u0c3e\u0c02
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c15\u0c4d\u0c30\u0c42
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c15\u0c4d\u0c37\u0c3f\u0c02
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c15\u0c4d\u0c38\u0c4d\u0c35\u0c3e
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c1a\u0c4d\u0c1a\u0c41
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c1f\u0c4d\u0c32\u0c41
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c21\u0c4d\u0c30\u0c41
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c24\u0c4d\u0c24\u0c41
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c24\u0c4d\u0c28\u0c3f\u0c02
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c24\u0c4d\u0c2f\u0c02
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c24\u0c4d\u0c30\u0c41
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c24\u0c4d\u0c30\u0c4d\u0c2f
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c26\u0c4d\u0c26\u0c41
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c26\u0c4d\u0c27\u0c3f\u0c02
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c26\u0c4d\u0c30\u0c4d\u0c2f
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c28\u0c4d\u0c28\u0c41
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c2d\u0c4d\u0c2f\u0c41
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c30\u0c4d\u0c1a\u0c41
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c30\u0c4d\u0c23\u0c3e\u0c02
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c30\u0c4d\u0c23\u0c41
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c30\u0c4d\u0c24\u0c3f\u0c02
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c30\u0c4d\u0c24\u0c43
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c30\u0c4d\u0c25\u0c3f\u0c02
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c30\u0c4d\u0c2c\u0c02
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c30\u0c4d\u0c39\u0c3e\u0c02
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c30\u0c4d\u0c39\u0c41
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c36\u0c4d\u0c30\u0c3e\u0c02
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c37\u0c4d\u0c1f\u0c41
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c37\u0c4d\u0c1f\u0c4d\u0c30
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c37\u0c4d\u0c1f\u0c4d\u0c30\u0c40
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c37\u0c4d\u0c20\u0c41
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c38\u0c4d\u0c15\u0c43
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c38\u0c4d\u0c24\u0c4d\u0c30
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c38\u0c4d\u0c24\u0c4d\u0c30\u0c40
+      - inherited_from: Telugu
+        measured_by_wcwidth: 2
+        wchars: \u0c38\u0c4d\u0c25\u0c4d\u0c2f
+      n_errors: 74
+      n_total: 372
+      pct_success: 80.10752688172043
+    Tem:
+      failed: []
+      n_errors: 0
+      n_total: 2
+      pct_success: 100.0
+    Thai:
+      failed: []
+      n_errors: 0
+      n_total: 206
+      pct_success: 100.0
+    Thai (2):
+      failed: []
+      n_errors: 0
+      n_total: 14
+      pct_success: 100.0
+    Tibetan, Central:
+      failed: []
+      n_errors: 0
+      n_total: 48
+      pct_success: 100.0
+    Ticuna:
+      failed: []
+      n_errors: 0
+      n_total: 13
+      pct_success: 100.0
+    Uduk:
+      failed: []
+      n_errors: 0
+      n_total: 2
+      pct_success: 100.0
+    Urdu:
+      failed:
+      - grapheme_id: Urdu-2-00
+        measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchars: \u0601\u06f1
+      n_errors: 1
+      n_total: 23
+      pct_success: 95.65217391304348
+    Urdu (2):
+      failed: []
+      n_errors: 0
+      n_total: 1
+      pct_success: 100.0
+    Vietnamese:
+      failed: []
+      n_errors: 0
+      n_total: 42
+      pct_success: 100.0
+    Yaneshaʼ:
+      failed: []
+      n_errors: 0
+      n_total: 10
+      pct_success: 100.0
+    Yiddish, Eastern:
+      failed: []
+      n_errors: 0
+      n_total: 10
+      pct_success: 100.0
+    Yoruba:
+      failed: []
+      n_errors: 0
+      n_total: 8
+      pct_success: 100.0
+  ri_results:
+    17.0.0:
+      failed_codepoints: []
+      n_errors: 0
+      n_total: 262
+      pct_success: 100.0
+  sfz_results:
+    17.0.0:
+      failed_codepoints:
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f3fb
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f3fc
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f3fd
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f3fe
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f3ff
+      n_errors: 5
+      n_total: 5
+      pct_success: 0.0
+  sri_results:
+    17.0.0:
+      failed_codepoints:
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1e6
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1e7
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1e8
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1e9
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1ea
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1eb
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1ec
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1ed
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1ee
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1ef
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1f0
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1f1
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1f2
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1f3
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1f4
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1f5
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1f6
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1f7
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1f8
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1f9
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1fa
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1fb
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1fc
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1fd
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1fe
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1ff
+      n_errors: 26
+      n_total: 26
+      pct_success: 0.0
+  unicode_wide_results:
+    17.0.0:
+      failed_codepoints:
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1e6
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1e7
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1e8
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1e9
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1ea
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1eb
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1ec
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1ed
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1ee
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1ef
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1f0
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1f1
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1f2
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1f3
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1f4
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1f5
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1f6
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1f7
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1f8
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1f9
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1fa
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1fb
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1fc
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1fd
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1fe
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f1ff
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f3fb
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f3fc
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f3fd
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f3fe
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f3ff
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001f6d8
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001fa8a
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001fa8e
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001fac8
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001facd
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001faea
+      - measured_by_terminal: 1
+        measured_by_wcwidth: 2
+        wchar: \U0001faef
+      n_errors: 38
+      n_total: 553
+      pct_success: 93.12839059674502
+wcwidth_version: 0.8.0
+width: 120

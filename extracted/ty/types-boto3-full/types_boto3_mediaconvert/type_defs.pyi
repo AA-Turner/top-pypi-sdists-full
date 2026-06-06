@@ -269,7 +269,6 @@ from .literals import (
     HlsAudioTrackTypeType,
     HlsCaptionLanguageSettingType,
     HlsCaptionSegmentLengthControlType,
-    HlsClearLeadType,
     HlsClientCacheType,
     HlsCodecSpecificationType,
     HlsDescriptiveVideoServiceFlagType,
@@ -549,6 +548,7 @@ __all__ = (
     "CmafGroupSettingsOutputTypeDef",
     "CmafGroupSettingsTypeDef",
     "CmafImageBasedTrickPlaySettingsTypeDef",
+    "CmafImageBasedTrickPlayVariantTypeDef",
     "CmfcSettingsTypeDef",
     "CodecMetadataTypeDef",
     "ColorConversion3DLUTSettingTypeDef",
@@ -556,6 +556,7 @@ __all__ = (
     "ContainerSettingsOutputTypeDef",
     "ContainerSettingsTypeDef",
     "ContainerTypeDef",
+    "ContentLightLevelTypeDef",
     "CreateJobRequestTypeDef",
     "CreateJobResponseTypeDef",
     "CreateJobTemplateRequestTypeDef",
@@ -572,6 +573,7 @@ __all__ = (
     "DashIsoGroupSettingsOutputTypeDef",
     "DashIsoGroupSettingsTypeDef",
     "DashIsoImageBasedTrickPlaySettingsTypeDef",
+    "DashIsoImageBasedTrickPlayVariantTypeDef",
     "DataPropertiesTypeDef",
     "DeinterlacerTypeDef",
     "DeleteJobTemplateRequestTypeDef",
@@ -630,6 +632,7 @@ __all__ = (
     "H265SettingsTypeDef",
     "Hdr10MetadataTypeDef",
     "Hdr10PlusTypeDef",
+    "HdrMetadataTypeDef",
     "HlsAdditionalManifestOutputTypeDef",
     "HlsAdditionalManifestTypeDef",
     "HlsCaptionLanguageMappingTypeDef",
@@ -638,6 +641,7 @@ __all__ = (
     "HlsGroupSettingsOutputTypeDef",
     "HlsGroupSettingsTypeDef",
     "HlsImageBasedTrickPlaySettingsTypeDef",
+    "HlsImageBasedTrickPlayVariantTypeDef",
     "HlsRenditionGroupSettingsTypeDef",
     "HlsSettingsTypeDef",
     "HopDestinationTypeDef",
@@ -688,6 +692,7 @@ __all__ = (
     "M2tsSettingsTypeDef",
     "M3u8SettingsOutputTypeDef",
     "M3u8SettingsTypeDef",
+    "MasteringDisplayColorVolumeTypeDef",
     "MetadataTypeDef",
     "MinBottomRenditionSizeTypeDef",
     "MinTopRenditionSizeTypeDef",
@@ -1187,6 +1192,14 @@ class CmafImageBasedTrickPlaySettingsTypeDef(TypedDict):
     TileHeight: NotRequired[int]
     TileWidth: NotRequired[int]
 
+class CmafImageBasedTrickPlayVariantTypeDef(TypedDict):
+    IntervalCadence: NotRequired[CmafIntervalCadenceType]
+    ThumbnailHeight: NotRequired[int]
+    ThumbnailInterval: NotRequired[float]
+    ThumbnailWidth: NotRequired[int]
+    TileHeight: NotRequired[int]
+    TileWidth: NotRequired[int]
+
 class CmfcSettingsTypeDef(TypedDict):
     AudioDuration: NotRequired[CmfcAudioDurationType]
     AudioGroupId: NotRequired[str]
@@ -1205,6 +1218,10 @@ class CmfcSettingsTypeDef(TypedDict):
     TimedMetadataBoxVersion: NotRequired[CmfcTimedMetadataBoxVersionType]
     TimedMetadataSchemeIdUri: NotRequired[str]
     TimedMetadataValue: NotRequired[str]
+
+class ContentLightLevelTypeDef(TypedDict):
+    MaxContentLightLevel: NotRequired[int]
+    MaxFrameAverageLightLevel: NotRequired[int]
 
 class ColorConversion3DLUTSettingTypeDef(TypedDict):
     FileInput: NotRequired[str]
@@ -1349,6 +1366,14 @@ class DashIsoImageBasedTrickPlaySettingsTypeDef(TypedDict):
     TileHeight: NotRequired[int]
     TileWidth: NotRequired[int]
 
+class DashIsoImageBasedTrickPlayVariantTypeDef(TypedDict):
+    IntervalCadence: NotRequired[DashIsoIntervalCadenceType]
+    ThumbnailHeight: NotRequired[int]
+    ThumbnailInterval: NotRequired[float]
+    ThumbnailWidth: NotRequired[int]
+    TileHeight: NotRequired[int]
+    TileWidth: NotRequired[int]
+
 class DataPropertiesTypeDef(TypedDict):
     LanguageCode: NotRequired[str]
 
@@ -1475,6 +1500,18 @@ class Hdr10PlusTypeDef(TypedDict):
     MasteringMonitorNits: NotRequired[int]
     TargetMonitorNits: NotRequired[int]
 
+class MasteringDisplayColorVolumeTypeDef(TypedDict):
+    BluePrimaryX: NotRequired[int]
+    BluePrimaryY: NotRequired[int]
+    GreenPrimaryX: NotRequired[int]
+    GreenPrimaryY: NotRequired[int]
+    MaxLuminance: NotRequired[int]
+    MinLuminance: NotRequired[int]
+    RedPrimaryX: NotRequired[int]
+    RedPrimaryY: NotRequired[int]
+    WhitePointX: NotRequired[int]
+    WhitePointY: NotRequired[int]
+
 class HlsAdditionalManifestOutputTypeDef(TypedDict):
     ManifestNameModifier: NotRequired[str]
     SelectedOutputs: NotRequired[list[str]]
@@ -1490,6 +1527,14 @@ class HlsCaptionLanguageMappingTypeDef(TypedDict):
     LanguageDescription: NotRequired[str]
 
 class HlsImageBasedTrickPlaySettingsTypeDef(TypedDict):
+    IntervalCadence: NotRequired[HlsIntervalCadenceType]
+    ThumbnailHeight: NotRequired[int]
+    ThumbnailInterval: NotRequired[float]
+    ThumbnailWidth: NotRequired[int]
+    TileHeight: NotRequired[int]
+    TileWidth: NotRequired[int]
+
+class HlsImageBasedTrickPlayVariantTypeDef(TypedDict):
     IntervalCadence: NotRequired[HlsIntervalCadenceType]
     ThumbnailHeight: NotRequired[int]
     ThumbnailInterval: NotRequired[float]
@@ -1999,20 +2044,8 @@ class AudioPropertiesTypeDef(TypedDict):
     Channels: NotRequired[int]
     FrameRate: NotRequired[FrameRateTypeDef]
     LanguageCode: NotRequired[str]
+    ObjectCount: NotRequired[int]
     SampleRate: NotRequired[int]
-
-class CodecMetadataTypeDef(TypedDict):
-    BitDepth: NotRequired[int]
-    ChromaSubsampling: NotRequired[str]
-    CodedFrameRate: NotRequired[FrameRateTypeDef]
-    ColorPrimaries: NotRequired[ColorPrimariesType]
-    Height: NotRequired[int]
-    Level: NotRequired[str]
-    MatrixCoefficients: NotRequired[MatrixCoefficientsType]
-    Profile: NotRequired[str]
-    ScanType: NotRequired[str]
-    TransferCharacteristics: NotRequired[TransferCharacteristicsType]
-    Width: NotRequired[int]
 
 AutomatedAbrRuleOutputTypeDef = TypedDict(
     "AutomatedAbrRuleOutputTypeDef",
@@ -2134,6 +2167,21 @@ class ChannelMappingOutputTypeDef(TypedDict):
 
 class ChannelMappingTypeDef(TypedDict):
     OutputChannels: NotRequired[Sequence[OutputChannelMappingTypeDef]]
+
+class CodecMetadataTypeDef(TypedDict):
+    BitDepth: NotRequired[int]
+    ChromaSubsampling: NotRequired[str]
+    CodedFrameRate: NotRequired[FrameRateTypeDef]
+    ColorPrimaries: NotRequired[ColorPrimariesType]
+    ContentLightLevel: NotRequired[ContentLightLevelTypeDef]
+    Height: NotRequired[int]
+    Level: NotRequired[str]
+    MatrixCoefficients: NotRequired[MatrixCoefficientsType]
+    Profile: NotRequired[str]
+    Rotation: NotRequired[int]
+    ScanType: NotRequired[str]
+    TransferCharacteristics: NotRequired[TransferCharacteristicsType]
+    Width: NotRequired[int]
 
 class ColorCorrectorTypeDef(TypedDict):
     Brightness: NotRequired[int]
@@ -2507,6 +2555,10 @@ class H265SettingsTypeDef(TypedDict):
     UnregisteredSeiTimecode: NotRequired[H265UnregisteredSeiTimecodeType]
     WriteMp4PackagingType: NotRequired[H265WriteMp4PackagingTypeType]
 
+class HdrMetadataTypeDef(TypedDict):
+    ContentLightLevel: NotRequired[ContentLightLevelTypeDef]
+    MasteringDisplayColorVolume: NotRequired[MasteringDisplayColorVolumeTypeDef]
+
 class OutputSettingsTypeDef(TypedDict):
     HlsSettings: NotRequired[HlsSettingsTypeDef]
 
@@ -2730,17 +2782,6 @@ class XavcSettingsTypeDef(TypedDict):
     XavcHdIntraCbgProfileSettings: NotRequired[XavcHdIntraCbgProfileSettingsTypeDef]
     XavcHdProfileSettings: NotRequired[XavcHdProfileSettingsTypeDef]
 
-class VideoPropertiesTypeDef(TypedDict):
-    BitDepth: NotRequired[int]
-    BitRate: NotRequired[int]
-    CodecMetadata: NotRequired[CodecMetadataTypeDef]
-    ColorPrimaries: NotRequired[ColorPrimariesType]
-    FrameRate: NotRequired[FrameRateTypeDef]
-    Height: NotRequired[int]
-    MatrixCoefficients: NotRequired[MatrixCoefficientsType]
-    TransferCharacteristics: NotRequired[TransferCharacteristicsType]
-    Width: NotRequired[int]
-
 class AutomatedAbrSettingsOutputTypeDef(TypedDict):
     MaxAbrBitrate: NotRequired[int]
     MaxQualityLevel: NotRequired[float]
@@ -2808,7 +2849,7 @@ class RemixSettingsTypeDef(TypedDict):
 CmafEncryptionSettingsOutputTypeDef = TypedDict(
     "CmafEncryptionSettingsOutputTypeDef",
     {
-        "ClearLead": NotRequired[HlsClearLeadType],
+        "ClearLeadSegments": NotRequired[int],
         "ConstantInitializationVector": NotRequired[str],
         "EncryptionMethod": NotRequired[CmafEncryptionTypeType],
         "InitializationVectorInManifest": NotRequired[CmafInitializationVectorInManifestType],
@@ -2820,7 +2861,7 @@ CmafEncryptionSettingsOutputTypeDef = TypedDict(
 CmafEncryptionSettingsTypeDef = TypedDict(
     "CmafEncryptionSettingsTypeDef",
     {
-        "ClearLead": NotRequired[HlsClearLeadType],
+        "ClearLeadSegments": NotRequired[int],
         "ConstantInitializationVector": NotRequired[str],
         "EncryptionMethod": NotRequired[CmafEncryptionTypeType],
         "InitializationVectorInManifest": NotRequired[CmafInitializationVectorInManifestType],
@@ -2869,6 +2910,19 @@ HlsEncryptionSettingsTypeDef = TypedDict(
 
 class MsSmoothEncryptionSettingsTypeDef(TypedDict):
     SpekeKeyProvider: NotRequired[SpekeKeyProviderTypeDef]
+
+class VideoPropertiesTypeDef(TypedDict):
+    BitDepth: NotRequired[int]
+    BitRate: NotRequired[int]
+    CodecMetadata: NotRequired[CodecMetadataTypeDef]
+    ColorPrimaries: NotRequired[ColorPrimariesType]
+    FrameRate: NotRequired[FrameRateTypeDef]
+    HdrMetadata: NotRequired[HdrMetadataTypeDef]
+    Height: NotRequired[int]
+    MatrixCoefficients: NotRequired[MatrixCoefficientsType]
+    Rotation: NotRequired[int]
+    TransferCharacteristics: NotRequired[TransferCharacteristicsType]
+    Width: NotRequired[int]
 
 ContainerSettingsOutputTypeDef = TypedDict(
     "ContainerSettingsOutputTypeDef",
@@ -2978,15 +3032,6 @@ class VideoCodecSettingsTypeDef(TypedDict):
     Vp9Settings: NotRequired[Vp9SettingsTypeDef]
     XavcSettings: NotRequired[XavcSettingsTypeDef]
 
-class TrackTypeDef(TypedDict):
-    AudioProperties: NotRequired[AudioPropertiesTypeDef]
-    Codec: NotRequired[CodecType]
-    DataProperties: NotRequired[DataPropertiesTypeDef]
-    Duration: NotRequired[float]
-    Index: NotRequired[int]
-    TrackType: NotRequired[TrackTypeType]
-    VideoProperties: NotRequired[VideoPropertiesTypeDef]
-
 class AutomatedEncodingSettingsOutputTypeDef(TypedDict):
     AbrSettings: NotRequired[AutomatedAbrSettingsOutputTypeDef]
 
@@ -3056,6 +3101,15 @@ class AudioSelectorTypeDef(TypedDict):
     Streams: NotRequired[Sequence[int]]
     Tracks: NotRequired[Sequence[int]]
 
+class TrackTypeDef(TypedDict):
+    AudioProperties: NotRequired[AudioPropertiesTypeDef]
+    Codec: NotRequired[CodecType]
+    DataProperties: NotRequired[DataPropertiesTypeDef]
+    Duration: NotRequired[float]
+    Index: NotRequired[int]
+    TrackType: NotRequired[TrackTypeType]
+    VideoProperties: NotRequired[VideoPropertiesTypeDef]
+
 class CmafGroupSettingsOutputTypeDef(TypedDict):
     AdditionalManifests: NotRequired[list[CmafAdditionalManifestOutputTypeDef]]
     BaseUrl: NotRequired[str]
@@ -3069,6 +3123,7 @@ class CmafGroupSettingsOutputTypeDef(TypedDict):
     FragmentLength: NotRequired[int]
     ImageBasedTrickPlay: NotRequired[CmafImageBasedTrickPlayType]
     ImageBasedTrickPlaySettings: NotRequired[CmafImageBasedTrickPlaySettingsTypeDef]
+    ImageBasedTrickPlayVariants: NotRequired[list[CmafImageBasedTrickPlayVariantTypeDef]]
     ManifestCompression: NotRequired[CmafManifestCompressionType]
     ManifestDurationFormat: NotRequired[CmafManifestDurationFormatType]
     MinBufferTime: NotRequired[int]
@@ -3099,6 +3154,7 @@ class CmafGroupSettingsTypeDef(TypedDict):
     FragmentLength: NotRequired[int]
     ImageBasedTrickPlay: NotRequired[CmafImageBasedTrickPlayType]
     ImageBasedTrickPlaySettings: NotRequired[CmafImageBasedTrickPlaySettingsTypeDef]
+    ImageBasedTrickPlayVariants: NotRequired[Sequence[CmafImageBasedTrickPlayVariantTypeDef]]
     ManifestCompression: NotRequired[CmafManifestCompressionType]
     ManifestDurationFormat: NotRequired[CmafManifestDurationFormatType]
     MinBufferTime: NotRequired[int]
@@ -3129,6 +3185,7 @@ class DashIsoGroupSettingsOutputTypeDef(TypedDict):
     HbbtvCompliance: NotRequired[DashIsoHbbtvComplianceType]
     ImageBasedTrickPlay: NotRequired[DashIsoImageBasedTrickPlayType]
     ImageBasedTrickPlaySettings: NotRequired[DashIsoImageBasedTrickPlaySettingsTypeDef]
+    ImageBasedTrickPlayVariants: NotRequired[list[DashIsoImageBasedTrickPlayVariantTypeDef]]
     MinBufferTime: NotRequired[int]
     MinFinalSegmentLength: NotRequired[float]
     MpdManifestBandwidthType: NotRequired[DashIsoMpdManifestBandwidthTypeType]
@@ -3155,6 +3212,7 @@ class DashIsoGroupSettingsTypeDef(TypedDict):
     HbbtvCompliance: NotRequired[DashIsoHbbtvComplianceType]
     ImageBasedTrickPlay: NotRequired[DashIsoImageBasedTrickPlayType]
     ImageBasedTrickPlaySettings: NotRequired[DashIsoImageBasedTrickPlaySettingsTypeDef]
+    ImageBasedTrickPlayVariants: NotRequired[Sequence[DashIsoImageBasedTrickPlayVariantTypeDef]]
     MinBufferTime: NotRequired[int]
     MinFinalSegmentLength: NotRequired[float]
     MpdManifestBandwidthType: NotRequired[DashIsoMpdManifestBandwidthTypeType]
@@ -3188,6 +3246,7 @@ class HlsGroupSettingsOutputTypeDef(TypedDict):
     Encryption: NotRequired[HlsEncryptionSettingsOutputTypeDef]
     ImageBasedTrickPlay: NotRequired[HlsImageBasedTrickPlayType]
     ImageBasedTrickPlaySettings: NotRequired[HlsImageBasedTrickPlaySettingsTypeDef]
+    ImageBasedTrickPlayVariants: NotRequired[list[HlsImageBasedTrickPlayVariantTypeDef]]
     ManifestCompression: NotRequired[HlsManifestCompressionType]
     ManifestDurationFormat: NotRequired[HlsManifestDurationFormatType]
     MinFinalSegmentLength: NotRequired[float]
@@ -3222,6 +3281,7 @@ class HlsGroupSettingsTypeDef(TypedDict):
     Encryption: NotRequired[HlsEncryptionSettingsTypeDef]
     ImageBasedTrickPlay: NotRequired[HlsImageBasedTrickPlayType]
     ImageBasedTrickPlaySettings: NotRequired[HlsImageBasedTrickPlaySettingsTypeDef]
+    ImageBasedTrickPlayVariants: NotRequired[Sequence[HlsImageBasedTrickPlayVariantTypeDef]]
     ManifestCompression: NotRequired[HlsManifestCompressionType]
     ManifestDurationFormat: NotRequired[HlsManifestDurationFormatType]
     MinFinalSegmentLength: NotRequired[float]
@@ -3298,12 +3358,6 @@ class VideoDescriptionTypeDef(TypedDict):
     VideoPreprocessors: NotRequired[VideoPreprocessorTypeDef]
     Width: NotRequired[int]
 
-class ContainerTypeDef(TypedDict):
-    Duration: NotRequired[float]
-    Format: NotRequired[FormatType]
-    StartTimecode: NotRequired[str]
-    Tracks: NotRequired[list[TrackTypeDef]]
-
 class VideoOverlayInputOutputTypeDef(TypedDict):
     AudioSelectors: NotRequired[dict[str, AudioSelectorOutputTypeDef]]
     FileInput: NotRequired[str]
@@ -3317,6 +3371,12 @@ class VideoOverlayInputTypeDef(TypedDict):
     InputClippings: NotRequired[Sequence[VideoOverlayInputClippingTypeDef]]
     TimecodeSource: NotRequired[InputTimecodeSourceType]
     TimecodeStart: NotRequired[str]
+
+class ContainerTypeDef(TypedDict):
+    Duration: NotRequired[float]
+    Format: NotRequired[FormatType]
+    StartTimecode: NotRequired[str]
+    Tracks: NotRequired[list[TrackTypeDef]]
 
 OutputGroupSettingsOutputTypeDef = TypedDict(
     "OutputGroupSettingsOutputTypeDef",
@@ -3375,15 +3435,6 @@ class PresetSettingsTypeDef(TypedDict):
     ContainerSettings: NotRequired[ContainerSettingsTypeDef]
     VideoDescription: NotRequired[VideoDescriptionTypeDef]
 
-ProbeResultTypeDef = TypedDict(
-    "ProbeResultTypeDef",
-    {
-        "Container": NotRequired[ContainerTypeDef],
-        "Metadata": NotRequired[MetadataTypeDef],
-        "TrackMappings": NotRequired[list[TrackMappingTypeDef]],
-    },
-)
-
 class VideoOverlayOutputTypeDef(TypedDict):
     Crop: NotRequired[VideoOverlayCropTypeDef]
     EndTimecode: NotRequired[str]
@@ -3401,6 +3452,15 @@ class VideoOverlayTypeDef(TypedDict):
     Playback: NotRequired[VideoOverlayPlayBackModeType]
     StartTimecode: NotRequired[str]
     Transitions: NotRequired[Sequence[VideoOverlayTransitionTypeDef]]
+
+ProbeResultTypeDef = TypedDict(
+    "ProbeResultTypeDef",
+    {
+        "Container": NotRequired[ContainerTypeDef],
+        "Metadata": NotRequired[MetadataTypeDef],
+        "TrackMappings": NotRequired[list[TrackMappingTypeDef]],
+    },
+)
 
 class OutputGroupOutputTypeDef(TypedDict):
     AutomatedEncodingSettings: NotRequired[AutomatedEncodingSettingsOutputTypeDef]
@@ -3431,10 +3491,6 @@ class OutputGroupTypeDef(TypedDict):
     Outputs: NotRequired[Sequence[OutputTypeDef]]
 
 PresetSettingsUnionTypeDef = Union[PresetSettingsTypeDef, PresetSettingsOutputTypeDef]
-
-class ProbeResponseTypeDef(TypedDict):
-    ProbeResults: list[ProbeResultTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
 
 class InputOutputTypeDef(TypedDict):
     AdvancedInputFilter: NotRequired[AdvancedInputFilterType]
@@ -3545,6 +3601,10 @@ class InputTypeDef(TypedDict):
     VideoGenerator: NotRequired[InputVideoGeneratorTypeDef]
     VideoOverlays: NotRequired[Sequence[VideoOverlayTypeDef]]
     VideoSelector: NotRequired[VideoSelectorTypeDef]
+
+class ProbeResponseTypeDef(TypedDict):
+    ProbeResults: list[ProbeResultTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class CreatePresetResponseTypeDef(TypedDict):
     Preset: PresetTypeDef

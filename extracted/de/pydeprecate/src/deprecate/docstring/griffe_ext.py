@@ -18,14 +18,16 @@ Usage in ``mkdocs.yml``::
       - mkdocstrings:
           handlers:
             python:
-              extensions:
-                - deprecate.docstring.griffe_ext:RuntimeDocstrings
+              options:
+                extensions:
+                  - deprecate.docstring.griffe_ext:RuntimeDocstrings
 
 Requirements:
     ``griffe`` is a dependency of ``mkdocstrings[python]`` and will always be
     present in an MkDocs environment that uses mkdocstrings.  Importing this
     module without ``griffe`` installed is safe — ``RuntimeDocstrings`` simply
     will not be defined.
+
 """
 
 from __future__ import annotations
@@ -36,10 +38,8 @@ import sys
 try:
     import griffe
 except ImportError:
-    griffe = None
-
-
-if griffe is not None:
+    pass
+else:
 
     class RuntimeDocstrings(griffe.Extension):
         """Update Griffe docstrings to reflect decorator-modified ``__doc__``."""
@@ -47,28 +47,28 @@ if griffe is not None:
         def on_module(self, *, mod: griffe.Module, loader: griffe.GriffeLoader, **kwargs: object) -> None:
             """Run after a module is fully loaded by Griffe.
 
-            For each function or method in *mod* that carries a ``__deprecated__``
-            attribute (set by pyDeprecate), replace the Griffe docstring with the
-            runtime value so that mkdocstrings renders the injected notice.
+            For each function or method in *mod* that carries a ``__deprecated__`` attribute (set by pyDeprecate),
+            replace the Griffe docstring with the runtime value so that mkdocstrings renders the injected notice.
+
             """
             runtime_mod = self._import_module(mod)
             if runtime_mod is None:
                 return
 
             for name, obj in mod.members.items():
-                self._update_obj(obj, runtime_mod, name)
+                if isinstance(obj, griffe.Object):
+                    self._update_obj(obj, runtime_mod, name)
 
         @staticmethod
         def _import_module(mod: griffe.Module) -> object:
             """Import *mod* at runtime, adding its package root to sys.path if needed.
 
-            griffe loads modules via its own search_paths which are not on sys.path,
-            so a plain ``importlib.import_module(mod.name)`` will fail for modules
-            that live outside the installed packages (e.g. a local ``demo.py``).
-            We derive the package root from ``mod.filepath`` — walking up one level
-            per dotted name component so that both single-file modules (``demo``) and
-            package sub-modules (``pkg.submod``) resolve correctly — and temporarily
-            add it to sys.path so the import can succeed.
+            griffe loads modules via its own search_paths which are not on sys.path, so a plain
+            ``importlib.import_module(mod.name)`` will fail for modules that live outside the installed packages (e.g. a
+            local ``demo.py``). We derive the package root from ``mod.filepath`` — walking up one level per dotted name
+            component so that both single-file modules (``demo``) and package sub-modules (``pkg.submod``) resolve
+            correctly — and temporarily add it to sys.path so the import can succeed.
+
             """
             # Fast path: module is already importable (installed package, etc.)
             try:
@@ -118,7 +118,8 @@ if griffe is not None:
             elif isinstance(obj, griffe.Class):
                 self._replace_docstring(obj, runtime_obj)
                 for member_name, member in obj.members.items():
-                    self._update_obj(member, runtime_obj, member_name)
+                    if isinstance(member, griffe.Object):
+                        self._update_obj(member, runtime_obj, member_name)
 
         @staticmethod
         def _replace_docstring(griffe_obj: griffe.Object, runtime_obj: object) -> None:

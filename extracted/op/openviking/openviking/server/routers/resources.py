@@ -199,6 +199,7 @@ async def add_resource(
     allow_local_path_resolution = False
     original_filename = None
     resolved = None
+    store = None
     if request.temp_file_id:
         store = TempUploadStore.build(http_request.app.state.config)
         resolved = await store.resolve_for_consume(request.temp_file_id, _ctx)
@@ -228,11 +229,9 @@ async def add_resource(
     if request.preserve_structure is not None:
         kwargs["preserve_structure"] = request.preserve_structure
 
-    # Resolve path variables before passing to service
+    # Resolve path variables before passing to service.
     to = resolve_path_variables(request.to) if request.to else None
     parent = resolve_path_variables(request.parent) if request.parent else None
-
-    store = TempUploadStore.build(http_request.app.state.config) if resolved else None
 
     async def _add() -> dict[str, Any]:
         try:

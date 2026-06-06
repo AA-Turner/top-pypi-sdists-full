@@ -103,7 +103,7 @@ def calculate_step_size(SMatrix, eta, num_iters, show_logs):
     if not (1.0 < eta < 2.0):
         print(f"Warning: eta={eta} is outside (1.0, 2.0). Convergence might be suboptimal.")
     L_estimate = estimate_operator_norm(SMatrix, num_iters=num_iters)
-    alpha = eta / L_estimate if L_estimate > 0 else 1.0
+    alpha = eta / (L_estimate**2) if L_estimate > 0 else 1.0
     if show_logs:
         print(f"Estimated Lipschitz constant: {L_estimate:.4f}, using step size alpha: {alpha:.5f}")
     return alpha
@@ -318,7 +318,7 @@ def get_potential_function(
     Z, X = SMatrix.Z, SMatrix.X
     is_gpu = (xp.__name__ == 'cupy')
     hessian_mode = 1 if use_surrogate_hessian else 0
-
+    
     # Offset Cache Management
     cache_key = (shape, radius, xp.__name__)
     if cache_key not in _OFFSET_CACHE:
@@ -360,6 +360,7 @@ def get_potential_function(
         # For CPU, we loop over the full neighborhood.
         # This is not optimized for RAM, but it guarantees strictly identical results.
         U_img = U.reshape(Z, X)
+        grad_img = xp.zeros_like(U_img, dtype=xp.float32) if compute_grad else None
         grad_img = xp.zeros_like(U_img) if compute_grad else None
         hess_img = xp.zeros_like(U_img) if compute_hess else None
         U_value = 0.0

@@ -243,7 +243,18 @@ def run(
                 server_details.sync_required
                 and server_details.transport_type == "stdio"
             ):
-                await sync_local_capabilities(runlayer_api_client, proxy, server_id)
+                # Capability sync is best-effort metadata population (only requested
+                # for MANAGE_MCPS callers). A sync/initialize failure must not block
+                # the connector from starting, so log and continue to serving.
+                try:
+                    await sync_local_capabilities(runlayer_api_client, proxy, server_id)
+                except Exception as e:
+                    logger.warning(
+                        "Local capability sync failed; continuing without sync",
+                        error=str(e),
+                        error_type=type(e).__name__,
+                        exc_info=True,
+                    )
             await proxy.run_stdio_async(
                 show_banner=False,
             )

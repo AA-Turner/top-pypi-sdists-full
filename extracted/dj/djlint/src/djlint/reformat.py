@@ -8,6 +8,7 @@ from __future__ import annotations
 import difflib
 from typing import TYPE_CHECKING
 
+from djlint.formatter.class_attributes import restore_class_attribute_newlines
 from djlint.formatter.compress import compress_html
 from djlint.formatter.condense import clean_whitespace, condense_html
 from djlint.formatter.css import format_css
@@ -35,13 +36,16 @@ def formatter(config: Config, rawcode: str) -> str:
 
     indented_code = indent_html(condensed, config)
 
-    beautified_code = condense_html(indented_code, config)
+    beautified_code = condense_html(indented_code, config, rawcode)
 
     if config.format_css:
         beautified_code = format_css(beautified_code, config)
 
     if config.format_js:
         beautified_code = format_js(beautified_code, config)
+
+    if config.preserve_class_newlines:
+        beautified_code = restore_class_attribute_newlines(beautified_code)
 
     # preserve original line endings
     line_ending = rawcode.find("\n")
