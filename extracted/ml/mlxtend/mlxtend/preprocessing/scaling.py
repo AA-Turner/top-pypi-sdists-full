@@ -24,6 +24,14 @@ def minmax_scaling(array, columns, min_val=0, max_val=1):
     max_val : `int` or `float`, optional (default=`1`)
         maximum value after rescaling.
 
+    Notes
+    ----------
+    If all values in a given column are the same (zero range), the column
+    is set to `min_val` rather than silently filled with NaN. This mirrors
+    the contract already documented for `standardize` and avoids the
+    `RuntimeWarning: invalid value encountered in divide` previously raised
+    by the underlying `0 / 0` division.
+
     Returns
     ----------
     df_new : pandas DataFrame object.
@@ -48,6 +56,13 @@ def minmax_scaling(array, columns, min_val=0, max_val=1):
 
     numerator = ary_newt[:, columns] - ary_newt[:, columns].min(axis=0)
     denominator = ary_newt[:, columns].max(axis=0) - ary_newt[:, columns].min(axis=0)
+    # Constant columns have zero range; the naive (x - min) / (max - min)
+    # would compute 0 / 0 and silently emit NaN with only a numpy
+    # RuntimeWarning. Force the denominator to 1 for those columns so the
+    # numerator (which is identically zero) collapses the column to 0.0,
+    # mirroring the behaviour `standardize` already documents for
+    # constant inputs.
+    denominator = np.where(denominator == 0, 1, denominator)
     ary_newt[:, columns] = numerator / denominator
 
     if not min_val == 0 and not max_val == 1:
@@ -124,9 +139,16 @@ def standardize(array, columns=None, ddof=0, return_params=False, params=None):
         }
     are_constant = np.all(ary_newt[:, columns] == ary_newt[0, columns], axis=0)
 
+    # For constant columns the standard deviation is 0 (or NaN with some ddof
+    # values), so dividing by it would propagate NaNs / Infs. Forcing std to
+    # 1.0 means the subtraction (col - mean) below collapses the column to
+    # exactly 0.0, matching the contract documented in the "Notes" section
+    # ("If all values in a given column are the same, these values are all
+    # set to 0.0"). The previous version also pre-zeroed the column before
+    # the divide, but that turned (0 - mean) / 1 into -mean instead of 0
+    # -- see issue #1058.
     for c, b in zip(columns, are_constant):
         if b:
-            ary_newt[:, c] = np.zeros(dim[0])
             parameters["stds"][c] = 1.0
 
     ary_newt[:, columns] = (ary_newt[:, columns] - parameters["avgs"]) / parameters[

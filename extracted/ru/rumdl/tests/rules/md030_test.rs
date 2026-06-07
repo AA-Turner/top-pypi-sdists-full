@@ -1,7 +1,29 @@
 mod tests {
+    use indoc::indoc;
     use rumdl_lib::lint_context::LintContext;
     use rumdl_lib::rule::Rule;
-    use rumdl_lib::rules::MD030ListMarkerSpace;
+    use rumdl_lib::rules::{MD030ListMarkerSpace, MD077ListContinuationIndent};
+
+    /// Apply each rule's fix in turn (re-parsing between), mirroring how the pipeline
+    /// combines MD030 (marker spacing) with MD077 (continuation indentation).
+    fn fix_pipeline(content: &str, rules: &[&dyn Rule]) -> String {
+        let mut out = content.to_string();
+        for rule in rules {
+            let ctx = LintContext::new(&out, rumdl_lib::config::MarkdownFlavor::Standard, None);
+            out = rule.fix(&ctx).unwrap();
+        }
+        out
+    }
+
+    #[test]
+    fn test_combined_narrowing_tightens_continuation_default() {
+        // MD030 narrows the marker, leaving the continuation over-indented; MD077 then
+        // tightens it to the new content column. Neither rule alone gets there.
+        let md030 = MD030ListMarkerSpace::default();
+        let md077 = MD077ListContinuationIndent;
+        let out = fix_pipeline("*   item\n    continuation\n", &[&md030 as &dyn Rule, &md077]);
+        assert_eq!(out, "* item\n  continuation\n");
+    }
 
     #[test]
     fn test_valid_single_line_lists() {
@@ -576,7 +598,8 @@ mod tests {
 
     #[test]
     fn test_multi_line_configuration_support() {
-        // Test that ul_multi and ol_multi configuration options are actually used
+        // ul_multi and ol_multi widen multi-line markers; widening pushes content
+        // right, so MD030 re-indents each continuation to stay attached to its marker.
         let rule = MD030ListMarkerSpace::new(
             1, // ul_single
             3, // ul_multi  - key test: multi-line should use this
@@ -588,27 +611,22 @@ mod tests {
         let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
-        // Should find 2 violations:
-        // - Line 2: multi-line unordered list (expects 3 spaces, has 2)
-        // - Line 5: multi-line ordered list (expects 4 spaces, has 3)
-        assert_eq!(
-            result.len(),
-            2,
-            "Should detect multi-line spacing violations, got: {result:?}"
-        );
+        // Two marker violations (lines 2 and 5), each followed by a continuation
+        // (lines 3 and 6) that must follow the widened marker.
+        assert_eq!(result.len(), 4, "Got: {result:?}");
 
-        // Check the specific violations
         assert_eq!(result[0].line, 2);
-        assert!(result[0].message.contains("Expected: 3"));
-        assert!(result[0].message.contains("Actual: 2"));
+        assert!(result[0].message.contains("Expected: 3") && result[0].message.contains("Actual: 2"));
+        assert_eq!(result[1].line, 3);
+        assert!(result[1].message.contains("align with the list marker"));
+        assert_eq!(result[2].line, 5);
+        assert!(result[2].message.contains("Expected: 4") && result[2].message.contains("Actual: 3"));
+        assert_eq!(result[3].line, 6);
+        assert!(result[3].message.contains("align with the list marker"));
 
-        assert_eq!(result[1].line, 5);
-        assert!(result[1].message.contains("Expected: 4"));
-        assert!(result[1].message.contains("Actual: 3"));
-
-        // Test the fix
+        // The fix widens the markers and re-indents the continuations to match.
         let fixed = rule.fix(&ctx).unwrap();
-        let expected = "* Single line\n*   Multi-line item\n   with continuation\n1. Single ordered\n1.    Multi-line ordered\n     with continuation";
+        let expected = "* Single line\n*   Multi-line item\n    with continuation\n1. Single ordered\n1.    Multi-line ordered\n      with continuation";
         assert_eq!(fixed, expected, "Multi-line spacing should be fixed correctly");
     }
 
@@ -630,18 +648,22 @@ mod tests {
         let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
-        // First item is multi-line (has continuation), so should expect 3 spaces (ul_multi)
-        // It only has 1 space, so should be flagged
-        assert_eq!(
-            result.len(),
-            1,
-            "Multi-line blockquote list item should be detected. Got: {result:?}"
-        );
-        assert_eq!(result[0].line, 1, "Warning should be on line 1");
+        // First item is multi-line (has continuation), so its marker expects 3 spaces
+        // (ul_multi); widening it drags `more text` right to stay attached.
+        assert_eq!(result.len(), 2, "Got: {result:?}");
+        assert_eq!(result[0].line, 1, "Marker warning on line 1");
         assert!(
             result[0].message.contains("Expected: 3"),
             "Should expect ul_multi (3) spaces. Got: {}",
             result[0].message
+        );
+        assert_eq!(result[1].line, 2, "Continuation re-indent on line 2");
+        assert!(result[1].message.contains("align with the list marker"));
+
+        // The fix keeps `more text` aligned under `First item` inside the blockquote.
+        assert_eq!(
+            rule.fix(&ctx).unwrap(),
+            "> -   First item\n>     more text\n> - Second item"
         );
     }
 
@@ -1750,6 +1772,106 @@ Text.[^note]
         assert!(
             result.is_empty(),
             "MD030 should not flag list items inside footnote definitions: {result:?}"
+        );
+    }
+
+    /// Build an MD030 rule from a TOML config snippet, exercising the real
+    /// config-loading path (`ol-align-column` key -> serde -> `from_config`).
+    fn rule_from_toml(toml_snippet: &str) -> MD030ListMarkerSpace {
+        use rumdl_lib::config::Config;
+
+        let mut config = Config::default();
+        let parsed: toml::Table = toml::from_str(toml_snippet).expect("valid TOML");
+        for (key, value) in parsed {
+            let mut values = std::collections::BTreeMap::new();
+            if let toml::Value::Table(table) = value {
+                for (k, v) in table {
+                    values.insert(k, v);
+                }
+            }
+            config
+                .rules
+                .insert(key, rumdl_lib::config::RuleConfig { severity: None, values });
+        }
+
+        let rule = MD030ListMarkerSpace::from_config(&config);
+        // Downcast back to the concrete type so callers can use it directly.
+        rule.as_any()
+            .downcast_ref::<MD030ListMarkerSpace>()
+            .expect("MD030 rule")
+            .clone()
+    }
+
+    #[test]
+    fn test_combined_narrowing_tightens_continuation_aligned() {
+        // A too-wide ordered marker narrows to the aligned column (MD030,
+        // ol-align-column = 4); MD077 then tightens the continuation to that column, so
+        // continuation indentation lands on the align-based amount.
+        let md030 = rule_from_toml("[MD030]\nol-align-column = 4\n");
+        let md077 = MD077ListContinuationIndent;
+        let out = fix_pipeline("1.    text\n      cont\n", &[&md030 as &dyn Rule, &md077]);
+        assert_eq!(out, "1.  text\n    cont\n");
+    }
+
+    #[test]
+    fn test_ol_align_column_via_config_end_to_end() {
+        // Issue #644: the `ol-align-column` config key should drive column
+        // alignment through the normal config-loading path.
+        let rule = rule_from_toml(
+            r#"
+            [MD030]
+            ol-align-column = 4
+            "#,
+        );
+
+        let content = indoc! {"
+            1. one
+            9. nine
+            10. ten
+        "};
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+
+        let warnings = rule.check(&ctx).unwrap();
+        assert_eq!(
+            warnings.len(),
+            2,
+            "Single-digit markers should be flagged for under-padding; got: {warnings:?}"
+        );
+
+        let fixed = rule.fix(&ctx).unwrap();
+        assert_eq!(
+            fixed,
+            indoc! {"
+                1.  one
+                9.  nine
+                10. ten
+            "}
+        );
+
+        let ctx_fixed = LintContext::new(&fixed, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        assert!(rule.check(&ctx_fixed).unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_ol_align_column_off_by_default_via_config() {
+        // Without the key, behaviour is the historical fixed-spacing one.
+        let rule = rule_from_toml(
+            r#"
+            [MD030]
+            ol-single = 1
+            ol-multi = 1
+            "#,
+        );
+
+        let content = indoc! {"
+            1. one
+            9. nine
+            10. ten
+        "};
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        assert!(
+            rule.check(&ctx).unwrap().is_empty(),
+            "Default config should not require column alignment"
         );
     }
 }

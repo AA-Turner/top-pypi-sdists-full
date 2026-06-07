@@ -17,11 +17,28 @@ export const getModes = () => request<{ modes: Record<string, ModeInfo> }>('/mod
 export const getPhases = (mode?: string) =>
   request<{ mode: string; phases: string[] }>(`/phases${mode ? `?mode=${mode}` : ''}`)
 
+export interface ExternalTool {
+  name: string
+  command: string
+  scope?: string
+  fail_pattern?: string
+  warn_pattern?: string
+  fail_on_exit_code?: boolean
+  severity?: string
+  timeout_seconds?: number
+}
+
+export interface StepGuard {
+  checks?: string[]
+  required_artifacts?: string[]
+  external_tools?: ExternalTool[]
+}
+
 export interface StepDef {
   id: string; description: string; agent_type: string | null;
   parallel: boolean; user_action: boolean; interactive: boolean;
   spawn_prompt: string | null; required_artifacts: string[];
-  after: string[]; type: string; guard: unknown; gateway: unknown;
+  after: string[]; type: string; guard: StepGuard | null; gateway: unknown;
   knowledge?: { enabled: boolean; intent?: string; max_results?: number; min_score?: number; categories?: string[]; severity?: string; biz_context?: string } | null;
 }
 export const getSteps = (mode?: string) =>

@@ -7,6 +7,7 @@ Tests for pyvo.registry.regtap
 import io
 import re
 from functools import partial
+from unittest.mock import MagicMock, patch
 from urllib.parse import parse_qsl
 
 import pytest
@@ -651,6 +652,55 @@ def _makeRegistryRecord(**overrides):
     return regtap.RegistryResource(_FakeResult(defaults), 0)
 
 
+def _mock_svc(*run_sync_results):
+    svc = MagicMock()
+    svc.run_sync.side_effect = list(run_sync_results)
+    return svc
+
+
+class TestGetTablesUnit:
+    """Unit tests for get_tables."""
+
+    def test_no_tables_returns_empty_dict(self):
+        rsc = _makeRegistryRecord()
+        with patch('pyvo.registry.regtap.get_RegTAP_service',
+                   return_value=_mock_svc([])):
+            assert rsc.get_tables() == {}
+
+    def test_limit_exceeded_raises(self):
+        table_rows = [{"table_name": f"t{i}", "table_description": "",
+                       "table_index": i, "table_title": "", "table_utype": ""}
+                      for i in range(5)]
+        rsc = _makeRegistryRecord()
+        with patch('pyvo.registry.regtap.get_RegTAP_service',
+                   return_value=_mock_svc(table_rows)):
+            with pytest.raises(dalq.DALQueryError, match=r"reports 5 tables"):
+                rsc.get_tables(table_limit=4)
+
+    def test_multiple_tables_columns_grouped_correctly(self):
+        table_rows = [
+            {"table_name": "t1", "table_description": "", "table_index": 1,
+             "table_title": "", "table_utype": ""},
+            {"table_name": "t2", "table_description": "", "table_index": 2,
+             "table_title": "", "table_utype": ""},
+        ]
+        column_rows = [
+            {"name": "c1", "ucd": "", "unit": "", "utype": "", "datatype": "char",
+             "arraysize": "*", "extended_type": "", "column_description": "",
+             "table_index": 1},
+            {"name": "c2", "ucd": "", "unit": "", "utype": "", "datatype": "char",
+             "arraysize": "*", "extended_type": "", "column_description": "",
+             "table_index": 2},
+        ]
+        rsc = _makeRegistryRecord()
+        with patch('pyvo.registry.regtap.get_RegTAP_service',
+                   return_value=_mock_svc(table_rows, column_rows)):
+            result = rsc.get_tables()
+        assert set(result.keys()) == {"t1", "t2"}
+        assert len(result["t1"].columns) == 1
+        assert len(result["t2"].columns) == 1
+
+
 class TestInterfaceRejection:
     """tests for various artificial corner cases where interface selection
     should fail (or just not fail).
@@ -928,6 +978,20 @@ def test_sia2_service_operation():
             time.Time(58795, format="mjd")))
     assert len(res) > 10
     assert "s_dec" in res.to_table().columns
+
+
+def test_get_RegTAP_service_url_default():
+    assert regtap.get_RegTAP_service_url() == regtap.REGISTRY_BASEURL
+
+
+def test_get_RegTAP_service_url_reflects_changes():
+    alt_svc = "https://example.com/tap"
+    previous_url = regtap.REGISTRY_BASEURL
+    try:
+        regtap.choose_RegTAP_service(alt_svc)
+        assert regtap.get_RegTAP_service_url() == alt_svc
+    finally:
+        regtap.choose_RegTAP_service(previous_url)
 
 
 @pytest.mark.remote_data

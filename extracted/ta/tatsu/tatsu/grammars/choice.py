@@ -19,6 +19,9 @@ class Option(Box):
         result = self.exp._parse(ctx)
         return result
 
+    def optimized(self) -> Model:
+        return self.exp.optimized()
+
 
 @nodedataclass
 class Choice(Model):
@@ -88,8 +91,10 @@ class Choice(Model):
     def _nullable(self) -> bool:
         return any(o._nullable for o in self.options)
 
-    def optimized(self) -> Model:
+    def optimized(self) -> Model | Choice:
         opt = [o.optimized() for o in self.options]
+        for o in opt:
+            assert isinstance(o, Model)
         if len(opt) == 1:
             return opt[0]
-        return self.clone(options=opt)  # pyright: ignore[reportArgumentType]
+        return Choice(options=opt)

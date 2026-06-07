@@ -1004,6 +1004,8 @@ impl<'src> Parser<'src> {
                 slices.push(parser.parse_slice());
             });
 
+            slices.shrink_to_fit();
+
             slice = Expr::Tuple(ast::ExprTuple {
                 elts: slices,
                 ctx: ExprContext::Load,
@@ -1243,7 +1245,8 @@ impl<'src> Parser<'src> {
     ) -> ast::ExprBoolOp {
         self.bump(TokenKind::from(op));
 
-        let mut values = vec![lhs];
+        let mut values = Vec::with_capacity(2);
+        values.push(lhs);
         let mut progress = ParserProgress::default();
 
         // Keep adding the expression to `values` until we see a different
@@ -1259,6 +1262,8 @@ impl<'src> Parser<'src> {
                 break;
             }
         }
+
+        values.shrink_to_fit();
 
         ast::ExprBoolOp {
             values,
@@ -1507,7 +1512,7 @@ impl<'src> Parser<'src> {
             if tstring_count < strings.len() {
                 self.add_error(
                     ParseErrorType::OtherError(
-                        "cannot mix t-string literals with string or bytes literals".to_string(),
+                        "Cannot mix t-string literals with string or bytes literals".to_string(),
                     ),
                     range,
                 );
@@ -2124,7 +2129,7 @@ impl<'src> Parser<'src> {
         // Nice error message when having a unclosed open bracket `[`
         if self.at_ts(NEWLINE_EOF_SET) {
             self.add_error(
-                ParseErrorType::OtherError("missing closing bracket `]`".to_string()),
+                ParseErrorType::OtherError("Missing closing bracket `]`".to_string()),
                 self.current_token_range(),
             );
         }
@@ -2216,7 +2221,7 @@ impl<'src> Parser<'src> {
         // Nice error message when having a unclosed open brace `{`
         if self.at_ts(NEWLINE_EOF_SET) {
             self.add_error(
-                ParseErrorType::OtherError("missing closing brace `}`".to_string()),
+                ParseErrorType::OtherError("Missing closing brace `}`".to_string()),
                 self.current_token_range(),
             );
         }
@@ -2377,7 +2382,7 @@ impl<'src> Parser<'src> {
         if self.at_ts(NEWLINE_EOF_SET) {
             let range = self.current_token_range();
             self.add_error(
-                ParseErrorType::OtherError("missing closing parenthesis `)`".to_string()),
+                ParseErrorType::OtherError("Missing closing parenthesis `)`".to_string()),
                 range,
             );
         }
@@ -2476,6 +2481,8 @@ impl<'src> Parser<'src> {
             self.expect(TokenKind::Rpar);
         }
 
+        elts.shrink_to_fit();
+
         ast::ExprTuple {
             elts,
             ctx: ExprContext::Load,
@@ -2504,6 +2511,8 @@ impl<'src> Parser<'src> {
         });
 
         self.expect(TokenKind::Rsqb);
+
+        elts.shrink_to_fit();
 
         ast::ExprList {
             elts,
@@ -2599,6 +2608,8 @@ impl<'src> Parser<'src> {
 
         self.expect(TokenKind::Rbrace);
 
+        items.shrink_to_fit();
+
         ast::ExprDict {
             range: self.node_range(start),
             node_index: AtomicNodeIndex::NONE,
@@ -2615,13 +2626,15 @@ impl<'src> Parser<'src> {
     fn parse_generators(&mut self) -> Vec<ast::Comprehension> {
         const GENERATOR_SET: TokenSet = TokenSet::new([TokenKind::For, TokenKind::Async]);
 
-        let mut generators = vec![];
+        let mut generators = Vec::with_capacity(1);
         let mut progress = ParserProgress::default();
 
         while self.at_ts(GENERATOR_SET) {
             progress.assert_progressing(self);
             generators.push(self.parse_comprehension());
         }
+
+        generators.shrink_to_fit();
 
         generators
     }
@@ -2656,7 +2669,7 @@ impl<'src> Parser<'src> {
         self.expect(TokenKind::In);
         let iter = self.parse_simple_expression(ExpressionContext::default());
 
-        let mut ifs = vec![];
+        let mut ifs = Vec::new();
         let mut progress = ParserProgress::default();
 
         while self.eat(TokenKind::If) {
@@ -2664,8 +2677,13 @@ impl<'src> Parser<'src> {
 
             let parsed_expr = self.parse_simple_expression(ExpressionContext::default());
 
+            if ifs.is_empty() {
+                ifs.reserve_exact(1);
+            }
             ifs.push(parsed_expr.expr);
         }
+
+        ifs.shrink_to_fit();
 
         ast::Comprehension {
             range: self.node_range(start),

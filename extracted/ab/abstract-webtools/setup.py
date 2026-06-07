@@ -5,10 +5,10 @@ README = Path("README.md").read_text(encoding="utf-8")
 
 setup(
     name="abstract_webtools",
-    version='0.1.6.424',  # bump once per release
+    version='0.1.6.426',  # bump once per release
     author="putkoff",
     author_email="partners@abstractendeavors.com",
-    description="Utilities for fetching/parsing web content with requests/urllib3/BS4 and helpers.",
+    description="Composable, manager-based utilities for fetching, parsing, crawling, and mirroring web content — with managed sessions, TLS/user-agent control, and a single shared request pipeline.",
     long_description=README,
     long_description_content_type="text/markdown",
     url="https://github.com/AbstractEndeavors/abstract_webtools",

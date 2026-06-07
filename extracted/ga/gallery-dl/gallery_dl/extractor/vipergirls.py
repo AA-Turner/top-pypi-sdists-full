@@ -25,7 +25,7 @@ class VipergirlsExtractor(Extractor):
     cookies_domain = ".vipergirls.to"
     cookies_names = ("vg_userid", "vg_password")
 
-    def _init(self):
+    def initialize(self):
         if domain := self.config("domain"):
             pos = domain.find("://")
             if pos >= 0:
@@ -38,12 +38,20 @@ class VipergirlsExtractor(Extractor):
         else:
             self.root = "https://viper.click"
             self.cookies_domain = ".viper.click"
+        Extractor.initialize(self)
 
     def items(self):
         self.login()
         root = self.posts()
-        forum_title = root[1].attrib["title"]
-        thread_title = root[2].attrib["title"]
+        try:
+            forum_title = root[1].attrib["title"]
+            thread_title = root[2].attrib["title"]
+        except KeyError:
+            if root[1].tag == "error":
+                raise self.exc.AuthRequired(
+                    ("username & password", "authenticated cookies"),
+                    "thread", root[1].attrib.get("details"))
+            raise
 
         if like := self.config("like"):
             user_hash = root[0].get("hash")
@@ -96,7 +104,11 @@ class VipergirlsExtractor(Extractor):
     def _login_impl(self, username, password):
         self.log.info("Logging in as %s", username)
 
-        url = self.root + "/login.php?do=login"
+        root = self.root
+        if root == "https://viper.click":
+            root = VipergirlsExtractor.root
+
+        url = root + "/login.php?do=login"
         data = {
             "vb_login_username": username,
             "vb_login_password": password,
@@ -130,11 +142,8 @@ class VipergirlsThreadExtractor(VipergirlsExtractor):
                r"/threads/(\d+)(?:-[^/?#]+)?(/page\d+)?(?:$|#|\?(?!p=))")
     example = "https://vipergirls.to/threads/12345-TITLE"
 
-    def __init__(self, match):
-        VipergirlsExtractor.__init__(self, match)
-        self.thread_id, self.page = match.groups()
-
     def posts(self):
+        self.thread_id, self.page = self.groups
         url = f"{self.root}/vr.php?t={self.thread_id}"
         return self.request_xml(url)
 
@@ -146,11 +155,8 @@ class VipergirlsPostExtractor(VipergirlsExtractor):
                r"/threads/(\d+)(?:-[^/?#]+)?\?p=\d+[^#]*#post(\d+)")
     example = "https://vipergirls.to/threads/12345-TITLE?p=23456#post23456"
 
-    def __init__(self, match):
-        VipergirlsExtractor.__init__(self, match)
-        self.thread_id, self.post_id = match.groups()
-        self.page = 0
-
     def posts(self):
-        url = f"{self.root}/vr.php?p={self.post_id}"
+        self.page = 0
+        self.thread_id, post_id = self.groups
+        url = f"{self.root}/vr.php?p={post_id}"
         return self.request_xml(url)

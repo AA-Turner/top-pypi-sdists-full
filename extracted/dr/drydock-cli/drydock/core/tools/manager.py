@@ -181,19 +181,26 @@ class ToolManager:
         }
 
         # Auto-disable tools that misfire for Gemma 4.
-        # `task` is RE-ENABLED as of v2.6.93 — the original disable was
-        # because subagent responses leaked raw <|tool_call> thinking
-        # tokens and hung the parent session. v2.6.88+ field-aware
-        # sanitization + v2.6.91 fake-tool-call-text nuker now handle
-        # that class of bugs. Re-enabling lets drydock parallelize
-        # work between the main agent and a builder subagent → both
-        # vLLM backends get used simultaneously (prior sequential loop
-        # left ~50% throughput on the table).
+        # `task` RE-DISABLED 2026-06-06 (v2.9.96): the v2.6.93 re-enable
+        # was justified by parallelism (two vLLM backends used at once
+        # via a builder subagent). That benefit never materialized in
+        # practice; what materialized was a recurring loop pattern.
+        # Trail of fixes: v2.9.91 stopped subagents tripping the parent's
+        # 18-readonly hard-stop, v2.9.93 blocked consecutive task calls
+        # at the preflight, v2.9.95 disabled notebook_edit (the next
+        # escape-hatch branch). User session 2026-06-06 then showed the
+        # model hammering the blocked task preflight 6+ times in a row,
+        # ignoring the advisory. Under union grammar, `task` has the
+        # lowest-entropy argument schema (`{task: str}`) so the model
+        # keeps committing to it. The only durable fix is removing it
+        # from the grammar union entirely — disable here so it never
+        # appears in the model's tool list.
         # Kept disabled: `ask_user_question` (Gemma 4 asks in a loop),
         # `invoke_skill` (not proven), `tool_search` (confuses the
         # small-model tool list), `task_create/update/list` (duplicates
         # the `todo` tool and Gemma 4 mixes them up).
         _GEMMA4_AUTO_DISABLE = {
+            "task",
             "task_create", "task_update", "task_list",
             "ask_user_question", "invoke_skill", "tool_search",
             # todo disabled for Gemma 4: the model calls todo(read) in
@@ -203,6 +210,41 @@ class ToolManager:
             # inline — the auto-continue loop (tool_turns > 0 → don't
             # break) keeps it going without needing an explicit list.
             "todo",
+            # memory disabled for Gemma 4 (added v2.9.102). MemoryArgs has
+            # 5 fields with `default=""` — the same vacuous-default
+            # pattern as task. Observed 2026-06-06 v2.9.87 `extract-elf`
+            # trial: 7 identical
+            # `memory({op:recall, query:"a.out memory values"})` calls
+            # in a row. Memory's actual purpose (cross-session note
+            # keeping) doesn't apply to tbench trials anyway.
+            "memory",
+            # cron_* disabled for Gemma 4 (added v2.9.100). Scheduled-task
+            # management has zero relevance to coding workflows. Observed
+            # 2026-06-06 v2.9.87 batch `reshard-c4-data`: the model called
+            # cron_list 3 times in a row when stuck on a sharding problem
+            # — pure escape-hatch behavior. Operators who need cron use
+            # slash commands.
+            "cron_create", "cron_delete", "cron_list",
+            # exit_plan_mode disabled for Gemma 4 (added v2.9.98). The
+            # tool takes NO arguments (`ExitPlanModeArgs` is `pass`), so
+            # under any tool-call mode it's the absolute easiest commitment
+            # for the model. User session 2026-06-06 v2.9.97: the model
+            # called exit_plan_mode 4 times in a row, each getting
+            # "Already in implementation mode" — the no-op response is
+            # friendly enough that the model never realized it was
+            # spinning. Drydock doesn't normally use plan_mode for code
+            # work, and slash commands exist for the rare cases that
+            # need it.
+            "exit_plan_mode",
+            # notebook_edit disabled for Gemma 4 (added v2.9.94 after
+            # user session 2026-06-06 where the model called
+            # `notebook_edit` on `/data3/slides/cli.py` — a regular .py
+            # file. After v2.9.93 blocked the consecutive-task escape
+            # hatch, the model gravitated to notebook_edit as the next
+            # "wrong tool that looks file-shaped". write_file already
+            # handles .ipynb files (they're JSON); notebook_edit is
+            # net-zero functionality with confusion bait.
+            "notebook_edit",
             # search_replace disabled for Gemma 4: ROOT CAUSE analysis
             # 2026-05-30 — after 8+ fixes addressing specific SR failure
             # modes (truncation stub bait, placeholder loops, indent

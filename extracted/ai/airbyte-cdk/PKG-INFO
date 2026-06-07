@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: airbyte-cdk
-Version: 7.21.0
+Version: 7.21.1
 Summary: A framework for writing Airbyte Connectors.
 Home-page: https://airbyte.com
 License: MIT
@@ -33,7 +33,7 @@ Requires-Dist: boltons (>=25.0.0,<26.0.0)
 Requires-Dist: cachetools
 Requires-Dist: click (>=8.1.8,<9.0.0)
 Requires-Dist: cohere (>=4.21,<6.0.0) ; extra == "vector-db-based"
-Requires-Dist: cryptography (>=44.0.0,<45.0.0)
+Requires-Dist: cryptography (>=44.0.0,<47.0.0,!=45.0.0,!=45.0.1)
 Requires-Dist: dateparser (>=1.2.2,<2.0.0)
 Requires-Dist: ddtrace (>=3,<4) ; extra == "manifest-server"
 Requires-Dist: dpath (>=2.1.6,<3.0.0)

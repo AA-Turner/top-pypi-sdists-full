@@ -3,11 +3,32 @@
 # Author: Sebastian Raschka <sebastianraschka.com>
 #
 # License: BSD 3 clause
+from itertools import groupby
 
 import numpy as np
 import pandas as pd
+from joblib import Parallel, delayed
 
 from ..frequent_patterns import fpcommon as fpc
+
+
+def _apriori_gen(old_combinations):
+    old_combinations = sorted(tuple(combination) for combination in old_combinations)
+    set_old_combinations = set(old_combinations)
+
+    for i, old_combination in enumerate(old_combinations):
+        prefix = old_combination[:-1]
+        for other_combination in old_combinations[i + 1 :]:
+            if prefix != other_combination[:-1]:
+                break
+
+            candidate = old_combination + (other_combination[-1],)
+            for idx in range(len(candidate) - 2):
+                test_candidate = candidate[:idx] + candidate[idx + 1 :]
+                if test_candidate not in set_old_combinations:
+                    break
+            else:
+                yield candidate
 
 
 def generate_new_combinations(old_combinations):
@@ -31,8 +52,10 @@ def generate_new_combinations(old_combinations):
 
     Returns
     -----------
-    Generator of all combinations from the last step x items
-    from the previous step.
+    Generator of combinations based on the last state of Apriori algorithm.
+    In order to reduce the number of candidates, this function implements the
+    apriori-gen join and prune steps described in section 2.1.1 of the
+    Apriori paper.
 
     Examples
     -----------
@@ -41,15 +64,8 @@ def generate_new_combinations(old_combinations):
 
     """
 
-    items_types_in_previous_step = np.unique(old_combinations.flatten())
-    for old_combination in old_combinations:
-        max_combination = old_combination[-1]
-        mask = items_types_in_previous_step > max_combination
-        valid_items = items_types_in_previous_step[mask]
-        old_tuple = tuple(old_combination)
-        for item in valid_items:
-            yield from old_tuple
-            yield item
+    for candidate in _apriori_gen(old_combinations):
+        yield from candidate
 
 
 def generate_new_combinations_low_memory(old_combinations, X, min_support, is_sparse):
@@ -109,30 +125,41 @@ def generate_new_combinations_low_memory(old_combinations, X, min_support, is_sp
 
     """
 
-    items_types_in_previous_step = np.unique(old_combinations.flatten())
     rows_count = X.shape[0]
     threshold = min_support * rows_count
-    for old_combination in old_combinations:
-        max_combination = old_combination[-1]
-        mask = items_types_in_previous_step > max_combination
-        valid_items = items_types_in_previous_step[mask]
-        old_tuple = tuple(old_combination)
+    for prefix, candidates in groupby(
+        _apriori_gen(old_combinations), key=lambda x: x[:-1]
+    ):
+        valid_items = np.fromiter(
+            (candidate[-1] for candidate in candidates), dtype=int
+        )
         if is_sparse:
-            mask_rows = X[:, old_tuple].toarray().all(axis=1)
+            mask_rows = X[:, prefix].toarray().all(axis=1)
             X_cols = X[:, valid_items].toarray()
             supports = X_cols[mask_rows].sum(axis=0)
         else:
-            mask_rows = X[:, old_tuple].all(axis=1)
+            mask_rows = X[:, prefix].all(axis=1)
             supports = X[mask_rows][:, valid_items].sum(axis=0)
         valid_indices = (supports >= threshold).nonzero()[0]
         for index in valid_indices:
             yield supports[index]
-            yield from old_tuple
+            yield from prefix
             yield valid_items[index]
 
 
+def _get_support_parallel(combin_chunk, X, rows_count):
+    _bools = np.all(X[:, combin_chunk], axis=2)
+    return np.sum(_bools, axis=0) / rows_count
+
+
 def apriori(
-    df, min_support=0.5, use_colnames=False, max_len=None, verbose=0, low_memory=False
+    df,
+    min_support=0.5,
+    use_colnames=False,
+    max_len=None,
+    verbose=0,
+    low_memory=False,
+    n_jobs=1,
 ):
     """Get frequent itemsets from a one-hot DataFrame
 
@@ -231,17 +258,17 @@ def apriori(
         out = np.sum(_x, axis=0) / _n_rows
         return np.array(out).reshape(-1)
 
-    if min_support <= 0.0:
+    if min_support <= 0.0 or min_support > 1.0:
         raise ValueError(
             "`min_support` must be a positive "
             "number within the interval `(0, 1]`. "
             "Got %s." % min_support
         )
-
     fpc.valid_input_check(df)
 
     if hasattr(df, "sparse"):
         # DataFrame with SparseArray (pandas >= 0.24)
+
         if df.size == 0:
             X = df.values
         else:
@@ -249,6 +276,7 @@ def apriori(
         is_sparse = True
     else:
         # dense DataFrame
+
         X = df.values
         is_sparse = False
     support = _support(X, X.shape[0], is_sparse)
@@ -267,11 +295,13 @@ def apriori(
         # substantial amount of memory. For low memory applications or large
         # datasets, set `low_memory=True` to use a slower but more memory-
         # efficient implementation.
+
         if low_memory:
             combin = generate_new_combinations_low_memory(
                 itemset_dict[max_itemset], X, min_support, is_sparse
             )
             # slightly faster than creating an array from a list of tuples
+
             combin = np.fromiter(combin, dtype=int)
             combin = combin.reshape(-1, next_max_itemset + 1)
 
@@ -283,7 +313,6 @@ def apriori(
                     % (combin.size, next_max_itemset),
                     end="",
                 )
-
             itemset_dict[next_max_itemset] = combin[:, 1:]
             support_dict[next_max_itemset] = combin[:, 0].astype(float) / rows_count
             max_itemset = next_max_itemset
@@ -300,15 +329,22 @@ def apriori(
                     % (combin.size, next_max_itemset),
                     end="",
                 )
-
             if is_sparse:
                 _bools = X[:, combin[:, 0]] == all_ones
                 for n in range(1, combin.shape[1]):
                     _bools = _bools & (X[:, combin[:, n]] == all_ones)
+                support = _support(np.array(_bools), rows_count, is_sparse)
             else:
-                _bools = np.all(X[:, combin], axis=2)
-
-            support = _support(np.array(_bools), rows_count, is_sparse)
+                if n_jobs == 1:
+                    _bools = np.all(X[:, combin], axis=2)
+                    support = _support(np.array(_bools), rows_count, is_sparse)
+                else:
+                    chunks = np.array_split(combin, n_jobs if n_jobs > 0 else 4)
+                    results = Parallel(n_jobs=n_jobs)(
+                        delayed(_get_support_parallel)(chunk, X, rows_count)
+                        for chunk in chunks
+                    )
+                    support = np.concatenate(results)
             _mask = (support >= min_support).reshape(-1)
             if any(_mask):
                 itemset_dict[next_max_itemset] = np.array(combin[_mask])
@@ -316,8 +352,8 @@ def apriori(
                 max_itemset = next_max_itemset
             else:
                 # Exit condition
-                break
 
+                break
     all_res = []
     for k in sorted(itemset_dict):
         support = pd.Series(support_dict[k])
@@ -325,7 +361,6 @@ def apriori(
 
         res = pd.concat((support, itemsets), axis=1)
         all_res.append(res)
-
     res_df = pd.concat(all_res)
     res_df.columns = ["support", "itemsets"]
     if use_colnames:
@@ -337,5 +372,4 @@ def apriori(
 
     if verbose:
         print()  # adds newline if verbose counter was used
-
     return res_df

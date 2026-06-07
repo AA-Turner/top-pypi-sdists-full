@@ -56,6 +56,13 @@ def sync_detailed(
 
      Retrieve a single audit event by id.
 
+    Authorized against the caller's permitted environment set: the event
+    is returned only if its environment is one the caller may access,
+    otherwise `404` (the same response as a non-existent id, so existence
+    never leaks across environments). The `X-Smplkit-Environment` header is
+    ignored here — a single-object lookup names the object by id, it does
+    not resolve an ambient environment.
+
     Args:
         event_id (UUID):
 
@@ -87,6 +94,13 @@ def sync(
 
      Retrieve a single audit event by id.
 
+    Authorized against the caller's permitted environment set: the event
+    is returned only if its environment is one the caller may access,
+    otherwise `404` (the same response as a non-existent id, so existence
+    never leaks across environments). The `X-Smplkit-Environment` header is
+    ignored here — a single-object lookup names the object by id, it does
+    not resolve an ambient environment.
+
     Args:
         event_id (UUID):
 
@@ -112,6 +126,13 @@ async def asyncio_detailed(
     """Get Event
 
      Retrieve a single audit event by id.
+
+    Authorized against the caller's permitted environment set: the event
+    is returned only if its environment is one the caller may access,
+    otherwise `404` (the same response as a non-existent id, so existence
+    never leaks across environments). The `X-Smplkit-Environment` header is
+    ignored here — a single-object lookup names the object by id, it does
+    not resolve an ambient environment.
 
     Args:
         event_id (UUID):
@@ -141,6 +162,13 @@ async def asyncio(
     """Get Event
 
      Retrieve a single audit event by id.
+
+    Authorized against the caller's permitted environment set: the event
+    is returned only if its environment is one the caller may access,
+    otherwise `404` (the same response as a non-existent id, so existence
+    never leaks across environments). The `X-Smplkit-Environment` header is
+    ignored here — a single-object lookup names the object by id, it does
+    not resolve an ambient environment.
 
     Args:
         event_id (UUID):

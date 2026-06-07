@@ -88,6 +88,33 @@ class TestModelDelegationRequest:
         r = self._make(acceptance_criteria=("response_non_empty",))
         assert "response_non_empty" in r.acceptance_criteria
 
+    @pytest.mark.parametrize(
+        "task_type",
+        [
+            "test",
+            "document",
+            "research",
+            "code_generation",
+            "refactor",
+            "reasoning",
+            "complex_reasoning",
+            "planning",
+            "review",
+            "summarization",
+            "agent_delegation",
+            "escalation",
+        ],
+    )
+    def test_all_compat_task_types_accepted(self, task_type: str) -> None:
+        """All 12 compat task_type values must be accepted (OMN-12663 parity fix)."""
+        r = self._make(task_type=task_type)
+        assert r.task_type == task_type
+
+    def test_invalid_task_type_rejected(self) -> None:
+        """task_type values outside the compat set must be rejected (OMN-12663)."""
+        with pytest.raises(Exception):
+            self._make(task_type="invalid_task_type")
+
 
 @pytest.mark.unit
 class TestValidateAcceptanceCriteria:
@@ -219,7 +246,30 @@ class TestModelInferenceIntent:
         )
         assert intent.intent == "llm_inference"
         assert intent.timeout_seconds == 30.0
-        assert intent.api_key is None
+        assert intent.api_key_ref is None
+
+    def test_carries_api_key_reference_not_secret_value(self) -> None:
+        intent = ModelInferenceIntent(
+            base_url="http://localhost:8000",
+            model="qwen3",
+            system_prompt="You are helpful.",
+            prompt="Write a test",
+            max_tokens=512,
+            correlation_id=uuid.uuid4(),
+            api_key_ref="GEMINI_API_KEY",  # pragma: allowlist secret
+        )
+
+        assert intent.api_key_ref == "GEMINI_API_KEY"  # pragma: allowlist secret
+        with pytest.raises(ValidationError):
+            ModelInferenceIntent(
+                base_url="http://localhost:8000",
+                model="qwen3",
+                system_prompt="You are helpful.",
+                prompt="Write a test",
+                max_tokens=512,
+                correlation_id=uuid.uuid4(),
+                api_key="sk-test-secret",  # pragma: allowlist secret
+            )
 
     def test_rejects_invalid_intent_literal(self) -> None:
         with pytest.raises(ValidationError):
@@ -367,6 +417,29 @@ class TestModelBifrostDelegationConfig:
 
         with pytest.raises(ValidationError):
             ModelDelegationBackendConfig(backend_id="local_qwen3", tier="unknown")
+
+    def test_all_live_tier_values_accepted(self) -> None:
+        """All tier values present in live bifrost_delegation.yaml must be valid (OMN-12663).
+
+        Verified against bifrost_delegation.yaml and routing_tiers.yaml in omnimarket
+        and omnibase_infra; values confirmed in D3 trace (OMN-12642).
+        """
+        live_tiers = (
+            "local",
+            "frontier_api",
+            "cheap_cloud",
+            "cheap_frontier",
+            "cli_agents",
+        )
+        for tier in live_tiers:
+            backend = ModelDelegationBackendConfig(backend_id=f"test-{tier}", tier=tier)
+            assert backend.tier == tier, f"tier={tier!r} round-trip failed"
+
+    def test_previously_missing_tiers_now_accepted(self) -> None:
+        """cheap_cloud, cheap_frontier, and cli_agents were the three missing values (OMN-12663)."""
+        for tier in ("cheap_cloud", "cheap_frontier", "cli_agents"):
+            backend = ModelDelegationBackendConfig(backend_id=f"test-{tier}", tier=tier)
+            assert backend.tier == tier
 
 
 @pytest.mark.unit

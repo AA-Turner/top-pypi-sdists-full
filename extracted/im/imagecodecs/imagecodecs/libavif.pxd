@@ -1,6 +1,6 @@
 # imagecodecs/libavif.pxd
 
-# Cython declarations for the `libavif 1.4.0` library.
+# Cython declarations for the `libavif 1.4.2` library.
 # https://github.com/AOMediaCodec/libavif
 
 from libc.stdint cimport int32_t, uint8_t, uint16_t, uint32_t, uint64_t

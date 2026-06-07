@@ -299,6 +299,7 @@ def cmd_show(args: list[str]) -> dict:
         "description": task.description,
         "status": task.status.value, "phase": task.phase.value,
         "iteration": task.iteration, "priority": task.priority,
+        "mode": getattr(task, "mode", None),
     }
 
 

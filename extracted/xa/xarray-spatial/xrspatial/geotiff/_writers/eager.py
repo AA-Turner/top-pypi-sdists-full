@@ -4,9 +4,9 @@ Holds ``to_geotiff`` (the public eager writer),
 ``_write_single_tile`` (per-tile worker used by ``_write_vrt_tiled``),
 and ``_write_vrt_tiled`` (the deprecated ``vrt_tiled=True`` path on
 ``to_geotiff``). Companion modules ``_writers/gpu.py`` and
-``_writers/vrt.py`` hold the GPU writer and the public ``write_vrt``;
-``to_geotiff`` dispatches to them when the caller asks for a GPU
-output or a ``.vrt`` path.
+``_writers/vrt.py`` hold the GPU writer and the internal ``_build_vrt``
+VRT-index emitter; ``to_geotiff`` dispatches to them when the caller
+asks for a GPU output or a ``.vrt`` path.
 """
 from __future__ import annotations
 
@@ -34,12 +34,11 @@ from .._geotags import RASTER_PIXEL_IS_AREA, GeoTransform
 from .._nodata import NodataLifecycle as _NL
 from .._runtime import (GeoTIFFFallbackWarning, _geotiff_strict_mode, _gpu_fallback_warning_message,
                         _resolve_spatial_coords)
-from .._validation import (_validate_3d_writer_dims, _validate_gpu_arg,
-                           _validate_no_rotated_affine, _validate_nodata_arg,
-                           _validate_tile_size_arg, _validate_writer_spatial_shape,
-                           validate_write_metadata)
+from .._validation import (_validate_3d_writer_dims, _validate_gpu_arg, _validate_no_rotated_affine,
+                           _validate_nodata_arg, _validate_tile_size_arg,
+                           _validate_writer_spatial_shape, validate_write_metadata)
 from .._writer import _COG_REQUIRES_TILED_MSG, write
-from .gpu import write_geotiff_gpu
+from .gpu import _write_geotiff_gpu
 
 
 def to_geotiff(data: xr.DataArray | np.ndarray,
@@ -226,7 +225,7 @@ def to_geotiff(data: xr.DataArray | np.ndarray,
         speak classic TIFF cannot open the output. Force BigTIFF
         (64-bit offsets). None (default) auto-promotes when the
         estimated file size would exceed the classic-TIFF 4 GB limit.
-        Matches the same kwarg on ``write_geotiff_gpu``.
+        Matches the same kwarg on ``_write_geotiff_gpu``.
     gpu : bool or None
         [experimental] Requires cupy + numba CUDA, plus the optional
         nvCOMP / nvJPEG / nvJPEG2K libraries for codec-specific
@@ -295,7 +294,7 @@ def to_geotiff(data: xr.DataArray | np.ndarray,
         internal-only JPEG path keeps its own dedicated
         ``allow_internal_only_jpeg`` flag because internal-only is a
         stricter tier than experimental. The kwarg is forwarded
-        unchanged to ``write_geotiff_gpu`` on the GPU dispatch path.
+        unchanged to ``_write_geotiff_gpu`` on the GPU dispatch path.
     allow_internal_only_jpeg : bool
         [internal-only] Opt in to the ``compression='jpeg'`` encode
         path (default ``False``). The encoder writes self-contained
@@ -307,7 +306,7 @@ def to_geotiff(data: xr.DataArray | np.ndarray,
         the flag set, the write proceeds and a
         ``GeoTIFFFallbackWarning`` is emitted at call time. Without
         the flag, ``compression='jpeg'`` raises ``ValueError``. The
-        kwarg is forwarded unchanged to ``write_geotiff_gpu`` on the
+        kwarg is forwarded unchanged to ``_write_geotiff_gpu`` on the
         GPU dispatch path so callers can reach the same experimental
         encode via ``to_geotiff(..., gpu=True)``.
     allow_unparseable_crs : bool
@@ -342,7 +341,7 @@ def to_geotiff(data: xr.DataArray | np.ndarray,
     str or binary file-like
         The ``path`` argument (a string for filesystem paths, the
         file-like object for BytesIO destinations). Returning the path
-        lines up with ``write_vrt`` and lets callers chain a write into
+        lines up with ``_build_vrt`` and lets callers chain a write into
         a read without round-tripping through a variable; existing
         callers that discarded the previous ``None`` return are
         unaffected.
@@ -398,7 +397,7 @@ def to_geotiff(data: xr.DataArray | np.ndarray,
     # non-positive tile_size with cog=True drove the overview loop
     # into a hang once oh, ow halved to 0. Validate
     # tile_size whenever either path will consume it: tiled output OR
-    # COG overview generation. Shared with write_geotiff_gpu via
+    # COG overview generation. Shared with _write_geotiff_gpu via
     # _validate_tile_size_arg so both writers keep identical validation.
     if tiled or cog:
         _validate_tile_size_arg(tile_size)
@@ -497,6 +496,16 @@ def to_geotiff(data: xr.DataArray | np.ndarray,
     # Up-front validation: catch bad compression names before they reach
     # any of the deeper write paths (streaming, GPU, VRT, COG) where the
     # error surfaces from _compression_tag with a less obvious traceback.
+    if not isinstance(compression, str) and compression is not None:
+        # The string block below validates bad NAMES, but a non-string
+        # ``compression`` skips it entirely and later lands in
+        # ``compression.lower()`` during compression_level validation,
+        # surfacing as ``AttributeError`` instead of a typed error.
+        # Reject the bad TYPE here with the same shape as the low-level
+        # writer's guard in ``_writer.py``.
+        raise TypeError(
+            f"compression must be a str (in to_geotiff); "
+            f"got {type(compression).__name__}.")
     if isinstance(compression, str):
         if compression.lower() not in _VALID_COMPRESSIONS:
             raise ValueError(
@@ -511,7 +520,7 @@ def to_geotiff(data: xr.DataArray | np.ndarray,
         # reader round-trips because Pillow re-decodes the JFIF stream
         # directly, masking the interop break. Refuse the write by
         # default and surface the same ``allow_internal_only_jpeg=True``
-        # opt-in that ``write_geotiff_gpu`` already accepts, so the
+        # opt-in that ``_write_geotiff_gpu`` already accepts, so the
         # auto-dispatch entry point can reach the experimental
         # internal-reader-only path the explicit GPU entry point
         # exposes.
@@ -525,7 +534,7 @@ def to_geotiff(data: xr.DataArray | np.ndarray,
                 "opt in to the experimental internal-reader-only path "
                 "(issue #1845).")
         # The JPEG opt-in warning is emitted below once we know the
-        # dispatch decision: ``write_geotiff_gpu`` emits its own warning
+        # dispatch decision: ``_write_geotiff_gpu`` emits its own warning
         # on the GPU path, so emitting here would double-warn callers
         # of ``to_geotiff(gpu=True, compression='jpeg',
         # allow_internal_only_jpeg=True)``.
@@ -539,7 +548,7 @@ def to_geotiff(data: xr.DataArray | np.ndarray,
         # so callers learn the opt-in name from the rejection message
         # and can fix the call site in one line. The opt-in warning is
         # emitted below once the GPU dispatch decision is known so the
-        # GPU path does not double-warn (``write_geotiff_gpu`` emits its
+        # GPU path does not double-warn (``_write_geotiff_gpu`` emits its
         # own warning on the GPU path).
         if (compression.lower() in _EXPERIMENTAL_CODECS
                 and not allow_experimental_codecs):
@@ -581,7 +590,7 @@ def to_geotiff(data: xr.DataArray | np.ndarray,
         isinstance(path, str) and path.lower().endswith('.vrt'))
 
     # Resolve GPU dispatch up front so the JPEG opt-in warning fires
-    # exactly once. ``write_geotiff_gpu`` emits its own warning on the
+    # exactly once. ``_write_geotiff_gpu`` emits its own warning on the
     # GPU path; emitting here as well would double-warn callers of
     # ``to_geotiff(gpu=True, compression='jpeg',
     # allow_internal_only_jpeg=True)``. VRT and CPU paths receive the
@@ -604,7 +613,7 @@ def to_geotiff(data: xr.DataArray | np.ndarray,
         )
     # Tier 3 experimental-codec opt-in warning. Mirrors the JPEG
     # flag's "warn once, after dispatch is resolved" shape:
-    # ``write_geotiff_gpu`` emits its own warning on the GPU path with
+    # ``_write_geotiff_gpu`` emits its own warning on the GPU path with
     # a backend-specific caveat, so the CPU dispatcher only warns when
     # the write is staying on CPU.
     if (isinstance(compression, str)
@@ -699,12 +708,12 @@ def to_geotiff(data: xr.DataArray | np.ndarray,
                          drop_rotation=drop_rotation)
         return path
 
-    # Dispatch to write_geotiff_gpu when GPU was selected (explicit
+    # Dispatch to _write_geotiff_gpu when GPU was selected (explicit
     # ``gpu=True`` or auto-detected CuPy data). ``auto_detected_gpu``
     # and ``use_gpu`` were computed above to gate the JPEG opt-in
     # warning; reuse them so the call sites stay in sync.
     if use_gpu and _path_is_file_like:
-        # write_geotiff_gpu's nvCOMP path materialises tile parts and then
+        # _write_geotiff_gpu's nvCOMP path materialises tile parts and then
         # calls _write_bytes(path), which would write at the buffer's
         # current cursor without truncating. More importantly, the GPU
         # path was never tested with file-like destinations; refuse rather
@@ -727,7 +736,7 @@ def to_geotiff(data: xr.DataArray | np.ndarray,
                 "tiled=False is not supported on the GPU writer. "
                 "Pass gpu=False or omit tiled=False.")
         try:
-            write_geotiff_gpu(
+            _write_geotiff_gpu(
                 data, path, crs=crs, nodata=nodata,
                 compression=compression,
                 compression_level=compression_level,
@@ -747,7 +756,7 @@ def to_geotiff(data: xr.DataArray | np.ndarray,
             )
             return path
         except ImportError as e:
-            # ``write_geotiff_gpu`` raises ImportError when cupy itself
+            # ``_write_geotiff_gpu`` raises ImportError when cupy itself
             # can't be imported. nvCOMP absence doesn't surface here:
             # ``_try_nvcomp_from_device_bufs`` returns None when the
             # library can't load, and the writer drops to CPU
@@ -1201,143 +1210,148 @@ def _write_vrt_tiled(data, vrt_path, *, crs=None, nodata=None,
         vrt_dir, f'{tiles_dir_name}.tmp-{uuid.uuid4().hex}')
     os.makedirs(staging_dir, exist_ok=True)
 
-    # Resolve CRS. ``numbers.Integral`` covers numpy integer scalars
-    # (``np.int32``, ``np.int64``) so ``crs=np.int64(4326)`` does not
-    # silently fall through to ``epsg=None``. Validator already
-    # rejects bool.
-    _validate_crs_arg(crs)
-    epsg = None
-    wkt_fallback = None
-    if isinstance(crs, numbers.Integral):
-        epsg = int(crs)
-    elif isinstance(crs, str):
-        epsg = _wkt_to_epsg(crs)
-        if epsg is None:
-            wkt_fallback = crs
-
-    geo_transform = None
-    raster_type = RASTER_PIXEL_IS_AREA
-    x_res = None
-    y_res = None
-    res_unit = None
-    gdal_meta_xml = None
-    extra_tags_list = None
-
-    if isinstance(data, xr.DataArray):
-        raw = data.data
-        if epsg is None and crs is None:
-            crs_attr = data.attrs.get('crs')
-            if isinstance(crs_attr, str):
-                epsg = _wkt_to_epsg(crs_attr)
-                if epsg is None and wkt_fallback is None:
-                    wkt_fallback = crs_attr
-            elif crs_attr is not None:
-                # Same gate as the kwarg path: reject bool / non-int
-                # types and confirm the EPSG resolves before writing it
-                # to disk. Without this, ``attrs={'crs': True}`` round-
-                # trips as EPSG=1.
-                _validate_crs_arg(crs_attr)
-                epsg = int(crs_attr)
-            if epsg is None:
-                wkt = data.attrs.get('crs_wkt')
-                if isinstance(wkt, str):
-                    epsg = _wkt_to_epsg(wkt)
-                    if epsg is None and wkt_fallback is None:
-                        wkt_fallback = wkt
-        if nodata is None:
-            # Use the same alias-aware resolver that to_geotiff /
-            # write_geotiff_gpu apply so a rioxarray-style DataArray
-            # (``attrs['nodatavals']``) or a CF-style one
-            # (``attrs['_FillValue']``) round-trips through ``.vrt``
-            # the same way it does through ``.tif``. Using
-            # ``attrs.get('nodata')`` directly would silently drop both
-            # aliases.
-            nodata = _resolve_nodata_attr(data.attrs)
-        # Mirror the ``to_geotiff`` gate so per-tile writes only
-        # NaN-rewrite when the read side promoted the sentinel. See
-        # ``_should_restore_nan_sentinel`` for the semantics; default
-        # True keeps existing behaviour.
-        restore_sentinel = _should_restore_nan_sentinel(data.attrs)
-        # Resolve via the centralised resolver. Same precedence as
-        # ``to_geotiff``: attrs['transform'] wins over coord-derived.
-        geo_transform = _resolve_georef(data).transform
-        # Match the to_geotiff fail-closed guard so VRT writes don't
-        # silently produce non-georeferenced tiles either.
-        _require_transform_for_georeferenced(data, geo_transform)
-        # Pull the same rich-tag set that to_geotiff forwards to
-        # ``write`` so per-tile files under the VRT carry it too.
-        _rich = _extract_rich_tags(data.attrs)
-        raster_type = _rich['raster_type']
-        gdal_meta_xml = _rich['gdal_metadata_xml']
-        extra_tags_list = _rich['extra_tags']
-        x_res = _rich['x_resolution']
-        y_res = _rich['y_resolution']
-        res_unit = _rich['resolution_unit']
-    else:
-        raw = data
-
-    # Refuse to write an unvalidatable CRS string into the per-tile
-    # GTCitationGeoKey fields unless the caller opts in.
-    # ``_write_single_tile`` forwards ``wkt_fallback`` to the geokey
-    # builder once per tile, so validate once up front rather than
-    # per-tile.
-    if epsg is None:
-        _validate_crs_fallback(wkt_fallback, allow_unparseable_crs)
-
-    # Check for dask backing
-    is_dask = hasattr(raw, 'dask')
-
-    if is_dask:
-        if raw.ndim != 2:
-            raise ValueError(
-                "VRT tiled output currently supports 2D arrays only, "
-                f"got {raw.ndim}D. Squeeze or select a band first.")
-        # Use dask chunk grid
-        import dask
-        row_chunks = raw.chunks[0]  # tuple of chunk sizes along y
-        col_chunks = raw.chunks[1]  # tuple of chunk sizes along x
-        n_row_tiles = len(row_chunks)
-        n_col_tiles = len(col_chunks)
-    else:
-        # Numpy: tile using tile_size
-        if hasattr(raw, 'get'):
-            np_arr = raw.get()  # CuPy
-        elif hasattr(raw, 'compute'):
-            np_arr = raw.compute()
-        else:
-            np_arr = np.asarray(raw)
-        if np_arr.ndim != 2:
-            raise ValueError(
-                "VRT tiled output currently supports 2D arrays only, "
-                f"got {np_arr.ndim}D. Squeeze or select a band first.")
-        height, width = np_arr.shape[:2]
-        n_row_tiles = (height + tile_size - 1) // tile_size
-        n_col_tiles = (width + tile_size - 1) // tile_size
-
-    # Zero-padding width for tile names
-    pad_width = max(2, len(str(max(n_row_tiles, n_col_tiles) - 1)))
-
-    # Tiles are written into ``staging_dir``; ``tile_names`` records the
-    # bare filenames so the final tile paths (under ``tiles_dir``) can be
-    # rebuilt for the VRT index after the atomic rename below.
-    tile_names = []
-    delayed_tasks = []
-
     def _cleanup_staging():
         shutil.rmtree(staging_dir, ignore_errors=True)
 
-    def _safe_write_tile(*args, **kwargs):
-        # Return the exception instead of raising so a failure in one
-        # threaded dask task does not abort ``dask.compute`` while sibling
-        # threads are still writing into the staging dir. The caller raises
-        # the first captured failure after every task has settled.
-        try:
-            _write_single_tile(*args, **kwargs)
-        except BaseException as exc:  # noqa: BLE001 - re-raised by caller
-            return exc
-        return None
-
+    # The validation below (CRS, georef transform, the 2D-only
+    # check) and the per-tile write can all raise after the staging
+    # dir exists. Guard everything so a failed write removes the
+    # ``*.tmp-*`` staging dir and leaves no partial output, matching
+    # the contract documented at the leftover-state guard above.
     try:
+        # Resolve CRS. ``numbers.Integral`` covers numpy integer scalars
+        # (``np.int32``, ``np.int64``) so ``crs=np.int64(4326)`` does not
+        # silently fall through to ``epsg=None``. Validator already
+        # rejects bool.
+        _validate_crs_arg(crs)
+        epsg = None
+        wkt_fallback = None
+        if isinstance(crs, numbers.Integral):
+            epsg = int(crs)
+        elif isinstance(crs, str):
+            epsg = _wkt_to_epsg(crs)
+            if epsg is None:
+                wkt_fallback = crs
+
+        geo_transform = None
+        raster_type = RASTER_PIXEL_IS_AREA
+        x_res = None
+        y_res = None
+        res_unit = None
+        gdal_meta_xml = None
+        extra_tags_list = None
+
+        if isinstance(data, xr.DataArray):
+            raw = data.data
+            if epsg is None and crs is None:
+                crs_attr = data.attrs.get('crs')
+                if isinstance(crs_attr, str):
+                    epsg = _wkt_to_epsg(crs_attr)
+                    if epsg is None and wkt_fallback is None:
+                        wkt_fallback = crs_attr
+                elif crs_attr is not None:
+                    # Same gate as the kwarg path: reject bool / non-int
+                    # types and confirm the EPSG resolves before writing it
+                    # to disk. Without this, ``attrs={'crs': True}`` round-
+                    # trips as EPSG=1.
+                    _validate_crs_arg(crs_attr)
+                    epsg = int(crs_attr)
+                if epsg is None:
+                    wkt = data.attrs.get('crs_wkt')
+                    if isinstance(wkt, str):
+                        epsg = _wkt_to_epsg(wkt)
+                        if epsg is None and wkt_fallback is None:
+                            wkt_fallback = wkt
+            if nodata is None:
+                # Use the same alias-aware resolver that to_geotiff /
+                # _write_geotiff_gpu apply so a rioxarray-style DataArray
+                # (``attrs['nodatavals']``) or a CF-style one
+                # (``attrs['_FillValue']``) round-trips through ``.vrt``
+                # the same way it does through ``.tif``. Using
+                # ``attrs.get('nodata')`` directly would silently drop both
+                # aliases.
+                nodata = _resolve_nodata_attr(data.attrs)
+            # Mirror the ``to_geotiff`` gate so per-tile writes only
+            # NaN-rewrite when the read side promoted the sentinel. See
+            # ``_should_restore_nan_sentinel`` for the semantics; default
+            # True keeps existing behaviour.
+            restore_sentinel = _should_restore_nan_sentinel(data.attrs)
+            # Resolve via the centralised resolver. Same precedence as
+            # ``to_geotiff``: attrs['transform'] wins over coord-derived.
+            geo_transform = _resolve_georef(data).transform
+            # Match the to_geotiff fail-closed guard so VRT writes don't
+            # silently produce non-georeferenced tiles either.
+            _require_transform_for_georeferenced(data, geo_transform)
+            # Pull the same rich-tag set that to_geotiff forwards to
+            # ``write`` so per-tile files under the VRT carry it too.
+            _rich = _extract_rich_tags(data.attrs)
+            raster_type = _rich['raster_type']
+            gdal_meta_xml = _rich['gdal_metadata_xml']
+            extra_tags_list = _rich['extra_tags']
+            x_res = _rich['x_resolution']
+            y_res = _rich['y_resolution']
+            res_unit = _rich['resolution_unit']
+        else:
+            raw = data
+
+        # Refuse to write an unvalidatable CRS string into the per-tile
+        # GTCitationGeoKey fields unless the caller opts in.
+        # ``_write_single_tile`` forwards ``wkt_fallback`` to the geokey
+        # builder once per tile, so validate once up front rather than
+        # per-tile.
+        if epsg is None:
+            _validate_crs_fallback(wkt_fallback, allow_unparseable_crs)
+
+        # Check for dask backing
+        is_dask = hasattr(raw, 'dask')
+
+        if is_dask:
+            if raw.ndim != 2:
+                raise ValueError(
+                    "VRT tiled output currently supports 2D arrays only, "
+                    f"got {raw.ndim}D. Squeeze or select a band first.")
+            # Use dask chunk grid
+            import dask
+            row_chunks = raw.chunks[0]  # tuple of chunk sizes along y
+            col_chunks = raw.chunks[1]  # tuple of chunk sizes along x
+            n_row_tiles = len(row_chunks)
+            n_col_tiles = len(col_chunks)
+        else:
+            # Numpy: tile using tile_size
+            if hasattr(raw, 'get'):
+                np_arr = raw.get()  # CuPy
+            elif hasattr(raw, 'compute'):
+                np_arr = raw.compute()
+            else:
+                np_arr = np.asarray(raw)
+            if np_arr.ndim != 2:
+                raise ValueError(
+                    "VRT tiled output currently supports 2D arrays only, "
+                    f"got {np_arr.ndim}D. Squeeze or select a band first.")
+            height, width = np_arr.shape[:2]
+            n_row_tiles = (height + tile_size - 1) // tile_size
+            n_col_tiles = (width + tile_size - 1) // tile_size
+
+        # Zero-padding width for tile names
+        pad_width = max(2, len(str(max(n_row_tiles, n_col_tiles) - 1)))
+
+        # Tiles are written into ``staging_dir``; ``tile_names`` records the
+        # bare filenames so the final tile paths (under ``tiles_dir``) can be
+        # rebuilt for the VRT index after the atomic rename below.
+        tile_names = []
+        delayed_tasks = []
+
+        def _safe_write_tile(*args, **kwargs):
+            # Return the exception instead of raising so a failure in one
+            # threaded dask task does not abort ``dask.compute`` while sibling
+            # threads are still writing into the staging dir. The caller raises
+            # the first captured failure after every task has settled.
+            try:
+                _write_single_tile(*args, **kwargs)
+            except BaseException as exc:  # noqa: BLE001 - re-raised by caller
+                return exc
+            return None
+
         row_offset = 0
         for ri in range(n_row_tiles):
             if is_dask:
@@ -1456,9 +1470,13 @@ def _write_vrt_tiled(data, vrt_path, *, crs=None, nodata=None,
     # Write VRT index with relative paths. The VRT lives at ``vrt_path``;
     # tile paths now resolve under the final ``tiles_dir``.
     tile_paths = [os.path.join(tiles_dir, name) for name in tile_names]
-    from .._vrt import write_vrt as _write_vrt_fn
+    # Route through the internal ``_build_vrt`` helper so it is the single
+    # entry point for VRT-index emission (it wraps ``_vrt.write_vrt`` with
+    # the shared nodata/crs normalisation). ``nodata`` was already resolved
+    # and validated above; passing it again is idempotent.
+    from .vrt import _build_vrt
     try:
-        _write_vrt_fn(vrt_path, tile_paths, relative=True, nodata=nodata)
+        _build_vrt(vrt_path, tile_paths, relative=True, nodata=nodata)
     except BaseException:
         # The index step failed after the rename. Remove the now-renamed
         # tile dir too so a retry is not blocked by the leftover-state

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: djust
-Version: 1.0.1
+Version: 1.0.2
 Classifier: Development Status :: 3 - Alpha
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
@@ -39,7 +39,7 @@ Requires-Dist: pytest-benchmark>=4.0.0,<6 ; extra == 'dev'
 Requires-Dist: ruff>=0.1,<1 ; extra == 'dev'
 Requires-Dist: mypy>=1.0,<3 ; extra == 'dev'
 Requires-Dist: uvicorn[standard]>=0.30.0,<1 ; extra == 'dev'
-Requires-Dist: redis>=5.0.0,<8 ; extra == 'dev'
+Requires-Dist: redis>=5.0.0,<9 ; extra == 'dev'
 Requires-Dist: watchdog>=3.0.0,<7 ; extra == 'dev'
 Requires-Dist: zstandard>=0.22.0,<1 ; extra == 'dev'
 Requires-Dist: orjson>=3.11.6,<4 ; extra == 'dev'
@@ -52,10 +52,10 @@ Requires-Dist: google-cloud-storage>=2.10,<4 ; extra == 'gcs'
 Requires-Dist: requests>=2.28,<3 ; extra == 'gcs'
 Requires-Dist: orjson>=3.11.6,<4 ; extra == 'performance'
 Requires-Dist: zstandard>=0.22.0,<1 ; extra == 'performance'
-Requires-Dist: redis>=5.0.0,<8 ; extra == 'redis'
+Requires-Dist: redis>=5.0.0,<9 ; extra == 'redis'
 Requires-Dist: boto3>=1.30,<2 ; extra == 's3'
 Requires-Dist: psycopg[binary]>=3.1,<4 ; extra == 'tenants-postgres'
-Requires-Dist: redis>=5.0.0,<8 ; extra == 'tenants-redis'
+Requires-Dist: redis>=5.0.0,<9 ; extra == 'tenants-redis'
 Provides-Extra: admin
 Provides-Extra: all
 Provides-Extra: auth

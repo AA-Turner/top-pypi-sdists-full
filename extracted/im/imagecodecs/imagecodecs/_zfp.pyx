@@ -63,6 +63,10 @@ class ZFP:
         FIXED_PRECISION = zfp_mode_fixed_precision
         FIXED_ACCURACY = zfp_mode_fixed_accuracy
         REVERSIBLE = zfp_mode_reversible
+        # alias
+        RATE = zfp_mode_fixed_rate
+        PRECISION = zfp_mode_fixed_precision
+        ACCURACY = zfp_mode_fixed_accuracy
 
     class HEADER(enum.IntEnum):
         """ZFP codec header types."""
@@ -116,7 +120,7 @@ def zfp_encode(
         zfp_exec_policy zexec
         uint ndim = src.ndim
         ssize_t itemsize = src.itemsize
-        uint precision
+        uint precision = 0
         uint threads = _default_threads(numthreads)
         uint chunk_size = 0
         uint minbits = 0
@@ -126,7 +130,8 @@ def zfp_encode(
         size_t nx, ny, nz, nw
         ptrdiff_t sx, sy, sz, sw
         zfp_bool ret
-        double tolerance, rate
+        double tolerance = 0.0
+        double rate = 0.0
         bint bheader = header
 
     if data is out:
@@ -170,35 +175,21 @@ def zfp_encode(
     else:
         raise ValueError('data shape not supported by ZFP')
 
-    if mode is None:
-        zmode = zfp_mode_reversible
-    elif mode in {zfp_mode_null, zfp_mode_reversible, 'R', 'reversible'}:
-        zmode = zfp_mode_reversible
-    elif mode in {zfp_mode_fixed_precision, 'p', 'precision'}:
-        zmode = zfp_mode_fixed_precision
+    zmode = _enum_value(mode, ZFP.MODE, zfp_mode_reversible)
+
+    if zmode == zfp_mode_fixed_precision:
         precision = _default_value(level, ZFP_MAX_PREC, 0, ZFP_MAX_PREC)
-    elif mode in {zfp_mode_fixed_rate, 'r', 'rate'}:
-        zmode = zfp_mode_fixed_rate
+    elif zmode == zfp_mode_fixed_rate:
         rate = level
-    elif mode in {zfp_mode_fixed_accuracy, 'a', 'accuracy'}:
-        zmode = zfp_mode_fixed_accuracy
+    elif zmode == zfp_mode_fixed_accuracy:
         tolerance = level
-    elif mode in {zfp_mode_expert, 'c', 'expert'}:
-        zmode = zfp_mode_expert
+    elif zmode == zfp_mode_expert:
         minbits, maxbits, maxprec, minexp = level
-    else:
-        raise ValueError(f'invalid ZFP {mode=!r}')
 
     if execution is None:
         zexec = zfp_exec_omp if threads > 1 else zfp_exec_serial
-    elif execution in {zfp_exec_serial, 'serial'}:
-        zexec = zfp_exec_serial
-    elif execution in {zfp_exec_omp, 'omp'}:
-        zexec = zfp_exec_serial if threads == 1 else zfp_exec_omp
-    elif execution in {zfp_exec_cuda, 'cuda'}:
-        zexec = zfp_exec_cuda
     else:
-        raise ValueError('invalid ZFP execution policy')
+        zexec = _enum_value(execution, ZFP.EXEC)
 
     if zexec == zfp_exec_omp:
         chunk_size = <uint> _default_value(chunksize, 0, 0, None)

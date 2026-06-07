@@ -1,17 +1,16 @@
-[tool.poetry]
+[project]
 name = "sh"
-version = "2.2.3"
+version = "2.2.5"
 description = "Python subprocess replacement"
-authors = ["Andrew Moffat <arwmoffat@gmail.com>"]
-readme = "README.rst"
-maintainers = [
-    "Andrew Moffat <arwmoffat@gmail.com>",
-    "Erik Cederstrand <erik@cederstrand.dk>",
+authors = [
+    {name = "Andrew Moffat", email = "arwmoffat@gmail.com"},
 ]
-homepage = "https://sh.readthedocs.io/"
-repository = "https://github.com/amoffat/sh"
-documentation = "https://sh.readthedocs.io/"
-license = "MIT"
+maintainers = [
+    {name = "Andrew Moffat", email = "arwmoffat@gmail.com"},
+]
+readme = "README.rst"
+license = {text = "MIT"}
+requires-python = ">=3.8.1,<4.0"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
@@ -23,36 +22,45 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Software Development :: Build Tools",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-include = [
-    { path = "CHANGELOG.md", format = "sdist" },
-    { path = "MIGRATION.md", format = "sdist" },
-    { path = "images", format = "sdist" },
-    { path = "Makefile", format = "sdist" },
-    { path = "tests", format = "sdist" },
-    { path = "tox.ini", format = "sdist" },
-    { path = "LICENSE.txt", format = "sdist" },
+
+[project.urls]
+Homepage = "https://sh.readthedocs.io/"
+Repository = "https://github.com/amoffat/sh"
+Documentation = "https://sh.readthedocs.io/"
+
+[dependency-groups]
+dev = [
+    "tox>=4.6.4",
+    "tox-uv>=1",
+    "ruff>=0.4",
+    "coverage>=7.2.7",
+    "rstcheck>=6.1.2",
+    "sphinx>=1.6,<7",
+    "sphinx-rtd-theme>=1.2.2",
+    "pytest>=7.4.0",
+    "mypy>=1.4.1",
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.8.1,<4.0"
+[tool.ruff]
+line-length = 88
 
-[tool.poetry.group.dev.dependencies]
-tox = "^4.6.4"
-black = "^23.7.0"
-coverage = "^7.2.7"
-flake8 = "^6.1.0"
-rstcheck = "^6.1.2"
-sphinx = ">=1.6,<7"
-sphinx-rtd-theme = "^1.2.2"
-pytest = "^7.4.0"
-mypy = "^1.4.1"
-toml = "^0.10.2"
+[tool.ruff.lint]
+ignore = ["E203"]
+
+[tool.hatch.build.targets.wheel]
+include = ["sh.py", "sh.pyi", "py.typed"]
+
+[tool.hatch.build.targets.sdist]
+include = ["sh.py", "sh.pyi", "py.typed"]
 
 [build-system]
-requires = ["poetry-core>=1.0.0a5"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"

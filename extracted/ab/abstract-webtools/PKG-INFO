@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: abstract_webtools
-Version: 0.1.6.424
-Summary: Utilities for fetching/parsing web content with requests/urllib3/BS4 and helpers.
+Version: 0.1.6.426
+Summary: Composable, manager-based utilities for fetching, parsing, crawling, and mirroring web content — with managed sessions, TLS/user-agent control, and a single shared request pipeline.
 Home-page: https://github.com/AbstractEndeavors/abstract_webtools
 Author: putkoff
 Author-email: partners@abstractendeavors.com
@@ -45,439 +45,327 @@ Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
 
-=======
-
 # Abstract WebTools
-Provides utilities for inspecting and parsing web content, including React components and URL utilities, with enhanced capabilities for managing HTTP requests and TLS configurations.
 
-- **Features**:
-  - URL Validation: Ensures URL correctness and attempts different URL variations.
-  - HTTP Request Manager: Custom HTTP request handling, including tailored user agents and improved TLS security through a custom adapter.
-  - Source Code Acquisition: Retrieves the source code of specified websites.
-  - React Component Parsing: Extracts JavaScript and JSX source code from web pages.
-  - Comprehensive Link Extraction: Collects all internal links from a specified website.
-  - Web Content Analysis: Extracts and categorizes various web content components such as HTML elements, attribute values, attribute names, and class names.
+**Composable, manager-based utilities for fetching, parsing, crawling, and mirroring web content.**
 
-### abstract_webtools.py
-**Description:**  
-Abstract WebTools offers a suite of utilities designed for web content inspection and parsing. One of its standout features is its ability to analyze URLs, ensuring their validity and automatically attempting different URL variations to obtain correct website access. It boasts a custom HTTP request management system that tailors user-agent strings and employs a specialized TLS adapter for heightened security. The toolkit also provides robust capabilities for extracting source code, including detecting React components on web pages. Additionally, it offers functionalities for extracting all internal website links and performing in-depth web content analysis. This makes Abstract WebTools an indispensable tool for web developers, cybersecurity professionals, and digital analysts.
-![image](https://github.com/AbstractEndeavors/abstract_essentials/assets/57512254/0451d8ea-996f-4de5-9e6c-92a606aae4ef)
+Abstract WebTools wraps the messy parts of web access — HTTP sessions, TLS/cipher
+configuration, user‑agent rotation, retries, HTML parsing, link extraction,
+crawling, headless browsers, and media downloading — behind a set of small,
+composable **managers**. The managers share a single `URL → request → soup`
+pipeline, so a page is fetched **once** and reused everywhere downstream instead
+of being re‑fetched by every layer.
 
-- **Dependencies**:
-  - `requests`
-  - `ssl`
-  - `HTTPAdapter` from `requests.adapters`
-  - `PoolManager` from `urllib3.poolmanager`
-  - `ssl_` from `urllib3.util`
-  - `urlparse`, `urljoin` from `urllib.parse`
-  - `BeautifulSoup` from `bs4`
+- **Author:** putkoff ([Abstract Endeavors](https://github.com/AbstractEndeavors))
+- **Source:** https://github.com/AbstractEndeavors/abstract_webtools
+- **Python:** 3.8+
+- **License:** MIT
 
+---
 
-# UrlManager
+## Table of contents
 
-The `UrlManager` is a Python class designed to handle and manipulate URLs. It provides methods for cleaning and normalizing URLs, determining the correct version of a URL, extracting URL components, and more. This class is particularly useful for web scraping, web crawling, or any application where URL management is essential.
+- [Why](#why)
+- [Install](#install)
+- [Quick start](#quick-start)
+- [Architecture: the manager chain](#architecture-the-manager-chain)
+- [The managers](#the-managers)
+- [Common recipes](#common-recipes)
+  - [Get a page's source / soup](#get-a-pages-source--soup)
+  - [Extract links](#extract-links)
+  - [Crawl a site](#crawl-a-site)
+  - [One shared context: `UnifiedWebManager`](#one-shared-context-unifiedwebmanager)
+  - [A managed `requests.Session`](#a-managed-requestssession)
+  - [Mirror an entire site (`usurpManager`)](#mirror-an-entire-site-usurpmanager)
+  - [Download video / media](#download-video--media)
+- [Design notes](#design-notes)
+- [Testing](#testing)
+- [Contributing](#contributing)
 
-## Usage
+---
 
-To use the `UrlManager` class, first import it into your Python script:
+## Why
 
-```python
-from abstract_webtools import UrlManager
-```
+Most scraping code re‑implements the same plumbing on every project: building a
+session, picking a user agent, tuning TLS so a server doesn't reject you,
+handling retries, parsing HTML, then doing it all again for the next step.
 
-### Initializing a UrlManager Object
+Abstract WebTools factors each concern into a manager and **threads shared
+instances through the chain**. Pass an existing `req_mgr` (or source code) into
+any higher‑level manager and it is reused as‑is — no rebuild, no second network
+request.
 
-You can create a `UrlManager` object by providing an initial URL and an optional `requests` session. If no URL is provided, it defaults to 'www.example.com':
+---
 
-```python
-url_manager = UrlManager(url='https://www.example.com')
-```
-
-### URL Cleaning and Normalization
-
-The `clean_url` method takes a URL and returns a list of potential URL variations, including versions with and without 'www.', 'http://', and 'https://':
-
-```python
-cleaned_urls = url_manager.clean_url()
-```
-
-### Getting the Correct URL
-
-The `get_correct_url` method tries each possible URL variation with an HTTP request to determine the correct version of the URL:
-
-```python
-correct_url = url_manager.get_correct_url()
-```
-
-### Updating the URL
-
-You can update the URL associated with the `UrlManager` object using the `update_url` method:
-
-```python
-url_manager.update_url('https://www.example2.com')
-```
-
-### Extracting URL Components
-
-The `url_to_pieces` method extracts various components of the URL, such as protocol, domain name, path, and query:
-
-```python
-url_manager.url_to_pieces()
-print(url_manager.protocol)
-print(url_manager.domain_name)
-print(url_manager.path)
-print(url_manager.query)
-```
-
-### Additional Utility Methods
-
-- `get_domain_name(url)`: Returns the domain name (netloc) of a given URL.
-- `is_valid_url(url)`: Checks if a URL is valid.
-- `make_valid(href, url)`: Ensures a relative or incomplete URL is valid by joining it with a base URL.
-- `get_relative_href(url, href)`: Converts a relative URL to an absolute URL based on a base URL.
-
-## Compatibility Note
-
-The `get_domain` method is kept for compatibility but is inconsistent. Use it only for "webpage_url_domain." Similarly, `url_basename`, `base_url`, and `urljoin` methods are available for URL manipulation.
-
-## Example
-
-Here's a quick example of using the `UrlManager` class:
-
-```python
-from abstract_webtools import UrlManager
-
-url_manager = UrlManager(url='https://www.example.com')
-cleaned_urls = url_manager.clean_url()
-correct_url = url_manager.get_correct_url()
-url_manager.update_url('https://www.example2.com')
-
-print(f"Cleaned URLs: {cleaned_urls}")
-print(f"Correct URL: {correct_url}")
-```
-
-## Dependencies
-
-The `UrlManager` class relies on the `requests` library for making HTTP requests. Ensure you have the `requests` library installed in your Python environment.
-# SafeRequest
-
-The `SafeRequest` class is a versatile Python utility designed to handle HTTP requests with enhanced safety features. It integrates with other managers like `UrlManager`, `NetworkManager`, and `UserAgentManager` to manage various aspects of the request, such as user-agent, SSL/TLS settings, proxies, headers, and more.
-
-## Usage
-
-To use the `SafeRequest` class, first import it into your Python script:
-
-```python
-from abstract_webtools import SafeRequest
-```
-
-### Initializing a SafeRequest Object
-
-You can create a `SafeRequest` object with various configuration options. By default, it uses sensible default values, but you can customize it as needed:
-
-```python
-safe_request = SafeRequest(url='https://www.example.com')
-```
-
-### Updating URL and UrlManager
-
-You can update the URL associated with the `SafeRequest` object using the `update_url` method, which also updates the underlying `UrlManager`:
-
-```python
-safe_request.update_url('https://www.example2.com')
-```
-
-You can also update the `UrlManager` directly:
-
-```python
-from url_manager import UrlManager
-
-url_manager = UrlManager(url='https://www.example3.com')
-safe_request.update_url_manager(url_manager)
-```
-
-### Making HTTP Requests
-
-The `SafeRequest` class handles making HTTP requests using the `try_request` method. It handles retries, timeouts, and rate limiting:
-
-```python
-response = safe_request.try_request()
-if response:
-    # Process the response here
-```
-
-### Accessing Response Data
-
-You can access the response data in various formats:
-
-- `safe_request.source_code`: HTML source code as a string.
-- `safe_request.source_code_bytes`: HTML source code as bytes.
-- `safe_request.source_code_json`: JSON data from the response (if the content type is JSON).
-- `safe_request.react_source_code`: JavaScript and JSX source code extracted from `<script>` tags.
-
-### Customizing Request Configuration
-
-The `SafeRequest` class provides several options for customizing the request, such as headers, user-agent, proxies, SSL/TLS settings, and more. These can be set during initialization or updated later.
-
-### Handling Rate Limiting
-
-The class can handle rate limiting scenarios by implementing rate limiters and waiting between requests.
-
-### Error Handling
-
-The `SafeRequest` class handles various request-related exceptions and provides error messages for easier debugging.
-
-## Dependencies
-
-The `SafeRequest` class relies on the `requests` library for making HTTP requests. Ensure you have the `requests` library installed in your Python environment:
+## Install
 
 ```bash
-pip install requests
+pip install abstract_webtools
 ```
 
-## Example
-
-Here's a quick example of using the `SafeRequest` class:
-
-```python
-from abstract_webtools import SafeRequest
-
-safe_request = SafeRequest(url='https://www.example.com')
-response = safe_request.try_request()
-if response:
-    print(f"Response status code: {response.status_code}")
-    print(f"HTML source code: {safe_request.source_code}")
-```
-
-# SoupManager
-
-The `SoupManager` class is a Python utility designed to simplify web scraping by providing easy access to the BeautifulSoup library. It allows you to parse and manipulate HTML or XML source code from a URL or provided source code.
-
-## Usage
-
-To use the `SoupManager` class, first import it into your Python script:
-
-```python
-from abstract_webtools import SoupManager
-```
-
-### Initializing a SoupManager Object
-
-You can create a `SoupManager` object with various configuration options. By default, it uses sensible default values, but you can customize it as needed:
-
-```python
-soup_manager = SoupManager(url='https://www.example.com')
-```
-
-### Updating URL and Request Manager
-
-You can update the URL associated with the `SoupManager` object using the `update_url` method, which also updates the underlying `UrlManager` and `SafeRequest`:
-
-```python
-soup_manager.update_url('https://www.example2.com')
-```
-
-You can also update the source code directly:
-
-```python
-source_code = '<html>...</html>'
-soup_manager.update_source_code(source_code)
-```
-
-### Accessing and Parsing HTML
-
-The `SoupManager` class provides easy access to the BeautifulSoup object, allowing you to search, extract, and manipulate HTML elements easily. You can use methods like `find_all`, `get_class`, `has_attributes`, and more to work with the HTML content.
-
-```python
-elements = soup_manager.find_all(tag='a')
-```
-
-### Extracting Links
-
-The class also includes methods for extracting all website links from the HTML source code:
-
-```python
-all_links = soup_manager.all_links
-```
-
-### Extracting Meta Tags
-
-You can extract meta tags from the HTML source code using the `meta_tags` property:
-
-```python
-meta_tags = soup_manager.meta_tags
-```
-
-### Customizing Parsing
-
-You can customize the parsing behavior by specifying the parser type during initialization or updating it:
-
-```python
-soup_manager.update_parse_type('lxml')
-=======
-# Unknown Package (vUnknown Version)
-```
-No description available
-
-## Installation
+Optional extras:
 
 ```bash
-pip install Unknown Package
+pip install "abstract_webtools[drivers]"   # selenium + webdriver-manager
+pip install "abstract_webtools[media]"     # yt-dlp + m3u8 for video downloads
+pip install "abstract_webtools[gui]"       # PyQt/PySimpleGUI helpers
 ```
 
-## Dependencies
+Core runtime deps: `requests`, `urllib3`, `beautifulsoup4`. Browser and media
+features pull in `selenium` / `playwright` / `yt-dlp` as needed.
 
-The `SoupManager` class relies on the `BeautifulSoup` library for parsing HTML or XML. Ensure you have the `beautifulsoup4` library installed in your Python environment:
+---
+
+## Quick start
+
+```python
+from abstract_webtools import get_soup, get_source, linkManager
+
+# Fetch + parse a page (one request, reused internally)
+soup = get_soup("https://example.com")
+print(soup.title.text)
+
+# Just the raw HTML
+html = get_source("https://example.com")
+
+# All links + image links on the page
+lm = linkManager("https://example.com")
+print(lm.all_desired_links)
+print(lm.all_desired_image_links)
+```
+
+---
+
+## Architecture: the manager chain
+
+The core managers form a layered pipeline. Each layer accepts the layer(s)
+below it and **reuses them when provided**:
+
+```
+urlManager        normalize / validate / vary URLs
+   └─ requestManager   sessions, retries, TLS, UA  ── networkManager ┐
+        └─ soupManager       BeautifulSoup parsing                   ├─ userAgentManager
+             ├─ linkManager       link / image extraction            ├─ cipherManager
+             └─ crawlManager       site crawling / sitemaps          └─ sslManager + tlsAdapter
+```
+
+Every layer has a matching factory function that detects and reuses an existing
+instance:
+
+| Factory | Returns | Reuses when given |
+|---|---|---|
+| `get_url_mgr(url=, url_mgr=)` | `urlManager` | `url_mgr` |
+| `get_req_mgr(url=, url_mgr=, source_code=, req_mgr=)` | `requestManager` | `req_mgr` |
+| `get_source(...)` | HTML string | `source_code` / `req_mgr` |
+| `get_soup_mgr(...)` | `soupManager` | `soup_mgr` / `req_mgr` |
+| `get_soup(...)` | `BeautifulSoup` | `soup` / `soup_mgr` / `source_code` |
+| `get_crawl_mgr(...)` | `crawlManager` | `req_mgr` / `url_mgr` |
+| `get_managed_session(...)` | `requests.Session` | `req_mgr` |
+
+Because every factory short‑circuits on an instance you pass in, the whole chain
+is built once and shared:
+
+```python
+from abstract_webtools import get_req_mgr, get_soup_mgr, linkManager
+
+req = get_req_mgr("https://example.com")        # fetches once
+soup_mgr = get_soup_mgr(req_mgr=req)            # no re-fetch
+links = linkManager(req_mgr=req)                # no re-fetch
+```
+
+---
+
+## The managers
+
+| Manager | Responsibility |
+|---|---|
+| **urlManager** | Parse, validate, normalize and generate URL variants. |
+| **requestManager** | `requests.Session` with retries, timeouts, TLS adapter, UA, proxies, cookies; optional Selenium fallback. |
+| **networkManager** | Mounts the TLS adapter and wires proxies/cookies/UA into the session. |
+| **userAgentManager** | Realistic user agents and per‑URL headers (random or pinned by OS/browser). |
+| **cipherManager** | Cipher‑suite strings for TLS. |
+| **sslManager** / **tlsAdapter** | SSL context + `HTTPAdapter` for fine‑grained TLS control. |
+| **soupManager** | BeautifulSoup parsing, meta/link extraction, attribute discovery. |
+| **linkManager** | Internal/image link extraction with desired/undesired filters. |
+| **crawlManager** | Recursive crawling, sitemap generation, domain link discovery. |
+| **middleManager** | `UnifiedWebManager` — one lazy facade over the whole chain. |
+| **usurpManager** | Full‑site mirror: pages + assets + styles, references rewritten for offline use. |
+| **videoDownloader** | Video/media download via `yt-dlp` / `m3u8`, wired to the managed session/UA. |
+| **seleneumManager** / **playwriteManager** | Headless‑browser source fetching for JS‑rendered pages. |
+
+---
+
+## Common recipes
+
+### Get a page's source / soup
+
+```python
+from abstract_webtools import get_source, get_soup, get_soup_mgr
+
+html = get_source("https://example.com")
+soup = get_soup("https://example.com")
+
+# Reuse already-fetched HTML — no network call
+soup2 = get_soup(source_code=html)
+
+# Soup manager exposes parsing helpers
+sm = get_soup_mgr("https://example.com")
+print(sm.get_all_attribute_values(tags_list=["a", "img"]))
+```
+
+### Extract links
+
+```python
+from abstract_webtools import linkManager
+
+lm = linkManager(
+    "https://example.com",
+    link_attr_value_desired=["/blog/"],      # keep only links containing this
+    image_link_tags="img",
+)
+print(lm.all_desired_links)
+print(lm.find_all_domain())                  # unique domains found
+```
+
+### Crawl a site
+
+```python
+from abstract_webtools import get_crawl_mgr, get_domain_crawl
+
+crawl = get_crawl_mgr("https://example.com")
+domain_links = get_domain_crawl("https://example.com", max_depth=3)
+```
+
+### One shared context: `UnifiedWebManager`
+
+`UnifiedWebManager` lazily builds and caches `url_mgr`, `req_mgr`, `source_code`,
+`soup_mgr`, `soup`, plus `link_mgr` / `crawl_mgr` — all over a single fetch.
+
+```python
+from abstract_webtools import UnifiedWebManager
+
+web = UnifiedWebManager("https://example.com")
+web.url_mgr      # built on demand
+web.source_code  # fetched once
+web.soup         # parsed once
+web.link_mgr     # shares the same chain — no re-fetch
+web.crawl_mgr
+
+# Or start from HTML you already have (zero network):
+web = UnifiedWebManager(source_code="<html>...</html>")
+web.soup.title
+```
+
+### A managed `requests.Session`
+
+Need a plain session, but configured with a real user agent, ciphers, the TLS
+adapter and proxies? Ask the stack for one — it never fetches just to build it,
+and reuses an existing `req_mgr`'s session when given:
+
+```python
+from abstract_webtools import get_managed_session
+
+session = get_managed_session(user_agent="MyBot/1.0")
+resp = session.get("https://example.com")
+```
+
+### Mirror an entire site (`usurpManager`)
+
+`usurpManager` saves a working offline copy of a site — **pages and styles
+intact**. By **default it recursively captures the whole site**: every
+same‑domain page link and all referenced media. It follows CSS `url(...)` /
+`@import` (including `@font-face` and cross‑domain CDN fonts), handles `srcset`,
+inline `style=""` and `<style>` blocks, downloads scripts/images/linked files,
+and rewrites every reference to a relative local path so the result renders
+straight from `file://`.
+
+```python
+from abstract_webtools import usurpit
+
+# Full recursive capture of the entire site (unlimited depth by default):
+result = usurpit("https://example.com", output_dir="example_mirror")
+print(result["output_dir"], len(result["pages"]), "pages")
+```
+
+Or drive it directly for more control:
+
+```python
+from abstract_webtools import usurpManager, get_req_mgr
+
+req = get_req_mgr("https://example.com")
+site = usurpManager(
+    "https://example.com",
+    req_mgr=req,                      # reuse the managed session
+    output_dir="example_mirror",
+    max_depth=None,                   # default: unlimited (whole site); set an int to cap
+    mirror_external_assets=True,      # pull CDN css/fonts so styles work (default)
+)
+summary = site.main()
+```
+
+- The crawl is breadth‑first and **unlimited‑depth by default** (`max_depth=None`);
+  the visited‑set keeps it finite/loop‑free. Pass an integer `max_depth` to bound it.
+- Pages are mirrored within the origin host; referenced assets may come from
+  CDNs (set `mirror_external_assets=False` to stay strictly on‑origin).
+- A single `url → local path` map keeps references consistent and shared assets
+  are fetched exactly once.
+- For heavily JS‑rendered sites, fetch the rendered HTML first via
+  `seleneumManager` / `playwriteManager`.
+
+### Download video / media
+
+```python
+from abstract_webtools import get_video_info, downloadvideo
+
+info = get_video_info("https://www.youtube.com/watch?v=...")   # metadata only
+downloadvideo("https://www.youtube.com/watch?v=...", download_directory="videos")
+```
+
+The downloader pulls its user agent (and proxy) from the shared request stack
+and threads them into `yt-dlp`, so downloads use the same identity as the rest
+of your scrape. You can inject an existing `req_mgr` / `ua_mgr`:
+
+```python
+from abstract_webtools import VideoDownloader, get_req_mgr
+
+req = get_req_mgr("https://example.com")
+VideoDownloader(url="https://example.com/video.mp4", req_mgr=req,
+                download_directory="videos")
+```
+
+---
+
+## Design notes
+
+- **Reuse over rebuild.** Every factory and constructor honors an instance you
+  pass in. Supplying `source_code` or a `req_mgr` means **zero** extra network
+  requests downstream.
+- **One session, fully configured.** TLS ciphers, SSL context, the HTTP adapter,
+  user agent, proxies and cookies are assembled once by the request stack and
+  reused — including by `usurpManager` and `videoDownloader`.
+- **Optional heavy deps stay optional.** Browser/media/GUI extras are imported
+  defensively so the core package imports without them.
+
+---
+
+## Testing
+
+The repo ships dependency‑light regression tests (only `requests` +
+`beautifulsoup4` required) that load the real modules under a controlled
+namespace and assert the no‑refetch behavior and the site mirror:
 
 ```bash
-pip install beautifulsoup4
+python tests/test_manager_chain.py        # url/request/soup/link chain reuse
+python tests/test_video_usurp_chain.py    # managed session for video + usurp
+python tests/test_usurp_mirror.py         # full-site mirror with styles
 ```
 
-## Example
+---
 
-Here's a quick example of using the `SoupManager` class:
+## Contributing
 
-```python
-from abstract_webtools import SoupManager
-
-soup_manager = SoupManager(url='https://www.example.com')
-all_links = soup_manager.all_links
-print(f"All Links: {all_links}")
-```
-# LinkManager
-
-The `LinkManager` class is a Python utility designed to simplify the extraction and management of links (URLs) and associated data from HTML source code. It leverages other classes like `UrlManager`, `SafeRequest`, and `SoupManager` to facilitate link extraction and manipulation.
-
-## Usage
-
-To use the `LinkManager` class, first import it into your Python script:
-
-```python
-from abstract_webtools import LinkManager
-```
-
-### Initializing a LinkManager Object
-
-You can create a `LinkManager` object with various configuration options. By default, it uses sensible default values, but you can customize it as needed:
-
-```python
-link_manager = LinkManager(url='https://www.example.com')
-```
-
-### Updating URL and Request Manager
-
-You can update the URL associated with the `LinkManager` object using the `update_url` method, which also updates the underlying `UrlManager`, `SafeRequest`, and `SoupManager`:
-
-```python
-link_manager.update_url('https://www.example2.com')
-```
-
-### Accessing Extracted Links
-
-The `LinkManager` class provides easy access to extracted links and associated data:
-
-```python
-all_links = link_manager.all_desired_links
-```
-
-### Customizing Link Extraction
-
-You can customize the link extraction behavior by specifying various parameters during initialization or updating them:
-
-```python
-link_manager.update_desired(
-    img_attr_value_desired=['thumbnail', 'image'],
-    img_attr_value_undesired=['icon'],
-    link_attr_value_desired=['blog', 'article'],
-    link_attr_value_undesired=['archive'],
-    image_link_tags='img',
-    img_link_attrs='src',
-    link_tags='a',
-    link_attrs='href',
-    strict_order_tags=True,
-    associated_data_attr=['data-title', 'alt', 'title'],
-    get_img=['data-title', 'alt', 'title']
-)
-```
-
-## Dependencies
-
-The `LinkManager` class relies on other classes within the `abstract_webtools` module, such as `UrlManager`, `SafeRequest`, and `SoupManager`. Ensure you have these classes and their dependencies correctly set up in your Python environment.
-
-## Example
-
-Here's a quick example of using the `LinkManager` class:
-
-```python
-from abstract_webtools import LinkManager
-
-link_manager = LinkManager(url='https://www.example.com')
-all_links = link_manager.all_desired_links
-print(f"All Links: {all_links}")
-```
-##Overall Usecases
-```python
-from abstract_webtools import UrlManager, SafeRequest, SoupManager, LinkManager, VideoDownloader
-
-# --- UrlManager: Manages and manipulates URLs for web scraping/crawling ---
-url = "example.com"
-url_manager = UrlManager(url=url)
-
-# --- SafeRequest: Safely handles HTTP requests by managing user-agent, SSL/TLS, proxies, headers, etc. ---
-request_manager = SafeRequest(
-    url_manager=url_manager,
-    proxies={'8.219.195.47', '8.219.197.111'},
-    timeout=(3.05, 70)
-)
-
-# --- SoupManager: Simplifies web scraping with easy access to BeautifulSoup ---
-soup_manager = SoupManager(
-    url_manager=url_manager,
-    request_manager=request_manager
-)
-
-# --- LinkManager: Extracts and manages links and associated data from HTML source code ---
-link_manager = LinkManager(
-    url_manager=url_manager,
-    soup_manager=soup_manager,
-    link_attr_value_desired=['/view_video.php?viewkey='],
-    link_attr_value_undesired=['phantomjs']
-)
-
-# Download videos from provided links (list or string)
-video_manager = VideoDownloader(link=link_manager.all_desired_links).download()
-
-# Use them individually, with default dependencies for basic inputs:
-standalone_soup = SoupManager(url=url).soup
-standalone_links = LinkManager(url=url).all_desired_links
-
-# Updating methods for manager classes
-url_1 = 'thedailydialectics.com'
-print(f"updating URL to {url_1}")
-url_manager.update_url(url=url_1)
-request_manager.update_url(url=url_1)
-soup_manager.update_url(url=url_1)
-link_manager.update_url(url=url_1)
-
-# Updating URL manager references
-request_manager.update_url_manager(url_manager=url_manager)
-soup_manager.update_url_manager(url_manager=url_manager)
-link_manager.update_url_manager(url_manager=url_manager)
-
-# Updating source code for managers
-source_code_bytes = request_manager.source_code_bytes
-soup_manager.update_source_code(source_code=source_code_bytes)
-link_manager.update_source_code(source_code=source_code_bytes)
-```
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-#### Module Information
--**Author**: putkoff
--**Author Email**: partners@abstractendeavors.com
--**Github**: https://github.com/AbstractEndeavors/abstract_essentials/tree/main/abstract_webtools
--**PYPI**: https://pypi.org/project/abstract-webtools
--**Part of**: abstract_essentials
--**Date**: 10/10/2023
--**Version**: 0.1.4.54
+Issues and PRs welcome at
+[AbstractEndeavors/abstract_webtools](https://github.com/AbstractEndeavors/abstract_webtools).
+Please keep new functionality threaded through the shared manager chain (accept
+and reuse `url_mgr` / `req_mgr` / `source_code`) rather than re‑fetching, and add
+a dependency‑light test where practical.

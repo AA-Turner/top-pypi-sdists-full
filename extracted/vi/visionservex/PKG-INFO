@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: visionservex
-Version: 2.58.0
+Version: 3.3.0
 Summary: A permissive-license-aware framework for serving modern computer vision models locally and over Cloudflare Tunnel.
 Project-URL: Homepage, https://github.com/example/visionservex
 Project-URL: Documentation, https://github.com/example/visionservex/tree/main/docs
@@ -111,8 +111,17 @@ Requires-Dist: pycocotools>=2.0; extra == 'benchmark'
 Requires-Dist: torch>=2.1; extra == 'benchmark'
 Requires-Dist: torchvision>=0.16; extra == 'benchmark'
 Requires-Dist: tqdm>=4.64; extra == 'benchmark'
+Provides-Extra: classic-ml
+Requires-Dist: numpy>=1.24; extra == 'classic-ml'
+Requires-Dist: opencv-python-headless>=4.8; extra == 'classic-ml'
+Requires-Dist: scikit-image>=0.22; extra == 'classic-ml'
+Requires-Dist: scikit-learn>=1.3; extra == 'classic-ml'
+Requires-Dist: scipy>=1.10; extra == 'classic-ml'
 Provides-Extra: cloudflare
 Requires-Dist: pyyaml>=6.0; extra == 'cloudflare'
+Provides-Extra: cv2-pro
+Requires-Dist: numpy>=1.24; extra == 'cv2-pro'
+Requires-Dist: opencv-contrib-python-headless>=4.8; extra == 'cv2-pro'
 Provides-Extra: detection
 Requires-Dist: accelerate>=0.28; extra == 'detection'
 Requires-Dist: huggingface-hub>=0.24; extra == 'detection'
@@ -164,6 +173,10 @@ Requires-Dist: scipy>=1.10; extra == 'hf'
 Requires-Dist: torch>=2.1; extra == 'hf'
 Requires-Dist: torchvision>=0.16; extra == 'hf'
 Requires-Dist: transformers>=4.40; extra == 'hf'
+Provides-Extra: interactive-seg
+Requires-Dist: numpy>=1.24; extra == 'interactive-seg'
+Requires-Dist: opencv-python-headless>=4.8; extra == 'interactive-seg'
+Requires-Dist: pillow>=10.0; extra == 'interactive-seg'
 Provides-Extra: libreyolo
 Requires-Dist: libreyolo>=1.1.1; extra == 'libreyolo'
 Requires-Dist: torch>=2.1; extra == 'libreyolo'
@@ -196,6 +209,14 @@ Requires-Dist: pycocotools>=2.0; extra == 'promptable'
 Requires-Dist: torch>=2.1; extra == 'promptable'
 Requires-Dist: torchvision>=0.16; extra == 'promptable'
 Requires-Dist: transformers>=4.40; extra == 'promptable'
+Provides-Extra: promptable-extra
+Requires-Dist: numpy>=1.24; extra == 'promptable-extra'
+Requires-Dist: opencv-python-headless>=4.8; extra == 'promptable-extra'
+Requires-Dist: pillow>=10.0; extra == 'promptable-extra'
+Requires-Dist: pycocotools>=2.0; extra == 'promptable-extra'
+Requires-Dist: scikit-image>=0.22; extra == 'promptable-extra'
+Requires-Dist: scikit-learn>=1.3; extra == 'promptable-extra'
+Requires-Dist: scipy>=1.10; extra == 'promptable-extra'
 Provides-Extra: rfdetr
 Requires-Dist: rfdetr>=1.6; extra == 'rfdetr'
 Requires-Dist: supervision>=0.22; extra == 'rfdetr'

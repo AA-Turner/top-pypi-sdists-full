@@ -16,6 +16,7 @@ from typing import Literal
 import datetime
 
 if TYPE_CHECKING:
+    from ..models.forwarder_environments import ForwarderEnvironments
     from ..models.forwarder_filter_type_0 import ForwarderFilterType0
     from ..models.http_configuration import HttpConfiguration
 
@@ -35,17 +36,16 @@ class Forwarder:
         Attributes:
             name (str): Human-readable name for the forwarder. Must contain at least one non-whitespace character.
             forwarder_type (ForwarderType): Supported forwarder destination types (ADR-050).
-            configuration (HttpConfiguration): HTTP request configuration used to deliver an event to the destination.
+            configuration (HttpConfiguration): HTTP request configuration for delivering a payload to a destination.
 
-                Used when the parent forwarder's ``forwarder_type`` is one of the
-                HTTP-family destinations (``HTTP``, ``DATADOG``, ``SPLUNK_HEC``,
-                ``SUMO_LOGIC``, ``NEW_RELIC``, ``HONEYCOMB``, ``ELASTIC``). When other
-                transports land (``FTP``, ``SQS``, …) their own configuration schemas
-                will join this one as members of a discriminated union under the
-                ``configuration`` field of ``Forwarder``.
+                The shared base shape for any product that posts to a customer-supplied
+                HTTP destination. Smpl Audit forwarders use it directly; Smpl Jobs
+                extends it (adding ``body`` and ``timeout``). When other transports land
+                (``FTP``, ``SQS``, …) their own configuration schemas will join this one
+                as members of a discriminated union under a ``configuration`` field.
             description (None | str | Unset): Free-text description for the forwarder.
-            enabled (bool | Unset): Whether the forwarder is currently delivering events. Set to `false` to pause deliveries
-                without deleting the forwarder. Default: True.
+            enabled (bool | Unset): Always false. Enablement is per-environment: a forwarder delivers in an environment only
+                when `environments[<env>].enabled` is true. The base value is pinned false and cannot be set. Default: False.
             filter_ (ForwarderFilterType0 | None | Unset): JSON Logic expression evaluated against each event. The event is
                 delivered only if the expression returns truthy. Omit to deliver every event.
             transform_type (Literal['JSONATA'] | None | Unset): Engine used to evaluate ``transform``. Must be set whenever
@@ -53,6 +53,10 @@ class Forwarder:
             transform (Any | None | Unset): Template applied to each event before delivery. The shape depends on
                 ``transform_type``: for `JSONATA`, a string containing a JSONata expression. Omit to deliver the event JSON
                 unchanged.
+            environments (ForwarderEnvironments | Unset): Per-environment overrides keyed by environment key (e.g.
+                `production`, `staging`). Each entry sets `enabled` (whether the forwarder delivers in that environment) and an
+                optional `configuration` override (omit to inherit the base `configuration`). A forwarder with no entry for an
+                environment is disabled there. Every referenced environment must exist and be managed for the account.
             created_at (datetime.datetime | None | Unset): When the forwarder was created.
             updated_at (datetime.datetime | None | Unset): When the forwarder was last modified.
             deleted_at (datetime.datetime | None | Unset): When the forwarder was deleted. `null` for active forwarders.
@@ -63,10 +67,11 @@ class Forwarder:
     forwarder_type: ForwarderType
     configuration: HttpConfiguration
     description: None | str | Unset = UNSET
-    enabled: bool | Unset = True
+    enabled: bool | Unset = False
     filter_: ForwarderFilterType0 | None | Unset = UNSET
     transform_type: Literal["JSONATA"] | None | Unset = UNSET
     transform: Any | None | Unset = UNSET
+    environments: ForwarderEnvironments | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
     deleted_at: datetime.datetime | None | Unset = UNSET
@@ -109,6 +114,10 @@ class Forwarder:
             transform = UNSET
         else:
             transform = self.transform
+
+        environments: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.environments, Unset):
+            environments = self.environments.to_dict()
 
         created_at: None | str | Unset
         if isinstance(self.created_at, Unset):
@@ -159,6 +168,8 @@ class Forwarder:
             field_dict["transform_type"] = transform_type
         if transform is not UNSET:
             field_dict["transform"] = transform
+        if environments is not UNSET:
+            field_dict["environments"] = environments
         if created_at is not UNSET:
             field_dict["created_at"] = created_at
         if updated_at is not UNSET:
@@ -172,6 +183,7 @@ class Forwarder:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.forwarder_environments import ForwarderEnvironments
         from ..models.forwarder_filter_type_0 import ForwarderFilterType0
         from ..models.http_configuration import HttpConfiguration
 
@@ -231,6 +243,13 @@ class Forwarder:
             return cast(Any | None | Unset, data)
 
         transform = _parse_transform(d.pop("transform", UNSET))
+
+        _environments = d.pop("environments", UNSET)
+        environments: ForwarderEnvironments | Unset
+        if isinstance(_environments, Unset):
+            environments = UNSET
+        else:
+            environments = ForwarderEnvironments.from_dict(_environments)
 
         def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
@@ -301,6 +320,7 @@ class Forwarder:
             filter_=filter_,
             transform_type=transform_type,
             transform=transform,
+            environments=environments,
             created_at=created_at,
             updated_at=updated_at,
             deleted_at=deleted_at,

@@ -16,6 +16,7 @@ cdef extern from "libavutil/channel_layout.h" nogil:
     int av_channel_description(char *buf, size_t buf_size, AVChannel channel_id)
     int av_channel_layout_compare(AVChannelLayout *chl, AVChannelLayout *chl1)
     AVChannel av_channel_layout_channel_from_index(AVChannelLayout *channel_layout, unsigned int idx)
+    void av_channel_layout_uninit(AVChannelLayout *channel_layout)
 
 cdef extern from "libavcodec/avcodec.h" nogil:
     cdef int avcodec_version()
@@ -297,7 +298,7 @@ cdef extern from "libavcodec/avcodec.h" nogil:
     cdef char* avcodec_get_name(AVCodecID id)
     cdef int avcodec_open2(AVCodecContext *ctx, const AVCodec *codec, AVDictionary **options)
     cdef enum AVPacketSideDataType:
-        pass
+        AV_PKT_DATA_DISPLAYMATRIX
     cdef struct AVPacketSideData:
         uint8_t *data
         size_t size
@@ -448,7 +449,13 @@ cdef extern from "libavcodec/avcodec.h" nogil:
         int codec_ids[5]
 
     cdef struct AVCodecParserContext:
-        pass
+        int64_t pts
+        int64_t dts
+        int64_t pos
+        int64_t last_pos
+        int64_t offset
+        int duration
+        int key_frame
 
     cdef AVCodecParserContext *av_parser_init(int codec_id)
     cdef int av_parser_parse2(
@@ -469,6 +476,8 @@ cdef extern from "libavcodec/avcodec.h" nogil:
         int width
         int height
         int sample_rate
+        AVPacketSideData *coded_side_data
+        int nb_coded_side_data
 
     cdef int avcodec_parameters_copy(
         AVCodecParameters *dst, const AVCodecParameters *src
@@ -505,6 +514,10 @@ cdef extern from "libavcodec/bsf.h" nogil:
 cdef extern from "libavcodec/packet.h" nogil:
     const AVPacketSideData *av_packet_side_data_get(
         const AVPacketSideData *sd, int nb_sd, AVPacketSideDataType type
+    )
+    AVPacketSideData *av_packet_side_data_new(
+        AVPacketSideData **psd, int *pnb_sd,
+        AVPacketSideDataType type, size_t size, int flags
     )
     uint8_t* av_packet_get_side_data(
         const AVPacket *pkt, AVPacketSideDataType type, size_t *size

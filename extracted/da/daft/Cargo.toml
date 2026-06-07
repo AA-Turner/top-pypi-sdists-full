@@ -253,7 +253,7 @@ name = "daft"
 [package]
 name = "daft"
 publish = false
-version = "0.7.14"
+version = "0.7.15"
 exclude = ["examples/dvector", "tests/", "benchmarking/", "tutorials/", "k8s/", "ci/", "docs/", "assets/", "tools/", "*.md", "codecov.yml", "mkdocs.yml"]
 
 [package.edition]
@@ -297,11 +297,11 @@ debug = true
 workspace = true
 
 [target."cfg(not(target_env = \"msvc\"))".dependencies.tikv-jemalloc-ctl]
-version = "0.6.0"
+version = "0.7.0"
 features = ["stats"]
 
 [target."cfg(not(target_env = \"msvc\"))".dependencies.tikv-jemallocator]
-version = "0.6.0"
+version = "0.7.0"
 features = ["disable_initial_exec_tls"]
 
 [workspace]
@@ -314,7 +314,6 @@ arrow-buffer = "57.1.0"
 arrow-csv = "57.1.0"
 arrow-data = "57.1.0"
 arrow-flight = "57.1.0"
-arrow-ipc = "57.1.0"
 arrow-json = "57.1.0"
 arrow-row = "57.1.0"
 arrow-schema = "57.1.0"
@@ -382,6 +381,10 @@ features = ["num-traits", "bytemuck", "serde"]
 [workspace.dependencies.arrow-array]
 version = "57.1.0"
 features = ["chrono-tz"]
+
+[workspace.dependencies.arrow-ipc]
+version = "57.1.0"
+features = ["lz4", "zstd"]
 
 [workspace.dependencies.async-compression]
 version = "0.4.12"
@@ -706,4 +709,4 @@ priority = 1
 
 [workspace.package]
 edition = "2024"
-version = "0.7.14"
+version = "0.7.15"

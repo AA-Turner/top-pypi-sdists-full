@@ -2,7 +2,10 @@
 
 Handles two extraction scenarios:
 1. After retrospective phase: import entries from knowledge_extracted.json
-2. Quick mode archive: lightweight extraction from pitfalls/decisions files
+2. Archive fallback: auto-extract from pitfalls/decisions files
+
+The archive fallback runs for ALL modes by default unless explicitly
+disabled via gates.knowledge_extraction: false in mode config.
 """
 
 from __future__ import annotations
@@ -52,19 +55,64 @@ def _clip_to_boundary(text: str, max_length: int) -> str:
     return text[:max_length - 3].rstrip() + "..."
 
 
+def _is_gate_disabled(task, fs: Filesystem, gate_name: str) -> bool:
+    """Check if a named gate is disabled for the task's mode.
+
+    Follows the same priority as brainstorming gate:
+    1. modes.<mode>.gates.<gate_name>: false
+    2. gates.<gate_name>.enabled: false
+    3. .kanban/workflows/<mode>.json gates.<gate_name>: false
+    """
+    from kanban_framework.infra.config import Config
+    cfg = Config(fs)
+    workflow = cfg.workflow
+    mode = getattr(task, 'mode', None)
+
+    if workflow and isinstance(workflow, dict):
+        if mode:
+            modes_cfg = workflow.get("modes", {})
+            mode_cfg = modes_cfg.get(mode, {}) if isinstance(modes_cfg, dict) else {}
+            mode_gates = mode_cfg.get("gates", {}) if isinstance(mode_cfg, dict) else {}
+            if isinstance(mode_gates, dict) and mode_gates.get(gate_name) is False:
+                return True
+        top_gates = workflow.get("gates", {})
+        if isinstance(top_gates, dict) and top_gates.get(gate_name, {}).get("enabled") is False:
+            return True
+
+    if mode:
+        try:
+            wf_file = fs.kanban_dir / "workflows" / f"{mode}.json"
+            if wf_file.is_file():
+                mode_data = _json.loads(wf_file.read_text(encoding="utf-8"))
+                g = mode_data.get("gates", {})
+                if isinstance(g, dict) and g.get(gate_name) is False:
+                    return True
+        except Exception:
+            pass
+
+    return False
+
+
 def extract_knowledge(task, fs: Filesystem) -> dict:
-    """Extract and import knowledge entries after retrospective or in quick-mode archive."""
+    """Extract and import knowledge entries.
+
+    Two paths:
+    1. After retrospective phase: import from knowledge_extracted.json
+    2. Archive fallback: auto-extract from pitfalls/decisions (all modes)
+
+    The archive fallback is ON by default. Disable per-mode via:
+      gates.knowledge_extraction: false
+    """
     knowledge_result: dict = {}
 
     # After retrospective: import from knowledge_extracted.json
     if task.phase == Phase.RETROSPECTIVE:
         knowledge_result = _import_retrospective_knowledge(task, fs)
 
-    # Quick mode: lightweight knowledge extraction during archive
-    if (getattr(task, 'mode', '') == 'quick'
-            and task.phase == Phase.ARCHIVE
-            and not knowledge_result):
-        knowledge_result = _extract_quick_archive_knowledge(task, fs)
+    # Archive fallback: auto-extract unless disabled via gate
+    if task.phase == Phase.ARCHIVE and not knowledge_result:
+        if not _is_gate_disabled(task, fs, "knowledge_extraction"):
+            knowledge_result = _extract_quick_archive_knowledge(task, fs)
 
     return knowledge_result
 
@@ -128,6 +176,8 @@ def _extract_quick_archive_knowledge(task, fs: Filesystem) -> dict:
         _quick_sources = [
             (iter_dir / "execution_pitfalls.md", "踩坑"),
             (iter_dir / "execution_decisions.md", "最佳实践"),
+            (iter_dir / "execute" / "execution_pitfalls.md", "踩坑"),
+            (iter_dir / "execute" / "execution_decisions.md", "最佳实践"),
             (task_dir / "execution_pitfalls.md", "踩坑"),
             (task_dir / "execution_decisions.md", "最佳实践"),
         ]

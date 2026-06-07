@@ -15,7 +15,7 @@ from .. import text, util, dt, oauth
 BASE_PATTERN = (
     r"(?:tumblr:(?:https?://)?([^/]+)|"
     r"(?:https?://)?"
-    r"(?:(?:www\.)?tumblr\.com/(?:blog/(?:view/)?)?([\w-]+)|"
+    r"(?:(?:www\.)?tumblr\.com/(?:blog/(?:view/)?)?([\w:-]+)|"
     r"([\w-]+\.tumblr\.com)))"
 )
 
@@ -32,7 +32,9 @@ class TumblrExtractor(Extractor):
 
     def _init(self):
         if name := self.groups[1]:
-            self.blog = name + ".tumblr.com"
+            if not name.startswith("t:"):
+                name += ".tumblr.com"
+            self.blog = name
         else:
             self.blog = self.groups[0] or self.groups[2]
 

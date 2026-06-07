@@ -57,6 +57,7 @@ class VATEXV2TRetrieval(AbsTaskRetrieval):
         description=(
             "Retrieve the English caption that describes a given video clip (video "
             "only) from VATEX, a large-scale multilingual video description dataset."
+            " Used the `vatex_test` config with the first English caption, capped at 1,000 (~1,000 examples)."
         ),
         reference="https://arxiv.org/abs/1904.03493",
         dataset={"path": _DATASET_PATH, "revision": _DATASET_REVISION},
@@ -88,6 +89,7 @@ class VATEXT2VRetrieval(AbsTaskRetrieval):
         description=(
             "Retrieve the video clip (video only) that matches a given English "
             "caption from VATEX, a large-scale multilingual video description dataset."
+            " Used the `vatex_test` config with the first English caption, capped at 1,000 (~1,000 examples)."
         ),
         reference="https://arxiv.org/abs/1904.03493",
         dataset={"path": _DATASET_PATH, "revision": _DATASET_REVISION},
@@ -119,6 +121,7 @@ class VATEXVA2TRetrieval(AbsTaskRetrieval):
         description=(
             "Retrieve the English caption that describes a given video clip from "
             "VATEX, a large-scale multilingual video description dataset."
+            " Used the `vatex_test` config with the first English caption, capped at 1,000 (~1,000 examples)."
         ),
         reference="https://arxiv.org/abs/1904.03493",
         dataset={"path": _DATASET_PATH, "revision": _DATASET_REVISION},
@@ -150,6 +153,7 @@ class VATEXT2VARetrieval(AbsTaskRetrieval):
         description=(
             "Retrieve the video clip that matches a given English caption from "
             "VATEX, a large-scale multilingual video description dataset."
+            " Used the `vatex_test` config with the first English caption, capped at 1,000 (~1,000 examples)."
         ),
         reference="https://arxiv.org/abs/1904.03493",
         dataset={"path": _DATASET_PATH, "revision": _DATASET_REVISION},
@@ -181,6 +185,7 @@ class VATEXV2ARetrieval(AbsTaskRetrieval):
         description=(
             "Retrieve the audio track that matches a given video clip from the "
             "VATEX dataset. Tests cross-modal alignment between video frames and audio."
+            " Used the `vatex_test` config with the first English caption, capped at 1,000 (~1,000 examples)."
         ),
         reference="https://arxiv.org/abs/1904.03493",
         dataset={"path": _DATASET_PATH, "revision": _DATASET_REVISION},
@@ -212,6 +217,7 @@ class VATEXA2VRetrieval(AbsTaskRetrieval):
         description=(
             "Retrieve the video clip that matches a given audio track from the "
             "VATEX dataset. Tests cross-modal alignment between audio and video frames."
+            " Used the `vatex_test` config with the first English caption, capped at 1,000 (~1,000 examples)."
         ),
         reference="https://arxiv.org/abs/1904.03493",
         dataset={"path": _DATASET_PATH, "revision": _DATASET_REVISION},
@@ -235,3 +241,71 @@ class VATEXA2VRetrieval(AbsTaskRetrieval):
 
     def load_data(self, num_proc: int | None = None, **kwargs) -> None:
         _load_vatex(self, query_columns=["audio"], corpus_columns=["video"])
+
+
+class VATEXVT2ARetrieval(AbsTaskRetrieval):
+    metadata = TaskMetadata(
+        name="VATEXVT2ARetrieval",
+        description=(
+            "Retrieve the audio track that matches a given video clip and its English "
+            "caption from VATEX, a large-scale multilingual video description dataset."
+            " Used the `vatex_test` config with the first English caption, capped at 1,000 (~1,000 examples)."
+        ),
+        reference="https://arxiv.org/abs/1904.03493",
+        dataset={"path": _DATASET_PATH, "revision": _DATASET_REVISION},
+        type="Any2AnyRetrieval",
+        category="vt2a",
+        eval_splits=["test"],
+        eval_langs=["eng-Latn"],
+        main_score="ndcg_at_10",
+        modalities=["video", "text", "audio"],
+        date=("2019-01-01", "2019-12-31"),
+        domains=["Web", "Spoken"],
+        task_subtypes=["Cross-Modal Retrieval"],
+        license="not specified",
+        annotations_creators="human-annotated",
+        dialect=[],
+        sample_creation="found",
+        bibtex_citation=_BIBTEX,
+        prompt={
+            "query": "Find the audio that corresponds to the following video and its description."
+        },
+        is_beta=True,
+    )
+
+    def load_data(self, num_proc: int | None = None, **kwargs) -> None:
+        _load_vatex(self, query_columns=["video", "caption"], corpus_columns=["audio"])
+
+
+class VATEXAT2VRetrieval(AbsTaskRetrieval):
+    metadata = TaskMetadata(
+        name="VATEXAT2VRetrieval",
+        description=(
+            "Retrieve the video clip that matches a given audio track and its English "
+            "caption from VATEX, a large-scale multilingual video description dataset."
+            " Used the `vatex_test` config with the first English caption, capped at 1,000 (~1,000 examples)."
+        ),
+        reference="https://arxiv.org/abs/1904.03493",
+        dataset={"path": _DATASET_PATH, "revision": _DATASET_REVISION},
+        type="Any2AnyRetrieval",
+        category="at2v",
+        eval_splits=["test"],
+        eval_langs=["eng-Latn"],
+        main_score="ndcg_at_10",
+        modalities=["audio", "text", "video"],
+        date=("2019-01-01", "2019-12-31"),
+        domains=["Web", "Spoken"],
+        task_subtypes=["Cross-Modal Retrieval"],
+        license="not specified",
+        annotations_creators="human-annotated",
+        dialect=[],
+        sample_creation="found",
+        bibtex_citation=_BIBTEX,
+        prompt={
+            "query": "Find the video that corresponds to the following audio and its description."
+        },
+        is_beta=True,
+    )
+
+    def load_data(self, num_proc: int | None = None, **kwargs) -> None:
+        _load_vatex(self, query_columns=["audio", "caption"], corpus_columns=["video"])

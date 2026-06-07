@@ -94,6 +94,7 @@ async def generate_responses(
     batcher: OpenAIBatcher[Response] | None,
     handle_bad_request: Callable[[APIStatusError], ModelOutput | Exception]
     | None = None,
+    model_family: str | None = None,
 ) -> ModelOutput | tuple[ModelOutput | Exception, ModelCall]:
     # background in extra_body should be applied
     if background is None and config.extra_body:
@@ -115,7 +116,10 @@ async def generate_responses(
     # prepare request (we do this so we can log the ModelCall)
     tool_params = (
         openai_responses_tools(
-            wire_tools, model_name, config, is_latest=model_info.is_latest()
+            wire_tools,
+            model_family or model_name,
+            config,
+            is_latest=model_info.is_latest(),
         )
         if len(tools) > 0 or has_image_output(config.modalities)
         else NOT_GIVEN
@@ -390,7 +394,9 @@ def completion_params_responses(
         # request isn't rejected. Mirrors the mapping in
         # `OpenAIAPI._get_reasoning_params_for_config`.
         reasoning["effort"] = (
-            "xhigh" if config.reasoning_effort == "max" else config.reasoning_effort
+            "xhigh"
+            if (config.reasoning_effort == "max" and not model_info.is_latest())
+            else config.reasoning_effort
         )
     if config.reasoning_summary != "none":
         reasoning["summary"] = config.reasoning_summary or "auto"

@@ -1805,7 +1805,6 @@ def lzw_decode(
     data,
     /,
     *,
-    buffersize=0,
     out=None,
 ):
     """Return decoded LZW data."""
@@ -1822,7 +1821,7 @@ def lzw_decode(
 
     out, dstsize, outgiven, outtype = _parse_output(out)
 
-    handle = imcd_lzw_new(buffersize)
+    handle = imcd_lzw_new()
     if handle == NULL:
         raise LzwError('imcd_lzw_new', None)
     try:

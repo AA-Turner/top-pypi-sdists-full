@@ -68,6 +68,11 @@ def iter_raw_frames(
 
 
 class TestCodecContext(TestCase):
+    def test_global_quality(self):
+        ctx = Codec("mpeg4", "w").create()
+        ctx.global_quality = 5
+        assert ctx.global_quality == 5
+
     def test_skip_frame_default(self):
         ctx = Codec("png", "w").create()
         assert ctx.skip_frame == "DEFAULT"
@@ -205,6 +210,22 @@ class TestCodecContext(TestCase):
             parsed_source = b"".join(bytes(p) for p in packets)
             assert len(parsed_source) == len(full_source)
             assert full_source == parsed_source
+
+    def test_parse_assigns_packet_timing(self) -> None:
+        # Regression test for #1919: the parser-inferred timing information
+        # should be propagated onto the returned packets.
+        path = fate_suite("mpeg2/mpeg2_field_encoding.ts")
+        full_source = b"".join(bytes(p) for p in av.open(path).demux(video=0))
+
+        ctx = Codec("mpeg2video").create()
+        packets = []
+        for i in range(0, len(full_source), 4096):
+            packets.extend(ctx.parse(full_source[i : i + 4096]))
+        packets.extend(ctx.parse())
+
+        # The parser is able to determine the byte position for this stream,
+        # so at least some packets should carry it through.
+        assert any(p.pos is not None for p in packets)
 
 
 class TestEncoding(TestCase):

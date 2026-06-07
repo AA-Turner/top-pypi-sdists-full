@@ -6,7 +6,7 @@ from cython.cimports.av.error import err_check
 from cython.cimports.av.packet import Packet
 from cython.cimports.av.stream import Stream, wrap_stream
 from cython.cimports.av.utils import avdict_to_dict
-from cython.cimports.libc.stdint import int64_t
+from cython.cimports.libc.stdint import int64_t, uint8_t
 from cython.cimports.libc.stdlib import free, malloc
 
 
@@ -20,6 +20,7 @@ def close_input(self: InputContainer):
             self._myflag &= ~2  # enum.input_was_opened = False
 
 
+@cython.final
 @cython.cclass
 class InputContainer(Container):
     def __cinit__(self, *args, **kwargs):
@@ -34,13 +35,21 @@ class InputContainer(Container):
         c_options: cython.pointer[cython.pointer[lib.AVDictionary]] = cython.NULL
         base_dict: Dictionary
         stream_dict: Dictionary
-        if self.options or self.stream_options:
+        nb_streams_before: cython.uint = self.ptr.nb_streams
+        if self.stream_options and nb_streams_before == 0:
+            raise ValueError(
+                "stream_options were provided, but this format does not expose "
+                "its streams before avformat_find_stream_info (e.g. MPEG). "
+                "Per-stream options cannot be applied."
+            )
+        # Only allocate c_options when streams are already known.
+        if (self.options or self.stream_options) and nb_streams_before > 0:
             base_dict = Dictionary(self.options)
             c_options = cython.cast(
                 cython.pointer[cython.pointer[lib.AVDictionary]],
-                malloc(self.ptr.nb_streams * cython.sizeof(cython.p_void)),
+                malloc(nb_streams_before * cython.sizeof(cython.p_void)),
             )
-            for i in range(self.ptr.nb_streams):
+            for i in range(nb_streams_before):
                 c_options[i] = cython.NULL
                 if i < len(self.stream_options) and self.stream_options:
                     stream_dict = base_dict.copy()
@@ -56,9 +65,8 @@ class InputContainer(Container):
         self.set_timeout(None)
         self.err_check(ret)
 
-        # Clean up all of our options.
         if c_options:
-            for i in range(self.ptr.nb_streams):
+            for i in range(nb_streams_before):
                 lib.av_dict_free(cython.address(c_options[i]))
             free(c_options)
 
@@ -144,9 +152,11 @@ class InputContainer(Container):
         self._assert_open()
 
         streams: list[Stream] = self.streams.get(*args, **kwargs)
-        include_stream: cython.pointer[cython.bint] = cython.cast(
-            cython.pointer[cython.bint],
-            malloc(self.ptr.nb_streams * cython.sizeof(bint)),
+        if self.ptr.nb_streams == 0:
+            return
+        include_stream: cython.pointer[uint8_t] = cython.cast(
+            cython.pointer[uint8_t],
+            malloc(self.ptr.nb_streams * cython.sizeof(uint8_t)),
         )
         if include_stream == cython.NULL:
             raise MemoryError()
@@ -159,12 +169,12 @@ class InputContainer(Container):
         self.set_timeout(self.read_timeout)
         try:
             for i in range(self.ptr.nb_streams):
-                include_stream[i] = False
+                include_stream[i] = 0
             for stream in streams:
                 i = stream.index
                 if i >= self.ptr.nb_streams:
                     raise ValueError(f"stream index {i} out of range")
-                include_stream[i] = True
+                include_stream[i] = 1
 
             # Pre-allocate a AVPacket that is reused as the read buffer.
             with cython.nogil:

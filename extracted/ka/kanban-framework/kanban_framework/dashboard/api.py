@@ -467,11 +467,17 @@ def create_app(kanban_dir: str | Path | None = None) -> FastAPI:
     def knowledge_entries(q: str | None = None, domain: str | None = None, status: str | None = None):
         try:
             km = _get_km()
-            entries = km.list_entries(domain=domain, status=status or "active", limit=500)
             if q:
-                results = km.search_hybrid(q, limit=50)
+                # search_hybrid returns top-K by relevance; use small limit for search
+                results = km.search_hybrid(q, limit=20, relevance_threshold=0)
                 matched_ids = {r["id"] for r in results}
-                entries = [e for e in entries if e.get("id") in matched_ids] if matched_ids else entries
+                if matched_ids:
+                    entries = km.list_entries(domain=domain, status=status or "active", limit=500)
+                    entries = [e for e in entries if e.get("id") in matched_ids]
+                else:
+                    entries = []
+            else:
+                entries = km.list_entries(domain=domain, status=status or "active", limit=500)
             return {"entries": entries}
         except Exception:
             return {"entries": []}
@@ -581,6 +587,45 @@ def create_app(kanban_dir: str | Path | None = None) -> FastAPI:
             return json.loads(result.stdout)
         except ValueError:
             return {"tokens": []}
+
+    # ── Documentation ─────────────────────────────────────────────────
+
+    @app.get("/api/docs")
+    def list_docs():
+        """List available reference documents with titles and paths."""
+        from kanban_framework.infra.filesystem import Filesystem as FS
+        skill_dir = FS.find_skill_dir()
+        refs_dir = skill_dir / "references"
+        docs = []
+        if refs_dir.is_dir():
+            _DOC_TITLES = {
+                "ci-workflow-guide.md": "CI 工作流配置教程",
+                "user-guide.md": "用户上手文档",
+                "config-json-reference.md": "config.json 字段参考",
+                "workflow-json-reference.md": "workflow.json 字段参考",
+                "mode-comparison.md": "模式对比 (Quick/Light/Full)",
+                "external-knowledge-backend-integration.md": "知识库后端接入指南",
+                "knowledge-cli-reference.md": "知识库 CLI 参考",
+                "knowledge-accumulation-guide.md": "知识积累指南",
+                "commands.md": "命令速查",
+            }
+            for f in sorted(refs_dir.glob("*.md")):
+                docs.append({
+                    "file": f.name,
+                    "title": _DOC_TITLES.get(f.name, f.stem.replace("-", " ").title()),
+                    "path": str(f),
+                })
+        return {"docs": docs}
+
+    @app.get("/api/docs/{doc_name}")
+    def get_doc(doc_name: str):
+        """Return the content of a specific reference document."""
+        from kanban_framework.infra.filesystem import Filesystem as FS
+        skill_dir = FS.find_skill_dir()
+        doc_path = skill_dir / "references" / doc_name
+        if not doc_path.is_file() or not doc_path.name.endswith(".md"):
+            raise HTTPException(404, f"Document {doc_name} not found")
+        return {"file": doc_name, "content": doc_path.read_text(encoding="utf-8")}
 
     # ── Static file serving (SPA) ────────────────────────────────────
 

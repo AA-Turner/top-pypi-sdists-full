@@ -385,6 +385,9 @@ impl<'db> TypeInferenceBuilder<'db, '_> {
             // the result would then become Any or Unknown, respectively).
             (div @ Type::Divergent(_), _, _) | (_, div @ Type::Divergent(_), _) => Some(div),
 
+            (unknown @ Type::Dynamic(DynamicType::AmbiguousOverload), _, _)
+            | (_, unknown @ Type::Dynamic(DynamicType::AmbiguousOverload), _) => Some(unknown),
+
             (any @ Type::Dynamic(DynamicType::Any), _, _)
             | (_, any @ Type::Dynamic(DynamicType::Any), _) => Some(any),
 
@@ -1002,6 +1005,7 @@ impl<'db> TypeInferenceBuilder<'db, '_> {
                 | Type::TypeVar(_)
                 | Type::TypeIs(_)
                 | Type::TypeGuard(_)
+                | Type::TypeForm(_)
                 | Type::TypedDict(_),
                 Type::FunctionLiteral(_)
                 | Type::Callable(..)
@@ -1028,6 +1032,7 @@ impl<'db> TypeInferenceBuilder<'db, '_> {
                 | Type::TypeVar(_)
                 | Type::TypeIs(_)
                 | Type::TypeGuard(_)
+                | Type::TypeForm(_)
                 | Type::TypedDict(_),
                 op,
             ) => Type::try_call_bin_op_return_type(db, left_ty, op, right_ty),

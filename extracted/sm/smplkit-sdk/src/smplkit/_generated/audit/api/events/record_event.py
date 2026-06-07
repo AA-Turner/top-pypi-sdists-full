@@ -70,9 +70,15 @@ def sync_detailed(
 
      Record an audit event for this account.
 
+    The event is stamped with the environment it occurred in: a
+    single-environment credential implies it; a multi-environment or
+    unrestricted credential must send the `X-Smplkit-Environment` header.
+    The resolved environment must exist and be managed for the account.
+
     Returns `201 Created` on first write, `200 OK` if the request was a
     duplicate (matched by `Idempotency-Key` or a key derived from the
-    event's content).
+    event's content). The same content recorded in two environments
+    produces two distinct events.
 
     `resource_type` values beginning with `smpl.` are reserved for events
     that smplkit emits about its own resources and cannot be used here.
@@ -111,9 +117,15 @@ def sync(
 
      Record an audit event for this account.
 
+    The event is stamped with the environment it occurred in: a
+    single-environment credential implies it; a multi-environment or
+    unrestricted credential must send the `X-Smplkit-Environment` header.
+    The resolved environment must exist and be managed for the account.
+
     Returns `201 Created` on first write, `200 OK` if the request was a
     duplicate (matched by `Idempotency-Key` or a key derived from the
-    event's content).
+    event's content). The same content recorded in two environments
+    produces two distinct events.
 
     `resource_type` values beginning with `smpl.` are reserved for events
     that smplkit emits about its own resources and cannot be used here.
@@ -147,9 +159,15 @@ async def asyncio_detailed(
 
      Record an audit event for this account.
 
+    The event is stamped with the environment it occurred in: a
+    single-environment credential implies it; a multi-environment or
+    unrestricted credential must send the `X-Smplkit-Environment` header.
+    The resolved environment must exist and be managed for the account.
+
     Returns `201 Created` on first write, `200 OK` if the request was a
     duplicate (matched by `Idempotency-Key` or a key derived from the
-    event's content).
+    event's content). The same content recorded in two environments
+    produces two distinct events.
 
     `resource_type` values beginning with `smpl.` are reserved for events
     that smplkit emits about its own resources and cannot be used here.
@@ -186,9 +204,15 @@ async def asyncio(
 
      Record an audit event for this account.
 
+    The event is stamped with the environment it occurred in: a
+    single-environment credential implies it; a multi-environment or
+    unrestricted credential must send the `X-Smplkit-Environment` header.
+    The resolved environment must exist and be managed for the account.
+
     Returns `201 Created` on first write, `200 OK` if the request was a
     duplicate (matched by `Idempotency-Key` or a key derived from the
-    event's content).
+    event's content). The same content recorded in two environments
+    produces two distinct events.
 
     `resource_type` values beginning with `smpl.` are reserved for events
     that smplkit emits about its own resources and cannot be used here.

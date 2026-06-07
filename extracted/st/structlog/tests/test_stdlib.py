@@ -11,14 +11,16 @@ import logging.config
 import os
 import sys
 
+from collections.abc import Callable, Collection
 from io import StringIO
-from typing import Any, Callable, Collection, Dict
+from typing import Any
 from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
 
 from structlog import (
+    BytesLogger,
     PrintLogger,
     ReturnLogger,
     configure,
@@ -26,7 +28,7 @@ from structlog import (
     wrap_logger,
 )
 from structlog._config import _CONFIG
-from structlog._log_levels import CRITICAL, NAME_TO_LEVEL, WARN
+from structlog._log_levels import CRITICAL, DEBUG, NAME_TO_LEVEL, WARN
 from structlog.dev import ConsoleRenderer
 from structlog.exceptions import DropEvent
 from structlog.processors import JSONRenderer, KeyValueRenderer
@@ -301,6 +303,30 @@ class TestBoundLogger:
 
             assert called_stdlib_method[0] is True
 
+    def test_is_enabled_for(self):
+        """
+        is_enabled_for is a snake_case alias that delegates to the wrapped
+        logger's isEnabledFor, for compatibility with FilteringBoundLogger.
+        """
+        stdlib_logger = logging.getLogger("test_is_enabled_for")
+        stdlib_logger.setLevel(WARN)
+        bl = BoundLogger(stdlib_logger, [], {})
+
+        assert bl.is_enabled_for(WARN) is True
+        assert bl.is_enabled_for(DEBUG) is False
+
+    def test_get_effective_level(self):
+        """
+        get_effective_level is a snake_case alias that delegates to the wrapped
+        logger's getEffectiveLevel, for compatibility with
+        FilteringBoundLogger.
+        """
+        stdlib_logger = logging.getLogger("test_get_effective_level")
+        stdlib_logger.setLevel(WARN)
+        bl = BoundLogger(stdlib_logger, [], {})
+
+        assert WARN == bl.get_effective_level()
+
     def test_exception_exc_info(self):
         """
         BoundLogger.exception sets exc_info=True.
@@ -567,6 +593,25 @@ class TestAddLoggerName:
         event_dict = add_logger_name(None, None, {"_record": record})
 
         assert name == event_dict["logger"]
+
+    def test_logger_name_added_with_bytes_logger(self):
+        """
+        add_logger_name works with BytesLogger that has a name attribute.
+        """
+        name = "sample-name"
+        logger = BytesLogger(name=name)
+        event_dict = add_logger_name(logger, None, {})
+
+        assert name == event_dict["logger"]
+
+    def test_logger_name_none_with_unnamed_bytes_logger(self):
+        """
+        add_logger_name works with BytesLogger without a name, returning None.
+        """
+        logger = BytesLogger()
+        event_dict = add_logger_name(logger, None, {})
+
+        assert event_dict["logger"] is None
 
 
 def extra_dict() -> dict[str, Any]:
@@ -1409,9 +1454,7 @@ class TestProcessorFormatter:
         # handlers will receive LogRecord objects that come from both structlog
         # and non-structlog loggers.
 
-        records: Dict[  # noqa: UP006 - dict isn't generic until Python 3.9
-            str, logging.LogRecord
-        ] = {}
+        records: dict[str, logging.LogRecord] = {}
 
         class DummyHandler(logging.Handler):
             def emit(self, record):

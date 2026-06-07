@@ -12,7 +12,7 @@ T = TypeVar("T", bound="HttpHeader")
 
 @_attrs_define
 class HttpHeader:
-    """A single HTTP header attached to a forwarder delivery request.
+    """A single HTTP header attached to an outbound request.
 
     Header values are encrypted at the application layer before
     persistence regardless of header name; the wire representation here

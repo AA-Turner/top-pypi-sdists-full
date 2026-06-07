@@ -116,6 +116,12 @@ class Event:
         do_not_forward (bool): When ``True``, skip this event from SIEM
             forwarder delivery regardless of any matching forwarder
             filter.
+        environment (str | None): The environment the event was recorded
+            in. Read-only and always present on reads — the audit service
+            resolves it when the event is recorded (from a
+            single-environment credential, or from the runtime SDK's
+            configured environment, which the SDK sends on every recording
+            call). Never set on the recording request body.
     """
 
     id: UUID
@@ -130,6 +136,7 @@ class Event:
     data: dict[str, Any] = field(default_factory=dict)
     idempotency_key: str = ""
     do_not_forward: bool = False
+    environment: str | None = None
 
     @classmethod
     def _from_resource(cls, resource: dict[str, Any]) -> "Event":
@@ -147,6 +154,7 @@ class Event:
             data=attrs.get("data") or {},
             idempotency_key=attrs.get("idempotency_key") or "",
             do_not_forward=bool(attrs.get("do_not_forward", False)),
+            environment=attrs.get("environment"),
         )
 
 
@@ -224,6 +232,39 @@ class HttpConfiguration:
         )
 
 
+@dataclass(slots=True)
+class ForwarderEnvironment:
+    """Per-environment enablement and optional configuration override for a forwarder.
+
+    A forwarder delivers events in a given environment only when that
+    environment has an entry in :attr:`Forwarder.environments` with
+    ``enabled=True``. An environment with no entry (or ``enabled=False``)
+    receives no deliveries.
+
+    Attributes:
+        enabled (bool): Whether the forwarder delivers events in this
+            environment. Defaults to ``False``.
+        configuration (HttpConfiguration | None): Optional per-environment
+            destination configuration that fully replaces the forwarder's
+            base :attr:`Forwarder.configuration` for this environment.
+            ``None`` (the default) inherits the base configuration. As with
+            the base configuration, header values are plaintext on writes
+            and returned redacted on reads — re-supply real values before
+            :meth:`Forwarder.save`.
+    """
+
+    enabled: bool = False
+    configuration: HttpConfiguration | None = None
+
+    @classmethod
+    def _from_dict(cls, raw: dict[str, Any]) -> "ForwarderEnvironment":
+        cfg = raw.get("configuration")
+        return cls(
+            enabled=bool(raw.get("enabled", False)),
+            configuration=HttpConfiguration._from_dict(cfg) if cfg else None,
+        )
+
+
 class Forwarder:
     """A SIEM streaming forwarder configured on the customer's account.
 
@@ -243,8 +284,17 @@ class Forwarder:
         name (str): Display name. Free-form.
         forwarder_type (ForwarderType): Destination type — see
             :class:`ForwarderType`.
-        enabled (bool): When ``False``, the audit service skips delivery for
-            this forwarder but still records ``filtered_out`` deliveries.
+        enabled (bool): Read-only. Always ``False`` — the base enablement
+            is pinned off. Whether a forwarder actually delivers is decided
+            per environment via :attr:`environments`; mutating this field
+            has no effect on the server.
+        environments (dict[str, ForwarderEnvironment]): Per-environment
+            overrides keyed by environment key (e.g. ``"production"``,
+            ``"staging"``). A forwarder delivers in an environment only when
+            ``environments[env].enabled`` is ``True``. Each entry may carry
+            an optional :class:`HttpConfiguration` override; omit it to
+            inherit the base :attr:`configuration`. Every referenced
+            environment must exist and be managed for the account.
         configuration (HttpConfiguration): Destination request configuration.
         description (str | None): Optional free-text description.
         filter (dict[str, Any] | None): Optional JSON Logic expression
@@ -274,7 +324,8 @@ class Forwarder:
         name: str,
         forwarder_type: ForwarderType,
         configuration: HttpConfiguration,
-        enabled: bool = True,
+        enabled: bool = False,
+        environments: dict[str, ForwarderEnvironment] | None = None,
         description: str | None = None,
         filter: dict[str, Any] | None = None,
         transform: Any = None,
@@ -288,7 +339,11 @@ class Forwarder:
         self.name = name
         self.forwarder_type = forwarder_type
         self.configuration = configuration
+        # ``enabled`` is server-pinned false; we keep the attribute so reads
+        # round-trip the server value, but enablement is driven by
+        # ``environments`` (see the class docstring).
         self.enabled = enabled
+        self.environments: dict[str, ForwarderEnvironment] = environments if environments is not None else {}
         self.description = description
         self.filter = filter
         self.transform = transform
@@ -300,7 +355,8 @@ class Forwarder:
         self._client = client
 
     def __repr__(self) -> str:
-        return f"Forwarder(id={self.id!r}, name={self.name!r}, enabled={self.enabled!r})"
+        enabled_envs = sorted(k for k, v in self.environments.items() if v.enabled)
+        return f"Forwarder(id={self.id!r}, name={self.name!r}, enabled_in={enabled_envs!r})"
 
     def save(self) -> None:
         """Create or update this forwarder on the server.
@@ -332,6 +388,7 @@ class Forwarder:
         self.forwarder_type = other.forwarder_type
         self.configuration = other.configuration
         self.enabled = other.enabled
+        self.environments = other.environments
         self.description = other.description
         self.filter = other.filter
         self.transform = other.transform
@@ -345,6 +402,10 @@ class Forwarder:
     def _from_resource(cls, resource: dict[str, Any], *, client: ForwardersClient | None = None) -> Forwarder:
         attrs = resource.get("attributes", {})
         tt_raw = attrs.get("transform_type")
+        environments = {
+            env_key: ForwarderEnvironment._from_dict(env_raw or {})
+            for env_key, env_raw in (attrs.get("environments") or {}).items()
+        }
         return cls(
             client,
             id=resource["id"],
@@ -353,7 +414,11 @@ class Forwarder:
             # we still pass through ForwarderType() so callers get a
             # typed value (and identity-equality with enum members).
             forwarder_type=ForwarderType(attrs["forwarder_type"]),
-            enabled=bool(attrs.get("enabled", True)),
+            # The base ``enabled`` is server-pinned false; round-trip
+            # whatever the server returned (always false) without assuming a
+            # default of true.
+            enabled=bool(attrs.get("enabled", False)),
+            environments=environments,
             description=attrs.get("description"),
             filter=attrs.get("filter"),
             transform=attrs.get("transform"),

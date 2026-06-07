@@ -325,6 +325,14 @@ def _team_key_generation_check(
         _team_key_generation.get("required_params"),
     )
 
+    # Field-level opt-in: non-admin members may only assign access groups when
+    # the team has enabled KEY_ACCESS_GROUP_ASSIGNMENT.
+    TeamMemberPermissionChecks.enforce_member_can_assign_access_groups(
+        user_api_key_dict=user_api_key_dict,
+        team_table=team_table,
+        access_group_ids=data.access_group_ids,
+    )
+
     return True
 
 
@@ -847,10 +855,13 @@ async def _common_key_generation_helper(  # noqa: PLR0915
         data_json.pop("tags")
 
     # Validate MCP servers in object_permission are within team scope
-    await validate_key_mcp_servers_against_team(
+    normalized_object_permission = await validate_key_mcp_servers_against_team(
         object_permission=data_json.get("object_permission"),
         team_obj=team_table,
+        prisma_client=prisma_client,
     )
+    if normalized_object_permission is not None:
+        data_json["object_permission"] = normalized_object_permission
     await validate_key_search_tools_against_team(
         object_permission=data_json.get("object_permission"),
         team_obj=team_table,
@@ -2131,7 +2142,7 @@ async def _validate_mcp_servers_for_key_update(
     existing_key_row: Any,
     prisma_client: Any,
     user_api_key_cache: Any,
-) -> None:
+) -> Optional[dict]:
     """Validate MCP servers in object_permission against the effective team."""
     effective_team_obj = team_obj
     # If team_id isn't being changed, resolve the existing key's team
@@ -2145,18 +2156,20 @@ async def _validate_mcp_servers_for_key_update(
     object_permission_dict: Optional[dict] = None
     if data.object_permission is not None:
         object_permission_dict = (
-            data.object_permission.model_dump()
+            data.object_permission.model_dump(exclude_unset=True)
             if hasattr(data.object_permission, "model_dump")
             else dict(data.object_permission)  # type: ignore[arg-type]
         )
-    await validate_key_mcp_servers_against_team(
+    normalized_object_permission = await validate_key_mcp_servers_against_team(
         object_permission=object_permission_dict,
         team_obj=effective_team_obj,
+        prisma_client=prisma_client,
     )
     await validate_key_search_tools_against_team(
         object_permission=object_permission_dict,
         team_obj=effective_team_obj,
     )
+    return normalized_object_permission
 
 
 async def _validate_update_key_data(
@@ -2281,6 +2294,14 @@ async def _validate_update_key_data(
                 detail=f"Team not found for team_id={data.team_id}. Non-admin users cannot set keys to non-existent teams.",
             )
 
+        # Field-level opt-in: non-admin members may only assign access groups when
+        # the team has enabled KEY_ACCESS_GROUP_ASSIGNMENT.
+        TeamMemberPermissionChecks.enforce_member_can_assign_access_groups(
+            user_api_key_dict=user_api_key_dict,
+            team_table=team_obj,
+            access_group_ids=data.access_group_ids,
+        )
+
         if team_obj is not None:
             await _check_team_key_limits(
                 team_table=team_obj,
@@ -2369,13 +2390,17 @@ async def _validate_update_key_data(
 
     # Validate MCP servers in object_permission against the effective team
     if data.object_permission is not None:
-        await _validate_mcp_servers_for_key_update(
+        normalized_object_permission = await _validate_mcp_servers_for_key_update(
             data=data,
             team_obj=team_obj,
             existing_key_row=existing_key_row,
             prisma_client=prisma_client,
             user_api_key_cache=user_api_key_cache,
         )
+        if normalized_object_permission is not None:
+            data.object_permission = LiteLLM_ObjectPermissionBase(
+                **normalized_object_permission
+            )
 
 
 @router.post(
@@ -4519,6 +4544,23 @@ async def regenerate_key_fn(  # noqa: PLR0915
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"error": "You are not authorized to regenerate this key"},
+            )
+
+        # Gate access_group_ids on regenerate, same as /key/generate and
+        # /key/update. Use the existing key's team since the body may omit it.
+        if data is not None and data.access_group_ids:
+            regenerate_team_table: Optional[LiteLLM_TeamTableCachedObj] = None
+            if _key_in_db.team_id is not None:
+                regenerate_team_table = await get_team_object(
+                    team_id=_key_in_db.team_id,
+                    prisma_client=prisma_client,
+                    user_api_key_cache=user_api_key_cache,
+                    check_db_only=True,
+                )
+            TeamMemberPermissionChecks.enforce_member_can_assign_access_groups(
+                user_api_key_dict=user_api_key_dict,
+                team_table=regenerate_team_table,
+                access_group_ids=data.access_group_ids,
             )
 
         verbose_proxy_logger.info(

@@ -714,34 +714,6 @@ cdef void png_composite_uint16(
                 j += 1
 
 
-cdef int _png_colortype(photometric):
-    """Return color_type value from photometric argument."""
-    if photometric is None:
-        return -1
-    if isinstance(photometric, int):
-        if photometric not in {
-            -1,
-            PNG_COLOR_TYPE_GRAY,
-            PNG_COLOR_TYPE_GRAY_ALPHA,
-            PNG_COLOR_TYPE_RGB,
-            PNG_COLOR_TYPE_RGB_ALPHA,
-        }:
-            raise ValueError(f'{photometric=!r} not supported')
-        return photometric
-    photometric = photometric.upper()
-    if photometric == 'RGB':
-        return PNG_COLOR_TYPE_RGB
-    if photometric == 'RGB_ALPHA':
-        return PNG_COLOR_TYPE_RGB_ALPHA
-    if photometric == 'GRAY_ALPHA':
-        return PNG_COLOR_TYPE_GRAY_ALPHA
-    if photometric in {
-        'GRAY', 'BLACKISZERO', 'MINISBLACK', 'WHITEISZERO', 'MINISWHITE'
-    }:
-        return PNG_COLOR_TYPE_GRAY
-    raise ValueError(f'{photometric=!r} not supported')
-
-
 cdef void png_error_callback(
     png_structp png_ptr,
     png_const_charp msg,

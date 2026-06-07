@@ -17,7 +17,8 @@ from mycli.packages.interactive_utils import confirm_destructive_query
 from mycli.packages.sql_utils import is_destructive
 
 if TYPE_CHECKING:
-    from mycli.main import CliArgs, MyCli
+    from mycli.client import MyCli
+    from mycli.main import CliArgs
 
 
 class CheckpointReplayError(Exception):

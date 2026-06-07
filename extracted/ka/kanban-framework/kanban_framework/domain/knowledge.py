@@ -74,7 +74,7 @@ class KnowledgeManager:
         self._conn.row_factory = sqlite3.Row
         self._conn.text_factory = str  # Fix #212: Chinese garbled on Windows
         self._conn.execute("PRAGMA journal_mode=WAL")
-        self._conn.execute("PRAGMA busy_timeout=3000")  # #315: prevent hang on locked DB
+        self._conn.execute("PRAGMA busy_timeout=10000")  # #536-001: 10s for concurrent writes
         self._chroma_client = None
         self._chroma_collection = None
 
@@ -331,8 +331,9 @@ class KnowledgeManager:
         return self.get_entry(entry_id)
 
     def delete_entry(self, entry_id):
-        self._conn.execute("DELETE FROM entries WHERE id=?", (entry_id,))
+        # Delete FTS first (needs rowid from entries table)
         self._conn.execute("DELETE FROM entries_fts WHERE rowid=(SELECT rowid FROM entries WHERE id=?)", (entry_id,))
+        self._conn.execute("DELETE FROM entries WHERE id=?", (entry_id,))
         self._conn.commit()
         # Synchronous ChromaDB delete to avoid inconsistency window (#480)
         try:

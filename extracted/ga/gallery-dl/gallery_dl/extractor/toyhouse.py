@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2022-2025 Mike Fährmann
+# Copyright 2022-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -51,19 +51,17 @@ class ToyhouseExtractor(Extractor):
         extr = text.extract_from(post)
         return {
             "url": extr(needle, '"'),
-            "date": self.parse_datetime(extr(
-                '</h2>\n            <div class="mb-1">', '<'),
-                "%d %b %Y, %I:%M:%S %p"),
-            "artists": [
-                text.remove_html(artist)
-                for artist in extr(
-                    '<div class="artist-credit">',
-                    '</div>\n                    </div>').split(
-                    '<div class="ar tist-credit">')
+            "date": (v := extr('class="image-credit', "</div")) and
+            self.parse_datetime(
+                v[v.find('mb-1">')+6:], "%d %b %Y, %I:%M:%S %p"),
+            "artists": text.split_html(extr(
+                '<div class="artist-credit',
+                '<div class="image-character'))[1:],
+            "characters": [
+                text.unescape(text.remove_html(v))
+                for v in extr('', '<div class="image-comment').split(
+                    '<div class="mb-1">')[1:]
             ],
-            "characters": text.split_html(extr(
-                '<div class="image-characters',
-                '<div class="image-comments">'))[2:],
         }
 
     def _pagination(self, path):

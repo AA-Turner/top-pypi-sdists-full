@@ -78,7 +78,7 @@ class _8chanThreadExtractor(_8chanExtractor):
 
     def items(self):
         _, board, thread = self.groups
-        tos = self.cache(self.cookies_tos_name, _mem=0)
+        tos = self.cache(self.cookies_tos_name, _key=None)
         self.cookies.set(tos, "1", domain=self.root[8:])
 
         # fetch thread data
@@ -89,7 +89,7 @@ class _8chanThreadExtractor(_8chanExtractor):
         thread["_http_headers"] = {"Referer": url + "html"}
 
         try:
-            self.cookies = self.cache(self.cookies_prepare)
+            self.cookies = self.cache(self.cookies_prepare, _key=None)
         except Exception as exc:
             self.log.debug("Failed to fetch captcha cookies:  %s: %s",
                            exc.__class__.__name__, exc, exc_info=exc)
@@ -118,7 +118,7 @@ class _8chanBoardExtractor(_8chanExtractor):
 
     def items(self):
         _, board, pnum = self.groups
-        tos = self.cache(self.cookies_tos_name)
+        tos = self.cache(self.cookies_tos_name, _key=None)
         self.cookies.set(tos, "1", domain=self.root[8:])
 
         pnum = text.parse_int(pnum, 1)

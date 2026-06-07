@@ -9,7 +9,7 @@
 from .common import Extractor, Message
 from .. import text
 
-BASE_PATTERN = r"(?:https?://)?(?:www\.)?postype\.com"
+BASE_PATTERN = r"(?:https?://)?(?:www\.)?postype\.com(?:/[a-z]{2})?"
 
 
 class PostypeExtractor(Extractor):

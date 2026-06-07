@@ -22,8 +22,9 @@
 
 use crate::estimate::{EstimationError, UnifiedFitResult};
 use crate::inference::predict::{
-    InferenceCovarianceMode, PredictInput, PredictPosteriorMeanResult, PredictResult,
-    PredictUncertaintyOptions, PredictUncertaintyResult, PredictionWithSE,
+    InferenceCovarianceMode, PosteriorMeanOptions, PredictInput, PredictPosteriorMeanResult,
+    PredictResult, PredictUncertaintyOptions, PredictUncertaintyResult, PredictionWithSE,
+    family_observation_band,
 };
 use crate::types::ResponseFamily;
 use ndarray::Array1;
@@ -54,6 +55,17 @@ impl ResponseBounds {
     /// [`ResponseFamily::mean_clamp_bounds`].
     pub fn for_family(response: &ResponseFamily) -> Self {
         Self(response.mean_clamp_bounds())
+    }
+
+    /// The clamp applied to the **observation (prediction) interval** of a
+    /// [`ResponseFamily`], matching [`ResponseFamily::response_support_bounds`].
+    ///
+    /// Distinct from [`Self::for_family`] (the *mean*-interval clamp): the
+    /// observation band is the symmetric `μ ± z·σ_pred`, which crosses the
+    /// support floor for a small fitted mean even when the mean-interval clamp
+    /// is `None`. See [`ResponseFamily::response_support_bounds`].
+    pub fn response_support(response: &ResponseFamily) -> Self {
+        Self(response.response_support_bounds())
     }
 
     /// Clamp a single value into the support, leaving it untouched when the
@@ -234,6 +246,10 @@ impl EtaInterval {
 pub struct ObservationInterval<'a> {
     /// Per-row response-scale noise standard deviation.
     pub noise_sd: &'a Array1<f64>,
+    /// Response-support clamp applied to the predictive band `μ ± z·σ` so it
+    /// cannot report values outside the family support. [`ResponseBounds::UNBOUNDED`]
+    /// for real-line responses (the band is passed through unchanged).
+    pub bounds: ResponseBounds,
 }
 
 /// Static metadata threaded into every [`PredictUncertaintyResult`].
@@ -274,7 +290,14 @@ pub fn assemble_uncertainty_result(
     let (observation_lower, observation_upper) = match observation {
         Some(obs) => {
             let half = obs.noise_sd.mapv(|s| z * s);
-            (Some(&mean - &half), Some(&mean + &half))
+            let mut lower = &mean - &half;
+            let mut upper = &mean + &half;
+            // The predictive band must lie within the response support; a
+            // symmetric band on a bounded/half-bounded response otherwise
+            // reports impossible values (a count band going negative).
+            obs.bounds.clamp_in_place(&mut lower);
+            obs.bounds.clamp_in_place(&mut upper);
+            (Some(lower), Some(upper))
         }
         None => (None, None),
     };
@@ -473,6 +496,12 @@ pub trait PredictionTransform {
     /// Response-scale support `[lo, hi]` clamp.
     fn bounds(&self) -> ResponseBounds;
 
+    /// The response distribution family. Used by the generic posterior-mean
+    /// driver to build the per-family observation (prediction) interval via
+    /// [`family_observation_band`]; families without a closed-form conditional
+    /// response variance (`RoystonParmar`) simply yield no observation columns.
+    fn response_family(&self) -> ResponseFamily;
+
     /// Optional response-scale observation-noise σ for the requested batch.
     /// `None` (the default) for families without an observation-scale noise
     /// term. Only consulted by the full-uncertainty driver and only when the
@@ -561,9 +590,14 @@ pub fn predict_full_uncertainty_generic<T: PredictionTransform>(
         mean_se.clone(),
         eta_interval_for(&policy),
         mean_bound_method_for(transform, &policy, &response_map, &mean_se),
-        observation
-            .as_ref()
-            .map(|noise_sd| ObservationInterval { noise_sd }),
+        observation.as_ref().map(|noise_sd| ObservationInterval {
+            noise_sd,
+            // The transform's response-scale support is exactly the clamp the
+            // observation band must respect (unbounded for the Gaussian
+            // location-scale identity link, `[0, 1]` for threshold-scale
+            // probability families).
+            bounds: transform.bounds(),
+        }),
         UncertaintyProvenance {
             covariance_mode_requested: options.covariance_mode,
             covariance_corrected_used,
@@ -579,33 +613,98 @@ pub fn predict_posterior_mean_generic<T: PredictionTransform>(
     transform: &T,
     input: &PredictInput,
     fit: &UnifiedFitResult,
-    confidence_level: Option<f64>,
+    options: &PosteriorMeanOptions,
 ) -> Result<PredictPosteriorMeanResult, EstimationError> {
+    // POINT: the posterior-mean pass always integrates the *conditional*
+    // posterior, so the reported point is invariant to the uncertainty request
+    // (issue #398). `covariance_mode` only shapes the uncertainty attached below.
     let state = transform.linear_state(
         input,
         fit,
         PredictPass::PosteriorMean,
         InferenceCovarianceMode::Conditional,
     )?;
-    let eta_se = state
-        .eta_se
-        .unwrap_or_else(|| Array1::zeros(state.eta.len()));
     let policy = transform.response_jacobian_rows(PredictPass::PosteriorMean);
-    let mean_se = state.mean_se.clone().unwrap_or_else(|| eta_se.clone());
-    let response_map = move |eta: &Array1<f64>| transform.response(eta);
+    let cond_eta_se = state
+        .eta_se
+        .clone()
+        .unwrap_or_else(|| Array1::zeros(state.eta.len()));
+    let cond_mean_se = state.mean_se.clone().unwrap_or_else(|| cond_eta_se.clone());
     let mut result = PredictPosteriorMeanResult {
         eta: state.eta,
-        eta_standard_error: eta_se,
+        eta_standard_error: cond_eta_se.clone(),
         mean: state.mean,
         mean_lower: None,
         mean_upper: None,
+        observation_lower: None,
+        observation_upper: None,
     };
-    assemble_posterior_mean_bounds(
-        &mut result,
-        confidence_level,
-        eta_interval_for(&policy),
-        mean_bound_method_for(transform, &policy, &response_map, &mean_se),
-    )?;
+
+    let Some(level) = options.confidence_level else {
+        return Ok(result);
+    };
+
+    // UNCERTAINTY: the reported SE / credible bounds / observation band honour
+    // `covariance_mode` (issues #811/#812: this path previously hardwired the
+    // conditional covariance). When a smoothing mode is requested and the fit
+    // actually carries a smoothing-corrected covariance, re-derive the SEs from
+    // the full-uncertainty pass (which selects the corrected backend) while
+    // keeping the posterior-mean point above. Otherwise the conditional SEs from
+    // the posterior pass are already correct, so we avoid the extra work and stay
+    // bitwise-identical to the prior behaviour.
+    let smoothing_requested = !matches!(
+        options.covariance_mode,
+        InferenceCovarianceMode::Conditional
+    );
+    let (eta_se, mean_se) = if smoothing_requested && fit.beta_covariance_corrected().is_some() {
+        match transform.linear_state(
+            input,
+            fit,
+            PredictPass::FullUncertainty,
+            options.covariance_mode,
+        ) {
+            Ok(unc) => (
+                unc.eta_se.unwrap_or(cond_eta_se),
+                unc.mean_se.unwrap_or(cond_mean_se),
+            ),
+            // The corrected backend could not be formed for this transform; fall
+            // back to the conditional SEs rather than failing the prediction
+            // (matches the `*Preferred` covariance-mode semantics).
+            Err(_) => (cond_eta_se, cond_mean_se),
+        }
+    } else {
+        (cond_eta_se, cond_mean_se)
+    };
+    result.eta_standard_error = eta_se;
+
+    {
+        let response_map = |eta: &Array1<f64>| transform.response(eta);
+        assemble_posterior_mean_bounds(
+            &mut result,
+            Some(level),
+            eta_interval_for(&policy),
+            mean_bound_method_for(transform, &policy, &response_map, &mean_se),
+        )?;
+    }
+
+    if options.include_observation_interval {
+        let z = validated_central_z(level)?;
+        let z_row = Array1::from_elem(result.eta.len(), z);
+        let etavar = result.eta_standard_error.mapv(|s| s * s);
+        let (obs_lower, obs_upper) = family_observation_band(
+            &transform.response_family(),
+            &result.eta,
+            &etavar,
+            &result.mean,
+            &mean_se,
+            &z_row,
+            &z_row,
+            fit,
+        );
+        result.observation_lower = obs_lower;
+        result.observation_upper = obs_upper;
+    }
+
     Ok(result)
 }
 
@@ -784,7 +883,10 @@ mod parity_tests {
             eta_se.clone(),
             EtaInterval::Symmetric,
             MeanBoundMethod::IdentityEta,
-            Some(ObservationInterval { noise_sd: &sigma }),
+            Some(ObservationInterval {
+                noise_sd: &sigma,
+                bounds: ResponseBounds::UNBOUNDED,
+            }),
             UncertaintyProvenance {
                 covariance_mode_requested: InferenceCovarianceMode::Conditional,
                 covariance_corrected_used: false,
@@ -869,6 +971,8 @@ mod parity_tests {
             mean: mean.clone(),
             mean_lower: None,
             mean_upper: None,
+            observation_lower: None,
+            observation_upper: None,
         };
         assemble_posterior_mean_bounds(
             &mut none_result,
@@ -895,6 +999,8 @@ mod parity_tests {
             mean: mean.clone(),
             mean_lower: None,
             mean_upper: None,
+            observation_lower: None,
+            observation_upper: None,
         };
         assemble_posterior_mean_bounds(
             &mut some_result,

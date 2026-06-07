@@ -15,11 +15,57 @@ membership AND revokes its sessions, so access is lost immediately.
 
 from __future__ import annotations
 
+import logging
+import re as _re
 import secrets as _secrets
 from dataclasses import dataclass
 from typing import Any
 
 from dazzle.back.runtime.auth.enterprise_login import map_groups_to_roles
+
+_logger = logging.getLogger(__name__)
+
+_MEMBER_VALUE_FILTER = _re.compile(r'members\[\s*value\s+eq\s+"([^"]+)"\s*\]', _re.IGNORECASE)
+
+
+def parse_group_patch(body: dict[str, Any]) -> list[tuple[str, Any]]:
+    """Parse a SCIM PATCH body into concrete ``(op, arg)`` tuples (#1342).
+
+    Supports the forms Okta/Entra send (not a general SCIM path-filter engine):
+    ``add_members`` (list), ``remove_member`` (one id via ``members[value eq "id"]``),
+    ``replace_members`` (list; ``path:members`` remove-all → empty list), ``rename``
+    (str; ``displayName`` path or the no-path ``value`` dict form). Unknown ops are
+    skipped — the route returns the resource unchanged (SCIM-lenient).
+    """
+    ops: list[tuple[str, Any]] = []
+    for op in body.get("Operations", []) or []:
+        kind = str(op.get("op", "")).lower()
+        path = op.get("path")
+        value = op.get("value")
+        if kind == "add" and path == "members":
+            ops.append(("add_members", [m["value"] for m in (value or []) if "value" in m]))
+        elif kind == "remove" and isinstance(path, str):
+            m = _MEMBER_VALUE_FILTER.fullmatch(path.strip())
+            if m:
+                ops.append(("remove_member", m.group(1)))
+            elif path == "members":
+                ops.append(("replace_members", []))  # remove all
+        elif kind == "replace" and path == "members":
+            ops.append(("replace_members", [m["value"] for m in (value or []) if "value" in m]))
+        elif kind in ("add", "replace") and path == "displayName":
+            ops.append(("rename", str(value)))
+        elif kind in ("add", "replace") and path is None and isinstance(value, dict):
+            if "displayName" in value:
+                ops.append(("rename", str(value["displayName"])))
+            if "members" in value:
+                ops.append(
+                    (
+                        "replace_members",
+                        [m["value"] for m in (value["members"] or []) if "value" in m],
+                    )
+                )
+        # else: unknown op — skip
+    return ops
 
 
 class ScimError(RuntimeError):
@@ -30,6 +76,150 @@ class ScimError(RuntimeError):
     def __init__(self, reason: str, message: str = "") -> None:
         super().__init__(message or reason)
         self.reason = reason
+
+
+def recompute_membership_roles(store: Any, connection: Any, membership_id: str) -> None:
+    """Set a membership's roles to ``map_groups_to_roles`` over the union of ALL
+    its (this-connection) SCIM groups — the single source of truth for
+    group-derived roles (#1342). Idempotent; correct for multi-group de-escalation
+    (a role granted by another group survives removal from one)."""
+    membership = store.get_membership(membership_id)
+    # Org-containment chokepoint: NEVER touch a membership outside this
+    # connection's org. This is the single defense for every caller — a PATCH
+    # `remove`/`replace` op can carry an attacker-chosen membership id, and
+    # without this guard recompute would zero a cross-org member's roles
+    # (get_member_group_names returns [] for a foreign membership → roles []).
+    if membership is None or membership.tenant_id != connection.tenant_id:
+        return
+    names = store.get_member_group_names(membership_id, connection.id)
+    roles = map_groups_to_roles(names, connection.group_mapping or {})
+    if set(roles) != set(membership.roles or []):
+        store.update_membership_roles(membership_id, roles, reason="SCIM group sync")
+
+
+class SCIMGroupError(Exception):
+    """A SCIM Group op error → mapped to a SCIM HTTP status by the route.
+
+    ``status`` is the HTTP code (400 invalid, 404 not-found, 409 uniqueness).
+    """
+
+    def __init__(self, reason: str, message: str = "", status: int = 400) -> None:
+        self.reason = reason
+        self.status = status
+        super().__init__(message or reason)
+
+
+def _raise_if_duplicate(exc: Exception, display_name: str) -> None:
+    """Translate a DB unique-constraint hit into a 409 SCIMGroupError.
+
+    The list_scim_groups pre-check is not atomic with the INSERT/UPDATE, so two
+    concurrent IdP pushes (Okta/Entra parallelise group sync) can both pass the
+    check and the loser then trips the ``UNIQUE (connection_id, display_name)``
+    constraint. Map that to a SCIM 409 instead of letting psycopg's
+    UniqueViolation propagate as an unhandled 500.
+    """
+    import psycopg
+
+    if isinstance(exc, psycopg.errors.UniqueViolation):
+        raise SCIMGroupError("uniqueness", f"group {display_name!r} already exists", 409) from exc
+
+
+def _require_member_in_org(store: Any, connection: Any, membership_id: str) -> Any:
+    """A membership by id, but only if it's in this connection's org (else raise)."""
+    m = store.get_membership(membership_id)
+    if m is None or m.tenant_id != connection.tenant_id:
+        raise SCIMGroupError("invalid_member", f"member {membership_id!r} not in this org", 400)
+    return m
+
+
+def create_group(store: Any, connection: Any, display_name: str, member_ids: list[str]) -> Any:
+    if not display_name:
+        raise SCIMGroupError("invalid_value", "displayName is required", 400)
+    for mid in member_ids:
+        _require_member_in_org(store, connection, mid)
+    if store.list_scim_groups(connection.id, display_name=display_name):
+        raise SCIMGroupError("uniqueness", f"group {display_name!r} already exists", 409)
+    try:
+        group = store.create_scim_group(connection.id, display_name)
+    except Exception as exc:
+        _raise_if_duplicate(exc, display_name)
+        raise
+    for mid in member_ids:
+        store.add_group_member(group.id, mid)
+        recompute_membership_roles(store, connection, mid)
+    return group
+
+
+def get_group(store: Any, connection: Any, group_id: str) -> Any:
+    group = store.get_scim_group(group_id, connection.id)
+    if group is None:
+        raise SCIMGroupError("not_found", f"no group {group_id!r}", 404)
+    return group
+
+
+def list_groups(store: Any, connection: Any, display_name: str | None = None) -> Any:
+    return store.list_scim_groups(connection.id, display_name=display_name)
+
+
+def rename_group(store: Any, connection: Any, group_id: str, display_name: str) -> Any:
+    group = get_group(store, connection, group_id)
+    if display_name and display_name != group.display_name:
+        if store.list_scim_groups(connection.id, display_name=display_name):
+            raise SCIMGroupError("uniqueness", f"group {display_name!r} already exists", 409)
+        mapping = connection.group_mapping or {}
+        # Roles are keyed by display_name, so a rename re-derives every member's
+        # roles from the NEW name. If the new name isn't in the mapping but the
+        # old one was, the rename will strip the mapped role from every member —
+        # correct (the mapping is stale) but worth a loud warning, since an
+        # operator-driven rename should be paired with a group_mapping update.
+        if group.display_name in mapping and display_name not in mapping:
+            _logger.warning(
+                "SCIM group rename %r -> %r drops mapped role %r for all members "
+                "(update connection.group_mapping to the new name to retain it)",
+                group.display_name,
+                display_name,
+                mapping[group.display_name],
+            )
+        try:
+            store.rename_scim_group(group_id, connection.id, display_name)
+        except Exception as exc:
+            _raise_if_duplicate(exc, display_name)
+            raise
+        for mid in store.get_group_member_ids(group_id):
+            recompute_membership_roles(store, connection, mid)
+    return store.get_scim_group(group_id, connection.id)
+
+
+def delete_group(store: Any, connection: Any, group_id: str) -> None:
+    get_group(store, connection, group_id)  # 404 if absent / wrong org
+    member_ids = store.get_group_member_ids(group_id)
+    store.delete_scim_group(group_id, connection.id)  # cascades scim_group_members
+    for mid in member_ids:
+        recompute_membership_roles(store, connection, mid)
+
+
+def set_group_members(store: Any, connection: Any, group_id: str, member_ids: list[str]) -> None:
+    get_group(store, connection, group_id)
+    for mid in member_ids:
+        _require_member_in_org(store, connection, mid)
+    affected = set(store.get_group_member_ids(group_id)) | set(member_ids)
+    store.replace_group_members(group_id, member_ids)
+    for mid in affected:
+        recompute_membership_roles(store, connection, mid)
+
+
+def add_group_members(store: Any, connection: Any, group_id: str, member_ids: list[str]) -> None:
+    get_group(store, connection, group_id)
+    for mid in member_ids:
+        _require_member_in_org(store, connection, mid)
+        store.add_group_member(group_id, mid)
+        recompute_membership_roles(store, connection, mid)
+
+
+def remove_group_member(store: Any, connection: Any, group_id: str, member_id: str) -> None:
+    get_group(store, connection, group_id)
+    store.remove_group_member(group_id, member_id)
+    recompute_membership_roles(store, connection, member_id)
 
 
 @dataclass(frozen=True)
@@ -91,26 +281,30 @@ def provision_scim_user(
         store.mark_email_verified(str(user.id))
 
     identity_id = str(user.id)
-    roles = map_groups_to_roles(groups or [], connection.group_mapping or {})
+    # #1342: group→role is owned by the /Groups endpoint (RFC 7643 treats
+    # User.groups as server-managed/read-only). The `groups` arg is accepted for
+    # compatibility but no longer drives roles — group-derived roles come solely
+    # from persisted SCIM group memberships (recompute_membership_roles).
+    if groups:
+        _logger.debug(
+            "SCIM User `groups` attribute is informational (use /Groups for roles): %s",
+            groups,
+        )
     membership = _membership_in_org(store, identity_id, connection.tenant_id)
 
     if membership is None:
         membership = store.create_membership(
             tenant_id=connection.tenant_id,
             identity_id=identity_id,
-            roles=roles,
+            roles=[],  # /Groups assigns group-derived roles
             reason="SCIM provision",
         )
         if not active:
             store.suspend_membership(membership.id, reason="SCIM provisioned inactive")
         return ScimResult(identity_id, membership.id, active)
 
-    # Existing membership — sync roles + active state. The IdP is authoritative, so an
-    # empty target set (the user was removed from all mapped groups) MUST revoke the
-    # last roles — do NOT guard on `roles` being truthy, or de-escalation-to-zero would
-    # silently leave the old (possibly admin) roles in place.
-    if set(roles) != set(membership.roles or []):
-        store.update_membership_roles(membership.id, roles, reason="SCIM role sync")
+    # Existing membership — sync only active state. Roles are owned by the /Groups
+    # endpoint; do NOT overwrite them from the (informational) `groups` attribute.
     if active and membership.status == "suspended":
         store.reactivate_membership(membership.id, reason="SCIM reactivate")
     elif not active and membership.status == "active":

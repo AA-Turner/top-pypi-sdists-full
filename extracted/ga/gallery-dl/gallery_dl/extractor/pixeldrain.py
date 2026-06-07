@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2023-2025 Mike Fährmann
+# Copyright 2023-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -11,7 +11,7 @@
 from .common import Extractor, Message
 from .. import text, util
 
-BASE_PATTERN = r"(?:https?://)?pixeldrain\.com"
+BASE_PATTERN = r"(?:https?://)?pixeldrain\.(?:com|net)"
 
 
 class PixeldrainExtractor(Extractor):

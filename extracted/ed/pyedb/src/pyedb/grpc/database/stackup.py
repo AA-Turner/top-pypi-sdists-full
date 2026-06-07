@@ -47,7 +47,6 @@ from ansys.edb.core.hierarchy.cell_instance import CellInstance as CoreCellInsta
 from ansys.edb.core.hierarchy.component_group import ComponentType as CoreComponentType
 from ansys.edb.core.layer.layer import (
     Layer as _CoreLayer,
-    LayerType as CoreLayerType,
     TopBottomAssociation as CoreTopBottomAssociation,
 )
 from ansys.edb.core.layer.layer_collection import (
@@ -59,7 +58,7 @@ from ansys.edb.core.layer.stackup_layer import StackupLayer as CoreStackupLayer
 from ansys.edb.core.layout.mcad_model import McadModel as CoreMcadModel
 import numpy as np
 
-# Monkey-patch ansys-edb-core Layer.cast to gracefully handle null layer objects.
+# Cast to gracefully handle null layer objects.
 # On Linux, get_layers() may return null layer objects that cause an
 # InvalidArgumentException when cast() tries to determine the layer type.
 _original_layer_cast = _CoreLayer.cast
@@ -160,14 +159,19 @@ class LayerCollection:
         if "thickness" in kwargs:
             thickness = self._pedb._value_setter(kwargs["thickness"])
         elevation = 0.0
+        if "type" in kwargs:
+            layer_type = kwargs["type"]
+        material = kwargs.get("material", "copper")
         layer = StackupLayer.create(
             layout=self._pedb.layout,
             name=name,
             layer_type=layer_type,
             thickness=thickness,
-            material="copper",
+            material=material,
             elevation=elevation,
         )
+        if "fill_material" in kwargs:
+            layer.core.set_fill_material(kwargs["fill_material"])
         return self.core.add_layer_top(layer.core)
 
     def add_layer_bottom(self, name: str, layer_type: str = "signal", **kwargs) -> Union["Layer", None]:
@@ -269,6 +273,8 @@ class LayerCollection:
             material=material,
             elevation=elevation,
         )
+        if "fill_material" in kwargs:
+            layer.core.set_fill_material(kwargs["fill_material"])
         return self.core.add_layer_below(layer.core, base_layer_name)
 
     def add_layer_above(
@@ -882,9 +888,8 @@ class Stackup:
         >>> edb = Edb()
         >>> outline_layer = edb.stackup.add_document_layer("Outline", layer_type="outline")
         """
-        added_layer = self.add_layer_top(name)
-        added_layer.type = CoreLayerType.USER_LAYER
-        return added_layer
+        self._create_nonstackup_layer(name, layer_type)
+        return self.non_stackup_layers.get(name)
 
     @deprecate_argument_name({"fillMaterial": "filling_material"})
     def add_layer(
@@ -1555,7 +1560,7 @@ class Stackup:
             edb_cell = list_cells[0]
         self._pedb.active_cell.is_blackbox = True
         cell_inst2 = CoreCellInstance.create(
-            layout=edb_cell.layout, name=self._pedb.active_cell.name, ref=self._pedb.active_layout
+            layout=edb_cell.layout, name=self._pedb.active_cell.name, ref=self._pedb.active_layout.core
         )
         cell_trans = cell_inst2.transform
         cell_trans.rotation = _angle

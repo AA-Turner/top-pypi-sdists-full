@@ -25,8 +25,8 @@ class EventRequest:
             'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', 'actor_label': 'alice@example.com', 'actor_type': 'USER', 'category':
             'auth', 'created_at': '2026-05-06T20:00:00.123Z', 'data': {'request_id': 'req-abc', 'snapshot': {'email':
             'alice@example.com'}}, 'description': 'Alice signed up via the marketing site.', 'do_not_forward': False,
-            'event_type': 'user.created', 'idempotency_key': 'auto-1234abcd', 'occurred_at': '2026-05-06T20:00:00Z',
-            'resource_id': 'u-1', 'resource_type': 'user', 'severity': 'INFO'}, 'id':
+            'environment': 'production', 'event_type': 'user.created', 'idempotency_key': 'auto-1234abcd', 'occurred_at':
+            '2026-05-06T20:00:00Z', 'resource_id': 'u-1', 'resource_type': 'user', 'severity': 'INFO'}, 'id':
             '11111111-2222-3333-4444-555555555555', 'type': 'event'}.
     """
 

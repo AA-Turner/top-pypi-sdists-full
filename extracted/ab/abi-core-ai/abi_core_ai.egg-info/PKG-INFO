@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: abi-core-ai
-Version: 1.12.52
+Version: 1.12.53
 Summary: Agent-Based Infrastructure Core - Runtime and CLI
 Author-email: José Luis Martínez Abundiz <jl.mrtz@gmail.com>
 License-Expression: Apache-2.0
@@ -43,6 +43,7 @@ Requires-Dist: mcp-toolbox>=0.1.7
 Requires-Dist: networkx>=3.6.0
 Requires-Dist: numpy>=2.4.0
 Requires-Dist: redis>=7.4.0
+Requires-Dist: agent-memory-client>=0.3.0
 Requires-Dist: tinydb>=4.8.0
 Requires-Dist: psutil>=7.2.0
 Requires-Dist: boto3>=1.35.0

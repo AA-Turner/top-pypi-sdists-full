@@ -57,6 +57,22 @@ class SPNG:
         GA16 = SPNG_FMT_GA16
         G8 = SPNG_FMT_G8
 
+    class FILTER(enum.IntEnum):  # IntFlag
+        """SPNG codec filter choices."""
+
+        NO = SPNG_DISABLE_FILTERING
+        NONE = SPNG_FILTER_CHOICE_NONE
+        SUB = SPNG_FILTER_CHOICE_SUB
+        UP = SPNG_FILTER_CHOICE_UP
+        AVG = SPNG_FILTER_CHOICE_AVG
+        PAETH = SPNG_FILTER_CHOICE_PAETH
+        ALL = SPNG_FILTER_CHOICE_ALL
+        FAST = (
+            SPNG_FILTER_CHOICE_NONE |
+            SPNG_FILTER_CHOICE_SUB |
+            SPNG_FILTER_CHOICE_UP
+        )
+
 
 class SpngError(RuntimeError):
     """SPNG codec exceptions."""
@@ -96,6 +112,7 @@ def spng_encode(
     /,
     level=None,
     *,
+    filter=None,
     out=None,
 ):
     """Return PNG encoded image."""
@@ -107,6 +124,15 @@ def spng_encode(
         int clevel = _default_value(level, -1, -1, 9)
         int err = 0
         int flags = 0
+        int filter_choice = _enum_value(
+            filter,
+            SPNG.FILTER,
+            (
+                SPNG_FILTER_CHOICE_NONE |
+                SPNG_FILTER_CHOICE_SUB |
+                SPNG_FILTER_CHOICE_UP
+            )
+        )
         size_t output_size
         void* output = NULL
         spng_ctx* ctx = NULL
@@ -185,6 +211,10 @@ def spng_encode(
                 raise SpngError('spng_set_option', err)
 
             err = spng_set_option(ctx, SPNG_ENCODE_TO_BUFFER, 1)
+            if err != SPNG_OK:
+                raise SpngError('spng_set_option', err)
+
+            err = spng_set_option(ctx, SPNG_FILTER_CHOICE, filter_choice)
             if err != SPNG_OK:
                 raise SpngError('spng_set_option', err)
 

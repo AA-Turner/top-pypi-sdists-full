@@ -127,10 +127,10 @@ class Configuration:
         --------
         Retrieve an existing component and modify its solder-ball geometry:
 
-        >>> cfg = edb.configuration.create_config_builder()
-        >>> u1 = cfg.components.get("U1")  # looks up U1 from EDB
-        >>> u1.set_solder_ball_properties("cylinder", "150um", "100um")
-        >>> edb.configuration.run(cfg)
+        cfg = edb.configuration.create_config_builder()
+        u1 = cfg.components.get("U1")  # looks up U1 from EDB
+        u1.set_solder_ball_properties("cylinder", "150um", "100um")
+        edb.configuration.run(cfg)
 
         Traditional workflow (creating new component entries) still works:
 
@@ -174,10 +174,10 @@ class Configuration:
         --------
         Pass a :class:`~pyedb.configuration.cfg_data.CfgData` directly:
 
-        >>> from pyedb.configuration.cfg_data import CfgData
-        >>> cfg = CfgData()
-        >>> cfg.general.anti_pads_always_on = False
-        >>> edb.configuration.load(cfg, apply_file=True)
+        from pyedb.configuration.cfg_data import CfgData
+        cfg = CfgData()
+        cfg.general.anti_pads_always_on = False
+        edb.configuration.load(cfg, apply_file=True)
 
         """
         # Accept CfgData directly – convert to dict transparently.
@@ -240,11 +240,11 @@ class Configuration:
         --------
         Pass a builder directly — no ``load`` call needed:
 
-        >>> from pyedb.configuration.cfg_data import CfgData
-        >>> cfg = CfgData()
-        >>> cfg.general.anti_pads_always_on = False
-        >>> cfg.nets.add_signal_nets(["SIG1", "CLK"])
-        >>> edb.configuration.run(cfg)
+        from pyedb.configuration.cfg_data import CfgData
+        cfg = CfgData()
+        cfg.general.anti_pads_always_on = False
+        cfg.nets.add_signal_nets(["SIG1", "CLK"])
+        edb.configuration.run(cfg)
 
         Use the existing workflow unchanged:
 
@@ -291,7 +291,9 @@ class Configuration:
         self.__apply_with_logging("Applying package definitions", self.cfg_data.package_definitions.apply)
         self.__apply_with_logging("Applying modeler", self.apply_modeler)
         self.__apply_with_logging("Placing ports", self.cfg_data.ports.apply)
+        self._pedb.layout.use_cache = True
         self.apply_terminals()
+        self._pedb.layout.use_cache = False
         self.__apply_with_logging("Placing probes", self.cfg_data.probes.apply)
         self.apply_operations()
         self.apply_setups()
@@ -842,7 +844,7 @@ class Configuration:
         layers_ = list()
         layers_.extend(self.cfg_data.stackup.layers)
         for l_attrs in layers_:
-            attrs = l_attrs.model_dump(exclude_none=True, by_alias=True)
+            attrs = l_attrs.model_dump(exclude_none=True, by_alias=False)
             self._pedb.stackup.add_layer_bottom(**attrs)
 
     def __update_stackup(self):
@@ -880,7 +882,7 @@ class Configuration:
             if l.type == "signal":
                 layer_id = lc_signal_layers[signal_idx]
                 layer_name = id_name[layer_id]
-                attrs = l.model_dump(exclude_none=True, by_alias=True)
+                attrs = l.model_dump(exclude_none=True, by_alias=False)
                 self._pedb.stackup.layers[layer_name].update(**attrs)
                 signal_idx = signal_idx + 1
 
@@ -890,11 +892,11 @@ class Configuration:
         if l.type == "signal":
             prev_layer_clone = self._pedb.stackup.layers[l.name]
         else:
-            attrs = l.model_dump(exclude_none=True, by_alias=True)
+            attrs = l.model_dump(exclude_none=True, by_alias=False)
             prev_layer_clone = self._pedb.stackup.add_layer_top(**attrs)
         for idx, l in enumerate(layers):
             if l.type == "dielectric":
-                attrs = l.model_dump(exclude_none=True, by_alias=True)
+                attrs = l.model_dump(exclude_none=True, by_alias=False)
                 prev_layer_clone = self._pedb.stackup.add_layer_below(base_layer_name=prev_layer_clone.name, **attrs)
             elif l.type == "signal":
                 prev_layer_clone = self._pedb.stackup.layers[l.name]
@@ -1197,7 +1199,7 @@ class Configuration:
                     phase=i.source_phase,
                     terminal_to_ground=SourceTermMapper.get(i.terminal_to_ground, as_grpc=settings.is_grpc),
                     reference_terminal=i.reference_terminal.name if i.reference_terminal else None,
-                    hfss_type=i.hfss_type if i.hfss_type else "Wave",
+                    hfss_type=i.hfss_type if i.hfss_type else "Gap",
                 )
             elif i.terminal_type == TerminalTypeMapper.get("PinGroupTerminal", as_grpc=settings.is_grpc):
                 manager.add_pin_group_terminal(
@@ -1297,7 +1299,7 @@ class Configuration:
             data["sources"] = self.cfg_data.sources.get_data_from_db()
         if kwargs.get("ports", False):
             data["ports"] = self.cfg_data.ports.get_data_from_db()
-        if kwargs.get("components", False) or kwargs.get("s_parameters", False):
+        if kwargs.get("components", False) or kwargs.get("s_parameters", False) or kwargs.get("spice_models", False):
             self.cfg_data.components.retrieve_parameters_from_edb()
             components = []
             for i in self.cfg_data.components.components:
@@ -1307,8 +1309,10 @@ class Configuration:
 
             if kwargs.get("components", False):
                 data["components"] = components
-            elif kwargs.get("s_parameters", False):
+            if kwargs.get("s_parameters", False):
                 data["s_parameters"] = self.cfg_data.s_parameters.get_data_from_db(components)
+            if kwargs.get("spice_models", False):
+                data["spice_models"] = self.cfg_data.spice_models.get_data_from_db(components)
         if kwargs.get("nets", False):
             data["nets"] = self.cfg_data.nets.get_data_from_db()
         if kwargs.get("pin_groups", False):
@@ -1342,6 +1346,7 @@ class Configuration:
         general=True,
         variables=True,
         terminals=False,
+        spice_models=True,
     ):
         """Export the configuration data from layout to a file.
 
@@ -1379,6 +1384,10 @@ class Configuration:
             Whether to export variable.
         terminals : bool
             Whether to export terminals. Alternative to ports and sources.
+        spice_models : bool
+            Whether to export SPICE model assignments grouped by component
+            definition (top-level ``spice_models`` section). Default is
+            ``True``.
         Returns
         -------
         bool
@@ -1400,6 +1409,7 @@ class Configuration:
             general=general,
             variables=variables,
             terminals=terminals,
+            spice_models=spice_models,
         )
 
         file_path = file_path if isinstance(file_path, Path) else Path(file_path)

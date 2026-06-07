@@ -21,15 +21,14 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from .._geotiff_fixtures import write_minimal_tiff
-
 import xrspatial.geotiff as geotiff_pkg
 from xrspatial.geotiff import (ConflictingCRSError, GeoTIFFAmbiguousMetadataError,
-                               MixedBandMetadataError, _runtime)
+                               MixedBandMetadataError, _read_geotiff_dask, _read_vrt, _runtime)
 from xrspatial.geotiff import _validation as _validation_mod
-from xrspatial.geotiff import open_geotiff, read_geotiff_dask, read_vrt, to_geotiff
-from xrspatial.geotiff._attrs import (_ATTRS_CONTRACT_VERSION, GeoTIFFMetadata, _resolve_nodata_attr,
-                                      attrs_to_metadata, geo_info_to_metadata, metadata_to_attrs)
+from xrspatial.geotiff import open_geotiff, to_geotiff
+from xrspatial.geotiff._attrs import (_ATTRS_CONTRACT_VERSION, GeoTIFFMetadata,
+                                      _resolve_nodata_attr, attrs_to_metadata, geo_info_to_metadata,
+                                      metadata_to_attrs)
 from xrspatial.geotiff._errors import (ConflictingNodataError, InvalidCRSCodeError,
                                        NonUniformCoordsError, RotatedTransformError,
                                        UnparseableCRSError)
@@ -46,6 +45,8 @@ from xrspatial.geotiff._validation import (_check_read_rotated_transform,
                                            unregister_write_metadata_check, validate_read_metadata,
                                            validate_write_metadata)
 from xrspatial.geotiff._writer import write
+
+from .._geotiff_fixtures import write_minimal_tiff
 
 # =============================================================================
 # Section: Ambiguous metadata hooks
@@ -1099,7 +1100,7 @@ class TestIntegerNodataPromotion_1484:
         path = str(tmp_path / 'u16_nodata_1484.tif')
         write(arr, path, nodata=65535, compression='none', tiled=False)
 
-        da = open_geotiff(path)
+        da = open_geotiff(path, masked=True)
         assert da.dtype == np.float64
         assert np.isnan(da.values[1, 0])
         np.testing.assert_array_equal(
@@ -1112,7 +1113,7 @@ class TestIntegerNodataPromotion_1484:
         path = str(tmp_path / 'u16_nodata_cast_1484.tif')
         write(arr, path, nodata=65535, compression='none', tiled=False)
         with pytest.raises(ValueError, match='float.*int'):
-            open_geotiff(path, dtype='uint16')
+            open_geotiff(path, dtype='uint16', masked=True)
 
     def test_uint16_no_nodata_keeps_dtype(self, tmp_path):
         arr = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.uint16)
@@ -1253,7 +1254,7 @@ def _wrap_2d_1987(arr):
 def test_read_vrt_rejects_mixed_per_band_nodata_1987(tmp_path):
     vrt_path = _write_mixed_band_vrt_1987(tmp_path)
     with pytest.raises(MixedBandMetadataError) as exc_info:
-        read_vrt(vrt_path)
+        _read_vrt(vrt_path)
     msg = str(exc_info.value)
     assert "65535" in msg and "65000" in msg
     assert "band_nodata='first'" in msg
@@ -1263,24 +1264,24 @@ def test_read_vrt_rejects_mixed_per_band_nodata_1987(tmp_path):
 def test_read_vrt_chunked_rejects_mixed_per_band_nodata_1987(tmp_path):
     vrt_path = _write_mixed_band_vrt_1987(tmp_path)
     with pytest.raises(MixedBandMetadataError):
-        read_vrt(vrt_path, chunks=1)
+        _read_vrt(vrt_path, chunks=1)
 
 
 def test_read_vrt_band_nodata_first_opts_back_in_1987(tmp_path):
     vrt_path = _write_mixed_band_vrt_1987(tmp_path)
-    r = read_vrt(vrt_path, band_nodata='first')
+    r = _read_vrt(vrt_path, band_nodata='first')
     assert r.attrs.get('nodata') == 65535.0
 
 
 def test_read_vrt_shared_sentinel_accepts_1987(tmp_path):
     vrt_path = _write_shared_sentinel_vrt_1987(tmp_path)
-    r = read_vrt(vrt_path)
+    r = _read_vrt(vrt_path)
     assert r.attrs.get('nodata') == 65535.0
 
 
 def test_read_vrt_only_one_band_declares_sentinel_accepts_1987(tmp_path):
     vrt_path = _write_one_band_no_sentinel_vrt_1987(tmp_path)
-    read_vrt(vrt_path)
+    _read_vrt(vrt_path)
 
 
 def test_open_geotiff_propagates_mixed_band_rejection_1987(tmp_path):
@@ -1297,7 +1298,7 @@ def test_open_geotiff_band_nodata_first_passes_through_1987(tmp_path):
 
 def test_read_geotiff_dask_band_nodata_first_passes_through_1987(tmp_path):
     vrt_path = _write_mixed_band_vrt_1987(tmp_path)
-    r = read_geotiff_dask(vrt_path, chunks=1, band_nodata='first')
+    r = _read_geotiff_dask(vrt_path, chunks=1, band_nodata='first')
     assert r.attrs.get('nodata') == 65535.0
 
 
@@ -1316,19 +1317,19 @@ def test_read_geotiff_dask_band_nodata_rejected_on_non_vrt_source_1987(tmp_path)
     p = tmp_path / 'plain.tif'
     to_geotiff(arr_da, str(p), compression='none', tiled=False)
     with pytest.raises(ValueError, match="band_nodata only applies to VRT"):
-        read_geotiff_dask(str(p), chunks=1, band_nodata='first')
+        _read_geotiff_dask(str(p), chunks=1, band_nodata='first')
 
 
 def test_mixed_band_metadata_error_subclasses_base_1987(tmp_path):
     vrt_path = _write_mixed_band_vrt_1987(tmp_path)
     with pytest.raises(GeoTIFFAmbiguousMetadataError):
-        read_vrt(vrt_path)
+        _read_vrt(vrt_path)
 
 
 def test_read_vrt_band_nodata_rejects_unknown_value_1987(tmp_path):
     vrt_path = _write_mixed_band_vrt_1987(tmp_path)
     with pytest.raises(ValueError, match="band_nodata must be None or 'first'"):
-        read_vrt(vrt_path, band_nodata='firs')
+        _read_vrt(vrt_path, band_nodata='firs')
 
 
 def test_open_geotiff_band_nodata_rejects_unknown_value_1987(tmp_path):
@@ -1340,7 +1341,7 @@ def test_open_geotiff_band_nodata_rejects_unknown_value_1987(tmp_path):
 def test_read_geotiff_dask_band_nodata_rejects_unknown_value_1987(tmp_path):
     vrt_path = _write_mixed_band_vrt_1987(tmp_path)
     with pytest.raises(ValueError, match="band_nodata must be None or 'first'"):
-        read_geotiff_dask(vrt_path, chunks=1, band_nodata='banana')
+        _read_geotiff_dask(vrt_path, chunks=1, band_nodata='banana')
 
 # ===========================================================================
 # Runtime sentinels identity contract (#1880)
@@ -1443,7 +1444,6 @@ def _da(*, coords=None, attrs=None, shape=(4, 4)):
 
 
 def _write_minimal_tiff_with_wkt(path: str, wkt: str) -> None:
-    ascii_buf = bytearray((wkt + '|').encode('ascii'))
     gkd = [1, 1, 0, 1, 1026, 34737, len(wkt) + 1, 0]
     write_minimal_tiff(path, geokeys=gkd, geo_ascii=wkt)
 

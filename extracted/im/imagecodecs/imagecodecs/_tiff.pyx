@@ -93,7 +93,7 @@ class _TIFF:
         LZW = COMPRESSION_LZW
         JPEG = COMPRESSION_JPEG
         PACKBITS = COMPRESSION_PACKBITS
-        DEFLATE = COMPRESSION_DEFLATE
+        DEFLATE = COMPRESSION_DEFLATE  # maps to COMPRESSION_ADOBE_DEFLATE
         ADOBE_DEFLATE = COMPRESSION_ADOBE_DEFLATE
         LZMA = COMPRESSION_LZMA
         ZSTD = COMPRESSION_ZSTD
@@ -146,6 +146,13 @@ class _TIFF:
         NONE = RESUNIT_NONE
         INCH = RESUNIT_INCH
         CENTIMETER = RESUNIT_CENTIMETER
+
+    class SUBCODEC(enum.IntEnum):
+        """TIFF codec LERC additional compression schemes."""
+
+        NONE = LERC_ADD_COMPRESSION_NONE
+        DEFLATE = LERC_ADD_COMPRESSION_DEFLATE
+        ZSTD = LERC_ADD_COMPRESSION_ZSTD
 
 
 class TiffError(RuntimeError):
@@ -325,56 +332,34 @@ def tiff_encode(
         else:
             compression_ = COMPRESSION_ADOBE_DEFLATE
             level_ = _default_value(level, 6, 0, 12)
-    elif compression in {
-        COMPRESSION_DEFLATE, COMPRESSION_ADOBE_DEFLATE, 'deflate',
-    }:
-        compression_ = COMPRESSION_ADOBE_DEFLATE
-        level_ = _default_value(level, 6, -1, 12)
-    elif compression in {COMPRESSION_ZSTD, 'zstd'}:
-        compression_ = COMPRESSION_ZSTD
-        level_ = _default_value(level, 3, -1, 22)  # ZSTD_CLEVEL_DEFAULT = 3
-    elif compression in {COMPRESSION_LZW, 'lzw'}:
-        compression_ = COMPRESSION_LZW
-    elif compression in {COMPRESSION_JPEG, 'jpeg'}:
-        compression_ = COMPRESSION_JPEG
-        level_ = _default_value(level, 95, -1, 100)
-    elif compression in {COMPRESSION_WEBP, 'webp'}:
-        compression_ = COMPRESSION_WEBP
-        level_ = _default_value(level, 100, -1, 100)
-    elif compression in {COMPRESSION_LZMA, 'lzma'}:
-        compression_ = COMPRESSION_LZMA
-        level_ = _default_value(level, 6, -1, 9)
-    elif compression in {COMPRESSION_PACKBITS, 'packbits'}:
-        compression_ = COMPRESSION_PACKBITS
-    elif compression in {COMPRESSION_LERC, 'lerc'}:
-        compression_ = COMPRESSION_LERC
-        maxzerror = _default_value(level, 0.0, 0.0, None)
-        if subcodec is None:
-            subcodec_ = LERC_ADD_COMPRESSION_NONE
-        elif subcodec in {LERC_ADD_COMPRESSION_ZSTD, 'zstd'}:
-            subcodec_ = LERC_ADD_COMPRESSION_ZSTD
-            level_ = 3  # ZSTD_CLEVEL_DEFAULT
-        elif subcodec in {LERC_ADD_COMPRESSION_DEFLATE, 'deflate'}:
-            subcodec_ = LERC_ADD_COMPRESSION_DEFLATE
-            level_ = 6  # Z_DEFAULT_COMPRESSION
-        else:
-            raise ValueError(f'{subcodec=} not supported')
-    elif compression in {COMPRESSION_CCITTRLE, 'ccittrle'}:
-        compression_ = COMPRESSION_CCITTRLE
-    elif compression in {COMPRESSION_CCITTFAX3, 'ccittfax3'}:
-        compression_ = COMPRESSION_CCITTFAX3
-    elif compression in {COMPRESSION_CCITTFAX4, 'ccittfax4'}:
-        compression_ = COMPRESSION_CCITTFAX4
-    elif compression in {COMPRESSION_PIXARLOG, 'pixarlog'}:
-        compression_ = COMPRESSION_PIXARLOG
-        level_ = _default_value(level, 6, -1, 12)
-    # elif compression in {COMPRESSION_JXL, 'jxl'}:
-    #     compression_ = COMPRESSION_JXL
-
-    elif compression in {COMPRESSION_NONE, 'none'}:
-        compression_ = COMPRESSION_NONE
     else:
-        raise ValueError(f'{compression=} not supported')
+        compression_ = _enum_value(compression, _TIFF.COMPRESSION)
+        if compression_ == COMPRESSION_DEFLATE:
+            compression_ = COMPRESSION_ADOBE_DEFLATE  # normalize alias
+        # not elif: catches alias
+        if compression_ == COMPRESSION_ADOBE_DEFLATE:
+            level_ = _default_value(level, 6, -1, 12)
+        elif compression_ == COMPRESSION_ZSTD:
+            level_ = _default_value(level, 3, -1, 22)  # ZSTD_CLEVEL_DEFAULT=3
+        elif compression_ == COMPRESSION_JPEG:
+            level_ = _default_value(level, 95, -1, 100)
+        elif compression_ == COMPRESSION_WEBP:
+            level_ = _default_value(level, 100, -1, 100)
+        elif compression_ == COMPRESSION_LZMA:
+            level_ = _default_value(level, 6, -1, 9)
+        elif compression_ == COMPRESSION_LERC:
+            maxzerror = _default_value(level, 0.0, 0.0, None)
+            subcodec_ = _enum_value(
+                subcodec, _TIFF.SUBCODEC, LERC_ADD_COMPRESSION_NONE
+            )
+            if subcodec_ == LERC_ADD_COMPRESSION_ZSTD:
+                level_ = 3  # ZSTD_CLEVEL_DEFAULT
+            elif subcodec_ == LERC_ADD_COMPRESSION_DEFLATE:
+                level_ = 6  # Z_DEFAULT_COMPRESSION
+        elif compression_ == COMPRESSION_PIXARLOG:
+            level_ = _default_value(level, 6, -1, 12)
+        # elif compression_ == COMPRESSION_JXL:
+        #     pass
 
     if predictor is None:
         pass
@@ -384,72 +369,32 @@ def tiff_encode(
                 predictor_ = PREDICTOR_HORIZONTAL
             else:
                 predictor_ = PREDICTOR_FLOATINGPOINT
-    elif predictor in {PREDICTOR_HORIZONTAL, 'horizontal'}:
-        predictor_ = PREDICTOR_HORIZONTAL
-    elif predictor in {PREDICTOR_FLOATINGPOINT, 'floatingpoint'}:
-        predictor_ = PREDICTOR_FLOATINGPOINT
     else:
-        raise ValueError(f'{predictor=} not supported')
+        predictor_ = _enum_value(predictor, _TIFF.PREDICTOR)
 
     if resolution is not None:
         xresolution, yresolution = resolution
         resolutionunit_ = RESUNIT_INCH
 
-    if resolutionunit is None:
-        pass
-    elif resolutionunit in {RESUNIT_INCH, 'inch'}:
-        resolutionunit_ = RESUNIT_INCH
-    elif resolutionunit in {RESUNIT_CENTIMETER, 'cm'}:
-        resolutionunit_ = RESUNIT_CENTIMETER
-    elif resolutionunit in {RESUNIT_NONE, 'none'}:
-        resolutionunit_ = RESUNIT_NONE
-    else:
-        raise ValueError(f'{resolutionunit=} not supported')
+    resolutionunit_ = _enum_value(
+        resolutionunit, _TIFF.RESUNIT, resolutionunit_
+    )
 
-    if extrasample is None:
-        pass
-    elif extrasample in {EXTRASAMPLE_ASSOCALPHA, 'assocalpha'}:
-        extrasample_ = EXTRASAMPLE_ASSOCALPHA
-    elif extrasample in {EXTRASAMPLE_UNASSALPHA, 'unassalpha'}:
-        extrasample_ = EXTRASAMPLE_UNASSALPHA
-    elif extrasample in {EXTRASAMPLE_UNSPECIFIED, 'unspecified'}:
-        extrasample_ = EXTRASAMPLE_UNSPECIFIED
-    else:
-        raise ValueError(f'{extrasample=!r} not supported')
+    planarconfig_ = _enum_value(
+        planarconfig, _TIFF.PLANARCONFIG, planarconfig_
+    )
 
-    if planarconfig is None:
-        pass
-    elif planarconfig in {PLANARCONFIG_SEPARATE, 'separate'}:
-        planarconfig_ = PLANARCONFIG_SEPARATE
-    elif planarconfig in {PLANARCONFIG_CONTIG, 'contig'}:
-        planarconfig_ = PLANARCONFIG_CONTIG
-    else:
-        raise ValueError(f'{planarconfig=!r} not supported')
+    extrasample_ = _enum_value(extrasample, _TIFF.EXTRASAMPLE, extrasample_)
 
     if photometric is None:
         if colormap is not None:
             photometric_ = PHOTOMETRIC_PALETTE
-    elif photometric in {PHOTOMETRIC_RGB, 'rgb'}:
-        photometric_ = PHOTOMETRIC_RGB
-        photometric_samples = 3
-    elif photometric in {PHOTOMETRIC_MINISBLACK, 'minisblack'}:
-        photometric_ = PHOTOMETRIC_MINISBLACK
-    elif photometric in {PHOTOMETRIC_MINISWHITE, 'miniswhite'}:
-        photometric_ = PHOTOMETRIC_MINISWHITE
-    elif photometric in {PHOTOMETRIC_SEPARATED, 'separated'}:
-        photometric_ = PHOTOMETRIC_SEPARATED
-        photometric_samples = 4
-    elif photometric in {PHOTOMETRIC_YCBCR, 'ycbcr'}:
-        photometric_ = PHOTOMETRIC_YCBCR
-        photometric_samples = 3
-    elif photometric in {PHOTOMETRIC_PALETTE, 'palette'}:
-        photometric_ = PHOTOMETRIC_PALETTE
-        if extrasample is not None:
-            raise ValueError('palette image with extrasamples not supported')
     else:
-        raise ValueError(f'{photometric=!r} not supported')
+        photometric_ = _enum_value(photometric, _TIFF.PHOTOMETRIC)
 
     if photometric_ == PHOTOMETRIC_PALETTE:
+        if extrasample is not None:
+            raise ValueError('palette image with extrasamples not supported')
         if colormap is None:
             raise ValueError('palette image requires colormap')
         if src.dtype.kind != 'u':

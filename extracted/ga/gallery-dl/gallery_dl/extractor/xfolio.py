@@ -23,14 +23,16 @@ class XfolioExtractor(Extractor):
     filename_fmt = "{work_id}_{image_id}.{extension}"
     archive_fmt = "{work_id}_{image_id}"
     request_interval = (0.5, 1.5)
+    _warning = True
 
     def _init(self):
-        XfolioExtractor._init = Extractor._init
         if self.cookies_check(("xfolio_session",)):
             self._logged_in = True
         else:
-            self.log.error("'xfolio_session' cookie required")
             self._logged_in = False
+            if self._warning:
+                XfolioExtractor._warning = False
+                self.log.error("'xfolio_session' cookie required")
 
     def items(self):
         data = {"_extractor": XfolioWorkExtractor}
@@ -106,7 +108,7 @@ class XfolioWorkExtractor(XfolioExtractor):
                        f"&type=work_image")
                 headers = {"Referer": (
                     f"{self.root}/fullscale_image"
-                    f"?image_id={image_id}&work_id={work_id}")},
+                    f"?image_id={image_id}&work_id={work_id}")}
             elif url := text.extr(img, ' src="', '"'):
                 image_id = url.split("/", 5)[-2]
                 url = text.unescape(url)

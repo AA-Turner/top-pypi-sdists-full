@@ -3041,7 +3041,7 @@ class Geocif:
         # for this region. Stale forecasts (target month already observed)
         # are pruned in _prune_stale_forecast_rows before pivot.
         force_include = self.parser.getboolean(
-            "ML", "force_include_forecast_cids", fallback=True
+            "ML", "force_include_forecast_cids", fallback=False
         )
         keep_fldas = force_include and ("all" in self.use_cids or "FLDAS" in self.use_cids)
         keep_s2s = force_include and ("all" in self.use_cids or "S2S" in self.use_cids)

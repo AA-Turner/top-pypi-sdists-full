@@ -4,7 +4,7 @@ https://github.com/amoffat/sh
 """
 
 # ===============================================================================
-# Copyright (C) 2011-2025 by Andrew Moffat
+# Copyright (C) 2011-2026 by Andrew Moffat
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -1075,7 +1075,7 @@ def tty_in_validator(passed_kwargs, merged_kwargs):
     for tty_type, std in pairs:
         if tty_type in passed_kwargs and ob_is_tty(passed_kwargs.get(std, None)):
             error = (
-                f"`_{std}` is a TTY already, so so it doesn't make sense to set up a"
+                f"`_{std}` is a TTY already, so it doesn't make sense to set up a"
                 f" TTY with `_{tty_type}`"
             )
             invalid.append(((tty_type, std), error))
@@ -1299,6 +1299,8 @@ class Command:
 
         # is the command baked (aka, partially applied)?
         self._partial = False
+        # each entry is a (args_tuple, kwargs_dict) from one bake() call;
+        # compilation into strings is deferred until __call__ or __str__
         self._partial_baked_args = []
         self._partial_call_args = {}
 
@@ -1382,25 +1384,90 @@ class Command:
 
         call_args, kwargs = self._extract_call_args(kwargs)
 
+        # Copy the existing call args and baked args
         fn._partial_call_args.update(self._partial_call_args)
-        fn._partial_call_args.update(call_args)
         fn._partial_baked_args.extend(self._partial_baked_args)
-        sep = call_args.get("long_sep", self._call_args["long_sep"])
-        prefix = call_args.get("long_prefix", self._call_args["long_prefix"])
-        fn._partial_baked_args.extend(compile_args(args, kwargs, sep, prefix))
+
+        fn._partial_call_args.update(call_args)
+
+        # Store the raw args/kwargs as a new layer; compilation is deferred to
+        # __call__ (and __str__) so that boolean overrides across bake layers
+        # can be resolved without string scanning
+        if args or kwargs:
+            fn._partial_baked_args.append((args, kwargs))
+
         return fn
 
+    def _compile_baked_args(
+        self, extra_args=(), extra_kwargs=None, sep=None, prefix=None
+    ):
+        """Compile all baked arg layers plus any extra args/kwargs into a flat
+        list of strings.
+
+        Layers are processed in order (oldest bake first, call-time args last).
+        Boolean override rule: if a layer has ``key=True`` and any *later* layer
+        has the same ``key=False``, that ``True`` entry is suppressed. ``False``
+        values are always silently dropped by ``_aggregate_keywords``, so they
+        act purely as override signals with no output of their own.
+        """
+        if extra_kwargs is None:
+            extra_kwargs = {}
+        if sep is None:
+            sep = self._partial_call_args.get("long_sep", self._call_args["long_sep"])
+        if prefix is None:
+            prefix = self._partial_call_args.get(
+                "long_prefix", self._call_args["long_prefix"]
+            )
+
+        all_layers = list(self._partial_baked_args)
+        if extra_args or extra_kwargs:
+            all_layers.append((extra_args, extra_kwargs))
+
+        # Index: for each kwarg key, the earliest layer index where its value
+        # is False.  A True in layer i is suppressed iff first_false[key] > i,
+        # i.e. a False override exists somewhere after that layer.  Building
+        # this index in one O(L*K) pass eliminates the inner per-key scan.
+        first_false: dict = {}
+        for i, (_, layer_kwargs) in enumerate(all_layers):
+            for k, v in layer_kwargs.items():
+                if v is False and k not in first_false:
+                    first_false[k] = i
+
+        result = []
+        for i, (layer_args, layer_kwargs) in enumerate(all_layers):
+            filtered_kwargs = {}
+            for k, v in layer_kwargs.items():
+                if v is True and k in first_false and first_false[k] > i:
+                    continue
+                filtered_kwargs[k] = v
+
+            result.extend(
+                compile_args(
+                    args=layer_args,
+                    kwargs=filtered_kwargs,
+                    sep=sep,
+                    prefix=prefix,
+                )
+            )
+
+        return result
+
     def __str__(self):
-        baked_args = " ".join(self._partial_baked_args)
-        if baked_args:
-            baked_args = " " + baked_args
-        return self._path + baked_args
+        if not self._partial_baked_args:
+            return self._path
+        baked_args = " ".join(shlex_quote(arg) for arg in self._compile_baked_args())
+        return f"{self._path} {baked_args}"
 
     def __eq__(self, other):
         return str(self) == str(other)
 
     def __repr__(self):
         return f"<Command {str(self)!r}>"
+
+    # Allow subscripting at runtime (e.g. Command[RunningCommand]) so that
+    # type annotations and cast() calls work without a TypeError.
+    def __class_getitem__(cls, item):
+        return cls
 
     def __enter__(self):
         self(_with=True)
@@ -1468,12 +1535,14 @@ class Command:
             else:
                 stdin = stdin.process._pipe_queue
 
-        processed_args = compile_args(
-            args, kwargs, call_args["long_sep"], call_args["long_prefix"]
+        # compile baked layers and call-time args together, resolving any
+        # boolean overrides (e.g. a baked True suppressed by a called False)
+        split_args = self._compile_baked_args(
+            extra_args=args,
+            extra_kwargs=kwargs,
+            sep=call_args["long_sep"],
+            prefix=call_args["long_prefix"],
         )
-
-        # makes sure our arguments are broken up correctly
-        split_args = self._partial_baked_args + processed_args
 
         final_args = split_args
 
@@ -1515,7 +1584,7 @@ class Command:
             return rc
 
 
-def compile_args(a, kwargs, sep, prefix):
+def compile_args(*, args, kwargs, sep, prefix):
     """takes args and kwargs, as they were passed into the command instance
     being executed with __call__, and compose them into a flat list that
     will eventually be fed into exec.  example:
@@ -1537,7 +1606,7 @@ def compile_args(a, kwargs, sep, prefix):
     processed_args = []
 
     # aggregate positional args
-    for arg in a:
+    for arg in args:
         if isinstance(arg, (list, tuple)):
             if isinstance(arg, GlobResults) and not arg:
                 arg = [arg.path]
@@ -1545,7 +1614,12 @@ def compile_args(a, kwargs, sep, prefix):
             for sub_arg in arg:
                 processed_args.append(sub_arg)
         elif isinstance(arg, dict):
-            processed_args += _aggregate_keywords(arg, sep, prefix, raw=True)
+            processed_args += _aggregate_keywords(
+                kwargs=arg,
+                sep=sep,
+                prefix=prefix,
+                raw=True,
+            )
 
         # see https://github.com/amoffat/sh/issues/522
         elif arg is None or arg is False:
@@ -1554,12 +1628,12 @@ def compile_args(a, kwargs, sep, prefix):
             processed_args.append(str(arg))
 
     # aggregate the keyword arguments
-    processed_args += _aggregate_keywords(kwargs, sep, prefix)
+    processed_args += _aggregate_keywords(kwargs=kwargs, sep=sep, prefix=prefix)
 
     return processed_args
 
 
-def _aggregate_keywords(keywords, sep, prefix, raw=False):
+def _aggregate_keywords(*, kwargs, sep, prefix, raw=False):
     """take our keyword arguments, and a separator, and compose the list of
     flat long (and short) arguments.  example
 
@@ -1596,7 +1670,7 @@ def _aggregate_keywords(keywords, sep, prefix, raw=False):
 
     processed = []
 
-    for k, maybe_list_of_v in keywords.items():
+    for k, maybe_list_of_v in kwargs.items():
         # turn our value(s) into a list of values so that we can process them
         # all individually under the same key
         list_of_v = [maybe_list_of_v]
@@ -2078,7 +2152,7 @@ class OProc:
 
                 if ca["uid"] is not None:
                     os.initgroups(target_name, target_gid)
-
+                    os.setgid(target_gid)
                     os.setuid(target_uid)
 
                 preexec_fn = ca["preexec_fn"]
@@ -2308,7 +2382,11 @@ class OProc:
 
             def timeout_fn():
                 self.timed_out = True
-                self.signal(ca["timeout_signal"])
+                try:
+                    self.signal(ca["timeout_signal"])
+                except ProcessLookupError:
+                    # Edge case: the process probably exited
+                    pass
 
             self._timeout_event = None
             self._timeout_timer = None

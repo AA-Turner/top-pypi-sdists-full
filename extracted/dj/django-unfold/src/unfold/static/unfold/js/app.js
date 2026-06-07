@@ -22,6 +22,25 @@ window.addEventListener("load", (e) => {
 function theme(defaultTheme = "auto") {
 	return {
 		sidebarWidth: localStorage.getItem("sidebarWidth") || 288,
+		sidebarOpen() {
+			if (window.innerWidth <= 1280) {
+				return false;
+			} else {
+				const sidebarOpenValue = localStorage.getItem("sidebarOpen");
+
+				if (sidebarOpenValue === null) {
+					return true;
+				}
+				return sidebarOpenValue !== "0";
+			}
+		},
+		sidebarToggle() {
+			this.sidebarOpen = !this.sidebarOpen;
+
+			if (window.innerWidth > 1280) {
+				localStorage.setItem("sidebarOpen", this.sidebarOpen ? "1" : "0");
+			}
+		},
 		openModal: false,
 		filterOpen: false,
 		openAllApplications: false,
@@ -67,6 +86,14 @@ function theme(defaultTheme = "auto") {
 			this.adminTheme = theme;
 		},
 		themeBindings: {
+			["x-resize.window"]() {
+				if (window.innerWidth <= 1280) {
+					this.sidebarOpen = false;
+				} else {
+					this.sidebarOpen =
+						localStorage.getItem("sidebarOpen") === "0" ? false : true;
+				}
+			},
 			["x-bind:class"]() {
 				if (
 					this.adminTheme === "dark" ||
@@ -83,6 +110,16 @@ function theme(defaultTheme = "auto") {
 				return "";
 			},
 			["x-on:keydown.window"](event) {
+				if (
+					event.key === "[" &&
+					document.activeElement.tagName.toLowerCase() !== "input" &&
+					document.activeElement.tagName.toLowerCase() !== "textarea" &&
+					!document.activeElement.isContentEditable
+				) {
+					event.preventDefault();
+					this.sidebarToggle();
+				}
+
 				if ((event.metaKey || event.ctrlKey) && event.key === "e") {
 					event.preventDefault();
 

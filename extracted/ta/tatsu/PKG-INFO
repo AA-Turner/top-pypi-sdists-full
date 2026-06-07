@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: TatSu
-Version: 5.20.0
+Version: 5.21.0
 Summary: TatSu takes a grammar in a variation of EBNF as input, and outputs a memoizing PEG/Packrat parser in Python.
 Project-URL: Homepage, https://github.com/neogeny/TatSu
 Project-URL: Repository, https://github.com/neogeny/TatSu
@@ -81,6 +81,27 @@ Description-Content-Type: text/x-rst
 | |fury| ​ |actions| ​ |docs| ​ |installs| ​ |codspeed|
 | |sponsor|
 |
+
+  **Sibling Projects!**
+
+  Take a look at the sibling projects:
+    * `修TieXiu`_ in `Rust`
+    * `⻰OGoPEGo`_ in `Go`
+    * `꘩TS’emekwes`_ in `TypeScript`
+
+  They are functionally complete and pass all the |TatSu| test suite.
+
+  Some features are implemented differently to abide to the semantics and
+  idioms of each language (features being deprecated in |TatSu| are missing).
+
+  Prepare to be surprised at the performance differences, after thorough
+  optimization, of `Python` versus `Go`, `Rust`, and `TypeScript`.
+
+.. _修TieXiu: https://pypi.org/project/TieXiu/
+.. _`⻰OGoPEGo`: https://pypi.org/project/ogopego/
+.. _`꘩TS’emekwes`: https://github.com/neogeny/tsemekwes
+
+
 
 |TatSu|
 =======

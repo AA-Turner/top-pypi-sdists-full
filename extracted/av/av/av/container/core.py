@@ -391,6 +391,16 @@ class Container:
             raise AssertionError("Container is not open")
 
     @property
+    def video_codec_id(self):
+        self._assert_open()
+        return self.ptr.video_codec_id
+
+    @video_codec_id.setter
+    def video_codec_id(self, value: lib.AVCodecID):
+        self._assert_open()
+        self.ptr.video_codec_id = value
+
+    @property
     def flags(self):
         self._assert_open()
         return self.ptr.flags
@@ -434,6 +444,11 @@ class Container:
 
         with cython.nogil:
             _free_chapters(self.ptr)
+
+        if count == 0:
+            self.ptr.nb_chapters = 0
+            self.ptr.chapters = cython.NULL
+            return
 
         ch_array = cython.cast(
             AVChapterPtrPtr,

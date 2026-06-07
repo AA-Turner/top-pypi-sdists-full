@@ -301,7 +301,7 @@ def jpegxl_encode(
     memset(<void*> &pixel_format, 0, sizeof(JxlPixelFormat))
     memset(<void*> &color_encoding, 0, sizeof(JxlColorEncoding))
 
-    colorspace = _jpegxl_encode_photometric(photometric)
+    colorspace = _enum_value(photometric, JPEGXL.COLOR_SPACE, -1)
 
     is_planar = layout.planar
     if is_planar:
@@ -1238,75 +1238,6 @@ cdef size_t _jpegxl_framecount(JxlDecoder* decoder) noexcept nogil:
 
     JxlDecoderRewind(decoder)
     return framecount
-
-
-cdef int _jpegxl_encode_photometric(photometric):
-    """Return JxlColorSpace value from photometric argument."""
-    if photometric is None:
-        return -1
-    if isinstance(photometric, int):
-        if photometric not in {
-            -1,
-            JXL_COLOR_SPACE_RGB,
-            JXL_COLOR_SPACE_GRAY,
-            JXL_COLOR_SPACE_XYB,
-            JXL_COLOR_SPACE_UNKNOWN
-        }:
-            raise ValueError(f'{photometric=!r} not supported')
-        return photometric
-    photometric = photometric.upper()
-    if photometric[:3] == 'RGB':
-        return JXL_COLOR_SPACE_RGB
-    if photometric in {'WHITEISZERO', 'MINISWHITE'}:
-        return JXL_COLOR_SPACE_GRAY
-    if photometric in {'BLACKISZERO', 'MINISBLACK', 'GRAY'}:
-        return JXL_COLOR_SPACE_GRAY
-    if photometric == 'XYB':
-        return JXL_COLOR_SPACE_XYB
-    if photometric == 'UNKNOWN':
-        return JXL_COLOR_SPACE_UNKNOWN
-    raise ValueError(f'{photometric=!r} not supported')
-
-
-cdef JxlExtraChannelType _jpegxl_encode_extrasamples(extrasample):
-    """Return JxlExtraChannelType from extrasample argument."""
-    if extrasample is None:
-        return JXL_CHANNEL_OPTIONAL
-    if isinstance(extrasample, int):
-        # if extrasample not in {
-        #     -1,
-        #     JXL_CHANNEL_ALPHA
-        #     JXL_CHANNEL_DEPTH
-        #     JXL_CHANNEL_SPOT_COLOR
-        #     JXL_CHANNEL_SELECTION_MASK
-        #     JXL_CHANNEL_BLACK
-        #     JXL_CHANNEL_CFA
-        #     JXL_CHANNEL_THERMAL
-        #     JXL_CHANNEL_UNKNOWN
-        #     JXL_CHANNEL_OPTIONAL
-        # }:
-        #     raise ValueError('ExtraChannelType not supported')
-        return extrasample
-    extrasample = extrasample.upper()
-    if extrasample == 'ALPHA':
-        return JXL_CHANNEL_ALPHA
-    if extrasample == 'OPTIONAL':
-        return JXL_CHANNEL_OPTIONAL
-    if extrasample == 'UNKNOWN':
-        return JXL_CHANNEL_UNKNOWN
-    if extrasample == 'DEPTH':
-        return JXL_CHANNEL_DEPTH
-    if extrasample == 'SPOT_COLOR':
-        return JXL_CHANNEL_SPOT_COLOR
-    if extrasample == 'SELECTION_MASK':
-        return JXL_CHANNEL_SELECTION_MASK
-    if extrasample == 'BLACK':
-        return JXL_CHANNEL_BLACK
-    if extrasample == 'CFA':
-        return JXL_CHANNEL_CFA
-    if extrasample == 'THERMAL':
-        return JXL_CHANNEL_THERMAL
-    raise ValueError(f'ExtraChannelType {extrasample!r} not supported')
 
 
 ctypedef struct output_t:

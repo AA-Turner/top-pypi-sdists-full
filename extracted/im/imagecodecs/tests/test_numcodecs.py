@@ -41,20 +41,9 @@ import pytest
 from conftest import datafiles
 from numpy.testing import assert_allclose, assert_array_equal
 
-try:
-    import imagecodecs
-except ImportError:
-    pytest.skip('imagecodecs not found', allow_module_level=True)
-
-try:
-    import zarr
-except ImportError:
-    pytest.skip('zarr not found', allow_module_level=True)
-
-try:
-    from imagecodecs import numcodecs
-except ImportError:
-    pytest.skip('imagecodecs.numcodecs not found', allow_module_level=True)
+imagecodecs = pytest.importorskip('imagecodecs')
+zarr = pytest.importorskip('zarr')
+numcodecs = pytest.importorskip('imagecodecs.numcodecs')
 
 numcodecs.register_codecs()
 
@@ -223,6 +212,32 @@ def test_dds_numcodecs():
     assert_array_equal(result, expected)
 
 
+@pytest.mark.skipif(not imagecodecs.ZSTD1.available, reason='zstd1 missing')
+def test_zstd1_numcodecs():
+    """Test Zstd1 numcodecs codec."""
+    data = numpy.arange(256, dtype=numpy.uint16)
+    raw = data.tobytes()
+
+    # lossless roundtrip without shuffle (itemsize=1, hilo auto-disabled)
+    codec = numcodecs.Zstd1()
+    assert codec.decode(codec.encode(raw)) == raw
+
+    # auto hilo=True: itemsize=2 -> hilo enabled automatically
+    codec = numcodecs.Zstd1(itemsize=2)
+    encoded_hilo = codec.encode(raw)
+    assert codec.decode(encoded_hilo) == raw
+    codec_nohilo = numcodecs.Zstd1(itemsize=2, hilo=False)
+    assert encoded_hilo != codec_nohilo.encode(raw)
+
+    # explicit hilo=False override
+    codec = numcodecs.Zstd1(itemsize=2, hilo=False)
+    assert codec.decode(codec.encode(raw)) == raw
+
+    # explicit level
+    codec = numcodecs.Zstd1(level=3)
+    assert codec.decode(codec.encode(raw)) == raw
+
+
 @pytest.mark.skipif(not imagecodecs.EER.available, reason='EER missing')
 def test_eer_numcodecs():
     """Test EER decoding with numcodecs."""
@@ -336,6 +351,7 @@ def test_ccitt_numcodecs(compression):
         'packbits',
         'packints',
         'pcodec',
+        'pcx',
         'pglz',
         'pixarlog',
         'plio',
@@ -349,6 +365,7 @@ def test_ccitt_numcodecs(compression):
         'spng',
         'sz3',
         'szip',
+        'tga',
         'tiff',
         'ultrahdr',
         'wavpack',
@@ -360,6 +377,7 @@ def test_ccitt_numcodecs(compression):
         'zlibng',
         'zopfli',
         'zstd',
+        'zstd1',
     ],
 )
 def test_numcodecs(codec, photometric):
@@ -604,6 +622,8 @@ def test_numcodecs(codec, photometric):
         case 'plio':
             data = data.astype('int32')
             compressor = numcodecs.Plio(shape=chunks, dtype=data.dtype)
+        case 'pcx':
+            compressor = numcodecs.Pcx()
         case 'png':
             compressor = numcodecs.Png()
         case 'qoi':
@@ -654,6 +674,8 @@ def test_numcodecs(codec, photometric):
             compressor = numcodecs.Szip(
                 header=True, **imagecodecs.szip_params(data)
             )
+        case 'tga':
+            compressor = numcodecs.Tga()
         case 'tiff':
             compressor = numcodecs.Tiff(level=6, predictor=True)
         case 'ultrahdr':
@@ -697,6 +719,8 @@ def test_numcodecs(codec, photometric):
             compressor = numcodecs.Zopfli(level=1, blocksplitting=False)
         case 'zstd':
             compressor = numcodecs.Zstd(level=10)
+        case 'zstd1':
+            compressor = numcodecs.Zstd1(level=10)
         case _:
             raise RuntimeError
 

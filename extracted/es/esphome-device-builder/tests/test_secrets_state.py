@@ -11,12 +11,17 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from esphome import yaml_util
+from esphome.core import EsphomeError
 
 from esphome_device_builder.helpers.secrets_state import (
     PLACEHOLDER_WIFI_PASSWORD,
     PLACEHOLDER_WIFI_SSID,
+    SecretsContentError,
     is_wifi_unconfigured,
+    merge_secrets_file,
     read_secrets_yaml,
+    validate_secrets_content,
 )
 
 
@@ -116,6 +121,70 @@ def test_read_secrets_yaml_returns_dict_for_valid_file(tmp_path: Path) -> None:
     assert data["api_key"] == "ABC"
 
 
+def test_validate_secrets_content_rejects_malformed_yaml(tmp_path: Path) -> None:
+    """The issue's no-space-after-colon example raises with line info."""
+    bad = 'wifi_ssid: "myssid"\nwifi_password: "mypassword"\nxx:xxx\na:a\n'
+    with pytest.raises(SecretsContentError) as excinfo:
+        validate_secrets_content(bad, tmp_path / "secrets.yaml")
+    assert "line 4" in str(excinfo.value)
+
+
+def test_validate_secrets_content_rejects_duplicate_keys(tmp_path: Path) -> None:
+    """ESPHome's loader rejects duplicate keys the plain SafeLoader would accept."""
+    with pytest.raises(SecretsContentError, match="Duplicate key"):
+        validate_secrets_content("wifi_ssid: a\nwifi_ssid: b\n", tmp_path / "secrets.yaml")
+
+
+def test_validate_secrets_content_rejects_non_mapping_top_level(tmp_path: Path) -> None:
+    """A list or scalar top level isn't the dict ``!secret`` lookups expect."""
+    secrets = tmp_path / "secrets.yaml"
+    with pytest.raises(SecretsContentError, match="mapping"):
+        validate_secrets_content("- a\n- b\n", secrets)
+    with pytest.raises(SecretsContentError, match="mapping"):
+        validate_secrets_content("just a scalar\n", secrets)
+
+
+def test_validate_secrets_content_accepts_valid_mapping(tmp_path: Path) -> None:
+    validate_secrets_content("wifi_ssid: home\nwifi_password: secret\n", tmp_path / "secrets.yaml")
+
+
+def test_validate_secrets_content_accepts_include_and_merge_keys(tmp_path: Path) -> None:
+    """HA-style secrets with ``!include`` and a merge key resolve, not rejected.
+
+    Includes resolve against the file's own dir, so a present sibling
+    passes; this guards the regression a plain SafeLoader would cause by
+    rejecting every tagged secrets file.
+    """
+    (tmp_path / "shared.yaml").write_text("shared_pw: abc\n", encoding="utf-8")
+    content = "<<: !include shared.yaml\nwifi_ssid: home\nca_cert: !include ca.pem\n"
+    validate_secrets_content(content, tmp_path / "secrets.yaml")
+
+
+def test_validate_secrets_content_rejects_missing_include_target(tmp_path: Path) -> None:
+    """A merge-key include of an absent file fails just like the real read would."""
+    secrets = tmp_path / "secrets.yaml"
+    with pytest.raises(SecretsContentError):
+        validate_secrets_content("<<: !include gone.yaml\nwifi_ssid: home\n", secrets)
+
+
+def test_validate_secrets_content_wraps_unexpected_loader_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A non-EsphomeError from the loader (self-referential !secret recurses) rejects, not 500s."""
+
+    def _boom(*_args: object, **_kwargs: object) -> None:
+        raise RecursionError("maximum recursion depth exceeded")
+
+    monkeypatch.setattr(yaml_util, "parse_yaml", _boom)
+    with pytest.raises(SecretsContentError, match="could not be parsed"):
+        validate_secrets_content("wifi_ssid: home\n", tmp_path / "secrets.yaml")
+
+
+def test_validate_secrets_content_accepts_comment_only_file(tmp_path: Path) -> None:
+    """A comment-only file (empty mapping) is a legitimate secrets.yaml."""
+    validate_secrets_content("# nothing here yet\n", tmp_path / "secrets.yaml")
+
+
 def test_placeholder_password_constant_is_exported() -> None:
     """Pin the placeholder password export.
 
@@ -126,3 +195,79 @@ def test_placeholder_password_constant_is_exported() -> None:
     """
     assert isinstance(PLACEHOLDER_WIFI_PASSWORD, str)
     assert PLACEHOLDER_WIFI_PASSWORD
+
+
+def test_merge_secrets_creates_when_dest_absent(tmp_path: Path) -> None:
+    """A missing dest is created from the source bytes verbatim."""
+    src = tmp_path / "src.yaml"
+    src.write_text("wifi_password: p\n", "utf-8")
+    dest = tmp_path / "secrets.yaml"
+
+    merge_secrets_file(src, dest)
+
+    assert dest.read_text("utf-8") == "wifi_password: p\n"
+
+
+def test_merge_secrets_appends_only_absent_keys(tmp_path: Path) -> None:
+    """Existing keys/comments are preserved; only absent keys are appended."""
+    src = tmp_path / "src.yaml"
+    src.write_text("wifi_password: new\napi_key: k\n", "utf-8")
+    dest = tmp_path / "secrets.yaml"
+    dest.write_text("# secrets\nwifi_password: original  # note\n", "utf-8")
+
+    merge_secrets_file(src, dest)
+
+    merged = dest.read_text("utf-8")
+    assert "# secrets" in merged
+    assert "wifi_password: original  # note" in merged
+    assert "api_key: k" in merged
+    assert "new" not in merged
+
+
+def test_merge_secrets_noop_when_no_absent_keys(tmp_path: Path) -> None:
+    """When the bundle adds no new keys, the dest is left byte-for-byte."""
+    src = tmp_path / "src.yaml"
+    src.write_text("wifi_password: x\n", "utf-8")
+    dest = tmp_path / "secrets.yaml"
+    original = "wifi_password: original\n"
+    dest.write_text(original, "utf-8")
+
+    merge_secrets_file(src, dest)
+
+    assert dest.read_text("utf-8") == original
+
+
+def test_merge_secrets_leaves_non_mapping_untouched(tmp_path: Path) -> None:
+    """A list/scalar secrets file is never overwritten by the merge."""
+    src = tmp_path / "src.yaml"
+    src.write_text("wifi_password: x\n", "utf-8")
+    dest = tmp_path / "secrets.yaml"
+    original = "- not\n- a\n- mapping\n"
+    dest.write_text(original, "utf-8")
+
+    merge_secrets_file(src, dest)
+
+    assert dest.read_text("utf-8") == original
+
+
+def test_merge_secrets_leaves_unreadable_untouched(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A secrets file the tolerant loader can't read is left untouched."""
+    src = tmp_path / "src.yaml"
+    src.write_text("wifi_password: x\n", "utf-8")
+    dest = tmp_path / "secrets.yaml"
+    original = "wifi_password: original\n"
+    dest.write_text(original, "utf-8")
+
+    def _boom(_path: Path) -> object:
+        raise EsphomeError("can't read this")
+
+    monkeypatch.setattr(
+        "esphome_device_builder.helpers.secrets_state.load_yaml_fast_then_esphome",
+        _boom,
+    )
+
+    merge_secrets_file(src, dest)
+
+    assert dest.read_text("utf-8") == original

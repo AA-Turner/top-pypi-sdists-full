@@ -199,10 +199,10 @@ use crate::{
     place::{DefinedPlace, Definedness, Place, RequiresExplicitReExport, imported_symbol},
     types::{
         CallableTypes, ClassLiteral, IntersectionBuilder, KnownClass, NarrowingConstraint, Type,
-        TypeContext, UnionBuilder, UnionType, enum_metadata, infer_expression_type,
-        infer_narrowing_constraint,
+        TypeContext, UnionType, enum_metadata, infer_expression_type, infer_narrowing_constraints,
     },
 };
+use ruff_index::IndexSlice;
 use ruff_python_ast as ast;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
@@ -215,7 +215,7 @@ use ty_python_core::{
     place_table,
     predicate::{
         CallableAndCallExpr, PatternPredicate, PatternPredicateKind, Predicate, PredicateNode,
-        Predicates, ScopedPredicateId,
+        ScopedPredicateId,
     },
     reachability_constraints::{ReachabilityConstraints, ScopedReachabilityConstraintId},
 };
@@ -296,21 +296,56 @@ fn pattern_kind_to_type<'db>(db: &'db dyn Db, kind: &PatternPredicateKind<'db>) 
     }
 }
 
-/// Go through the list of previous match cases, and accumulate a union of all types that were already
-/// matched by these patterns.
-fn type_excluded_by_previous_patterns<'db>(
+/// Narrow `subject_ty` by all preceding unguarded match patterns.
+///
+/// Caching each prefix lets the next case reuse the already-normalized subject instead of
+/// rebuilding it from the union of all preceding patterns, which can repeatedly distribute the
+/// same intersections.
+#[salsa::tracked(
+    cycle_initial = |_, id, _, _| Type::divergent(id),
+    cycle_fn = |db, cycle, previous: &Type<'db>, result: Type<'db>, _, _| {
+        result.cycle_normalized(db, *previous, cycle)
+    },
+    heap_size = ruff_memory_usage::heap_size
+)]
+fn type_narrowed_by_previous_patterns<'db>(
     db: &'db dyn Db,
-    mut predicate: PatternPredicate<'db>,
+    predicate: PatternPredicate<'db>,
+    subject_ty: Type<'db>,
 ) -> Type<'db> {
-    let mut builder = UnionBuilder::new(db);
-    while let Some(previous) = predicate.previous_predicate(db) {
-        predicate = *previous;
+    let Some(previous) = predicate.previous_predicate(db) else {
+        return subject_ty;
+    };
+    let previous = *previous;
+    let narrowed_by_previous_patterns =
+        type_narrowed_by_previous_patterns(db, previous, subject_ty);
 
-        if predicate.guard(db).is_none() {
-            builder = builder.add(pattern_kind_to_type(db, predicate.kind(db)));
-        }
+    if previous.guard(db).is_some() {
+        narrowed_by_previous_patterns
+    } else {
+        type_narrowed_by_pattern(db, previous, narrowed_by_previous_patterns)
     }
-    builder.build()
+}
+
+/// Narrow `subject_ty` by a match pattern.
+///
+/// This result is also the preceding-pattern prefix for the next unguarded case.
+#[salsa::tracked(
+    cycle_initial = |_, id, _, _| Type::divergent(id),
+    cycle_fn = |db, cycle, previous: &Type<'db>, result: Type<'db>, _, _| {
+        result.cycle_normalized(db, *previous, cycle)
+    },
+    heap_size = ruff_memory_usage::heap_size
+)]
+fn type_narrowed_by_pattern<'db>(
+    db: &'db dyn Db,
+    predicate: PatternPredicate<'db>,
+    subject_ty: Type<'db>,
+) -> Type<'db> {
+    IntersectionBuilder::new(db)
+        .add_positive(subject_ty)
+        .add_negative(pattern_kind_to_type(db, predicate.kind(db)))
+        .build()
 }
 
 /// Return the enum class and canonical member names represented by an enum-literal subject type.
@@ -505,11 +540,7 @@ fn analyze_pattern_predicate<'db>(db: &'db dyn Db, predicate: PatternPredicate<'
         return truthiness;
     }
 
-    let narrowed_subject = IntersectionBuilder::new(db)
-        .add_positive(subject_ty)
-        .add_negative(type_excluded_by_previous_patterns(db, predicate));
-
-    let narrowed_subject_ty = narrowed_subject.clone().build();
+    let narrowed_subject_ty = type_narrowed_by_previous_patterns(db, predicate, subject_ty);
 
     // Consider a case where we match on a subject type of `Self` with an upper bound of `Answer`,
     // where `Answer` is a {YES, NO} enum. After a previous pattern matching on `NO`, the narrowed
@@ -520,9 +551,7 @@ fn analyze_pattern_predicate<'db>(db: &'db dyn Db, predicate: PatternPredicate<'
     // means that subsequent patterns can never match. And we know that if we reach this point,
     // the current pattern will have to match. We return `AlwaysTrue` here, since the call to
     // `analyze_single_pattern_predicate_kind` below would return `Ambiguous` in this case.
-    let next_narrowed_subject_ty = narrowed_subject
-        .add_negative(pattern_kind_to_type(db, predicate.kind(db)))
-        .build();
+    let next_narrowed_subject_ty = type_narrowed_by_pattern(db, predicate, narrowed_subject_ty);
     if !narrowed_subject_ty.is_never() && next_narrowed_subject_ty.is_never() {
         return Truthiness::AlwaysTrue;
     }
@@ -557,7 +586,7 @@ pub trait ReachabilityConstraintsExtension<'db> {
     fn narrow_by_constraint(
         &self,
         db: &'db dyn Db,
-        predicates: &Predicates<'db>,
+        predicates: &IndexSlice<ScopedPredicateId, Predicate<'db>>,
         id: ScopedReachabilityConstraintId,
         base_ty: Type<'db>,
         place: ScopedPlaceId,
@@ -567,7 +596,7 @@ pub trait ReachabilityConstraintsExtension<'db> {
     fn evaluate(
         &self,
         db: &'db dyn Db,
-        predicates: &Predicates<'db>,
+        predicates: &IndexSlice<ScopedPredicateId, Predicate<'db>>,
         id: ScopedReachabilityConstraintId,
     ) -> Truthiness;
 }
@@ -597,7 +626,7 @@ impl<'db> ReachabilityConstraintsExtension<'db> for ReachabilityConstraints {
     fn narrow_by_constraint(
         &self,
         db: &'db dyn Db,
-        predicates: &Predicates<'db>,
+        predicates: &IndexSlice<ScopedPredicateId, Predicate<'db>>,
         id: ScopedReachabilityConstraintId,
         base_ty: Type<'db>,
         place: ScopedPlaceId,
@@ -618,7 +647,7 @@ impl<'db> ReachabilityConstraintsExtension<'db> for ReachabilityConstraints {
     fn evaluate(
         &self,
         db: &'db dyn Db,
-        predicates: &Predicates<'db>,
+        predicates: &IndexSlice<ScopedPredicateId, Predicate<'db>>,
         mut id: ScopedReachabilityConstraintId,
     ) -> Truthiness {
         type Id = ScopedReachabilityConstraintId;
@@ -628,21 +657,7 @@ impl<'db> ReachabilityConstraintsExtension<'db> for ReachabilityConstraints {
                 Id::ALWAYS_TRUE => return Truthiness::AlwaysTrue,
                 Id::AMBIGUOUS => return Truthiness::Ambiguous,
                 Id::ALWAYS_FALSE => return Truthiness::AlwaysFalse,
-                _ => {
-                    // `id` gives us the index of this node in the IndexVec that we used when
-                    // constructing this BDD. When finalizing the builder, we threw away any
-                    // interior nodes that weren't marked as used. The `used_indices` bit vector
-                    // lets us verify that this node was marked as used, and the rank of that bit
-                    // in the bit vector tells us where this node lives in the "condensed"
-                    // `used_interiors` vector.
-                    let raw_index = id.as_u32() as usize;
-                    debug_assert!(
-                        self.used_indices().get_bit(raw_index).unwrap_or(false),
-                        "all used reachability constraints should have been marked as used",
-                    );
-                    let index = self.used_indices().rank(raw_index) as usize;
-                    self.used_interiors()[index]
-                }
+                _ => self.get_interior_node(id),
             };
             let predicate = &predicates[node.atom()];
             match analyze_single(db, predicate) {
@@ -826,7 +841,7 @@ impl ProjectedNarrowingGraph<'_> {
 struct NarrowingProjector<'a, 'db> {
     db: &'db dyn Db,
     constraints: &'a ReachabilityConstraints,
-    predicates: &'a Predicates<'db>,
+    predicates: &'a IndexSlice<ScopedPredicateId, Predicate<'db>>,
     place: ScopedPlaceId,
     project_cache: FxHashMap<ScopedReachabilityConstraintId, ProjectedNarrowingNodeId>,
     graph: ProjectedNarrowingGraph<'db>,
@@ -837,7 +852,7 @@ impl<'a, 'db> NarrowingProjector<'a, 'db> {
     fn new(
         db: &'db dyn Db,
         constraints: &'a ReachabilityConstraints,
-        predicates: &'a Predicates<'db>,
+        predicates: &'a IndexSlice<ScopedPredicateId, Predicate<'db>>,
         place: ScopedPlaceId,
     ) -> Self {
         Self {
@@ -862,14 +877,8 @@ impl<'a, 'db> NarrowingProjector<'a, 'db> {
             return cached.clone();
         }
 
-        let predicate = self.predicates[predicate_id];
-        let pos_constraint = infer_narrowing_constraint(self.db, predicate, self.place);
-        let neg_predicate = Predicate {
-            node: predicate.node,
-            is_positive: !predicate.is_positive,
-        };
-        let neg_constraint = infer_narrowing_constraint(self.db, neg_predicate, self.place);
-        let constraints = (pos_constraint, neg_constraint);
+        let constraints =
+            infer_narrowing_constraints(self.db, self.predicates[predicate_id], self.place);
         self.graph
             .predicate_constraints_cache
             .insert(predicate_id, constraints.clone());

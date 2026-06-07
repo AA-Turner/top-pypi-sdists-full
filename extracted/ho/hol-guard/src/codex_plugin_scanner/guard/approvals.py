@@ -47,6 +47,95 @@ class ApprovalRequestAlreadyResolvedError(ValueError):
     """Raised when an approval request was already resolved."""
 
 
+def build_approval_request_url(approval_center_url: str, request_id: str) -> str:
+    """Build the canonical local dashboard deep link for one approval request."""
+
+    return f"{approval_center_url.rstrip('/')}/requests/{request_id.strip()}"
+
+
+def _normalize_harness_slug(harness: str | None) -> str | None:
+    if not isinstance(harness, str):
+        return None
+    normalized = harness.strip().lower()
+    if normalized in {"claude", "claude-code"}:
+        return "claude-code"
+    return normalized or None
+
+
+def _queued_request_dicts(queued: Sequence[object]) -> list[dict[str, object]]:
+    items: list[dict[str, object]] = []
+    for item in queued:
+        if isinstance(item, Mapping):
+            items.append(dict(item))
+    return items
+
+
+def primary_approval_request(
+    queued: Sequence[object],
+    *,
+    harness: str | None = None,
+    request_id: str | None = None,
+    artifact_id: str | None = None,
+) -> dict[str, object] | None:
+    """Return the approval request created for this blocked action."""
+
+    items = _queued_request_dicts(queued)
+    if not items:
+        return None
+
+    bound_request_id = _string_or_none(request_id)
+    if bound_request_id is not None:
+        for item in items:
+            if _string_or_none(item.get("request_id")) == bound_request_id:
+                return item
+        return None
+
+    bound_artifact_id = _string_or_none(artifact_id)
+    if bound_artifact_id is not None:
+        for item in reversed(items):
+            if _string_or_none(item.get("artifact_id")) == bound_artifact_id:
+                return item
+
+    if len(items) == 1:
+        return items[0]
+
+    normalized_harness = _normalize_harness_slug(harness)
+    if normalized_harness is not None:
+        for item in reversed(items):
+            item_harness = _normalize_harness_slug(str(item.get("harness") or ""))
+            if item_harness == normalized_harness:
+                return item
+
+    return None
+
+
+def primary_approval_url(
+    queued: Sequence[object],
+    *,
+    harness: str | None = None,
+    approval_center_url: str | None = None,
+    request_id: str | None = None,
+    artifact_id: str | None = None,
+) -> str | None:
+    request = primary_approval_request(
+        queued,
+        harness=harness,
+        request_id=request_id,
+        artifact_id=artifact_id,
+    )
+    if request is None:
+        return None
+    approval_url = request.get("approval_url")
+    if isinstance(approval_url, str) and approval_url.strip():
+        return approval_url.strip().replace("/approvals/", "/requests/")
+    request_id = request.get("request_id")
+    if isinstance(request_id, str) and request_id.strip() and isinstance(approval_center_url, str):
+        center = approval_center_url.strip()
+        if center:
+            return build_approval_request_url(center, request_id.strip())
+    return None
+
+
 def queue_blocked_approvals(
     *,
     detection: HarnessDetection,
@@ -99,7 +188,7 @@ def queue_blocked_approvals(
             launch_target=launch_target,
             transport=artifact.transport if artifact is not None else None,
             review_command=f"{GUARD_COMMAND} approvals approve {request_id}",
-            approval_url=f"{approval_center_url.rstrip('/')}/approvals/{request_id}",
+            approval_url=build_approval_request_url(approval_center_url, request_id),
             workspace=_workspace_scope_target(item, artifact),
             publisher=artifact.publisher if artifact is not None else None,
             risk_summary=risk_summary,
@@ -120,7 +209,7 @@ def queue_blocked_approvals(
                 request,
                 request_id=persisted_request_id,
                 review_command=f"{GUARD_COMMAND} approvals approve {persisted_request_id}",
-                approval_url=f"{approval_center_url.rstrip('/')}/approvals/{persisted_request_id}",
+                approval_url=build_approval_request_url(approval_center_url, persisted_request_id),
             )
         _notify_pending_approval(store=store, request=request)
         queued.append(request.to_dict())
@@ -333,13 +422,23 @@ def approval_center_hint(
     approval_center_url: str,
     queued: list[dict[str, object]],
     managed_install: dict[str, object] | None = None,
+    request_id: str | None = None,
+    artifact_id: str | None = None,
 ) -> str:
     del context
     flow = approval_prompt_flow(harness, managed_install=managed_install)
     count = len(queued)
     risk_summary = _queue_risk_summary(queued)
-    approval_url = first_approval_url(queued)
-    review_url = approval_url or approval_center_url
+    review_url = (
+        primary_approval_url(
+            queued,
+            harness=harness,
+            approval_center_url=approval_center_url,
+            request_id=request_id,
+            artifact_id=artifact_id,
+        )
+        or approval_center_url
+    )
     return (
         f"Guard queued {count} approval request{'s' if count != 1 else ''} for {harness}. "
         f"{flow['summary']} "
@@ -349,14 +448,119 @@ def approval_center_hint(
     )
 
 
-def first_approval_url(queued: Sequence[object]) -> str | None:
+def first_approval_url(
+    queued: Sequence[object],
+    *,
+    harness: str | None = None,
+    approval_center_url: str | None = None,
+    request_id: str | None = None,
+    artifact_id: str | None = None,
+) -> str | None:
+    return primary_approval_url(
+        queued,
+        harness=harness,
+        approval_center_url=approval_center_url,
+        request_id=request_id,
+        artifact_id=artifact_id,
+    )
+
+
+def _primary_request_id_candidates(
+    payload: Mapping[str, object],
+    *,
+    request_id: str | None = None,
+) -> list[str]:
+    candidates: list[str] = []
+    seen: set[str] = set()
+
+    def add(value: object) -> None:
+        normalized = _string_or_none(value)
+        if normalized is not None and normalized not in seen:
+            seen.add(normalized)
+            candidates.append(normalized)
+
+    add(request_id)
+    add(payload.get("primary_approval_request_id"))
+    operation_ids = payload.get("approval_request_ids")
+    if isinstance(operation_ids, list):
+        for item in operation_ids:
+            add(item)
+    operation = payload.get("operation")
+    if isinstance(operation, Mapping):
+        nested_ids = operation.get("approval_request_ids")
+        if isinstance(nested_ids, list):
+            for item in nested_ids:
+                add(item)
+    return candidates
+
+
+def _queued_request_ids(queued: Sequence[object]) -> set[str]:
+    request_ids: set[str] = set()
     for item in queued:
         if not isinstance(item, Mapping):
             continue
-        approval_url = item.get("approval_url")
-        if isinstance(approval_url, str) and approval_url.strip():
-            return approval_url.strip()
-    return None
+        normalized = _string_or_none(item.get("request_id"))
+        if normalized is not None:
+            request_ids.add(normalized)
+    return request_ids
+
+
+def attach_primary_approval_link(
+    payload: dict[str, object],
+    *,
+    harness: str | None = None,
+    approval_center_url: str | None = None,
+    request_id: str | None = None,
+    artifact_id: str | None = None,
+) -> None:
+    """Bind primary approval fields to the request created by this block."""
+
+    queued = payload.get("approval_requests")
+    if not isinstance(queued, list):
+        return
+
+    bound_artifact_id = _string_or_none(artifact_id)
+    if bound_artifact_id is None:
+        bound_artifact_id = _string_or_none(payload.get("artifact_id"))
+
+    queued_ids = _queued_request_ids(queued)
+    bound_request_id = next(
+        (
+            candidate
+            for candidate in _primary_request_id_candidates(payload, request_id=request_id)
+            if candidate in queued_ids
+        ),
+        None,
+    )
+
+    primary = None
+    if bound_artifact_id is not None:
+        primary = primary_approval_request(
+            queued,
+            harness=harness,
+            artifact_id=bound_artifact_id,
+        )
+    if primary is None:
+        primary = primary_approval_request(
+            queued,
+            harness=harness,
+            request_id=bound_request_id,
+            artifact_id=bound_artifact_id,
+        )
+    if primary is None:
+        return
+    resolved_request_id = _string_or_none(primary.get("request_id"))
+    if resolved_request_id is not None:
+        payload["primary_approval_request_id"] = resolved_request_id
+    review_url = primary_approval_url(
+        queued,
+        harness=harness,
+        approval_center_url=approval_center_url,
+        request_id=resolved_request_id,
+        artifact_id=bound_artifact_id,
+    )
+    if review_url is not None:
+        payload["primary_approval_url"] = review_url
 
 
 def build_runtime_snapshot(

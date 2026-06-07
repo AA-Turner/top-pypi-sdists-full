@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2023-2025 Mike Fährmann
+# Copyright 2023-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -122,6 +122,7 @@ class Shimmie2TagExtractor(Shimmie2Extractor):
             if init:
                 init = False
                 quote = self._quote_type(page)
+                quote_alt = "'" if quote == '"' else '"'
                 has_mime = (" data-mime=" in page)
                 has_pid = (" data-post-id=" in page)
 
@@ -157,7 +158,8 @@ class Shimmie2TagExtractor(Shimmie2Extractor):
                 }
 
             pnum += 1
-            if not extr(f"/{pnum}{quote}>Next</", ">"):
+            if not extr(f"/{pnum}{quote}>Next</", ">") and \
+                    not extr(f"/{pnum}{quote_alt}>Next</", ">"):
                 return
 
 

@@ -18,6 +18,8 @@ cdef extern from "libavutil/avutil.h" nogil:
     cdef char* avutil_configuration()
     cdef char* avutil_license()
 
+    int FF_QP2LAMBDA
+
     cdef enum AVPictureType:
         AV_PICTURE_TYPE_NONE
         AV_PICTURE_TYPE_I
@@ -145,6 +147,8 @@ cdef extern from "libavutil/dict.h" nogil:
 
 cdef extern from "libavutil/display.h" nogil:
     cdef double av_display_rotation_get(const int32_t matrix[9])
+    cdef void av_display_rotation_set(int32_t matrix[9], double angle)
+    cdef void av_display_matrix_flip(int32_t matrix[9], int hflip, int vflip)
 
 cdef extern from "libavutil/error.h" nogil:
     cdef int AVERROR_BSF_NOT_FOUND
@@ -170,6 +174,7 @@ cdef extern from "libavutil/error.h" nogil:
     cdef int AVERROR_HTTP_UNAUTHORIZED
     cdef int AVERROR_HTTP_FORBIDDEN
     cdef int AVERROR_HTTP_NOT_FOUND
+    cdef int AVERROR_HTTP_TOO_MANY_REQUESTS
     cdef int AVERROR_HTTP_OTHER_4XX
     cdef int AVERROR_HTTP_SERVER_ERROR
     cdef int AV_ERROR_MAX_STRING_SIZE

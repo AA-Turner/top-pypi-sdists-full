@@ -65,6 +65,7 @@ class HEIF:
         JPEG2000 = heif_compression_JPEG2000
         UNCOMPRESSED = heif_compression_uncompressed
         MASK = heif_compression_mask
+        HTJ2K = heif_compression_HTJ2K
 
     class COLORSPACE(enum.IntEnum):
         """HEIF codec color spaces."""
@@ -73,6 +74,7 @@ class HEIF:
         YCBCR = heif_colorspace_YCbCr
         RGB = heif_colorspace_RGB
         MONOCHROME = heif_colorspace_monochrome
+        GRAY = heif_colorspace_monochrome  # alias
 
 
 class HeifError(RuntimeError):
@@ -179,8 +181,9 @@ def heif_encode(
     ):
         raise ValueError('invalid data shape, strides, or dtype')
 
-    compression_format = _heif_compression(compression)
-    colorspace = _heif_photometric(photometric)
+    compression_format = <heif_compression_format> <int> _enum_value(
+        compression, HEIF.COMPRESSION, HEIF.COMPRESSION.HEVC
+    )
 
     monochrome = layout.samples < 3
     hasalpha = layout.extracount > 0
@@ -275,7 +278,7 @@ def heif_encode(
 
             if monochrome:
                 colorspace = heif_colorspace_monochrome
-                chroma = heif_chroma_monochrome
+                chroma = heif_chroma_planar
             elif layout.samples == 3:
                 colorspace = heif_colorspace_RGB
                 if depth == 8:
@@ -500,7 +503,8 @@ def heif_decode(
 
     if photometric is not None:
         monochrome = (
-            _heif_photometric(photometric) == heif_colorspace_monochrome
+            _enum_value(photometric, HEIF.COLORSPACE)
+            == HEIF.COLORSPACE.MONOCHROME
         )
 
     try:
@@ -726,66 +730,6 @@ def heif_decode(
             heif_decoding_options_free(options)
 
     return out
-
-
-cdef heif_colorspace _heif_photometric(photometric):
-    """Return heif_colorspace value from photometric argument."""
-    if photometric is None:
-        return heif_colorspace_undefined
-    if photometric in {
-        heif_colorspace_undefined,
-        heif_colorspace_YCbCr,
-        heif_colorspace_RGB,
-        heif_colorspace_monochrome,
-    }:
-        return photometric
-    if isinstance(photometric, str):
-        photometric = photometric.upper()
-        if photometric[:3] == 'RGB':
-            return heif_colorspace_RGB
-        if photometric[:3] == 'YCBCR':
-            return heif_colorspace_YCbCr
-        if photometric in {
-            'GRAY', 'BLACKISZERO', 'MINISBLACK', 'WHITEISZERO', 'MINISWHITE'
-        }:
-            return heif_colorspace_monochrome
-    raise ValueError(f'{photometric=!r} not supported')
-
-
-cdef heif_compression_format _heif_compression(compression):
-    """Return heif_compression_format value from compression argument."""
-    if compression is None:
-        return heif_compression_HEVC
-    if compression in {
-        heif_compression_undefined,
-        heif_compression_HEVC,
-        heif_compression_AVC,
-        heif_compression_JPEG,
-        heif_compression_AV1,
-        heif_compression_VVC,
-        heif_compression_EVC,
-        heif_compression_JPEG2000,
-    }:
-        return compression
-    if isinstance(compression, str):
-        compression = compression.upper()
-        if compression == 'HEVC':
-            return heif_compression_HEVC
-        if compression == 'AVC':
-            return heif_compression_AVC
-        if compression == 'AV1':
-            return heif_compression_AV1
-        if compression == 'JPEG':
-            return heif_compression_JPEG
-        if compression == 'VVC':
-            return heif_compression_VVC
-        if compression == 'EVC':
-            return heif_compression_EVC
-        if compression == 'JPEG2000':
-            return heif_compression_JPEG2000
-        if compression == 'UNDEFINED':
-            return heif_compression_undefined
-    raise ValueError(f'{compression=!r} not supported')
 
 
 cdef heif_error heif_write_callback(

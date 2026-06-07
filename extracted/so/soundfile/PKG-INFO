@@ -1,10 +1,10 @@
 Metadata-Version: 2.1
 Name: soundfile
-Version: 0.13.1
+Version: 0.14.0
 Summary: An audio library based on libsndfile, CFFI and NumPy
 Home-page: https://github.com/bastibe/python-soundfile
 Author: Bastian Bechtold
-Author-email: basti@bastibe.de
+Author-email: bastibe.dev@mailbox.org
 License: BSD 3-Clause License
 Keywords: audio,libsndfile
 Platform: any
@@ -16,14 +16,15 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 2
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Multimedia :: Sound/Audio
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: cffi>=1.0
 Requires-Dist: numpy
+Requires-Dist: typing-extensions
 Provides-Extra: numpy
 
 python-soundfile
@@ -270,24 +271,43 @@ In the following example OGG is converted to WAV entirely in memory (without wri
 
 Controlling bitrate mode and compression level
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-For some audio formats, you can control the bitrate and compression level. 
+For some audio formats, you can control the bitrate and compression level.
 
-`compression_level` is a float between 0 and 1, with 1 being the highest compression, 
+`compression_level` is a float between 0 and 1, with 1 being the highest compression,
 and `bitrate_mode` is 'VARIABLE', 'CONSTANT', or 'AVERAGE'.
 
 .. code:: python
 
     import soundfile as sf
-    
+
     # for example, this uncompressed 5 minute wav file with 32 kHz sample rate is 18 Mb
-    data, samplerate = sf.read('5min_32kHz.wav') 
-    
+    data, samplerate = sf.read('5min_32kHz.wav')
+
     # maximum mp3 compression results in 1.1 Mb file, with either CONSTANT or VARIABLE bit rate
-    sf.write('max_compression_vbr.mp3', data, samplerate, bitrate_mode='VARIABLE', compression_level=.99) 
+    sf.write('max_compression_vbr.mp3', data, samplerate, bitrate_mode='VARIABLE', compression_level=.99)
     sf.write('max_compression_cbr.mp3', data, samplerate, bitrate_mode='CONSTANT', compression_level=.99)
-    
+
     # minimum mp3 compression results in 3.5 Mb file
     sf.write('min_compression_vbr.mp3', data, samplerate, bitrate_mode='VARIABLE', compression_level=0)
+
+Thread Safety
+-------------
+
+The ``soundfile`` module is a thin wrapper around the low-level ``libsndfile`` C
+library. As such, ``soundfile`` provides the same thread safety guarantees as
+the underlying C library. See `this libsndfile issue
+<https://github.com/libsndfile/libsndfile/issues/279>`_ for more details.
+
+In short, multithreaded use is safe as long as handles for readers or writers
+are not shared between threads. It is safe to concurrently open and read the
+same file through unique per-thread handles. It is not safe to concurrently
+write to the same file or share reader or writer handles. You may see garbage
+results or crashes if you do this.
+
+See the advice in the Free-threaded Python guide on `thread-safe Python
+programming
+<https://py-free-threading.github.io/porting/#multithreaded-python-programming>`_
+for suggestions on how to synchronize access to a thread-unsafe object.
 
 Known Issues
 ------------
@@ -436,3 +456,13 @@ News
     Thank you, Brian McFee and Guy Illes
 
     - Fixed regression in blocks
+
+2026-06-06 V0.14.0 Bastian Bechtold
+    Thank you GesonAnko, Trevor Gamblin, Andreas Karatzas, Harish RS, Hunter Hogan
+
+    - Added type annotations
+    - Added Licensing note to wheel
+    - Fixed race condition when opening files concurrently
+    - Fixed regressions in test suite
+    - Removed support for Python <= 3.9
+    - Added ARM64 support for Windows

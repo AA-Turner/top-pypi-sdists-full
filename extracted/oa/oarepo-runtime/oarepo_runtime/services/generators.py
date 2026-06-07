@@ -10,8 +10,8 @@
 
 from __future__ import annotations
 
+import warnings
 from abc import ABC, abstractmethod
-from itertools import chain
 from typing import TYPE_CHECKING, Any, Literal, override
 
 from invenio_access.models import ActionRoles, ActionUsers
@@ -19,11 +19,12 @@ from invenio_administration.generators import (
     Administration,
     administration_access_action,
 )
-from invenio_records_permissions.generators import (
-    ConditionalGenerator as InvenioConditionalGenerator,
+from invenio_records_permissions.generators import (  # type: ignore[attr-defined]
+    CompositeGenerator,
+    Disable,
 )
 from invenio_records_permissions.generators import (
-    Disable,
+    ConditionalGenerator as InvenioConditionalGenerator,
 )
 from invenio_records_permissions.generators import Generator as InvenioGenerator
 from invenio_search.engine import dsl
@@ -37,10 +38,21 @@ if TYPE_CHECKING:
 
 
 class Generator(InvenioGenerator):
-    """Custom generator for the service.
+    """Deprecated typed wrapper around the Invenio Generator.
 
-    This class will be removed when invenio has proper type stubs.
+    Use :class:`invenio_records_permissions.generators.Generator` directly instead.
     """
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """Warn whenever this deprecated class is subclassed."""
+        warnings.warn(
+            "oarepo_runtime.services.generators.Generator is deprecated and will be "
+            "removed in a future version. "
+            "Use invenio_records_permissions.generators.Generator instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init_subclass__(**kwargs)
 
     @override
     def needs(self, **kwargs: Any) -> Collection[Need]:
@@ -107,35 +119,21 @@ class ConditionalGenerator(InvenioConditionalGenerator, ABC):
         return ret
 
 
-class AggregateGenerator(Generator, ABC):
-    """Superclass for generators aggregating multiple generators."""
+class AggregateGenerator(CompositeGenerator):
+    """Deprecated superclass for generators aggregating multiple generators.
 
-    @abstractmethod
-    def _generators(self, **context: Any) -> Sequence[InvenioGenerator]:
-        """Return the generators."""
-        raise NotImplementedError  # pragma: no cover
+    Use :class:`invenio_records_permissions.generators.CompositeGenerator` instead.
+    """
 
-    @override
-    def needs(self, **context: Any) -> Collection[Need]:
-        """Get the needs from the policy."""
-        needs = [generator.needs(**context) for generator in self._generators(**context)]
-        return list(chain.from_iterable(needs))
-
-    @override
-    def excludes(self, **context: Any) -> Collection[Need]:
-        """Get the excludes from the policy."""
-        excludes = [generator.excludes(**context) for generator in self._generators(**context)]
-        return list(chain.from_iterable(excludes))
-
-    @override
-    def query_filter(self, **context: Any) -> dsl.query.Query:
-        """Search filters."""
-        ret = ConditionalGenerator._make_query(  # noqa: SLF001
-            self._generators(**context), **context
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """Warn whenever this deprecated class is subclassed."""
+        warnings.warn(
+            "AggregateGenerator is deprecated and will be removed in a future version. "
+            "Use invenio_records_permissions.generators.CompositeGenerator instead.",
+            DeprecationWarning,
+            stacklevel=2,
         )
-        if ret is None:
-            return dsl.Q("match_none")
-        return ret
+        super().__init_subclass__(**kwargs)
 
 
 class IfDraftType(ConditionalGenerator):

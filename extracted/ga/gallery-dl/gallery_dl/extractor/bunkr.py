@@ -57,14 +57,14 @@ CF_DOMAINS = set()
 
 
 class BunkrAlbumExtractor(LolisafeAlbumExtractor):
-    """Extractor for bunkr.si albums"""
+    """Extractor for bunkr albums"""
     category = "bunkr"
     root = "https://bunkr.cr"
-    root_dl = "https://get.bunkrr.su"
-    root_api = "https://apidl.bunkr.ru"
+    root_api = "https://dl.bunkr.cr"
+    root_sign = "https://glb-apisign.cdn.cr"
     archive_fmt = "{album_id}_{id|id_url|slug}"
     pattern = BASE_PATTERN + r"/a/([^/?#]+)"
-    example = "https://bunkr.si/a/ID"
+    example = "https://bunkr.cr/a/ID"
 
     def __init__(self, match):
         LolisafeAlbumExtractor.__init__(self, match)
@@ -182,20 +182,27 @@ class BunkrAlbumExtractor(LolisafeAlbumExtractor):
                     raise self.exc.AbortExtraction("Album deleted")
 
     def _extract_file(self, data_id):
-        referer = f"{self.root_dl}/file/{data_id}"
-        data = self.request_json(self.endpoint, method="POST",
-                                 json={"id": data_id})
+        headers = {
+            "Referer": self.root_api + "/",
+            "Origin" : self.root_api,
+        }
 
-        if data.get("encrypted"):
-            key = "SECRET_KEY_" + str(data["timestamp"] // 3600)
-            file_url = util.decrypt_xor(data["url"], key.encode())
-        else:
-            file_url = data["url"]
+        url = self.endpoint
+        file = self.request_json(
+            url, method="POST", headers=headers, json={"id": data_id})
 
+        url = self.root_sign + "/sign"
+        sign = self.request_json(
+            url, params={"path": file["path"]}, headers=headers)
+        if "original" in file:
+            sign["n"] = file["original"]
+
+        del headers["Origin"]
         return {
-            "file"          : file_url,
+            "file"          : (f"{file['mediafiles']}{file['path']}"
+                               f"?{text.build_query(sign)}"),
             "id_url"        : data_id,
-            "_http_headers" : {"Referer": referer},
+            "_http_headers" : headers,
             "_http_validate": self._validate,
         }
 
@@ -212,11 +219,11 @@ class BunkrAlbumExtractor(LolisafeAlbumExtractor):
 
 
 class BunkrMediaExtractor(BunkrAlbumExtractor):
-    """Extractor for bunkr.si media links"""
+    """Extractor for bunkr media links"""
     subcategory = "media"
     directory_fmt = ("{category}",)
     pattern = BASE_PATTERN + r"(/[fvid]/[^/?#]+)"
-    example = "https://bunkr.si/f/FILENAME"
+    example = "https://bunkr.cr/f/FILENAME"
 
     def fetch_album(self, album_id):
         try:

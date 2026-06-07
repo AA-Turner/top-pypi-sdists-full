@@ -12,7 +12,7 @@ from .common import Extractor, Message
 from .. import text
 import random
 
-BASE_PATTERN = r"(?:https?://)?(?:www\.)?filester\.me"
+BASE_PATTERN = r"(?:https?://)?(?:www\.)?filester\.(?:me|s[hi]|gg)"
 
 
 class FilesterExtractor(Extractor):
@@ -20,6 +20,11 @@ class FilesterExtractor(Extractor):
     category = "filester"
     archive_fmt = "{id}"
     root = "https://filester.me"
+
+    def _init(self):
+        if domain := self.config("domain"):
+            self.root = (text.root_from_url(self.url) if domain == "auto" else
+                         text.ensure_http_scheme(domain))
 
     def _download_url(self, slug):
         url = self.root + "/api/public/download"

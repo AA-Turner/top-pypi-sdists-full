@@ -1,6 +1,6 @@
 # imagecodecs/blosc2.pxd
 
-# Cython declarations for the `c-blosc2 3.0.1` library.
+# Cython declarations for the `c-blosc2 3.1.0` library.
 # https://github.com/Blosc/c-blosc2
 
 from libc.stdint cimport int8_t, int16_t, int32_t, int64_t, uint8_t, uint16_t
@@ -833,10 +833,25 @@ cdef extern from 'blosc2.h' nogil:
         bool* needs_free
     )
 
+    int blosc2_schunk_get_vlblock(
+        blosc2_schunk* schunk,
+        int64_t nchunk,
+        int32_t nblock,
+        uint8_t** dest,
+        int32_t* destsize
+    )
+
     int blosc2_schunk_get_slice_buffer(
         blosc2_schunk* schunk,
         int64_t start,
         int64_t stop,
+        void* buffer
+    )
+
+    int blosc2_schunk_get_sparse_buffer(
+        blosc2_schunk* schunk,
+        int64_t ncoords,
+        const int64_t* coords,
         void* buffer
     )
 
@@ -1230,6 +1245,14 @@ cdef extern from 'b2nd.h' nogil:
 
     int b2nd_to_cbuffer(
         const b2nd_array_t* array,
+        void* buffer,
+        int64_t buffersize
+    )
+
+    int b2nd_get_sparse_cbuffer(
+        const b2nd_array_t* array,
+        int64_t ncoords,
+        const int64_t* coords,
         void* buffer,
         int64_t buffersize
     )

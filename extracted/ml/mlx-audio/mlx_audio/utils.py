@@ -9,6 +9,7 @@ import glob
 import importlib
 import importlib.util
 import json
+import keyword
 import logging
 import re
 from pathlib import Path
@@ -86,6 +87,7 @@ DEFAULT_ALLOW_PATTERNS = [
     "*.model",
     "*.tiktoken",
     "*.txt",
+    "*.jinja",
     "*.jsonl",
     "*.yaml",
     "*.npz",
@@ -544,6 +546,13 @@ def resample_audio(
 ):
     """Resample audio with polyphase filtering.
 
+    Uses a Kaiser-windowed sinc anti-aliasing filter equivalent to ``librosa``'s
+    ``kaiser_best`` (resampy parameters) instead of ``resample_poly``'s default
+    Kaiser(5.0). The default filter has a wide transition band that leaves
+    significant energy near the new Nyquist; the sharper filter band-limits
+    cleanly so resampled audio matches the librosa-equivalent featurizers that
+    ASR reference pipelines (e.g. NeMo) assume. See issue #24.
+
     Args:
         audio: Audio array as numpy or MLX.
         orig_sample_rate: Original sample rate.
@@ -565,11 +574,23 @@ def resample_audio(
     gcd = math.gcd(int(orig_sample_rate), int(sample_rate))
     up = sample_rate // gcd
     down = orig_sample_rate // gcd
+
+    # kaiser_best-equivalent anti-aliasing FIR (resampy defaults): a long,
+    # high-attenuation Kaiser sinc designed at the upsampled rate. Cutoff is at
+    # ``rolloff / max(up, down)`` of the upsampled Nyquist.
+    max_rate = max(up, down)
+    num_zeros, rolloff, beta = 64, 0.9475937167399596, 14.769656459379492
+    fir = signal.firwin(
+        2 * num_zeros * max_rate + 1,
+        rolloff / max_rate,
+        window=("kaiser", beta),
+    )
     resampled = signal.resample_poly(
         audio_np,
         up,
         down,
         axis=axis,
+        window=fir,
         padtype="edge",
     ).astype(np.float32, copy=False)
 
@@ -722,10 +743,17 @@ __all__ = [
 
 def is_valid_module_name(name: str) -> bool:
     """Check if a string is a valid Python module name."""
-    if not name or not isinstance(name, str):
-        return False
+    return isinstance(name, str) and name.isidentifier() and not keyword.iskeyword(name)
 
-    return name[0].isalpha() or name[0] == "_"
+
+def _has_model_module(module_path: str) -> bool:
+    try:
+        return importlib.util.find_spec(module_path) is not None
+    except ModuleNotFoundError as exc:
+        missing_name = exc.name or ""
+        if module_path == missing_name or module_path.startswith(f"{missing_name}."):
+            return False
+        raise
 
 
 def get_model_category(model_type: str, model_name: List[str]) -> Optional[str]:
@@ -756,7 +784,7 @@ def get_model_category(model_type: str, model_name: List[str]) -> Optional[str]:
             if not is_valid_module_name(arch):
                 continue
             module_path = f"mlx_audio.{category}.models.{arch}"
-            if importlib.util.find_spec(module_path) is not None:
+            if _has_model_module(module_path):
                 return category
 
     # First pass: check for explicit remapping matches (higher priority)
@@ -767,7 +795,7 @@ def get_model_category(model_type: str, model_name: List[str]) -> Optional[str]:
                 if not is_valid_module_name(arch):
                     continue
                 module_path = f"mlx_audio.{category}.models.{arch}"
-                if importlib.util.find_spec(module_path) is not None:
+                if _has_model_module(module_path):
                     return category
 
     # Second pass: check for direct module matches (fallback)
@@ -775,7 +803,7 @@ def get_model_category(model_type: str, model_name: List[str]) -> Optional[str]:
         for hint in candidates:
             if hint not in remap and is_valid_module_name(hint):
                 module_path = f"mlx_audio.{category}.models.{hint}"
-                if importlib.util.find_spec(module_path) is not None:
+                if _has_model_module(module_path):
                     return category
 
     return None

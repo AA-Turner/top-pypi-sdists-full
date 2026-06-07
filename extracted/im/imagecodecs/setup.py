@@ -291,6 +291,7 @@ EXTENSIONS: dict[str, dict[str, Any]] = {
     'zlibng': ext(libraries=['z-ng']),
     'zopfli': ext(libraries=['zopfli']),
     'zstd': ext(libraries=['zstd']),
+    'zstd1': ext(libraries=['zstd']),
 }
 
 
@@ -339,6 +340,7 @@ def customize_build_default(
         'webp',
         'zlib',
         'zstd',
+        'zstd1',
     }
     for name in tuple(extensions.keys()):
         if name not in keep:
@@ -457,6 +459,7 @@ def customize_build_cgohlke(
     extensions['deflate']['libraries'] = ['deflatestatic']
     extensions['zlibng']['libraries'] = ['zlibstatic-ng']
     extensions['zstd']['libraries'] = ['zstd_static']
+    extensions['zstd1']['libraries'] = ['zstd_static']
     extensions['lerc']['define_macros'].append(('LERC_STATIC', 1))
     extensions['jpegls']['define_macros'].append(('CHARLS_STATIC', 1))
     extensions['jpeg2k']['define_macros'].append(('OPJ_STATIC', 1))
@@ -637,7 +640,12 @@ def customize_build_condaforge(
         ]
         extensions['jpegls']['libraries'] = ['charls-2-x64']
         extensions['png']['libraries'] = ['libpng', 'z']
-        extensions['webp']['libraries'] = ['libwebp', 'libwebpdemux']
+        extensions['webp']['libraries'] = [
+            'libwebp',
+            'libwebpdemux',
+            'libwebpmux',
+            'libsharpyuv',
+        ]
         extensions['zopfli']['include_dirs'] = [
             os.path.join(os.environ['LIBRARY_INC'], 'zopfli')
         ]
@@ -730,7 +738,6 @@ def customize_build_mingw(
 
     for ext in (
         'brunsli',
-        'exr',
         'heif',
         'jetraw',
         'jpegxs',
@@ -742,13 +749,19 @@ def customize_build_mingw(
         'pcodec',
         'sperr',
         'sz3',
-        'wavpack',
         'wic',
         'zfp',
         'zlibng',
     ):
         extensions.pop(ext, None)
 
+    extensions['exr']['include_dirs'].extend(
+        (
+            sys.prefix + '/include/OpenEXR',
+            sys.prefix + '/include/Imath',
+        )
+    )
+    extensions['exr']['libraries'] = ['OpenEXRCore']
     extensions['jpeg8']['sources'] = []  # use libjpeg-turbo 3
     extensions['jpeg2k']['include_dirs'].extend(
         (
@@ -926,6 +939,7 @@ setup(
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 3.13',
         'Programming Language :: Python :: 3.14',
+        'Programming Language :: Python :: 3.15',
         'Programming Language :: Python :: Implementation :: CPython',
     ],
 )

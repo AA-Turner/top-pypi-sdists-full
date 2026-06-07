@@ -31,7 +31,7 @@
 
 """Unittests for the imagecodecs package.
 
-:Version: 2026.5.10
+:Version: 2026.6.6
 
 """
 
@@ -1176,6 +1176,19 @@ def test_floatpred(planar, endian, output, codec):
 @pytest.mark.skipif(
     not imagecodecs.FLOATPRED.available, reason='FloatPred missing'
 )
+def test_floatpred_broadcast():
+    """Test FloatPred encode with stride-0 array."""
+    # https://github.com/cgohlke/imagecodecs/issues/138
+    # broadcast_to produces an array with stride 0; encode should not raise
+    data = numpy.broadcast_to(numpy.float32(0.0), (16, 16))
+    encoded = imagecodecs.floatpred_encode(data)
+    decoded = imagecodecs.floatpred_decode(encoded)
+    assert_array_equal(decoded, numpy.zeros((16, 16), dtype=numpy.float32))
+
+
+@pytest.mark.skipif(
+    not imagecodecs.FLOATPRED.available, reason='FloatPred missing'
+)
 @pytest.mark.parametrize('samples', [1, 3])
 @pytest.mark.parametrize('delta', [False, True])
 def test_byteshuffle_float24(delta, samples):
@@ -1184,8 +1197,7 @@ def test_byteshuffle_float24(delta, samples):
     decode = imagecodecs.byteshuffle_decode
 
     # shape (17, 31, samples) of 3-byte void elements
-    rng = numpy.random.default_rng(42)
-    raw = rng.integers(0, 256, (17, 31, samples, 3), dtype=numpy.uint8)
+    raw = RNG.integers(0, 256, (17, 31, samples, 3), dtype=numpy.uint8)
     data = raw.view(numpy.dtype('V3')).reshape(17, 31, samples)
 
     # axis=-2 places the item-axis at position 1 (31 items, samples channels)
@@ -1399,6 +1411,7 @@ def test_eer_superres():
 
 
 @pytest.mark.skipif(not IS_CG, reason='data files not available')
+@pytest.mark.skipif(not imagecodecs.EER.available, reason='EER missing')
 @pytest.mark.parametrize('superres', [0, 1, 2])
 def test_eer_example(superres):
     """Test EER decoder with real image."""
@@ -1730,7 +1743,7 @@ def test_lzw_decode(output):
         delta_decode(decoded, out=decoded, axis=-1)
         assert_array_equal(BYTESIMG, decoded)
         # with pytest.raises(RuntimeError):
-        decode(encoded, buffersize=32, out=decoded_size)
+        decode(encoded, out=decoded_size)
     elif output == 'ndarray':
         decoded = numpy.zeros_like(BYTESIMG)
         decode(encoded, out=decoded.reshape(-1))
@@ -1826,6 +1839,7 @@ def test_lz4h5():
         'zlibng',
         'zopfli',
         'zstd',
+        'zstd1',
     ],
 )
 def test_compressors(codec, func, output, length):
@@ -2031,6 +2045,12 @@ def test_compressors(codec, func, output, length):
             level = 1
             c = zopfli.ZopfliCompressor(zopfli.ZOPFLI_FORMAT_ZLIB)
             encoded = c.compress(data) + c.flush()
+        case 'zstd1':
+            encode = imagecodecs.zstd1_encode
+            decode = imagecodecs.zstd1_decode
+            check = imagecodecs.zstd1_check
+            level = 5
+            encoded = encode(data, level=level, itemsize=1)
         case 'zstd':
             if zstd is None:
                 pytest.skip(f'{codec} missing')
@@ -2078,7 +2098,7 @@ def test_compressors(codec, func, output, length):
                             'to exact output size'
                         )
                         out = bytearray(size)
-                    elif codec == 'zstd':
+                    elif codec in {'zstd', 'zstd1'}:
                         out = bytearray(max(size, 64))
                     # elif codec == 'blosc':
                     #     out = bytearray(max(size, 17))  # bug in blosc ?
@@ -2521,6 +2541,126 @@ def test_zstd_stream():
     decoded = imagecodecs.zstd_decode(imagecodecs.zstd_encode(b'Zstd') + data)
     arr = numpy.frombuffer(decoded[4:], dtype=dtype).reshape((256, 256, 5))
     assert arr[86, 97, 4] == 1092705
+
+
+@pytest.mark.skipif(not imagecodecs.ZSTD1.available, reason='zstd1 missing')
+def test_zstd1_roundtrip():
+    """Test ZSTD1 roundtrip."""
+    data = RNG.integers(0, 256, 100, dtype=numpy.uint8).tobytes()
+
+    # encode produces a minimal header_size=1 header (no shuffle)
+    encoded = imagecodecs.zstd1_encode(data)
+    assert encoded[0] == 1  # header_size
+    decoded = imagecodecs.zstd1_decode(encoded)
+    assert decoded == data
+
+    # explicit compression level
+    encoded = imagecodecs.zstd1_encode(data, level=3)
+    assert imagecodecs.zstd1_decode(encoded) == data
+
+    # header_size=3, chunk type 1, hilo=False (format-compatibility check)
+    header = b'\x03\x01\x00'
+    encoded_manual = header + imagecodecs.zstd_encode(data)
+    decoded = imagecodecs.zstd1_decode(encoded_manual, itemsize=2)
+    assert decoded == data
+
+    # out=int returns exactly the decoded bytes
+    decoded = imagecodecs.zstd1_decode(encoded_manual, out=len(data))
+    assert decoded == data
+
+    # plain Zstd stream (no ZSTD1 header) is accepted
+    encoded = imagecodecs.zstd_encode(data)
+    assert imagecodecs.zstd1_decode(encoded) == data
+
+
+@pytest.mark.skipif(not imagecodecs.ZSTD1.available, reason='zstd1 missing')
+def test_zstd1_hilo():
+    """Test ZSTD1 roundtrip with hilo byte shuffle."""
+    arr = RNG.integers(0, 65535, size=256, dtype=numpy.uint16)
+    raw = arr.tobytes()  # 512 bytes, 256 elements, itemsize=2
+
+    # encode with hilo shuffle; decoder must reconstruct original
+    encoded = imagecodecs.zstd1_encode(raw, itemsize=2, hilo=True)
+    assert encoded[0] == 3  # header_size=3
+    assert encoded[1] == 1  # chunk type 1
+    assert encoded[2] & 1  # hilo flag set
+    decoded = imagecodecs.zstd1_decode(encoded, itemsize=2)
+    assert decoded == raw
+
+    # zstd1_check recognises the data
+    assert imagecodecs.zstd1_check(encoded) is True
+
+    # format-compatibility: Zeiss header with extra pad byte (header_size=4)
+    n = len(arr)
+    view = arr.view(numpy.uint8)
+    shuffled = bytes([view[i * 2 + j] for j in range(2) for i in range(n)])
+    header = b'\x04\x01\x01\x00'  # header_size=4, type-1 chunk, unknown stop
+    encoded_compat = header + imagecodecs.zstd_encode(shuffled)
+    assert imagecodecs.zstd1_decode(encoded_compat, itemsize=2) == raw
+
+
+@pytest.mark.skipif(not imagecodecs.ZSTD1.available, reason='zstd1 missing')
+def test_zstd1_errors():
+    """Test ZSTD1 error conditions."""
+    # too short
+    with pytest.raises(ValueError):
+        imagecodecs.zstd1_decode(b'')
+    with pytest.raises(ValueError):
+        imagecodecs.zstd1_decode(b'\x01')  # srcsize < 2
+
+    # header_size == 0
+    with pytest.raises(ValueError):
+        imagecodecs.zstd1_decode(b'\x00\x00')
+
+    # header_size >= len(data)
+    with pytest.raises(ValueError):
+        imagecodecs.zstd1_decode(b'\xff' + b'\x00' * 10)
+
+    # truncated chunk type 1 (chunk type byte present but payload absent)
+    # header_size=2, chunk at byte 1 is type 1 but no payload byte follows
+    with pytest.raises(ValueError):
+        imagecodecs.zstd1_decode(b'\x02\x01')
+
+
+@pytest.mark.skipif(not imagecodecs.ZSTD1.available, reason='zstd1 missing')
+def test_zstd1_bgr():
+    """Test ZSTD1 decode with BGR->RGB channel swap."""
+    # samples=3, itemsize=1: uint8 BGR -> RGB
+    bgr = numpy.array([[[0, 128, 255], [10, 20, 30]]], dtype=numpy.uint8)
+    encoded = imagecodecs.zstd1_encode(bgr.tobytes())
+    decoded = numpy.frombuffer(
+        imagecodecs.zstd1_decode(encoded, samples=3), dtype=numpy.uint8
+    ).reshape(bgr.shape)
+    numpy.testing.assert_array_equal(decoded, bgr[..., ::-1])
+
+    # samples=3, itemsize=2: uint16 BGR -> RGB
+    bgr16 = numpy.array(
+        [[[0, 1000, 65535], [100, 200, 300]]], dtype=numpy.uint16
+    )
+    encoded = imagecodecs.zstd1_encode(bgr16.tobytes())
+    decoded = numpy.frombuffer(
+        imagecodecs.zstd1_decode(encoded, itemsize=2, samples=3),
+        dtype=numpy.uint16,
+    ).reshape(bgr16.shape)
+    numpy.testing.assert_array_equal(decoded, bgr16[..., ::-1])
+
+    # samples=4, itemsize=1: BGRA32 -> RGBA; alpha forced to 255
+    bgra = numpy.array(
+        [[[0, 128, 255, 0], [10, 20, 30, 100]]], dtype=numpy.uint8
+    )
+    encoded = imagecodecs.zstd1_encode(bgra.tobytes())
+    decoded = numpy.frombuffer(
+        imagecodecs.zstd1_decode(encoded, samples=4), dtype=numpy.uint8
+    ).reshape(bgra.shape)
+    assert decoded[0, 0, 0] == bgra[0, 0, 2]  # R <- was B
+    assert decoded[0, 0, 1] == bgra[0, 0, 1]  # G unchanged
+    assert decoded[0, 0, 2] == bgra[0, 0, 0]  # B <- was R
+    assert decoded[0, 0, 3] == 255  # alpha forced to 255
+    assert decoded[0, 1, 3] == 255  # alpha forced to 255 regardless of input
+
+    # invalid samples value
+    with pytest.raises(ValueError):
+        imagecodecs.zstd1_decode(encoded, samples=2)
 
 
 @pytest.mark.skipif(not imagecodecs.LZF.available, reason='lzf missing')
@@ -3334,6 +3474,79 @@ def test_cms_profile():
 
 
 @pytest.mark.skipif(not imagecodecs.CMS.available, reason='cms missing')
+def test_cms_info():
+    """Test cms_info function."""
+    from imagecodecs import cms_info, cms_profile
+
+    keys = {
+        'version',
+        'deviceclass',
+        'colorspace',
+        'channels',
+        'pcs',
+        'renderingintent',
+        'ismatrixshaper',
+        'datetime',
+        'whitepoint',
+        'primaries',
+        'gamma',
+        'description',
+        'manufacturer',
+        'model',
+        'copyright',
+    }
+
+    for name in ('srgb', 'xyz', 'lab2', 'lab4', 'adobergb', 'linearrgb'):
+        info = cms_info(cms_profile(name))
+        assert set(info) == keys, name
+
+    info = cms_info(cms_profile('srgb'))
+    assert info['colorspace'] == 'rgb'
+    assert info['channels'] == 3
+    assert info['pcs'] == 'xyz'
+    assert info['deviceclass'] == 'display'
+    assert info['ismatrixshaper'] is True
+    assert info['version'] == round(info['version'], 1)
+    assert info['primaries'] is not None
+    # sRGB uses a parametric curve, not a pure power law
+    assert info['gamma'] is None
+
+    info = cms_info(cms_profile('adobergb'))
+    assert info['colorspace'] == 'rgb'
+    assert info['description'] == 'Adobe RGB (compatible)'
+    assert info['manufacturer'] == 'Imagecodecs'
+    assert info['model'] == 'Adobe RGB (compatible)'
+    assert info['copyright'] == 'Public Domain'
+    assert info['whitepoint'] is not None
+    assert info['whitepoint'][:2] == pytest.approx(
+        (0.3127, 0.3290), abs=1e-3  # D65
+    )
+    assert info['primaries'] is not None
+    assert info['primaries'][0][0] == pytest.approx(0.64, abs=1e-3)  # red x
+    assert info['primaries'][1][1] == pytest.approx(0.71, abs=1e-3)  # green y
+    assert info['gamma'] == pytest.approx(2.2, abs=1e-2)
+
+    info = cms_info(cms_profile('linearrgb'))
+    assert info['description'] == 'Linear RGB'
+    assert info['gamma'] == pytest.approx(1.0)
+
+    info = cms_info(cms_profile('xyz'))
+    assert info['colorspace'] == 'xyz'
+    assert info['primaries'] is None
+    assert info['gamma'] is None
+
+    info = cms_info(cms_profile('lab2'))
+    assert info['colorspace'] == 'lab'
+
+    # round-trip: whitepoint and gamma survive save/reload
+    whitepoint = [0.3127, 0.3290, 1.0]
+    info = cms_info(cms_profile('gray', whitepoint=whitepoint, gamma=1.8))
+    assert info['whitepoint'] is not None
+    assert info['whitepoint'][:2] == pytest.approx((0.3127, 0.3290), abs=1e-3)
+    assert info['gamma'] == pytest.approx(1.8, abs=1e-2)
+
+
+@pytest.mark.skipif(not imagecodecs.CMS.available, reason='cms missing')
 def test_cms_output_shape():
     """Test _cms_output_shape function."""
     from imagecodecs._cms import _cms_format, _cms_output_shape
@@ -4007,7 +4220,7 @@ def test_jpegxl_bitspersample():
         (None, 'LINEAR'),
         ('P3', 'SRGB'),
         ('BT2100', 'PQ'),
-        (imagecodecs.JPEGXL.PRIMARIES.P3, 'HLG'),
+        (11, 'HLG'),  # imagecodecs.JPEGXL.PRIMARIES.P3
         (1, 1),  # SRGB primaries, BT709 transfer as raw ints
     ],
 )
@@ -4099,18 +4312,18 @@ def test_avif_strict_disabled():
     assert tuple(decoded[16, 16]) == (44, 123, 57, 88)
 
 
-@pytest.mark.skipif(not IS_CG, reason='avif missing')
+@pytest.mark.skipif(not imagecodecs.AVIF.available, reason='avif missing')
 @pytest.mark.parametrize(
     'codec', ['auto', 'aom', 'rav1e', 'svt']  # 'libgav1', 'avm'
 )
 def test_avif_encoder(codec):
     """Test various AVIF encoder codecs."""
     data = numpy.load(datafiles('rgb.u1.npy'))
-    if codec == 'svt':
+    if codec in {'svt', 'rav1e'}:
         if IS_ARM64 or not IS_CG:
-            pytest.skip('AVIF SVT not supported')
+            pytest.skip(f'AVIF {codec.upper()} not supported')
         data = data[:200, :300]
-        pixelformat = '420'
+        pixelformat = 'yuv420'
     else:
         pixelformat = None
     encoded = imagecodecs.avif_encode(
@@ -4129,7 +4342,7 @@ def test_avif_encoder_cicp():
         data,
         level=95,
         codec='aom',
-        pixelformat='444',
+        pixelformat='yuv444',
         bitspersample=12,
         primaries=imagecodecs.AVIF.COLOR_PRIMARIES.BT2020,
         transfer=imagecodecs.AVIF.TRANSFER_CHARACTERISTICS.HLG,
@@ -4139,7 +4352,7 @@ def test_avif_encoder_cicp():
     decoded = imagecodecs.avif_decode(encoded, numthreads=2)
     assert_allclose(decoded, data, atol=47)
 
-    with pytest.raises(imagecodecs.AvifError):
+    with pytest.raises(ValueError):
         imagecodecs.avif_encode(data, bitspersample=12, matrix=100)
 
 
@@ -4381,7 +4594,7 @@ def test_wavpack_ndim_error():
 
 @pytest.mark.skipif(not imagecodecs.ZFP.available, reason='zfp missing')
 @pytest.mark.parametrize('execution', [None, 'omp'])
-@pytest.mark.parametrize('mode', [(None, None), ('p', None)])  # ('r', 24)
+@pytest.mark.parametrize('mode', [(None, None), ('precision', None)])
 @pytest.mark.parametrize('deout', ['new', 'out', 'bytearray'])  # 'view',
 @pytest.mark.parametrize('enout', ['new', 'out', 'bytearray'])
 @pytest.mark.parametrize('itype', ['rgba', 'view', 'gray', 'line'])
@@ -4627,6 +4840,7 @@ def test_ultrahdr_sdr():
     assert_allclose(hdr, decoded_sdr, atol=0.1)
 
 
+@pytest.mark.skipif(not imagecodecs.SPERR.available, reason='sperr missing')
 @pytest.mark.parametrize('mode', ['bpp', 'psnr', 'pwe'])
 @pytest.mark.parametrize('deout', ['new', 'out'])
 @pytest.mark.parametrize('enout', ['new', 'out', 'bytearray'])
@@ -4846,6 +5060,32 @@ def test_lerc_masks():
     out = numpy.zeros_like(masks[:3])
     decoded, _ = imagecodecs.lerc_decode(encoded, masks=out)
     assert_array_equal(masks[:3], out)
+
+
+@pytest.mark.skipif(not imagecodecs.JPEG2K.available, reason='jpeg2k missing')
+@pytest.mark.parametrize('bitspersample', [12, 16])
+def test_jpeg2k_low_psnr(bitspersample):
+    """Test JPEG 2000 decoder with very low PSNR level."""
+    # https://github.com/cgohlke/imagecodecs/issues/140
+    # return  # TODO: this test is not stable
+    data = RNG.integers(0, 2**bitspersample, (32, 32), dtype=numpy.uint16)
+    encoded = imagecodecs.jpeg2k_encode(
+        data,
+        level=5,  # extremely low quality to collapse values toward midpoint
+        colorspace='gray',
+        mct=False,
+        reversible=False,
+        bitspersample=bitspersample,
+    )
+    assert imagecodecs.jpeg2k_check(encoded)
+    decoded = imagecodecs.jpeg2k_decode(encoded)
+    # very low quality should collapse many values toward midpoint
+    midpoint = 2 ** (bitspersample - 1)
+    tolerance = max(4, 2 ** (bitspersample - 3))
+    assert (
+        numpy.mean(numpy.abs(decoded.astype(numpy.int32) - midpoint))
+        < tolerance
+    )
 
 
 @pytest.mark.skipif(not imagecodecs.JPEG2K.available, reason='jpeg2k missing')
@@ -6616,6 +6856,8 @@ def test_tifffile(byteorder, dtype, codec, predictor):
         pytest.skip('xfail - zlib missing')
     elif codec == 'lzma' and not imagecodecs.LZMA.available:
         pytest.skip('xfail - lzma missing')
+    elif codec == 'lzw' and not imagecodecs.LZW.available:
+        pytest.skip('xfail - lzw missing')
     elif codec == 'zstd' and not imagecodecs.ZSTD.available:
         pytest.skip('xfail - zstd missing')
     elif codec == 'packbits' and not imagecodecs.PACKBITS.available:
@@ -6739,6 +6981,7 @@ def test_czifile():
 
 
 @pytest.mark.skipif(liffile is None, reason='liffile missing')
+@pytest.mark.skipif(not imagecodecs.TIFF.available, reason='tiff missing')
 def test_liffile():
     """Test reading TIFF-chunked XLIF dataset with liffile."""
     filename = DATA_PATH / 'lif' / 'Metadata' / 'ImageXYZ10C2.xlif'

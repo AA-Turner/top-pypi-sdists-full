@@ -591,6 +591,8 @@ pub fn enum_metadata<'db>(db: &'db dyn Db, class: ClassLiteral<'db>) -> Option<E
                 }
                 members.insert(name.clone(), *ty);
             }
+            members.shrink_to_fit();
+
             return Some(EnumMetadata {
                 members,
                 aliases,
@@ -638,7 +640,7 @@ pub fn enum_metadata<'db>(db: &'db dyn Db, class: ClassLiteral<'db>) -> Option<E
 
     let mut aliases = FxHashMap::default();
 
-    let members = use_def_map
+    let mut members = use_def_map
         .all_end_of_scope_symbol_bindings()
         .filter_map(|(symbol_id, bindings)| {
             let name = table.symbol(symbol_id).name();
@@ -832,6 +834,8 @@ pub fn enum_metadata<'db>(db: &'db dyn Db, class: ClassLiteral<'db>) -> Option<E
             inherited_value_annotation(db, class)
         }
     });
+
+    members.shrink_to_fit();
 
     Some(EnumMetadata {
         members,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: koru
-Version: 0.1.312
+Version: 0.1.314
 Summary: Closed-loop automation across semcod/* repositories.
 Author: Semcod
 Author-email: Tom Sapletta <tom@sapletta.com>
@@ -27,6 +27,26 @@ Requires-Dist: websockets<17.0,>=12.0; extra == "mesh"
 Provides-Extra: observe
 Requires-Dist: mss<11.0,>=9.0; extra == "observe"
 Requires-Dist: websockets<17.0,>=12.0; extra == "observe"
+Provides-Extra: desktop
+Requires-Dist: nlp2uri[envmap]>=0.4.7; extra == "desktop"
+Requires-Dist: env2llm[mqtt]>=0.1.10; extra == "desktop"
+Requires-Dist: testql>=1.2.55; extra == "desktop"
+Provides-Extra: envmap
+Requires-Dist: nlp2uri[envmap]>=0.4.7; extra == "envmap"
+Requires-Dist: env2llm[mqtt]>=0.1.10; extra == "envmap"
+Provides-Extra: testql
+Requires-Dist: testql>=1.2.55; extra == "testql"
+Provides-Extra: nlp2oql
+Requires-Dist: nlp2oql[browser]>=0.2.0; extra == "nlp2oql"
+Provides-Extra: curllm
+Requires-Dist: curllm[mcp]>=1.0.0; extra == "curllm"
+Provides-Extra: browser
+Requires-Dist: nlp2uri[envmap]>=0.4.7; extra == "browser"
+Requires-Dist: env2llm[mqtt]>=0.1.10; extra == "browser"
+Requires-Dist: testql>=1.2.55; extra == "browser"
+Requires-Dist: nlp2oql[browser]>=0.2.0; extra == "browser"
+Requires-Dist: curllm[mcp]>=1.0.0; extra == "browser"
+Requires-Dist: playwright<2.0,>=1.40; extra == "browser"
 Provides-Extra: dev
 Requires-Dist: gillm>=0.1.9; extra == "dev"
 Requires-Dist: pytest<10.0,>=8.0; extra == "dev"
@@ -128,13 +148,13 @@ Dynamic: license-file
 
 ## AI Cost Tracking
 
-![PyPI](https://img.shields.io/badge/pypi-costs-blue) ![Version](https://img.shields.io/badge/version-0.1.312-blue) ![Python](https://img.shields.io/badge/python-3.9+-blue) ![License](https://img.shields.io/badge/license-Apache--2.0-green)
-![AI Cost](https://img.shields.io/badge/AI%20Cost-$34.46-orange) ![Human Time](https://img.shields.io/badge/Human%20Time-139.5h-blue) ![Model](https://img.shields.io/badge/Model-openrouter%2Fqwen%2Fqwen3--coder--next-lightgrey)
+![PyPI](https://img.shields.io/badge/pypi-costs-blue) ![Version](https://img.shields.io/badge/version-0.1.314-blue) ![Python](https://img.shields.io/badge/python-3.9+-blue) ![License](https://img.shields.io/badge/license-Apache--2.0-green)
+![AI Cost](https://img.shields.io/badge/AI%20Cost-$34.56-orange) ![Human Time](https://img.shields.io/badge/Human%20Time-141.0h-blue) ![Model](https://img.shields.io/badge/Model-openrouter%2Fqwen%2Fqwen3--coder--next-lightgrey)
 
-- 🤖 **LLM usage:** $34.4633 (417 commits)
-- 👤 **Human dev:** ~$13950 (139.5h @ $100/h, 30min dedup)
+- 🤖 **LLM usage:** $34.5601 (419 commits)
+- 👤 **Human dev:** ~$14100 (141.0h @ $100/h, 30min dedup)
 
-Generated on 2026-06-04 using [openrouter/qwen/qwen3-coder-next](https://openrouter.ai/qwen/qwen3-coder-next)
+Generated on 2026-06-07 using [openrouter/qwen/qwen3-coder-next](https://openrouter.ai/qwen/qwen3-coder-next)
 
 ---
 

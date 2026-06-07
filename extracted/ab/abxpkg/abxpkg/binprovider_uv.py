@@ -489,6 +489,31 @@ class UvProvider(BinProvider):
                 return SemVer.parse(parts[1])
         return None
 
+    @staticmethod
+    def _package_names_from_install_args(
+        install_args: InstallArgs,
+        fallback: str,
+    ) -> list[str]:
+        return [
+            arg.split("[", 1)[0].split("=", 1)[0].split(">", 1)[0].split("<", 1)[0]
+            for arg in install_args
+            if arg and not arg.startswith("-")
+        ] or [fallback]
+
+    def _clear_venv_site_packages_pycache(self) -> None:
+        if self.install_root is None:
+            return
+        for site_packages in ((self.install_root / "venv") / "lib").glob(
+            "python*/site-packages",
+        ):
+            for pycache_dir in site_packages.rglob("__pycache__"):
+                if pycache_dir.exists():
+                    logger.info(
+                        "$ %s",
+                        format_command(["rm", "-rf", str(pycache_dir)]),
+                    )
+                shutil.rmtree(pycache_dir, ignore_errors=True)
+
     def default_search_handler(
         self,
         bin_name: BinName,
@@ -565,18 +590,49 @@ class UvProvider(BinProvider):
             else f"--cache-dir={self.cache_dir}"
         )
         if self.install_root:
-            # ``--compile-bytecode`` tells uv to compile ``.pyc`` files at
-            # install time, overwriting any stale bytecode that Python may
-            # have previously auto-generated for an older version of the
-            # same package (wheel-provided source mtimes can collide with
-            # existing ``.pyc`` headers and defeat Python's mtime-based
-            # invalidation). See ``default_update_handler`` for context.
+            if min_version:
+                tool_names = self._package_names_from_install_args(
+                    install_args,
+                    bin_name,
+                )
+                installed_versions = [
+                    self._version_from_uv_metadata(
+                        package_name,
+                        timeout=timeout,
+                        no_cache=no_cache,
+                    )
+                    for package_name in tool_names
+                ]
+                if any(
+                    version and version < min_version for version in installed_versions
+                ):
+                    uninstall_proc = self.exec(
+                        bin_name=installer_bin,
+                        cmd=[
+                            "pip",
+                            "uninstall",
+                            "--python",
+                            str(self.install_root / "venv" / "bin" / "python"),
+                            *tool_names,
+                        ],
+                        timeout=timeout,
+                    )
+                    if (
+                        uninstall_proc.returncode != 0
+                        and "No packages to uninstall"
+                        not in (uninstall_proc.stderr or "")
+                    ):
+                        self._raise_proc_error("install", tool_names, uninstall_proc)
+                    # When install() is revalidating a too-old package, uv's
+                    # in-place upgrade can leave importable stale bytecode even
+                    # though package metadata has advanced. Remove pyc caches
+                    # before reinstalling so the loaded CLI and metadata agree.
+                    self._clear_venv_site_packages_pycache()
             cmd = [
                 "pip",
                 "install",
                 "--python",
                 str(self.install_root / "venv" / "bin" / "python"),
-                "--compile-bytecode",
                 cache_arg,
                 *flags,
                 *install_args,
@@ -637,16 +693,10 @@ class UvProvider(BinProvider):
             # ``uv pip install --upgrade --reinstall`` so the venv's
             # site-packages is fully repopulated from scratch (uv's
             # in-place upgrade path can leave stale files otherwise).
-            # ``--compile-bytecode`` forces uv to write fresh ``.pyc``
-            # files at install time, which overwrites any stale bytecode
-            # Python auto-generated earlier (wheel-provided source mtimes
-            # can collide with existing ``.pyc`` headers and defeat
-            # Python's mtime-based invalidation).
-            tool_names = [
-                arg.split("[", 1)[0].split("=", 1)[0].split(">", 1)[0].split("<", 1)[0]
-                for arg in install_args
-                if arg and not arg.startswith("-")
-            ] or [bin_name]
+            tool_names = self._package_names_from_install_args(
+                install_args,
+                bin_name,
+            )
             uninstall_proc = self.exec(
                 bin_name=installer_bin,
                 cmd=[
@@ -663,31 +713,15 @@ class UvProvider(BinProvider):
                 uninstall_proc.stderr or ""
             ):
                 self._raise_proc_error("update", tool_names, uninstall_proc)
-            # Belt-and-suspenders: ``--compile-bytecode`` below makes uv
-            # rewrite ``.pyc`` files at install time, but on older uv
-            # releases (and on some wheel layouts where the source mtime
-            # is preserved across versions) the rewrite can be skipped if
-            # uv decides the ``.pyc`` is "already up to date" against the
-            # newly-written source. Wipe every ``__pycache__`` under the
-            # venv's site-packages between the uninstall and the install
-            # so Python is forced to recompile from the freshly-written
-            # source. Targeted, not the whole venv.
-            for site_packages in ((self.install_root / "venv") / "lib").glob(
-                "python*/site-packages",
-            ):
-                for pycache_dir in site_packages.rglob("__pycache__"):
-                    if pycache_dir.exists():
-                        logger.info(
-                            "$ %s",
-                            format_command(["rm", "-rf", str(pycache_dir)]),
-                        )
-                    shutil.rmtree(pycache_dir, ignore_errors=True)
+            # Existing installs may contain bytecode from older abxpkg
+            # versions. Remove it before reinstalling so stale bytecode cannot
+            # shadow the freshly installed source.
+            self._clear_venv_site_packages_pycache()
             cmd = [
                 "pip",
                 "install",
                 "--python",
                 str(self.install_root / "venv" / "bin" / "python"),
-                "--compile-bytecode",
                 cache_arg,
                 *flags,
                 *install_args,

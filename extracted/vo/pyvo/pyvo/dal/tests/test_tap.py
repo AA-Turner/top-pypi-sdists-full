@@ -3,6 +3,7 @@
 Tests for pyvo.dal.tap
 """
 import warnings
+from copy import deepcopy
 from functools import partial
 from contextlib import ExitStack
 import datetime
@@ -16,11 +17,12 @@ import pytest
 import requests
 import requests_mock
 
+from pyvo import dal
 from pyvo.dal.tap import escape, search, AsyncTAPJob, TAPService
 from pyvo.dal import DALQueryError, DALServiceError, DALOverflowWarning, DALRateLimitError
-
 from pyvo.io.uws import JobFile
 from pyvo.io.uws.tree import Parameter, Result, ErrorSummary, Message
+from pyvo.auth.authsession import AuthSession
 from pyvo.io.vosi.exceptions import VOSIError
 from pyvo.utils import prototype
 
@@ -461,6 +463,33 @@ def tapservice(capabilities):
     return TAPService('http://example.com/tap')
 
 
+@pytest.mark.usefixtures('capabilities')
+@pytest.mark.filterwarnings("ignore::astropy.io.votable.exceptions.W27")
+@pytest.mark.filterwarnings("ignore::astropy.io.votable.exceptions.W48")
+@pytest.mark.filterwarnings("ignore::astropy.io.votable.exceptions.W06")
+@pytest.mark.filterwarnings("error::pyvo.io.vosi.exceptions.W19")
+def test_deepcopy_tapservice_with_auth_session():
+    """
+    deepcopy must not re-run ElementWithXSIType.__init__ on capabilities.
+
+    Without that guard, TAPCapRestriction.__init__ runs with standardID=None
+    and raises W19 when capabilities were loaded via AuthSession.
+    """
+    service = TAPService('http://example.com/tap', session=AuthSession())
+    copied = deepcopy(service)
+
+    assert copied is not service
+    assert copied.baseurl == service.baseurl
+    assert copied.capabilities is not service.capabilities
+
+    orig_tap = service.get_tap_capability()
+    copy_tap = copied.get_tap_capability()
+    assert copy_tap is not orig_tap
+    assert copy_tap.standardid == 'ivo://ivoa.net/std/TAP'
+    assert len(copy_tap.languages) == len(orig_tap.languages)
+    assert copy_tap.languages[0].name == orig_tap.languages[0].name == 'ADQL'
+
+
 def test_escape():
     query = 'SELECT * FROM ivoa.obscore WHERE dataproduct_type = {}'
     query = query.format(escape("'image'"))
@@ -616,6 +645,16 @@ class TestTAPService:
         with pytest.raises(DALQueryError) as e:
             job.raise_if_error()
         assert 'test_erroneus_submit.non_existent not found' in str(e)
+
+    def test_raise_if_error_uses_cached_phase(self, async_fixture):
+        matchers = async_fixture
+        service = TAPService('http://example.com/tap')
+        job = service.submit_job(
+            "SELECT * FROM test_erroneus_submit.non_existent")
+        call_count_before = matchers["job"].call_count
+        with pytest.raises(DALQueryError):
+            job.raise_if_error()
+        assert call_count_before == matchers["job"].call_count
 
     @pytest.mark.usefixtures('async_fixture')
     def test_submit_job_case(self):
@@ -1828,3 +1867,9 @@ class TestRateLimitError:
             error = excinfo.value
             assert error.retry_after_seconds == 60
             assert error.code == 429
+
+
+def test_public_constants_accessible_from_dal():
+    assert isinstance(dal.DEFAULT_JOB_POLL_TIMEOUT, (int, float))
+    assert isinstance(dal.DEFAULT_JOB_WAIT_TIMEOUT, (int, float))
+    assert isinstance(dal.DATALINK_BATCH_CALL_SIZE, int)

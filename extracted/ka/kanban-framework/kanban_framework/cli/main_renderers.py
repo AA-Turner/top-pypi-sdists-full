@@ -141,7 +141,7 @@ def _render_create(data: dict):
             f"kanban task edit {task_id} --mode {m}" for m in available
         ))
     else:
-        print(f"  模式: {data.get('mode', 'lightweight')}")
+        print(f"  模式: {data.get('mode') or Consts.DEFAULT_MODE}")
 
     tc = data.get("test_config")
     if tc:

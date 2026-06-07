@@ -221,9 +221,7 @@ cdef extern from 'imcd.h' nogil:
     ctypedef struct imcd_lzw_handle_t:
         pass
 
-    imcd_lzw_handle_t* imcd_lzw_new(
-        ssize_t buffersize
-    )
+    imcd_lzw_handle_t* imcd_lzw_new()
 
     void imcd_lzw_del(
         imcd_lzw_handle_t* handle

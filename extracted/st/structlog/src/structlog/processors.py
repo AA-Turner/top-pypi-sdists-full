@@ -19,14 +19,12 @@ import sys
 import threading
 import time
 
+from collections.abc import Callable, Collection, Sequence
 from types import FrameType, TracebackType
 from typing import (
     Any,
-    Callable,
     ClassVar,
-    Collection,
     NamedTuple,
-    Sequence,
     TextIO,
     cast,
 )
@@ -38,6 +36,7 @@ from ._frames import (
 )
 from ._log_levels import NAME_TO_LEVEL, add_log_level
 from ._utils import get_processname
+from .contextvars import _ASYNC_CALLING_THREAD
 from .tracebacks import ExceptionDictTransformer
 from .typing import (
     EventDict,
@@ -732,6 +731,9 @@ class CallsiteParameter(enum.Enum):
 
     .. versionadded:: 25.5.0
        `QUAL_NAME` parameter.
+
+    .. versionadded:: 26.1.0
+       `QUAL_MODULE` parameter.
     """
 
     #: The full path to the python source file of the callsite.
@@ -743,6 +745,8 @@ class CallsiteParameter(enum.Enum):
     #: of `logging.LogRecord` objects and will be the basename, without
     #: extension, of the full path to the python source file of the callsite.
     MODULE = "module"
+    #: The fully qualified import name of the module of the callsite.
+    QUAL_MODULE = "qual_module"
     #: The name of the function that the callsite was in.
     FUNC_NAME = "func_name"
     #: The qualified name of the callsite (includes scope and class names).
@@ -780,16 +784,28 @@ def _get_callsite_qual_name(module: str, frame: FrameType) -> Any:
     return frame.f_code.co_qualname  # will crash on Python <3.11
 
 
+def _get_callsite_qual_module(module: str, frame: FrameType) -> Any:
+    return module
+
+
 def _get_callsite_lineno(module: str, frame: FrameType) -> Any:
     return frame.f_lineno
 
 
 def _get_callsite_thread(module: str, frame: FrameType) -> Any:
-    return threading.get_ident()
+    thread_info = _ASYNC_CALLING_THREAD.get(None)
+    if thread_info is None:
+        return threading.get_ident()
+
+    return thread_info[0]
 
 
 def _get_callsite_thread_name(module: str, frame: FrameType) -> Any:
-    return threading.current_thread().name
+    thread_info = _ASYNC_CALLING_THREAD.get(None)
+    if thread_info is None:
+        return threading.current_thread().name
+
+    return thread_info[1]
 
 
 def _get_callsite_process(module: str, frame: FrameType) -> Any:
@@ -847,6 +863,7 @@ class CallsiteParameterAdder:
         CallsiteParameter.PATHNAME: _get_callsite_pathname,
         CallsiteParameter.FILENAME: _get_callsite_filename,
         CallsiteParameter.MODULE: _get_callsite_module,
+        CallsiteParameter.QUAL_MODULE: _get_callsite_qual_module,
         CallsiteParameter.FUNC_NAME: _get_callsite_func_name,
         CallsiteParameter.QUAL_NAME: _get_callsite_qual_name,
         CallsiteParameter.LINENO: _get_callsite_lineno,

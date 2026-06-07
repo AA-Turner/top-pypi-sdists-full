@@ -718,7 +718,10 @@ class AsyncTAPJob:
         updates local job infos with remote values
         """
         if timeout is None:
-            timeout = DEFAULT_JOB_POLL_TIMEOUT
+            timeout = (
+                DEFAULT_JOB_WAIT_TIMEOUT if wait_for_statechange
+                else DEFAULT_JOB_POLL_TIMEOUT
+            )
         try:
             if wait_for_statechange:
                 response = self._session.get(
@@ -983,8 +986,9 @@ class AsyncTAPJob:
         ----------
         phases : list
             phases to wait for
-        timeout : float
-            maximum time to wait in seconds
+        timeout : float or None
+            maximum time to wait in seconds. If None, defaults to
+            ``DEFAULT_JOB_WAIT_TIMEOUT``.
 
         Raises
         ------
@@ -1041,9 +1045,9 @@ class AsyncTAPJob:
         DALQueryError
             if theres an error
         """
-        if self.phase in {"ERROR", "ABORTED"}:
+        if self._job.phase in {"ERROR", "ABORTED"}:
             msg = ""
-            if self._job and self._job.errorsummary:
+            if self._job.errorsummary:
                 msg = self._job.errorsummary.message.content
             msg = msg or "<No useful error from server>"
             raise DALQueryError("Query Error: " + msg, self.url)
@@ -1233,15 +1237,15 @@ class TAPQuery(DALQuery):
 
 class TAPResults(DatalinkResultsMixin, DALResults):
     """
-    The list of matching images resulting from an image (SIA) query.
+    The list of records resulting from a TAP query.
     Each record contains a set of metadata that describes an available
-    image matching the query constraints.  The number of records in
+    result matching the query constraints.  The number of records in
     the results is available by passing it to the Python built-in ``len()`` function.
 
     This class supports iterable semantics; thus,
     individual records (in the form of
     :py:class:`~pyvo.dal.Record` instances) are typically
-    accessed by iterating over an ``TAPResults`` instance.
+    accessed by iterating over a ``TAPResults`` instance.
 
     Alternatively, records can be accessed randomly via
     :py:meth:`getrecord` or through a Python Database API (v2)
@@ -1252,7 +1256,7 @@ class TAPResults(DatalinkResultsMixin, DALResults):
     ``TAPResults`` is essentially a wrapper around an Astropy
     :py:mod:`~astropy.io.votable`
     :py:class:`~astropy.io.votable.tree.TableElement` instance where the
-    columns contain the various metadata describing the images.
+    columns contain the various metadata describing the query results.
     One can access that VOTable directly via the
     :py:attr:`pyvo.dal.DALResults.votable` attribute.  Thus,
     when one retrieves a whole column via
@@ -1263,7 +1267,7 @@ class TAPResults(DatalinkResultsMixin, DALResults):
 
     ``table = results.to_table``
 
-    ``SIAResults`` supports the array item operator ``[...]`` in a
+    ``TAPResults`` supports the array item operator ``[...]`` in a
     read-only context.  When the argument is numerical, the result
     is an
     :py:class:`~pyvo.dal.Record` instance, representing the
@@ -1292,7 +1296,7 @@ class TAPResults(DatalinkResultsMixin, DALResults):
         return a representation of a tap result record that follows
         dictionary semantics. The keys of the dictionary are those returned by
         this instance's fieldnames attribute. The returned record has
-        additional image-specific properties
+        additional TAP-specific properties
 
         Parameters
         ----------
@@ -1302,7 +1306,7 @@ class TAPResults(DatalinkResultsMixin, DALResults):
 
         Returns
         -------
-        REc
+        TAPRecord
            a dictionary-like wrapper containing the result record metadata.
 
         Raises

@@ -22,12 +22,22 @@ from .middleware.checkbox import Checkbox
 from .middleware.dropdown import Dropdown
 from .middleware.radio import Radio
 from .middleware.text import Text
-from .patterns import (WIDGET_DESCRIPTION_PATTERNS, WIDGET_TYPE_PATTERNS,
-                       check_field_flag, get_checkbox_value,
-                       get_dropdown_choices, get_dropdown_value,
-                       get_field_hidden, get_field_rect, get_radio_value,
-                       get_text_field_alignment, get_text_field_max_length,
-                       get_text_value, get_widget_key, update_annotation_name)
+from .patterns import (
+    WIDGET_DESCRIPTION_PATTERNS,
+    WIDGET_TYPE_PATTERNS,
+    check_field_flag,
+    get_checkbox_value,
+    get_dropdown_choices,
+    get_dropdown_value,
+    get_field_hidden,
+    get_field_rect,
+    get_radio_value,
+    get_text_field_alignment,
+    get_text_field_max_length,
+    get_text_value,
+    get_widget_key,
+    update_annotation_name,
+)
 from .utils import extract_widget_property, find_pattern_match
 
 
@@ -359,6 +369,51 @@ def create_annotations(
             page[NameObject(Annots)] += page_annotations
         else:
             page[NameObject(Annots)] = page_annotations
+
+    with BytesIO() as f:
+        writer.write(f)
+        f.seek(0)
+        return f.read()
+
+
+def remove_widgets_by_keys(
+    pdf: bytes, keys: List[str], use_full_widget_name: bool = False
+) -> bytes:
+    """
+    Removes specific widgets from a PDF by their keys.
+
+    This function removes any widget annotation whose key matches one of the
+    provided keys. If no keys are provided, the original PDF stream is returned
+    unchanged.
+
+    Args:
+        pdf (bytes): The PDF stream to remove widgets from.
+        keys (List[str]): A list of widget keys to remove.
+        use_full_widget_name (bool): Whether to match widgets by their full
+            names, including parent names.
+
+    Returns:
+        bytes: The updated PDF stream with the matching widgets removed.
+    """
+    if not keys:
+        return pdf
+
+    writer = PdfWriter(BytesIO(pdf))
+
+    for page in writer.pages:
+        needs_update = False
+        page_annots = ArrayObject([])
+
+        for annot in page.get(Annots, []):
+            annot = cast(DictionaryObject, annot.get_object())
+            key = get_widget_key(annot.get_object(), use_full_widget_name)
+            if key not in keys:
+                page_annots.append(annot)
+            else:
+                needs_update = True
+
+        if needs_update:
+            page[NameObject(Annots)] = page_annots
 
     with BytesIO() as f:
         writer.write(f)

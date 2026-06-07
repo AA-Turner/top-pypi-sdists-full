@@ -61,3 +61,15 @@ class RemoteServerError(QueryError):
     """
     Raised when querying a resource and getting a remote server error response.
     """
+
+
+class WhoisItWarning(Warning):
+    """
+    Parent Warning for all whoisit raised warnings.
+    """
+
+
+class QueryWarning(WhoisItWarning):
+    """
+    Raised when there are any issues with queries that are not hard errors.
+    """

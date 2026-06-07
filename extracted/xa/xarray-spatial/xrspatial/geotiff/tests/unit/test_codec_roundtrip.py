@@ -20,7 +20,7 @@ Coverage is grouped by codec:
   ``compression_level`` boundaries (eager + dask), availability flag.
 * Generic ``compression_level``: zstd / deflate round-trip and size
   monotonicity, LZW silent-ignore, out-of-range rejection.
-* ``write_geotiff_gpu`` docstring drift.
+* ``_write_geotiff_gpu`` docstring drift.
 
 LERC and JPEG 2000 sections use ``pytest.importorskip`` (or skip
 markers) because the optional codec libraries are not part of the base
@@ -1279,7 +1279,7 @@ class TestCompressionLevelOutOfRange:
 
 
 # ===========================================================================
-# write_geotiff_gpu compression docstring drift
+# _write_geotiff_gpu compression docstring drift
 # ===========================================================================
 
 
@@ -1312,10 +1312,10 @@ _GPU_FALLBACK_CODECS = (
 def test_write_geotiff_gpu_docstring_lists_full_codec_set():
     """The ``compression`` docstring block lists every codec
     ``to_geotiff`` accepts."""
-    from xrspatial.geotiff import write_geotiff_gpu
+    from xrspatial.geotiff import _write_geotiff_gpu
 
-    doc = write_geotiff_gpu.__doc__
-    assert doc is not None, "write_geotiff_gpu lost its docstring"
+    doc = _write_geotiff_gpu.__doc__
+    assert doc is not None, "_write_geotiff_gpu lost its docstring"
     block_start = doc.index("compression : str")
     block_end = doc.index("compression_level", block_start)
     block = doc[block_start:block_end]
@@ -1334,7 +1334,7 @@ def test_write_geotiff_gpu_accepts_cpu_fallback_codecs(tmp_path, codec):
     """Codecs without a GPU encoder still write successfully via CPU."""
     import cupy
 
-    from xrspatial.geotiff import write_geotiff_gpu
+    from xrspatial.geotiff import _write_geotiff_gpu
 
     if codec in ("jpeg2000", "j2k"):
         arr_cpu = np.random.RandomState(0).randint(
@@ -1349,9 +1349,43 @@ def test_write_geotiff_gpu_accepts_cpu_fallback_codecs(tmp_path, codec):
                "transform": (1.0, 0.0, 0.0, 0.0, -1.0, 64.0)},
     )
     path = str(tmp_path / f"out_{codec}.tif")
-    write_geotiff_gpu(da, path, compression=codec,
-                      allow_experimental_codecs=True)
+    _write_geotiff_gpu(da, path, compression=codec,
+                       allow_experimental_codecs=True)
     assert os.path.exists(path), (
-        f"write_geotiff_gpu(compression={codec!r}) failed to write a file"
+        f"_write_geotiff_gpu(compression={codec!r}) failed to write a file"
     )
     assert os.path.getsize(path) > 0
+
+
+class TestDispatcherErrorBranches:
+    """Error branches of the ``compress``/``decompress`` dispatchers (#2995).
+
+    The byte-stream ``compress()`` entry point cannot encode the block
+    codecs (JPEG / JPEG2000 / LERC) because they need width / height /
+    samples, so it rejects them with a redirect message. Both dispatchers
+    reject unknown tags via their ``else`` branch. These guards had no
+    test before #2995.
+    """
+
+    # An arbitrary tag value that is not any defined COMPRESSION_* constant.
+    UNSUPPORTED_TAG = 99999
+
+    def test_compress_rejects_jpeg(self):
+        with pytest.raises(ValueError, match="Use jpeg_compress"):
+            compress(b"\x00" * 16, COMPRESSION_JPEG)
+
+    def test_compress_rejects_jpeg2000(self):
+        with pytest.raises(ValueError, match="Use jpeg2000_compress"):
+            compress(b"\x00" * 16, COMPRESSION_JPEG2000)
+
+    def test_compress_rejects_lerc(self):
+        with pytest.raises(ValueError, match="Use lerc_compress"):
+            compress(b"\x00" * 16, COMPRESSION_LERC)
+
+    def test_compress_rejects_unknown_tag(self):
+        with pytest.raises(ValueError, match="Unsupported compression type"):
+            compress(b"\x00" * 16, self.UNSUPPORTED_TAG)
+
+    def test_decompress_rejects_unknown_tag(self):
+        with pytest.raises(ValueError, match="Unsupported compression type"):
+            decompress(b"\x00" * 16, self.UNSUPPORTED_TAG)

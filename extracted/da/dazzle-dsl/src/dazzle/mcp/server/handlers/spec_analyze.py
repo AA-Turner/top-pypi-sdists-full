@@ -961,7 +961,7 @@ def _load_counter_priors_for_flagging() -> list[Any]:
 # entities + personas + lifecycles in the cognition pass output.
 
 
-def _propose_patterns(arguments: dict[str, Any]) -> str:
+def _propose_patterns(arguments: dict[str, Any], active: set[str] | None = None) -> str:
     """Match spec_text against patterns.toml + inference_kb triggers.
 
     Returns a structured list of `pattern_proposals` (positive) and
@@ -980,17 +980,43 @@ def _propose_patterns(arguments: dict[str, Any]) -> str:
         return error_response("spec_text is required")
 
     haystack = spec_text.lower()
+    # Active capabilities may arrive via the param (direct call) or the arguments
+    # dict (when routed through handle_spec_analyze, e.g. from bootstrap). Explicit
+    # None → fall back to the dict; an explicit empty set means "nothing active".
+    active = active if active is not None else set(arguments.get("active_capabilities") or [])
 
     # Lazy imports — keeps the handler module lightweight for non-bootstrap callers.
+    from dazzle.core.capabilities.cognition import enable_suggestion
     from dazzle.mcp.semantics_kb import get_dsl_patterns
 
     # --- Positive proposals (patterns.toml) ---
     pattern_proposals: list[dict[str, Any]] = []
+    # A pattern gated by an inactive capability (#1342) is NOT surfaced as full
+    # guidance; instead, a matched trigger becomes a "declare this capability"
+    # suggestion (the binary-requirement→config north-star).
+    capability_suggestions: list[dict[str, Any]] = []
+    suggestions_by_cap: dict[str, dict[str, Any]] = {}  # capability id → suggestion
     patterns_blob = get_dsl_patterns().get("patterns", {})
     for pattern_id, entry in patterns_blob.items():
         triggers = entry.get("triggers") or []
         matched = [t for t in triggers if isinstance(t, str) and t.lower() in haystack]
         if not matched:
+            continue
+        gate = entry.get("capability")
+        if gate and gate not in active:
+            # Gated + inactive → suggest enabling, don't push full guidance. Union
+            # matched triggers across every pattern sharing this capability so the
+            # suggestion's evidence is complete, not first-pattern-wins.
+            existing = suggestions_by_cap.get(gate)
+            if existing is None:
+                suggestion = enable_suggestion(gate)
+                suggestion["matched_triggers"] = list(matched)
+                suggestions_by_cap[gate] = suggestion
+                capability_suggestions.append(suggestion)
+            else:
+                for t in matched:
+                    if t not in existing["matched_triggers"]:
+                        existing["matched_triggers"].append(t)
             continue
         pattern_proposals.append(
             {
@@ -1005,12 +1031,23 @@ def _propose_patterns(arguments: dict[str, Any]) -> str:
             }
         )
 
+    # Human-readable "why" from the final (unioned) trigger set per suggestion.
+    for suggestion in capability_suggestions:
+        triggers_text = ", ".join(suggestion["matched_triggers"])
+        suggestion["because"] = f"your spec mentions {triggers_text} — an opt-in capability"
+
     # --- Negative flags (docs/counter-priors/*.md) ---
     antipattern_flags: list[dict[str, Any]] = []
     counter_priors = _load_counter_priors_for_flagging()
     for entry in counter_priors:
         matched = [t for t in entry.triggers_text if isinstance(t, str) and t.lower() in haystack]
         if not matched:
+            continue
+        # A capability-scoped antipattern is only relevant when that capability is
+        # active (#1342) — suppress it otherwise (no false warnings for features
+        # the app doesn't use).
+        gate = getattr(entry, "capability", None)
+        if gate and gate not in active:
             continue
         antipattern_flags.append(
             {
@@ -1031,9 +1068,11 @@ def _propose_patterns(arguments: dict[str, Any]) -> str:
         {
             "pattern_proposals": pattern_proposals,
             "antipattern_flags": antipattern_flags,
+            "capability_suggestions": capability_suggestions,
             "summary": (
                 f"{len(pattern_proposals)} pattern(s) matched, "
-                f"{len(antipattern_flags)} anti-pattern flag(s)"
+                f"{len(antipattern_flags)} anti-pattern flag(s), "
+                f"{len(capability_suggestions)} capability suggestion(s)"
             ),
         },
         indent=2,

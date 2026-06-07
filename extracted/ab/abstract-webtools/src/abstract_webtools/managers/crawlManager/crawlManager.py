@@ -270,18 +270,18 @@ class crawlManagerSingleton():
             crawlManagerSingleton._instance = CrawlManager(url=url,parse_type=parse_type,source_code=source_code)
         return crawlManagerSingleton._instance
 def get_crawl_mgr(url=None,req_mgr=None,url_mgr=None,source_code=None,parse_type="html.parser"):
-    
-    url_mgr = get_url_mgr(url=url,url_mgr=url_mgr)
-    url = get_url(url=url,url_mgr=url_mgr)
-    req_mgr=get_req_mgr(url=url,url_mgr=url_mgr,source_code=source_code)
-    source_code = get_source(url=url,url_mgr=url_mgr,source_code=source_code)
-    soup_mgr = get_soup_mgr(url=url,url_mgr=url_mgr,source_code=source_code,req_mgr=req_mgr,parse_type=parse_type)
-    crawl_mgr = crawlManager(url=url,req_mgr=req_mgr,url_mgr=url_mgr,source_code=source_code,parse_type=parse_type)
-    return crawl_mgr
+    # Build the chain once and thread the shared instances through, so the page
+    # is fetched a single time rather than once per get_* call. The previous
+    # version also dropped the built req_mgr, passing the (often None) parameter
+    # into crawlManager instead.
+    url_mgr = get_url_mgr(url=url, url_mgr=url_mgr)
+    req_mgr = get_req_mgr(url_mgr=url_mgr, source_code=source_code, req_mgr=req_mgr)
+    source_code = source_code if source_code is not None else req_mgr.source_code
+    return crawlManager(url=url_mgr.url, req_mgr=req_mgr, url_mgr=url_mgr,
+                        source_code=source_code, parse_type=parse_type)
 def get_domain_crawl(url=None,req_mgr=None,url_mgr=None,source_code=None,parse_type="html.parser",max_depth=3, depth=1):
     crawl_mgr = get_crawl_mgr(url=url,req_mgr=req_mgr,url_mgr=url_mgr,source_code=source_code,parse_type=parse_type)
-    url = get_url(url=url,url_mgr=url_mgr)
-    all_domain_links = crawl_mgr.crawl(url=url, max_depth=max_depth, depth=depth)
+    all_domain_links = crawl_mgr.crawl(url=crawl_mgr.url, max_depth=max_depth, depth=depth)
     return all_domain_links
 def get_all_crawl_links(url):
     url_mgr = urlManager(url)

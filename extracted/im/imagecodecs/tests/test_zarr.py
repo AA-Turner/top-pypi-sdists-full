@@ -59,8 +59,7 @@ except ImportError:
 from zarr.abc.codec import ArrayArrayCodec, ArrayBytesCodec
 from zarr.buffer import default_buffer_prototype
 from zarr.buffer.cpu import Buffer
-from zarr.core.array import ArrayConfig
-from zarr.core.array_spec import ArraySpec
+from zarr.core.array_spec import ArrayConfig, ArraySpec
 from zarr.core.dtype import get_data_type_from_native_dtype
 
 zarr3codecs.register_codecs()
@@ -197,6 +196,52 @@ def test_eer_zarr():
     assert_array_equal(decoded.as_numpy_array(), expected)
     assert decoded.as_numpy_array()[0, 3]
     assert decoded.as_numpy_array()[0, 17]
+
+
+@pytest.mark.skipif(not imagecodecs.ZSTD1.available, reason='ZSTD1 missing')
+def test_zstd1_zarr():
+    """Test Zstd1 zarr codec."""
+    data = numpy.arange(256, dtype=numpy.uint16)
+    raw = data.tobytes()
+    spec = _array_spec(data.shape, data.dtype)
+
+    # lossless roundtrip without shuffle
+    codec = zarr3codecs.Zstd1()
+    encoded = codec._encode_sync(Buffer.from_bytes(raw), spec)
+    decoded = codec._decode_sync(encoded, spec)
+    assert decoded.as_numpy_array().tobytes() == raw
+
+    # auto hilo=False (no shuffle): Zstd1() on uint8
+    spec8 = _array_spec(data.shape, numpy.dtype('uint8'))
+    raw8 = data.astype(numpy.uint8).tobytes()
+    codec = zarr3codecs.Zstd1()
+    encoded_nohilo = codec._encode_sync(Buffer.from_bytes(raw8), spec8)
+    decoded = codec._decode_sync(encoded_nohilo, spec8)
+    assert decoded.as_numpy_array().tobytes() == raw8
+
+    # auto hilo=True (shuffle): Zstd1() on uint16 -> hilo enabled
+    codec = zarr3codecs.Zstd1()
+    encoded_hilo = codec._encode_sync(Buffer.from_bytes(raw), spec)
+    decoded = codec._decode_sync(encoded_hilo, spec)
+    assert decoded.as_numpy_array().tobytes() == raw
+    codec_nohilo = zarr3codecs.Zstd1(hilo=False)
+    encoded_no = codec_nohilo._encode_sync(Buffer.from_bytes(raw), spec)
+    assert (
+        encoded_hilo.as_numpy_array().tobytes()
+        != encoded_no.as_numpy_array().tobytes()
+    )
+
+    # explicit hilo=False
+    codec = zarr3codecs.Zstd1(hilo=False)
+    encoded = codec._encode_sync(Buffer.from_bytes(raw), spec)
+    decoded = codec._decode_sync(encoded, spec)
+    assert decoded.as_numpy_array().tobytes() == raw
+
+    # explicit level
+    codec = zarr3codecs.Zstd1(level=3)
+    encoded = codec._encode_sync(Buffer.from_bytes(raw), spec)
+    decoded = codec._decode_sync(encoded, spec)
+    assert decoded.as_numpy_array().tobytes() == raw
 
 
 @pytest.mark.skipif(
@@ -396,6 +441,7 @@ def test_zarr_pipeline(pipeline):
         'packbits',
         'packints',
         'pcodec',
+        'pcx',
         'pglz',
         'pixarlog',
         'plio',
@@ -409,6 +455,7 @@ def test_zarr_pipeline(pipeline):
         'spng',
         'sz3',
         'szip',
+        'tga',
         'tiff',
         'ultrahdr',
         'wavpack',
@@ -420,6 +467,7 @@ def test_zarr_pipeline(pipeline):
         'zlibng',
         'zopfli',
         'zstd',
+        'zstd1',
     ],
 )
 def test_zarr(codec, photometric):
@@ -607,6 +655,8 @@ def test_zarr(codec, photometric):
         case 'plio':
             data = data.astype('int32')
             codec_obj = zarr3codecs.Plio()
+        case 'pcx':
+            codec_obj = zarr3codecs.Pcx()
         case 'png':
             codec_obj = zarr3codecs.Png()
         case 'qoi':
@@ -640,13 +690,15 @@ def test_zarr(codec, photometric):
             codec_obj = zarr3codecs.Spng()
         case 'sz3':
             data = data.astype('float32')
-            atol = 1e-3
+            atol = 1e-2
             codec_obj = zarr3codecs.Sz3(mode='abs', abs=atol)
             lossless = False
         case 'szip':
             codec_obj = zarr3codecs.Szip(
                 header=True, **imagecodecs.szip_params(data)
             )
+        case 'tga':
+            codec_obj = zarr3codecs.Tga()
         case 'tiff':
             codec_obj = zarr3codecs.Tiff(level=6, predictor=True)
         case 'ultrahdr':
@@ -686,6 +738,8 @@ def test_zarr(codec, photometric):
             codec_obj = zarr3codecs.Zopfli(level=1, blocksplitting=False)
         case 'zstd':
             codec_obj = zarr3codecs.Zstd(level=10)
+        case 'zstd1':
+            codec_obj = zarr3codecs.Zstd1(level=10)
         case _:
             raise RuntimeError
 

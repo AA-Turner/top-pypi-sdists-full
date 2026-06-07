@@ -30,6 +30,8 @@ class _FakeSystemKeyringModule:
     def __init__(self) -> None:
         self._secrets: dict[tuple[str, str], str] = {}
         self.fail_on_set = False
+        self.get_password_calls = 0
+        self.set_password_calls = 0
 
     @staticmethod
     def get_keyring():
@@ -41,9 +43,11 @@ class _FakeSystemKeyringModule:
     def set_password(self, service_name: str, secret_id: str, value: str) -> None:
         if self.fail_on_set:
             raise RuntimeError("system keyring unavailable")
+        self.set_password_calls += 1
         self._secrets[(service_name, secret_id)] = value
 
     def get_password(self, service_name: str, secret_id: str) -> str | None:
+        self.get_password_calls += 1
         return self._secrets.get((service_name, secret_id))
 
     def delete_password(self, service_name: str, secret_id: str) -> None:
@@ -875,11 +879,83 @@ def test_oauth_local_credentials_mirror_secret_into_encrypted_fallback_store(tmp
     assert headless_store.get_oauth_local_credential_health()["state"] == "healthy"
 
 
+def test_set_oauth_local_credentials_skips_keyring_rewrite_when_secret_material_is_unchanged(tmp_path, monkeypatch):
+    fake_keyring = _install_fake_system_keyring(monkeypatch)
+    guard_home = tmp_path / "guard-home"
+    store = GuardStore(guard_home)
+
+    refresh_token = "refresh-token-1"
+    rotated_refresh_token = "refresh-token-2"
+    key_material = "key-material-1"
+
+    store.set_oauth_local_credentials(
+        issuer="https://hol.org",
+        client_id="guard-local-daemon",
+        refresh_token=refresh_token,
+        dpop_private_key_pem=key_material,
+        dpop_public_jwk={"kty": "EC", "crv": "P-256", "x": "x-value", "y": "y-value", "alg": "ES256", "use": "sig"},
+        dpop_public_jwk_thumbprint="thumbprint-123",
+        grant_id="grant-123",
+        machine_id="machine-123",
+        workspace_id="workspace-123",
+        supply_chain_plan_id="starter",
+        now="2026-06-01T00:00:00+00:00",
+    )
+
+    assert fake_keyring.set_password_calls == 1
+
+    store.set_oauth_local_credentials(
+        issuer="https://hol.org",
+        client_id="guard-local-daemon",
+        refresh_token=refresh_token,
+        dpop_private_key_pem=key_material,
+        dpop_public_jwk={"kty": "EC", "crv": "P-256", "x": "x-value", "y": "y-value", "alg": "ES256", "use": "sig"},
+        dpop_public_jwk_thumbprint="thumbprint-123",
+        grant_id="grant-123",
+        machine_id="machine-123",
+        workspace_id="workspace-123",
+        supply_chain_firewall=True,
+        supply_chain_plan_id="team",
+        now="2026-06-01T00:05:00+00:00",
+    )
+
+    assert fake_keyring.set_password_calls == 1
+    credentials = store.get_oauth_local_credentials()
+
+    assert credentials is not None
+    assert credentials["refresh_token"] == refresh_token
+    assert credentials["dpop_private_key_pem"] == key_material
+    assert credentials["supply_chain_firewall"] is True
+    assert credentials["supply_chain_plan_id"] == "team"
+
+    store.set_oauth_local_credentials(
+        issuer="https://hol.org",
+        client_id="guard-local-daemon",
+        refresh_token=rotated_refresh_token,
+        dpop_private_key_pem=key_material,
+        dpop_public_jwk={"kty": "EC", "crv": "P-256", "x": "x-value", "y": "y-value", "alg": "ES256", "use": "sig"},
+        dpop_public_jwk_thumbprint="thumbprint-123",
+        grant_id="grant-123",
+        machine_id="machine-123",
+        workspace_id="workspace-123",
+        supply_chain_firewall=True,
+        supply_chain_plan_id="team",
+        now="2026-06-01T00:10:00+00:00",
+    )
+
+    assert fake_keyring.set_password_calls == 2
+    rotated_credentials = store.get_oauth_local_credentials()
+
+    assert rotated_credentials is not None
+    assert rotated_credentials["refresh_token"] == rotated_refresh_token
+
+
 def test_get_oauth_local_credentials_prefers_validated_encrypted_fallback_before_keyring(tmp_path, monkeypatch):
-    _install_fake_system_keyring(monkeypatch)
+    fake_keyring = _install_fake_system_keyring(monkeypatch)
     guard_home = tmp_path / "guard-home"
     store = GuardStore(guard_home)
     assert isinstance(store._oauth_secret_store, FallbackSecretStore)
+    assert isinstance(store._oauth_secret_store.fallback, EncryptedFileSecretStore)
 
     store.set_oauth_local_credentials(
         issuer="https://hol.org",
@@ -894,15 +970,29 @@ def test_get_oauth_local_credentials_prefers_validated_encrypted_fallback_before
         now="2026-06-01T00:00:00+00:00",
     )
 
-    def fail_primary_lookup(secret_id: str) -> str | None:
-        raise AssertionError(f"primary keyring lookup should not run for {secret_id}")
+    fallback_reads = 0
+    original_fallback_get_secret = store._oauth_secret_store.fallback.get_secret
 
-    monkeypatch.setattr(store._oauth_secret_store.primary, "get_secret", fail_primary_lookup)
+    def count_fallback_reads(secret_id: str) -> str | None:
+        nonlocal fallback_reads
+        fallback_reads += 1
+        return original_fallback_get_secret(secret_id)
+
+    monkeypatch.setattr(store._oauth_secret_store.fallback, "get_secret", count_fallback_reads)
 
     credentials = store.get_oauth_local_credentials()
+    repeated_credentials = store.get_oauth_local_credentials()
 
     assert credentials is not None
+    assert repeated_credentials is not None
     assert credentials["refresh_token"] == "refresh-secret-value"
+    assert store.get_cloud_sync_profile() == {
+        "auth_mode": "oauth",
+        "sync_url": "https://hol.org/api/guard/receipts/sync",
+        "workspace_id": "workspace-123",
+    }
+    assert fallback_reads == 1
+    assert fake_keyring.get_password_calls == 0
 
 
 def test_get_oauth_local_credentials_fails_closed_when_fallback_hash_is_stale(tmp_path, monkeypatch):
@@ -986,10 +1076,22 @@ def test_get_oauth_local_credentials_recovers_from_timed_primary_lookup_when_fal
         lambda _secret_id, *, timeout_seconds: primary_secret,
     )
 
+    primary_reads = 0
+
+    def count_primary_reads(_secret_id: str, *, timeout_seconds: float) -> str | None:
+        nonlocal primary_reads
+        primary_reads += 1
+        return primary_secret
+
+    monkeypatch.setattr(store._oauth_secret_store.primary, "get_secret_with_timeout", count_primary_reads)
+
     credentials = store.get_oauth_local_credentials()
+    repeated_credentials = store.get_oauth_local_credentials()
 
     assert credentials is not None
+    assert repeated_credentials is not None
     assert credentials["refresh_token"] == "refresh-secret-value-rotated"
+    assert primary_reads == 1
     assert store.get_oauth_local_credential_health()["state"] == "healthy"
 
 

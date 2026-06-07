@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rapid-mlx
-Version: 0.6.77
+Version: 0.6.80
 Summary: Rapid-MLX — AI inference for Apple Silicon. Drop-in OpenAI API, 2-4x faster than Ollama.
 Author: vllm-mlx contributors
 License: Apache-2.0
@@ -38,6 +38,7 @@ Requires-Dist: fastapi>=0.100.0
 Requires-Dist: uvicorn>=0.23.0
 Requires-Dist: mcp>=1.0.0
 Requires-Dist: jsonschema>=4.0.0
+Requires-Dist: argcomplete>=3.6
 Requires-Dist: websockets>=12.0
 Requires-Dist: openai-harmony>=0.0.6
 Provides-Extra: vision

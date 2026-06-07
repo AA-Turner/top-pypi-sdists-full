@@ -64,6 +64,11 @@ def sync_detailed(
     unique within an account and immutable for the lifetime of the
     forwarder.
 
+    Enablement is per-environment: a forwarder is enabled in an
+    environment only via `environments[<env>].enabled`; the base `enabled`
+    is always false. Every environment referenced in `environments` must
+    exist and be managed for the account.
+
     Args:
         body (ForwarderCreateRequest): JSON:API request envelope for creating a forwarder.
 
@@ -102,6 +107,11 @@ def sync(
     unique within an account and immutable for the lifetime of the
     forwarder.
 
+    Enablement is per-environment: a forwarder is enabled in an
+    environment only via `environments[<env>].enabled`; the base `enabled`
+    is always false. Every environment referenced in `environments` must
+    exist and be managed for the account.
+
     Args:
         body (ForwarderCreateRequest): JSON:API request envelope for creating a forwarder.
 
@@ -134,6 +144,11 @@ async def asyncio_detailed(
     The caller supplies the forwarder's key as `data.id`. Keys are
     unique within an account and immutable for the lifetime of the
     forwarder.
+
+    Enablement is per-environment: a forwarder is enabled in an
+    environment only via `environments[<env>].enabled`; the base `enabled`
+    is always false. Every environment referenced in `environments` must
+    exist and be managed for the account.
 
     Args:
         body (ForwarderCreateRequest): JSON:API request envelope for creating a forwarder.
@@ -170,6 +185,11 @@ async def asyncio(
     The caller supplies the forwarder's key as `data.id`. Keys are
     unique within an account and immutable for the lifetime of the
     forwarder.
+
+    Enablement is per-environment: a forwarder is enabled in an
+    environment only via `environments[<env>].enabled`; the base `enabled`
+    is always false. Every environment referenced in `environments` must
+    exist and be managed for the account.
 
     Args:
         body (ForwarderCreateRequest): JSON:API request envelope for creating a forwarder.

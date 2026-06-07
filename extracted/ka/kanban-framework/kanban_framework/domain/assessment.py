@@ -81,6 +81,7 @@ def assess_task(title: str, description: str) -> dict:
     if score < 0.35 and (quick or (light and score < 0.2)):
         mode = "quick"
         reason = f"检测到简单信号: {', '.join((quick or light)[:3])} → 建议 quick 模式，直接执行"
+        _is_quick = True
     elif heavy:
         mode = default_mode
         reason = f"检测到重度信号: {', '.join(heavy[:3])} → 建议 {default_mode} 模式，含完整评审"
@@ -90,6 +91,7 @@ def assess_task(title: str, description: str) -> dict:
     else:
         mode = default_mode
         reason = f"无明显重度信号 → 默认 {default_mode} 模式"
+    _is_quick = locals().get('_is_quick', False)
 
     risk_factors = []
     if any(kw in text for kw in ["数据库", "database", "data migration"]):
@@ -110,5 +112,5 @@ def assess_task(title: str, description: str) -> dict:
             "target_file": None,
             "change_type": None,
             "expected_lines": 10,
-        } if mode == "quick" else None,
+        } if _is_quick else None,
     }

@@ -108,7 +108,7 @@ class requestManager:
                  max_retries=None, request_wait_limit=None):
 
         self.url_mgr = get_url_mgr(url=url, url_mgr=url_mgr)
-        self.url = get_url(url=url, url_mgr=self.url_mgr)
+        self.url = self.url_mgr.url
 
         # UA/headers
         self.ua_mgr = ua_mgr or get_ua_mgr(user_agent=user_agent)
@@ -445,10 +445,37 @@ class SafeRequestSingleton:
             SafeRequestSingleton._instance = SafeRequest(url,url_mgr=urlManagerSingleton,headers=headers,max_retries=max_retries,last_request_time=last_request_time,request_wait_limit=request_wait_limit)
         return SafeRequestSingleton._instance
 def get_source(url=None,url_mgr=None,source_code=None,req_mgr=None):
+    if source_code is not None and req_mgr is None:
+        return source_code
     req_mgr = get_req_mgr(req_mgr=req_mgr,url=url,url_mgr=url_mgr,source_code=source_code)
     return req_mgr.source_code
 def get_req_mgr(url=None,url_mgr=None,source_code=None,req_mgr=None):
-    url = get_url(url=url,url_mgr=url_mgr)
-    url_mgr = get_url_mgr(url=url,url_mgr=url_mgr )
-    req_mgr = req_mgr  or requestManager(url_mgr=url_mgr,url=url,source_code=source_code)
-    return req_mgr
+    # Reuse an existing manager verbatim; never rebuild (and thus never re-fetch).
+    if req_mgr is not None:
+        return req_mgr
+    # Resolve the url manager exactly once instead of building it twice
+    # (the old code called both get_url and get_url_mgr, each constructing one).
+    url_mgr = get_url_mgr(url=url, url_mgr=url_mgr)
+    return requestManager(url_mgr=url_mgr, url=url_mgr.url, source_code=source_code)
+def get_managed_session(req_mgr=None, ua_mgr=None, user_agent=None, headers=None,
+                        proxies=None, cookies=None, ciphers=None,
+                        certification=None, ssl_options=None):
+    """Return a ``requests.Session`` already configured by the manager stack:
+    user agent (userAgentManager), ciphers (cipherManager), the SSL/TLS adapter,
+    proxies and cookies (networkManager).
+
+    This is the single entry point other managers (videoDownloader, usurpManager)
+    should use instead of constructing a bare ``requests.Session()`` with a
+    hardcoded user agent. When an existing ``req_mgr`` is supplied its already
+    configured session is reused as-is, so nothing is rebuilt or re-fetched.
+
+    Note: ``url`` is intentionally left ``None`` so building the manager only
+    wires up the session and never performs a network request.
+    """
+    if req_mgr is not None:
+        return req_mgr.session
+    req_mgr = requestManager(url=None, ua_mgr=ua_mgr, user_agent=user_agent,
+                             headers=headers, proxies=proxies, cookies=cookies,
+                             ciphers=ciphers, certification=certification,
+                             ssl_options=ssl_options)
+    return req_mgr.session

@@ -117,6 +117,8 @@ def dispatch(args: list[str]) -> dict:
         return _handle_get(km, args[1:])
     if sub == "delete":
         return _handle_delete(km, args[1:])
+    if sub == "remove":
+        return _handle_delete(km, args[1:])
     if sub == "maintenance":
         return _handle_maintenance(km, args[1:])
     if sub == "benchmark":
@@ -134,7 +136,7 @@ def dispatch(args: list[str]) -> dict:
         return _handle_history(km, args[1:])
     if sub == "restore":
         return _handle_restore(km, args[1:])
-    return {"subcommand": sub, "results": []}
+    return {"error": f"unknown subcommand: {sub}. Use 'kanban knowledge help' to see available commands."}
 
 
 # ── Shared helpers ────────────────────────────────────────────────────────

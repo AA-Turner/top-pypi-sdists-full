@@ -10,12 +10,7 @@ with open("README.md") as fh:
     long_description = fh.read()
 
 if os.environ.get("BROWNIE_LIB", "0") == "1":
-    if sys.platform == "windows":
-        requirements_filename = "requirements-windows.in"
-    else:
-        requirements_filename = "requirements.in"
-elif sys.platform == "windows":
-    requirements_filename = "requirements-windows.txt"
+    requirements_filename = "requirements.in"
 else:
     requirements_filename = "requirements.txt"
 
@@ -92,7 +87,7 @@ setup(
         include=["brownie", "brownie.*"],
         exclude=["brownie.__pycache__", "brownie.*.__pycache__"],
     ),
-    version="1.22.0",  # don't change this manually, use bumpversion instead
+    version="1.22.1",  # don't change this manually, use bumpversion instead
     license="MIT",
     description="A Python framework for Ethereum smart contract deployment, testing and interaction.",  # noqa: E501
     long_description=long_description,

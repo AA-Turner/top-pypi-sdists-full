@@ -1,9 +1,10 @@
 from collections.abc import Iterator
 from ipaddress import IPv4Address, IPv4Network, IPv6Address, IPv6Network
+import warnings
 import httpx
 import requests
 from .bootstrap import _BootstrapWrapper
-from .errors import ArgumentError
+from .errors import ArgumentError, QueryError, QueryWarning
 from .parser import parse
 from .query import Query, QueryAsync, QueryBuilder
 from .utils import (
@@ -11,6 +12,8 @@ from .utils import (
     get_session,
     recursive_merge,
     clear_session,
+    set_session,
+    set_async_client,
     set_proxy,
     get_proxy,
     clear_proxy,
@@ -34,6 +37,13 @@ save_bootstrap_data = _bootstrap.save_bootstrap_data
 load_bootstrap_data = _bootstrap.load_bootstrap_data
 bootstrap_is_older_than = _bootstrap.bootstrap_is_older_than
 build_query = _query_builder.build
+
+
+# Boostrap helpers
+
+
+def get_dns_endpoints_for_tld(tld):
+    return _bootstrap.get_dns_endpoints(tld)
 
 
 # Query helpers
@@ -149,12 +159,22 @@ def domain(
     gen = _domain(domain_name, raw, include_raw, follow_related, session, None)
     resp: dict | None = None
     q: Query
+    i: int = 0
     for q in gen:
-        req_resp: dict = q.request()
+        try:
+            req_resp: dict = q.request()
+        except QueryError as e:
+            if i == 0:
+                raise
+            else:
+                warnings.warn(f"Sub-query failed: {e}", QueryWarning)
+                req_resp = {}
         resp = gen.send(req_resp)
+        # happens when raw=true
         if resp is req_resp:
             gen.close()
             break
+        i += 1
     return resp
 
 
@@ -170,13 +190,22 @@ async def domain_async(
     gen = _domain(domain_name, raw, include_raw, follow_related, None, async_client)
     resp: dict | None = None
     q: QueryAsync
+    i: int = 0
     for q in gen:
-        req_resp: dict = await q.request()
+        try:
+            req_resp: dict = await q.request()
+        except QueryError as e:
+            if i == 0:
+                raise
+            else:
+                warnings.warn(f"Sub-query failed: {e}", QueryWarning)
+                req_resp = {}
         resp = gen.send(req_resp)
         # happens when raw=true
         if resp is req_resp:
             gen.close()
             break
+        i += 1
     return resp
 
 

@@ -70,7 +70,7 @@ def cmd_create(args: list[str]) -> dict:
     from kanban_framework.domain.assessment import assess_task
     ai = assess_task(title, desc)
 
-    _default_mode = tm._cfg.default_mode if tm._cfg else "lightweight"
+    _default_mode = tm._cfg.default_mode if tm._cfg else Consts.DEFAULT_MODE
 
     task_mode = parsed.mode
     user_specified_mode = bool(task_mode or parsed.lightweight)

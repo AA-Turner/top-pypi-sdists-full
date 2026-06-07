@@ -16,6 +16,7 @@ This module provides basic, low-level access to the RegTAP Registries using
 standardized TAP-based services.
 """
 
+import collections
 import functools
 import itertools
 import os
@@ -34,7 +35,7 @@ from ..io.vosi import vodataservice
 from ..utils.formatting import para_format_desc
 
 
-__all__ = ["search", "get_RegTAP_query", "Interface",
+__all__ = ["search", "get_RegTAP_query", "get_RegTAP_service_url", "Interface",
            "RegistryResource", "RegistryResults", "ivoid2service"]
 
 REGISTRY_BASEURL = os.environ.get("IVOA_REGISTRY", "http://reg.g-vo.org/tap"
@@ -109,6 +110,22 @@ def get_RegTAP_service():
     :py:func:`choose_RegTAP_service`.
     """
     return tap.TAPService(REGISTRY_BASEURL)
+
+
+def get_RegTAP_service_url():
+    """
+    Return the access URL of the currently configured RegTAP service.
+
+    By default, pyVO uses whatever is given in the environment variable
+    ``IVOA_REGISTRY``, defaulting to GAVO's TAP service.  To change this
+    use :py:func:`pyvo.registry.choose_RegTAP_service`.
+
+    Returns
+    -------
+    str
+        The TAP access URL of the current RegTAP endpoint.
+    """
+    return REGISTRY_BASEURL
 
 
 def choose_RegTAP_service(access_url):
@@ -1110,7 +1127,7 @@ class RegistryResource(dalq.Record):
 
         return res
 
-    def get_tables(self, *, table_limit=20):
+    def get_tables(self, *, table_limit=500):
         """
         return the structure of the tables underlying the service.
 
@@ -1134,26 +1151,32 @@ class RegistryResource(dalq.Record):
             FROM rr.res_table
             WHERE ivoid={}""".format(
                 rtcons.make_sql_literal(self.ivoid)))
+
         if len(tables) > table_limit:
             raise dalq.DALQueryError(f"Resource {self.ivoid} reports"
                                      f" {len(tables)} tables.  Pass a higher table_limit"
                                      " to see them all.")
 
-        res = {}
-        for table_row in tables:
-            columns = svc.run_sync(
-                """
-                SELECT name, ucd, unit, utype, datatype, arraysize,
-                    extended_type, column_description
-                FROM rr.table_column
-                WHERE ivoid={}
-                    AND table_index={}""".format(
-                    rtcons.make_sql_literal(self.ivoid),
-                    rtcons.make_sql_literal(table_row["table_index"])))
-            res[table_row["table_name"]] = self._build_vosi_table(
-                table_row, columns)
+        if len(tables) == 0:
+            return {}
 
-        return res
+        all_columns = svc.run_sync(
+            """SELECT name, ucd, unit, utype, datatype, arraysize,
+                    extended_type, column_description, table_index
+            FROM rr.table_column
+            WHERE ivoid={}""".format(
+                rtcons.make_sql_literal(self.ivoid)),
+            maxrec=1000000)
+
+        columns_by_table = collections.defaultdict(list)
+        for col_row in all_columns:
+            columns_by_table[int(col_row["table_index"])].append(col_row)
+
+        return {
+            table_row["table_name"]: self._build_vosi_table(
+                table_row, columns_by_table[int(table_row["table_index"])])
+            for table_row in tables
+        }
 
 
 @deprecated("1.5", "ivoid2service does not work in the presence of"

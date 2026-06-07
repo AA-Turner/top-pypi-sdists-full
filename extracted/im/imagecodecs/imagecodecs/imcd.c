@@ -636,7 +636,7 @@ ssize_t imcd_byteshuffle(
     else {
         /* encode */
         if (
-            (dststride != itemsize) || (srcstride <= 0) ||
+            (dststride != itemsize) || (srcstride < 0) ||
             (srcstride % itemsize))
         {
             return IMCD_VALUE_ERROR;
@@ -2150,84 +2150,16 @@ TIFF compression scheme 5, an adaptive compression scheme for raster images.
 
 /* LZW table size is 4098 + 1024 buffer for old style */
 #define LZW_TABLESIZE 5120
-#define LZW_BUFFERSIZE 65536  /* 64 KB */
 #define LZW_CLEAR 256
 #define LZW_EOI 257
 #define LZW_FIRST 258
 #define LZW_HASH_SIZE 7349
 #define LZW_HASH_STEP 257
 
-/* Allocate buffer or re-allocate in multiples of LZW_BUFFERSIZE */
-ssize_t _lzw_alloc_buffer(
-    imcd_lzw_handle_t* handle,
-    ssize_t buffersize)
-{
-    if (handle == NULL) {
-        return IMCD_VALUE_ERROR;
-    }
-
-    if (buffersize <= 0) {
-        /* free buffer */
-        free(handle->buffer);
-        handle->buffer = NULL;
-        handle->buffersize = 0;
-        return 0;
-    }
-
-    if (handle->buffer == NULL) {
-        /* allocate buffer: round up to LZW_BUFFERSIZE multiples */
-        buffersize = (((buffersize - 1) / LZW_BUFFERSIZE) + 1) *
-            LZW_BUFFERSIZE;
-        handle->buffer = (uint8_t*)malloc(buffersize);
-    }
-    else {
-        /* reallocate buffer */
-        void* tmp = NULL;
-        buffersize = (((buffersize - 1) / LZW_BUFFERSIZE) + 1) *
-            LZW_BUFFERSIZE;
-        tmp = realloc((void*)handle->buffer, buffersize);
-        if (tmp == NULL) {
-            free(handle->buffer);
-            handle->buffer = NULL;
-        }
-        else {
-            handle->buffer = (uint8_t*)tmp;
-        }
-    }
-
-    if (handle->buffer == NULL) {
-        return IMCD_MEMORY_ERROR;
-    }
-    handle->buffersize = buffersize;
-    return buffersize;
-}
-
-
 /* Allocate LZW handle. */
-imcd_lzw_handle_t* imcd_lzw_new(
-    ssize_t buffersize)
+imcd_lzw_handle_t* imcd_lzw_new(void)
 {
-    /* TODO: check alignment of structs */
-    imcd_lzw_handle_t* handle = NULL;
-    ssize_t size = (
-        sizeof(imcd_lzw_handle_t) + sizeof(imcd_lzw_table_t) * LZW_TABLESIZE
-    );
-
-    handle = (imcd_lzw_handle_t*)malloc(size);
-    if (handle == NULL) {
-        return NULL;
-    }
-    handle->table = (
-        imcd_lzw_table_t*)((char*)handle + sizeof(imcd_lzw_handle_t)
-        );
-    handle->buffer = NULL;
-    handle->buffersize = 0;
-
-    if (_lzw_alloc_buffer(handle, buffersize) < 0) {
-        imcd_lzw_del(handle);
-        return NULL;
-    }
-    return handle;
+    return (imcd_lzw_handle_t*)malloc(sizeof(imcd_lzw_handle_t));
 }
 
 
@@ -2235,10 +2167,6 @@ imcd_lzw_handle_t* imcd_lzw_new(
 void imcd_lzw_del(
     imcd_lzw_handle_t* handle)
 {
-    if (handle == NULL) {
-        return;
-    }
-    free(handle->buffer);
     free(handle);
 }
 
@@ -2321,13 +2249,13 @@ int imcd_lzw_check(
 }
 
 
-/* Return length of decompressed LZW string and initialize buffer. */
+/* Return length of decompressed LZW string. */
 ssize_t imcd_lzw_decode_size(
     imcd_lzw_handle_t* handle,
     const uint8_t* src,
     const ssize_t srcsize)
 {
-    imcd_lzw_table_t* table;
+    uint16_t len[LZW_TABLESIZE];
     uint32_t tablesize = 258;
     uint32_t code = 0;
     uint32_t oldcode = 0;
@@ -2336,11 +2264,9 @@ ssize_t imcd_lzw_decode_size(
     uint64_t bitw = 9;
     uint64_t bitcount = 0;
     ssize_t dstsize = 0;
-    ssize_t buffer_size = 0;
-    ssize_t buffersize = 0;
-    const uint64_t srcbitsize = srcsize * 8;  /* size in bits */
-    ssize_t i;
-    bool msb = true;  /* bit ordering of codes */
+    const uint64_t srcbitsize = (uint64_t)srcsize * 8;
+    uint32_t i;
+    bool msb = true;
 
     if ((handle == NULL) || (src == NULL) || (srcsize < 0)) {
         return IMCD_VALUE_ERROR;
@@ -2351,19 +2277,17 @@ ssize_t imcd_lzw_decode_size(
     if (srcsize < 2) {
         return IMCD_LZW_INVALID;
     }
-    table = handle->table;
 
     if ((*src == 0) && (*(src + 1) & 1)) {
         msb = false;
         mask = 511;
     }
     else if ((*src != 128) || ((*(src + 1) & 128))) {
-        /* compressed string must begin with CLEAR code */
         return IMCD_LZW_INVALID;
     }
 
     for (i = 0; i < 258; i++) {
-        table[i].len = 1;
+        len[i] = 1;
     }
 
     while (1) {
@@ -2378,14 +2302,9 @@ ssize_t imcd_lzw_decode_size(
         if (code == LZW_EOI) break;
 
         if (code == LZW_CLEAR) {
-            /* initialize table and switch to 9-bit */
             tablesize = 258;
             bitw = 9;
             shr = 23;
-
-            if (buffersize > buffer_size)
-                buffer_size = buffersize;
-            buffersize = 0;
 
             if (msb) {
                 mask = 4286578688u;
@@ -2412,19 +2331,16 @@ ssize_t imcd_lzw_decode_size(
         }
 
         if (code < tablesize) {
-            /* code is in table */
-            dstsize += table[code].len;
-            buffersize += table[oldcode].len + 1;
+            dstsize += len[code];
         }
         else if (code > tablesize) {
-            /* return dstsize; */
             return IMCD_LZW_CORRUPT;
         }
         else {
-            /* code is not in table */
-            dstsize += table[oldcode].len + 1;
+            /* K-w-K: code equals the entry about to be added */
+            dstsize += (ssize_t)len[oldcode] + 1;
         }
-        table[tablesize++].len = table[oldcode].len + 1;
+        len[tablesize++] = len[oldcode] + 1;
 
         /* increase bit-width if necessary */
         if (msb) {
@@ -2439,6 +2355,7 @@ ssize_t imcd_lzw_decode_size(
                     break;
                 case 2047:
                     bitw = 12; shr = 20; mask = 4293918720u;
+                    break;
             }
         }
         else {
@@ -2454,22 +2371,12 @@ ssize_t imcd_lzw_decode_size(
                 case 2048:
                     bitw = 12; mask = 4095;
                     break;
-                    /* continue with 12-bit for tablesize >= 4096 */
             }
         }
 
         oldcode = code;
     }
 
-    if (buffersize > buffer_size) {
-        buffer_size = buffersize;
-    }
-
-    if (buffer_size > handle->buffersize) {
-        if (_lzw_alloc_buffer(handle, buffer_size) < 0) {
-            return IMCD_MEMORY_ERROR;
-        }
-    }
     return dstsize;
 }
 
@@ -2482,21 +2389,26 @@ ssize_t imcd_lzw_decode(
     uint8_t* dst,
     const ssize_t dstsize)
 {
+    uint16_t* prefix = handle->prefix;
+    uint8_t* suffix = handle->suffix;
+    uint8_t* first = handle->first;
+    uint8_t stack[LZW_TABLESIZE];
     const uint8_t* dstin = dst;
-    imcd_lzw_table_t* table;
-    uint8_t* buffer;
+    uint8_t* const dstend = dst + dstsize;
     uint32_t tablesize = 258;
     uint32_t code = 0;
-    uint32_t oldcode = 0;
+    int32_t oldcode = -1;
     uint32_t shr = 23;
     uint32_t mask = 4286578688u;
     uint64_t bitw = 9;
     uint64_t bitcount = 0;
-    ssize_t buffersize = 0;
-    ssize_t remaining = dstsize;
-    ssize_t i;
-    const uint64_t srcbitsize = srcsize * 8;  /* size in bits */
-    bool msb = true;  /* bit ordering of codes */
+    const uint64_t srcbitsize = (uint64_t)srcsize * 8;
+    bool msb = true;
+    uint32_t i;
+    int sp;
+    uint32_t c;
+    uint8_t fb;
+    ssize_t k;
 
     if (
         (handle == NULL) ||
@@ -2512,9 +2424,6 @@ ssize_t imcd_lzw_decode(
         return IMCD_LZW_INVALID;
     }
 
-    table = handle->table;
-    buffer = handle->buffer;
-
     if ((*src == 0) && (*(src + 1) & 1)) {
         msb = false;
         mask = 511;
@@ -2524,18 +2433,14 @@ ssize_t imcd_lzw_decode(
         return IMCD_LZW_INVALID;
     }
 
-    for (i = 0; i < 258; i++) {
-        table[i].len = 1;
+    /* initialize literals 0..255 */
+    for (i = 0; i < 256; i++) {
+        prefix[i] = 0xFFFF;
+        suffix[i] = (uint8_t)i;
+        first[i] = (uint8_t)i;
     }
 
-    if (handle->buffersize == 0) {
-        if (_lzw_alloc_buffer(handle, LZW_BUFFERSIZE) < 0) {
-            return IMCD_MEMORY_ERROR;
-        }
-    }
-    buffersize = handle->buffersize;
-
-    while (remaining > 0) {
+    while (dst < dstend) {
 
         if (msb) {
             LZW_GET_NEXT_CODE_MSB
@@ -2551,9 +2456,7 @@ ssize_t imcd_lzw_decode(
             tablesize = 258;
             bitw = 9;
             shr = 23;
-
-            buffer = handle->buffer;
-            buffersize = handle->buffersize;
+            oldcode = -1;
 
             if (msb) {
                 mask = 4286578688u;
@@ -2569,11 +2472,10 @@ ssize_t imcd_lzw_decode(
             }
 
             if (code == LZW_EOI) break;
+            if (dst >= dstend) break;
 
-            remaining--;
-
-            *dst++ = (uint8_t) code;
-            oldcode = code;
+            *dst++ = (uint8_t)code;
+            oldcode = (int32_t)code;
             continue;
         }
 
@@ -2581,110 +2483,46 @@ ssize_t imcd_lzw_decode(
             return IMCD_LZW_TABLE_TOO_SMALL;
         }
 
-        if (code < tablesize) {
-            /* code is in table */
-            buffersize -= table[oldcode].len + 1;
-            if (buffersize < 0) {
-                /* reallocate buffer */
-                const uint8_t* oldbuffer = handle->buffer;
-                const ssize_t bufferlen = buffer - oldbuffer;
-
-                if (
-                    _lzw_alloc_buffer(
-                    handle,
-                    handle->buffersize - buffersize
-                    ) <= 0)
-                {
-                    return IMCD_MEMORY_ERROR;
-                }
-                if (handle->buffer != oldbuffer) {
-                    /* correct pointers */
-                    uint32_t j;
-                    const ssize_t bufferdiff = handle->buffer - oldbuffer;
-
-                    for (j = 256; j < tablesize; j++) {
-                        if (
-                            (table[j].buf >= oldbuffer) &&
-                            (table[j].buf < buffer))
-                        {
-                            table[j].buf += bufferdiff;
-                        }
-                    }
-                }
-                buffersize =
-                    handle->buffersize - bufferlen - table[oldcode].len - 1;
-                buffer = handle->buffer + bufferlen;
-            }
-
-            /* decompressed.append(table[code]) */
-            if (code < 256) {
-                remaining--;
-                *dst++ = (uint8_t) code;
-            }
-            else {
-                uint8_t* pstr = table[code].buf;
-                ssize_t len = table[code].len;
-                len = (len > remaining) ? remaining : len;
-                remaining -= len;
-                for (i = 0; i < len; i++) {
-                    *dst++ = *pstr++;
-                }
-                /* memcpy(dst, table[code].buf, len); */
-                /* dst += len; */
-            }
-            /* table.append(table[oldcode] + table[code][0]) */
-            table[tablesize].buf = buffer;
-            if (oldcode < 256) {
-                *buffer++ = (uint8_t) oldcode;
-            }
-            else {
-                uint8_t* pstr = table[oldcode].buf;
-                for (i = 0; i < table[oldcode].len; i++) {
-                    *buffer++ = *pstr++;
-                }
-                /* const ssize_t len = table[oldcode].len; */
-                /* memcpy(buffer, table[oldcode].buf, len); */
-                /* buffer += len; */
-            }
-            *buffer++ = (code < 256) ? (uint8_t) code : table[code].buf[0];
-        }
-        else if (code > tablesize) {
-            /* return dstsize - remaining; */
+        if (code > tablesize) {
             return IMCD_LZW_CORRUPT;
         }
-        else {
-            /* code is not in table */
-            /* outstring = table[oldcode] + table[oldcode][0] */
-            /* decompressed.append(outstring) */
-            /* table.append(outstring) */
-            /* Point the new entry directly into the output buffer.
-               This is safe because the entry will only ever be referenced
-               after the bytes have been written and dst has advanced
-               past them.
-            */
-            table[tablesize].buf = dst;
-            if (oldcode < 256) {
-                remaining--;
-                *dst++ = (uint8_t) oldcode;
-                if (--remaining < 0) break;
-                *dst++ = (uint8_t) oldcode;
+
+        /* build string for code onto stack reversed (stack[sp-1] = first byte) */
+        sp = 0;
+        c = code;
+        if (c == tablesize) {
+            /* K-w-K: code refers to the entry being added */
+            if (oldcode < 0) return IMCD_LZW_CORRUPT;
+            stack[sp++] = first[(uint32_t)oldcode];
+            c = (uint32_t)oldcode;
+        }
+        while (c >= 256) {
+            if (sp >= LZW_TABLESIZE || c >= tablesize) {
+                return IMCD_LZW_CORRUPT;
             }
-            else {
-                uint8_t* pstr = table[oldcode].buf;
-                ssize_t len = table[oldcode].len;
-                len = (len > remaining) ? remaining : len;
-                remaining -= len;
-                for (i = 0; i < len; i++) {
-                    *dst++ = *pstr++;
-                }
-                /* memcpy(dst, table[oldcode].buf, len); */
-                /* dst += len; */
-                if (--remaining < 0) break;
-                *dst++ = table[oldcode].buf[0];
+            stack[sp++] = suffix[c];
+            c = prefix[c];
+        }
+        stack[sp++] = (uint8_t)c;
+        fb = (uint8_t)c;  /* first byte of the emitted string */
+
+        /* drain stack forward into output, clipping to available space */
+        {
+            int avail = (int)(dstend - dst);
+            int emit = (sp < avail) ? sp : avail;
+            for (k = 0; k < emit; k++) {
+                *dst++ = stack[sp - 1 - k];
             }
         }
-        table[tablesize++].len = table[oldcode].len + 1;
-        oldcode = code;
+
+        /* add new dict entry: string(oldcode) + first_byte(string(code)) */
+        if (oldcode >= 0) {
+            prefix[tablesize] = (uint16_t)(uint32_t)oldcode;
+            suffix[tablesize] = fb;
+            first[tablesize] = first[(uint32_t)oldcode];
+            tablesize++;
+        }
+        oldcode = (int32_t)code;
 
         /* increase bit-width if necessary */
         if (msb) {
@@ -2699,6 +2537,7 @@ ssize_t imcd_lzw_decode(
                     break;
                 case 2047:
                     bitw = 12; shr = 20; mask = 4293918720u;
+                    break;
             }
         }
         else {

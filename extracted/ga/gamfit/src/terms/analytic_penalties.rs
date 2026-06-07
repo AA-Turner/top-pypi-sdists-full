@@ -1858,6 +1858,48 @@ impl SoftmaxAssignmentSparsityPenalty {
         }
         out
     }
+
+    /// Absolute row sums of the exact per-row dense entropy Hessian, used as a
+    /// Gershgorin / diagonal-dominance PSD majorizer.
+    ///
+    /// The exact per-row Hessian wrt logits (symmetric, dense) is
+    ///
+    /// ```text
+    ///   H_kj = (λ/τ²)·a_k·[ δ_kj·(m − L_k − 1) + a_j·(L_k + L_j + 1 − 2m) ],
+    ///   L_k = ln a_k + 1,   m = Σ_j a_j L_j,
+    /// ```
+    ///
+    /// whose diagonal coincides with [`AnalyticPenalty::hessian_diag`]. Entropy
+    /// is concave in assignment space, so this block is indefinite (negative on
+    /// near-uniform rows). Setting `D_kk = Σ_j |H_kj|` makes `D − H` symmetric
+    /// with nonnegative diagonal and diagonally dominant
+    /// (`D_kk − H_kk = |H_kk| − H_kk + Σ_{j≠k}|H_kj| ≥ Σ_{j≠k}|(D−H)_kj|`),
+    /// hence PSD: `D ⪰ H` and `D ⪰ 0` both hold. `D` is a genuine PSD diagonal
+    /// operator that dominates the dense Hessian's quadratic form — unlike the
+    /// raw indefinite diagonal, which is neither PSD nor a faithful stand-in for
+    /// the dense operator.
+    fn psd_majorizer_abs_row_sums(&self, row: &[f64], scale: f64) -> Vec<f64> {
+        let a = self.softmax_row(row);
+        let k = self.k_atoms;
+        let l: Vec<f64> = (0..k).map(|i| a[i].max(1e-300).ln() + 1.0).collect();
+        let m: f64 = (0..k).map(|i| a[i] * l[i]).sum();
+        let mut d = vec![0.0_f64; k];
+        for kk in 0..k {
+            // Diagonal entry H_kk.
+            let h_kk = scale * a[kk] * ((m - l[kk] - 1.0) + a[kk] * (2.0 * l[kk] + 1.0 - 2.0 * m));
+            let mut acc = h_kk.abs();
+            // Off-diagonal entries H_kj, j ≠ k.
+            for jj in 0..k {
+                if jj == kk {
+                    continue;
+                }
+                let h_kj = scale * a[kk] * a[jj] * (l[kk] + l[jj] + 1.0 - 2.0 * m);
+                acc += h_kj.abs();
+            }
+            d[kk] = acc;
+        }
+        d
+    }
 }
 
 impl AnalyticPenalty for SoftmaxAssignmentSparsityPenalty {
@@ -1997,6 +2039,41 @@ impl AnalyticPenalty for SoftmaxAssignmentSparsityPenalty {
             }
         }
         out
+    }
+
+    fn psd_majorizer_diag(
+        &self,
+        target: ArrayView1<'_, f64>,
+        rho: ArrayView1<'_, f64>,
+    ) -> Option<Array1<f64>> {
+        assert_eq!(rho.len(), 1, "softmax entropy expects one rho parameter");
+        assert_eq!(
+            target.len() % self.k_atoms,
+            0,
+            "softmax entropy target length must be divisible by k_atoms"
+        );
+        // Entropy minimization is nonconvex: the exact per-row Hessian is dense
+        // and indefinite, so the convex-only trait default (which returns the
+        // raw indefinite `hessian_diag`) violates the `B ⪰ 0` contract and is a
+        // diagonal masquerading as a dense operator. Replace it with the
+        // Gershgorin / diagonal-dominance majorizer of the dense per-row block
+        // (see `psd_majorizer_abs_row_sums`): a genuine PSD diagonal with
+        // `D ⪰ H` and `D ⪰ 0`. Coordinate-indexed, so the inherited
+        // `psd_majorizer_hvp` applies `D` as a diagonal operator consistently.
+        let lambda = resolve_learnable_weight(self.weight, rho[0]);
+        let inv_tau = 1.0 / self.temperature;
+        let scale = lambda * inv_tau * inv_tau;
+        let n = target.len() / self.k_atoms;
+        let values: Vec<f64> = target.iter().copied().collect();
+        let mut out = Array1::<f64>::zeros(target.len());
+        for row in 0..n {
+            let start = row * self.k_atoms;
+            let d = self.psd_majorizer_abs_row_sums(&values[start..start + self.k_atoms], scale);
+            for k in 0..self.k_atoms {
+                out[start + k] = d[k];
+            }
+        }
+        Some(out)
     }
 
     fn grad_rho(&self, target: ArrayView1<'_, f64>, rho: ArrayView1<'_, f64>) -> Array1<f64> {
@@ -2241,6 +2318,104 @@ impl AnalyticPenalty for IBPAssignmentPenalty {
             }
         }
         Some(out)
+    }
+
+    fn hvp(
+        &self,
+        target: ArrayView1<'_, f64>,
+        rho: ArrayView1<'_, f64>,
+        v: ArrayView1<'_, f64>,
+    ) -> Array1<f64> {
+        assert_eq!(
+            v.len(),
+            target.len(),
+            "IBPAssignmentPenalty::hvp dimension mismatch"
+        );
+        let alpha = self.resolved_alpha(rho);
+        let a = alpha / self.k_max as f64;
+        let tau = self.concrete_temperature();
+        let z = self.concrete_logits(target);
+        let pi = self.pi_map(z.view(), alpha);
+        let n = z.len() / self.k_max;
+        let inv_tau = 1.0 / tau;
+        let inv_tau2 = inv_tau * inv_tau;
+        let denom = (n as f64 + a - 1.0).max(1.0e-9);
+
+        // Column aggregates (active_mass, pi_jac, pi_score, pi_score_derivative,
+        // score, score_derivative). These are identical to hessian_diag and
+        // share the same interior / boundary-clamp convention, so the on-row
+        // diagonal returned by hvp(·, eⱼ) agrees with hessian_diag bit-for-bit.
+        let mut active_mass = Array1::<f64>::zeros(self.k_max);
+        for row in 0..n {
+            let start = row * self.k_max;
+            for k in 0..self.k_max {
+                active_mass[k] += z[start + k];
+            }
+        }
+        let mut score = Array1::<f64>::zeros(self.k_max);
+        let mut score_derivative = Array1::<f64>::zeros(self.k_max);
+        for k in 0..self.k_max {
+            let pk = pi[k].clamp(1.0e-12, 1.0 - 1.0e-12);
+            let mass = active_mass[k];
+            let raw = (mass + a - 1.0) / denom;
+            let pi_jac = if raw > 1.0e-9 && raw < 1.0 - 1.0e-9 {
+                1.0 / denom
+            } else {
+                0.0
+            };
+            let bce_pi_score = -mass / pk + (n as f64 - mass) / (1.0 - pk);
+            let beta_pi_score = -(a - 1.0) / pk;
+            let pi_score = bce_pi_score + beta_pi_score;
+            let pi_score_derivative = -1.0 / pk + (mass + a - 1.0) * pi_jac / (pk * pk)
+                - 1.0 / (1.0 - pk)
+                + (n as f64 - mass) * pi_jac / ((1.0 - pk) * (1.0 - pk));
+            let direct_z_score = ((1.0 - pk) / pk).ln();
+            let implicit_pi_score = pi_score * pi_jac;
+            score[k] = direct_z_score + implicit_pi_score;
+            let direct_z_score_derivative = pi_jac * (-1.0 / pk - 1.0 / (1.0 - pk));
+            score_derivative[k] = direct_z_score_derivative + pi_score_derivative * pi_jac;
+        }
+
+        // Within-column block structure: pi[k] and active_mass[k] depend on
+        // EVERY row in column k, so the per-column Hessian block is a rank-1
+        // perturbation of a diagonal,
+        //
+        //   H[(j,k), (j',k)] = w · score_derivative[k] · z_jac[j,k] · z_jac[j',k]
+        //                    + δ_{jj'} · w · score[k] · (1-2z[j,k]) · z(1-z) / τ²,
+        //
+        // where z_jac[j,k] = z(1-z)/τ at row j in column k. Different
+        // columns are decoupled (pi[k] depends only on column k), so the
+        // full Hessian is block-diagonal by column.
+        //
+        // For an input vector v, the rank-1 contribution collapses to a
+        // single per-column scalar sₖ = Σⱼ z_jac[j,k] · v[j,k]:
+        //
+        //   (Hv)[j,k] = w · score_derivative[k] · z_jac[j,k] · sₖ
+        //             + w · score[k] · (1-2z[j,k]) · z(1-z)/τ² · v[j,k].
+        //
+        // The default diagonal-only hvp drops the off-diagonal rank-1 piece,
+        // which empirically carries ≈85% of the operator's Frobenius norm.
+        let mut s_per_col = Array1::<f64>::zeros(self.k_max);
+        for row in 0..n {
+            let start = row * self.k_max;
+            for k in 0..self.k_max {
+                let zk = z[start + k];
+                let zjac = zk * (1.0 - zk) * inv_tau;
+                s_per_col[k] += zjac * v[start + k];
+            }
+        }
+        let mut out = Array1::<f64>::zeros(target.len());
+        for row in 0..n {
+            let start = row * self.k_max;
+            for k in 0..self.k_max {
+                let zk = z[start + k];
+                let zjac = zk * (1.0 - zk) * inv_tau;
+                let rank1 = score_derivative[k] * zjac * s_per_col[k];
+                let c_diag = score[k] * zk * (1.0 - zk) * (1.0 - 2.0 * zk) * inv_tau2;
+                out[start + k] = self.weight * (rank1 + c_diag * v[start + k]);
+            }
+        }
+        out
     }
 
     fn grad_rho(&self, target: ArrayView1<'_, f64>, rho: ArrayView1<'_, f64>) -> Array1<f64> {
@@ -6325,6 +6500,48 @@ impl ScadMcpPenalty {
         }
     }
 
+    /// Diagonal of the **PSD majorizer** for a single coordinate.
+    ///
+    /// SCAD/MCP are nonconvex: within their active region the penalty splits
+    /// into a convex smoothed-ℓ¹ part (`λr`, resp. `γλr/(γ−1)`) and a concave
+    /// quadratic taper (`−t²/(2γ)`, resp. `−t²/(2(γ−1))`). The exact Hessian
+    /// [`Self::hess_one`] adds the concave constant (`−1/γ`, `−1/(γ−1)`) and is
+    /// therefore negative across most of the active region.
+    ///
+    /// The MM/LLA majorizer keeps the convex part's reweighted-ℓ² curvature and
+    /// majorizes the concave quadratic by its tangent line (zero curvature):
+    /// this is exactly [`Self::hess_one`] with the concave constant dropped.
+    /// Beyond the active cutoff the penalty is flat (Hessian `0`), so the
+    /// majorizer is `0`. The result satisfies both legs of the trait contract:
+    ///
+    /// * `B ⪰ 0`: `λε²/r³ ≥ 0` and the constant `0` branch are nonnegative.
+    /// * `B ⪰ ∂²P`: it exceeds the exact Hessian by exactly the dropped
+    ///   concave constant (`1/γ` for MCP, `1/(γ−1)` for SCAD's middle region)
+    ///   and equals it in the convex first SCAD region and the flat tail.
+    fn psd_majorizer_one(&self, t: f64, weight: f64) -> f64 {
+        let r = self.smooth_abs(t);
+        let eps2 = self.smoothing_eps * self.smoothing_eps;
+        match self.variant {
+            PenaltyConcavity::Mcp => {
+                if r <= self.gamma * weight {
+                    weight * eps2 / (r * r * r)
+                } else {
+                    0.0
+                }
+            }
+            PenaltyConcavity::Scad => {
+                let denom = self.gamma - 1.0;
+                if r <= weight {
+                    weight * eps2 / (r * r * r)
+                } else if r <= self.gamma * weight {
+                    self.gamma * weight * eps2 / (denom * r * r * r)
+                } else {
+                    0.0
+                }
+            }
+        }
+    }
+
     fn grad_log_weight_one(&self, t: f64, weight: f64) -> f64 {
         let r = self.smooth_abs(t);
         let d_p_d_weight = match self.variant {
@@ -6434,6 +6651,25 @@ impl AnalyticPenalty for ScadMcpPenalty {
             out[i] = diag[i] * v[i];
         }
         out
+    }
+
+    /// PSD majorizer diagonal (see [`Self::psd_majorizer_one`]). SCAD/MCP are
+    /// nonconvex, so this overrides the convex-only trait default — which would
+    /// otherwise return the exact, negative [`Self::hessian_diag`] — with the
+    /// reweighted-ℓ² MM surrogate. Coordinate-separable, so the inherited
+    /// [`AnalyticPenalty::psd_majorizer_hvp`] correctly applies this as a
+    /// diagonal operator.
+    fn psd_majorizer_diag(
+        &self,
+        target: ArrayView1<'_, f64>,
+        rho: ArrayView1<'_, f64>,
+    ) -> Option<Array1<f64>> {
+        let weight = self.resolved_weight(rho);
+        let mut out = Array1::<f64>::zeros(target.len());
+        for (i, &t) in target.iter().enumerate() {
+            out[i] = self.psd_majorizer_one(t, weight);
+        }
+        Some(out)
     }
 
     fn grad_rho(&self, target: ArrayView1<'_, f64>, rho: ArrayView1<'_, f64>) -> Array1<f64> {
@@ -7079,6 +7315,89 @@ impl DecoderIncoherencePenalty {
         }
         out
     }
+
+    /// Shared kernel for the two curvature operators. Accumulates, per penalized
+    /// atom pair `(j, k)`, the Gauss-Newton term `W·Σ_b dC[a,b]·B_k[b,o]` (and
+    /// its `_k` transpose) always, and the residual term `W·Σ_b C[a,b]·V_k[b,o]`
+    /// (and `_k` transpose) only when `include_residual`. With the residual the
+    /// result is the exact `∂²P·v` ([`AnalyticPenalty::hvp`]); without it the
+    /// result is the PSD Gauss-Newton surrogate
+    /// ([`AnalyticPenalty::psd_majorizer_hvp`]).
+    fn hvp_impl(
+        &self,
+        target: ArrayView1<'_, f64>,
+        rho: ArrayView1<'_, f64>,
+        v: ArrayView1<'_, f64>,
+        include_residual: bool,
+    ) -> Array1<f64> {
+        let mut out = Array1::<f64>::zeros(target.len());
+        if target.len() != self.target.len() {
+            return out;
+        }
+        let offsets = self.block_offsets();
+        let k_atoms = self.block_sizes.len();
+        let weight = self.resolved_weight(rho);
+        let p_out = self.p_out;
+        for j in 0..k_atoms {
+            for k in (j + 1)..k_atoms {
+                let w_pair = self.pair_weight(j, k) * weight;
+                if w_pair == 0.0 {
+                    continue;
+                }
+                let off_j = offsets[j];
+                let off_k = offsets[k];
+                let m_j = self.block_sizes[j];
+                let m_k = self.block_sizes[k];
+                // Directional Gram derivative driving the Gauss-Newton term:
+                //   dC[a, b] = Σ_o (Vj[a, o]·Bk[b, o] + Bj[a, o]·Vk[b, o]).
+                let mut d_c = Array2::<f64>::zeros((m_j, m_k));
+                for a in 0..m_j {
+                    for b in 0..m_k {
+                        let mut s = 0.0;
+                        for o in 0..p_out {
+                            s += v[off_j + a * p_out + o] * target[off_k + b * p_out + o]
+                                + target[off_j + a * p_out + o] * v[off_k + b * p_out + o];
+                        }
+                        d_c[[a, b]] = s;
+                    }
+                }
+                // Cross-Gram C[a, b] = Σ_o Bj[a, o]·Bk[b, o] feeds the residual
+                // term; only materialized for the exact Hessian path.
+                let c = if include_residual {
+                    Some(Self::cross_gram(target, off_j, m_j, off_k, m_k, p_out))
+                } else {
+                    None
+                };
+                // out_j[a, o] += w · Σ_b ( dC[a, b]·Bk[b, o] + C[a, b]·Vk[b, o] )
+                for a in 0..m_j {
+                    for o in 0..p_out {
+                        let mut s = 0.0;
+                        for b in 0..m_k {
+                            s += d_c[[a, b]] * target[off_k + b * p_out + o];
+                            if let Some(c) = &c {
+                                s += c[[a, b]] * v[off_k + b * p_out + o];
+                            }
+                        }
+                        out[off_j + a * p_out + o] += w_pair * s;
+                    }
+                }
+                // out_k[b, o] += w · Σ_a ( dC[a, b]·Bj[a, o] + C[a, b]·Vj[a, o] )
+                for b in 0..m_k {
+                    for o in 0..p_out {
+                        let mut s = 0.0;
+                        for a in 0..m_j {
+                            s += d_c[[a, b]] * target[off_j + a * p_out + o];
+                            if let Some(c) = &c {
+                                s += c[[a, b]] * v[off_j + a * p_out + o];
+                            }
+                        }
+                        out[off_k + b * p_out + o] += w_pair * s;
+                    }
+                }
+            }
+        }
+        out
+    }
 }
 
 impl AnalyticPenalty for DecoderIncoherencePenalty {
@@ -7161,6 +7480,21 @@ impl AnalyticPenalty for DecoderIncoherencePenalty {
         grad
     }
 
+    /// Exact Hessian-vector product `H v = (∂²P/∂target²) v`.
+    ///
+    /// `P = ½ w Σ_{j<k} w_{jk} ‖C_{jk}‖²_F` is biquadratic (quartic) in the
+    /// decoder blocks, so the second derivative of the nonlinear-least-squares
+    /// objective carries **two** pieces along a direction `V` (per pair, with
+    /// `W = w·w_{jk}`):
+    ///
+    /// ```text
+    ///   (H v)_j[a,o] = W [ Σ_b dC[a,b]·B_k[b,o]   +   Σ_b C[a,b]·V_k[b,o] ]
+    /// ```
+    ///
+    /// the Gauss-Newton term `Σ dC·B` and the residual term `Σ C·V`, with
+    /// `dC[a,b] = Σ_o (V_j[a,o]·B_k[b,o] + B_j[a,o]·V_k[b,o])` (and the symmetric
+    /// `_k` block). The residual term is what makes the exact Hessian indefinite;
+    /// the GN-only surrogate lives in [`Self::psd_majorizer_hvp`].
     fn hvp(
         &self,
         target: ArrayView1<'_, f64>,
@@ -7168,66 +7502,39 @@ impl AnalyticPenalty for DecoderIncoherencePenalty {
         v: ArrayView1<'_, f64>,
     ) -> Array1<f64> {
         assert_eq!(target.len(), v.len(), "hvp dimension mismatch");
-        let mut out = Array1::<f64>::zeros(target.len());
-        if target.len() != self.target.len() {
-            return out;
-        }
-        let offsets = self.block_offsets();
-        let k_atoms = self.block_sizes.len();
-        let weight = self.resolved_weight(rho);
-        for j in 0..k_atoms {
-            for k in (j + 1)..k_atoms {
-                let w_pair = self.pair_weight(j, k) * weight;
-                if w_pair == 0.0 {
-                    continue;
-                }
-                let off_j = offsets[j];
-                let off_k = offsets[k];
-                let m_j = self.block_sizes[j];
-                let m_k = self.block_sizes[k];
-                // Gauss-Newton directional Gram derivative:
-                //   dC[a, b] = Σ_o (Vj[a, o]·Bk[b, o] + Bj[a, o]·Vk[b, o]).
-                let mut d_c = Array2::<f64>::zeros((m_j, m_k));
-                for a in 0..m_j {
-                    for b in 0..m_k {
-                        let mut s = 0.0;
-                        for o in 0..self.p_out {
-                            s += v[off_j + a * self.p_out + o] * target[off_k + b * self.p_out + o]
-                                + target[off_j + a * self.p_out + o]
-                                    * v[off_k + b * self.p_out + o];
-                        }
-                        d_c[[a, b]] = s;
-                    }
-                }
-                // out_j[a, o] += w · Σ_b dC[a, b] · Bk[b, o]
-                for a in 0..m_j {
-                    for o in 0..self.p_out {
-                        let mut s = 0.0;
-                        for b in 0..m_k {
-                            s += d_c[[a, b]] * target[off_k + b * self.p_out + o];
-                        }
-                        out[off_j + a * self.p_out + o] += w_pair * s;
-                    }
-                }
-                // out_k[b, o] += w · Σ_a dC[a, b] · Bj[a, o]
-                for b in 0..m_k {
-                    for o in 0..self.p_out {
-                        let mut s = 0.0;
-                        for a in 0..m_j {
-                            s += d_c[[a, b]] * target[off_j + a * self.p_out + o];
-                        }
-                        out[off_k + b * self.p_out + o] += w_pair * s;
-                    }
-                }
-            }
-        }
-        out
+        self.hvp_impl(target, rho, v, /* include_residual = */ true)
+    }
+
+    /// PSD majorizer-vector product `B_GN(target; ρ) v` for the **nonconvex**
+    /// decoder-incoherence penalty.
+    ///
+    /// Dropping the indefinite residual term `W·Σ C·V` from the exact
+    /// [`Self::hvp`] leaves the Gauss-Newton block `W·Jᵀ(J v)` with
+    /// `J = ∂vec(C)/∂vec(B)`. That block is PSD by construction — a sum of
+    /// `W ≥ 0` (`weight > 0`, `coactivation ≥ 0`) times rank-structured Gram
+    /// products `JᵀJ` — and coincides with the exact Hessian as the cross-Gram
+    /// `C → 0`. The inner Newton / PIRLS curvature block must stay
+    /// positive-definite, so the GN block is the correct operator here, mirroring
+    /// the other nonconvex penalties (sparsity, JumpReLU, isometry) that override
+    /// the majorizer rather than hand back the indefinite true Hessian.
+    fn psd_majorizer_hvp(
+        &self,
+        target: ArrayView1<'_, f64>,
+        rho: ArrayView1<'_, f64>,
+        v: ArrayView1<'_, f64>,
+    ) -> Array1<f64> {
+        assert_eq!(
+            target.len(),
+            v.len(),
+            "psd_majorizer_hvp dimension mismatch"
+        );
+        self.hvp_impl(target, rho, v, /* include_residual = */ false)
     }
 
     // `hessian_diag` is intentionally left at the trait default (returns `None`
-    // for a non-empty target): the Gauss-Newton Hessian of the cross-Gram
-    // Frobenius objective is dense, not diagonal, so curvature is supplied via
-    // the closed-form `hvp` / `psd_majorizer_hvp` path above.
+    // for a non-empty target): the Hessian of the cross-Gram Frobenius objective
+    // is dense, not diagonal, so curvature is supplied via the closed-form
+    // `hvp` / `psd_majorizer_hvp` path above.
 
     impl_learnable_weight_grad_rho!();
 

@@ -6,13 +6,11 @@
 @contact: baostock@163.com
 """
 # 版本信息
-BAOSTOCK_CLIENT_VERSION = "00.9.10"
+BAOSTOCK_CLIENT_VERSION = "00.9.20"
 BAOSTOCK_AUTHOR = "baostock.com"
 BAOSTOCK_SERVER_IP = "public-api.baostock.com"  # localhost  public-api.baostock.com   127.0.0.1
 BAOSTOCK_SERVER_PORT = 10030
 
-
-BAOSTOCK_PER_PAGE_COUNT = 10000  # 默认每页查询条数
 
 STOCK_CODE_LENGTH = 9  # 证券代码的长度
 MESSAGE_SPLIT = "\1"  # 消息内部的分隔符
@@ -28,7 +26,6 @@ MESSAGE_HEADER_LENGTH = 21
 
 
 # 以下为消息请求类型
-
 MESSAGE_TYPE_LOGIN_REQUEST = "00"  # 登陆请求
 MESSAGE_TYPE_LOGIN_RESPONSE = "01"  # 登陆响应
 MESSAGE_TYPE_LOGOUT_REQUEST = "02"  # 登出请求
@@ -179,5 +176,6 @@ BSERR_SYSTEM_ERROR = "10005001"  # 系统级别错误
 
 # 以上是错误代码
 
-
 CLIENT_ERROR_PARAM = "参数错误，请检查。"  # 客户端参数错误
+
+BAOSTOCK_PER_PAGE_COUNT = 500  # 默认每页查询条数

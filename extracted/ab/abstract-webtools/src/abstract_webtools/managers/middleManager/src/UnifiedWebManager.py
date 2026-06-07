@@ -34,6 +34,8 @@ class UnifiedWebManager:
         self._req_mgr = req_mgr
         self._soup_mgr = soup_mgr
         self._soup = soup
+        self._link_mgr = None
+        self._crawl_mgr = None
         self._parse_type = parse_type
 
     @property
@@ -81,6 +83,31 @@ class UnifiedWebManager:
             self._soup = get_soup(source_code=source, parse_type=self._parse_type)
         return self._soup
 
+    @property
+    def link_mgr(self):
+        """Lazily build a linkManager over this shared chain (no re-fetch)."""
+        if self._link_mgr is None:
+            # Imported lazily to avoid an import cycle (linkManager imports the
+            # url/request/soup managers this module also depends on).
+            from ...linkManager import linkManager
+            self._link_mgr = linkManager(
+                url_mgr=self.url_mgr, req_mgr=self.req_mgr,
+                source_code=self.source_code, soup_mgr=self.soup_mgr,
+                parse_type=self._parse_type,
+            )
+        return self._link_mgr
+
+    @property
+    def crawl_mgr(self):
+        """Lazily build a crawlManager over this shared chain (no re-fetch)."""
+        if self._crawl_mgr is None:
+            from ...crawlManager import crawlManager
+            self._crawl_mgr = crawlManager(
+                url=self.url, req_mgr=self.req_mgr, url_mgr=self.url_mgr,
+                source_code=self.source_code, parse_type=self._parse_type,
+            )
+        return self._crawl_mgr
+
     def update_url(self, url):
         """Update the URL and reset dependent managers."""
         self._url = url
@@ -89,6 +116,8 @@ class UnifiedWebManager:
         self._soup_mgr = None
         self._source_code = None
         self._soup = None
+        self._link_mgr = None
+        self._crawl_mgr = None
 
     def update_source_code(self, source_code):
         """Update the source code and reset dependent managers."""
@@ -96,6 +125,8 @@ class UnifiedWebManager:
         self._req_mgr = None
         self._soup_mgr = None
         self._soup = None
+        self._link_mgr = None
+        self._crawl_mgr = None
 
     # Convenience methods for direct access
     def get_all_tools(self):

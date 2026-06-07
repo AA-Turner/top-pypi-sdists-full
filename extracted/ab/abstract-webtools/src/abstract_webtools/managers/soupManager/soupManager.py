@@ -47,7 +47,10 @@ class soupManager:
         self.url_mgr = get_url_mgr(url=url, url_mgr=url_mgr)
         self.url = self.url_mgr.url
         self.req_mgr = req_mgr or requestManager(url_mgr=self.url_mgr, url=self.url, source_code=source_code)
-        self.source_code = (source_code or (req_mgr.source_code if req_mgr else "")) or ""
+        # Use the source we already have (param) or whatever the (possibly just-built)
+        # req_mgr resolved. Reading from `self.req_mgr` rather than the `req_mgr` param
+        # fixes a bug where an internally-built manager's source was silently dropped.
+        self.source_code = source_code or self.req_mgr.source_code or ""
         self.parse_type = parse_type
         self.soup = BeautifulSoup(self.source_code, parse_type)
         self._all_links_data = None
@@ -505,23 +508,28 @@ class SoupManagerSingleton():
         return SoupManagerSingleton._instance
 def get_soup(url=None,url_mgr=None,req_mgr=None,source_code=None,soup_mgr=None,soup=None,parse_type=None):
     parse_type = parse_type or "html.parser"
-    if source_code or soup_mgr:
-        if soup_mgr:
-            return soup_mgr.soup
+    if soup is not None:
+        return soup
+    if soup_mgr is not None:
+        return soup_mgr.soup
+    if source_code is not None:
         return BeautifulSoup(source_code, parse_type)
-    url_mgr = get_url_mgr(url=url,url_mgr=url_mgr)
-    url = get_url(url=url,url_mgr=url_mgr)
-    req_mgr = req_mgr or get_req_mgr(url_mgr=url_mgr,url=url,source_code=source_code)
-    source_code = req_mgr.source_code
-    soup_mgr = get_soup_mgr(url=url,url_mgr=url_mgr,source_code=source_code,req_mgr=req_mgr,soup_mgr=soup_mgr,soup=soup)
+    # Build the chain once, reusing whatever managers were supplied.
+    soup_mgr = get_soup_mgr(url=url, url_mgr=url_mgr, source_code=source_code,
+                            req_mgr=req_mgr, soup=soup, parse_type=parse_type)
     return soup_mgr.soup
 def get_soup_mgr(url=None,url_mgr=None,source_code=None,req_mgr=None,soup_mgr=None,soup=None,parse_type=None):
     parse_type = parse_type or "html.parser"
-    url_mgr = get_url_mgr(url=url,url_mgr=url_mgr)
-    url = get_url(url=url,url_mgr=url_mgr)
-    req_mgr = get_req_mgr(url_mgr=url_mgr,url=url,source_code=source_code)
-    soup_mgr = soup_mgr or soupManager(url_mgr=url_mgr,req_mgr=req_mgr,url=url,source_code=source_code,soup=soup)
-    return soup_mgr
+    # Reuse an existing soup_mgr verbatim — nothing else needs building.
+    if soup_mgr is not None:
+        return soup_mgr
+    url_mgr = get_url_mgr(url=url, url_mgr=url_mgr)
+    # Thread the incoming req_mgr through instead of discarding it. The previous
+    # version rebuilt a fresh requestManager here, forcing a redundant network
+    # fetch (and a Selenium attempt) on every soup creation.
+    req_mgr = get_req_mgr(url_mgr=url_mgr, source_code=source_code, req_mgr=req_mgr)
+    source_code = source_code if source_code is not None else req_mgr.source_code
+    return soupManager(url_mgr=url_mgr, req_mgr=req_mgr, source_code=source_code, soup=soup, parse_type=parse_type)
 def get_all_attribute_values(url=None,url_mgr=None,source_code=None,req_mgr=None,soup_mgr=None,soup=None,tags_list = None,parse_type=None):
     parse_type = parse_type or "html.parser"
     soup_mgr = get_soup_mgr(url=url,url_mgr=url_mgr,source_code=source_code,req_mgr=req_mgr,soup_mgr=soup_mgr,soup=soup)

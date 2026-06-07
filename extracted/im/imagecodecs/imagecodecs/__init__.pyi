@@ -34,12 +34,10 @@
 import enum
 import mmap
 import os
-from collections.abc import Callable, Sequence
+from collections.abc import Buffer, Callable, Sequence
 from typing import IO, Any, Literal, NoReturn, overload
 
 from numpy.typing import ArrayLike, DTypeLike, NDArray
-
-type BytesLike = bytes | bytearray | mmap.mmap | NDArray[Any]
 
 __all__ = [
     'AEC',
@@ -127,6 +125,7 @@ __all__ = [
     'ZLIBNG',
     'ZOPFLI',
     'ZSTD',
+    'ZSTD1',
     'AecError',
     'ApngError',
     'AvifError',
@@ -211,6 +210,7 @@ __all__ = [
     'ZlibError',
     'ZlibngError',
     'ZopfliError',
+    'Zstd1Error',
     'ZstdError',
     '__version__',
     'aec_check',
@@ -282,6 +282,7 @@ __all__ = [
     'ccittrle_encode',
     'ccittrle_version',
     'cms_check',
+    'cms_info',
     'cms_profile',
     'cms_profile_validate',
     'cms_transform',
@@ -571,6 +572,10 @@ __all__ = [
     'zopfli_decode',
     'zopfli_encode',
     'zopfli_version',
+    'zstd1_check',
+    'zstd1_decode',
+    'zstd1_encode',
+    'zstd1_version',
     'zstd_check',
     'zstd_decode',
     'zstd_encode',
@@ -672,9 +677,9 @@ class AEC:
 class AecError(RuntimeError): ...
 
 def aec_version() -> str: ...
-def aec_check(data: BytesLike, /) -> bool | None: ...
+def aec_check(data: Buffer, /) -> bool | None: ...
 def aec_encode(
-    data: BytesLike | ArrayLike,
+    data: Buffer | ArrayLike,
     /,
     *,
     bitspersample: int | None = None,
@@ -685,7 +690,7 @@ def aec_encode(
 ) -> bytes | bytearray: ...
 @overload
 def aec_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     bitspersample: int | None = None,
@@ -696,7 +701,7 @@ def aec_decode(
 ) -> bytes | bytearray: ...
 @overload
 def aec_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     bitspersample: int | None = None,
@@ -746,7 +751,7 @@ class APNG:
 class ApngError(RuntimeError): ...
 
 def apng_version() -> str: ...
-def apng_check(data: BytesLike, /) -> bool | None: ...
+def apng_check(data: Buffer, /) -> bool | None: ...
 def apng_encode(
     data: ArrayLike,
     /,
@@ -759,7 +764,7 @@ def apng_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def apng_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     index: int | None = None,
     *,
@@ -874,7 +879,7 @@ class AVIF:
 class AvifError(RuntimeError): ...
 
 def avif_version() -> str: ...
-def avif_check(data: BytesLike, /) -> bool | None: ...
+def avif_check(data: Buffer, /) -> bool | None: ...
 def avif_encode(
     data: ArrayLike,
     /,
@@ -892,7 +897,7 @@ def avif_encode(
     out: int | bytearray | memoryview | None = None,
 ) -> bytes | bytearray: ...
 def avif_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     index: int | None = None,
     *,
@@ -918,15 +923,15 @@ class BCN:
 class BcnError(RuntimeError): ...
 
 def bcn_version() -> str: ...
-def bcn_check(data: BytesLike, /) -> bool | None: ...
+def bcn_check(data: Buffer, /) -> bool | None: ...
 def bcn_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: int | bytearray | None = None,
 ) -> NoReturn: ...
 def bcn_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     format: BCN.FORMAT | int,
     *,
@@ -948,7 +953,7 @@ class BFLOAT16:
 Bfloat16Error = ImcdError
 bfloat16_version = imcd_version
 
-def bfloat16_check(data: BytesLike, /) -> bool | None: ...
+def bfloat16_check(data: Buffer, /) -> bool | None: ...
 def bfloat16_encode(
     data: ArrayLike,
     /,
@@ -958,7 +963,7 @@ def bfloat16_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def bfloat16_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     byteorder: Literal['>', '<', '='] | None = None,
@@ -972,10 +977,10 @@ class BITORDER:
 BitorderError = ImcdError
 bitorder_version = imcd_version
 
-def bitorder_check(data: BytesLike, /) -> bool | None: ...
+def bitorder_check(data: Buffer, /) -> bool | None: ...
 @overload
 def bitorder_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
@@ -997,10 +1002,10 @@ class BITSHUFFLE:
 class BitshuffleError(RuntimeError): ...
 
 def bitshuffle_version() -> str: ...
-def bitshuffle_check(data: BytesLike, /) -> bool | None: ...
+def bitshuffle_check(data: Buffer, /) -> bool | None: ...
 @overload
 def bitshuffle_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     itemsize: int = 1,
@@ -1018,7 +1023,7 @@ def bitshuffle_encode(
 ) -> NDArray[Any]: ...
 @overload
 def bitshuffle_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     itemsize: int = 1,
@@ -1057,9 +1062,9 @@ class BLOSC:
 class BloscError(RuntimeError): ...
 
 def blosc_version() -> str: ...
-def blosc_check(data: BytesLike, /) -> bool | None: ...
+def blosc_check(data: Buffer, /) -> bool | None: ...
 def blosc_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     level: int | None = None,
     *,
@@ -1071,7 +1076,7 @@ def blosc_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def blosc_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     numthreads: int | None = None,
@@ -1105,13 +1110,14 @@ class BLOSC2:
         NEVER = ...
         AUTO = ...
         FORWARD_COMPAT = ...
+        FORWARD = ...  # alias
 
 class Blosc2Error(RuntimeError): ...
 
 def blosc2_version() -> str: ...
-def blosc2_check(data: BytesLike, /) -> bool | None: ...
+def blosc2_check(data: Buffer, /) -> bool | None: ...
 def blosc2_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     level: int | None = None,
     *,
@@ -1124,7 +1130,7 @@ def blosc2_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def blosc2_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     numthreads: int | None = None,
@@ -1138,7 +1144,7 @@ class BMP:
 class BmpError(RuntimeError): ...
 
 def bmp_version() -> str: ...
-def bmp_check(data: BytesLike, /) -> bool | None: ...
+def bmp_check(data: Buffer, /) -> bool | None: ...
 def bmp_encode(
     data: ArrayLike,
     /,
@@ -1147,7 +1153,7 @@ def bmp_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def bmp_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     asrgb: bool | None = None,
@@ -1167,9 +1173,9 @@ class BROTLI:
 class BrotliError(RuntimeError): ...
 
 def brotli_version() -> str: ...
-def brotli_check(data: BytesLike, /) -> bool | None: ...
+def brotli_check(data: Buffer, /) -> bool | None: ...
 def brotli_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     level: int | None = None,
     *,
@@ -1178,7 +1184,7 @@ def brotli_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def brotli_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
@@ -1191,9 +1197,9 @@ class BRUNSLI:
 class BrunsliError(RuntimeError): ...
 
 def brunsli_version() -> str: ...
-def brunsli_check(data: BytesLike, /) -> bool | None: ...
+def brunsli_check(data: Buffer, /) -> bool | None: ...
 def brunsli_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     level: int | None = None,
     *,
@@ -1206,7 +1212,7 @@ def brunsli_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def brunsli_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     colorspace: int | str | None = None,
@@ -1222,7 +1228,7 @@ class BYTESHUFFLE:
 ByteshuffleError = ImcdError
 byteshuffle_version = imcd_version
 
-def byteshuffle_check(data: BytesLike, /) -> bool | None: ...
+def byteshuffle_check(data: Buffer, /) -> bool | None: ...
 def byteshuffle_encode(
     data: NDArray[Any],
     /,
@@ -1251,16 +1257,16 @@ class BZ2:
 class Bz2Error(RuntimeError): ...
 
 def bz2_version() -> str: ...
-def bz2_check(data: BytesLike, /) -> bool | None: ...
+def bz2_check(data: Buffer, /) -> bool | None: ...
 def bz2_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     level: int | None = None,
     *,
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def bz2_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
@@ -1273,9 +1279,9 @@ class CCITTFAX3:
 Ccittfax3Error = CcittError
 ccittfax3_version = ccitt_version
 
-def ccittfax3_check(data: BytesLike, /) -> bool | None: ...
+def ccittfax3_check(data: Buffer, /) -> bool | None: ...
 def ccittfax3_encode(
-    data: BytesLike | ArrayLike,
+    data: Buffer | ArrayLike,
     /,
     level: int | None = None,
     *,
@@ -1283,7 +1289,7 @@ def ccittfax3_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def ccittfax3_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     height: int = 0,
     width: int = 0,
@@ -1299,9 +1305,9 @@ class CCITTFAX4:
 Ccittfax4Error = CcittError
 ccittfax4_version = ccitt_version
 
-def ccittfax4_check(data: BytesLike, /) -> bool | None: ...
+def ccittfax4_check(data: Buffer, /) -> bool | None: ...
 def ccittfax4_encode(
-    data: BytesLike | ArrayLike,
+    data: Buffer | ArrayLike,
     /,
     level: int | None = None,
     *,
@@ -1309,7 +1315,7 @@ def ccittfax4_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def ccittfax4_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     height: int = 0,
     width: int = 0,
@@ -1324,9 +1330,9 @@ class CCITTRLE:
 CcittrleError = CcittError
 ccittrle_version = ccitt_version
 
-def ccittrle_check(data: BytesLike, /) -> bool | None: ...
+def ccittrle_check(data: Buffer, /) -> bool | None: ...
 def ccittrle_encode(
-    data: BytesLike | ArrayLike,
+    data: Buffer | ArrayLike,
     /,
     level: int | None = None,
     *,
@@ -1334,7 +1340,7 @@ def ccittrle_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def ccittrle_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     height: int = 0,
     width: int = 0,
@@ -1407,7 +1413,8 @@ class CMS:
 class CmsError(RuntimeError): ...
 
 def cms_version() -> str: ...
-def cms_check(data: BytesLike, /) -> bool | None: ...
+def cms_check(data: Buffer, /) -> bool | None: ...
+def cms_info(profile: bytes, /) -> dict[str, Any]: ...
 def cms_transform(
     data: ArrayLike,
     /,
@@ -1447,15 +1454,15 @@ class DDS:
 class DdsError(RuntimeError): ...
 
 def dds_version() -> str: ...
-def dds_check(data: BytesLike, /) -> bool | None: ...
+def dds_check(data: Buffer, /) -> bool | None: ...
 def dds_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: int | bytearray | None = None,
 ) -> NoReturn: ...
 def dds_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     mipmap: int = 0,
@@ -1469,9 +1476,9 @@ class DEFLATE:
 class DeflateError(RuntimeError): ...
 
 def deflate_version() -> str: ...
-def deflate_check(data: BytesLike, /) -> bool | None: ...
+def deflate_check(data: Buffer, /) -> bool | None: ...
 def deflate_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     level: int | None = None,
     *,
@@ -1479,14 +1486,14 @@ def deflate_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def deflate_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     raw: bool = False,
     out: int | bytearray | memoryview | None = None,
 ) -> bytes | bytearray: ...
-def deflate_crc32(data: BytesLike, /, value: int | None = None) -> int: ...
-def deflate_adler32(data: BytesLike, /, value: int | None = None) -> int: ...
+def deflate_crc32(data: Buffer, /, value: int | None = None) -> int: ...
+def deflate_adler32(data: Buffer, /, value: int | None = None) -> int: ...
 
 class DELTA:
 
@@ -1495,10 +1502,10 @@ class DELTA:
 DeltaError = ImcdError
 delta_version = imcd_version
 
-def delta_check(data: BytesLike, /) -> bool | None: ...
+def delta_check(data: Buffer, /) -> bool | None: ...
 @overload
 def delta_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     axis: int = -1,
@@ -1516,7 +1523,7 @@ def delta_encode(
 ) -> NDArray[Any]: ...
 @overload
 def delta_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     axis: int = -1,
@@ -1540,15 +1547,15 @@ class DICOMRLE:
 DicomrleError = ImcdError
 dicomrle_version = imcd_version
 
-def dicomrle_check(data: BytesLike, /) -> bool | None: ...
+def dicomrle_check(data: Buffer, /) -> bool | None: ...
 def dicomrle_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: int | bytearray | None = None,
 ) -> NoReturn: ...
 def dicomrle_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     dtype: DTypeLike,
     *,
@@ -1562,7 +1569,7 @@ class EER:
 EerError = ImcdError
 eer_version = imcd_version
 
-def eer_check(data: BytesLike, /) -> bool | None: ...
+def eer_check(data: Buffer, /) -> bool | None: ...
 def eer_encode(
     data: ArrayLike,
     /,
@@ -1570,7 +1577,7 @@ def eer_encode(
     out: int | bytearray | None = None,
 ) -> NoReturn: ...
 def eer_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     shape: tuple[int, int],
     skipbits: int,
@@ -1603,7 +1610,7 @@ class EXR:
 class ExrError(RuntimeError): ...
 
 def exr_version() -> str: ...
-def exr_check(data: BytesLike, /) -> bool | None: ...
+def exr_check(data: Buffer, /) -> bool | None: ...
 def exr_encode(
     data: ArrayLike,
     /,
@@ -1615,7 +1622,7 @@ def exr_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def exr_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     index: int | None = 0,
@@ -1637,7 +1644,7 @@ class FLOAT24:
 Float24Error = ImcdError
 float24_version = imcd_version
 
-def float24_check(data: BytesLike, /) -> bool | None: ...
+def float24_check(data: Buffer, /) -> bool | None: ...
 def float24_encode(
     data: ArrayLike,
     /,
@@ -1647,7 +1654,7 @@ def float24_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def float24_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     byteorder: Literal['>', '<', '='] | None = None,
@@ -1661,7 +1668,7 @@ class FLOATPRED:
 FloatpredError = ImcdError
 floatpred_version = imcd_version
 
-def floatpred_check(data: BytesLike, /) -> bool | None: ...
+def floatpred_check(data: Buffer, /) -> bool | None: ...
 def floatpred_encode(
     data: NDArray[Any],
     /,
@@ -1686,7 +1693,7 @@ class GIF:
 class GifError(RuntimeError): ...
 
 def gif_version() -> str: ...
-def gif_check(data: BytesLike, /) -> bool | None: ...
+def gif_check(data: Buffer, /) -> bool | None: ...
 def gif_encode(
     data: ArrayLike,
     /,
@@ -1695,7 +1702,7 @@ def gif_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def gif_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     index: int | None = None,
     *,
@@ -1710,16 +1717,16 @@ class GZIP:
 GzipError = DeflateError
 gzip_version = deflate_version
 
-def gzip_check(data: BytesLike, /) -> bool | None: ...
+def gzip_check(data: Buffer, /) -> bool | None: ...
 def gzip_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     level: int | None = None,
     *,
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def gzip_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
@@ -1731,17 +1738,13 @@ class H5CHECKSUM:
 
 def h5checksum_version() -> str: ...
 def h5checksum_fletcher32(
-    data: BytesLike, /, value: int | None = None
+    data: Buffer, /, value: int | None = None
 ) -> int: ...
-def h5checksum_lookup3(
-    data: BytesLike, /, value: int | None = None
-) -> int: ...
-def h5checksum_crc(data: BytesLike, /, value: int | None = None) -> int: ...
-def h5checksum_metadata(
-    data: BytesLike, /, value: int | None = None
-) -> int: ...
+def h5checksum_lookup3(data: Buffer, /, value: int | None = None) -> int: ...
+def h5checksum_crc(data: Buffer, /, value: int | None = None) -> int: ...
+def h5checksum_metadata(data: Buffer, /, value: int | None = None) -> int: ...
 def h5checksum_hash_string(
-    data: BytesLike, /, value: int | None = None
+    data: Buffer, /, value: int | None = None
 ) -> int: ...
 
 class HCOMP:
@@ -1751,7 +1754,7 @@ class HCOMP:
 class HcompError(RuntimeError): ...
 
 def hcomp_version() -> str: ...
-def hcomp_check(data: BytesLike, /) -> bool | None: ...
+def hcomp_check(data: Buffer, /) -> bool | None: ...
 def hcomp_encode(
     data: ArrayLike,
     /,
@@ -1760,7 +1763,7 @@ def hcomp_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def hcomp_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     smooth: int | None = None,
@@ -1784,6 +1787,7 @@ class HEIF:
         JPEG2000 = ...
         UNCOMPRESSED = ...
         MASK = ...
+        HTJ2K = ...
 
     class COLORSPACE(enum.IntEnum):
 
@@ -1791,11 +1795,12 @@ class HEIF:
         YCBCR = ...
         RGB = ...
         MONOCHROME = ...
+        GRAY = ...  # alias
 
 class HeifError(RuntimeError): ...
 
 def heif_version() -> str: ...
-def heif_check(data: BytesLike, /) -> bool | None: ...
+def heif_check(data: Buffer, /) -> bool | None: ...
 def heif_encode(
     data: ArrayLike,
     /,
@@ -1807,7 +1812,7 @@ def heif_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def heif_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     index: int | None = 0,
     *,
@@ -1831,7 +1836,7 @@ def htj2k_init(
     verbose: int | None = None,
 ) -> None: ...
 def htj2k_version() -> str: ...
-def htj2k_check(data: BytesLike, /) -> bool | None: ...
+def htj2k_check(data: Buffer, /) -> bool | None: ...
 def htj2k_encode(
     data: ArrayLike,
     /,
@@ -1847,7 +1852,7 @@ def htj2k_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def htj2k_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     planar: bool | None = None,
@@ -1868,7 +1873,7 @@ def jetraw_init(
     verbose: int | None = None,
 ) -> None: ...
 def jetraw_version() -> str: ...
-def jetraw_check(data: BytesLike, /) -> bool | None: ...
+def jetraw_check(data: Buffer, /) -> bool | None: ...
 def jetraw_encode(
     data: ArrayLike,
     /,
@@ -1878,7 +1883,7 @@ def jetraw_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def jetraw_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: NDArray[Any] | None = None,
@@ -1908,7 +1913,7 @@ class JPEG2K:
 class Jpeg2kError(RuntimeError): ...
 
 def jpeg2k_version() -> str: ...
-def jpeg2k_check(data: BytesLike, /) -> bool | None: ...
+def jpeg2k_check(data: Buffer, /) -> bool | None: ...
 def jpeg2k_encode(
     data: ArrayLike,
     /,
@@ -1927,7 +1932,7 @@ def jpeg2k_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def jpeg2k_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     planar: bool | None = None,
@@ -1967,7 +1972,7 @@ class JPEG8:
 class Jpeg8Error(RuntimeError): ...
 
 def jpeg8_version() -> str: ...
-def jpeg8_check(data: BytesLike, /) -> bool | None: ...
+def jpeg8_check(data: Buffer, /) -> bool | None: ...
 def jpeg8_encode(
     data: ArrayLike,
     /,
@@ -1985,7 +1990,7 @@ def jpeg8_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def jpeg8_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     tables: bytes | None = None,
@@ -2019,7 +2024,7 @@ def jpeg_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def jpeg_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     tables: bytes | None = None,
@@ -2038,7 +2043,7 @@ class JPEGLS:
 class JpeglsError(RuntimeError): ...
 
 def jpegls_version() -> str: ...
-def jpegls_check(data: BytesLike, /) -> bool | None: ...
+def jpegls_check(data: Buffer, /) -> bool | None: ...
 def jpegls_encode(
     data: ArrayLike,
     /,
@@ -2047,7 +2052,7 @@ def jpegls_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def jpegls_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: NDArray[Any] | None = None,
@@ -2060,7 +2065,7 @@ class JPEGSOF3:
 class Jpegsof3Error(RuntimeError): ...
 
 def jpegsof3_version() -> str: ...
-def jpegsof3_check(data: BytesLike, /) -> bool | None: ...
+def jpegsof3_check(data: Buffer, /) -> bool | None: ...
 def jpegsof3_encode(
     data: ArrayLike,
     /,
@@ -2068,7 +2073,7 @@ def jpegsof3_encode(
     out: int | bytearray | None = None,
 ) -> NoReturn: ...
 def jpegsof3_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: NDArray[Any] | None = None,
@@ -2118,7 +2123,7 @@ class JPEGXL:
 class JpegxlError(RuntimeError): ...
 
 def jpegxl_version() -> str: ...
-def jpegxl_check(data: BytesLike, /) -> bool | None: ...
+def jpegxl_check(data: Buffer, /) -> bool | None: ...
 def jpegxl_encode(
     data: ArrayLike,
     /,
@@ -2139,7 +2144,7 @@ def jpegxl_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def jpegxl_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     index: int | None = None,
     *,
@@ -2148,14 +2153,14 @@ def jpegxl_decode(
     out: NDArray[Any] | None = None,
 ) -> NDArray[Any]: ...
 def jpegxl_encode_jpeg(
-    data: BytesLike,
+    data: Buffer,
     /,
     usecontainer: bool | None = None,
     numthreads: int | None = None,
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def jpegxl_decode_jpeg(
-    data: BytesLike,
+    data: Buffer,
     /,
     numthreads: int,
     out: int | bytearray | None = None,
@@ -2177,11 +2182,13 @@ class JPEGXR:
         CIELab = ...
         NCH = ...
         RGBE = ...
+        DEFAULT = ...
+        GRAY = ...  # alias
 
 class JpegxrError(RuntimeError): ...
 
 def jpegxr_version() -> str: ...
-def jpegxr_check(data: BytesLike, /) -> bool | None: ...
+def jpegxr_check(data: Buffer, /) -> bool | None: ...
 def jpegxr_encode(
     data: ArrayLike,
     /,
@@ -2193,7 +2200,7 @@ def jpegxr_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def jpegxr_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     fp2int: bool = False,
@@ -2207,7 +2214,7 @@ class JPEGXS:
 class JpegxsError(RuntimeError): ...
 
 def jpegxs_version() -> str: ...
-def jpegxs_check(data: BytesLike, /) -> bool | None: ...
+def jpegxs_check(data: Buffer, /) -> bool | None: ...
 def jpegxs_encode(
     data: ArrayLike,
     /,
@@ -2218,7 +2225,7 @@ def jpegxs_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def jpegxs_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     verbose: int | None = None,
@@ -2232,7 +2239,7 @@ class LERC:
 class LercError(RuntimeError): ...
 
 def lerc_version() -> str: ...
-def lerc_check(data: BytesLike, /) -> bool | None: ...
+def lerc_check(data: Buffer, /) -> bool | None: ...
 def lerc_encode(
     data: ArrayLike,
     /,
@@ -2247,7 +2254,7 @@ def lerc_encode(
 ) -> bytes | bytearray: ...
 @overload
 def lerc_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     masks: Literal[False] | None = None,
@@ -2255,7 +2262,7 @@ def lerc_decode(
 ) -> NDArray[Any]: ...
 @overload
 def lerc_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     masks: Literal[True] | NDArray[Any],
@@ -2269,7 +2276,7 @@ class LJPEG:
 class LjpegError(RuntimeError): ...
 
 def ljpeg_version() -> str: ...
-def ljpeg_check(data: BytesLike, /) -> bool | None: ...
+def ljpeg_check(data: Buffer, /) -> bool | None: ...
 def ljpeg_encode(
     data: ArrayLike,
     /,
@@ -2279,7 +2286,7 @@ def ljpeg_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def ljpeg_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     linearize: ArrayLike | None = None,
@@ -2300,9 +2307,9 @@ class LZ4:
 class Lz4Error(RuntimeError): ...
 
 def lz4_version() -> str: ...
-def lz4_check(data: BytesLike, /) -> bool | None: ...
+def lz4_check(data: Buffer, /) -> bool | None: ...
 def lz4_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     level: int | None = None,
     *,
@@ -2311,7 +2318,7 @@ def lz4_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def lz4_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     header: bool = False,
@@ -2327,9 +2334,9 @@ class LZ4F:
 class Lz4fError(RuntimeError): ...
 
 def lz4f_version() -> str: ...
-def lz4f_check(data: BytesLike, /) -> bool | None: ...
+def lz4f_check(data: Buffer, /) -> bool | None: ...
 def lz4f_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     level: int | None = None,
     *,
@@ -2339,7 +2346,7 @@ def lz4f_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def lz4f_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
@@ -2354,9 +2361,9 @@ class LZ4H5:
 class Lz4h5Error(RuntimeError): ...
 
 def lz4h5_version() -> str: ...
-def lz4h5_check(data: BytesLike, /) -> bool | None: ...
+def lz4h5_check(data: Buffer, /) -> bool | None: ...
 def lz4h5_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     level: int | None = None,
     blocksize: int | None = None,
@@ -2364,7 +2371,7 @@ def lz4h5_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def lz4h5_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
@@ -2377,16 +2384,16 @@ class LZF:
 class LzfError(RuntimeError): ...
 
 def lzf_version() -> str: ...
-def lzf_check(data: BytesLike, /) -> bool | None: ...
+def lzf_check(data: Buffer, /) -> bool | None: ...
 def lzf_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     header: bool = False,
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def lzf_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     header: bool = False,
@@ -2400,15 +2407,15 @@ class LZFSE:
 class LzfseError(RuntimeError): ...
 
 def lzfse_version() -> str: ...
-def lzfse_check(data: BytesLike, /) -> bool | None: ...
+def lzfse_check(data: Buffer, /) -> bool | None: ...
 def lzfse_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def lzfse_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
@@ -2437,16 +2444,16 @@ class LZHAM:
 class LzhamError(RuntimeError): ...
 
 def lzham_version() -> str: ...
-def lzham_check(data: BytesLike, /) -> bool | None: ...
+def lzham_check(data: Buffer, /) -> bool | None: ...
 def lzham_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     level: LZHAM.COMPRESSION | int | str | None = None,
     *,
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def lzham_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
@@ -2466,9 +2473,9 @@ class LZMA:
 class LzmaError(RuntimeError): ...
 
 def lzma_version() -> str: ...
-def lzma_check(data: BytesLike, /) -> bool | None: ...
+def lzma_check(data: Buffer, /) -> bool | None: ...
 def lzma_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     level: int | None = None,
     *,
@@ -2476,7 +2483,7 @@ def lzma_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def lzma_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
@@ -2489,9 +2496,9 @@ class LZO:
 class LzoError(RuntimeError): ...
 
 def lzo_version() -> str: ...
-def lzo_check(data: BytesLike, /) -> bool | None: ...
+def lzo_check(data: Buffer, /) -> bool | None: ...
 def lzo_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     level: int | None = None,
     *,
@@ -2499,7 +2506,7 @@ def lzo_encode(
     out: int | bytearray | None = None,
 ) -> NoReturn: ...
 def lzo_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     header: bool = False,
@@ -2514,18 +2521,17 @@ LzwError = ImcdError
 
 lzw_version = imcd_version
 
-def lzw_check(data: BytesLike, /) -> bool | None: ...
+def lzw_check(data: Buffer, /) -> bool | None: ...
 def lzw_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def lzw_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
-    buffersize: int = 0,
     out: int | bytearray | memoryview | None = None,
 ) -> bytes | bytearray: ...
 
@@ -2536,7 +2542,7 @@ class MESHOPT:
 class MeshoptError(RuntimeError): ...
 
 def meshopt_version() -> str: ...
-def meshopt_check(data: BytesLike, /) -> bool | None: ...
+def meshopt_check(data: Buffer, /) -> bool | None: ...
 def meshopt_encode(
     data: ArrayLike,
     /,
@@ -2546,7 +2552,7 @@ def meshopt_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def meshopt_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     shape: tuple[int, ...] | None = None,
     dtype: DTypeLike | None = None,
@@ -2582,7 +2588,7 @@ class MOZJPEG:
 class MozjpegError(RuntimeError): ...
 
 def mozjpeg_version() -> str: ...
-def mozjpeg_check(data: BytesLike, /) -> bool | None: ...
+def mozjpeg_check(data: Buffer, /) -> bool | None: ...
 def mozjpeg_encode(
     data: ArrayLike,
     /,
@@ -2599,7 +2605,7 @@ def mozjpeg_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def mozjpeg_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     tables: bytes | None = None,
@@ -2627,7 +2633,7 @@ class NUMPY:
 NumpyError = RuntimeError
 
 def numpy_version() -> str: ...
-def numpy_check(data: BytesLike, /) -> bool | None: ...
+def numpy_check(data: Buffer, /) -> bool | None: ...
 def numpy_encode(
     data: ArrayLike,
     /,
@@ -2636,7 +2642,7 @@ def numpy_encode(
     out: int | bytearray | None = None,
 ) -> bytes: ...
 def numpy_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     index: int | None = None,
     *,
@@ -2652,16 +2658,16 @@ PackbitsError = ImcdError
 
 packbits_version = imcd_version
 
-def packbits_check(data: BytesLike, /) -> bool | None: ...
+def packbits_check(data: Buffer, /) -> bool | None: ...
 def packbits_encode(
-    data: BytesLike | ArrayLike,
+    data: Buffer | ArrayLike,
     /,
     *,
     axis: int | None = None,
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def packbits_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
@@ -2675,7 +2681,7 @@ PackintsError = ImcdError
 
 packints_version = imcd_version
 
-def packints_check(data: BytesLike, /) -> bool | None: ...
+def packints_check(data: Buffer, /) -> bool | None: ...
 def packints_encode(
     data: ArrayLike,
     bitspersample: int,
@@ -2686,7 +2692,7 @@ def packints_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def packints_decode(
-    data: BytesLike,
+    data: Buffer,
     dtype: DTypeLike,
     bitspersample: int,
     /,
@@ -2703,7 +2709,7 @@ class PCX:
 class PcxError(RuntimeError): ...
 
 def pcx_version() -> str: ...
-def pcx_check(data: BytesLike, /) -> bool | None: ...
+def pcx_check(data: Buffer, /) -> bool | None: ...
 def pcx_encode(
     data: ArrayLike,
     /,
@@ -2711,7 +2717,7 @@ def pcx_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def pcx_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     index: int | None = None,
     *,
@@ -2725,7 +2731,7 @@ class PCODEC:
 class PcodecError(RuntimeError): ...
 
 def pcodec_version() -> str: ...
-def pcodec_check(data: BytesLike, /) -> bool | None: ...
+def pcodec_check(data: Buffer, /) -> bool | None: ...
 def pcodec_encode(
     data: ArrayLike,
     /,
@@ -2735,7 +2741,7 @@ def pcodec_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def pcodec_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     shape: tuple[int, ...] | None = None,
     dtype: DTypeLike | None = None,
@@ -2750,9 +2756,9 @@ class PGLZ:
 class PglzError(RuntimeError): ...
 
 def pglz_version() -> str: ...
-def pglz_check(data: BytesLike, /) -> bool | None: ...
+def pglz_check(data: Buffer, /) -> bool | None: ...
 def pglz_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     header: bool = False,
@@ -2760,7 +2766,7 @@ def pglz_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def pglz_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     header: bool = False,
@@ -2775,7 +2781,7 @@ class PLIO:
 class PlioError(RuntimeError): ...
 
 def plio_version() -> str: ...
-def plio_check(data: BytesLike, /) -> bool | None: ...
+def plio_check(data: Buffer, /) -> bool | None: ...
 def plio_encode(
     data: ArrayLike,
     /,
@@ -2783,7 +2789,7 @@ def plio_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def plio_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     npix: int | None = None,
     *,
@@ -2797,7 +2803,7 @@ class PIXARLOG:
 class PixarlogError(RuntimeError): ...
 
 def pixarlog_version() -> str: ...
-def pixarlog_check(data: BytesLike, /) -> bool | None: ...
+def pixarlog_check(data: Buffer, /) -> bool | None: ...
 def pixarlog_encode(
     data: ArrayLike,
     /,
@@ -2807,7 +2813,7 @@ def pixarlog_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def pixarlog_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     shape: tuple[int, ...] | None = None,
@@ -2856,7 +2862,7 @@ class PNG:
 class PngError(RuntimeError): ...
 
 def png_version() -> str: ...
-def png_check(data: BytesLike, /) -> bool | None: ...
+def png_check(data: Buffer, /) -> bool | None: ...
 def png_encode(
     data: ArrayLike,
     /,
@@ -2867,7 +2873,7 @@ def png_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def png_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: NDArray[Any] | None = None,
@@ -2885,7 +2891,7 @@ class QOI:
 class QoiError(RuntimeError): ...
 
 def qoi_version() -> str: ...
-def qoi_check(data: BytesLike, /) -> bool | None: ...
+def qoi_check(data: Buffer, /) -> bool | None: ...
 def qoi_encode(
     data: ArrayLike,
     /,
@@ -2893,7 +2899,7 @@ def qoi_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def qoi_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: NDArray[Any] | None = None,
@@ -2908,13 +2914,14 @@ class QUANTIZE:
         NOQUANTIZE = ...
         BITGROOM = ...
         GRANULARBR = ...
+        GBR = ...  # alias
         BITROUND = ...
         SCALE = ...
 
 class QuantizeError(RuntimeError): ...
 
 def quantize_version() -> str: ...
-def quantize_check(data: BytesLike, /) -> bool | None: ...
+def quantize_check(data: Buffer, /) -> bool | None: ...
 def quantize_encode(
     data: NDArray[Any],
     /,
@@ -2945,7 +2952,7 @@ class RCOMP:
 class RcompError(RuntimeError): ...
 
 def rcomp_version() -> str: ...
-def rcomp_check(data: BytesLike, /) -> bool | None: ...
+def rcomp_check(data: Buffer, /) -> bool | None: ...
 def rcomp_encode(
     data: ArrayLike,
     /,
@@ -2954,7 +2961,7 @@ def rcomp_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def rcomp_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     shape: tuple[int, ...] | None = None,
     dtype: DTypeLike | None = None,
@@ -2970,7 +2977,7 @@ class RGBE:
 class RgbeError(RuntimeError): ...
 
 def rgbe_version() -> str: ...
-def rgbe_check(data: BytesLike, /) -> bool | None: ...
+def rgbe_check(data: Buffer, /) -> bool | None: ...
 def rgbe_encode(
     data: ArrayLike,
     /,
@@ -2980,7 +2987,7 @@ def rgbe_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def rgbe_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     header: bool | None = None,
@@ -2995,15 +3002,15 @@ class SNAPPY:
 class SnappyError(RuntimeError): ...
 
 def snappy_version() -> str: ...
-def snappy_check(data: BytesLike, /) -> bool | None: ...
+def snappy_check(data: Buffer, /) -> bool | None: ...
 def snappy_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def snappy_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
@@ -3022,7 +3029,7 @@ class SPERR:
 class SperrError(RuntimeError): ...
 
 def sperr_version() -> str: ...
-def sperr_check(data: BytesLike, /) -> bool | None: ...
+def sperr_check(data: Buffer, /) -> bool | None: ...
 def sperr_encode(
     data: ArrayLike,
     /,
@@ -3035,7 +3042,7 @@ def sperr_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def sperr_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     shape: tuple[int, ...] | None = None,
@@ -3058,19 +3065,31 @@ class SPNG:
         GA16 = ...
         G8 = ...
 
+    class FILTER(enum.IntEnum):
+
+        NO = ...
+        NONE = ...
+        SUB = ...
+        UP = ...
+        AVG = ...
+        PAETH = ...
+        FAST = ...
+        ALL = ...
+
 class SpngError(RuntimeError): ...
 
 def spng_version() -> str: ...
-def spng_check(data: BytesLike, /) -> bool | None: ...
+def spng_check(data: Buffer, /) -> bool | None: ...
 def spng_encode(
     data: ArrayLike,
     /,
     level: int | None = None,
     *,
+    filter: SPNG.FILTER | int | str | None = None,
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def spng_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: NDArray[Any] | None = None,
@@ -3097,7 +3116,7 @@ class SZ3:
 class Sz3Error(RuntimeError): ...
 
 def sz3_version() -> str: ...
-def sz3_check(data: BytesLike, /) -> bool | None: ...
+def sz3_check(data: Buffer, /) -> bool | None: ...
 def sz3_encode(
     data: ArrayLike,
     /,
@@ -3109,7 +3128,7 @@ def sz3_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def sz3_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     shape: tuple[int, ...],
     dtype: DTypeLike,
@@ -3134,9 +3153,9 @@ class SZIP:
 class SzipError(RuntimeError): ...
 
 def szip_version() -> str: ...
-def szip_check(data: BytesLike, /) -> bool | None: ...
+def szip_check(data: Buffer, /) -> bool | None: ...
 def szip_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     options_mask: SZIP.OPTION_MASK | int,
     pixels_per_block: int,
@@ -3147,7 +3166,7 @@ def szip_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def szip_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     options_mask: int,
     pixels_per_block: int,
@@ -3168,7 +3187,7 @@ class TGA:
 class TgaError(RuntimeError): ...
 
 def tga_version() -> str: ...
-def tga_check(data: BytesLike, /) -> bool | None: ...
+def tga_check(data: Buffer, /) -> bool | None: ...
 def tga_encode(
     data: ArrayLike,
     /,
@@ -3177,7 +3196,7 @@ def tga_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def tga_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: NDArray[Any] | None = None,
@@ -3254,10 +3273,16 @@ class TIFF:
         PAGE = ...
         MASK = ...
 
+    class SUBCODEC(enum.IntEnum):
+
+        NONE = ...
+        DEFLATE = ...
+        ZSTD = ...
+
 class TiffError(RuntimeError): ...
 
 def tiff_version() -> str: ...
-def tiff_check(data: BytesLike, /) -> bool | None: ...
+def tiff_check(data: Buffer, /) -> bool | None: ...
 def tiff_encode(
     data: ArrayLike,
     /,
@@ -3274,7 +3299,7 @@ def tiff_encode(
     rowsperstrip: int | None = None,
     bitspersample: int | None = None,
     compression: TIFF.COMPRESSION | int | str | None = None,
-    subcodec: int | str | None = None,
+    subcodec: TIFF.SUBCODEC | int | str | None = None,
     predictor: bool | TIFF.PREDICTOR | int | str | None = None,
     colormap: ArrayLike | None = None,
     iccprofile: bytes | None = None,
@@ -3288,7 +3313,7 @@ def tiff_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def tiff_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     index: int | Sequence[int] | slice | None = 0,
     *,
@@ -3336,7 +3361,7 @@ class ULTRAHDR:
 class UltrahdrError(RuntimeError): ...
 
 def ultrahdr_version() -> str: ...
-def ultrahdr_check(data: BytesLike, /) -> bool | None: ...
+def ultrahdr_check(data: Buffer, /) -> bool | None: ...
 def ultrahdr_encode(
     data: ArrayLike,
     /,
@@ -3355,7 +3380,7 @@ def ultrahdr_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def ultrahdr_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     dtype: DTypeLike | None = None,
@@ -3379,8 +3404,8 @@ class WAVPACK:
 class WavpackError(RuntimeError): ...
 
 def wavpack_version() -> str: ...
-def wavpack_check(data: BytesLike, /) -> bool | None: ...
-def wavpack_info(data: BytesLike, /) -> dict[str, Any]: ...
+def wavpack_check(data: Buffer, /) -> bool | None: ...
+def wavpack_info(data: Buffer, /) -> dict[str, Any]: ...
 def wavpack_encode(
     data: ArrayLike,
     /,
@@ -3391,10 +3416,10 @@ def wavpack_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def wavpack_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
-    correction: BytesLike | None = None,
+    correction: Buffer | None = None,
     numthreads: int | None = None,
     out: NDArray[Any] | None = None,
 ) -> NDArray[Any]: ...
@@ -3406,7 +3431,7 @@ class WEBP:
 class WebpError(RuntimeError): ...
 
 def webp_version() -> str: ...
-def webp_check(data: BytesLike, /) -> bool | None: ...
+def webp_check(data: Buffer, /) -> bool | None: ...
 def webp_encode(
     data: ArrayLike,
     /,
@@ -3419,7 +3444,7 @@ def webp_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def webp_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     index: int | None = None,
     *,
@@ -3445,17 +3470,17 @@ class WIC:
 class WicError(RuntimeError): ...
 
 def wic_version() -> str: ...
-def wic_check(data: BytesLike, /) -> bool | None: ...
+def wic_check(data: Buffer, /) -> bool | None: ...
 def wic_encode(
     data: ArrayLike,
     /,
     level: int | None = None,
     *,
     format: WIC.FORMAT | str | None = None,
-    out: BytesLike | None = None,
+    out: Buffer | None = None,
 ) -> bytes | bytearray: ...
 def wic_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     index: int = 0,
     *,
@@ -3473,7 +3498,7 @@ xor_version = imcd_version
 def xor_check(data: Any, /) -> bool | None: ...
 @overload
 def xor_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     axis: int = -1,
@@ -3489,7 +3514,7 @@ def xor_encode(
 ) -> NDArray[Any]: ...
 @overload
 def xor_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     axis: int = -1,
@@ -3522,6 +3547,9 @@ class ZFP:
         FIXED_PRECISION = ...
         FIXED_ACCURACY = ...
         REVERSIBLE = ...
+        RATE = ...
+        PRECISION = ...
+        ACCURACY = ...
 
     class HEADER(enum.IntEnum):
 
@@ -3533,7 +3561,7 @@ class ZFP:
 class ZfpError(RuntimeError): ...
 
 def zfp_version() -> str: ...
-def zfp_check(data: BytesLike, /) -> bool | None: ...
+def zfp_check(data: Buffer, /) -> bool | None: ...
 def zfp_encode(
     data: ArrayLike,
     /,
@@ -3547,7 +3575,7 @@ def zfp_encode(
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def zfp_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     shape: tuple[int, ...] | None = None,
@@ -3579,22 +3607,22 @@ class ZLIB:
 class ZlibError(RuntimeError): ...
 
 def zlib_version() -> str: ...
-def zlib_check(data: BytesLike, /) -> bool | None: ...
+def zlib_check(data: Buffer, /) -> bool | None: ...
 def zlib_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     level: ZLIB.COMPRESSION | int | None = None,
     *,
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def zlib_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
 ) -> bytes | bytearray: ...
-def zlib_crc32(data: BytesLike, /, value: int | None = None) -> int: ...
-def zlib_adler32(data: BytesLike, /, value: int | None = None) -> int: ...
+def zlib_crc32(data: Buffer, /, value: int | None = None) -> int: ...
+def zlib_adler32(data: Buffer, /, value: int | None = None) -> int: ...
 
 class ZLIBNG:
 
@@ -3618,22 +3646,22 @@ class ZLIBNG:
 class ZlibngError(RuntimeError): ...
 
 def zlibng_version() -> str: ...
-def zlibng_check(data: BytesLike, /) -> bool | None: ...
+def zlibng_check(data: Buffer, /) -> bool | None: ...
 def zlibng_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     level: ZLIBNG.COMPRESSION | int | None = None,
     *,
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def zlibng_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
     out: int | bytearray | memoryview | None = None,
 ) -> bytes | bytearray: ...
-def zlibng_crc32(data: BytesLike, /, value: int | None = None) -> int: ...
-def zlibng_adler32(data: BytesLike, /, value: int | None = None) -> int: ...
+def zlibng_crc32(data: Buffer, /, value: int | None = None) -> int: ...
+def zlibng_adler32(data: Buffer, /, value: int | None = None) -> int: ...
 
 class ZOPFLI:
 
@@ -3652,7 +3680,7 @@ def zopfli_version() -> str: ...
 zopfli_check = zlib_check
 
 def zopfli_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     level: int | None = None,
     *,
@@ -3673,17 +3701,42 @@ class ZSTD:
 class ZstdError(RuntimeError): ...
 
 def zstd_version() -> str: ...
-def zstd_check(data: BytesLike, /) -> bool | None: ...
+def zstd_check(data: Buffer, /) -> bool | None: ...
 def zstd_encode(
-    data: BytesLike,
+    data: Buffer,
     /,
     level: int | None = None,
     *,
     out: int | bytearray | None = None,
 ) -> bytes | bytearray: ...
 def zstd_decode(
-    data: BytesLike,
+    data: Buffer,
     /,
     *,
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray: ...
+
+class ZSTD1:
+    available: bool
+
+class Zstd1Error(RuntimeError): ...
+
+def zstd1_version() -> str: ...
+def zstd1_check(data: Buffer, /) -> bool | None: ...
+def zstd1_encode(
+    data: Buffer,
+    /,
+    level: int | None = None,
+    *,
+    itemsize: int = 1,
+    hilo: bool = False,
+    out: int | bytearray | memoryview | None = None,
+) -> bytes | bytearray: ...
+def zstd1_decode(
+    data: Buffer,
+    /,
+    *,
+    itemsize: int = 1,
+    samples: int = 1,
     out: int | bytearray | memoryview | None = None,
 ) -> bytes | bytearray: ...

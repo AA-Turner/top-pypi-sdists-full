@@ -10,6 +10,7 @@ progress tracking. The parent tracks child IDs in progress.json.
 from __future__ import annotations
 from pathlib import Path
 from kanban_framework.types import Task
+from kanban_framework.infra.consts import Consts
 
 
 def spawn_subtask(kanban_dir: Path, parent_task: Task, subtask: dict) -> str | None:
@@ -20,7 +21,7 @@ def spawn_subtask(kanban_dir: Path, parent_task: Task, subtask: dict) -> str | N
     """
     st_id = subtask.get("id", "")
     st_title = subtask.get("title", st_id)
-    st_workflow = subtask.get("workflow", "full")
+    st_workflow = subtask.get("workflow", "") or Consts.DEFAULT_MODE
 
     from kanban_framework.infra.filesystem import Filesystem
     from kanban_framework.infra.config import Config

@@ -27,6 +27,7 @@ class ForwarderDelivery:
     """A log entry for one attempt to deliver an event to a forwarder.
 
     Attributes:
+        environment (str): Environment the delivered event occurred in. Deliveries are scoped to one environment.
         forwarder (UUID): Forwarder the delivery belongs to.
         event (UUID): Event that was being delivered.
         attempt_number (int): 1 for the initial delivery, incremented for each retry.
@@ -42,6 +43,7 @@ class ForwarderDelivery:
         created_at (datetime.datetime | None | Unset): When the delivery attempt was recorded.
     """
 
+    environment: str
     forwarder: UUID
     event: UUID
     attempt_number: int
@@ -56,6 +58,8 @@ class ForwarderDelivery:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.forwarder_delivery_request_type_0 import ForwarderDeliveryRequestType0
+
+        environment = self.environment
 
         forwarder = str(self.forwarder)
 
@@ -109,6 +113,7 @@ class ForwarderDelivery:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
+                "environment": environment,
                 "forwarder": forwarder,
                 "event": event,
                 "attempt_number": attempt_number,
@@ -135,6 +140,8 @@ class ForwarderDelivery:
         from ..models.forwarder_delivery_request_type_0 import ForwarderDeliveryRequestType0
 
         d = dict(src_dict)
+        environment = d.pop("environment")
+
         forwarder = UUID(d.pop("forwarder"))
 
         event = UUID(d.pop("event"))
@@ -214,6 +221,7 @@ class ForwarderDelivery:
         created_at = _parse_created_at(d.pop("created_at", UNSET))
 
         forwarder_delivery = cls(
+            environment=environment,
             forwarder=forwarder,
             event=event,
             attempt_number=attempt_number,

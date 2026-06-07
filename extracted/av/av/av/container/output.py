@@ -32,6 +32,7 @@ def close_output(self: OutputContainer):
             self._myflag |= 8  # enum.done = True
 
 
+@cython.final
 @cython.cclass
 class OutputContainer(Container):
     def __cinit__(self, *args, **kwargs):
@@ -261,6 +262,10 @@ class OutputContainer(Container):
         err_check(lib.avcodec_parameters_to_context(ctx, template.ptr.codecpar))
         # Reset the codec tag assuming we are remuxing.
         ctx.codec_tag = 0
+
+        # Copy the template's stream time_base
+        stream.time_base = template.ptr.time_base
+        ctx.time_base = template.ptr.time_base
 
         # Some formats want stream headers to be separate
         if self.ptr.oformat.flags & lib.AVFMT_GLOBALHEADER:

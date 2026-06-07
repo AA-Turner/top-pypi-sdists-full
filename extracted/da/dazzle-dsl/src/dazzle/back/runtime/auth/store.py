@@ -13,6 +13,7 @@ if TYPE_CHECKING:
         EventChainResult,
         MembershipEvent,
     )
+    from dazzle.back.runtime.auth.models import ScimGroupRecord
 
 try:
     import psycopg
@@ -947,6 +948,9 @@ class SessionStoreMixin:
             if row is None:
                 return False
             cur.execute("DELETE FROM memberships WHERE id = %s", (membership_id,))
+            # scim_group_members has no FK to memberships (see _init_db) — clear
+            # the deleted membership's group rows here so no orphans survive.
+            cur.execute("DELETE FROM scim_group_members WHERE membership_id = %s", (membership_id,))
             record_membership_event(
                 cur,
                 event_type=MembershipEventType.REMOVED,
@@ -1509,6 +1513,159 @@ class AuthStore(UserStoreMixin, SessionStoreMixin, TwoFactorMixin):
 
         self._init_db()
 
+    # ------------------------------------------------------------------ #
+    # SCIM Groups (#1342) — connection-scoped; members link to memberships.
+    # ------------------------------------------------------------------ #
+
+    def create_scim_group(self, connection_id: str, display_name: str) -> "ScimGroupRecord":  # noqa: F821
+        from uuid import uuid4
+
+        from dazzle.back.runtime.auth.models import ScimGroupRecord
+
+        now = datetime.now(UTC).isoformat()
+        gid = str(uuid4())
+        self._execute(
+            "INSERT INTO scim_groups (id, connection_id, display_name, created_at, updated_at) "
+            "VALUES (%s, %s, %s, %s, %s)",
+            (gid, connection_id, display_name, now, now),
+        )
+        return ScimGroupRecord(
+            id=gid,
+            connection_id=connection_id,
+            display_name=display_name,
+            created_at=now,
+            updated_at=now,
+        )
+
+    def _row_to_scim_group(self, row: dict[str, Any]) -> "ScimGroupRecord":  # noqa: F821
+        from dazzle.back.runtime.auth.models import ScimGroupRecord
+
+        return ScimGroupRecord(
+            id=row["id"],
+            connection_id=row["connection_id"],
+            display_name=row["display_name"],
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+        )
+
+    def get_scim_group(self, group_id: str, connection_id: str) -> "ScimGroupRecord | None":  # noqa: F821
+        row = self._execute_one(
+            "SELECT * FROM scim_groups WHERE id = %s AND connection_id = %s",
+            (group_id, connection_id),
+        )
+        return self._row_to_scim_group(row) if row else None
+
+    def list_scim_groups(
+        self, connection_id: str, display_name: str | None = None
+    ) -> "list[ScimGroupRecord]":  # noqa: F821
+        if display_name is not None:
+            rows = self._execute(
+                "SELECT * FROM scim_groups WHERE connection_id = %s AND display_name = %s "
+                "ORDER BY created_at",
+                (connection_id, display_name),
+            )
+        else:
+            rows = self._execute(
+                "SELECT * FROM scim_groups WHERE connection_id = %s ORDER BY created_at",
+                (connection_id,),
+            )
+        return [self._row_to_scim_group(r) for r in rows]
+
+    def rename_scim_group(self, group_id: str, connection_id: str, display_name: str) -> None:
+        self._execute_modify(
+            "UPDATE scim_groups SET display_name = %s, updated_at = %s "
+            "WHERE id = %s AND connection_id = %s",
+            (display_name, datetime.now(UTC).isoformat(), group_id, connection_id),
+        )
+
+    def delete_scim_group(self, group_id: str, connection_id: str) -> bool:
+        n = self._execute_modify(
+            "DELETE FROM scim_groups WHERE id = %s AND connection_id = %s",
+            (group_id, connection_id),
+        )
+        return n > 0
+
+    def get_group_member_ids(self, group_id: str) -> list[str]:
+        rows = self._execute(
+            "SELECT membership_id FROM scim_group_members WHERE group_id = %s "
+            "ORDER BY membership_id",
+            (group_id,),
+        )
+        return [r["membership_id"] for r in rows]
+
+    def add_group_member(self, group_id: str, membership_id: str) -> None:
+        self._execute_modify(
+            "INSERT INTO scim_group_members (group_id, membership_id) VALUES (%s, %s) "
+            "ON CONFLICT DO NOTHING",
+            (group_id, membership_id),
+        )
+
+    def remove_group_member(self, group_id: str, membership_id: str) -> None:
+        self._execute_modify(
+            "DELETE FROM scim_group_members WHERE group_id = %s AND membership_id = %s",
+            (group_id, membership_id),
+        )
+
+    def replace_group_members(self, group_id: str, membership_ids: list[str]) -> None:
+        # Atomic: the DELETE + re-INSERTs share one commit so the group never
+        # observes an empty member set mid-replace (a concurrent recompute would
+        # otherwise read the gap and transiently zero roles).
+        with self._transaction() as cur:
+            cur.execute("DELETE FROM scim_group_members WHERE group_id = %s", (group_id,))
+            for mid in membership_ids:
+                cur.execute(
+                    "INSERT INTO scim_group_members (group_id, membership_id) "
+                    "VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                    (group_id, mid),
+                )
+
+    def get_member_group_names(self, membership_id: str, connection_id: str) -> list[str]:
+        rows = self._execute(
+            "SELECT g.display_name AS display_name FROM scim_group_members m "
+            "JOIN scim_groups g ON g.id = m.group_id "
+            "WHERE m.membership_id = %s AND g.connection_id = %s",
+            (membership_id, connection_id),
+        )
+        return [r["display_name"] for r in rows]
+
+    def _ensure_email_ci_uniqueness(self) -> None:
+        """Enforce case-insensitive email uniqueness on `users` (#1342, M2).
+
+        A plain `email TEXT UNIQUE` is case-SENSITIVE, so "Foo@x.com" and
+        "foo@x.com" could coexist — a *split identity* an out-of-convention
+        create-path could mint. A functional unique index on LOWER(email) closes
+        that structurally (no CITEXT extension needed).
+
+        Runs in its OWN transaction, *after* `_init_db` has committed the base
+        schema — so if pre-existing case-duplicate rows block the index, the
+        failure is isolated (the rest of the schema is already in place) and we
+        raise a clear, actionable error rather than an opaque duplicate-key that
+        also tore down the other table creation. Fails loud by design: you cannot
+        silently boot with the split-identity hole open.
+        """
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT LOWER(email) AS k, COUNT(*) AS n FROM users "
+                "GROUP BY LOWER(email) HAVING COUNT(*) > 1 LIMIT 5"
+            )
+            collisions = cursor.fetchall()
+            if collisions:
+                examples = ", ".join(f"{r['k']} (x{r['n']})" for r in collisions)
+                raise RuntimeError(
+                    "Cannot enforce case-insensitive email uniqueness (#1342): "
+                    f"the users table has rows that collide on LOWER(email): {examples}. "
+                    "Merge the duplicate user rows (one identity per lowercased email), "
+                    "then restart."
+                )
+            cursor.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_key ON users (LOWER(email))"
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
     def _get_connection(self) -> psycopg.Connection[dict[str, Any]]:
         """Get a PostgreSQL database connection."""
         return psycopg.connect(self._database_url, row_factory=dict_row)
@@ -1658,6 +1815,36 @@ class AuthStore(UserStoreMixin, SessionStoreMixin, TwoFactorMixin):
             cursor.execute(CONNECTIONS_DDL)
             for _ix in CONNECTIONS_INDEXES:
                 cursor.execute(_ix)
+
+            # SCIM Groups (#1342). connection_id AND membership_id are code-scoped
+            # (no hard FK to connections/memberships) — matches the memberships
+            # convention, and a memberships FK would block the migration path that
+            # drops/recreates the memberships table. Group deletion cascades its
+            # member rows; membership deletion is cleaned up in code (deprovision).
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS scim_groups (
+                    id            TEXT PRIMARY KEY,
+                    connection_id TEXT NOT NULL,
+                    display_name  TEXT NOT NULL,
+                    created_at    TEXT NOT NULL,
+                    updated_at    TEXT NOT NULL,
+                    UNIQUE (connection_id, display_name)
+                )
+            """)
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS ix_scim_groups_conn ON scim_groups(connection_id)"
+            )
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS scim_group_members (
+                    group_id      TEXT NOT NULL REFERENCES scim_groups(id) ON DELETE CASCADE,
+                    membership_id TEXT NOT NULL,
+                    PRIMARY KEY (group_id, membership_id)
+                )
+            """)
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS ix_scim_group_members_member "
+                "ON scim_group_members(membership_id)"
+            )
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS password_reset_tokens (
                     token TEXT PRIMARY KEY,
@@ -1706,6 +1893,13 @@ class AuthStore(UserStoreMixin, SessionStoreMixin, TwoFactorMixin):
             conn.commit()
         finally:
             conn.close()
+
+        # Case-insensitive email uniqueness (#1342, M2) runs AFTER the base schema
+        # is committed and its connection closed — in its own transaction (see the
+        # method docstring) so a pre-existing case-dup failure can't tear down the
+        # rest of schema init. Folded into _init_db (not __init__) so a test that
+        # patches _init_db skips this DB work too.
+        self._ensure_email_ci_uniqueness()
 
     def _execute(self, query: str, params: tuple[object, ...] = ()) -> list[dict[str, Any]]:
         """Execute a query and return results as list of dicts."""

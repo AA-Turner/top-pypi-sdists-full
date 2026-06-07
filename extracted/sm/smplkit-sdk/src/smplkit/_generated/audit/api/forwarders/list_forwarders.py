@@ -15,7 +15,6 @@ from ...types import Unset
 def _get_kwargs(
     *,
     filterforwarder_type: None | str | Unset = UNSET,
-    filterenabled: bool | None | Unset = UNSET,
     sort: ListForwardersSort | Unset = "-created_at",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -30,13 +29,6 @@ def _get_kwargs(
     else:
         json_filterforwarder_type = filterforwarder_type
     params["filter[forwarder_type]"] = json_filterforwarder_type
-
-    json_filterenabled: bool | None | Unset
-    if isinstance(filterenabled, Unset):
-        json_filterenabled = UNSET
-    else:
-        json_filterenabled = filterenabled
-    params["filter[enabled]"] = json_filterenabled
 
     json_sort: str | Unset = UNSET
     if not isinstance(sort, Unset):
@@ -88,7 +80,6 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     filterforwarder_type: None | str | Unset = UNSET,
-    filterenabled: bool | None | Unset = UNSET,
     sort: ListForwardersSort | Unset = "-created_at",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -98,11 +89,12 @@ def sync_detailed(
 
      List forwarders for this account.
 
-    Default sort is `-created_at` (newest first).
+    Default sort is `-created_at` (newest first). Each forwarder's
+    `environments` override map is scoped to the caller's environment
+    groups.
 
     Args:
         filterforwarder_type (None | str | Unset):
-        filterenabled (bool | None | Unset):
         sort (ListForwardersSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `updated_at`,
             `-updated_at`. Default: '-created_at'.
@@ -127,7 +119,6 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         filterforwarder_type=filterforwarder_type,
-        filterenabled=filterenabled,
         sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
@@ -145,7 +136,6 @@ def sync(
     *,
     client: AuthenticatedClient,
     filterforwarder_type: None | str | Unset = UNSET,
-    filterenabled: bool | None | Unset = UNSET,
     sort: ListForwardersSort | Unset = "-created_at",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -155,11 +145,12 @@ def sync(
 
      List forwarders for this account.
 
-    Default sort is `-created_at` (newest first).
+    Default sort is `-created_at` (newest first). Each forwarder's
+    `environments` override map is scoped to the caller's environment
+    groups.
 
     Args:
         filterforwarder_type (None | str | Unset):
-        filterenabled (bool | None | Unset):
         sort (ListForwardersSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `updated_at`,
             `-updated_at`. Default: '-created_at'.
@@ -185,7 +176,6 @@ def sync(
     return sync_detailed(
         client=client,
         filterforwarder_type=filterforwarder_type,
-        filterenabled=filterenabled,
         sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
@@ -197,7 +187,6 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     filterforwarder_type: None | str | Unset = UNSET,
-    filterenabled: bool | None | Unset = UNSET,
     sort: ListForwardersSort | Unset = "-created_at",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -207,11 +196,12 @@ async def asyncio_detailed(
 
      List forwarders for this account.
 
-    Default sort is `-created_at` (newest first).
+    Default sort is `-created_at` (newest first). Each forwarder's
+    `environments` override map is scoped to the caller's environment
+    groups.
 
     Args:
         filterforwarder_type (None | str | Unset):
-        filterenabled (bool | None | Unset):
         sort (ListForwardersSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `updated_at`,
             `-updated_at`. Default: '-created_at'.
@@ -236,7 +226,6 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         filterforwarder_type=filterforwarder_type,
-        filterenabled=filterenabled,
         sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
@@ -252,7 +241,6 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     filterforwarder_type: None | str | Unset = UNSET,
-    filterenabled: bool | None | Unset = UNSET,
     sort: ListForwardersSort | Unset = "-created_at",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -262,11 +250,12 @@ async def asyncio(
 
      List forwarders for this account.
 
-    Default sort is `-created_at` (newest first).
+    Default sort is `-created_at` (newest first). Each forwarder's
+    `environments` override map is scoped to the caller's environment
+    groups.
 
     Args:
         filterforwarder_type (None | str | Unset):
-        filterenabled (bool | None | Unset):
         sort (ListForwardersSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `-created_at`. Allowed values: `created_at`, `-created_at`, `updated_at`,
             `-updated_at`. Default: '-created_at'.
@@ -293,7 +282,6 @@ async def asyncio(
         await asyncio_detailed(
             client=client,
             filterforwarder_type=filterforwarder_type,
-            filterenabled=filterenabled,
             sort=sort,
             pagenumber=pagenumber,
             pagesize=pagesize,

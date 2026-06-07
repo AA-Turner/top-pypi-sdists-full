@@ -8,7 +8,7 @@ import re
 import string
 import uuid
 from collections import OrderedDict, defaultdict
-from collections.abc import Iterable, MutableMapping
+from collections.abc import Iterable, Iterator, MutableMapping
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -24,11 +24,13 @@ from typing import (
 
 from moto.core.base_backend import BackendDict, BaseBackend
 from moto.core.common_models import BaseModel, CloudFormationModel
+from moto.core.resource_tagging import TaggableResourcesMixin, TaggedResource
 from moto.core.utils import unix_time, utcnow
 from moto.ec2.models import ec2_backends
 from moto.kms.models import KmsBackend, kms_backends
 from moto.moto_api._internal import mock_random as random
 from moto.secretsmanager.models import FakeSecret, SecretsManagerBackend
+from moto.utilities.tagging_service import TaggingService
 from moto.utilities.utils import ARN_PARTITION_REGEX, CaseInsensitiveDict, load_resource
 
 from .exceptions import (
@@ -2321,7 +2323,9 @@ class DBShardGroup(RDSBaseModel):
         self.tags = tags or []
 
 
-class RDSBackend(BaseBackend):
+class RDSBackend(BaseBackend, TaggableResourcesMixin):
+    SERVICE_NAMESPACE = "rds"
+
     @property
     def SNAPSHOT_QUOTA(self) -> int:
         return int(os.environ.get("MOTO_RDS_SNAPSHOT_LIMIT", 1000))
@@ -2509,9 +2513,7 @@ class RDSBackend(BaseBackend):
     def db_cluster_options(self, engine) -> list[dict[str, Any]]:  # type: ignore
         from moto.rds.utils import decode_orderable_db_instance
 
-        decoded_options = load_resource(
-            __name__, f"resources/cluster_options/{engine}.json"
-        )
+        decoded_options = load_resource(f"rds/resources/cluster_options/{engine}.json")
         self._db_cluster_options = [
             decode_orderable_db_instance(option) for option in decoded_options
         ]
@@ -3209,7 +3211,7 @@ class RDSBackend(BaseBackend):
         filtered_options = []
         try:
             options = load_resource(
-                __name__, f"resources/option_group_options/{engine_name}.json"
+                f"rds/resources/option_group_options/{engine_name}.json"
             )
         except (FileNotFoundError, TypeError):
             raise InvalidParameterValue(f"Invalid DB engine: {engine_name}")
@@ -4357,6 +4359,29 @@ class RDSBackend(BaseBackend):
 
     def _is_cluster(self, arn: str) -> bool:
         return arn.split(":")[-2] == "cluster"
+
+    # Resource Groups Tagging API (TaggableResourcesMixin method overrides)
+    def iter_tagged_resources(self) -> Iterator[TaggedResource]:
+        resource_map: dict[str, Iterable[Any]] = {
+            "rds:cluster": self.clusters.values(),
+            "rds:cluster-snapshot": self.cluster_snapshots.values(),
+            "rds:db": self.databases.values(),
+            "rds:db-proxy": self.db_proxies.values(),
+            "rds:snapshot": self.database_snapshots.values(),
+        }
+        for resource_type, resources in resource_map.items():
+            for resource in resources:
+                yield TaggedResource(
+                    arn=resource.arn,
+                    tags={tag["Key"]: tag["Value"] for tag in resource.get_tags()},
+                    resource_type=resource_type,
+                )
+
+    def tag_resource(self, arn: str, tags: dict[str, str]) -> None:
+        self.add_tags_to_resource(arn, TaggingService.convert_dict_to_tags_input(tags))
+
+    def untag_resource(self, arn: str, tag_keys: list[str]) -> None:
+        self.remove_tags_from_resource(arn, tag_keys)
 
 
 class OptionGroup(RDSBaseModel):

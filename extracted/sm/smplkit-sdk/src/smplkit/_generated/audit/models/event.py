@@ -52,6 +52,10 @@ class Event:
                 under `data.snapshot`), request identifiers, or any other context the event needs to carry.
             do_not_forward (bool | Unset): When `true`, the event is recorded but not delivered to any forwarder, and no
                 delivery log entries are created for it. Default: False.
+            environment (None | str | Unset): The environment the event occurred in. Always present on read. Resolved when
+                the event is recorded — from a single-environment credential, or the `X-Smplkit-Environment` header for multi-
+                environment credentials — and never set on the request body. The same content recorded in two environments
+                produces two distinct events.
             created_at (datetime.datetime | None | Unset): When the event was received and recorded.
             idempotency_key (None | str | Unset): The idempotency key used to deduplicate the record. Echoes the
                 `Idempotency-Key` header if one was supplied, otherwise a key derived from the event's content.
@@ -69,6 +73,7 @@ class Event:
     actor_label: None | str | Unset = UNSET
     data: EventData | Unset = UNSET
     do_not_forward: bool | Unset = False
+    environment: None | str | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     idempotency_key: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -132,6 +137,12 @@ class Event:
 
         do_not_forward = self.do_not_forward
 
+        environment: None | str | Unset
+        if isinstance(self.environment, Unset):
+            environment = UNSET
+        else:
+            environment = self.environment
+
         created_at: None | str | Unset
         if isinstance(self.created_at, Unset):
             created_at = UNSET
@@ -173,6 +184,8 @@ class Event:
             field_dict["data"] = data
         if do_not_forward is not UNSET:
             field_dict["do_not_forward"] = do_not_forward
+        if environment is not UNSET:
+            field_dict["environment"] = environment
         if created_at is not UNSET:
             field_dict["created_at"] = created_at
         if idempotency_key is not UNSET:
@@ -279,6 +292,15 @@ class Event:
 
         do_not_forward = d.pop("do_not_forward", UNSET)
 
+        def _parse_environment(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        environment = _parse_environment(d.pop("environment", UNSET))
+
         def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
@@ -318,6 +340,7 @@ class Event:
             actor_label=actor_label,
             data=data,
             do_not_forward=do_not_forward,
+            environment=environment,
             created_at=created_at,
             idempotency_key=idempotency_key,
         )

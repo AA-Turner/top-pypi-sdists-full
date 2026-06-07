@@ -57,10 +57,13 @@ def sync_detailed(
 ) -> Response[RetryFailedDeliveriesSummary]:
     """Retry Failed Forwarder Deliveries
 
-     Retry every failed delivery for this forwarder.
+     Retry every failed delivery for this forwarder in the resolved environment.
 
-    Each failed delivery is re-attempted using the forwarder's current
-    configuration and the original event. Returns the counts.
+    Scoped to the resolved environment (a single-environment credential
+    implies it; otherwise send the `X-Smplkit-Environment` header): only
+    that environment's failed deliveries are re-attempted, each using the
+    forwarder's effective configuration for that environment and the
+    original event. Returns the counts.
 
     Args:
         forwarder_id (str):
@@ -91,10 +94,13 @@ def sync(
 ) -> RetryFailedDeliveriesSummary | None:
     """Retry Failed Forwarder Deliveries
 
-     Retry every failed delivery for this forwarder.
+     Retry every failed delivery for this forwarder in the resolved environment.
 
-    Each failed delivery is re-attempted using the forwarder's current
-    configuration and the original event. Returns the counts.
+    Scoped to the resolved environment (a single-environment credential
+    implies it; otherwise send the `X-Smplkit-Environment` header): only
+    that environment's failed deliveries are re-attempted, each using the
+    forwarder's effective configuration for that environment and the
+    original event. Returns the counts.
 
     Args:
         forwarder_id (str):
@@ -120,10 +126,13 @@ async def asyncio_detailed(
 ) -> Response[RetryFailedDeliveriesSummary]:
     """Retry Failed Forwarder Deliveries
 
-     Retry every failed delivery for this forwarder.
+     Retry every failed delivery for this forwarder in the resolved environment.
 
-    Each failed delivery is re-attempted using the forwarder's current
-    configuration and the original event. Returns the counts.
+    Scoped to the resolved environment (a single-environment credential
+    implies it; otherwise send the `X-Smplkit-Environment` header): only
+    that environment's failed deliveries are re-attempted, each using the
+    forwarder's effective configuration for that environment and the
+    original event. Returns the counts.
 
     Args:
         forwarder_id (str):
@@ -152,10 +161,13 @@ async def asyncio(
 ) -> RetryFailedDeliveriesSummary | None:
     """Retry Failed Forwarder Deliveries
 
-     Retry every failed delivery for this forwarder.
+     Retry every failed delivery for this forwarder in the resolved environment.
 
-    Each failed delivery is re-attempted using the forwarder's current
-    configuration and the original event. Returns the counts.
+    Scoped to the resolved environment (a single-environment credential
+    implies it; otherwise send the `X-Smplkit-Environment` header): only
+    that environment's failed deliveries are re-attempted, each using the
+    forwarder's effective configuration for that environment and the
+    original event. Returns the counts.
 
     Args:
         forwarder_id (str):

@@ -36,6 +36,8 @@ from .forwarder_delivery_request_type_0 import ForwarderDeliveryRequestType0
 from .forwarder_delivery_resource import ForwarderDeliveryResource
 from .forwarder_delivery_response import ForwarderDeliveryResponse
 from .forwarder_delivery_status import ForwarderDeliveryStatus
+from .forwarder_environment import ForwarderEnvironment
+from .forwarder_environments import ForwarderEnvironments
 from .forwarder_filter_type_0 import ForwarderFilterType0
 from .forwarder_list_response import ForwarderListResponse
 from .forwarder_request import ForwarderRequest
@@ -113,6 +115,8 @@ __all__ = (
     "ForwarderDeliveryResource",
     "ForwarderDeliveryResponse",
     "ForwarderDeliveryStatus",
+    "ForwarderEnvironment",
+    "ForwarderEnvironments",
     "ForwarderFilterType0",
     "ForwarderListResponse",
     "ForwarderRequest",

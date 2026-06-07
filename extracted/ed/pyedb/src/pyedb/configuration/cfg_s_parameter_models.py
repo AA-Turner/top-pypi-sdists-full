@@ -54,7 +54,11 @@ class CfgSParameters:
         for s_param in self.models:
             fpath = s_param.file_path
             if not Path(fpath).anchor:
-                fpath = str(Path(self.path_libraries) / fpath)
+                if self.path_libraries:
+                    base = Path(self.path_libraries)
+                else:
+                    base = Path(self._pedb.edbpath).parent
+                fpath = str(base / fpath)
             comp_def = self._pedb.definitions.component[s_param.component_definition]
             if s_param.pin_order:
                 comp_def.set_properties(pin_order=s_param.pin_order)
@@ -177,12 +181,12 @@ class CfgSParameters:
 
         Examples
         --------
-        >>> cfg.s_parameters.add(
-        ...     "cap_model",
-        ...     component_definition="CAP_100nF",
-        ...     file_path="/snp/cap.s2p",
-        ...     reference_net="GND",
-        ... )
+        cfg.s_parameters.add(
+            "cap_model",
+            component_definition="CAP_100nF",
+            file_path="/snp/cap.s2p",
+            reference_net="GND"
+        )
         """
         model = CfgSParameterModel(
             name=name,

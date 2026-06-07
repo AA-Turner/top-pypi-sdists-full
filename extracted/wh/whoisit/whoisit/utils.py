@@ -17,7 +17,7 @@ log = get_logger("utils")
 user_agent = "whoisit/{version}"
 insecure_ssl_ciphers = "ALL:@SECLEVEL=1"
 http_timeout = 10  # Maximum time in seconds to allow for an HTTP request
-http_retry_statuses = [429]  # HTTP status codes to trigger a retry wih backoff
+http_retry_statuses = [429]  # HTTP status codes to trigger a retry with backoff
 http_max_retries = 3  # Maximum number of HTTP requests to retry before failing
 retry_after_max = 10  # Maxumum duration for HTTP/429 Retry-After headers in seconds
 http_pool_connections = 10  # Maximum number of HTTP pooled connections
@@ -30,6 +30,7 @@ _proxy = None
 
 def get_urllib3_version() -> tuple[int, int, int] | None:
     try:
+        # noinspection PyProtectedMember
         from urllib3._version import version_tuple
 
         return version_tuple
@@ -49,8 +50,7 @@ def get_session_or_async_client(
     global _default_session
     key = "insecure" if allow_insecure_ssl else "secure"
     if session_or_async_client:
-        if _default_session[key] is None:
-            _default_session[key] = session_or_async_client
+        _default_session[key] = session_or_async_client
         return _default_session[key]
     else:
         if is_async:
@@ -69,6 +69,34 @@ def get_session_or_async_client(
 def clear_session() -> bool:
     global _default_session
     _default_session = {"secure": None, "insecure": None}
+    return True
+
+
+def set_session(session: requests.Session, allow_insecure_ssl: bool = False) -> bool:
+    """
+    Explicitly store a requests.Session in the cache so it becomes the default
+    for all subsequent sync calls that do not supply their own session.
+    """
+    global _default_session
+    if not isinstance(session, requests.Session):
+        raise ValueError('"session" must be a requests.Session instance')
+    key = "insecure" if allow_insecure_ssl else "secure"
+    _default_session[key] = session
+    return True
+
+
+def set_async_client(
+    client: httpx.AsyncClient, allow_insecure_ssl: bool = False
+) -> bool:
+    """
+    Explicitly store an httpx.AsyncClient in the cache so it becomes the default
+    for all subsequent async calls that do not supply their own client.
+    """
+    global _default_session
+    if not isinstance(client, httpx.AsyncClient):
+        raise ValueError('"client" must be an httpx.AsyncClient instance')
+    key = "insecure" if allow_insecure_ssl else "secure"
+    _default_session[key] = client
     return True
 
 
@@ -116,6 +144,7 @@ class InsecureSSLAdapter(requests.adapters.HTTPAdapter):
         self, connections: int, maxsize: int, block: bool = False
     ) -> None:
         insecure_ssl_ciphersuite = create_urllib3_context(ciphers=insecure_ssl_ciphers)
+        # noinspection PyAttributeOutsideInit
         self.poolmanager = PoolManager(ssl_context=insecure_ssl_ciphersuite)
 
 

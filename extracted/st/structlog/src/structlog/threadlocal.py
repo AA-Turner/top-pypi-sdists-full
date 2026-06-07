@@ -20,7 +20,8 @@ import threading
 import uuid
 import warnings
 
-from typing import Any, Generator, Iterator, TypeVar
+from collections.abc import Generator, Iterator
+from typing import Any, TypeVar
 
 import structlog
 
@@ -119,8 +120,8 @@ def as_immutable(logger: TLLogger) -> TLLogger:
         logger = logger.bind()
 
     try:
-        ctx = logger._context._tl.dict_.__class__(  # type: ignore[union-attr]
-            logger._context._dict  # type: ignore[union-attr]
+        ctx = logger._context._tl.dict_.__class__(  # type: ignore[attr-defined]
+            logger._context._dict  # type: ignore[attr-defined]
         )
         bl = logger.__class__(
             logger._logger,  # type: ignore[attr-defined, call-arg]

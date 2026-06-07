@@ -18,11 +18,14 @@ MODEL_REMAPPING = {
     "voxtral_realtime": "voxtral_realtime",
     "vibevoice": "vibevoice_asr",
     "qwen3_asr": "qwen3_asr",
+    "fun_asr_nano": "fun_asr_nano",
     "canary": "canary",
     "moonshine": "moonshine",
     "mms": "mms",
     "granite_speech": "granite_speech",
+    "granite_speech_nar": "granite_speech_nar",
     "qwen2_audio": "qwen2_audio",
+    "mega_asr": "mega_asr",
 }
 
 

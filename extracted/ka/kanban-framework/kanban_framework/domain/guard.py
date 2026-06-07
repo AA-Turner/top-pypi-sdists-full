@@ -123,7 +123,7 @@ class Guard:
         """Read guard config for a phase.
 
         Priority: modes.<mode>.phases[].guard → .kanban/workflows/<mode>.json
-        → top-level phases[].guard → {}
+        → package workflows/<mode>.json → top-level phases[].guard → {}
         """
         workflow = self._cfg.workflow
         # Priority 1: per-mode guard from workflow.json
@@ -149,7 +149,21 @@ class Guard:
                                 return g
             except Exception:
                 pass
-        # Priority 3: top-level phases[].guard
+        # Priority 3: package template workflows/<mode>.json
+        if mode:
+            try:
+                from pathlib import Path as _P
+                pkg_wf = _P(__file__).resolve().parent.parent / "workflows" / f"{mode}.json"
+                if pkg_wf.is_file():
+                    pkg_data = json.loads(pkg_wf.read_text(encoding="utf-8"))
+                    for p in pkg_data.get("phases", []):
+                        if isinstance(p, dict) and p.get("id") == phase_str:
+                            g = p.get("guard")
+                            if isinstance(g, dict):
+                                return g
+            except Exception:
+                pass
+        # Priority 4: top-level phases[].guard
         for p in workflow.get("phases", []):
             if isinstance(p, dict) and p.get("id") == phase_str:
                 g = p.get("guard")
@@ -278,6 +292,13 @@ class Guard:
             r = self._dispatch_check(name, task, phase_str)
             if r:
                 results.append(r)
+        # External tool checks (from guard.external_tools config)
+        guard_cfg = self._get_phase_guard(phase_str, mode)
+        external_tools = guard_cfg.get("external_tools", [])
+        for tool_cfg in external_tools:
+            r = self._checks.check_external_tool(task, tool_cfg)
+            if r:
+                results.append(r)
         combined = CheckResult.combine(results)
 
         if phase_str == "execute" and task.worktree_path is None:
@@ -311,13 +332,15 @@ class Guard:
         return combined
 
     def check_step(self, task: Task, step: dict) -> CheckResult:
-        """Run guard checks defined on a checkpoint step.
+        """Run guard checks defined on any step with a guard field.
 
-        Reads guard.checks and guard.required_artifacts from the step dict.
-        Returns passed=True for non-checkpoint steps.
+        Reads guard.checks, guard.required_artifacts, and
+        guard.external_tools from the step dict. Works for both
+        checkpoint and action steps — any step with a ``guard``
+        field is checked.
         """
         guard_cfg = step.get("guard")
-        if not guard_cfg or step.get("type") != "checkpoint":
+        if not guard_cfg:
             return CheckResult(passed=True)
         results = []
         artifacts = guard_cfg.get("required_artifacts", [])
@@ -327,6 +350,12 @@ class Guard:
         phase_str = step.get("phase", "")
         for name in check_names:
             r = self._dispatch_check(name, task, phase_str)
+            if r:
+                results.append(r)
+        # External tool checks from checkpoint step
+        step_ext_tools = guard_cfg.get("external_tools", [])
+        for tool_cfg in step_ext_tools:
+            r = self._checks.check_external_tool(task, tool_cfg)
             if r:
                 results.append(r)
         return CheckResult.combine(results)

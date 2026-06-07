@@ -43,13 +43,22 @@ def _clean_auth_tables() -> Any:
     from dazzle.back.runtime.pg_backend import PostgresBackend
 
     db = PostgresBackend(database_url)
-    try:
-        with db.connection() as conn:
-            conn.execute("DELETE FROM sessions")
-            conn.execute("DELETE FROM password_reset_tokens")
-            conn.execute("DELETE FROM users")
-    except Exception:
-        pass  # Tables may not exist yet
+
+    def _wipe(stmt: str) -> None:
+        try:
+            with db.connection() as conn:
+                conn.execute(stmt)
+        except Exception:
+            pass  # table may not exist yet
+
+    # FK-safe order: group members → groups → memberships → users (#1342). Each
+    # runs independently so a not-yet-created table doesn't block the rest.
+    _wipe("DELETE FROM scim_group_members")
+    _wipe("DELETE FROM scim_groups")
+    _wipe("DELETE FROM memberships")
+    _wipe("DELETE FROM sessions")
+    _wipe("DELETE FROM password_reset_tokens")
+    _wipe("DELETE FROM users")
     yield
 
 
@@ -112,6 +121,22 @@ class TestPasswordHashing:
 # =============================================================================
 
 
+def test_scim_group_record_fields() -> None:
+    from dazzle.back.runtime.auth.models import ScimGroupRecord
+
+    g = ScimGroupRecord(
+        id="g1",
+        connection_id="c1",
+        display_name="Engineering",
+        created_at="2026-06-06T00:00:00",
+        updated_at="2026-06-06T00:00:00",
+    )
+    assert g.id == "g1"
+    assert g.connection_id == "c1"
+    assert g.display_name == "Engineering"
+
+
+@pytest.mark.postgres
 @pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
 class TestAuthStore:
     """Tests for AuthStore class."""
@@ -162,6 +187,50 @@ class TestAuthStore:
         """Test getting non-existent user by email."""
         user = auth_store.get_user_by_email("nonexistent@example.com")
         assert user is None
+
+    def test_email_case_insensitive_uniqueness(self, auth_store: Any) -> None:
+        """No auth path can mint a *split* identity via case variation (#1342).
+
+        A case-insensitive unique index on users(LOWER(email)) structurally
+        rejects a second row that differs only by case, regardless of whether the
+        calling path remembered to lowercase.
+        """
+        auth_store.create_user(email="split@example.com", password="pass")
+        with pytest.raises(Exception) as exc:
+            auth_store.create_user(email="SPLIT@example.com", password="pass")
+        # Assert the *case-insensitive* index fired (users_email_lower_key), not the
+        # pre-existing case-sensitive `email UNIQUE` (users_email_key) — otherwise a
+        # same-case dup would pass this test and give false confidence.
+        msg = str(exc.value).lower()
+        assert "users_email_lower_key" in msg, (
+            f"expected the LOWER(email) unique index to fire, got: {exc.value!r}"
+        )
+
+    def test_email_ci_uniqueness_preflight_reports_collisions(self, auth_store: Any) -> None:
+        """Pre-existing case-dup rows surface an actionable error (not an opaque
+        duplicate-key), and the index creation is isolated so it can't tear down
+        the rest of the schema (#1342 review)."""
+        from uuid import uuid4
+
+        from dazzle.back.runtime.pg_backend import PostgresBackend
+
+        db = PostgresBackend(os.environ["DATABASE_URL"])
+        now = datetime.now(UTC).isoformat()
+        with db.connection() as conn:
+            conn.execute("DROP INDEX IF EXISTS users_email_lower_key")
+            for email in ("Dup@example.com", "dup@example.com"):
+                conn.execute(
+                    "INSERT INTO users (id, email, password_hash, username, is_active, "
+                    "is_superuser, roles, created_at, updated_at) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                    (str(uuid4()), email, "x", None, True, False, "[]", now, now),
+                )
+
+        # Constructing the store runs the pre-flight, which must raise clearly.
+        with pytest.raises(RuntimeError) as exc:
+            AuthStore(os.environ["DATABASE_URL"])
+        assert "collide on LOWER(email)" in str(exc.value)
+        assert "dup@example.com" in str(exc.value)
 
     def test_get_user_by_id(self, auth_store: Any) -> None:
         """Test getting user by ID."""
@@ -1261,3 +1330,142 @@ class TestAuthDependencies:
 
         assert response.status_code == 200
         assert response.json()["admin"] is True
+
+
+@pytest.mark.postgres
+@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+class TestScimGroupStore:
+    """SCIM /Groups store + provisioning (#1342)."""
+
+    @pytest.fixture
+    def store(self) -> Any:
+        return AuthStore(os.environ["DATABASE_URL"])
+
+    @pytest.fixture
+    def membership(self, store: Any) -> Any:
+        from uuid import uuid4
+
+        user = store.create_user(email=f"m-{uuid4().hex[:8]}@x.test", password="p")
+        return store.create_membership(tenant_id="org-1", identity_id=str(user.id), roles=[])
+
+    def test_create_get_list_rename_delete_group(self, store: Any) -> None:
+        g = store.create_scim_group("conn-1", "Engineering")
+        assert g.id and g.display_name == "Engineering"
+        assert store.get_scim_group(g.id, "conn-1").display_name == "Engineering"
+        assert store.get_scim_group(g.id, "other-conn") is None  # connection-scoped
+        assert [x.display_name for x in store.list_scim_groups("conn-1")] == ["Engineering"]
+        assert [x.id for x in store.list_scim_groups("conn-1", display_name="Engineering")] == [
+            g.id
+        ]
+        store.rename_scim_group(g.id, "conn-1", "Eng")
+        assert store.get_scim_group(g.id, "conn-1").display_name == "Eng"
+        assert store.delete_scim_group(g.id, "conn-1") is True
+        assert store.get_scim_group(g.id, "conn-1") is None
+
+    def test_member_add_remove_replace_and_lookup(self, store: Any, membership: Any) -> None:
+        g = store.create_scim_group("conn-1", "Eng")
+        store.add_group_member(g.id, membership.id)
+        store.add_group_member(g.id, membership.id)  # idempotent
+        assert store.get_group_member_ids(g.id) == [membership.id]
+        assert g.display_name in store.get_member_group_names(membership.id, "conn-1")
+        store.remove_group_member(g.id, membership.id)
+        assert store.get_group_member_ids(g.id) == []
+        store.replace_group_members(g.id, [membership.id])
+        assert store.get_group_member_ids(g.id) == [membership.id]
+
+    def test_recompute_unions_roles_across_groups(self, store: Any, membership: Any) -> None:
+        from types import SimpleNamespace
+
+        from dazzle.back.runtime.auth.scim_provisioning import recompute_membership_roles
+
+        conn = SimpleNamespace(
+            id="conn-1",
+            tenant_id="org-1",
+            group_mapping={"Eng": "engineer", "Ops": "operator"},
+        )
+        eng = store.create_scim_group("conn-1", "Eng")
+        ops = store.create_scim_group("conn-1", "Ops")
+        store.add_group_member(eng.id, membership.id)
+        store.add_group_member(ops.id, membership.id)
+        recompute_membership_roles(store, conn, membership.id)
+        assert set(store.get_membership(membership.id).roles) == {"engineer", "operator"}
+
+        # Remove from one group: the other group's role MUST persist (de-escalation).
+        store.remove_group_member(eng.id, membership.id)
+        recompute_membership_roles(store, conn, membership.id)
+        assert set(store.get_membership(membership.id).roles) == {"operator"}
+
+    def test_group_domain_ops_recompute(self, store: Any, membership: Any) -> None:
+        from types import SimpleNamespace
+
+        from dazzle.back.runtime.auth import scim_provisioning as sp
+
+        conn = SimpleNamespace(id="conn-1", tenant_id="org-1", group_mapping={"Eng": "engineer"})
+        g = sp.create_group(store, conn, "Eng", member_ids=[membership.id])
+        assert set(store.get_membership(membership.id).roles) == {"engineer"}
+
+        sp.remove_group_member(store, conn, g.id, membership.id)
+        assert store.get_membership(membership.id).roles == []
+
+        sp.add_group_members(store, conn, g.id, [membership.id])
+        assert set(store.get_membership(membership.id).roles) == {"engineer"}
+
+        sp.rename_group(store, conn, g.id, "Engineering")  # not in mapping → role drops
+        assert store.get_membership(membership.id).roles == []
+
+        sp.delete_group(store, conn, g.id)
+        assert store.get_scim_group(g.id, "conn-1") is None
+
+    def test_cross_org_member_rejected(self, store: Any) -> None:
+        from types import SimpleNamespace
+        from uuid import uuid4
+
+        from dazzle.back.runtime.auth import scim_provisioning as sp
+
+        conn = SimpleNamespace(id="conn-1", tenant_id="org-1", group_mapping={})
+        other = store.create_user(email=f"o-{uuid4().hex[:8]}@x.test", password="p")
+        other_m = store.create_membership(tenant_id="org-2", identity_id=str(other.id), roles=[])
+        with pytest.raises(sp.SCIMGroupError):
+            sp.create_group(store, conn, "Eng", member_ids=[other_m.id])
+
+    def test_recompute_refuses_cross_org_membership(self, store: Any) -> None:
+        # SECURITY (review #1342): recompute is the chokepoint — it must never
+        # touch a membership outside the connection's org, even when called
+        # directly with a foreign id (the PATCH `remove` attack surface).
+        from types import SimpleNamespace
+        from uuid import uuid4
+
+        from dazzle.back.runtime.auth import scim_provisioning as sp
+
+        conn = SimpleNamespace(id="conn-1", tenant_id="org-1", group_mapping={"Eng": "engineer"})
+        victim = store.create_user(email=f"v-{uuid4().hex[:8]}@x.test", password="p")
+        victim_m = store.create_membership(
+            tenant_id="org-2", identity_id=str(victim.id), roles=["admin"]
+        )
+        sp.recompute_membership_roles(store, conn, victim_m.id)
+        assert store.get_membership(victim_m.id).roles == ["admin"]  # untouched
+
+    def test_duplicate_group_name_rejected(self, store: Any) -> None:
+        from types import SimpleNamespace
+
+        from dazzle.back.runtime.auth import scim_provisioning as sp
+
+        conn = SimpleNamespace(id="conn-1", tenant_id="org-1", group_mapping={})
+        sp.create_group(store, conn, "Eng", member_ids=[])
+        with pytest.raises(sp.SCIMGroupError):
+            sp.create_group(store, conn, "Eng", member_ids=[])
+
+    def test_user_groups_attribute_no_longer_drives_roles(self, store: Any) -> None:
+        from types import SimpleNamespace
+
+        from dazzle.back.runtime.auth.scim_provisioning import provision_scim_user
+
+        conn = SimpleNamespace(
+            id="conn-1",
+            tenant_id="org-1",
+            group_mapping={"Eng": "engineer"},
+            verified_domains=["x.test"],
+        )
+        result = provision_scim_user(store, conn, email="ann@x.test", active=True, groups=["Eng"])
+        membership = store.get_membership(result.membership_id)
+        assert membership.roles == []  # groups attribute is informational; /Groups owns roles

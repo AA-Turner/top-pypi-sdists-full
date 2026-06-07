@@ -25,6 +25,8 @@ MAGENTA  = "\033[95m"
 CYAN     = "\033[96m"
 WHITE    = "\033[97m"
 BG_GREEN = "\033[48;5;22m"
+LAVENDER  = "\033[38;5;141m"
+OCHRE     = "\033[38;5;179m"
 
 _W_LABEL = 10
 _W_VAL   = 14
@@ -120,7 +122,46 @@ class _StepFormatter(logging.Formatter):
             return self._val(msg)
         if "checkpoint" in msg or "done |" in msg:
             return f"  {MAGENTA}✓  {msg}{RESET}"
+        # Two step layouts: ``kind=cheap`` (every log_every) is a single compact
+        # line; ``kind=metrics`` (every metrics_every) is the full diagnostics box.
+        if "kind=cheap" in msg:
+            return self._step_cheap(record, msg)
         return self._step(record, msg)
+
+    def _step_cheap(self, record: logging.LogRecord, msg: str) -> str:
+        p       = _parse(msg)
+        ts      = f"{DIM}{self.formatTime(record, self.datefmt)}{RESET}"
+        it_s    = getattr(record, "it_s",    0.0)
+        tok_s   = getattr(record, "tok_s",   0.0)
+        mem_gb  = getattr(record, "mem_gb",  0.0)
+        peak_gb = getattr(record, "peak_gb", 0.0)
+        total_gb = getattr(record, "total_gb", 0.0)
+        mem_c   = _mem_color(peak_gb if peak_gb > 0 else mem_gb)
+
+        step = p.get("step", "?")
+        try:
+            loss_v = float(p.get("loss", "nan"))
+            loss_s = f"{_loss_color(loss_v)}{loss_v:.4f}{RESET}"
+            ppl_s  = _fmt_ppl(loss_v).strip()
+        except Exception:
+            loss_s = f"{DIM}nan{RESET}"
+            ppl_s  = f"{DIM}nan{RESET}"
+        lr_s    = f"{MAGENTA}{p.get('lr', '?')}{RESET}"
+        speed_s = f"{CYAN}{it_s:5.2f} it/s{RESET}" if it_s  > 0 else f"{DIM}?.?? it/s{RESET}"
+        tok_s_s = f"{CYAN}{_fmt_tok_s(tok_s)} tok/s{RESET}" if tok_s > 0 else f"{DIM}? tok/s{RESET}"
+        mem_s   = (f"{mem_c}peak {peak_gb:.1f} GB{RESET}" if peak_gb > 0
+                   else f"{DIM}?.? GB{RESET}")
+
+        return (
+            f"\n  {ts}  │  "
+            f"{BOLD}step {CYAN}{step:<5}{RESET}  │  "
+            f"loss {BOLD}{loss_s:<7}{RESET}  │  "
+            f"ppl {ppl_s:<10}  │  "
+            f"lr {lr_s:<8}  │  "
+            f"{speed_s:<10}  │  "
+            f"{tok_s_s:<13}  │  "
+            f"{mem_s}"
+        )
 
     def _banner(self, msg: str) -> str:
         bar = f"{BOLD}{CYAN}{'━' * _W_BAR}{RESET}"
@@ -140,7 +181,7 @@ class _StepFormatter(logging.Formatter):
             if not part:
                 continue
             k, _, v = part.partition("=")
-            lines.append(f"  {YELLOW}{k.strip():>22}{RESET}  {DIM}={RESET}  {WHITE}{v.strip()}{RESET}")
+            lines.append(f"  {YELLOW}{k.strip():>22}{RESET}  {DIM}={RESET}  {LAVENDER}{v.strip()}{RESET}")
         lines.append(bar)
         lines.append("")
         return "\n".join(lines)
@@ -150,7 +191,7 @@ class _StepFormatter(logging.Formatter):
         c       = GREEN if is_best else YELLOW
         badge   = f"  {BOLD}{GREEN}  ★ NEW BEST  {RESET}" if is_best else ""
         bar     = f"{c}{'─' * 60}{RESET}"
-        return f"\n{bar}\n  {BOLD}{c}VAL{RESET}  {WHITE}{msg}{RESET}{badge}\n{bar}\n"
+        return f"\n{bar}\n  {BOLD}{c}VAL{RESET}  {LAVENDER}{msg}{RESET}{badge}\n{bar}\n"
 
     def _step(self, record: logging.LogRecord, msg: str) -> str:
         p      = _parse(msg)
@@ -174,11 +215,12 @@ class _StepFormatter(logging.Formatter):
 
         sigma2 = _fmt_val(p.get("σ²",      p.get("sigma2", "nan")), color=YELLOW)
         rank   = _fmt_val(p.get("rank",     "nan"),                  color=CYAN)
-        res    = _fmt_val(p.get("res",      "nan"),                  color=WHITE)
+        res    = _fmt_val(p.get("res",      "nan"),                  color=OCHRE)
         H      = _fmt_val(p.get("H",        "nan"),                  color=GREEN)
         noise  = _fmt_val(p.get("noise",    "nan"),                  color=RED)
         sink   = _fmt_val(p.get("sink",     "nan"),                  color=YELLOW)
         hstd   = _fmt_val(p.get("head_std", p.get("hstd", "nan")),   color=MAGENTA)
+        tdist  = _fmt_val(p.get("token_dist", "nan"),                color=LAVENDER)
         lr_s   = f"{MAGENTA}{p.get('lr', '?')}{RESET}"
         # §4.2 window (min/mean/max) and §4.3 alpha (min/mean/max): shown raw
         # as already-formatted "a/b/c" triplets, not numerically reformatted.
@@ -215,7 +257,7 @@ class _StepFormatter(logging.Formatter):
             f"  {_cell('noise', noise)}{G}{_cell('sink',      sink)}",
             f"  {_cell('head_std', hstd)}{G}{_cell('lr',      lr_s)}",
             f"  {_cell('win μ', win_s)}{G}{_cell('alpha μ', alpha_s)}",
-            f"  {_cell('scan', scan_s)}",
+            f"  {_cell('scan', scan_s)}{G}{_cell('token_dist', tdist)}",
         ]
 
         return "\n".join(["", sep, hdr, sep] + rows + [sep])

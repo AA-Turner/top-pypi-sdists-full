@@ -56,7 +56,7 @@ import xarray as xr
 from hypothesis import HealthCheck, assume, event, given, settings
 from hypothesis import strategies as st
 
-from xrspatial.geotiff import open_geotiff, to_geotiff, write_vrt
+from xrspatial.geotiff import _build_vrt, open_geotiff, to_geotiff
 from xrspatial.geotiff._geotags import _NO_GEOREF_KEY, GeoTransform
 from xrspatial.geotiff._writer import write
 
@@ -76,7 +76,7 @@ def _read_write_read(da: xr.DataArray, tmp_path, tag: str) -> xr.DataArray:
     """Run one ``write -> read`` cycle on ``da`` and return the new DataArray."""
     path = str(tmp_path / f"rt_{tag}_1986.tif")
     to_geotiff(da, path, compression='none', tiled=False)
-    return open_geotiff(path)
+    return open_geotiff(path, masked=True)
 
 
 # Canonical attrs whose values must lock across a write -> read cycle
@@ -222,7 +222,7 @@ class TestIntWithDeclaredNodata:
         write(arr, path, nodata=-9999, geo_transform=_default_gt(),
               crs_epsg=4326, compression='none', tiled=False)
 
-        da1 = open_geotiff(path)
+        da1 = open_geotiff(path, masked=True)
         # Dtype drift: int -> float64 with NaN at sentinel.
         assert da1.dtype == np.float64
         assert np.isnan(da1.values[1, 0])
@@ -246,7 +246,7 @@ class TestIntWithDeclaredNodata:
         write(arr, path, nodata=65535, geo_transform=_default_gt(),
               crs_epsg=4326, compression='none', tiled=False)
 
-        da1 = open_geotiff(path)
+        da1 = open_geotiff(path, masked=True)
         assert da1.dtype == np.float64
         assert np.isnan(da1.values[1, 0])
         assert da1.attrs.get('nodata') == 65535
@@ -631,7 +631,7 @@ class TestVRTRoundTripFromCorpus:
     in-memory array back as a plain GeoTIFF (no VRT) and asserts the
     re-read matches the original VRT read byte-for-byte. The VRT XML
     itself does not round-trip -- the writer emits a single TIFF, not
-    a VRT pointing at sources. Use ``write_vrt`` explicitly when a VRT
+    a VRT pointing at sources. Use ``_build_vrt`` explicitly when a VRT
     is the desired output.
     """
 
@@ -662,7 +662,7 @@ class TestVRTRoundTripFromCorpus:
             dst.write(data, 1)
 
         vrt = tmp_path / "vrt_mosaic_1986.vrt"
-        write_vrt(str(vrt), [str(left), str(right)])
+        _build_vrt(str(vrt), [str(left), str(right)])
 
         da1 = open_geotiff(str(vrt))
         expected = np.concatenate([data, data], axis=1)

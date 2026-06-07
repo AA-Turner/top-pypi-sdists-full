@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xarray-spatial
-Version: 0.10.4
+Version: 0.10.5
 Summary: xarray-based spatial analysis tools
 Home-page: https://github.com/xarray-contrib/xarray-spatial
 Author: Xarray-Spatial Developers
@@ -237,11 +237,11 @@ VRT is supported as a conservative advanced feature for simple GeoTIFF mosaics, 
 | Name | Description | NumPy | Dask | CuPy GPU | Dask+CuPy GPU | Cloud |
 |:-----|:------------|:-----:|:----:|:--------:|:-------------:|:-----:|
 | [open_geotiff](xrspatial/geotiff/__init__.py) | Read GeoTIFF / COG / VRT | ✅ | ✅ | 🧪 | 🧪 | 🔼 |
-| [to_geotiff](xrspatial/geotiff/__init__.py) | Write DataArray as GeoTIFF / COG | ✅ | ✅ | 🧪 | 🧪 | 🔼 |
-| [write_geotiff_gpu](xrspatial/geotiff/__init__.py) | GPU-accelerated GeoTIFF / COG write |  |  | 🧪 |  |  |
-| [write_vrt](xrspatial/geotiff/__init__.py) | Generate VRT mosaic from GeoTIFFs | 🔼 |  |  |  |  |
+| [to_geotiff](xrspatial/geotiff/__init__.py) | Write DataArray as GeoTIFF / COG / VRT | ✅ | ✅ | 🧪 | 🧪 | 🔼 |
 
-`open_geotiff` and `to_geotiff` auto-dispatch to the correct backend:
+`open_geotiff` and `to_geotiff` select the backend from their parameters
+(`gpu=`, `chunks=`, `.vrt` path); GPU read/write is reached with `gpu=True`,
+not a separate function:
 
 ```python
 from xrspatial.geotiff import open_geotiff, to_geotiff
@@ -261,7 +261,7 @@ to_geotiff(data, 'cog.tif', cog=True)                # COG with auto overviews
 to_geotiff(data, 'cog.tif', cog=True,                # COG with explicit levels
            overview_levels=[2, 4, 8],
            overview_resampling='nearest')
-write_vrt('mosaic.vrt', ['tile1.tif', 'tile2.tif'])  # generate VRT
+to_geotiff(data, 'mosaic.vrt')                       # write a tiled VRT mosaic
 
 open_geotiff('dem.tif', dtype='float32')             # half memory
 open_geotiff('dem.tif', dtype='float32', chunks=512) # Dask + half memory

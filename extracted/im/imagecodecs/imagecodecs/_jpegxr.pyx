@@ -64,6 +64,8 @@ class JPEGXR:
         CIELab = PK_PI_CIELab
         NCH = PK_PI_NCH
         RGBE = PK_PI_RGBE
+        DEFAULT = -1
+        GRAY = PK_PI_B0  # alias
 
 
 class JpegxrError(RuntimeError):
@@ -132,7 +134,7 @@ def jpegxr_encode(
         ssize_t dstsize
         ssize_t srcsize = src.nbytes
         size_t byteswritten = 0
-        int pi = _jxr_encode_photometric(photometric)
+        int pi = _enum_value(photometric, JPEGXR.PI, JPEGXR.PI.DEFAULT)
         int alpha = 1 if hasalpha else 0
         float quality = 1.0 if level is None else level
         WMPStream* stream = NULL
@@ -881,35 +883,6 @@ cdef PKPixelFormatGUID jxr_encode_guid(
         if typenum == numpy.NPY_UINT16:
             return GUID_PKPixelFormat144bpp8ChannelsAlpha
     return GUID_PKPixelFormatDontCare
-
-
-cdef int _jxr_encode_photometric(photometric):
-    """Return PK_PI value from photometric argument."""
-    if photometric is None:
-        return -1
-    if isinstance(photometric, int):
-        if photometric not in {-1, PK_PI_W0, PK_PI_B0, PK_PI_RGB, PK_PI_CMYK}:
-            raise ValueError(f'{photometric=!r} not supported')
-        return photometric
-    photometric = photometric.upper()
-    if photometric[:3] == 'RGB':
-        return PK_PI_RGB
-    if photometric in {'WHITEISZERO', 'MINISWHITE'}:
-        return PK_PI_W0
-    if photometric in {'BLACKISZERO', 'MINISBLACK', 'GRAY'}:
-        return PK_PI_B0
-    if photometric == 'CMYK' or photometric == 'SEPARATED':
-        return PK_PI_CMYK
-    # TODO: support more photometric modes
-    # if photometric == 'YCBCR':
-    #     return PK_PI_YCbCr
-    # if photometric == 'CIELAB':
-    #     return PK_PI_CIELab
-    # if photometric == 'TRANSPARENCYMASK' or photometric == 'MASK':
-    #     return PK_PI_TransparencyMask
-    # if photometric == 'RGBPALETTE' or photometric == 'PALETTE':
-    #     return PK_PI_RGBPalette
-    raise ValueError(f'{photometric=!r} not supported')
 
 
 # Y, U, V, YHP, UHP, VHP

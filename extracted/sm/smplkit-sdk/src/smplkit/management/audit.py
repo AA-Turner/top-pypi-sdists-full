@@ -34,6 +34,12 @@ from smplkit._generated.audit.models.forwarder import Forwarder as _GenForwarder
 from smplkit._generated.audit.models.forwarder_create_request import (
     ForwarderCreateRequest as _GenForwarderCreateRequest,
 )
+from smplkit._generated.audit.models.forwarder_environment import (
+    ForwarderEnvironment as _GenForwarderEnvironment,
+)
+from smplkit._generated.audit.models.forwarder_environments import (
+    ForwarderEnvironments as _GenForwarderEnvironments,
+)
 from smplkit._generated.audit.models.forwarder_create_resource import (
     ForwarderCreateResource as _GenForwarderCreateResource,
 )
@@ -53,6 +59,7 @@ from smplkit._generated.audit.models.http_header import HttpHeader as _GenHttpHe
 from smplkit._generated.audit.types import UNSET
 from smplkit.audit.models import (
     Forwarder,
+    ForwarderEnvironment,
     ForwarderType,
     HttpConfiguration,
     TransformType,
@@ -132,12 +139,53 @@ def _http_to_gen(configuration: HttpConfiguration) -> _GenHttpConfiguration:
     )
 
 
+def _normalize_environments(
+    environments: dict[str, ForwarderEnvironment | dict[str, Any]] | None,
+) -> dict[str, ForwarderEnvironment]:
+    """Coerce a caller's ``environments`` map to wrapper instances.
+
+    Accepts either :class:`ForwarderEnvironment` values or plain dicts
+    (``{"enabled": True, "configuration": HttpConfiguration(...)}``) so
+    callers can use the lightweight dict form without importing the model.
+    """
+    if not environments:
+        return {}
+    out: dict[str, ForwarderEnvironment] = {}
+    for env_key, value in environments.items():
+        if isinstance(value, ForwarderEnvironment):
+            out[env_key] = value
+        else:
+            out[env_key] = ForwarderEnvironment(
+                enabled=bool(value.get("enabled", False)),
+                configuration=value.get("configuration"),
+            )
+    return out
+
+
+def _environments_to_gen(
+    environments: dict[str, ForwarderEnvironment],
+) -> _GenForwarderEnvironments:
+    """Convert the wrapper ``environments`` map to the generated model.
+
+    Per-environment ``configuration`` overrides are sent as full
+    :class:`HttpConfiguration` payloads (plaintext headers in), mirroring
+    the base configuration's round-trip semantics.
+    """
+    gen = _GenForwarderEnvironments()
+    for env_key, env in environments.items():
+        gen[env_key] = _GenForwarderEnvironment(
+            enabled=env.enabled,
+            configuration=(_http_to_gen(env.configuration) if env.configuration is not None else UNSET),
+        )
+    return gen
+
+
 def _build_forwarder_attrs(
     *,
     name: str,
     forwarder_type: ForwarderType,
     configuration: HttpConfiguration,
-    enabled: bool,
+    environments: dict[str, ForwarderEnvironment],
     description: str | None,
     filter: dict[str, Any] | None,
     transform: Any,
@@ -146,12 +194,16 @@ def _build_forwarder_attrs(
     # ``ForwarderType`` is a ``str`` subclass — passing the enum directly
     # gives the generated model a string that matches its Literal type
     # constraint, while keeping enum identity for callers reading back.
+    #
+    # The base ``enabled`` is server-pinned false (ADR-055); we don't send
+    # it. Enablement travels entirely through ``environments``.
     attrs = _GenForwarder(
         name=name,
         forwarder_type=ForwarderType(forwarder_type).value,
         configuration=_http_to_gen(configuration),
-        enabled=enabled,
     )
+    if environments:
+        attrs.environments = _environments_to_gen(environments)
     if description is not None:
         attrs.description = description
     if filter is not None:
@@ -175,7 +227,7 @@ class ForwardersClient:
         name: str | None = None,
         forwarder_type: ForwarderType,
         configuration: HttpConfiguration,
-        enabled: bool = True,
+        environments: dict[str, ForwarderEnvironment | dict[str, Any]] | None = None,
         description: str | None = None,
         filter: dict[str, Any] | None = None,
         transform: Any = None,
@@ -196,7 +248,14 @@ class ForwardersClient:
                 an :class:`HttpConfiguration` instance. Headers carry
                 credentials and are encrypted at rest server-side;
                 reads return them redacted.
-            enabled: Whether the forwarder is active. Defaults true.
+            environments: Per-environment overrides keyed by environment
+                key (e.g. ``"production"``). A forwarder delivers in an
+                environment only when that environment's entry has
+                ``enabled=True``. Values may be :class:`ForwarderEnvironment`
+                instances or plain dicts (``{"enabled": True}``, optionally
+                with a ``"configuration"`` :class:`HttpConfiguration`
+                override). Omit to create a forwarder that delivers
+                nowhere until enabled per environment.
             description: Optional free-text description.
             filter: Optional JSON Logic filter; events that don't match
                 are recorded as ``filtered_out`` deliveries.
@@ -226,7 +285,7 @@ class ForwardersClient:
             name=name if name is not None else id,
             forwarder_type=forwarder_type,
             configuration=configuration,
-            enabled=enabled,
+            environments=_normalize_environments(environments),
             description=description,
             filter=filter,
             transform=transform,
@@ -237,7 +296,6 @@ class ForwardersClient:
         self,
         *,
         forwarder_type: ForwarderType | None = None,
-        enabled: bool | None = None,
         page_number: int | None = None,
         page_size: int | None = None,
         meta_total: bool | None = None,
@@ -253,7 +311,6 @@ class ForwardersClient:
         resp = _gen_list_forwarders.sync_detailed(
             client=self._auth,
             filterforwarder_type=ft,
-            filterenabled=enabled if enabled is not None else UNSET,
             pagenumber=page_number if page_number is not None else UNSET,
             pagesize=page_size if page_size is not None else UNSET,
             metatotal=meta_total if meta_total is not None else UNSET,
@@ -282,7 +339,7 @@ class ForwardersClient:
             name=forwarder.name,
             forwarder_type=forwarder.forwarder_type,
             configuration=forwarder.configuration,
-            enabled=forwarder.enabled,
+            environments=forwarder.environments,
             description=forwarder.description,
             filter=forwarder.filter,
             transform=forwarder.transform,
@@ -310,7 +367,7 @@ class ForwardersClient:
             name=forwarder.name,
             forwarder_type=forwarder.forwarder_type,
             configuration=forwarder.configuration,
-            enabled=forwarder.enabled,
+            environments=forwarder.environments,
             description=forwarder.description,
             filter=forwarder.filter,
             transform=forwarder.transform,
@@ -371,6 +428,7 @@ class AsyncAuditClient:
 __all__ = [
     "AsyncAuditClient",
     "AuditClient",
+    "ForwarderEnvironment",
     "ForwarderListPage",
     "ForwardersClient",
     "ForwarderType",

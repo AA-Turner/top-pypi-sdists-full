@@ -23,7 +23,7 @@ Section 1 -- ``MinIsWhite`` read/write semantics
 
 Section 2 -- ``allow_internal_only_jpeg`` API tier acceptance
     The CPU dispatcher ``to_geotiff`` exposes the same opt-in flag the
-    GPU writer ``write_geotiff_gpu`` does, so callers on the auto-
+    GPU writer ``_write_geotiff_gpu`` does, so callers on the auto-
     dispatch path can reach the experimental internal-reader-only JPEG
     encode. The tests pin signature parity, the default-rejection
     message, the opt-in warning + round-trip, and the GPU dispatch
@@ -47,7 +47,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from xrspatial.geotiff import GeoTIFFFallbackWarning, open_geotiff, to_geotiff, write_geotiff_gpu
+from xrspatial.geotiff import GeoTIFFFallbackWarning, _write_geotiff_gpu, open_geotiff, to_geotiff
 from xrspatial.geotiff._header import TAG_PHOTOMETRIC, TAG_SAMPLE_FORMAT, parse_header
 
 tifffile = pytest.importorskip("tifffile")
@@ -270,7 +270,7 @@ def test_eager_numpy_miniswhite_nodata(
     path = str(tmp_path / "mw_eager.tif")
     _write_miniswhite_tiff(path, stored, nodata_str)
 
-    arr = open_geotiff(path)
+    arr = open_geotiff(path, masked=True)
 
     assert arr.attrs["nodata"] == sentinel
     np.testing.assert_array_equal(arr.values, expected)
@@ -290,7 +290,7 @@ def test_dask_miniswhite_nodata(tmp_path, case_factory, nodata_str, sentinel):
     path = str(tmp_path / "mw_dask.tif")
     _write_miniswhite_tiff(path, stored, nodata_str)
 
-    arr = open_geotiff(path, chunks=2).compute()
+    arr = open_geotiff(path, chunks=2, masked=True).compute()
 
     assert arr.attrs["nodata"] == sentinel
     np.testing.assert_array_equal(arr.values, expected)
@@ -308,7 +308,7 @@ def test_eager_miniswhite_uint8_no_collision(tmp_path):
         [[np.nan, 155.0, 55.0], [205.0, np.nan, 25.0]], dtype=np.float64
     )
 
-    arr = open_geotiff(path)
+    arr = open_geotiff(path, masked=True)
 
     np.testing.assert_array_equal(arr.values, expected)
 
@@ -332,13 +332,13 @@ def test_miniswhite_backend_parity_uint8_nodata_zero(tmp_path):
     path = str(tmp_path / "mw_parity.tif")
     _write_miniswhite_tiff(path, stored, "0", tiled=True)
 
-    eager = open_geotiff(path).values
-    dask_result = open_geotiff(path, chunks=2).compute().values
+    eager = open_geotiff(path, masked=True).values
+    dask_result = open_geotiff(path, chunks=2, masked=True).compute().values
     np.testing.assert_array_equal(eager, expected)
     np.testing.assert_array_equal(dask_result, expected)
     np.testing.assert_array_equal(eager, dask_result)
     if _HAS_GPU:
-        gpu = open_geotiff(path, gpu=True).data.get()
+        gpu = open_geotiff(path, gpu=True, masked=True).data.get()
         np.testing.assert_array_equal(gpu, expected)
         np.testing.assert_array_equal(eager, gpu)
 
@@ -349,7 +349,7 @@ def test_gpu_eager_miniswhite_uint8_nodata_zero(tmp_path):
     path = str(tmp_path / "mw_uint8_gpu.tif")
     _write_miniswhite_tiff(path, stored, "0", tiled=True)
 
-    arr = open_geotiff(path, gpu=True)
+    arr = open_geotiff(path, gpu=True, masked=True)
 
     assert arr.attrs["nodata"] == 0
     np.testing.assert_array_equal(arr.data.get(), expected)
@@ -362,7 +362,7 @@ def test_gpu_sparse_tile_miniswhite_nodata_zero(tmp_path):
     Build a tiled MinIsWhite uint8 raster with ``GDAL_NODATA=0``, then
     patch the first tile's TileOffsets/TileByteCounts to 0 so the read
     routes through the sparse-tile CPU-fallback branch of
-    ``read_geotiff_gpu``. Pre-fix this branch discarded
+    ``_read_geotiff_gpu``. Pre-fix this branch discarded
     ``_mask_nodata`` and masked against the original sentinel.
     """
     stored = np.zeros((32, 32), dtype=np.uint8)
@@ -375,7 +375,7 @@ def test_gpu_sparse_tile_miniswhite_nodata_zero(tmp_path):
     _write_miniswhite_tiff(path, stored, "0", tiled=True)
     _patch_first_tile_sparse(path)
 
-    arr = open_geotiff(path, gpu=True)
+    arr = open_geotiff(path, gpu=True, masked=True)
     out = arr.data.get()
 
     assert np.all(np.isnan(out[:16, :16]))
@@ -433,7 +433,7 @@ def test_miniswhite_float_with_nodata_round_trips_nan(tmp_path):
     arr = np.array([[10.0, np.nan, 20.0, 30.0]], dtype=np.float32)
     path = tmp_path / "rt_float_nd.tif"
     to_geotiff(_da(arr), str(path), photometric='miniswhite', nodata=-9999.0)
-    r = open_geotiff(str(path))
+    r = open_geotiff(str(path), masked=True)
     out = np.asarray(r.values)
     assert np.isnan(out[0, 1]), (
         "nodata position must round-trip back to NaN after MinIsWhite "
@@ -458,7 +458,7 @@ def test_miniswhite_uint16_in_range_nodata_round_trips_nan(tmp_path):
                'assume_square_pixels_for_degenerate_axis': True},
     )
     to_geotiff(da_in, str(path), photometric='miniswhite', nodata=9999)
-    r = open_geotiff(str(path))
+    r = open_geotiff(str(path), masked=True)
     out = np.asarray(r.values)
     assert np.isnan(out[0, 1]), (
         f"in-range uint nodata must round-trip to NaN through the "
@@ -682,11 +682,11 @@ def _make_rgb_uint8_da() -> xr.DataArray:
 def test_to_geotiff_signature_has_allow_internal_only_jpeg():
     """``to_geotiff`` must expose ``allow_internal_only_jpeg`` so callers
     on the auto-dispatch path can reach the same opt-in
-    ``write_geotiff_gpu`` exposes."""
+    ``_write_geotiff_gpu`` exposes."""
     params = inspect.signature(to_geotiff).parameters
     assert "allow_internal_only_jpeg" in params, (
         "to_geotiff must accept allow_internal_only_jpeg for parity "
-        "with write_geotiff_gpu."
+        "with _write_geotiff_gpu."
     )
     assert params["allow_internal_only_jpeg"].default is False
 
@@ -697,7 +697,7 @@ def test_to_geotiff_and_gpu_writer_share_kwarg_default():
     eager_default = inspect.signature(
         to_geotiff).parameters["allow_internal_only_jpeg"].default
     gpu_default = inspect.signature(
-        write_geotiff_gpu).parameters["allow_internal_only_jpeg"].default
+        _write_geotiff_gpu).parameters["allow_internal_only_jpeg"].default
     assert eager_default == gpu_default == False  # noqa: E712
 
 
@@ -767,7 +767,7 @@ def test_to_geotiff_non_jpeg_unaffected_by_flag(tmp_path):
 def test_to_geotiff_gpu_dispatch_forwards_allow_internal_only_jpeg(
         tmp_path, monkeypatch):
     """``to_geotiff(gpu=True, allow_internal_only_jpeg=True)`` forwards
-    the kwarg into ``write_geotiff_gpu``. Without this the GPU writer
+    the kwarg into ``_write_geotiff_gpu``. Without this the GPU writer
     would refuse the encode after the CPU dispatcher accepted it."""
     captured: dict = {}
 
@@ -779,7 +779,7 @@ def test_to_geotiff_gpu_dispatch_forwards_allow_internal_only_jpeg(
             f.write(b'')
 
     monkeypatch.setattr(
-        'xrspatial.geotiff._writers.eager.write_geotiff_gpu',
+        'xrspatial.geotiff._writers.eager._write_geotiff_gpu',
         _fake_write_geotiff_gpu,
     )
 
@@ -793,11 +793,11 @@ def test_to_geotiff_gpu_dispatch_forwards_allow_internal_only_jpeg(
     )
 
     assert 'kwargs' in captured, (
-        "to_geotiff must dispatch to write_geotiff_gpu when gpu=True"
+        "to_geotiff must dispatch to _write_geotiff_gpu when gpu=True"
     )
     assert captured['kwargs'].get('allow_internal_only_jpeg') is True, (
         "to_geotiff must forward allow_internal_only_jpeg unchanged "
-        "into write_geotiff_gpu."
+        "into _write_geotiff_gpu."
     )
     assert captured['kwargs'].get('compression') == 'jpeg'
 
@@ -813,7 +813,7 @@ def test_to_geotiff_gpu_dispatch_emits_single_jpeg_opt_in_warning(
         if kwargs.get('compression') == 'jpeg' and kwargs.get(
                 'allow_internal_only_jpeg'):
             _warnings.warn(
-                "write_geotiff_gpu jpeg opt-in (stub).",
+                "_write_geotiff_gpu jpeg opt-in (stub).",
                 GeoTIFFFallbackWarning,
                 stacklevel=2,
             )
@@ -821,7 +821,7 @@ def test_to_geotiff_gpu_dispatch_emits_single_jpeg_opt_in_warning(
             f.write(b'')
 
     monkeypatch.setattr(
-        'xrspatial.geotiff._writers.eager.write_geotiff_gpu',
+        'xrspatial.geotiff._writers.eager._write_geotiff_gpu',
         _fake_write_geotiff_gpu,
     )
 

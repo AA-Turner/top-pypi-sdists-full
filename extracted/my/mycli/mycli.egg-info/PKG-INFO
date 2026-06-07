@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mycli
-Version: 1.73.1
+Version: 1.74.0
 Summary: CLI for MySQL Database. With auto-completion and syntax highlighting.
 Author: Mycli Core Team
 License-Expression: BSD-3-Clause
@@ -72,7 +72,7 @@ Documentation: [https://mycli.net/docs](https://mycli.net/docs)
 ![Completion](doc/screenshots/tables.png)
 ![CompletionGif](doc/screenshots/main.gif)
 
-Mycli is compatible with MySQL, MariaDB, Percona, and TiDB.
+Mycli is compatible with MySQL, MariaDB, Percona, TiDB, and Doris.
 
 Postgres Equivalent: [https://pgcli.com](https://pgcli.com)
 

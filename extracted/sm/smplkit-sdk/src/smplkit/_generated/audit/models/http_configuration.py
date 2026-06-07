@@ -20,22 +20,21 @@ T = TypeVar("T", bound="HttpConfiguration")
 
 @_attrs_define
 class HttpConfiguration:
-    """HTTP request configuration used to deliver an event to the destination.
+    """HTTP request configuration for delivering a payload to a destination.
 
-    Used when the parent forwarder's ``forwarder_type`` is one of the
-    HTTP-family destinations (``HTTP``, ``DATADOG``, ``SPLUNK_HEC``,
-    ``SUMO_LOGIC``, ``NEW_RELIC``, ``HONEYCOMB``, ``ELASTIC``). When other
-    transports land (``FTP``, ``SQS``, …) their own configuration schemas
-    will join this one as members of a discriminated union under the
-    ``configuration`` field of ``Forwarder``.
+    The shared base shape for any product that posts to a customer-supplied
+    HTTP destination. Smpl Audit forwarders use it directly; Smpl Jobs
+    extends it (adding ``body`` and ``timeout``). When other transports land
+    (``FTP``, ``SQS``, …) their own configuration schemas will join this one
+    as members of a discriminated union under a ``configuration`` field.
 
         Attributes:
             url (str): Destination URL. Must be an absolute `http://` or `https://` URL with a hostname (e.g.
                 `https://siem.example.com/in`).
-            method (HttpConfigurationMethod | Unset): HTTP method used when delivering an event. Default: 'POST'.
-            headers (list[HttpHeader] | Unset): HTTP headers attached to each delivery request.
-            success_status (str | Unset): HTTP response status that indicates a successful delivery. Either a specific
-                status code (e.g. `200`, `204`) or a status class (`1xx`, `2xx`, `3xx`, `4xx`, `5xx`). Default: '2xx'.
+            method (HttpConfigurationMethod | Unset): HTTP method used when delivering the request. Default: 'POST'.
+            headers (list[HttpHeader] | Unset): HTTP headers attached to each request.
+            success_status (str | Unset): HTTP response status that indicates success. Either a specific status code (e.g.
+                `200`, `204`) or a status class (`1xx`, `2xx`, `3xx`, `4xx`, `5xx`). Default: '2xx'.
             tls_verify (bool | Unset): Whether to verify the destination server's TLS certificate against trusted
                 certificate authorities. Defaults to `true` and should be left on for any production destination. Set to `false`
                 only for development or short-lived testing against a destination that presents an untrusted certificate (e.g. a

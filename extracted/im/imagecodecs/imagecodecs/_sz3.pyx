@@ -102,34 +102,7 @@ def sz3_encode(
     if data is out:
         raise ValueError('cannot encode in-place')
 
-    if mode is None:
-        errBoundMode = ABS
-    elif mode in {ABS, 'abs'}:
-        errBoundMode = ABS
-    elif mode in {REL, 'rel'}:
-        errBoundMode = REL
-    # elif mode in {VR_REL, 'vr_rel'}:
-    #     errBoundMode = VR_REL
-    elif mode in {ABS_AND_REL, 'abs_and_rel'}:
-        errBoundMode = ABS_AND_REL
-    elif mode in {ABS_OR_REL, 'abs_or_rel'}:
-        errBoundMode = ABS_OR_REL
-    # elif mode in {PSNR, 'psnr'}:
-    #     errBoundMode = PSNR
-    # elif mode in {NORM, 'norm'}:
-    #     errBoundMode = NORM
-    # elif mode in {PW_REL, 'pw_rel'}:
-    #     errBoundMode = PW_REL
-    # elif mode in {ABS_AND_PW_REL, 'abs_and_pw_rel'}:
-    #     errBoundMode = ABS_AND_PW_REL
-    # elif mode in {ABS_OR_PW_REL, 'abs_or_pw_rel'}:
-    #     errBoundMode = ABS_OR_PW_REL
-    # elif mode in {REL_AND_PW_REL, 'rel_and_pw_rel'}:
-    #     errBoundMode = REL_AND_PW_REL
-    # elif mode in {REL_OR_PW_REL, 'rel_or_pw_rel'}:
-    #     errBoundMode = REL_OR_PW_REL
-    else:
-        raise ValueError(f'invalid SZ3 error bound {mode=!r}')
+    errBoundMode = _enum_value(mode, SZ3.MODE, SZ3.MODE.ABS)
 
     if src.dtype == numpy.float32:
         dataType = SZ_FLOAT

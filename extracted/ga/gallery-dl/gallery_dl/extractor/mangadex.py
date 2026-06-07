@@ -71,9 +71,11 @@ class MangadexExtractor(Extractor):
             "chapter_id": chapter["id"],
             "date"    : self.parse_datetime_iso(cattributes["publishAt"]),
             "group"   : [group["attributes"]["name"]
-                         for group in relationships["scanlation_group"]],
+                         for group in relationships["scanlation_group"]
+                         if group and "attributes" in group],
             "user"    : [user["attributes"]["username"]
-                         for user in relationships["user"]],
+                         for user in relationships["user"]
+                         if user and "attributes" in user],
             "lang"    : lang,
             "count"   : cattributes["pages"],
             "_external_url": cattributes.get("externalUrl"),

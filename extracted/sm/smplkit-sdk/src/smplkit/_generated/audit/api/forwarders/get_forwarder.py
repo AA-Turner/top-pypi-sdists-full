@@ -57,6 +57,8 @@ def sync_detailed(
 
     Header values are returned in plaintext so the resource can be
     round-tripped with `GET`, mutate, `PUT` without re-entering secrets.
+    The `environments` override map is scoped to the caller's environment
+    groups.
 
     Args:
         forwarder_id (str):
@@ -91,6 +93,8 @@ def sync(
 
     Header values are returned in plaintext so the resource can be
     round-tripped with `GET`, mutate, `PUT` without re-entering secrets.
+    The `environments` override map is scoped to the caller's environment
+    groups.
 
     Args:
         forwarder_id (str):
@@ -120,6 +124,8 @@ async def asyncio_detailed(
 
     Header values are returned in plaintext so the resource can be
     round-tripped with `GET`, mutate, `PUT` without re-entering secrets.
+    The `environments` override map is scoped to the caller's environment
+    groups.
 
     Args:
         forwarder_id (str):
@@ -152,6 +158,8 @@ async def asyncio(
 
     Header values are returned in plaintext so the resource can be
     round-tripped with `GET`, mutate, `PUT` without re-entering secrets.
+    The `environments` override map is scoped to the caller's environment
+    groups.
 
     Args:
         forwarder_id (str):

@@ -54,6 +54,7 @@ class QUANTIZE:
         NOQUANTIZE = NC_NOQUANTIZE
         BITGROOM = NC_QUANTIZE_BITGROOM
         GRANULARBR = NC_QUANTIZE_GRANULARBR
+        GBR = NC_QUANTIZE_GRANULARBR  # alias
         BITROUND = NC_QUANTIZE_BITROUND
         SCALE = 100
 
@@ -114,26 +115,7 @@ def quantize_encode(
     else:
         src_type = NC_DOUBLE
 
-    if mode in {
-        NC_NOQUANTIZE,
-        NC_QUANTIZE_BITGROOM,
-        NC_QUANTIZE_GRANULARBR,
-        NC_QUANTIZE_BITROUND,
-        100
-    }:
-        quantize_mode = mode
-    elif mode == 'bitround':
-        quantize_mode = NC_QUANTIZE_BITROUND
-    elif mode == 'bitgroom':
-        quantize_mode = NC_QUANTIZE_BITGROOM
-    elif mode in {'granularbr', 'gbr'}:
-        quantize_mode = NC_QUANTIZE_GRANULARBR
-    elif mode == 'scale':
-        quantize_mode = 100
-    elif mode == 'noquantize':
-        quantize_mode = NC_NOQUANTIZE
-    else:
-        raise ValueError(f'invalid quantize {mode=!r}')
+    quantize_mode = _enum_value(mode, QUANTIZE.MODE)
 
     if not 0 <= nsd < src.itemsize * 8:
         raise ValueError(f'invalid number of significant digits {nsd!r}')

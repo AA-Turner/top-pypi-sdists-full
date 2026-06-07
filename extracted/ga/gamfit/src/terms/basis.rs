@@ -2579,27 +2579,29 @@ impl DuchonOperatorPenaltySpec {
     /// the exact GP (mgcv `bs="gp"`, GpGp).
     ///
     /// Concretely the roughest Matérn, ν=1/2 in d=1 (`m = 1`), is the
-    /// Ornstein–Uhlenbeck/exponential kernel: an H¹ process whose RKHS norm
-    /// `∫ (f² + ℓ²f'²)` controls the FIRST derivative but not the second. Its
-    /// sample paths are continuous but non-differentiable; penalizing the second
-    /// derivative (`D2`) drives the fit toward the smooth `C²` functions its RKHS
-    /// specifically does not favour, collapsing held-out oscillation (#707). We
-    /// therefore gate each operator on `j ≤ m`: mass always on, tension on for
-    /// `m ≥ 1`, stiffness on for `m ≥ 2`. For ν ≥ 3/2 (or any d ≥ 2) every dial is
-    /// active, recovering `all_active`; only the genuinely rough ν=1/2 (d=1)
-    /// kernel drops the higher operators.
+    /// Ornstein–Uhlenbeck/exponential kernel: an H¹ process whose sample paths
+    /// are continuous but non-differentiable. Although `∫(f')²` is finite on
+    /// its RKHS, the kernel itself already encodes the H¹ control; layering an
+    /// extra tension dial on top biases the reduced-rank fit toward the smooth
+    /// `C¹` functions the kernel does not favour (and stiffness `D2` toward
+    /// `C²`), collapsing held-out oscillation (#707). We therefore gate each
+    /// operator on `j < m` STRICTLY: mass (j=0) is always on, tension (j=1) is
+    /// on for `m > 1`, stiffness (j=2) is on for `m > 2`. For ν ≥ 3/2 (or any
+    /// d ≥ 2) every dial is active, recovering `all_active`; only the
+    /// genuinely rough ν=1/2 (d=1) kernel — where the Sobolev order sits
+    /// exactly on a derivative boundary — drops the higher operators.
     pub fn matern_for_smoothness(nu: MaternNu, d: usize) -> Self {
         let m = nu.half_integer_value() + 0.5 * d as f64;
         // Tolerance so an exact half-integer Sobolev order (e.g. m = 1.0 for
-        // ν=1/2, d=1) reliably activates the matching-order operator without a
-        // float-equality knife-edge.
+        // ν=1/2, d=1) reliably DISABLES the matching-order operator instead
+        // of flipping on a float-equality knife-edge.
         const ORDER_EPS: f64 = 1e-9;
         let active = || OperatorPenaltySpec::Active {
             initial_log_lambda: 0.0,
             prior: None,
         };
         let gate = |order: f64| {
-            if m + ORDER_EPS >= order {
+            if m > order + ORDER_EPS {
                 active()
             } else {
                 OperatorPenaltySpec::Disabled
@@ -8177,10 +8179,15 @@ pub fn build_bspline_basis_1d(
             joint_null_rotation: None,
         });
     }
-    let prefer_sparse_design = matches!(
-        spec.identifiability,
-        BSplineIdentifiability::None | BSplineIdentifiability::WeightedSumToZero { .. }
-    );
+    // The sparse branch below routes only through `apply_bspline_identifiability_policy`
+    // and never threads `apply_bspline_boundary_conditions`, so taking it for non-free
+    // endpoints silently drops the user's Clamped/Anchored constraint and lets a
+    // non-zero anchor through unchecked.  Require free endpoints to use the sparse path.
+    let prefer_sparse_design = spec.boundary_conditions.is_free()
+        && matches!(
+            spec.identifiability,
+            BSplineIdentifiability::None | BSplineIdentifiability::WeightedSumToZero { .. }
+        );
     let (design_sparse_opt, design_dense_opt, knots) = if prefer_sparse_design {
         match &spec.knotspec {
             BSplineKnotSpec::Generate {

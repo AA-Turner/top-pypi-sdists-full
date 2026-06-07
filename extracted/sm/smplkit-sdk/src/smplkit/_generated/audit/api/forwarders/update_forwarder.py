@@ -65,6 +65,11 @@ def sync_detailed(
 
      Replace an existing forwarder. Every writable field is overwritten.
 
+    The `environments` override map is a full replace for the environments
+    you can manage; overrides for environments outside your access (which
+    were hidden from your read) are preserved. Every environment referenced
+    in `environments` must exist and be managed.
+
     Args:
         forwarder_id (str):
         body (ForwarderRequest): JSON:API request envelope for updating a forwarder.
@@ -99,6 +104,11 @@ def sync(
 
      Replace an existing forwarder. Every writable field is overwritten.
 
+    The `environments` override map is a full replace for the environments
+    you can manage; overrides for environments outside your access (which
+    were hidden from your read) are preserved. Every environment referenced
+    in `environments` must exist and be managed.
+
     Args:
         forwarder_id (str):
         body (ForwarderRequest): JSON:API request envelope for updating a forwarder.
@@ -127,6 +137,11 @@ async def asyncio_detailed(
     """Update Forwarder
 
      Replace an existing forwarder. Every writable field is overwritten.
+
+    The `environments` override map is a full replace for the environments
+    you can manage; overrides for environments outside your access (which
+    were hidden from your read) are preserved. Every environment referenced
+    in `environments` must exist and be managed.
 
     Args:
         forwarder_id (str):
@@ -159,6 +174,11 @@ async def asyncio(
     """Update Forwarder
 
      Replace an existing forwarder. Every writable field is overwritten.
+
+    The `environments` override map is a full replace for the environments
+    you can manage; overrides for environments outside your access (which
+    were hidden from your read) are preserved. Every environment referenced
+    in `environments` must exist and be managed.
 
     Args:
         forwarder_id (str):

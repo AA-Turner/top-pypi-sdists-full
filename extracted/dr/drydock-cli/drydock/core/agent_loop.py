@@ -21,7 +21,7 @@ from pydantic import BaseModel
 
 from drydock.cli.terminal_setup import detect_terminal
 from drydock.core.agents.manager import AgentManager
-from drydock.core.agents.models import AgentProfile, BuiltinAgentName
+from drydock.core.agents.models import AgentProfile, AgentType, BuiltinAgentName
 from drydock.core.config import Backend, ProviderConfig, DrydockConfig
 from drydock.core.llm.backend.factory import BACKEND_FACTORY
 from drydock.core.llm.exceptions import BackendError
@@ -1174,9 +1174,23 @@ class AgentLoop:
                 # a final text response. 18 = 3× nudge threshold —
                 # the nudge has fired AT LEAST twice without effect.
                 # Gated by DRYDOCK_ADAPTIVE_BUDGET=1 (default ON).
-                if os.environ.get(
-                    "DRYDOCK_ADAPTIVE_BUDGET", "1"
-                ).strip().lower() not in ("0", "false", "no"):
+                #
+                # SKIP for subagents (explore/diagnostic/planner/builder)
+                # — they are designed to be read-mostly and their parent
+                # owns the overall deadline. Firing inside a subagent
+                # made it return completed=False with the "Stopping
+                # exploration" nudge as content; the parent read that
+                # and dispatched ANOTHER subagent on a related question,
+                # repeating indefinitely. Observed 2026-06-06 in user's
+                # slide-reviewer drydock session: 28-minute loop of
+                # back-to-back explore dispatches, each cut off at 18
+                # read-only calls. The subagent's max_turns budget +
+                # the parent's own ADAPTIVE-BUDGET still cap runtime.
+                if (
+                    os.environ.get("DRYDOCK_ADAPTIVE_BUDGET", "1")
+                       .strip().lower() not in ("0", "false", "no")
+                    and self.agent_profile.agent_type != AgentType.SUBAGENT
+                ):
                     _streak = getattr(self, "_readonly_streak", 0)
                     if _streak >= 18:
                         self.stats.adaptive_budget_stops += 1
@@ -1651,6 +1665,43 @@ class AgentLoop:
                     last_message.role == Role.assistant
                     and not last_message.tool_calls
                 )
+
+                # 2026-06-06 v2.9.82: text-loop guard for TUI mode.
+                # Operator: "harness talking to itself". When the model
+                # emits 3+ consecutive assistant text messages without
+                # any tool call (typically in a reasoning loop), break
+                # the session and surface a clear message rather than
+                # silently calling the LLM forever. Programmatic mode
+                # has its own premature-exit logic below; this is the
+                # TUI-mode safety net.
+                if not should_break_loop:
+                    # Reset counter on any productive turn (tool call OR
+                    # message that didn't break loop because it had tool_calls)
+                    self._consecutive_empty_turns = 0
+                else:
+                    streak = getattr(self, "_consecutive_empty_turns", 0)
+                    # Count consecutive text-only assistant turns by walking
+                    # backward through history.
+                    text_only_streak = 0
+                    for m in reversed(self.messages):
+                        if m.role != Role.assistant:
+                            break
+                        if m.tool_calls:
+                            break
+                        text_only_streak += 1
+                    self._consecutive_empty_turns = text_only_streak
+                    if text_only_streak >= 3:
+                        # Force-break SILENTLY. The operator does not want
+                        # to see drydock's own messages in the TUI — only
+                        # the model's actual work. Log the event for
+                        # post-hoc investigation; don't inject anything.
+                        logger.warning(
+                            "[TEXT-LOOP-GUARD] %d consecutive text-only "
+                            "assistant turns — silently force-ending session "
+                            "(no UI marker per operator preference)",
+                            text_only_streak,
+                        )
+                        # should_break_loop already True; falls through.
 
                 # 2026-06-02: programmatic-mode premature-exit fix.
                 # Observed in tbench probe v2938: pypi-server trial
@@ -2698,17 +2749,21 @@ class AgentLoop:
                     recent_paths.append(p)
         if not recent_paths:
             return None
-        # If exactly one unique path in recent window → safe to infer
+        # 2026-06-06 (v2.9.82): operator hitting the missing-path advisory
+        # repeatedly because recent reads had 5 different files — the old
+        # logic refused to guess. Switched to ALWAYS picking the most
+        # recent path. The PREFLIGHT injects a result that names the
+        # inferred path, so the model can correct on the next turn if
+        # wrong. Net: model never sees a "missing path" error, the write
+        # either lands on the right file or the model immediately writes
+        # again to the correct file.
         unique = list(dict.fromkeys(recent_paths))
         if len(unique) == 1:
             return unique[0]
-        # If multiple, prefer the most recent unique one but only if it
-        # was touched 2+ times recently (signal of "this is the working
-        # file"). Otherwise refuse to guess.
-        last_path = recent_paths[-1]
-        if recent_paths.count(last_path) >= 2:
-            return last_path
-        return None
+        # Multiple unique paths — return the most recently touched one.
+        # If multiple files were touched the same number of times,
+        # recent_paths[-1] is the latest write/read.
+        return recent_paths[-1]
 
     def _maybe_perform_loop_surgery(self, tool_call: ResolvedToolCall) -> None:
         """Detect tool-call loops and rewrite history to break them.
@@ -3062,6 +3117,192 @@ class AgentLoop:
         # productive tool result + a NEW system note telling the model
         # to start fresh. Breaks the locked-in pattern by changing what
         # the model sees instead of just nudging.
+        # 2026-06-06 Pre-flight content-size cap (v2.9.80). Operator session
+        # 2026-06-06 v2.9.79 batch: 3 trials errored (distribution-search,
+        # dna-assembly, make-mips-interpreter) because the model emitted
+        # write_file with code content 47K–53K chars that broke llama.cpp's
+        # JSON parser ("missing closing quote" at column 3440+). vLLM
+        # returned HTTP 500. Drydock recovered 9-15 times but the model
+        # kept emitting same-shape calls until 3-round hard-stop fired
+        # the trial as errored.
+        #
+        # Architectural fix: refuse write_file with content > 7000 chars
+        # at preflight. Inject a short directive pushing toward
+        # search_replace (incremental edits) or smaller write_file
+        # batches. Model never sees the 500, can't loop on it.
+        if tool_call.tool_name == "write_file":
+            content = tool_call.args_dict.get("content", "")
+            if isinstance(content, str) and len(content) > 7000:
+                short_msg = (
+                    f"write_file content too large ({len(content)} chars). "
+                    f"Server-side JSON parser fails around 7K+ chars in tool "
+                    f"args. Use search_replace for incremental edits, OR "
+                    f"split into multiple write_file calls of ≤5000 chars "
+                    f"each (e.g. write headers/imports first, then add "
+                    f"functions one batch at a time)."
+                )
+                yield ToolResultEvent(
+                    tool_name=tool_call.tool_name,
+                    tool_class=tool_call.tool_class,
+                    error=short_msg,
+                    tool_call_id=tool_call.call_id,
+                )
+                self._handle_tool_response(tool_call, short_msg, "failure")
+                # Drop the bad call from history (same as path-missing path)
+                try:
+                    bad_idx = None
+                    for i in range(len(self.messages) - 1, -1, -1):
+                        m = self.messages[i]
+                        if m.role == Role.assistant and m.tool_calls:
+                            if any(
+                                tc.id == tool_call.call_id
+                                for tc in m.tool_calls
+                            ):
+                                bad_idx = i
+                                break
+                    if bad_idx is not None:
+                        kept = list(self.messages[:bad_idx])
+                        self.messages.reset(kept)
+                        logger.warning(
+                            "[PREFLIGHT-SIZE] write_file %d chars rejected "
+                            "before dispatch (avoids vLLM 500 JSON parse "
+                            "loop) — pruned msg idx=%d from history",
+                            len(content), bad_idx,
+                        )
+                except Exception as _e:
+                    logger.warning(
+                        "[PREFLIGHT-SIZE] history prune failed: %s", _e
+                    )
+                return
+
+        # 2026-06-06 Pre-flight: block consecutive `task` calls (v2.9.91+).
+        # After the subagent-hard-stop fix (v2.9.90) let explore subagents
+        # finish naturally, the SECOND-LAYER bug showed: parent reads the
+        # subagent's response, then immediately dispatches ANOTHER `task`
+        # call asking essentially the same question — observed 3+ identical
+        # explorations in a row, all returning `completed: True` with rich
+        # answers the parent never USED. Cause: under grammar union, `task`
+        # has the simplest schema (`{task: str}`) so it's the easiest branch
+        # to commit to; the model picks it as an "escape hatch" rather than
+        # synthesizing the prior answer into a write_file/bash action.
+        #
+        # Block: if the immediately-previous assistant turn already
+        # dispatched a `task` tool_call, refuse the current one with an
+        # advisory pushing toward concrete action. Same drop-from-history
+        # pattern as the size/path preflights so the model can't see and
+        # re-emit the rejected call.
+        if tool_call.tool_name == "task":
+            prev_task = False
+            for m in reversed(self.messages):
+                if m.role != Role.assistant or not m.tool_calls:
+                    continue
+                # First assistant turn going backward
+                prev_task = any(
+                    tc.function.name == "task" for tc in m.tool_calls
+                )
+                break
+            if prev_task:
+                advisory = (
+                    "task tool blocked: the previous turn already dispatched "
+                    "a subagent. Use the answer that subagent returned to "
+                    "take a CONCRETE action now — write_file / search_replace "
+                    "/ bash — or emit a text summary if you have enough to "
+                    "respond to the user. Do not dispatch another exploration."
+                )
+                yield ToolResultEvent(
+                    tool_name=tool_call.tool_name,
+                    tool_class=tool_call.tool_class,
+                    error=advisory,
+                    tool_call_id=tool_call.call_id,
+                )
+                self._handle_tool_response(tool_call, advisory, "failure")
+                try:
+                    bad_idx = None
+                    for i in range(len(self.messages) - 1, -1, -1):
+                        m = self.messages[i]
+                        if m.role == Role.assistant and m.tool_calls:
+                            if any(
+                                tc.id == tool_call.call_id
+                                for tc in m.tool_calls
+                            ):
+                                bad_idx = i
+                                break
+                    if bad_idx is not None:
+                        kept = list(self.messages[:bad_idx])
+                        self.messages.reset(kept)
+                        logger.warning(
+                            "[PREFLIGHT-TASK] consecutive task call rejected "
+                            "(parent kept asking same question, ignoring "
+                            "completed subagent replies) — pruned msg idx=%d",
+                            bad_idx,
+                        )
+                except Exception as _e:
+                    logger.warning(
+                        "[PREFLIGHT-TASK] history prune failed: %s", _e
+                    )
+                return
+
+        # 2026-06-07 Pre-flight: prune duplicate tool-call history
+        # (v2.9.104 write_file-specific; v2.9.108 generalized to any tool).
+        # Multiple user-observed loops where Gemma 4 emits the EXACT same
+        # tool name + args 5+ times in a row, each producing the same
+        # no-op result, ignoring the advisory:
+        #   2026-06-06 v2.9.95 sam-cell-seg: 22 writes to same path, same
+        #     content (sha8=d3bedbf3).
+        #   2026-06-06 v2.9.95 distribution-search: 3 identical
+        #     solve(p1:Real, p2:Real, conclusion:True, objective:"") calls
+        #     ending the trial.
+        # Tool-level dedup is advisory-only by design (per memory file
+        # feedback_no_tool_errors_for_loop_detection.md) and the model
+        # ignores advisories.
+        #
+        # Architectural fix: at preflight, if the current call is the
+        # 5th+ identical (same name + same args) call in history, prune
+        # the older N-1 duplicates (and their tool-result siblings) so
+        # the model's next turn sees a clean context. Exact-args match
+        # only — partial overlap doesn't count, since e.g. read_file
+        # with different offsets is legitimate progress.
+        try:
+            cur_name = tool_call.tool_name
+            cur_args_json = json.dumps(
+                tool_call.args_dict, sort_keys=True, default=str
+            )
+            dup_indices: list[int] = []
+            for i, m in enumerate(self.messages):
+                if m.role != Role.assistant or not m.tool_calls:
+                    continue
+                for tc in m.tool_calls:
+                    if tc.function.name != cur_name:
+                        continue
+                    try:
+                        a = json.loads(tc.function.arguments or "{}")
+                    except Exception:
+                        continue
+                    if json.dumps(a, sort_keys=True, default=str) == cur_args_json:
+                        dup_indices.append(i)
+                        break
+            dup_count = len(dup_indices)
+            if dup_count >= 5 and len(dup_indices) > 1:
+                to_drop = set()
+                for idx in dup_indices[:-1]:
+                    to_drop.add(idx)
+                    if idx + 1 < len(self.messages):
+                        next_m = self.messages[idx + 1]
+                        if next_m.role == Role.tool:
+                            to_drop.add(idx + 1)
+                kept = [
+                    m for i, m in enumerate(self.messages)
+                    if i not in to_drop
+                ]
+                self.messages.reset(kept)
+                logger.warning(
+                    "[PREFLIGHT-DUP] pruned %d duplicate %s calls "
+                    "(%d identical attempts in history)",
+                    len(to_drop), cur_name, dup_count,
+                )
+        except Exception as _e:
+            logger.debug("[PREFLIGHT-DUP] failed: %s", _e)
+
         # 2026-06-05 Pre-flight path validation. Operator: "why can't tool
         # calls check the right pathing BEFORE doing it?" Right answer.
         # For file tools that REQUIRE a path arg, validate before dispatch.
@@ -5286,6 +5527,68 @@ class AgentLoop:
             )
             if extra_sampling:
                 complete_kwargs["extra_sampling"] = extra_sampling
+
+            # 2026-06-06 PRD §5.3.5 Phase 2: grammar-constrained sampling
+            # for forced-tool turns. When tool_choice locks the next call
+            # to a specific tool, compile that tool's Pydantic args schema
+            # to GBNF and pass via the `grammar` field. The sampler then
+            # physically prevents invalid JSON (no broken escapes, no
+            # unescaped quotes, no raw control chars). Strips the `tools`
+            # field so the output is bare JSON args, not OpenAI tool_call
+            # envelope; we wrap the raw JSON into a synthetic tool_call
+            # below (search for "GRAMMAR_FORCED_TOOL").
+            _grammar_forced_tool: str | None = None
+            _grammar_union_engaged: bool = False
+            try:
+                from drydock.core.llm.grammar.policy import (
+                    select_grammar, apply_grammar,
+                )
+                # First, check for forced-single-tool case.
+                _grammar_gbnf, _grammar_forced_tool = select_grammar(
+                    tool_choice=tool_choice,
+                    tool_manager=self.tool_manager,
+                )
+                if _grammar_gbnf and _grammar_forced_tool:
+                    apply_grammar(
+                        complete_kwargs=complete_kwargs,
+                        grammar_gbnf=_grammar_gbnf,
+                        forced_tool_name=_grammar_forced_tool,
+                        extra_sampling=complete_kwargs.get("extra_sampling"),
+                    )
+                else:
+                    # tool_choice is auto/None: try union grammar over
+                    # all available tools. Model picks which tool inside
+                    # the grammar; we wrap the {name,arguments} envelope
+                    # into a synthetic tool_call after the call.
+                    from drydock.core.llm.grammar.policy_union import (
+                        select_union_grammar,
+                    )
+                    union_gbnf = select_union_grammar(
+                        tool_choice=tool_choice,
+                        available_tools=available_tools,
+                        tool_manager=self.tool_manager,
+                    )
+                    if union_gbnf:
+                        merged = dict(complete_kwargs.get("extra_sampling") or {})
+                        merged["grammar"] = union_gbnf
+                        complete_kwargs["extra_sampling"] = merged
+                        complete_kwargs.pop("tools", None)
+                        complete_kwargs.pop("tool_choice", None)
+                        cur_max = complete_kwargs.get("max_tokens") or 0
+                        if cur_max < 16000:
+                            complete_kwargs["max_tokens"] = 16000
+                        _grammar_union_engaged = True
+                        logger.info(
+                            "[GRAMMAR] engaged union grammar for "
+                            "auto-mode (%d chars)", len(union_gbnf),
+                        )
+            except Exception as _ge:
+                logger.warning(
+                    "[GRAMMAR] policy raised %s — falling through to "
+                    "unconstrained generation", _ge,
+                )
+                _grammar_forced_tool = None
+                _grammar_union_engaged = False
             if steering_logit_bias:
                 # Merge into extra_sampling so vLLM/Mistral backends pick it up
                 # via SamplingParams. Backends that don't understand logit_bias
@@ -5317,6 +5620,52 @@ class AgentLoop:
             processed_message = self.format_handler.process_api_response_message(
                 result.message
             )
+
+            # GRAMMAR: synthesize a tool_call from the bare JSON output
+            # produced under constrained sampling.
+            #
+            # FORCED case: output is just args, e.g. `{"path":...,"content":...}`
+            # UNION case: output is the envelope `{"name":"<tool>","arguments":{...}}`
+            if (_grammar_forced_tool or _grammar_union_engaged) and not processed_message.tool_calls:
+                raw_content = (processed_message.content or "").strip()
+                if raw_content.startswith("{"):
+                    try:
+                        from drydock.core.types import ToolCall, FunctionCall
+                        import json as _json_synth
+                        import uuid as _uuid_synth
+                        parsed = _json_synth.loads(raw_content)
+                        if _grammar_union_engaged:
+                            # Envelope shape — pull name + arguments.
+                            picked_name = parsed.get("name")
+                            picked_args = parsed.get("arguments", {})
+                            args_str = _json_synth.dumps(picked_args)
+                            tool_label = picked_name
+                        else:
+                            picked_name = _grammar_forced_tool
+                            args_str = raw_content
+                            tool_label = _grammar_forced_tool
+
+                        if isinstance(picked_name, str) and picked_name:
+                            synthetic_tc = ToolCall(
+                                id=f"grammar-{_uuid_synth.uuid4().hex[:16]}",
+                                function=FunctionCall(
+                                    name=picked_name,
+                                    arguments=args_str,
+                                ),
+                                type="function",
+                            )
+                            processed_message.tool_calls = [synthetic_tc]
+                            processed_message.content = ""
+                            logger.info(
+                                "[GRAMMAR] wrapped raw JSON output into "
+                                "synthetic tool_call for %s", tool_label,
+                            )
+                    except Exception as _se:
+                        logger.warning(
+                            "[GRAMMAR] failed to wrap raw output as "
+                            "tool_call: %s — leaving as text", _se,
+                        )
+
             self.messages.append(processed_message)
             return LLMChunk(message=processed_message, usage=result.usage)
 

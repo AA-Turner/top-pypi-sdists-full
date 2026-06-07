@@ -292,6 +292,7 @@ def test_cd_command_without_a_folder_name(executor):
 
 
 @dbtest
+@pytest.mark.skipif(os.name == 'nt', reason='todo: unknown')
 def test_cd_command_with_one_nonexistent_folder_name(executor):
     results = run(executor, 'system cd nonexistent_folder_name')
     assert_result_equal(results, status='No such file or directory', status_plain='No such file or directory')
@@ -428,6 +429,8 @@ def test_multiple_results(executor):
         ("5.5.5-10.5.8-MariaDB-1:10.5.8+maria~focal", "MariaDB", "10.5.8", 100508),
         ("5.0.16-pro-nt-log", "MySQL", "5.0.16", 50016),
         ("5.1.5a-alpha", "MySQL", "5.1.5", 50105),
+        # Plain X.Y.Z with no suffix (e.g. Homebrew MySQL)
+        ("5.7.99", "MySQL", "5.7.99", 50799),
         ("unexpected version string", None, "", 0),
         ("", None, "", 0),
         (None, None, "", 0),

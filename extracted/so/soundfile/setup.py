@@ -25,8 +25,8 @@ else:
     libname = None
 
 if libname and os.path.isdir('_soundfile_data'):
-    packages = ['_soundfile_data']
-    package_data = {'_soundfile_data': [libname, 'COPYING']}
+    packages = ['_soundfile_data', 'licensing']
+    package_data = {'_soundfile_data': [libname, 'COPYING'], 'licensing': ['license_notes.md']}
     zip_safe = False
 else:
     packages = None
@@ -87,7 +87,7 @@ setup(
     version=soundfile_version,
     description='An audio library based on libsndfile, CFFI and NumPy',
     author='Bastian Bechtold',
-    author_email='basti@bastibe.de',
+    author_email='bastibe.dev@mailbox.org',
     url='https://github.com/bastibe/python-soundfile',
     keywords=['audio', 'libsndfile'],
     py_modules=['soundfile'],
@@ -95,8 +95,9 @@ setup(
     package_data=package_data,
     zip_safe=zip_safe,
     license='BSD 3-Clause License',
+    python_requires=">=3.10",
     setup_requires=["cffi>=1.0"],
-    install_requires=['cffi>=1.0', 'numpy'],
+    install_requires=['cffi>=1.0', 'numpy', 'typing-extensions'],
     cffi_modules=["soundfile_build.py:ffibuilder"],
     extras_require={'numpy': []}, # This option is no longer relevant, but the empty entry must be left in to avoid breaking old build scripts.
     platforms='any',
@@ -109,7 +110,6 @@ setup(
         'Operating System :: OS Independent',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 2',
         'Programming Language :: Python :: Implementation :: PyPy',
         'Programming Language :: Python :: Implementation :: CPython',
         'Topic :: Multimedia :: Sound/Audio',

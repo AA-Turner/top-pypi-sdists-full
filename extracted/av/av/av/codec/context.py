@@ -272,6 +272,10 @@ class CodecContext:
         It will return all packets that are fully contained within the given
         input, and will buffer partial packets until they are complete.
 
+        Any timing information the parser is able to infer (``pts``, ``dts``,
+        ``duration``, ``pos`` and the keyframe flag) is assigned onto the
+        returned packets. Fields the parser cannot determine are left unset.
+
         :param ByteSource raw_input: A chunk of a byte-stream to process.
             Anything that can be turned into a :class:`.ByteSource` is fine.
             ``None`` or empty inputs will flush the parser's buffers.
@@ -326,6 +330,16 @@ class CodecContext:
 
                 packet = Packet(out_size)
                 memcpy(packet.ptr.data, out_data, out_size)
+
+                # Propagate the timing information the parser inferred for
+                # this frame onto the packet (mirrors FFmpeg's parse_packet).
+                packet.ptr.pts = self.parser.pts
+                packet.ptr.dts = self.parser.dts
+                packet.ptr.pos = self.parser.pos
+                if self.parser.duration:
+                    packet.ptr.duration = self.parser.duration
+                if self.parser.key_frame == 1:
+                    packet.ptr.flags |= lib.AV_PKT_FLAG_KEY
 
                 packets.append(packet)
 
@@ -462,6 +476,14 @@ class CodecContext:
         you do not want the library to automatically re-order frames for you
         (if they are encoded with a codec that has B-frames).
 
+        .. warning::
+
+            This method is **not thread-safe**. Calling :meth:`decode` concurrently
+            from multiple threads on the same :class:`CodecContext` will corrupt
+            internal FFmpeg state and likely cause a crash (segfault). FFmpeg 8.1
+            enforces this more strictly than earlier releases. If you need to decode
+            from multiple threads, give each thread its own :class:`CodecContext`.
+
         """
         if not self.codec.ptr:
             raise ValueError("cannot decode unknown codec")
@@ -589,6 +611,23 @@ class CodecContext:
             )
         else:
             raise ValueError("Codec tag should be a 4 character string.")
+
+    @property
+    @cython.cdivision(True)
+    def global_quality(self):
+        """Global quality for codecs which cannot change it per frame.
+
+        Stored internally in lambda units; this property converts to/from
+        QP units using ``FF_QP2LAMBDA``.
+
+        Wraps :ffmpeg:`AVCodecContext.global_quality`.
+
+        """
+        return self.ptr.global_quality // lib.FF_QP2LAMBDA
+
+    @global_quality.setter
+    def global_quality(self, value: cython.int):
+        self.ptr.global_quality = value * lib.FF_QP2LAMBDA
 
     @property
     def bit_rate(self):

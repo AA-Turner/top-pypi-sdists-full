@@ -16,6 +16,9 @@ from pyais.exceptions import InvalidNMEAMessageException, TagBlockNotInitialized
 from pyais.util import SIX_BIT_ENCODING, ParsedDimensions, SixBitNibleEncoder, checksum, compute_checksum, get_itdma_comm_state, get_sotdma_comm_state, chk_to_int, coerce_val, b64encode_str, is_auxiliary_craft, parse_dimensions
 
 NMEA_VALUE = typing.Union[str, float, int, bool, bytes]
+_ConverterFunc = typing.Callable[[NMEA_VALUE,], NMEA_VALUE]
+_DecoderPlan = list[tuple[str, int, int, bool, int, _ConverterFunc]]
+INT, BOOL, FLOAT, STR, BYTES = 0, 1, 2, 3, 4
 
 B_EXCLAMATION_MARK = b"!"
 B_DOLLAR_SIGN = b"$"
@@ -680,7 +683,14 @@ class Payload(abc.ABC):
     --------------
     This class serves as an abstract base class for all messages.
     Each message shall inherit from Payload and define it's set of field using the `bit_field` method.
+
+    A pre-computed decoder plan is built once per class to remove redundant work during decoding.
+    Such a decoder plan is nothing more than a simple list of decoding-instructions for each field.
+    Because message classes differ structurally each class requires its individual plan - but it
+    suffices to compute this plan once.
     """
+
+    _decoder_plan: _DecoderPlan  # just a type hint
 
     @staticmethod
     def __force_type(field: typing.Any, val: typing.Any) -> typing.Any:
@@ -763,7 +773,7 @@ class Payload(abc.ABC):
                     bits_in_buffer += width
                 else:
                     required_bits = min(width, len(val) * 8)
-                    int_value = int.from_bytes(val, 'big')
+                    int_value = int.from_bytes(val, 'big') >> (len(val) * 8 - required_bits)  # undo left-alignment
                     bit_buffer = (bit_buffer << required_bits) | int_value
                     bits_in_buffer += required_bits
             else:
@@ -816,42 +826,73 @@ class Payload(abc.ABC):
         return cls(**args)  # type:ignore
 
     @classmethod
-    def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
-        cur: int = 0
-        kwargs: typing.Dict[str, typing.Any] = {}
-
-        # Iterate over fields and data
+    def _build_plan(cls) -> _DecoderPlan:
+        """Build the decoding plan for a given message class.
+        This is done by iterating over each field of the message.
+        Then, for each field name, width, offset, data type, and conversion function are determined.
+        """
+        plan: _DecoderPlan = []
+        offset = 0
         for field in cls.fields():
-            if cur >= len(bv):
-                # All fields that did not fit into the bit array are None
-                kwargs[field.name] = None
-                continue
-
-            width = field.metadata['width']
-            d_type = field.metadata['d_type']
-            converter = field.metadata['to_converter']
-
-            val: typing.Any
-            # Get the correct data type and decoding function
-            if d_type == int or d_type == bool or d_type == float:
-                val = bv.get_num(cur, width, field.metadata['signed'])
-
-                if d_type == float:
-                    val = float(val)
-                elif d_type == bool:
-                    val = bool(val)
-
-            elif d_type == str:
-                val = bv.get_str(cur, width)
-            elif d_type == bytes:
-                val = bv.get_bytes(cur, width)
+            md = field.metadata
+            width = md['width']
+            d_type = md['d_type']
+            if d_type is int:
+                kind = INT
+            elif d_type is float:
+                kind = FLOAT
+            elif d_type is bool:
+                kind = BOOL
+            elif d_type is str:
+                kind = STR
+            elif d_type is bytes:
+                kind = BYTES
             else:
                 raise InvalidDataTypeException(d_type)
+            signed = md['signed']
+            converter = md['to_converter']
+            plan.append((field.name, offset, width, signed, kind, converter))
+            offset += width
+        return plan
 
-            val = converter(val) if converter is not None else val
-            kwargs[field.name] = val
-            cur += width
+    @classmethod
+    def decoder_plan(cls) -> _DecoderPlan:
+        """Get the decoder plan (cached) for a given message class.
+        This is stored as a class attribute for future use."""
+        plan = cls.__dict__.get('_decoder_plan')
+        if plan is None:
+            plan = cls._build_plan()
+            cls._decoder_plan = plan
+        return plan
 
+    @classmethod
+    def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
+        plan = cls.decoder_plan()
+        bv_len = len(bv)
+        kwargs: dict[str, NMEA_VALUE | None] = {}
+        val: NMEA_VALUE
+        get_num = bv.get_num
+        get_str = bv.get_str
+        get_bytes = bv.get_bytes
+
+        for name, offset, width, signed, kind, converter in plan:
+            if offset >= bv_len:
+                kwargs[name] = None
+                continue
+            if kind == INT:
+                val = get_num(offset, width, signed)
+            elif kind == FLOAT:
+                val = float(get_num(offset, width, signed))
+            elif kind == BOOL:
+                val = bool(get_num(offset, width, signed))
+            elif kind == STR:
+                val = get_str(offset, width)
+            else:
+                val = get_bytes(offset, width)
+
+            if converter is not None:
+                val = converter(val)
+            kwargs[name] = val
         return cls(**kwargs)  # type:ignore
 
     def asdict(self, enum_as_int: bool = False, ignore_spare: bool = True) -> typing.Dict[str, typing.Optional[NMEA_VALUE]]:
@@ -882,7 +923,7 @@ class Payload(abc.ABC):
         return data
 
     def to_json(self, ignore_spare: bool = True) -> str:
-        return AISJSONEncoder(indent=4).encode(self.asdict())
+        return AISJSONEncoder(indent=4).encode(self.asdict(ignore_spare=ignore_spare))
 
 
 #
@@ -1254,7 +1295,7 @@ class MessageType8Dac200Fid10(Payload):
     speed_q = bit_field(1, bool, default=False)
     course_q = bit_field(1, bool, default=False)
     heading_q = bit_field(1, bool, default=False)
-    spare = bit_field(8, bytes, default=0, is_spare=True)
+    spare = bit_field(8, bytes, default=b'', is_spare=True)
 
 
 @attr.s(slots=True)
@@ -1372,7 +1413,7 @@ class MessageType8Dac200Fid40(Payload):
     # The spec encodes nine signal states as decimal digits inside a 30-bit integer field
     status_raw = bit_field(30, int, default=0, signed=False)
 
-    spare_2 = bit_field(11, int, default=0, signed=False)
+    spare_2 = bit_field(11, bytes, default=b"", signed=False, is_spare=True)
 
     @property
     def status(self) -> list[SignalStatus]:
@@ -2122,7 +2163,7 @@ class MessageType27(Payload):
 
     accuracy = bit_field(1, bool, default=0, signed=False)
     raim = bit_field(1, bool, default=0, signed=False)
-    status = bit_field(4, int, default=NavigationStatus.Undefined, from_converter=NavigationStatus, to_converter=NavigationStatus, signed=False)
+    status = bit_field(4, int, default=NavigationStatus.Undefined, from_converter=NavigationStatus.from_value, to_converter=NavigationStatus, signed=False)
     lon = bit_field(18, float, from_converter=from_lat_lon_600, to_converter=to_lat_lon_600, default=0, signed=True)
     lat = bit_field(17, float, from_converter=from_lat_lon_600, to_converter=to_lat_lon_600, default=0, signed=True)
     speed = bit_field(6, float, default=0, signed=False)
@@ -2158,7 +2199,7 @@ class MessageType28(Payload):
     charted_status = bit_field(1, int, default=0, signed=False)
     station_status = bit_field(4, int, default=0, signed=False)
     status_bits = bit_field(8, int, default=0, signed=False)
-    spare = bit_field(1, int, default=0, signed=False)
+    spare_1 = bit_field(1, bytes, default=b'', signed=False, is_spare=True)
     auth = bit_field(1, int, default=0, signed=False)
 
     def parse_dimensions(self) -> ParsedDimensions:

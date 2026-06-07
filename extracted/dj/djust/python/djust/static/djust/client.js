@@ -853,7 +853,7 @@ class LiveViewWebSocket {
                 // have state cached by the SW.
                 if (data.public_state && typeof data.public_state === 'object' && data.view) {
                     if (!window.djust._clientState) window.djust._clientState = {};
-                    window.djust._clientState[data.view] = data.public_state;
+                    window.djust._clientState[data.view] = data.public_state; // codeql[js/remote-property-injection] -- data.view is a server-sent view name, not arbitrary user input
                 }
 
                 // Remove dj-cloak from all elements (FOUC prevention)
@@ -1091,7 +1091,7 @@ class LiveViewWebSocket {
                             target.charAt(1) !== '/'  // reject protocol-relative
                         );
                         if (isSameOriginPath) {
-                            window.location.href = target;
+                            window.location.href = target; // codeql[js/xss] -- target validated to same-origin path (charAt(0)==='/' && charAt(1)!=='/')
                         } else if (globalThis.djustDebug) {
                             console.warn(
                                 '[djust] live_redirect rejected non-same-origin target:',
@@ -6062,6 +6062,11 @@ function morphChildren(existing, desired) {
     const existingNodes = Array.from(existing.childNodes);
     const desiredNodes = Array.from(desired.childNodes);
 
+    // #1724: whether this parent preserves whitespace (<pre>/<code>/<textarea>
+    // /<script>/<style>). Inside such elements EVERY text node is significant
+    // and must NOT be skipped during element alignment.
+    const preserveWhitespace = isWhitespacePreserving(existing);
+
     // Index existing elements by id for O(1) keyed lookup
     const existingById = new Map();
     for (const node of existingNodes) {
@@ -6080,7 +6085,42 @@ function morphChildren(existing, desired) {
             eIdx++;
         }
         // eslint-disable-next-line security/detect-object-injection
-        const eNode = eIdx < existingNodes.length ? existingNodes[eIdx] : null;
+        let eNode = eIdx < existingNodes.length ? existingNodes[eIdx] : null;
+
+        // #1724: whitespace text-node alignment. Real SSR HTML parsed into the
+        // DOM via innerHTML carries inter-element whitespace text nodes (the
+        // newlines/indentation between sibling elements). When the desired
+        // node is an element but the positional existing node is an
+        // insignificant whitespace-only text node, the old code fell through
+        // every element-matching strategy (they all require
+        // eNode.nodeType === ELEMENT_NODE) to Strategy 3 — clone+insert — and
+        // then removed the real existing element in the unmatched-cleanup
+        // loop. That is the wholesale remove+add the reporter observed (a
+        // Chart.js <canvas> on the existing subtree went blank because its
+        // ancestor element was replaced rather than morphed in place).
+        //
+        // Fix: when the desired node is an element OR a dj-if boundary comment
+        // (a significant child), skip past any insignificant whitespace-only
+        // existing text nodes so the strategies align on the next real
+        // existing element/marker. Skipped whitespace nodes stay unmatched and
+        // are pruned by the cleanup loop (they are reinserted from the desired
+        // side when the desired side carries its own whitespace). Significant
+        // text (preserveWhitespace, NBSP, non-blank) and dj-if comment markers
+        // are NOT skipped — isSignificantChild owns that rule (shared with the
+        // path/index resolvers, #1655/#1678).
+        const dNodeIsSignificantElementish =
+            dNode.nodeType === Node.ELEMENT_NODE ||
+            (dNode.nodeType === Node.COMMENT_NODE && isDjIfComment(dNode.textContent));
+        if (dNodeIsSignificantElementish) {
+            while (eNode &&
+                   eNode.nodeType === Node.TEXT_NODE &&
+                   !matched.has(eNode) &&
+                   !isSignificantChild(eNode, preserveWhitespace)) {
+                eIdx++;
+                // eslint-disable-next-line security/detect-object-injection
+                eNode = eIdx < existingNodes.length ? existingNodes[eIdx] : null;
+            }
+        }
 
         // --- Text node ---
         if (dNode.nodeType === Node.TEXT_NODE) {
@@ -9562,13 +9602,18 @@ window.djust.getActiveStreams = getActiveStreams;
      * or by data attributes on the container.
      */
     function resolveViewPath(pathname) {
-        // Check the route map (populated by live_session)
+        // Check the route map. As of #1733 it is auto-derived from the
+        // Django URLconf and auto-emitted by {% djust_client_config %};
+        // live_session() entries are merged in as well.
         const routeMap = window.djust._routeMap || {};
 
-        // Try exact match first. `pathname` is user-controllable (URL
-        // path) so the lookup must be prototype-pollution-immune: walk
-        // own entries explicitly via `Object.entries` rather than
-        // indexing with `routeMap[pathname]`. Closes #1361.
+        // #1361 — `pathname` is user-controllable (URL path). With the route
+        // map now populated on EVERY page by default (#1733), the lookup must
+        // be prototype-pollution-immune. We walk OWN enumerable entries via
+        // `Object.entries` (never `routeMap[pathname]` bracket-indexing), so
+        // a polluted `Object.prototype` (e.g. `Object.prototype.toString`)
+        // and inherited keys like `constructor` can never resolve to a view.
+        // Do NOT reintroduce `routeMap[pathname]` here — it would reopen #1361.
         for (const [routePath, viewPath] of Object.entries(routeMap)) {
             if (routePath === pathname) return viewPath;
         }

@@ -94,6 +94,12 @@ def register_mocks(mocker):
                 text='Error', status_code=500
             )),
             stack.enter_context(mocker.register_uri(
+                'GET', 'http://example.com/query/plaintext_error',
+                content=b'No intersection between cutout and image',
+                headers={'Content-Type': 'text/plain; charset=utf-8'},
+                status_code=500
+            )),
+            stack.enter_context(mocker.register_uri(
                 'GET', 'http://example.com/query/errorstatus',
                 content=get_pkg_data_contents('data/query/errorstatus.xml')
             )),
@@ -114,7 +120,7 @@ def register_mocks(mocker):
 
         def useragent_callback(request, context):
             assert 'User-Agent' in request.headers
-            assert request.headers['User-Agent'] == 'pyVO/{} Python/{} ({})'.format(
+            assert request.headers['User-Agent'] == 'pyvo-unittest pyVO/{} Python/{} ({}) (IVOA-test)'.format(
                 version, platform.python_version(), platform.system())
             return get_pkg_data_contents('data/query/basic.xml')
 
@@ -225,6 +231,14 @@ class TestDALService:
         else:
             assert False
 
+    def test_http_exception_message_preserved(self):
+        query = DALQuery('http://example.com/query/plaintext_error')
+        stream = query.execute_stream()
+        stream.read()
+        with pytest.raises(DALServiceError) as exc_info:
+            query.raise_if_error()
+        assert 'No intersection between cutout and image' in str(exc_info.value)
+
     def test_query_exception(self):
         service = DALService('http://example.com/query/errorstatus')
 
@@ -287,6 +301,31 @@ class TestDALQuery:
 
         assert raw.startswith(b'<?xml')
         assert raw.strip().endswith(b'</VOTABLE>')
+
+    def test_execute_stream_clears_stale_ex_on_success(self, mocker):
+        query = DALQuery('http://example.com/query/basic')
+        with mocker.register_uri('GET', '//example.com/query/basic',
+                                 text='Server Error', status_code=500):
+            query.execute_stream()
+        assert query._ex is not None
+
+        with mocker.register_uri('GET', '//example.com/query/basic',
+                                 content=get_pkg_data_contents('data/query/basic.xml')):
+            query.execute_stream()
+        assert query._ex is None
+
+    def test_execute_votable_raises_parse_error_not_stale_http_error(self, mocker):
+        query = DALQuery('http://example.com/query/basic')
+        with mocker.register_uri('GET', '//example.com/query/basic',
+                                 text='Server Error', status_code=500):
+            query.execute_stream()
+        assert query._ex is not None
+
+        with mocker.register_uri('GET', '//example.com/query/basic',
+                                 content=b'not valid votable xml',
+                                 status_code=200):
+            with pytest.raises(DALFormatError):
+                query.execute_votable()
 
 
 @pytest.mark.filterwarnings('ignore::astropy.io.votable.exceptions.W03')

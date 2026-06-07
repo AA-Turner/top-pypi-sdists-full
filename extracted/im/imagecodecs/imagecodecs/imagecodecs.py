@@ -40,7 +40,8 @@ image formats, and data transforms:
 Zlib (DEFLATE), GZIP, LZMA, ZStandard (ZSTD), Blosc, Brotli, Snappy, BZ2,
 LZ4, LZ4F, LZ4HC, LZ4H5, LZW, LZO, LZF, LZFSE, LZHAM, PGLZ (PostgreSQL LZ),
 RCOMP (Rice), HCOMP, PLIO, ZFP, SZ3, Meshopt, Pcodec, SPERR, AEC, SZIP, LERC,
-EER, NPY, BCn, DDS, BMP, PNG, APNG, GIF, PCX/DCX, TGA (TARGA), TIFF, WebP,
+EER, ZSTD1 (Zstd with hilo filter), NPY,
+BCn, DDS, BMP, PNG, APNG, GIF, PCX/DCX, TGA (TARGA), TIFF, WebP,
 JPEG (2 to 16-bit), Lossless JPEG (LJPEG, LJ92, JPEGLL), JPEG 2000 (JP2, J2K),
 High-throughput JPEG 2000 (HTJ2K, JPH), JPEG LS, JPEG XL, JPEG XS,
 JPEG XR (WDP, HD Photo), Ultra HDR (JPEG_R), MOZJPEG, AVIF, HEIF, EXR,
@@ -55,7 +56,7 @@ Jenkins lookup3.
 
 :Author: `Christoph Gohlke <https://www.cgohlke.com>`_
 :License: BSD-3-Clause
-:Version: 2026.5.10
+:Version: 2026.6.6
 :DOI: `10.5281/zenodo.6915978 <https://doi.org/10.5281/zenodo.6915978>`_
 
 Quickstart
@@ -84,8 +85,8 @@ Requirements
 This revision was tested with the following requirements and dependencies
 (other versions may work):
 
-- `CPython <https://www.python.org>`_ 3.12.10, 3.13.13, 3.14.4 64-bit
-- `numpy <https://pypi.org/project/numpy>`_ 2.4.4
+- `CPython <https://www.python.org>`_ 3.12.10, 3.13.13, 3.14.5, 3.15.0b2 64-bit
+- `numpy <https://pypi.org/project/numpy>`_ 2.4.6
 - `zarr <https://pypi.org/project/zarr/>`_ 3.2.1
   (optional, for Zarr 3 compatible codecs)
 - `numcodecs <https://pypi.org/project/numcodecs/>`_ 0.16.5
@@ -93,28 +94,28 @@ This revision was tested with the following requirements and dependencies
 
 Build requirements:
 
-- `cython <https://github.com/cython/cython>`_ 3.2.4
+- `cython <https://github.com/cython/cython>`_ 3.2.5
 - `brotli <https://github.com/google/brotli>`_ 1.2.0
 - `bzip2 <https://gitlab.com/bzip2/bzip2>`_ 1.0.8
 - `c-blosc <https://github.com/Blosc/c-blosc>`_ 1.21.6
-- `c-blosc2 <https://github.com/Blosc/c-blosc2>`_ 3.0.2
+- `c-blosc2 <https://github.com/Blosc/c-blosc2>`_ 3.1.2
 - `charls <https://github.com/team-charls/charls>`_ 2.4.3
 - `giflib <https://sourceforge.net/projects/giflib/>`_ 6.1.3
 - `jxrlib <https://github.com/cgohlke/jxrlib>`_ 1.2
 - `lcms2 <https://github.com/mm2/Little-CMS>`_ 2.19.1
 - `lerc <https://github.com/Esri/lerc>`_ 4.1.0
-- `libaec <https://gitlab.dkrz.de/k202009/libaec>`_ 1.1.6
-- `libavif <https://github.com/AOMediaCodec/libavif>`_ 1.4.1
-  (`aom <https://aomedia.googlesource.com/aom>`_ 3.13.3,
+- `libaec <https://github.com/Deutsches-Klimarechenzentrum/libaec>`_ 1.1.7
+- `libavif <https://github.com/AOMediaCodec/libavif>`_ 1.4.2
+  (`aom <https://aomedia.googlesource.com/aom>`_ 3.14.1,
   `dav1d <https://github.com/videolan/dav1d>`_ 1.5.3,
   `rav1e <https://github.com/xiph/rav1e>`_ 0.8.1,
   `svt-av1 <https://gitlab.com/AOMediaCodec/SVT-AV1>`_ 4.1.0,
   `libyuv <https://chromium.googlesource.com/libyuv/libyuv>`_ main,
   `libxml2 <https://gitlab.gnome.org/GNOME/libxml2>`_ 2.15.3)
 - `libdeflate <https://github.com/ebiggers/libdeflate>`_ 1.25
-- `libheif <https://github.com/strukturag/libheif>`_ 1.21.2
-  (`libde265 <https://github.com/strukturag/libde265>`_ 1.0.18,
-  `x265 <https://bitbucket.org/multicoreware/x265_git/src/master/>`_ 4.1)
+- `libheif <https://github.com/strukturag/libheif>`_ 1.23.0
+  (`libde265 <https://github.com/strukturag/libde265>`_ 1.1.1,
+  `x265 <https://bitbucket.org/multicoreware/x265_git/src/master/>`_ 4.2)
 - `libjpeg-turbo <https://github.com/libjpeg-turbo/libjpeg-turbo>`_ 3.1.4.1
 - `libjxl <https://github.com/libjxl/libjxl>`_ 0.11.2
 - `libjxs <https://jpeg.org/jpegxs/software.html>`_ 2.0.2
@@ -126,9 +127,9 @@ Build requirements:
 - `libwebp <https://github.com/webmproject/libwebp>`_ 1.6.0
 - `lz4 <https://github.com/lz4/lz4>`_ 1.10.0
 - `meshoptimizer <https://github.com/zeux/meshoptimizer>`_ 1.1
-- `openexr <https://github.com/AcademySoftwareFoundation/openexr>`_ 3.4.11
+- `openexr <https://github.com/AcademySoftwareFoundation/openexr>`_ 3.4.12
 - `openjpeg <https://github.com/uclouvain/openjpeg>`_ 2.5.4
-- `openjph <https://github.com/aous72/OpenJPH>`_ 0.27.2
+- `openjph <https://github.com/aous72/OpenJPH>`_ 0.27.4
 - `pcodec <https://github.com/mwlon/pcodec>`_ 1.0.2
 - `snappy <https://github.com/google/snappy>`_ 1.2.2
 - `sperr <https://github.com/NCAR/SPERR>`_ 0.8.5
@@ -176,22 +177,33 @@ Bundled source files:
 
 Test requirements:
 
-- `tifffile <https://github.com/cgohlke/tifffile>`_ 2026.5.2
-- `czifile <https://github.com/cgohlke/czifile>`_ 2026.4.30
+- `tifffile <https://github.com/cgohlke/tifffile>`_ 2026.6.1
+- `czifile <https://github.com/cgohlke/czifile>`_ 2026.6.6
 - `liffile <https://github.com/cgohlke/liffile>`_ 2026.4.11
 - `kerchunk <https://github.com/fsspec/kerchunk>`_ 0.2.10
 - `python-blosc <https://github.com/Blosc/python-blosc>`_ 1.11.4
-- `python-blosc2 <https://github.com/Blosc/python-blosc2>`_ 4.2.0
+- `python-blosc2 <https://github.com/Blosc/python-blosc2>`_ 4.4.2
 - `python-brotli <https://github.com/google/brotli/tree/master/python>`_ 1.2.0
 - `python-lz4 <https://github.com/python-lz4/python-lz4>`_ 4.4.5
 - `python-lzf <https://github.com/teepark/python-lzf>`_ 0.2.6
 - `python-snappy <https://github.com/andrix/python-snappy>`_ 0.6.1
 - `pyliblzfse <https://github.com/ydkhatri/pyliblzfse>`_ 0.4.1
-- `backports.zstd <https://github.com/rogdham/backports.zstd>`_ 1.3.0
+- `backports.zstd <https://github.com/rogdham/backports.zstd>`_ 1.5.0
 - `zopflipy <https://github.com/hattya/zopflipy>`_ 1.12
 
 Revisions
 ---------
+
+2026.6.6
+
+- Limit IntEnum parameters to documented values (breaking).
+- Optimize lzw_decode and remove buffersize parameter (breaking).
+- Fix floatpred_encode for zero-stride data (#138).
+- Add ZSTD1 codec with optional hilo byte shuffle and BGR to RGB conversion.
+- Add cms_info function.
+- Add spng_encode filter parameter.
+- Add Zarr 3 compatible PCX and TGA codecs.
+- Support Python 3.15.
 
 2026.5.10
 
@@ -541,7 +553,7 @@ View the image in the JP2 file from the command line::
 
 from __future__ import annotations
 
-__version__ = '2026.5.10'
+__version__ = '2026.6.6'
 
 import contextlib
 import functools
@@ -610,6 +622,7 @@ _MODULES: dict[str, list[str]] = {
         'CMS',
         'CmsError',
         'cms_check',
+        'cms_info',
         'cms_version',
         'cms_transform',
         'cms_profile',
@@ -678,6 +691,7 @@ _MODULES: dict[str, list[str]] = {
     '_zlibng': ['ZLIBNG', 'zlibng_adler32', 'zlibng_crc32'],
     '_zopfli': ['ZOPFLI'],
     '_zstd': ['ZSTD'],
+    '_zstd1': ['ZSTD1'],
 }
 
 # map extra to existing attributes

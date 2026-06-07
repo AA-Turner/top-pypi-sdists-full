@@ -201,9 +201,9 @@ def search_hybrid(km, keyword: str, limit: int = 20, *, biz_context: str | None 
         sem_results = []
 
     if not sem_results:
-        # Still set relevance for keyword-only results
-        for i, r in enumerate(kw_results[:limit]):
-            r["relevance"] = round(1.0 - i * 0.01, 4) if i < 100 else 0.0
+        # Keyword-only: preserve original score, set relevance from score
+        for r in kw_results[:limit]:
+            r["relevance"] = min(float(r.get("score", 0)) / 10.0, 1.0)
         return kw_results[:limit]
 
     # RRF (Reciprocal Rank Fusion)

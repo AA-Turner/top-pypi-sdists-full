@@ -216,7 +216,7 @@ cdef const uint8_t[::1] _readable_input(data):
             src = data.reshape(-1).view(numpy.uint8)
         except Exception:
             # buffer protocol
-            src = data.tobytes()
+            src = memoryview(data).tobytes()
     return src
 
 
@@ -249,7 +249,7 @@ cdef const uint8_t[::1] _writable_input(data):
                 src = writable
             except Exception:
                 # buffer protocol
-                src = data.tobytes()
+                src = memoryview(data).tobytes()
 
     return src
 
@@ -314,7 +314,7 @@ cdef _enum_value(value, enum_class, default=None):
         return default
     if isinstance(value, str):
         return enum_class[value.upper()]
-    return value
+    return enum_class(value)
 
 
 cdef uint8_t _default_threads(numthreads):
@@ -372,29 +372,29 @@ class ExtraSample(enum.IntEnum):
 class IC(enum.IntFlag):
     """Image codec capability flags."""
 
-    GRAY = IC_GRAY
-    RGB = IC_RGB
-    PALETTE = IC_PALETTE
-    CMYK = IC_CMYK
-    YCBCR = IC_YCBCR
-    CIELAB = IC_CIELAB
-    ICCLAB = IC_ICCLAB
-    FRAMES = IC_FRAMES
-    PLANAR = IC_PLANAR
-    DEPTH = IC_DEPTH
-    ALPHA = IC_ALPHA
-    EXTRA = IC_EXTRA
-    UINT = IC_UINT
-    SINT = IC_SINT
-    FLOAT = IC_FLOAT
-    COMPLEX = IC_COMPLEX
-    BOOL = IC_BOOL
-    SZ1 = IC_SZ1
-    SZ2 = IC_SZ2
-    SZ4 = IC_SZ4
-    SZ8 = IC_SZ8
-    SZ16 = IC_SZ16
-    BPS = IC_BPS
+    GRAY = IC_GRAY  # grayscale photometric supported
+    RGB = IC_RGB  # RGB photometric supported
+    PALETTE = IC_PALETTE  # palette/indexed photometric supported
+    CMYK = IC_CMYK  # CMYK photometric supported
+    YCBCR = IC_YCBCR  # YCbCr photometric supported
+    CIELAB = IC_CIELAB  # CIELab photometric supported
+    ICCLAB = IC_ICCLAB  # ICCLab photometric supported
+    FRAMES = IC_FRAMES  # multiple frames supported
+    PLANAR = IC_PLANAR  # planar sample layout supported
+    DEPTH = IC_DEPTH  # volumetric depth axis supported
+    ALPHA = IC_ALPHA  # alpha channel supported
+    EXTRA = IC_EXTRA  # extra samples beyond alpha supported
+    UINT = IC_UINT  # unsigned integer samples supported
+    SINT = IC_SINT  # signed integer samples supported
+    FLOAT = IC_FLOAT  # floating-point samples supported
+    COMPLEX = IC_COMPLEX  # complex samples supported
+    BOOL = IC_BOOL  # boolean samples supported
+    SZ1 = IC_SZ1  # 1-byte item size supported
+    SZ2 = IC_SZ2  # 2-byte item size supported
+    SZ4 = IC_SZ4  # 4-byte item size supported
+    SZ8 = IC_SZ8  # 8-byte item size supported
+    SZ16 = IC_SZ16  # 16-byte item size supported
+    BPS = IC_BPS  # custom bits-per-sample supported
 
 
 @dataclasses.dataclass(slots=True, frozen=True)

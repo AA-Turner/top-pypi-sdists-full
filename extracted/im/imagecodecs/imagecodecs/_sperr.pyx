@@ -145,16 +145,7 @@ def sperr_encode(
     ):
         raise ValueError(f'invalid {dimx=}, {dimy=}, or {dimz=}')
 
-    if mode in {1, 2, 3}:
-        mode_ = mode
-    elif mode == 'bpp':
-        mode_ = 1
-    elif mode == 'psnr':
-        mode_ = 2
-    elif mode == 'pwe':
-        mode_ = 3
-    else:
-        raise ValueError(f'invalid SPERR {mode=!r}')
+    mode_ = _enum_value(mode, SPERR.MODE)
 
     with nogil:
         if src.ndim == 2:

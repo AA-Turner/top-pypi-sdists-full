@@ -57,6 +57,7 @@ class VALOR32KV2TRetrieval(AbsTaskRetrieval):
         description=(
             "Retrieve the description that matches a given video clip (video only) "
             "from the VALOR-32K benchmark of vision-audio-language understanding."
+            " Used the official `desc_test.json` test split (~3,491 examples)."
         ),
         reference="https://arxiv.org/abs/2304.08345",
         dataset={"path": _DATASET_PATH, "revision": _DATASET_REVISION},
@@ -75,6 +76,7 @@ class VALOR32KV2TRetrieval(AbsTaskRetrieval):
         sample_creation="found",
         bibtex_citation=_BIBTEX,
         prompt={"query": "Find the description that matches the following video."},
+        is_beta=True,
     )
 
     def load_data(self, num_proc: int | None = None, **kwargs) -> None:
@@ -87,6 +89,7 @@ class VALOR32KT2VRetrieval(AbsTaskRetrieval):
         description=(
             "Retrieve the video clip (video only) that matches a given description "
             "from the VALOR-32K benchmark of vision-audio-language understanding."
+            " Used the official `desc_test.json` test split (~3,491 examples)."
         ),
         reference="https://arxiv.org/abs/2304.08345",
         dataset={"path": _DATASET_PATH, "revision": _DATASET_REVISION},
@@ -105,6 +108,7 @@ class VALOR32KT2VRetrieval(AbsTaskRetrieval):
         sample_creation="found",
         bibtex_citation=_BIBTEX,
         prompt={"query": "Find the video clip that matches the given description."},
+        is_beta=True,
     )
 
     def load_data(self, num_proc: int | None = None, **kwargs) -> None:
@@ -117,6 +121,7 @@ class VALOR32KVA2TRetrieval(AbsTaskRetrieval):
         description=(
             "Retrieve the description that matches a given video+audio clip "
             "from the VALOR-32K benchmark of vision-audio-language understanding."
+            " Used the official `desc_test.json` test split (~3,491 examples)."
         ),
         reference="https://arxiv.org/abs/2304.08345",
         dataset={"path": _DATASET_PATH, "revision": _DATASET_REVISION},
@@ -135,6 +140,7 @@ class VALOR32KVA2TRetrieval(AbsTaskRetrieval):
         sample_creation="found",
         bibtex_citation=_BIBTEX,
         prompt={"query": "Find the description that matches the following video."},
+        is_beta=True,
     )
 
     def load_data(self, num_proc: int | None = None, **kwargs) -> None:
@@ -149,6 +155,7 @@ class VALOR32KT2VARetrieval(AbsTaskRetrieval):
         description=(
             "Retrieve the video+audio clip that matches a given description "
             "from the VALOR-32K benchmark of vision-audio-language understanding."
+            " Used the official `desc_test.json` test split (~3,491 examples)."
         ),
         reference="https://arxiv.org/abs/2304.08345",
         dataset={"path": _DATASET_PATH, "revision": _DATASET_REVISION},
@@ -167,6 +174,7 @@ class VALOR32KT2VARetrieval(AbsTaskRetrieval):
         sample_creation="found",
         bibtex_citation=_BIBTEX,
         prompt={"query": "Find the video clip that matches the given description."},
+        is_beta=True,
     )
 
     def load_data(self, num_proc: int | None = None, **kwargs) -> None:
@@ -182,6 +190,7 @@ class VALOR32KV2ARetrieval(AbsTaskRetrieval):
             "Retrieve the audio track that matches a given video clip from the "
             "VALOR-32K benchmark of vision-audio-language understanding. Tests "
             "cross-modal alignment between video frames and audio."
+            " Used the official `desc_test.json` test split (~3,491 examples)."
         ),
         reference="https://arxiv.org/abs/2304.08345",
         dataset={"path": _DATASET_PATH, "revision": _DATASET_REVISION},
@@ -200,6 +209,7 @@ class VALOR32KV2ARetrieval(AbsTaskRetrieval):
         sample_creation="found",
         bibtex_citation=_BIBTEX,
         prompt={"query": "Find the audio that corresponds to the following video."},
+        is_beta=True,
     )
 
     def load_data(self, num_proc: int | None = None, **kwargs) -> None:
@@ -213,6 +223,7 @@ class VALOR32KA2VRetrieval(AbsTaskRetrieval):
             "Retrieve the video clip that matches a given audio track from the "
             "VALOR-32K benchmark of vision-audio-language understanding. Tests "
             "cross-modal alignment between audio and video frames."
+            " Used the official `desc_test.json` test split (~3,491 examples)."
         ),
         reference="https://arxiv.org/abs/2304.08345",
         dataset={"path": _DATASET_PATH, "revision": _DATASET_REVISION},
@@ -231,7 +242,82 @@ class VALOR32KA2VRetrieval(AbsTaskRetrieval):
         sample_creation="found",
         bibtex_citation=_BIBTEX,
         prompt={"query": "Find the video that corresponds to the following audio."},
+        is_beta=True,
     )
 
     def load_data(self, num_proc: int | None = None, **kwargs) -> None:
         _load_valor(self, query_columns=["audio"], corpus_columns=["video"])
+
+
+class VALOR32KVT2ARetrieval(AbsTaskRetrieval):
+    metadata = TaskMetadata(
+        name="VALOR32KVT2ARetrieval",
+        description=(
+            "Retrieve the audio track that matches a given video clip and its "
+            "description from the VALOR-32K benchmark of vision-audio-language "
+            "understanding."
+            " Used the official `desc_test.json` test split (~3,491 examples)."
+        ),
+        reference="https://arxiv.org/abs/2304.08345",
+        dataset={"path": _DATASET_PATH, "revision": _DATASET_REVISION},
+        type="Any2AnyRetrieval",
+        category="vt2a",
+        eval_splits=["test"],
+        eval_langs=["eng-Latn"],
+        main_score="ndcg_at_10",
+        modalities=["video", "text", "audio"],
+        date=("2023-04-01", "2023-04-30"),
+        domains=["Web", "Spoken"],
+        task_subtypes=["Cross-Modal Retrieval"],
+        license="not specified",
+        annotations_creators="human-annotated",
+        dialect=[],
+        sample_creation="found",
+        bibtex_citation=_BIBTEX,
+        prompt={
+            "query": "Find the audio that corresponds to the following video and its description."
+        },
+        is_beta=True,
+    )
+
+    def load_data(self, num_proc: int | None = None, **kwargs) -> None:
+        _load_valor(
+            self, query_columns=["video", "description"], corpus_columns=["audio"]
+        )
+
+
+class VALOR32KAT2VRetrieval(AbsTaskRetrieval):
+    metadata = TaskMetadata(
+        name="VALOR32KAT2VRetrieval",
+        description=(
+            "Retrieve the video clip that matches a given audio track and its "
+            "description from the VALOR-32K benchmark of vision-audio-language "
+            "understanding."
+            " Used the official `desc_test.json` test split (~3,491 examples)."
+        ),
+        reference="https://arxiv.org/abs/2304.08345",
+        dataset={"path": _DATASET_PATH, "revision": _DATASET_REVISION},
+        type="Any2AnyRetrieval",
+        category="at2v",
+        eval_splits=["test"],
+        eval_langs=["eng-Latn"],
+        main_score="ndcg_at_10",
+        modalities=["audio", "text", "video"],
+        date=("2023-04-01", "2023-04-30"),
+        domains=["Web", "Spoken"],
+        task_subtypes=["Cross-Modal Retrieval"],
+        license="not specified",
+        annotations_creators="human-annotated",
+        dialect=[],
+        sample_creation="found",
+        bibtex_citation=_BIBTEX,
+        prompt={
+            "query": "Find the video that corresponds to the following audio and its description."
+        },
+        is_beta=True,
+    )
+
+    def load_data(self, num_proc: int | None = None, **kwargs) -> None:
+        _load_valor(
+            self, query_columns=["audio", "description"], corpus_columns=["video"]
+        )

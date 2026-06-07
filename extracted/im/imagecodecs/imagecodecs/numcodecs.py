@@ -85,6 +85,7 @@ __all__ = [
     'Packbits',
     'Packints',
     'Pcodec',
+    'Pcx',
     'Pglz',
     'Pixarlog',
     'Png',
@@ -97,6 +98,7 @@ __all__ = [
     'Spng',
     'Sz3',
     'Szip',
+    'Tga',
     'Tiff',
     'Ultrahdr',
     'Wavpack',
@@ -108,6 +110,7 @@ __all__ = [
     'Zlibng',
     'Zopfli',
     'Zstd',
+    'Zstd1',
     'register_codecs',
 ]
 
@@ -2091,6 +2094,32 @@ class Pcodec(Codec):
         )
 
 
+class Pcx(Codec):
+    """PCX codec for numcodecs."""
+
+    codec_id = 'imagecodecs_pcx'
+
+    def __init__(
+        self,
+        *,
+        index: int | None = None,
+        squeeze: Literal[False] | Sequence[int] | None = None,
+    ) -> None:
+        if not imagecodecs.PCX.available:
+            msg = 'imagecodecs.PCX not available'
+            raise ValueError(msg)
+
+        self.index = None if index is None else int(index)
+        self.squeeze = squeeze
+
+    def encode(self, buf):
+        buf = _image(buf, self.squeeze)
+        return imagecodecs.pcx_encode(buf)
+
+    def decode(self, buf, out=None):
+        return imagecodecs.pcx_decode(buf, index=self.index, out=out)
+
+
 class Pglz(Codec):
     """PGLZ codec for numcodecs."""
 
@@ -2590,6 +2619,32 @@ class Szip(Codec):
         )
 
 
+class Tga(Codec):
+    """TGA codec for numcodecs."""
+
+    codec_id = 'imagecodecs_tga'
+
+    def __init__(
+        self,
+        *,
+        rle: bool = False,
+        squeeze: Literal[False] | Sequence[int] | None = None,
+    ) -> None:
+        if not imagecodecs.TGA.available:
+            msg = 'imagecodecs.TGA not available'
+            raise ValueError(msg)
+
+        self.rle = bool(rle)
+        self.squeeze = squeeze
+
+    def encode(self, buf):
+        buf = _image(buf, self.squeeze)
+        return imagecodecs.tga_encode(buf, rle=self.rle)
+
+    def decode(self, buf, out=None):
+        return imagecodecs.tga_decode(buf, out=out)
+
+
 class Tiff(Codec):
     """TIFF codec for numcodecs."""
 
@@ -2612,7 +2667,7 @@ class Tiff(Codec):
         rowsperstrip: int | None = None,
         bitspersample: int | None = None,
         compression: imagecodecs.TIFF.COMPRESSION | int | str | None = None,
-        subcodec: imagecodecs.TIFF.COMPRESSION | int | str | None = None,
+        subcodec: imagecodecs.TIFF.SUBCODEC | int | str | None = None,
         level: int | None = None,
         predictor: bool | imagecodecs.TIFF.PREDICTOR | int | str | None = None,
         colormap: ArrayLike | None = None,
@@ -2649,7 +2704,7 @@ class Tiff(Codec):
         self.compression = _enum_name(
             compression, imagecodecs.TIFF.COMPRESSION
         )
-        self.subcodec = _enum_name(subcodec, imagecodecs.TIFF.COMPRESSION)
+        self.subcodec = _enum_name(subcodec, imagecodecs.TIFF.SUBCODEC)
         self.level = None if level is None else int(level)
         self.predictor = (
             predictor
@@ -3127,6 +3182,43 @@ class Zstd(Codec):
 
     def decode(self, buf, out=None):
         return imagecodecs.zstd_decode(buf, out=_flat(out))
+
+
+class Zstd1(Codec):
+    """Zstd1 codec for numcodecs."""
+
+    codec_id = 'imagecodecs_zstd1'
+
+    def __init__(
+        self,
+        *,
+        level: int | None = None,
+        itemsize: int = 1,
+        samples: int = 1,
+        hilo: bool | None = None,
+    ) -> None:
+        if not imagecodecs.ZSTD1.available:
+            msg = 'imagecodecs.ZSTD1 not available'
+            raise ValueError(msg)
+
+        self.level = None if level is None else int(level)
+        self.itemsize = int(itemsize)
+        self.samples = int(samples)
+        self.hilo = None if hilo is None else bool(hilo)
+
+    def encode(self, buf):
+        hilo = (self.itemsize > 1) if self.hilo is None else self.hilo
+        return imagecodecs.zstd1_encode(
+            buf,
+            level=self.level,
+            itemsize=self.itemsize,
+            hilo=hilo,
+        )
+
+    def decode(self, buf, out=None):
+        return imagecodecs.zstd1_decode(
+            buf, itemsize=self.itemsize, samples=self.samples, out=_flat(out)
+        )
 
 
 def _flat(buf: Any, /) -> memoryview | None:

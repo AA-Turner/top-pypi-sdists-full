@@ -16,10 +16,12 @@ import contextvars
 import functools
 import logging
 import sys
+import threading
 import warnings
 
+from collections.abc import Callable, Collection, Iterable, Sequence
 from functools import partial
-from typing import Any, Callable, Collection, Dict, Iterable, Sequence, cast
+from typing import Any, cast
 
 
 if sys.version_info >= (3, 11):
@@ -32,7 +34,11 @@ from . import _config
 from ._base import BoundLoggerBase
 from ._frames import _find_first_app_frame_and_name, _format_stack
 from ._log_levels import LEVEL_TO_NAME, NAME_TO_LEVEL, add_log_level
-from .contextvars import _ASYNC_CALLING_STACK, merge_contextvars
+from .contextvars import (
+    _ASYNC_CALLING_STACK,
+    _ASYNC_CALLING_THREAD,
+    merge_contextvars,
+)
 from .exceptions import DropEvent
 from .processors import StackInfoRenderer
 from .typing import (
@@ -92,7 +98,7 @@ def recreate_defaults(*, log_level: int | None = logging.NOTSET) -> None:
             format="%(message)s",
             stream=sys.stdout,
             level=log_level,
-            **kw,  # type: ignore[arg-type]
+            **kw,  # type: ignore[call-overload]
         )
 
     _config.reset_defaults()
@@ -406,6 +412,31 @@ class BoundLogger(BoundLoggerBase):
         """
         return self._logger.isEnabledFor(level)
 
+    def is_enabled_for(self, level: int) -> bool:
+        """
+        A snake_case alias of `isEnabledFor` for compatibility with
+        `structlog.typing.FilteringBoundLogger`.
+
+        .. note::
+
+           This method is more complex than the native `is_enabled_for` since
+           it supports standard library-only features like
+           :attr:`logging.Logger.disabled` while the native one only compares
+           log levels.
+
+        .. versionadded:: 26.1.0
+        """
+        return self._logger.isEnabledFor(level)
+
+    def get_effective_level(self) -> int:
+        """
+        A snake_case alias of `getEffectiveLevel` for compatibility with
+        `structlog.typing.FilteringBoundLogger`.
+
+        .. versionadded:: 26.1.0
+        """
+        return self._logger.getEffectiveLevel()
+
     def getChild(self, suffix: str) -> logging.Logger:
         """
         Calls :meth:`logging.Logger.getChild` with unmodified arguments.
@@ -423,6 +454,10 @@ class BoundLogger(BoundLoggerBase):
         """
         Merge contextvars and log using the sync logger in a thread pool.
         """
+        # Capture thread-specific info before handing off to the executor.
+        thread_token = _ASYNC_CALLING_THREAD.set(
+            (threading.get_ident(), threading.current_thread().name)
+        )
         scs_token = _ASYNC_CALLING_STACK.set(sys._getframe().f_back.f_back)  # type: ignore[union-attr, arg-type, unused-ignore]
         ctx = contextvars.copy_context()
 
@@ -433,6 +468,7 @@ class BoundLogger(BoundLoggerBase):
             )
         finally:
             _ASYNC_CALLING_STACK.reset(scs_token)
+            _ASYNC_CALLING_THREAD.reset(thread_token)
 
     async def adebug(self, event: str, *args: Any, **kw: Any) -> None:
         """
@@ -526,14 +562,9 @@ class AsyncBoundLogger:
     """
     Wraps a `BoundLogger` & exposes its logging methods as ``async`` versions.
 
-    Instead of blocking the program, they are run asynchronously in a thread
-    pool executor.
-
-    This means more computational overhead per log call. But it also means that
-    the processor chain (e.g. JSON serialization) and I/O won't block your
-    whole application.
-
-    Only available for Python 3.7 and later.
+    This approach has turned out to be a mistake and the class has been
+    deprecated in 23.1.0. Use the regular `BoundLogger` with its a-prefixed
+    methods instead.
 
     .. versionadded:: 20.2.0
     .. versionchanged:: 20.2.0 fix _dispatch_to_sync contextvars usage
@@ -631,6 +662,10 @@ class AsyncBoundLogger:
         """
         Merge contextvars and log using the sync logger in a thread pool.
         """
+        # Capture thread-specific info before handing off to the executor.
+        thread_token = _ASYNC_CALLING_THREAD.set(
+            (threading.get_ident(), threading.current_thread().name)
+        )
         scs_token = _ASYNC_CALLING_STACK.set(sys._getframe().f_back.f_back)  # type: ignore[union-attr, arg-type, unused-ignore]
         ctx = contextvars.copy_context()
 
@@ -641,6 +676,7 @@ class AsyncBoundLogger:
             )
         finally:
             _ASYNC_CALLING_STACK.reset(scs_token)
+            _ASYNC_CALLING_THREAD.reset(thread_token)
 
     async def debug(self, event: str, *args: Any, **kw: Any) -> None:
         await self._dispatch_to_sync(self.sync_bl.debug, event, args, kw)
@@ -1121,7 +1157,7 @@ class ProcessorFormatter(logging.Formatter):
             # We need to copy because it's possible that the same record gets
             # processed by multiple logging formatters. LogRecord.getMessage
             # would transform our dict into a str.
-            ed = cast(Dict[str, Any], record.msg).copy()
+            ed = cast(dict[str, Any], record.msg).copy()
             ed["_record"] = record
             ed["_from_structlog"] = True
         else:

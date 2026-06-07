@@ -9,12 +9,13 @@ class HMDB51Clustering(AbsTaskClustering):
         name="HMDB51Clustering",
         description=(
             "Clustering of video clips into 51 human action categories from "
-            "HMDB51, a large video database for human motion recognition."
+            "HMDB51, a large video database for human motion recognition. "
+            "Used official split 1 across 51 action classes (~3,570 train / ~1,530 test)."
         ),
         reference="https://serre-lab.clps.brown.edu/resource/hmdb-a-large-human-motion-database/",
         dataset={
             "path": "mteb/HMDB51",
-            "revision": "73e5ac9cd9536c406d0046f3d6046785885f7ebe",
+            "revision": "7f9af5438a855e9348fb23ecb5ec740a9c21daf3",
         },
         type="VideoClustering",
         category="v2c",
@@ -31,12 +32,12 @@ class HMDB51Clustering(AbsTaskClustering):
         sample_creation="found",
         bibtex_citation=r"""
 @inproceedings{kuehne2011hmdb,
-    title = {HMDB: a large video database for human motion recognition},
-    author = {Kuehne, Hildegard and Jhuang, Hueihan and Garrote, Est{\'\i}baliz and Poggio, Tomaso and Serre, Thomas},
-    booktitle = {2011 International Conference on Computer Vision},
-    pages = {2556--2563},
-    year = {2011},
-    organization = {IEEE},
+  author = {Kuehne, Hildegard and Jhuang, Hueihan and Garrote, Est{\'\i}baliz and Poggio, Tomaso and Serre, Thomas},
+  booktitle = {2011 International Conference on Computer Vision},
+  organization = {IEEE},
+  pages = {2556--2563},
+  title = {HMDB: a large video database for human motion recognition},
+  year = {2011},
 }
 """,
         is_beta=True,

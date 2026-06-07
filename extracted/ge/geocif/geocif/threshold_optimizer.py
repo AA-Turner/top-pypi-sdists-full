@@ -26,30 +26,33 @@ For each (country, crop, season) declared in config, this runner:
    metric-vs-threshold PNG with companion plot-data CSV under
    ``${PATHS:dir_output}/{project_name}/ml/analysis/{today}/threshold_sweep_summary/``.
 
-Floor vs ceiling — both paste-ready, different production knobs
+Floor vs ceiling — two distinct selection modes, both paste-ready
 --------------------------------------------------------------------
-As of geoprepare 0.6.254, both sweep directions apply the SAME
-absolute-threshold mask (``afi_vals >= T * 100``) — identical to
-production geoextract's masking primitive in
-``geoprepare/extract/extract_EO.py`` (``crop_valid = afi_data[0] >=
-afi_thresh``). The two directions differ only in WHICH production
-knob the resulting best-T maps to, and the threshold RANGE each
-typically covers:
+As of geoprepare 0.6.264, the two sweep directions apply DIFFERENT
+selection rules — matched to the two modes production geoextract
+supports via the shared ``geoprepare.utils.build_crop_valid_mask``
+helper. The sweep and production share the same primitive, so
+best-T is paste-mappable in either direction:
 
-  * ``floor``  T = keep cells with crop fraction >= T%. Typical range
-                 [0..50%]. Pooled-best maps to:
+  * ``floor``  T = ABSOLUTE: keep cells with crop fraction >= T%
+                 (``afi_vals >= T * 100``). Typical range [0..50%].
+                 Pooled-best maps to:
                      [<country>] threshold = True
                      [<country>] floor = T
 
-  * ``ceiling`` T = keep cells with crop fraction >= T%. Typical range
-                 [50..95%]. Pooled-best maps to:
+  * ``ceiling`` T = RANK-BASED: keep the top T% of in-region cropland
+                 cells ranked by crop fraction (descending). Useful
+                 when absolute crop fractions are low across the
+                 whole region but the relatively-best cells still
+                 characterise the crop signal. Typical range
+                 [5..50%]. Pooled-best maps to:
                      [<country>] threshold = False
                      [<country>] ceil = T
 
-Sweeping two non-overlapping T ranges from one analysis run lets the
-user tune either production knob without re-running extract_sweep.
-The "Pick" column in the table tells you which knob to use; the
-"Apply" column gives the paste-ready config snippet.
+Sweeping both modes in one analysis run lets the user tune either
+production knob without re-running extract_sweep. The "Pick" column
+in the table tells you which knob to use; the "Apply" column gives
+the paste-ready config snippet.
 """
 import ast
 import logging
@@ -155,6 +158,25 @@ class ThresholdOptimizer(base.BaseGeo):
             self.dir_output / "ml" / "analysis" / self.today_tag
             / "threshold_sweep_summary" / country / crop
         )
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    def regions_dir(self, country: str, crop: str, season: int) -> Path:
+        """Subfolder under summary_dir holding per-region PNG + CSV pairs
+        for one season. Separating per-region plots from the country-wide
+        plot keeps the country dir flat and the regions dir scannable.
+        """
+        d = self.summary_dir(country, crop) / f"regions_s{season}"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    def cross_country_dir(self) -> Path:
+        """Subfolder under cumulative_root() holding cross-country
+        cumulative outputs (plots, tables, lookup). Sitting in its own
+        dir keeps aggregation levels visually separated from the
+        per-country subdirs that live at the same depth.
+        """
+        d = self.cumulative_root() / "cross_country"
         d.mkdir(parents=True, exist_ok=True)
         return d
 
@@ -523,10 +545,10 @@ class ThresholdOptimizer(base.BaseGeo):
         if not df_pooled.empty:
             best = df_pooled.iloc[0]
             best_t = int(best['threshold'])
-            # Direction-specific interpretation — geoprepare 0.6.254+
-            # makes both directions apply the same absolute-threshold
-            # mask (afi_vals >= T*100). They differ only in which
-            # production knob the best-T paste-maps to.
+            # Direction-specific interpretation — geoprepare 0.6.264+
+            # uses DIFFERENT selection rules per direction: floor is
+            # absolute (afi >= T*100), ceiling is rank-based (top T% of
+            # in-region cropland cells by crop fraction).
             if best['direction'] == 'floor':
                 interp = (
                     f"(absolute: keep cells with crop fraction >= {best_t}%; "
@@ -534,8 +556,9 @@ class ThresholdOptimizer(base.BaseGeo):
                 )
             else:
                 interp = (
-                    f"(absolute: keep cells with crop fraction >= {best_t}%; "
-                    f"paste as [<country>] ceil = {best_t}, threshold = False)"
+                    f"(rank-based: keep top {best_t}% of in-region cropland "
+                    f"cells by crop fraction; paste as "
+                    f"[<country>] ceil = {best_t}, threshold = False)"
                 )
             self.logger.info(
                 f"  POOLED BEST for ({country}, {crop}, s{season}): "
@@ -549,15 +572,17 @@ class ThresholdOptimizer(base.BaseGeo):
              country: str, crop: str, season: int, out_dir: Path) -> None:
         """Two-panel metric-vs-threshold plot.
 
-        Floor and ceiling get separate panels because they typically
-        sweep non-overlapping T ranges (floor in [0..50], ceiling in
-        [50..95]) and map to different production knobs even though
-        the masking primitive is identical:
-          * floor   T → [<country>] floor = T, threshold = True
-          * ceiling T → [<country>] ceil  = T, threshold = False
-        Both apply ``afi_vals >= T*100`` (geoprepare 0.6.254+, matching
-        production geoextract). The two-panel layout makes the
-        threshold-range separation visually obvious.
+        Floor and ceiling get separate panels because they apply
+        DIFFERENT selection rules and typically sweep different T
+        ranges (geoprepare 0.6.264+, mirrored from production
+        geoextract via ``utils.build_crop_valid_mask``):
+          * floor   T = absolute, ``afi_vals >= T*100``
+                      → [<country>] floor = T, threshold = True
+          * ceiling T = rank-based, top T% of in-region cropland cells
+                      → [<country>] ceil  = T, threshold = False
+        The T value means different things in the two panels, so
+        comparing them numerically is not meaningful — the layout
+        separates them so the user picks one knob to tune.
 
         Each panel keeps the thin-per-region + bold-pooled pattern.
         The red best-threshold marker is drawn ONLY on the panel
@@ -670,6 +695,117 @@ class ThresholdOptimizer(base.BaseGeo):
         self.logger.info(f"  wrote {png_path}")
         self.logger.info(f"  wrote {plot_csv}")
 
+        # Per-region plots — one PNG + CSV per region under
+        # regions_s{season}/. The country-wide figure above already
+        # overlays all regions as thin lines, but that view crowds at
+        # 30+ regions and hides per-region noise. The separate per-
+        # region plots let the user diagnose individual regions (flat
+        # signal? wrong best-T? trustworthy=False everywhere?).
+        self._plot_per_region(
+            df_ranked, df_pooled, country, crop, season, plt,
+            metric_label=metric_label, panels=panels,
+        )
+
+    def _plot_per_region(self, df_ranked, df_pooled, country, crop, season,
+                         plt, metric_label, panels) -> None:
+        """One two-panel PNG per region — same axes/conventions as the
+        country-wide plot in :meth:`plot`, just scoped to a single
+        region with the country-pooled curve drawn lightly for context.
+        """
+        regions = sorted(df_ranked["region"].dropna().unique())
+        if not regions:
+            return
+
+        regions_out = self.regions_dir(country, crop, season)
+        for region in regions:
+            sub_region = df_ranked[df_ranked["region"] == region]
+            if sub_region.empty:
+                continue
+
+            fig, (ax_floor, ax_ceil) = plt.subplots(
+                1, 2, figsize=(14, 5), sharey=True,
+            )
+            axes = {"floor": ax_floor, "ceiling": ax_ceil}
+            ascending = self.metric_name == "loocv_rmse"
+            for direction, (_, xlabel, subtitle) in panels.items():
+                ax = axes[direction]
+                grp = sub_region[sub_region["direction"] == direction]
+                if not grp.empty:
+                    grp_sorted = grp.sort_values("threshold")
+                    ax.plot(
+                        grp_sorted["threshold"], grp_sorted["metric_value"],
+                        color="#1f77b4", linewidth=1.8,
+                        marker="o", markersize=4,
+                        label=region,
+                    )
+                    # Region's own best-T marker.
+                    trusted = grp_sorted[grp_sorted["trustworthy"]]
+                    if not trusted.empty:
+                        if ascending:
+                            best_row = trusted.loc[trusted["metric_value"].idxmin()]
+                        else:
+                            best_row = trusted.loc[trusted["metric_value"].idxmax()]
+                        ax.axvline(
+                            best_row["threshold"], color="red", linestyle=":",
+                            linewidth=1.3, alpha=0.8,
+                            label=f"best: {int(best_row['threshold'])}",
+                        )
+                # Light country-pooled reference curve so the user can
+                # see where this region sits relative to the country.
+                if not df_pooled.empty:
+                    sub_pooled = df_pooled[df_pooled["direction"] == direction]
+                    if not sub_pooled.empty:
+                        sub_pooled_sorted = sub_pooled.sort_values("threshold")
+                        ax.plot(
+                            sub_pooled_sorted["threshold"],
+                            sub_pooled_sorted["pooled_metric"],
+                            color="black", linewidth=1.2, alpha=0.5,
+                            linestyle="--", label="country pooled",
+                        )
+                if grp.empty:
+                    ax.text(
+                        0.5, 0.5, f"(no {direction} data)",
+                        ha="center", va="center", transform=ax.transAxes,
+                        fontsize=11, alpha=0.6,
+                    )
+                ax.set_xlabel(xlabel)
+                ax.set_title(f"{direction}\n({subtitle})", fontsize=10)
+                ax.grid(True, alpha=0.3)
+                _, labels = ax.get_legend_handles_labels()
+                if labels:
+                    ax.legend(loc="best", fontsize=8)
+
+            ax_floor.set_ylabel(metric_label)
+            fig.suptitle(
+                f"{country} {crop} s{season} — {region} — "
+                f"{metric_label} vs threshold",
+                fontsize=12,
+            )
+            fig.tight_layout(rect=[0, 0, 1, 0.96])
+
+            # Slugify region for filesystem safety — replace whitespace
+            # and path separators (some HarvestStat region names have
+            # slashes / commas / spaces).
+            slug = (
+                str(region).strip()
+                .replace("/", "-").replace("\\", "-")
+                .replace(" ", "_").replace(",", "")
+            )
+            png_path = regions_out / f"{slug}.png"
+            fig.savefig(png_path, dpi=120)
+            plt.close(fig)
+
+            csv_data = sub_region[[
+                "region", "direction", "threshold",
+                "metric_value", "trustworthy",
+            ]].copy()
+            csv_path = regions_out / f"{slug}_plot_data.csv"
+            csv_data.to_csv(csv_path, index=False)
+
+        self.logger.info(
+            f"  wrote {len(regions)} per-region plots → {regions_out}"
+        )
+
     # ----------------------------------------------------------------------
     # Cross-country cumulative plot
     # ----------------------------------------------------------------------
@@ -742,7 +878,7 @@ class ThresholdOptimizer(base.BaseGeo):
         module (caller imports once and passes in so we don't reimport
         per combo).
         """
-        cum_root = self.cumulative_root()
+        cross_dir = self.cross_country_dir()
         ascending = self.metric_name == "loocv_rmse"
         metric_label = (
             "|Pearson r|" if self.metric_name == "pearson" else "LOOCV RMSE"
@@ -832,7 +968,7 @@ class ThresholdOptimizer(base.BaseGeo):
         )
         fig.tight_layout(rect=[0, 0, 1, 0.95])
 
-        png_path = cum_root / f"cumulative_{crop}_s{season}.png"
+        png_path = cross_dir / f"cumulative_{crop}_s{season}.png"
         fig.savefig(png_path, dpi=130)
         plt.close(fig)
         return png_path
@@ -847,19 +983,16 @@ class ThresholdOptimizer(base.BaseGeo):
         """Matplotlib-rendered table image for one (crop, season).
         Returns (png_path, csv_path). Columns:
         Country | Floor T | Floor metric | Ceiling T | Ceiling metric |
-        Pick | Apply.
+        Pick.
 
         Sorted by max(floor, ceiling) descending for Pearson, ascending
-        for LOOCV RMSE — best countries at the top.
-
-        Both directions now apply identical absolute-threshold masking
-        (geoprepare 0.6.254+), so the Apply column gives a paste-ready
-        production-config string for BOTH floor-pick and ceiling-pick
-        rows. The only difference is the production knob being set:
-            floor   → [<country>] floor = T, threshold = True
-            ceiling → [<country>] ceil  = T, threshold = False
+        for LOOCV RMSE — best countries at the top. The Pick column
+        names the winning direction (floor | ceiling); the row tint
+        (teal vs. pink) reinforces it visually. The paste-ready config
+        snippet (floor/ceil = T, threshold = True/False) is implicit
+        from Pick + the corresponding T column.
         """
-        cum_root = self.cumulative_root()
+        cross_dir = self.cross_country_dir()
         ascending = self.metric_name == "loocv_rmse"
         metric_label = (
             "|r|" if self.metric_name == "pearson" else "RMSE"
@@ -899,14 +1032,6 @@ class ThresholdOptimizer(base.BaseGeo):
             return "—"
         table_df["pick"] = table_df.apply(_pick, axis=1)
 
-        def _apply(row):
-            if row["pick"] == "floor" and pd.notna(row.get("floor_T")):
-                return f"floor = {int(row['floor_T'])}, threshold = True"
-            if row["pick"] == "ceiling" and pd.notna(row.get("ceil_T")):
-                return f"ceil = {int(row['ceil_T'])}, threshold = False"
-            return "—"
-        table_df["apply"] = table_df.apply(_apply, axis=1)
-
         # Sort by the better-of-the-two metric so the best countries
         # are at the top of the table.
         if ascending:
@@ -917,13 +1042,11 @@ class ThresholdOptimizer(base.BaseGeo):
             table_df = table_df.sort_values("sort_key", ascending=False, na_position="last")
         table_df = table_df.drop(columns="sort_key").reset_index(drop=True)
 
-        # Render matplotlib table. Wider figure (15 → was 11) gives the
-        # Apply column room for the longer "ceil = T, threshold = False"
-        # string without clipping. tight_layout + bbox_inches="tight"
-        # still trim whitespace.
+        # Without the Apply column the table is narrower; shrink the
+        # figure width accordingly so cells aren't sparse.
         n_rows = len(table_df)
         fig_height = max(2.5, 0.32 * n_rows + 1.2)
-        fig, ax = plt.subplots(figsize=(15, fig_height))
+        fig, ax = plt.subplots(figsize=(11, fig_height))
         ax.axis("off")
         ax.set_title(
             f"Cross-country best thresholds — {crop} season {season} "
@@ -931,13 +1054,10 @@ class ThresholdOptimizer(base.BaseGeo):
             fontsize=12, pad=12,
         )
 
-        # Shortened "Apply" header — the column has narrow space; full
-        # explanation lives in the docstring and the cell text itself
-        # is already self-describing (paste-ready snippets).
         col_labels = [
             "Country", "Floor T", f"Floor {metric_label}",
             "Ceiling T", f"Ceiling {metric_label}",
-            "Pick", "Apply (paste into [<country>])",
+            "Pick",
         ]
         cell_text = []
         for _, row in table_df.iterrows():
@@ -948,14 +1068,13 @@ class ThresholdOptimizer(base.BaseGeo):
                 "—" if pd.isna(row["ceil_T"]) else str(int(row["ceil_T"])),
                 "—" if pd.isna(row["ceil_metric"]) else f"{row['ceil_metric']:.3f}",
                 row["pick"],
-                row["apply"],
             ])
         if not cell_text:
             cell_text = [["(no data)" for _ in col_labels]]
 
-        # Explicit column-width allocation — Country, Apply are wide;
-        # numeric T / |r| / Pick are narrow. Sums to 1.0.
-        col_widths = [0.20, 0.07, 0.10, 0.08, 0.10, 0.08, 0.37]
+        # Country gets the widest column; numeric T / |r| / Pick are
+        # narrow. Sums to 1.0.
+        col_widths = [0.28, 0.11, 0.16, 0.12, 0.16, 0.17]
         tbl = ax.table(
             cellText=cell_text, colLabels=col_labels,
             colWidths=col_widths,
@@ -969,8 +1088,7 @@ class ThresholdOptimizer(base.BaseGeo):
             cell = tbl[(0, j)]
             cell.set_facecolor("#2b6cb0")
             cell.set_text_props(color="white", weight="bold")
-        # Tint floor-pick (light teal) vs ceiling-pick (light red).
-        # Now that both directions are paste-ready, the colour is purely
+        # Tint floor-pick (light teal) vs ceiling-pick (light red) —
         # a navigation cue for which production knob to toggle:
         # teal → threshold = True (floor); red → threshold = False (ceil).
         for i, row in table_df.iterrows():
@@ -979,14 +1097,14 @@ class ThresholdOptimizer(base.BaseGeo):
                 tbl[(i + 1, j)].set_facecolor(colour)
 
         fig.tight_layout()
-        png_path = cum_root / f"cumulative_{crop}_s{season}_table.png"
+        png_path = cross_dir / f"cumulative_{crop}_s{season}_table.png"
         fig.savefig(png_path, dpi=140, bbox_inches="tight")
         plt.close(fig)
 
         # Companion CSV — the same data behind the image. Keep the raw
         # underscored country name (not the Title-Cased display version)
         # so downstream code can still group/join on it.
-        csv_path = cum_root / f"cumulative_{crop}_s{season}_table.csv"
+        csv_path = cross_dir / f"cumulative_{crop}_s{season}_table.csv"
         table_df.to_csv(csv_path, index=False)
         return png_path, csv_path
 
@@ -1035,7 +1153,7 @@ class ThresholdOptimizer(base.BaseGeo):
             )
             return
 
-        cum_root = self.cumulative_root()
+        cross_dir = self.cross_country_dir()
         combos = sorted(set(zip(all_pooled["crop"], all_pooled["season"])))
         lookup_rows = []
         for crop, season in combos:
@@ -1064,7 +1182,7 @@ class ThresholdOptimizer(base.BaseGeo):
                     plot_data["direction"], plot_data["threshold"],
                 )
             ]
-            csv_plot = cum_root / f"cumulative_{crop}_s{season}_plot_data.csv"
+            csv_plot = cross_dir / f"cumulative_{crop}_s{season}_plot_data.csv"
             plot_data.to_csv(csv_plot, index=False)
 
             # Table image + its companion CSV
@@ -1087,7 +1205,7 @@ class ThresholdOptimizer(base.BaseGeo):
         # glance, per the plot-CSV-pairs convention's "lookup table"
         # requirement (see memory: feedback_plot_csv_pairs.md).
         if lookup_rows:
-            lookup_path = cum_root / "lookup_cumulative.csv"
+            lookup_path = cross_dir / "lookup_cumulative.csv"
             pd.DataFrame(lookup_rows).to_csv(lookup_path, index=False)
             self.logger.info(f"  wrote {lookup_path}")
 

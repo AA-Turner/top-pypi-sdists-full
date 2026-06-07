@@ -39,8 +39,9 @@ class IrodoriDiTConfig(BaseModelArgs):
     adaln_rank: int = 192
     norm_eps: float = 1e-5
 
-    # Caption (Voice Design) conditioning — mutually exclusive with speaker
+    # Caption (Voice Design) conditioning — can coexist with speaker (v3 VoiceDesign dual mode)
     use_caption_condition: bool = False
+    use_speaker_condition: Optional[bool] = None
     caption_vocab_size: Optional[int] = None
     caption_tokenizer_repo: Optional[str] = None
     caption_add_bos: Optional[bool] = None
@@ -49,9 +50,24 @@ class IrodoriDiTConfig(BaseModelArgs):
     caption_heads: Optional[int] = None
     caption_mlp_ratio: Optional[float] = None
 
+    # Duration predictor (v3)
+    use_duration_predictor: bool = False
+    duration_aux_dim: int = 14
+    duration_hidden_dim: int = 1024
+    duration_layers: int = 3
+    duration_dropout: float = 0.1
+    duration_attention_heads: int = 8
+    duration_architecture: str = "token_sum_adarn_zero_no_aux"
+    duration_token_init_frames: float = 9.0
+    duration_speaker_fusion: str = "adarn_zero"
+    duration_caption_fusion: str = "adarn_zero"
+    duration_caption_pooling: str = "masked_mean"
+
     @property
-    def use_speaker_condition(self) -> bool:
-        return not self.use_caption_condition
+    def use_speaker_condition_resolved(self) -> bool:
+        if self.use_speaker_condition is None:
+            return not self.use_caption_condition
+        return bool(self.use_speaker_condition)
 
     @property
     def caption_vocab_size_resolved(self) -> int:
@@ -139,6 +155,13 @@ class SamplerConfig(BaseModelArgs):
     speaker_kv_min_t: Optional[float] = 0.9
     speaker_kv_max_layers: Optional[int] = None
     sequence_length: int = 750
+    # Sway Sampling (v3)
+    t_schedule_mode: str = "linear"
+    sway_coeff: float = -1.0
+    # Duration prediction (v3)
+    duration_scale: float = 1.0
+    min_seconds: float = 0.5
+    max_seconds: float = 30.0
 
 
 @dataclass

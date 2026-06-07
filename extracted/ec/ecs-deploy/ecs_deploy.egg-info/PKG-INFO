@@ -1,40 +1,35 @@
 Metadata-Version: 2.4
 Name: ecs-deploy
-Version: 1.15.2
+Version: 1.16.0
 Summary: Powerful CLI tool to simplify Amazon ECS deployments, rollbacks & scaling
 Home-page: https://github.com/fabfuel/ecs-deploy
-Download-URL: https://github.com/fabfuel/ecs-deploy/archive/1.15.2.tar.gz
+Download-URL: https://github.com/fabfuel/ecs-deploy/archive/1.16.0.tar.gz
 Author: Fabian Fuelling
 Author-email: pypi@fabfuel.de
 License: BSD-3-Clause
 Platform: any
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Description-Content-Type: text/x-rst
 License-File: LICENSE.rst
-Requires-Dist: click<9,>=7.1.2
-Requires-Dist: click-log==0.3.2
-Requires-Dist: botocore>=1.32.6
-Requires-Dist: boto3>=1.29.6
-Requires-Dist: future
-Requires-Dist: requests<2.30.0
-Requires-Dist: dictdiffer>=0.9.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
 Dynamic: description
+Dynamic: description-content-type
 Dynamic: download-url
 Dynamic: home-page
 Dynamic: license
 Dynamic: license-file
 Dynamic: platform
-Dynamic: requires-dist
 Dynamic: summary
 
 ECS Deploy
@@ -189,6 +184,13 @@ To redeploy a service without any modifications, but pulling the most recent ima
 This will duplicate the current task definition and cause the service to redeploy all running tasks.::
 
     $ ecs deploy my-cluster my-service
+
+Force a new deployment
+======================
+To ask ECS to start a new deployment even when the service is already using the requested task definition, pass
+``--force-new-deployment``. This is useful when an image tag points to a new digest and you want ECS to resolve it again.::
+
+    $ ecs deploy my-cluster my-service --force-new-deployment
 
 
 Deploy a new tag

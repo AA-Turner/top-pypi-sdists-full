@@ -73,8 +73,8 @@ _requires_rasterio_and_dask = pytest.mark.skipif(
     ),
 )
 
-from xrspatial.geotiff import (SUPPORTED_FEATURES, UnsafeURLError, open_geotiff,  # noqa: E402
-                               read_geotiff_dask, to_geotiff)
+from xrspatial.geotiff import (SUPPORTED_FEATURES, UnsafeURLError, _read_geotiff_dask,  # noqa: E402
+                               open_geotiff, to_geotiff)
 from xrspatial.geotiff._compression import (COMPRESSION_DEFLATE, COMPRESSION_LZW,  # noqa: E402
                                             COMPRESSION_NONE, COMPRESSION_PACKBITS,
                                             COMPRESSION_ZSTD)
@@ -870,7 +870,7 @@ def test_release_gate_dask_read_is_lazy(tmp_path) -> None:
 # disagree between the eager and dask paths is the highest release risk
 # for the GeoTIFF surface. This block reads each fixture in a small
 # representative corpus once through ``open_geotiff`` and once through
-# ``read_geotiff_dask``, then asserts full raster equivalence.
+# ``_read_geotiff_dask``, then asserts full raster equivalence.
 
 # Corpus fixtures live under ``golden_corpus/fixtures``.
 _EAGER_DASK_FIXTURES_DIR = (
@@ -1023,8 +1023,17 @@ def test_release_gate_eager_dask_full_parity(
             f"`python -m xrspatial.geotiff.tests.golden_corpus.generate`"
         )
 
-    eager = open_geotiff(str(path), **open_kwargs)
-    lazy = read_geotiff_dask(
+    # Both ``_read_geotiff_dask`` and ``open_geotiff`` now default to
+    # unmasked (``mask_nodata=False`` / ``masked=False``, see #2976).
+    # Mirror the dask masking choice on the eager call so the two
+    # backends are compared under the same masking policy, while still
+    # honouring an explicit ``mask_nodata=`` in ``open_kwargs`` (the
+    # masked-nodata-lifecycle scenario).
+    eager_kwargs = {"masked": open_kwargs.get("mask_nodata", False),
+                    **{k: v for k, v in open_kwargs.items()
+                       if k != "mask_nodata"}}
+    eager = open_geotiff(str(path), **eager_kwargs)
+    lazy = _read_geotiff_dask(
         str(path), chunks=_EAGER_DASK_CHUNK_SIZE, **open_kwargs,
     )
 
@@ -1549,16 +1558,19 @@ def _overview_assert_transform_scales(
 
 
 def _overview_read_levels_eager(path: str) -> dict:
-    out = {0: open_geotiff(path)}
+    out = {0: open_geotiff(path, masked=True)}
     for i, _ in enumerate(_OVERVIEW_FACTORS, start=1):
-        out[i] = open_geotiff(path, overview_level=i)
+        out[i] = open_geotiff(path, masked=True, overview_level=i)
     return out
 
 
 def _overview_read_levels_dask(path: str) -> dict:
-    out = {0: read_geotiff_dask(path, chunks=8)}
+    # Mirror the eager helper's ``masked=True``; the backend default is
+    # unmasked (#2976) so masking must be requested explicitly.
+    out = {0: _read_geotiff_dask(path, chunks=8, mask_nodata=True)}
     for i, _ in enumerate(_OVERVIEW_FACTORS, start=1):
-        out[i] = read_geotiff_dask(path, chunks=8, overview_level=i)
+        out[i] = _read_geotiff_dask(
+            path, chunks=8, overview_level=i, mask_nodata=True)
     return out
 
 
@@ -1904,7 +1916,7 @@ def _wsp_open_eager(path, *, window=None):
 
 
 def _wsp_open_dask(path, *, window=None):
-    return read_geotiff_dask(str(path), window=window, chunks=32)
+    return _read_geotiff_dask(str(path), window=window, chunks=32)
 
 
 _WSP_READERS = (
@@ -2367,7 +2379,7 @@ def test_release_gate_negative_rotated_dask(
 ) -> None:
     """Dask path raises the same typed error, uniformly with the eager path."""
     with pytest.raises(RotatedTransformError) as excinfo:
-        read_geotiff_dask(_neg_rotated_geotiff_path, chunks=2)
+        _read_geotiff_dask(_neg_rotated_geotiff_path, chunks=2)
     _neg_assert_rotated_message(str(excinfo.value))
 
 

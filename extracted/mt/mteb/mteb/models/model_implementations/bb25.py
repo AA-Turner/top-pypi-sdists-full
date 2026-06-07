@@ -164,10 +164,7 @@ def bb25_loader(model_name, **kwargs) -> SearchProtocol:
             logger.info("Encoding Queries...")
             query_ids = list(queries["id"])
             results: RetrievalOutputType = {qid: {} for qid in query_ids}
-            processed = queries.map(
-                _combine_queries_with_instruction_text,
-                desc="Processing queries for dataloading",
-            )
+            processed = _combine_queries_with_instruction_text(queries)
             queries_texts = processed["text"]
             query_tokenized = self._encode(queries_texts)
 
@@ -281,8 +278,8 @@ bb25_model = ModelMeta(
     open_weights=True,
     revision="0_1_1",
     release_date="2026-02-06",
-    n_parameters=None,
-    n_embedding_parameters=None,
+    n_parameters=0,
+    n_embedding_parameters=0,
     memory_usage_mb=None,
     embed_dim=None,
     license=None,

@@ -16,6 +16,7 @@ from smplkit import Error, NotFoundError
 from smplkit._generated.audit.client import AuthenticatedClient as _AuditAuthClient
 from smplkit.audit import (
     Forwarder,
+    ForwarderEnvironment,
     ForwarderType,
     HttpConfiguration,
     HttpHeader,
@@ -35,19 +36,22 @@ def _forwarder_resource(
     id_: str = FWD_ID,
     name: str = "Datadog production",
     description: str | None = None,
-    enabled: bool = True,
     forwarder_type: str = "datadog",
     filter_: dict[str, Any] | None = None,
     transform: Any = None,
     transform_type: str | None = None,
+    environments: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    # The base ``enabled`` is server-pinned false (ADR-055); the audit
+    # service always returns it false regardless of per-environment state.
     return {
         "id": id_,
         "type": "forwarder",
         "attributes": {
             "name": name,
             "forwarder_type": forwarder_type,
-            "enabled": enabled,
+            "enabled": False,
+            "environments": environments if environments is not None else {},
             "description": description,
             "filter": filter_,
             "transform": transform,
@@ -156,14 +160,48 @@ class TestModels:
         assert f.deleted_at is None
         assert f.description is None
         assert f.transform_type is None
+        # Base ``enabled`` is server-pinned false; no environments by default.
+        assert f.enabled is False
+        assert f.environments == {}
         # No client attached when _from_resource is called bare.
         assert f._client is None
 
-    def test_forwarder_repr(self):
-        f = Forwarder._from_resource(_forwarder_resource())
+    def test_forwarder_from_resource_reads_environments(self):
+        # Per-environment overrides round-trip on read: enablement plus an
+        # optional configuration override (redacted headers, like the base).
+        f = Forwarder._from_resource(
+            _forwarder_resource(
+                environments={
+                    "production": {"enabled": True},
+                    "staging": {
+                        "enabled": False,
+                        "configuration": {
+                            "method": "POST",
+                            "url": "https://staging.siem.example.com/in",
+                            "headers": [{"name": "DD-API-KEY", "value": "<redacted>"}],
+                            "success_status": "2xx",
+                        },
+                    },
+                }
+            )
+        )
+        assert f.environments["production"].enabled is True
+        assert f.environments["production"].configuration is None
+        assert f.environments["staging"].enabled is False
+        assert f.environments["staging"].configuration is not None
+        assert f.environments["staging"].configuration.url == "https://staging.siem.example.com/in"
+        assert f.environments["staging"].configuration.headers[0].value == "<redacted>"
+
+    def test_forwarder_repr_shows_enabled_environments(self):
+        f = Forwarder._from_resource(
+            _forwarder_resource(environments={"production": {"enabled": True}, "staging": {"enabled": False}})
+        )
         r = repr(f)
         assert "Datadog production" in r
         assert FWD_ID in r
+        # Only environments where the forwarder is enabled show in the repr.
+        assert "production" in r
+        assert "staging" not in r
 
 
 # ---------------------------------------------------------------------------
@@ -229,6 +267,120 @@ class TestForwardersCrud:
         assert "user.created" in captured["body"]
         assert "Forwards user.* events." in captured["body"]
         assert "JSONATA" in captured["body"]
+
+    def test_new_with_environments_dict_round_trips_on_create(self):
+        # The environments map travels on create. A bare ``{"enabled": True}``
+        # dict is the lightweight form; a per-env configuration override is
+        # sent as a full plaintext HttpConfiguration (like the base).
+        captured: dict[str, Any] = {}
+
+        def handler(req: httpx.Request) -> httpx.Response:
+            captured["body"] = req.content.decode()
+            return httpx.Response(
+                201,
+                json={
+                    "data": _forwarder_resource(
+                        environments={
+                            "production": {"enabled": True},
+                            "staging": {
+                                "enabled": True,
+                                "configuration": {
+                                    "method": "POST",
+                                    "url": "https://staging.example.com/in",
+                                    "headers": [{"name": "X-Env", "value": "<redacted>"}],
+                                    "success_status": "2xx",
+                                },
+                            },
+                        }
+                    )
+                },
+            )
+
+        c = _client_with_handler(handler)
+        fwd = c.forwarders.new(
+            FWD_ID,
+            name="x",
+            forwarder_type="http",
+            configuration=HttpConfiguration(url="https://prod.example.com/in"),
+            environments={
+                "production": {"enabled": True},
+                "staging": {
+                    "enabled": True,
+                    "configuration": HttpConfiguration(
+                        url="https://staging.example.com/in",
+                        headers=[HttpHeader(name="X-Env", value="staging-secret")],
+                    ),
+                },
+            },
+        )
+        fwd.save()
+        # The map is on the wire, with the per-env override's plaintext header.
+        assert '"environments"' in captured["body"]
+        assert '"production"' in captured["body"]
+        assert '"staging"' in captured["body"]
+        assert "staging-secret" in captured["body"]
+        assert "https://staging.example.com/in" in captured["body"]
+        # Read-back populates the wrapper environments map.
+        assert fwd.environments["production"].enabled is True
+        assert fwd.environments["staging"].configuration.url == "https://staging.example.com/in"
+
+    def test_new_with_forwarder_environment_instances(self):
+        # The map also accepts ForwarderEnvironment instances directly.
+        captured: dict[str, Any] = {}
+
+        def handler(req: httpx.Request) -> httpx.Response:
+            captured["body"] = req.content.decode()
+            return httpx.Response(
+                201,
+                json={"data": _forwarder_resource(environments={"production": {"enabled": True}})},
+            )
+
+        c = _client_with_handler(handler)
+        fwd = c.forwarders.new(
+            FWD_ID,
+            name="x",
+            forwarder_type="http",
+            configuration=HttpConfiguration(url="https://x"),
+            environments={"production": ForwarderEnvironment(enabled=True)},
+        )
+        fwd.save()
+        assert '"production"' in captured["body"]
+        assert fwd.environments["production"].enabled is True
+
+    def test_new_without_environments_omits_map(self):
+        captured: dict[str, Any] = {}
+
+        def handler(req: httpx.Request) -> httpx.Response:
+            captured["body"] = req.content.decode()
+            return httpx.Response(201, json={"data": _forwarder_resource()})
+
+        c = _client_with_handler(handler)
+        fwd = c.forwarders.new(
+            FWD_ID,
+            name="x",
+            forwarder_type="http",
+            configuration=HttpConfiguration(url="https://x"),
+        )
+        fwd.save()
+        # An empty/omitted environments map is not advertised on the wire.
+        assert '"environments"' not in captured["body"]
+
+    def test_list_does_not_send_filter_enabled(self):
+        # ADR-055 removed filter[enabled] on list forwarders. The wrapper no
+        # longer exposes the param and must not put it on the wire.
+        seen_urls: list[str] = []
+
+        def handler(req: httpx.Request) -> httpx.Response:
+            seen_urls.append(str(req.url))
+            return httpx.Response(200, json={"data": [], "meta": {"pagination": {"page": 1, "size": 1000}}})
+
+        c = _client_with_handler(handler)
+        c.forwarders.list(forwarder_type="datadog")
+        assert seen_urls, "list should have issued a request"
+        assert "filter%5Benabled%5D" not in seen_urls[0]
+        assert "filter[enabled]" not in seen_urls[0]
+        # The retained forwarder_type filter is still threaded through.
+        assert "filter%5Bforwarder_type%5D=datadog" in seen_urls[0] or "filter[forwarder_type]=datadog" in seen_urls[0]
 
     def test_new_requires_transform_type_when_transform_provided(self):
         c = _client_with_handler(lambda req: httpx.Response(204))
@@ -336,7 +488,6 @@ class TestForwardersCrud:
             page_number=1,
             meta_total=True,
             forwarder_type="datadog",
-            enabled=True,
         )
         assert len(first.forwarders) == 1
         # Listed forwarders are client-bound — save()/delete() on them works.
@@ -360,7 +511,9 @@ class TestForwardersCrud:
         # Bound to the client so save()/delete() works.
         assert fwd._client is c.forwarders
 
-    def test_get_then_mutate_then_save_puts(self):
+    def test_get_then_toggle_environment_then_save_puts(self):
+        # Get-mutate-put on the environments map: disable a forwarder in an
+        # environment by flipping that environment's ``enabled``.
         captured: dict[str, Any] = {}
 
         def handler(req):
@@ -368,18 +521,51 @@ class TestForwardersCrud:
             captured["url"] = str(req.url)
             captured["body"] = req.content.decode() if req.method == "PUT" else ""
             if req.method == "GET":
-                return httpx.Response(200, json={"data": _forwarder_resource(enabled=True)})
-            return httpx.Response(200, json={"data": _forwarder_resource(enabled=False)})
+                return httpx.Response(
+                    200,
+                    json={"data": _forwarder_resource(environments={"production": {"enabled": True}})},
+                )
+            return httpx.Response(
+                200,
+                json={"data": _forwarder_resource(environments={"production": {"enabled": False}})},
+            )
 
         c = _client_with_handler(handler)
         fwd = c.forwarders.get(FWD_ID)
-        assert fwd.enabled is True
-        fwd.enabled = False
+        assert fwd.environments["production"].enabled is True
+        fwd.environments["production"].enabled = False
         fwd.save()
         assert captured["method"] == "PUT"
         assert FWD_ID in captured["url"]
-        assert '"enabled":false' in captured["body"]
-        # Server-truthful enabled value is back on the instance.
+        # The environments map travels in the body; base ``enabled`` is
+        # server-pinned false and not driven by the wrapper.
+        assert '"environments"' in captured["body"]
+        assert '"production"' in captured["body"]
+        # Server-truthful environments map is back on the instance.
+        assert fwd.environments["production"].enabled is False
+
+    def test_enabled_is_read_only_and_ignored_on_save(self):
+        # Setting the base ``enabled`` to True must not flip the wire value:
+        # the base is server-pinned false and enablement is per-environment.
+        captured: dict[str, Any] = {}
+
+        def handler(req):
+            captured["body"] = req.content.decode()
+            return httpx.Response(201, json={"data": _forwarder_resource()})
+
+        c = _client_with_handler(handler)
+        fwd = c.forwarders.new(
+            FWD_ID,
+            name="x",
+            forwarder_type="http",
+            configuration=HttpConfiguration(url="https://x"),
+        )
+        fwd.enabled = True  # attempt to enable via the read-only base field
+        fwd.save()
+        # The body never advertises enabled:true — the wrapper does not send
+        # the base ``enabled`` as a writable enablement signal.
+        assert '"enabled":true' not in captured["body"]
+        # And the server-truthful value (always false) is reflected back.
         assert fwd.enabled is False
 
     def test_update_internal_with_no_id_raises(self):

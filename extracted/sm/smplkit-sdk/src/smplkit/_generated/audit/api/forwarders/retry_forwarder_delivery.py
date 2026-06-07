@@ -63,7 +63,10 @@ def sync_detailed(
 
      Retry a single failed delivery.
 
-    Returns the new delivery log entry. The prior entry is left in place.
+    The delivery is named by id, so it is authorized against the caller's
+    permitted environment set: a delivery in an environment the caller
+    can't access returns `404` (existence never leaks). Returns the new
+    delivery log entry. The prior entry is left in place.
 
     Args:
         forwarder_id (str):
@@ -99,7 +102,10 @@ def sync(
 
      Retry a single failed delivery.
 
-    Returns the new delivery log entry. The prior entry is left in place.
+    The delivery is named by id, so it is authorized against the caller's
+    permitted environment set: a delivery in an environment the caller
+    can't access returns `404` (existence never leaks). Returns the new
+    delivery log entry. The prior entry is left in place.
 
     Args:
         forwarder_id (str):
@@ -130,7 +136,10 @@ async def asyncio_detailed(
 
      Retry a single failed delivery.
 
-    Returns the new delivery log entry. The prior entry is left in place.
+    The delivery is named by id, so it is authorized against the caller's
+    permitted environment set: a delivery in an environment the caller
+    can't access returns `404` (existence never leaks). Returns the new
+    delivery log entry. The prior entry is left in place.
 
     Args:
         forwarder_id (str):
@@ -164,7 +173,10 @@ async def asyncio(
 
      Retry a single failed delivery.
 
-    Returns the new delivery log entry. The prior entry is left in place.
+    The delivery is named by id, so it is authorized against the caller's
+    permitted environment set: a delivery in an environment the caller
+    can't access returns `404` (existence never leaks). Returns the new
+    delivery log entry. The prior entry is left in place.
 
     Args:
         forwarder_id (str):

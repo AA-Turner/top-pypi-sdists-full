@@ -143,6 +143,195 @@ def cms_check(const uint8_t[::1] data, /):
     return None
 
 
+def cms_info(
+    profile,
+    /,
+):
+    """Return information about ICC profile as dict."""
+    cdef:
+        cmsHPROFILE hProfile = NULL
+        cmsUInt32Number size
+        char[512] buffer
+        cmsInt32Number nchannels
+        tm t
+        cmsBool has_datetime
+        cmsCIEXYZ* wp_xyz
+        cmsCIEXYZ* r_xyz
+        cmsCIEXYZ* g_xyz
+        cmsCIEXYZ* b_xyz
+        cmsCIEXYZ adapted
+        cmsCIExyY xyY
+        cmsToneCurve* curve
+        cmsFloat64Number gamma_val
+
+    hProfile = _cms_open_profile(profile)
+    if hProfile == NULL:
+        raise CmsError('cmsOpenProfileFromMem returned NULL')
+
+    try:
+        colorspace = _CMS_COLORSPACE_SIGNATURES.get(
+            cmsGetColorSpace(hProfile)
+        )
+        pcs = _CMS_COLORSPACE_SIGNATURES.get(
+            cmsGetPCS(hProfile)
+        )
+        deviceclass = _CMS_DEVICE_CLASSES.get(
+            cmsGetDeviceClass(hProfile)
+        )
+        nchannels = cmsChannelsOfColorSpace(cmsGetColorSpace(hProfile))
+        channels = int(nchannels) if nchannels >= 0 else None
+        version = round(cmsGetProfileVersion(hProfile), 1)
+
+        renderingintent = _CMS_RENDERING_INTENTS.get(
+            cmsGetHeaderRenderingIntent(hProfile)
+        )
+        ismatrixshaper = bool(cmsIsMatrixShaper(hProfile))
+
+        has_datetime = cmsGetHeaderCreationDateTime(hProfile, &t)
+        if has_datetime:
+            datetime = (
+                f'{t.tm_year + 1900:04d}-{t.tm_mon + 1:02d}-{t.tm_mday:02d}'
+                f'T{t.tm_hour:02d}:{t.tm_min:02d}:{t.tm_sec:02d}'
+            )
+        else:
+            datetime = None
+
+        # whitepoint from media white point tag (XYZ -> xyY)
+        wp_xyz = <cmsCIEXYZ*> cmsReadTag(hProfile, cmsSigMediaWhitePointTag)
+        if wp_xyz != NULL:
+            cmsXYZ2xyY(&xyY, wp_xyz)
+            whitepoint = (round(xyY.x, 6), round(xyY.y, 6), round(xyY.Y, 6))
+        else:
+            whitepoint = None
+
+        # primaries: unadapt colorant tags from D50 tomedia whitepoint
+        if colorspace == 'rgb' and wp_xyz != NULL:
+            r_xyz = <cmsCIEXYZ*> cmsReadTag(hProfile, cmsSigRedColorantTag)
+            g_xyz = <cmsCIEXYZ*> cmsReadTag(hProfile, cmsSigGreenColorantTag)
+            b_xyz = <cmsCIEXYZ*> cmsReadTag(hProfile, cmsSigBlueColorantTag)
+            if r_xyz != NULL and g_xyz != NULL and b_xyz != NULL:
+                cmsAdaptToIlluminant(&adapted, cmsD50_XYZ(), wp_xyz, r_xyz)
+                cmsXYZ2xyY(&xyY, &adapted)
+                red = (round(xyY.x, 6), round(xyY.y, 6), round(xyY.Y, 6))
+                cmsAdaptToIlluminant(&adapted, cmsD50_XYZ(), wp_xyz, g_xyz)
+                cmsXYZ2xyY(&xyY, &adapted)
+                green = (round(xyY.x, 6), round(xyY.y, 6), round(xyY.Y, 6))
+                cmsAdaptToIlluminant(&adapted, cmsD50_XYZ(), wp_xyz, b_xyz)
+                cmsXYZ2xyY(&xyY, &adapted)
+                blue = (round(xyY.x, 6), round(xyY.y, 6), round(xyY.Y, 6))
+                primaries = (red, green, blue)
+            else:
+                primaries = None
+        else:
+            primaries = None
+
+        # gamma from TRC tag; None if curve is not a pure power law
+        if colorspace == 'gray':
+            curve = <cmsToneCurve*> cmsReadTag(hProfile, cmsSigGrayTRCTag)
+        elif colorspace == 'rgb':
+            curve = <cmsToneCurve*> cmsReadTag(hProfile, cmsSigRedTRCTag)
+        else:
+            curve = NULL
+        if curve != NULL:
+            gamma_val = cmsEstimateGamma(curve, 0.01)
+            gamma = round(gamma_val, 6) if gamma_val > 0 else None
+        else:
+            gamma = None
+
+        size = cmsGetProfileInfoASCII(
+            hProfile, cmsInfoDescription,
+            cmsNoLanguage, cmsNoLanguage, NULL, 0
+        )
+        if 0 < size <= 512:
+            cmsGetProfileInfoASCII(
+                hProfile, cmsInfoDescription,
+                cmsNoLanguage, cmsNoLanguage, buffer, size
+            )
+            description = (
+                (<bytes> buffer[:size])
+                .decode('ascii', errors='replace')
+                .rstrip('\x00')
+                .strip()
+            ) or None
+        else:
+            description = None
+
+        size = cmsGetProfileInfoASCII(
+            hProfile, cmsInfoManufacturer,
+            cmsNoLanguage, cmsNoLanguage, NULL, 0
+        )
+        if 0 < size <= 512:
+            cmsGetProfileInfoASCII(
+                hProfile, cmsInfoManufacturer,
+                cmsNoLanguage, cmsNoLanguage, buffer, size
+            )
+            manufacturer = (
+                (<bytes> buffer[:size])
+                .decode('ascii', errors='replace')
+                .rstrip('\x00')
+                .strip()
+            ) or None
+        else:
+            manufacturer = None
+
+        size = cmsGetProfileInfoASCII(
+            hProfile, cmsInfoModel,
+            cmsNoLanguage, cmsNoLanguage, NULL, 0
+        )
+        if 0 < size <= 512:
+            cmsGetProfileInfoASCII(
+                hProfile, cmsInfoModel,
+                cmsNoLanguage, cmsNoLanguage, buffer, size
+            )
+            model = (
+                (<bytes> buffer[:size])
+                .decode('ascii', errors='replace')
+                .rstrip('\x00')
+                .strip()
+            ) or None
+        else:
+            model = None
+
+        size = cmsGetProfileInfoASCII(
+            hProfile, cmsInfoCopyright,
+            cmsNoLanguage, cmsNoLanguage, NULL, 0
+        )
+        if 0 < size <= 512:
+            cmsGetProfileInfoASCII(
+                hProfile, cmsInfoCopyright,
+                cmsNoLanguage, cmsNoLanguage, buffer, size
+            )
+            copyright = (
+                (<bytes> buffer[:size])
+                .decode('ascii', errors='replace')
+                .rstrip('\x00')
+                .strip()
+            ) or None
+        else:
+            copyright = None
+
+    finally:
+        cmsCloseProfile(hProfile)
+
+    return {
+        'version': version,
+        'deviceclass': deviceclass,
+        'colorspace': colorspace,
+        'channels': channels,
+        'pcs': pcs,
+        'renderingintent': renderingintent,
+        'ismatrixshaper': ismatrixshaper,
+        'datetime': datetime,
+        'whitepoint': whitepoint,
+        'primaries': primaries,
+        'gamma': gamma,
+        'description': description,
+        'manufacturer': manufacturer,
+        'model': model,
+        'copyright': copyright,
+    }
+
+
 def cms_transform(
     data,
     /,
@@ -939,6 +1128,25 @@ _CMS_FORMATS = {
     'luv': (PT_YUV, 3, 0, 0, 0),
     'yuvk': (PT_YUVK, 4, 0, 0, 0),
     'luvk': (PT_YUVK, 4, 0, 0, 0),
+}
+
+_CMS_DEVICE_CLASSES = {
+    # cmsProfileClassSignature -> deviceclass string
+    cmsSigInputClass: 'input',
+    cmsSigDisplayClass: 'display',
+    cmsSigOutputClass: 'output',
+    cmsSigLinkClass: 'link',
+    cmsSigAbstractClass: 'abstract',
+    cmsSigColorSpaceClass: 'colorspace',
+    cmsSigNamedColorClass: 'namedcolor',
+}
+
+_CMS_RENDERING_INTENTS = {
+    # rendering intent integer -> string
+    INTENT_PERCEPTUAL: 'perceptual',
+    INTENT_RELATIVE_COLORIMETRIC: 'relative',
+    INTENT_SATURATION: 'saturation',
+    INTENT_ABSOLUTE_COLORIMETRIC: 'absolute',
 }
 
 

@@ -36,6 +36,7 @@ from structlog.processors import (
     format_exc_info,
 )
 from structlog.stdlib import ProcessorFormatter
+from structlog.testing import CapturingLoggerFactory
 from structlog.typing import EventDict, ExcInfo
 
 from ..additional_frame import additional_frame
@@ -303,12 +304,14 @@ class TestCallsiteParameterAdder:
         "process_name",
     }
 
-    # Exclude QUAL_NAME from the general set to keep parity with stdlib
-    # LogRecord-derived parameters. QUAL_NAME is tested separately.
+    # Exclude QUAL_NAME and QUAL_MODULE from the general set to keep parity with
+    # stdlib LogRecord-derived parameters. QUAL_NAME and QUAL_MODULE are tested
+    # separately.
     _all_parameters = {
         p
         for p in set(CallsiteParameter)
-        if p is not CallsiteParameter.QUAL_NAME
+        if p
+        not in (CallsiteParameter.QUAL_NAME, CallsiteParameter.QUAL_MODULE)
     }
 
     def test_all_parameters(self) -> None:
@@ -339,6 +342,18 @@ class TestCallsiteParameterAdder:
         assert actual["qual_name"].endswith(
             f"{self.__class__.__name__}.test_qual_name_structlog"
         )
+
+    def test_qual_module_structlog(self) -> None:
+        """
+        QUAL_MODULE is added for structlog-originated events.
+        """
+        processor = CallsiteParameterAdder(
+            parameters={CallsiteParameter.QUAL_MODULE}
+        )
+        event_dict: EventDict = {"event": "msg"}
+        actual = processor(None, None, event_dict)
+
+        assert "tests.processors.test_processors" == actual["qual_module"]
 
     def test_qual_name_logging_origin_absent(self) -> None:
         """
@@ -378,6 +393,7 @@ class TestCallsiteParameterAdder:
     async def test_async(self, wrapper_class, method_name) -> None:
         """
         Callsite information for async invocations are correct.
+        Thread information is now correctly captured before async bridge.
         """
         string_io = StringIO()
 
@@ -395,16 +411,55 @@ class TestCallsiteParameterAdder:
 
         logger = structlog.stdlib.get_logger()
 
+        # Capture thread info before async call
+        expected_thread = threading.get_ident()
+        expected_thread_name = threading.current_thread().name
+
         callsite_params = self.get_callsite_parameters()
         await getattr(logger, method_name)("baz")
         logger_params = json.loads(string_io.getvalue())
 
-        # These are different when running under async
+        assert expected_thread == logger_params["thread"]
+        assert expected_thread_name == logger_params["thread_name"]
+
+        # Remove thread info from comparison for remaining params
         for key in ["thread", "thread_name"]:
             callsite_params.pop(key)
             logger_params.pop(key)
 
         assert {"event": "baz", **callsite_params} == logger_params
+
+    @pytest.mark.asyncio
+    async def test_async_native_logger(self) -> None:
+        """
+        Callsite thread information for native async invocations is correct.
+        """
+        cf = CapturingLoggerFactory()
+        structlog.configure(
+            processors=[
+                CallsiteParameterAdder(
+                    parameters=[
+                        CallsiteParameter.THREAD,
+                        CallsiteParameter.THREAD_NAME,
+                    ]
+                ),
+            ],
+            logger_factory=cf,
+            wrapper_class=structlog._native.BoundLoggerFilteringAtInfo,
+            cache_logger_on_first_use=True,
+        )
+
+        logger = structlog.get_logger()
+
+        expected_thread = threading.get_ident()
+        expected_thread_name = threading.current_thread().name
+
+        await logger.ainfo("test native async")
+
+        captured = cf.logger.calls[0].kwargs
+
+        assert expected_thread == captured["thread"]
+        assert expected_thread_name == captured["thread_name"]
 
     def test_additional_ignores(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """

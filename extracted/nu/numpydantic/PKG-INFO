@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: numpydantic
-Version: 1.8.1
+Version: 1.9.0
 Summary: Type and shape validation and serialization for arbitrary array types in pydantic models
 Keywords: arrays,validation,serialization,numpy,pydantic
 Author-Email: sneakers-the-rat <sneakers-the-rat@protonmail.com>
@@ -28,7 +28,7 @@ Project-URL: repository, https://github.com/p2p-ld/numpydantic
 Project-URL: changelog, https://numpydantic.readthedocs.io/en/latest/changelog.html
 Requires-Python: <4.0,>=3.10
 Requires-Dist: pydantic>=2.7.0
-Requires-Dist: numpy>=1.24.0
+Requires-Dist: numpy>=2.0.0
 Requires-Dist: typing-extensions>=4.11.0; python_version < "3.11"
 Provides-Extra: dask
 Requires-Dist: dask>=2024.4.0; extra == "dask"
@@ -40,25 +40,30 @@ Provides-Extra: zarr
 Requires-Dist: zarr<3.0.0,>=2.17.2; extra == "zarr"
 Provides-Extra: arrays
 Requires-Dist: numpydantic[dask,hdf5,video,zarr]; extra == "arrays"
+Provides-Extra: mypy
+Requires-Dist: mypy>=1.17.1; extra == "mypy"
+Requires-Dist: tomli>=2.4.1; python_version < "3.11" and extra == "mypy"
 Provides-Extra: tests
-Requires-Dist: numpydantic[arrays]; extra == "tests"
+Requires-Dist: numpydantic[arrays,mypy]; extra == "tests"
 Requires-Dist: pytest>=7.4.0; extra == "tests"
 Requires-Dist: pytest-depends<2.0.0,>=1.0.1; extra == "tests"
 Requires-Dist: coverage>=6.1.1; extra == "tests"
-Requires-Dist: pytest-cov<5.0.0,>=4.1.0; extra == "tests"
+Requires-Dist: pytest-cov>=4.1.0; extra == "tests"
 Requires-Dist: coveralls<4.0.0,>=3.3.1; extra == "tests"
-Requires-Dist: mypy>=1.17.1; extra == "tests"
 Requires-Dist: pyright>=1.1.408; extra == "tests"
+Requires-Dist: pytest-xdist>=3.8.0; extra == "tests"
 Provides-Extra: docs
-Requires-Dist: numpydantic[arrays]; extra == "docs"
-Requires-Dist: sphinx<8.0.0,>=7.2.6; extra == "docs"
+Requires-Dist: numpydantic[arrays,mypy]; extra == "docs"
+Requires-Dist: sphinx>=8.0.0; python_version >= "3.11" and extra == "docs"
 Requires-Dist: furo>=2024.1.29; extra == "docs"
-Requires-Dist: myst-parser<3.0.0,>=2.0.0; extra == "docs"
-Requires-Dist: autodoc-pydantic<3.0.0,>=2.0.1; extra == "docs"
-Requires-Dist: sphinx-design<1.0.0,>=0.5.0; extra == "docs"
+Requires-Dist: myst-parser>=2.0.0; extra == "docs"
+Requires-Dist: autodoc-pydantic>=2.0.1; extra == "docs"
+Requires-Dist: sphinx-design>=0.5.0; extra == "docs"
 Requires-Dist: sphinxcontrib-mermaid>=0.9.2; extra == "docs"
 Requires-Dist: myst-nb>=1.1.1; extra == "docs"
 Requires-Dist: rich>=13.8.1; extra == "docs"
+Requires-Dist: erbsland-sphinx-ansi>=1.2.0; extra == "docs"
+Requires-Dist: sphinxcontrib-programoutput>=0.19; extra == "docs"
 Provides-Extra: dev
 Requires-Dist: numpydantic[docs,tests]; extra == "dev"
 Requires-Dist: sphinx-autobuild>=2021.3.14; extra == "dev"
@@ -73,7 +78,7 @@ Description-Content-Type: text/markdown
 [![Coverage Status](https://coveralls.io/repos/github/p2p-ld/numpydantic/badge.svg)](https://coveralls.io/github/p2p-ld/numpydantic)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-A python package for specifying, validating, and serializing arrays with arbitrary backends in pydantic.
+A python package for specifying, validating, and serializing arrays with arbitrary backends with or without pydantic. Static typing and type checker integration for array constraints.
 
 **Problem:** 
 1) Pydantic is great for modeling data. 
@@ -130,6 +135,35 @@ model = MyModel(array=('data.zarr', '/nested/dataset'))
 model = MyModel(array="data.mp4")
 ```
 
+*(New in 1.9.0): *
+Use NDArray annotations and get static shape and dtype checking with our mypy plugin.
+Never forget how you oriented your arrays or how you've dtyped them again!
+
+```python
+GRAYSCALE = NDArray[Shape["* x, * y"], np.uint8]
+
+def grayscale_mask(frame: GRAYSCALE) -> GRAYSCALE:
+    # Probably something fancier than this...
+    mask = np.zeros((frame.shape[0], frame.shape[1]), np.uint8)
+    mask[frame > 5] = 1
+    return mask
+
+# not today satan!
+rgb_image = np.zeros((1920, 1080, 3), dtype=np.uint8)
+typing.reveal_type(rgb_image)
+grayscale_mask(rgb_image)
+```
+
+```python
+note: Revealed type is "numpy.ndarray[
+    tuple[Literal[1920], Literal[1080], Literal[3], fallback=int], 
+    numpy.dtype[numpy.unsignedinteger[numpy._typing._nbit_base._8Bit]]
+]"
+error: Argument 1 to "grayscale_mask" has incompatible type 
+    "ndarray[int, dtype[unsignedinteger[_8Bit]]]"; 
+    expected "ndarray[tuple[int, int], dtype[unsignedinteger[_8Bit]]]"  [arg-type]
+```
+
 `numpydantic` supports pydantic but none of its behavior is dependent on it!
 Use the `NDArray` type annotation like a regular type outside
 of pydantic -- eg. to validate an array anywhere, use `isinstance`:
@@ -163,7 +197,7 @@ array([[0, 0, 0],
 
 ## Features:
 - **Types** - Annotations (based on [npytyping](https://github.com/ramonhagenaars/nptyping))
-  for specifying arrays in pydantic models
+  for specifying arrays in pydantic models, with static type checker support!
 - **Validation** - Shape, dtype, and other array validations
 - **Interfaces** - Works with [`numpy`](https://numpydantic.readthedocs.io/en/latest/api/interface/numpy.html), 
   [`dask`](https://numpydantic.readthedocs.io/en/latest/api/interface/dask.html), 

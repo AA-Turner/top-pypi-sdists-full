@@ -37,13 +37,14 @@ ArrayArrayCodec:
 ArrayBytesCodec:
     Apng, Avif, Bfloat16, Bmp, Ccittfax3, Ccittfax4, Ccittrle, Dds, Dicomrle,
     Eer, Exr, Float24, Gif, Hcomp, Heif, Htj2k, Jpeg, Jpeg2k, Jpegls, Jpegxl,
-    Jpegxr, Jpegxs, Lerc, Ljpeg, Meshopt, Packints, Pcodec, Pixarlog, Plio,
-    Png, Qoi, Rcomp, Rgbe, Sperr, Spng, Sz3, Tiff, Ultrahdr, Webp, Wic, Zfp
+    Jpegxr, Jpegxs, Lerc, Ljpeg, Meshopt, Packints, Pcx, Pcodec, Pixarlog,
+    Plio, Png, Qoi, Rcomp, Rgbe, Sperr, Spng, Sz3, Tga, Tiff, Ultrahdr,
+    Webp, Wic, Zfp
 
 BytesBytesCodec:
     Aec, Blosc, Blosc2, Brotli, Bz2, Checksum, Deflate, Lz4, Lz4f, Lz4h5,
     Lzf, Lzfse, Lzham, Lzma, Lzo, Lzw, Packbits, Pglz, Snappy, Szip, Zlib,
-    Zlibng, Zopfli, Zstd
+    Zlibng, Zopfli, Zstd, Zstd1
 
 """
 
@@ -100,6 +101,7 @@ __all__ = [
     'Packbits',
     'Packints',
     'Pcodec',
+    'Pcx',
     'Pglz',
     'Pixarlog',
     'Plio',
@@ -113,6 +115,7 @@ __all__ = [
     'Spng',
     'Sz3',
     'Szip',
+    'Tga',
     'Tiff',
     'Ultrahdr',
     'Wavpack',
@@ -124,6 +127,7 @@ __all__ = [
     'Zlibng',
     'Zopfli',
     'Zstd',
+    'Zstd1',
     'register_codecs',
 ]
 
@@ -4420,6 +4424,69 @@ class Pcodec(ArrayBytesCodec):
 
 
 @dataclass(frozen=True)
+class Pcx(ArrayBytesCodec):
+    """PCX codec for Zarr 3."""
+
+    is_fixed_size = False
+
+    index: int | None = None
+
+    def __init__(self, *, index: int | None = None) -> None:
+        if not imagecodecs.PCX.available:
+            msg = 'imagecodecs.PCX not available'
+            raise ValueError(msg)
+        _setattrs(self, index=None if index is None else int(index))
+
+    @classmethod
+    def from_dict(cls, data: dict[str, JSON]) -> Self:
+        return cls(**_parse_config(data, 'pcx'))
+
+    def to_dict(self) -> dict[str, JSON]:
+        if self.index is not None:
+            return {
+                'name': 'imagecodecs_pcx',
+                'configuration': {'index': self.index},
+            }
+        return {'name': 'imagecodecs_pcx'}
+
+    def _decode_sync(
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
+    ) -> NDBuffer:
+        decoded = imagecodecs.pcx_decode(
+            chunk_bytes.as_numpy_array(), index=self.index
+        )
+        return chunk_spec.prototype.nd_buffer.from_numpy_array(
+            decoded.reshape(chunk_spec.shape)
+        )
+
+    async def _decode_single(
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
+    ) -> NDBuffer:
+        return await asyncio.to_thread(
+            self._decode_sync, chunk_bytes, chunk_spec
+        )
+
+    def _encode_sync(
+        self, chunk_array: NDBuffer, chunk_spec: ArraySpec
+    ) -> Buffer | None:
+        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        encoded = imagecodecs.pcx_encode(arr)
+        return chunk_spec.prototype.buffer.from_bytes(encoded)
+
+    async def _encode_single(
+        self, chunk_array: NDBuffer, chunk_spec: ArraySpec
+    ) -> Buffer | None:
+        return await asyncio.to_thread(
+            self._encode_sync, chunk_array, chunk_spec
+        )
+
+    def compute_encoded_size(
+        self, input_byte_length: int, chunk_spec: ArraySpec
+    ) -> int:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True)
 class Pglz(BytesBytesCodec):
     """PGLZ codec for Zarr 3."""
 
@@ -5405,6 +5472,67 @@ class Szip(BytesBytesCodec):
 
 
 @dataclass(frozen=True)
+class Tga(ArrayBytesCodec):
+    """TGA codec for Zarr 3."""
+
+    is_fixed_size = False
+
+    rle: bool = False
+
+    def __init__(self, *, rle: bool = False) -> None:
+        if not imagecodecs.TGA.available:
+            msg = 'imagecodecs.TGA not available'
+            raise ValueError(msg)
+        _setattrs(self, rle=bool(rle))
+
+    @classmethod
+    def from_dict(cls, data: dict[str, JSON]) -> Self:
+        return cls(**_parse_config(data, 'tga'))
+
+    def to_dict(self) -> dict[str, JSON]:
+        if self.rle:
+            return {
+                'name': 'imagecodecs_tga',
+                'configuration': {'rle': self.rle},
+            }
+        return {'name': 'imagecodecs_tga'}
+
+    def _decode_sync(
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
+    ) -> NDBuffer:
+        decoded = imagecodecs.tga_decode(chunk_bytes.as_numpy_array())
+        return chunk_spec.prototype.nd_buffer.from_numpy_array(
+            decoded.reshape(chunk_spec.shape)
+        )
+
+    async def _decode_single(
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
+    ) -> NDBuffer:
+        return await asyncio.to_thread(
+            self._decode_sync, chunk_bytes, chunk_spec
+        )
+
+    def _encode_sync(
+        self, chunk_array: NDBuffer, chunk_spec: ArraySpec
+    ) -> Buffer | None:
+        arr = numpy.atleast_2d(numpy.squeeze(chunk_array.as_numpy_array()))
+        encoded = imagecodecs.tga_encode(arr, rle=self.rle)
+        return chunk_spec.prototype.buffer.from_bytes(encoded)
+
+    async def _encode_single(
+        self, chunk_array: NDBuffer, chunk_spec: ArraySpec
+    ) -> Buffer | None:
+        return await asyncio.to_thread(
+            self._encode_sync, chunk_array, chunk_spec
+        )
+
+    def compute_encoded_size(
+        self, input_byte_length: int, chunk_spec: ArraySpec
+    ) -> int:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True)
 class Tiff(ArrayBytesCodec):
     """TIFF codec for Zarr 3."""
 
@@ -5442,7 +5570,7 @@ class Tiff(ArrayBytesCodec):
         rowsperstrip: int | None = None,
         bitspersample: int | None = None,
         compression: imagecodecs.TIFF.COMPRESSION | int | str | None = None,
-        subcodec: imagecodecs.TIFF.COMPRESSION | int | str | None = None,
+        subcodec: imagecodecs.TIFF.SUBCODEC | int | str | None = None,
         level: int | None = None,
         predictor: bool | imagecodecs.TIFF.PREDICTOR | int | str | None = None,
         verbose: int | None = None,
@@ -5468,7 +5596,7 @@ class Tiff(ArrayBytesCodec):
                 None if bitspersample is None else int(bitspersample)
             ),
             compression=_enum_name(compression, imagecodecs.TIFF.COMPRESSION),
-            subcodec=_enum_name(subcodec, imagecodecs.TIFF.COMPRESSION),
+            subcodec=_enum_name(subcodec, imagecodecs.TIFF.SUBCODEC),
             level=None if level is None else int(level),
             predictor=(
                 predictor
@@ -6406,6 +6534,106 @@ class Zstd(BytesBytesCodec):
     ) -> Buffer | None:
         encoded = imagecodecs.zstd_encode(
             chunk_bytes.as_numpy_array(), level=self.level
+        )
+        return chunk_spec.prototype.buffer.from_bytes(encoded)
+
+    async def _encode_single(
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
+    ) -> Buffer | None:
+        return await asyncio.to_thread(
+            self._encode_sync, chunk_bytes, chunk_spec
+        )
+
+    def compute_encoded_size(
+        self, input_byte_length: int, chunk_spec: ArraySpec
+    ) -> int:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True)
+class Zstd1(BytesBytesCodec):
+    """ZSTD1 codec for Zarr 3."""
+
+    is_fixed_size = False
+
+    level: int | None = None
+    itemsize: int | None = None
+    samples: int | None = None
+    hilo: bool | None = None
+
+    def __init__(
+        self,
+        *,
+        level: int | None = None,
+        itemsize: int | None = None,
+        samples: int | None = None,
+        hilo: bool | None = None,
+    ) -> None:
+        if not imagecodecs.ZSTD1.available:
+            msg = 'imagecodecs.ZSTD1 not available'
+            raise ValueError(msg)
+        _setattrs(
+            self,
+            level=None if level is None else int(level),
+            itemsize=None if itemsize is None else int(itemsize),
+            samples=None if samples is None else int(samples),
+            hilo=None if hilo is None else bool(hilo),
+        )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, JSON]) -> Self:
+        return cls(**_parse_config(data, 'zstd1'))
+
+    def to_dict(self) -> dict[str, JSON]:
+        cfg: dict[str, JSON] = {}
+        if self.level is not None:
+            cfg['level'] = self.level
+        if self.itemsize is not None:
+            cfg['itemsize'] = self.itemsize
+        if self.samples is not None:
+            cfg['samples'] = self.samples
+        if self.hilo is not None:
+            cfg['hilo'] = self.hilo
+        if cfg:
+            return {'name': 'imagecodecs_zstd1', 'configuration': cfg}
+        return {'name': 'imagecodecs_zstd1'}
+
+    def _decode_sync(
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
+    ) -> Buffer:
+        isize = (
+            chunk_spec.dtype.to_native_dtype().itemsize
+            if self.itemsize is None
+            else self.itemsize
+        )
+        decoded = imagecodecs.zstd1_decode(
+            chunk_bytes.as_numpy_array(),
+            itemsize=isize,
+            samples=1 if self.samples is None else self.samples,
+        )
+        return chunk_spec.prototype.buffer.from_bytes(decoded)
+
+    async def _decode_single(
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
+    ) -> Buffer:
+        return await asyncio.to_thread(
+            self._decode_sync, chunk_bytes, chunk_spec
+        )
+
+    def _encode_sync(
+        self, chunk_bytes: Buffer, chunk_spec: ArraySpec
+    ) -> Buffer | None:
+        isize = (
+            chunk_spec.dtype.to_native_dtype().itemsize
+            if self.itemsize is None
+            else self.itemsize
+        )
+        hilo = (isize > 1) if self.hilo is None else self.hilo
+        encoded = imagecodecs.zstd1_encode(
+            chunk_bytes.as_numpy_array(),
+            level=self.level,
+            itemsize=isize,
+            hilo=hilo,
         )
         return chunk_spec.prototype.buffer.from_bytes(encoded)
 

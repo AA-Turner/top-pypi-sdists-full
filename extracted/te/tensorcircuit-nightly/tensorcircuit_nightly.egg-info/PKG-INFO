@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tensorcircuit-nightly
-Version: 1.6.0.dev20260605
+Version: 1.6.0.dev20260606
 Summary: High performance unified quantum computing framework for the NISQ era
 Author-email: TensorCircuit-NG Authors <znfesnpbh@gmail.com>
 License-Expression: Apache-2.0
@@ -508,7 +508,7 @@ Reference paper: https://arxiv.org/abs/2508.06358 (published in PRR).
 
 For the code implementation on the work of demonstrating plasticity in quantum continual learning, see the [project repo](https://github.com/sxzgroup/quantum-plasticity).
 
-Reference paper: https://arxiv.org/abs/2511.17228.
+Reference paper: https://arxiv.org/abs/2511.17228 (published in PRX Quantum).
 
 ### More works
 

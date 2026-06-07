@@ -1429,7 +1429,18 @@ pub fn build_smooth_basis(
                 degree,
                 n_knots,
             )?,
-            double_penalty: true,
+            // mgcv's `bs="fs"` is a random-effect-style smooth: EVERY per-level
+            // coefficient, including the marginal null space, is penalized so
+            // unobserved groups can be predicted — so `fs` keeps the null-space
+            // (double) penalty. mgcv's `bs="sz"` is a pure across-level
+            // *deviation* smooth that, under the default `select=FALSE`, leaves
+            // the per-level null space UNPENALIZED; carrying the double penalty
+            // there shrinks the genuine deviation signal and over-smooths the
+            // recovered curves relative to mgcv (gam#700). `re` carries its own
+            // identity ridge below and ignores this flag. Honour an explicit
+            // user `double_penalty=` either way.
+            double_penalty: option_bool(options, "double_penalty")
+                .unwrap_or(type_opt.as_str() != "sz"),
             identifiability: BSplineIdentifiability::None,
             boundary_conditions: Default::default(),
             boundary: OneDimensionalBoundary::Open,
@@ -2261,12 +2272,28 @@ pub fn build_smooth_basis(
             } else {
                 Vec::new()
             };
+            // Tensor smooths (`te`/`ti`/`t2`) must match mgcv's DEFAULT
+            // `select = FALSE`: the joint null space of the per-margin
+            // penalties — the bilinear, low-order interaction directions that
+            // no marginal roughness operator can see — is left UNPENALIZED.
+            // mgcv only adds a null-space shrinkage penalty there under the
+            // opt-in `select = TRUE` (which gam exposes as `double_penalty`).
+            //
+            // The general smooth default (`smooth_double_penalty`, true) is
+            // calibrated for 1-D `s()` terms; carrying it into tensors silently
+            // shrinks the genuinely-present bilinear interaction signal, so
+            // REML places positive weight on the extra ridge and systematically
+            // OVER-SMOOTHS the recovered surface relative to mgcv's plain
+            // `te`/`ti` (gam#700/#701/#702/#703). Default tensors to no extra
+            // null-space penalty; an explicit user `double_penalty=`/`select=`
+            // still wins.
+            let tensor_double_penalty = option_bool(options, "double_penalty").unwrap_or(false);
             Ok(SmoothBasisSpec::TensorBSpline {
                 feature_cols: cols.to_vec(),
                 spec: TensorBSplineSpec {
                     marginalspecs: margins,
                     periods: periods_vec,
-                    double_penalty: smooth_double_penalty,
+                    double_penalty: tensor_double_penalty,
                     identifiability: parse_tensor_identifiability(options, kind)?,
                 },
             })

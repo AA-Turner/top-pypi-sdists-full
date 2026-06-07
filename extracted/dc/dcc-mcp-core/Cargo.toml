@@ -2,11 +2,11 @@
 # Rust-powered core for the DCC MCP ecosystem
 
 [workspace]
-members = ["crates/dcc-mcp-naming", "crates/dcc-mcp-models", "crates/dcc-mcp-actions", "crates/dcc-mcp-skills", "crates/dcc-mcp-protocols", "crates/dcc-mcp-jsonrpc", "crates/dcc-mcp-wire", "crates/dcc-mcp-job", "crates/dcc-mcp-skill-rest", "crates/dcc-mcp-gateway", "crates/dcc-mcp-gateway-core", "crates/dcc-mcp-gateway-search", "crates/dcc-mcp-logging", "crates/dcc-mcp-pybridge", "crates/dcc-mcp-pybridge-derive", "crates/dcc-mcp-paths", "crates/dcc-mcp-transport", "crates/dcc-mcp-process", "crates/dcc-mcp-telemetry", "crates/dcc-mcp-sandbox", "crates/dcc-mcp-shm", "crates/dcc-mcp-capture", "crates/dcc-mcp-usd", "crates/dcc-mcp-http", "crates/dcc-mcp-http-types", "crates/dcc-mcp-http-server", "crates/dcc-mcp-http-py", "crates/dcc-mcp-workflow", "crates/dcc-mcp-scheduler", "crates/dcc-mcp-artefact", "crates/dcc-mcp-host", "crates/dcc-mcp-catalog", "crates/dcc-mcp-db", "crates/workspace-hack"]
+members = ["crates/dcc-mcp-naming", "crates/dcc-mcp-models", "crates/dcc-mcp-actions", "crates/dcc-mcp-skills", "crates/dcc-mcp-protocols", "crates/dcc-mcp-jsonrpc", "crates/dcc-mcp-wire", "crates/dcc-mcp-job", "crates/dcc-mcp-skill-rest", "crates/dcc-mcp-gateway", "crates/dcc-mcp-gateway-core", "crates/dcc-mcp-gateway-search", "crates/dcc-mcp-logging", "crates/dcc-mcp-pybridge", "crates/dcc-mcp-pybridge-derive", "crates/dcc-mcp-paths", "crates/dcc-mcp-transport", "crates/dcc-mcp-process", "crates/dcc-mcp-telemetry", "crates/dcc-mcp-sandbox", "crates/dcc-mcp-shm", "crates/dcc-mcp-capture", "crates/dcc-mcp-usd", "crates/dcc-mcp-http", "crates/dcc-mcp-http-types", "crates/dcc-mcp-http-server", "crates/dcc-mcp-http-py", "crates/dcc-mcp-workflow", "crates/dcc-mcp-scheduler", "crates/dcc-mcp-artefact", "crates/dcc-mcp-host", "crates/dcc-mcp-marketplace", "crates/dcc-mcp-catalog", "crates/dcc-mcp-db", "crates/workspace-hack"]
 resolver = "2"
 
 [workspace.package]
-version = "0.18.2" # x-release-please-version
+version = "0.18.9" # x-release-please-version
 edition = "2024"
 rust-version = "1.95"
 authors = ["Hal Long <hal.long@outlook.com>"]
@@ -46,6 +46,7 @@ dcc-mcp-host-rpc = { path = "crates/dcc-mcp-host-rpc" }
 dcc-mcp-tunnel-protocol = { path = "crates/dcc-mcp-tunnel-protocol" }
 dcc-mcp-tunnel-relay = { path = "crates/dcc-mcp-tunnel-relay" }
 dcc-mcp-tunnel-agent = { path = "crates/dcc-mcp-tunnel-agent" }
+dcc-mcp-marketplace = { path = "crates/dcc-mcp-marketplace" }
 dcc-mcp-catalog = { path = "crates/dcc-mcp-catalog" }
 dcc-mcp-db = { path = "crates/dcc-mcp-db" }
 dcc-mcp-gateway = { path = "crates/dcc-mcp-gateway" }

@@ -1110,6 +1110,49 @@ def _to_blob(value: Any) -> bytes | None:
         return str(value).encode("utf-8", errors="replace")
 
 
+# DuckDB defaults to threads == CPU core count, so a single aggregate query
+# fans out across every core (observed: a 12-core box pegged at ~200% CPU just
+# re-running query_aggregates). ClawMetry is an observability sidecar, not a
+# warehouse: it must stay light (CPU budget, see FLYWHEEL.md). We cap threads to
+# a small number and bound the buffer pool so no query can take over the
+# machine. Both are env-overridable for power users with big stores.
+#   CLAWMETRY_DUCKDB_THREADS       (default 2; 0/blank = DuckDB default = all cores)
+#   CLAWMETRY_DUCKDB_MEMORY_LIMIT  (default "2GB"; blank = DuckDB default)
+def _duckdb_runtime_config() -> dict:
+    cfg: dict = {}
+    try:
+        threads = int(os.environ.get("CLAWMETRY_DUCKDB_THREADS", "2") or "0")
+    except ValueError:
+        threads = 2
+    if threads > 0:
+        cfg["threads"] = threads
+    mem = os.environ.get("CLAWMETRY_DUCKDB_MEMORY_LIMIT", "2GB")
+    if mem:
+        cfg["memory_limit"] = mem
+    return cfg
+
+
+# Layer 2 of the CPU budget (FLYWHEEL.md): the hot rollup ``query_aggregates`` is
+# a full-table dedupe scan, and the dashboard re-requests it many times a minute.
+# It only changes when the daemon ingests new events (~every sync cycle), so a
+# short TTL cache collapses those repeats into ~one real compute per window. This
+# is what actually pulls AVERAGE daemon CPU down (the thread cap only bounds the
+# peak). TTL is env-overridable (CLAWMETRY_AGG_CACHE_TTL seconds); 0 disables it.
+_AGG_CACHE: dict = {}
+_AGG_CACHE_LOCK = threading.Lock()
+try:
+    _AGG_CACHE_TTL = float(os.environ.get("CLAWMETRY_AGG_CACHE_TTL", "20") or "0")
+except ValueError:
+    _AGG_CACHE_TTL = 20.0
+
+
+def invalidate_aggregate_cache() -> None:
+    """Drop the query_aggregates TTL cache. Reads tolerate <=TTL staleness, so
+    this is only needed when a caller wants sub-TTL freshness after an ingest."""
+    with _AGG_CACHE_LOCK:
+        _AGG_CACHE.clear()
+
+
 def _open_connection(*, read_only: bool = False) -> duckdb.DuckDBPyConnection:
     """Open a DuckDB connection at DB_PATH, creating the directory if needed.
 
@@ -1126,9 +1169,10 @@ def _open_connection(*, read_only: bool = False) -> duckdb.DuckDBPyConnection:
     # if the conflicting holder is genuinely stuck we surface the real
     # DuckDB error instead of silently sleeping past it.
     last_exc: Exception | None = None
+    _cfg = _duckdb_runtime_config()
     for attempt in range(5):
         try:
-            return duckdb.connect(str(DB_PATH), read_only=read_only)
+            return duckdb.connect(str(DB_PATH), read_only=read_only, config=_cfg)
         except duckdb.IOException as exc:
             msg = str(exc)
             if "Conflicting lock" not in msg and "could not set lock" not in msg:
@@ -1138,7 +1182,7 @@ def _open_connection(*, read_only: bool = False) -> duckdb.DuckDBPyConnection:
     # Out of retries — re-raise the last lock error so the caller sees it.
     if last_exc is not None:
         raise last_exc
-    return duckdb.connect(str(DB_PATH), read_only=read_only)  # unreachable
+    return duckdb.connect(str(DB_PATH), read_only=read_only, config=_cfg)  # unreachable
 
 
 # ── Singleton store ─────────────────────────────────────────────────────────
@@ -1806,6 +1850,7 @@ class LocalStore:
         agent_type: str = "openclaw",
         since: str | None = None,
         until: str | None = None,
+        runtime: str | None = None,
         limit: int = 2000,
     ) -> list[dict[str, Any]]:
         """Read per-session outcome rows for the dashboard tile / drill-down.
@@ -1826,6 +1871,12 @@ class LocalStore:
         if until:
             clauses.append("COALESCE(last_active_at, started_at, '') <= ?")
             params.append(until)
+        # Runtime scope (session_id prefix), same canonical clause as
+        # query_aggregates so per-runtime outcomes reconcile with the total.
+        _rt_clause, _rt_params = _runtime_session_id_clause(runtime)
+        if _rt_clause:
+            clauses.append(_rt_clause)
+            params.extend(_rt_params)
         where = "WHERE " + " AND ".join(clauses)
         sql = f"""
             SELECT session_id, title, last_active_at, ended_at, status,
@@ -3843,6 +3894,7 @@ class LocalStore:
         self,
         *,
         since: str | None = None,
+        runtime: str | None = None,
         limit: int = 50_000,
     ) -> list[dict[str, Any]]:
         """Tier-1 MOAT: /api/plugins fast-path.
@@ -3891,6 +3943,10 @@ class LocalStore:
         if since:
             clauses.append("ts >= ?")
             params.append(since)
+        _rt_clause, _rt_params = _runtime_session_id_clause(runtime)
+        if _rt_clause:
+            clauses.append(_rt_clause)
+            params.extend(_rt_params)
         where = "WHERE " + " AND ".join(clauses)
         sql = f"""
             SELECT ts, event_type, data
@@ -4167,6 +4223,7 @@ class LocalStore:
         event_type: str | None = None,
         since: str | None = None,
         until: str | None = None,
+        runtime: str | None = None,
         limit: int = 500,
     ) -> list[dict[str, Any]]:
         """Read events. Defaults to most recent first."""
@@ -4175,6 +4232,10 @@ class LocalStore:
         if session_id:
             clauses.append("session_id = ?")
             params.append(session_id)
+        _rt_clause, _rt_params = _runtime_session_id_clause(runtime)
+        if _rt_clause:
+            clauses.append(_rt_clause)
+            params.extend(_rt_params)
         if agent_id:
             clauses.append("agent_id = ?")
             params.append(agent_id)
@@ -7872,6 +7933,12 @@ class LocalStore:
         BEFORE the dedupe CTE so all downstream cost/token math reuses the
         same code path. Sum across runtime values == unfiltered total, by
         construction (RULE #1: filtered totals reconcile)."""
+        _ck = (agent_id, since, until, runtime)
+        if _AGG_CACHE_TTL > 0:
+            with _AGG_CACHE_LOCK:
+                _hit = _AGG_CACHE.get(_ck)
+                if _hit is not None and (time.monotonic() - _hit[0]) < _AGG_CACHE_TTL:
+                    return _hit[1]
         clauses: list[str] = []
         params: list[Any] = []
         if agent_id:
@@ -7944,8 +8011,12 @@ class LocalStore:
             GROUP BY r.day, r.agent_id, ds.cost_usd_d, ds.token_count_d
             ORDER BY r.day DESC
         """
-        return [_row_to_dict(r, ["day","agent_id","event_count","cost_usd","token_count"])
-                for r in self._fetch(sql, params)]
+        _rows = [_row_to_dict(r, ["day","agent_id","event_count","cost_usd","token_count"])
+                 for r in self._fetch(sql, params)]
+        if _AGG_CACHE_TTL > 0:
+            with _AGG_CACHE_LOCK:
+                _AGG_CACHE[_ck] = (time.monotonic(), _rows)
+        return _rows
 
     # ── ops / maintenance ──────────────────────────────────────────────
 

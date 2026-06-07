@@ -111,17 +111,26 @@ def get_seasons(country, parser, crop=None):
 def get_input_file_path(country, parser, data_source="harvest") -> Path:
     """
     Resolve the input directory for ``country`` based on ``data_source``:
-      - ``harvest``: ``${PATHS:dir_output}/{project_name}[/crop_t{floor}]/{country}/``
+      - ``harvest``: ``${PATHS:dir_output}/{project_name}[/crop_t{floor}|crop_p{ceil}]/{country}/``
       - ``agmet``:   ``${input_file_path}/{country}/`` (country-specific override wins)
+
+    Geoprepare names its output subdir per the active crop-mask mode
+    (geoprepare ``base.py``: ``crop_t{floor}`` when ``threshold = True``,
+    ``crop_p{ceil}`` when ``threshold = False``), so we mirror the same
+    branching here. Legacy configs without the ``threshold`` option fall
+    through to the bare ``{project_name}/{country}/`` layout.
     """
     country_lower = country.lower().replace(" ", "_")
 
     if data_source == "harvest":
         dir_output = parser.get("PATHS", "dir_output")
         project_name = parser.get("DEFAULT", "project_name")
-        if parser.has_option("DEFAULT", "threshold") and parser.getboolean("DEFAULT", "threshold"):
-            floor = parser.getint("DEFAULT", "floor")
-            return Path(f"{dir_output}/{project_name}/crop_t{floor}/{country_lower}")
+        if parser.has_option("DEFAULT", "threshold"):
+            if parser.getboolean("DEFAULT", "threshold"):
+                floor = parser.getint("DEFAULT", "floor")
+                return Path(f"{dir_output}/{project_name}/crop_t{floor}/{country_lower}")
+            ceil = parser.getint("DEFAULT", "ceil")
+            return Path(f"{dir_output}/{project_name}/crop_p{ceil}/{country_lower}")
         return Path(f"{dir_output}/{project_name}/{country_lower}")
 
     base_path = _require_country_option(parser, country, "input_file_path")

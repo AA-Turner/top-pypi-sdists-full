@@ -2062,6 +2062,7 @@ def _update_compose_with_orchestration(runtime_config: dict):
         
         builder_env = [
             f'MODEL_NAME={builder_model}',
+            'EPHEMERAL_MODEL_NAME=devstral:24b',
             f'AGENT_PORT={builder_port}',
             f'SERVICE_PORT={builder_port}',
             f'MCP_HOST={project_dir}-semantic-layer',

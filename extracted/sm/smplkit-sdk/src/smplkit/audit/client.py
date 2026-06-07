@@ -431,14 +431,32 @@ class AuditClient:
     resource_types: _ResourceTypesClient
     event_types: _EventTypesClient
 
-    def __init__(self, *, api_key: str, base_url: str, extra_headers: dict[str, str] | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        base_url: str,
+        environment: str | None = None,
+        extra_headers: dict[str, str] | None = None,
+    ) -> None:
         self._api_key = api_key
         self._base_url = base_url.rstrip("/")
+        self._environment = environment
+        # Runtime audit ops are environment-scoped: record / list / get /
+        # discovery all resolve their environment from the
+        # ``X-Smplkit-Environment`` request header (ADR-055). We stamp it
+        # once at the client level from the SDK's configured runtime
+        # environment so every generated call carries it. A caller-supplied
+        # ``extra_headers`` entry of the same name wins (explicit override).
+        headers: dict[str, str] = {"Accept": "application/vnd.api+json"}
+        if environment is not None:
+            headers["X-Smplkit-Environment"] = environment
+        headers.update(extra_headers or {})
         self._auth = AuthenticatedClient(
             base_url=self._base_url,
             token=api_key,
             timeout=httpx.Timeout(10.0),
-            headers={**(extra_headers or {}), "Accept": "application/vnd.api+json"},
+            headers=headers,
         )
         self.events = _EventsClient(auth_client=self._auth)
         self.resource_types = _ResourceTypesClient(auth_client=self._auth)
@@ -468,8 +486,20 @@ class AsyncAuditClient:
     resource_types: _ResourceTypesClient
     event_types: _EventTypesClient
 
-    def __init__(self, *, api_key: str, base_url: str, extra_headers: dict[str, str] | None = None) -> None:
-        self._inner = AuditClient(api_key=api_key, base_url=base_url, extra_headers=extra_headers)
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        base_url: str,
+        environment: str | None = None,
+        extra_headers: dict[str, str] | None = None,
+    ) -> None:
+        self._inner = AuditClient(
+            api_key=api_key,
+            base_url=base_url,
+            environment=environment,
+            extra_headers=extra_headers,
+        )
         self.events = self._inner.events
         self.resource_types = self._inner.resource_types
         self.event_types = self._inner.event_types

@@ -24,6 +24,7 @@ MODEL_REMAPPING = {
     "csm": "sesame",
     "voxcpm": "voxcpm",
     "voxcpm1.5": "voxcpm",
+    "voxcpm2": "voxcpm2",
     "vibevoice_streaming": "vibevoice",
     "chatterbox_turbo": "chatterbox_turbo",
     "soprano": "soprano",
@@ -36,9 +37,13 @@ MODEL_REMAPPING = {
     "kugelaudio": "kugelaudio",
     "audiodit": "longcat_audiodit",
     "longcat": "longcat_audiodit",
+    "dramabox-tts": "dramabox",
     "omnivoice": "omnivoice",
     "melotts": "melotts",
     "moss_tts_nano": "moss_tts_nano",
+    "moss_tts_delay": "moss_tts",
+    "moss_tts_local": "moss_tts",
+    "higgs_multimodal_qwen3": "higgs_audio_v3",
 }
 MAX_FILE_SIZE_GB = 5
 MODEL_CONVERSION_DTYPES = ["float16", "bfloat16", "float32"]
@@ -296,6 +301,7 @@ def convert(
         "*.safetensors",
         "*.yaml",
         "*.txt",
+        "*.jinja",
     ]:
         files = glob.glob(str(model_path / pattern))
         for file in files:

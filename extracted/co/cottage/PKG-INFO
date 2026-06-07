@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cottage
-Version: 0.6.0
+Version: 0.6.2
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -270,6 +270,8 @@ With cottage, you can sync secrets with any provider that has an API, not just g
 For that, create a file named `cottage.toml` in the project root and configure the upstream settings.
 
 See the [example `cottage.toml` here](./cottage.toml) and the [secret specific upstream configuration here](./examples/secrets/secret.json.cott.toml).
+
+See an [example plugin implementation here](./examples/plugins/cottage-plugin-vault-in-kubernetes.py).
 
 The workflow is similar to git, but instead of `git pull` and `git push`, you run `ctg pull` and `ctg push` to sync secrets with the configured upstream.
 

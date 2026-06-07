@@ -11,7 +11,7 @@
 from .common import Extractor, Message
 from .. import text, util
 
-BASE_PATTERN = r"(?:https?://)?(?:www\.)?subscribestar\.(com|adult)"
+BASE_PATTERN = r"(?:https?://)?(?:www\.)?subscribestar\.(com|art|adult)"
 
 
 class SubscribestarExtractor(Extractor):
@@ -26,9 +26,10 @@ class SubscribestarExtractor(Extractor):
     _warning = True
 
     def __init__(self, match):
-        if match[1] == "adult":
-            self.root = "https://subscribestar.adult"
-            self.cookies_domain = ".subscribestar.adult"
+        tld = match[1]
+        if tld != "com":
+            self.root = "https://subscribestar." + tld
+            self.cookies_domain = ".subscribestar." + tld
             self.subcategory += "-adult"
         Extractor.__init__(self, match)
         self.item = match[2]
@@ -101,7 +102,7 @@ class SubscribestarExtractor(Extractor):
         username = username[0]
         self.log.info("Logging in as %s", username)
 
-        if self.root.endswith(".adult"):
+        if not self.root.endswith(".com"):
             self.cookies.set("18_plus_agreement_generic", "true",
                              domain=self.cookies_domain)
 

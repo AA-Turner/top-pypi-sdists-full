@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2024-2025 Mike Fährmann
+# Copyright 2024-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -65,6 +65,7 @@ class RealbooruExtractor(booru.BooruExtractor):
 
     def _pagination(self, params, begin, end):
         url = self.root + "/index.php"
+        threshold = self.per_page - 10
         params["pid"] = self.page_start
 
         while True:
@@ -75,9 +76,9 @@ class RealbooruExtractor(booru.BooruExtractor):
                 cnt += 1
                 yield self._parse_post(post_id)
 
-            if cnt < self.per_page:
-                return
-            params["pid"] += self.per_page
+            if cnt < threshold:
+                break
+            params["pid"] += cnt
 
 
 class RealbooruTagExtractor(RealbooruExtractor):

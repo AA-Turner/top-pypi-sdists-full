@@ -23,9 +23,9 @@ class Filesystem:
         """Find the kanban skill directory (SKILL.md, agents, rules, etc).
 
         Works both pip-installed and from source.
-        Resolution order:
-        1. kanban_framework/_skill/ (pip-installed bundle)
-        2. importlib.resources fallback (most reliable across platforms)
+        Resolution order (importlib first — most reliable on Windows):
+        1. importlib.resources (works for pip/wheel/venv on all platforms)
+        2. kanban_framework/_skill/ (bundled via __file__)
         3. parent of kanban_framework/ (source checkout)
         4. Best available: bundled dir with most content, or parent
         """
@@ -35,15 +35,7 @@ class Filesystem:
         pkg_dir = Path(__file__).resolve().parent.parent  # kanban_framework/
         candidates: list[tuple[Path, str]] = []
 
-        # 1. Pip-installed: skill files bundled in kanban_framework/_skill/
-        bundled = pkg_dir / "_skill"
-        _log.info("find_skill_dir: checking bundled=%s (SKILL.md=%s)",
-                  bundled, (bundled / "SKILL.md").is_file())
-        if (bundled / "SKILL.md").is_file():
-            return bundled
-        candidates.append((bundled, "bundled"))
-
-        # 2. importlib.resources fallback (most reliable on Windows)
+        # 1. importlib.resources — most reliable across platforms (Windows pip install)
         try:
             from importlib import resources
             res_path = Path(str(resources.files("kanban_framework") / "_skill"))
@@ -54,6 +46,14 @@ class Filesystem:
             candidates.append((res_path, "importlib"))
         except Exception as exc:
             _log.warning("find_skill_dir: importlib.resources failed: %s", exc)
+
+        # 2. Pip-installed: skill files bundled in kanban_framework/_skill/
+        bundled = pkg_dir / "_skill"
+        _log.info("find_skill_dir: checking bundled=%s (SKILL.md=%s)",
+                  bundled, (bundled / "SKILL.md").is_file())
+        if (bundled / "SKILL.md").is_file():
+            return bundled
+        candidates.append((bundled, "bundled"))
 
         # 3. Source install: walk up from kanban_framework/ to kanban skill dir
         skill_dir = pkg_dir.parent  # .claude/skills/kanban/

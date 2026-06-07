@@ -582,7 +582,7 @@ def _send_imessage(recipient: str, text: str, attachment_paths: list[str] | None
             elif os.path.isfile(os.path.join(os.getcwd(), p_clean)):
                 attachment_paths.append(os.path.abspath(os.path.join(os.getcwd(), p_clean)))
 
-    def _run_send_script(target_keyword: str, use_service: bool = True) -> tuple[bool, str]:
+    def _run_send_script(target_keyword: str, service_name: str | None = "iMessage") -> tuple[bool, str]:
         """Run the send via osascript with `participant` or `buddy` keyword."""
         attachment_cmds = ""
         if attachment_paths:
@@ -590,8 +590,8 @@ def _send_imessage(recipient: str, text: str, attachment_paths: list[str] | None
                 safe_ap = ap.replace("\\", "\\\\").replace('"', '\\"')
                 attachment_cmds += f'        send POSIX file "{safe_ap}" to targetBuddy\n'
         
-        if use_service:
-            service_setup = '        set targetService to 1st service whose service type = iMessage\n'
+        if service_name:
+            service_setup = f'        set targetService to 1st service whose service type = {service_name}\n'
             buddy_setup = f'        set targetBuddy to {target_keyword} "{safe_to}" of targetService\n'
         else:
             service_setup = ''
@@ -603,7 +603,7 @@ def _send_imessage(recipient: str, text: str, attachment_paths: list[str] | None
             f'{service_setup}'
             f'{buddy_setup}'
             f'{attachment_cmds}'
-            f'        send "{safe_text}" to targetBuddy\n'
+            '        send "{safe_text}" to targetBuddy\n'
             '        return "ok"\n'
             '    on error errMsg number errNum\n'
             '        return "err " & errNum & ": " & errMsg\n'
@@ -624,25 +624,35 @@ def _send_imessage(recipient: str, text: str, attachment_paths: list[str] | None
     script_errors: list[str] = []
     success = False
     
-    for use_service in (True, False):
-        for keyword in ("participant", "buddy"):
-            ok, msg = _run_send_script(keyword, use_service=use_service)
-            if ok and msg == "ok":
-                success = True
-                break
-            script_errors.append(f"{keyword}(service={use_service}): {msg}")
-            logger.debug("osascript iMessage (%s, service=%s) to %s: %s", keyword, use_service, recipient, msg)
-        if success:
+    # Priority: iMessage (modern), iMessage (legacy), SMS (modern), SMS (legacy), No Service (modern), No Service (legacy)
+    strategies = [
+        ("participant", "iMessage"),
+        ("buddy", "iMessage"),
+    ]
+    
+    # Only try SMS fallback if it's a phone number (digits only or starts with +)
+    if not "@" in recipient:
+        strategies.extend([
+            ("participant", "SMS"),
+            ("buddy", "SMS"),
+        ])
+        
+    strategies.extend([
+        ("participant", None),
+        ("buddy", None),
+    ])
+
+    for keyword, service in strategies:
+        ok, msg = _run_send_script(keyword, service_name=service)
+        if ok and msg == "ok":
+            success = True
             break
+        script_errors.append(f"{keyword}(service={service}): {msg}")
+        logger.debug("osascript iMessage (%s, service=%s) to %s: %s", keyword, service, recipient, msg)
 
     if not success:
-        combined_errors = " ".join(script_errors)
-        logger.warning("iMessage dispatch failed for %s: %s", recipient, combined_errors)
-        # If iMessage service is unavailable, try falling back to SMS service
-        if "targetService" in combined_errors and "iMessage" in combined_errors:
-            logger.info("iMessage service unavailable, trying standard SMS fallback for %s", recipient)
-            if _send_macos_sms(recipient, text):
-                return True
+        combined_errors = "; ".join(script_errors)
+        logger.warning("iMessage/SMS dispatch failed for %s: %s", recipient, combined_errors)
         return False
         
     # If chat.db is unreadable, we cannot VERIFY delivery, but the osascript
@@ -1025,15 +1035,12 @@ def _filter_attachments_for_phone(file_paths: list[str], task_prompt: str) -> li
     """
     prompt_lower = task_prompt.lower()
     
-    # Require explicit mention of phone or explicit attachment of code to bypass filter.
-    # We remove the loose word intersection that accidentally bypassed the filter.
+    # Require explicit mention of sending to the phone to bypass filter.
     specifically_asked = (
         "to phone" in prompt_lower or 
         "to my phone" in prompt_lower or
         "send to phone" in prompt_lower or
-        "attach code" in prompt_lower or
-        "send code file" in prompt_lower or
-        "attach file" in prompt_lower
+        "send code to my phone" in prompt_lower
     )
     
     if specifically_asked:
@@ -1044,7 +1051,7 @@ def _filter_attachments_for_phone(file_paths: list[str], task_prompt: str) -> li
         '.py', '.js', '.ts', '.tsx', '.jsx', '.java', '.go', '.rs', '.c', '.cpp', 
         '.h', '.hpp', '.html', '.css', '.yaml', '.yml', '.toml', '.sh', '.bat', 
         '.rb', '.php', '.pl', '.sql', '.swift', '.kt', '.kts', '.cs', '.pbxproj',
-        '.class', '.o', '.obj', '.dll', '.so', '.dylib', '.lock'
+        '.class', '.o', '.obj', '.dll', '.so', '.dylib', '.lock', '.json', '.md'
     }
     coding_filenames = {'dockerfile', 'makefile', 'gemfile', 'rakefile', 'pipfile'}
     
@@ -1057,7 +1064,7 @@ def _filter_attachments_for_phone(file_paths: list[str], task_prompt: str) -> li
         # Audio
         '.mp3', '.wav', '.m4a', '.flac', '.aac', '.ogg', '.wma',
         # Documents
-        '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt', '.csv', '.md',
+        '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt', '.csv'
     }
     
     filtered = []
@@ -2277,43 +2284,58 @@ class SAGEMessageBridge:
         )
 
         for cmd in cmd_variants:
-            try:
-                logger.info("SMS Bridge executing: %s", " ".join(cmd))
-                result = subprocess.run(
-                    cmd, 
-                    cwd=str(self.working_dir),
-                    capture_output=True, text=True, timeout=timeout,
-                    env={
-                        **os.environ, 
-                        "PYTHONPATH": os.path.pathsep.join(filter(None, [
-                            str(Path(__file__).resolve().parents[2]),
-                            str(self.working_dir),
-                            os.environ.get("PYTHONPATH", "")
-                        ])), 
-                        "NO_COLOR": "1", 
-                        "TERM": "dumb",
-                        "SAGE_BATCH_LIMIT": "250" # Ensure background task doesn't stop early
-                    }
-                )
-                
-                # Combine stdout and stderr for full context on failure
-                raw = _strip_ansi((result.stdout or "") + (result.stderr or "")).strip()
-                self._last_raw_output = raw
-                
-                if result.returncode == 0:
-                    out = _extract_final_answer(raw)
-                    return out or "Task completed successfully."
+            retries = 3
+            backoff = 5  # start with 5s backoff for rate limits
+            while retries > 0:
+                try:
+                    logger.info("SMS Bridge executing (retries left %d): %s", retries, " ".join(cmd))
+                    result = subprocess.run(
+                        cmd, 
+                        cwd=str(self.working_dir),
+                        capture_output=True, text=True, timeout=timeout,
+                        env={
+                            **os.environ, 
+                            "PYTHONPATH": os.path.pathsep.join(filter(None, [
+                                str(Path(__file__).resolve().parents[2]),
+                                str(self.working_dir),
+                                os.environ.get("PYTHONPATH", "")
+                            ])), 
+                            "NO_COLOR": "1", 
+                            "TERM": "dumb",
+                            "SAGE_BATCH_LIMIT": "250" # Ensure background task doesn't stop early
+                        }
+                    )
                     
-                # If first variant failed with FileNotFoundError, it will be caught below
-                if result.returncode != 0 and cmd == cmd_variants[-1]:
-                    return f"❌ Error: {raw or 'Process exited with code %d' % result.returncode}"
+                    # Combine stdout and stderr for full context on failure
+                    raw = _strip_ansi((result.stdout or "") + (result.stderr or "")).strip()
+                    self._last_raw_output = raw
                     
-            except FileNotFoundError:
-                continue
-            except subprocess.TimeoutExpired:
-                return "⏱ Timed out — check your terminal for progress."
-            except Exception as e:
-                return f"❌ System Error: {str(e)}"
+                    # Check for rate limits first
+                    if "Rate limit exceeded" in raw or "429" in raw or "Too Many Requests" in raw:
+                        if retries > 1:
+                            logger.warning(f"Rate limit hit, retrying in {backoff}s...")
+                            time.sleep(backoff)
+                            backoff *= 2
+                            retries -= 1
+                            continue
+                    
+                    if result.returncode == 0:
+                        out = _extract_final_answer(raw)
+                        return out or "Task completed successfully."
+                        
+                    # If first variant failed with FileNotFoundError, it will be caught below
+                    if result.returncode != 0 and cmd == cmd_variants[-1]:
+                        return f"❌ Error: {raw or 'Process exited with code %d' % result.returncode}"
+                        
+                    # Break out of retry loop to try next cmd variant if this one failed (but not due to rate limit)
+                    break
+                        
+                except FileNotFoundError:
+                    break
+                except subprocess.TimeoutExpired:
+                    return "⏱ Timed out — check your terminal for progress."
+                except Exception as e:
+                    return f"❌ System Error: {str(e)}"
         
         return "❌ Error: SAGE command not found in environment."
 

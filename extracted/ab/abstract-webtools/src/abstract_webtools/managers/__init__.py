@@ -18,7 +18,6 @@ from .userAgentManager import *
 from .usurpManager import *
 from .manager_utils import *
 from .videoDownloader import *
-##from .middleManager import get_soup_tools,get_req_tools,get_url_tools
-##
-##seleniumManager = seleneumManager
-##
+# middleManager imported last: its UnifiedWebManager facade lazily pulls in the
+# url/request/soup/link/crawl managers defined above, so they must exist first.
+from .middleManager import *

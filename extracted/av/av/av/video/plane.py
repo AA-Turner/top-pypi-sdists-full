@@ -17,6 +17,7 @@ from cython.cimports.cpython.pycapsule import (
 from cython.cimports.libc.stdlib import free, malloc
 
 
+@cython.final
 @cython.cclass
 class VideoPlane(Plane):
     def __cinit__(self, frame: VideoFrame, index: cython.int):
@@ -77,7 +78,14 @@ class VideoPlane(Plane):
             )
         if flags & PyBUF_WRITABLE and not self._buffer_writable():
             raise ValueError("buffer is not writable")
-        PyBuffer_FillInfo(view, self, self._buffer_ptr(), self._buffer_size(), 0, flags)
+
+        ptr: cython.p_void = self._buffer_ptr()
+        line_size: cython.int = self.frame.ptr.linesize[self.index]
+        if line_size < 0:
+            height: cython.int = self.height
+            ptr = cython.cast(cython.p_char, ptr) + (height - 1) * line_size
+
+        PyBuffer_FillInfo(view, self, ptr, self._buffer_size(), 0, flags)
 
     def __dlpack_device__(self):
         if self.frame.ptr.hw_frames_ctx:

@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "ty-types"
-version = "0.0.39"
+version = "0.0.44"
 description = "Expose ty's type inference as a CLI tool and JSON-RPC server."
 requires-python = ">=3.8"
 license = { text = "MIT" }

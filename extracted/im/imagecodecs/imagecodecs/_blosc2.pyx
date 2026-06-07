@@ -73,6 +73,7 @@ class BLOSC2:
         NEVER = BLOSC_NEVER_SPLIT
         AUTO = BLOSC_AUTO_SPLIT
         FORWARD_COMPAT = BLOSC_FORWARD_COMPAT_SPLIT
+        FORWARD = BLOSC_FORWARD_COMPAT_SPLIT  # alias
 
 
 class Blosc2Error(RuntimeError):
@@ -146,69 +147,18 @@ def blosc2_encode(
     if srcsize > INT32_MAX - BLOSC2_MAX_OVERHEAD:
         raise ValueError('data size larger than 2 GB')
 
-    if blocksize is None:
-        cblocksize = 0
-    else:
-        cblocksize = blocksize
+    cblocksize = 0 if blocksize is None else blocksize
 
-    if compressor is None:
-        compcode = BLOSC_ZSTD
-    elif isinstance(compressor, str):
-        compressor = compressor.lower().encode()
-        if compressor == BLOSC_BLOSCLZ_COMPNAME:
-            compcode = BLOSC_BLOSCLZ
-        elif compressor == BLOSC_LZ4_COMPNAME:
-            compcode = BLOSC_LZ4
-        elif compressor == BLOSC_LZ4HC_COMPNAME:
-            compcode = BLOSC_LZ4HC
-        elif compressor == BLOSC_ZLIB_COMPNAME:
-            compcode = BLOSC_ZLIB
-        elif compressor == BLOSC_ZSTD_COMPNAME:
-            compcode = BLOSC_ZSTD
-        else:
-            raise ValueError(f'unknown Blosc2 {compressor=!r}')
-    else:
-        compcode = compressor
+    compcode = _enum_value(
+        compressor, BLOSC2.COMPRESSOR, BLOSC2.COMPRESSOR.ZSTD
+    )
 
-    if shuffle is None:
-        cfilter = BLOSC_SHUFFLE
-    elif not shuffle:
-        cfilter = BLOSC_NOFILTER
-    elif isinstance(shuffle, str):
-        shuffle = shuffle.lower()
-        if shuffle[:2] == 'no':
-            cfilter = BLOSC_NOSHUFFLE
-        elif shuffle == 'shuffle':
-            cfilter = BLOSC_SHUFFLE
-        elif shuffle == 'bitshuffle':
-            cfilter = BLOSC_BITSHUFFLE
-        elif shuffle == 'delta':
-            cfilter = BLOSC_DELTA
-        elif shuffle == 'trunc_prec':
-            cfilter = BLOSC_TRUNC_PREC
-        else:
-            raise ValueError(f'unknown Blosc2 {shuffle=!r}')
-    else:
-        cfilter = shuffle
+    cfilter = _enum_value(shuffle, BLOSC2.FILTER, BLOSC2.FILTER.SHUFFLE)
 
-    if splitmode is None:
-        csplitmode = BLOSC_ALWAYS_SPLIT
-    elif not splitmode:
-        csplitmode = BLOSC_NEVER_SPLIT
-    elif isinstance(splitmode, str):
-        splitmode = splitmode.lower()
-        if splitmode == 'always':
-            csplitmode = BLOSC_ALWAYS_SPLIT
-        elif splitmode == 'never':
-            csplitmode = BLOSC_NEVER_SPLIT
-        elif splitmode == 'auto':
-            csplitmode = BLOSC_AUTO_SPLIT
-        elif splitmode == 'forward':
-            csplitmode = BLOSC_FORWARD_COMPAT_SPLIT
-        else:
-            raise ValueError(f'unknown Blosc2 {splitmode=!r}')
+    if splitmode is not None and not splitmode:
+        csplitmode = BLOSC2.SPLIT.NEVER
     else:
-        csplitmode = splitmode
+        csplitmode = _enum_value(splitmode, BLOSC2.SPLIT, BLOSC2.SPLIT.ALWAYS)
 
     out, dstsize, outgiven, outtype = _parse_output(out)
 

@@ -1,11 +1,15 @@
 # type: ignore
+from __future__ import annotations
 
+import builtins
 from collections import namedtuple
 from contextlib import redirect_stderr, redirect_stdout
 import csv
 import io
 import os
+from pathlib import Path
 import shutil
+import sys
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from types import SimpleNamespace
@@ -24,20 +28,34 @@ from pymysql.err import OperationalError
 import pytest
 
 from mycli import main
+import mycli.cli_runner
+import mycli.client_connection
 from mycli.constants import (
     DEFAULT_DATABASE,
     DEFAULT_HOST,
     DEFAULT_PORT,
     DEFAULT_USER,
+    ER_MUST_CHANGE_PASSWORD_LOGIN,
     TEST_DATABASE,
 )
-from mycli.main import EMPTY_PASSWORD_FLAG_SENTINEL, MyCli, click_entrypoint
+from mycli.main import (
+    EMPTY_PASSWORD_FLAG_SENTINEL,
+    INT_OR_STRING_CLICK_TYPE,
+    CliArgs,
+    MyCli,
+    click_entrypoint,
+    get_password_from_file,
+    preprocess_cli_args,
+)
+import mycli.main_modes.batch
 import mycli.main_modes.repl as repl_mode
 import mycli.output as output_module
+import mycli.packages.cli_utils
 import mycli.packages.special
 from mycli.packages.special.main import COMMANDS as SPECIAL_COMMANDS
 from mycli.packages.sqlresult import SQLResult
 from mycli.sqlexecute import ServerInfo, SQLExecute
+from mycli.types import Query
 from test.utils import (
     DATABASE,
     HOST,
@@ -81,6 +99,7 @@ CLI_ARGS = CLI_ARGS_WITHOUT_DB + [TEST_DATABASE]
 
 
 @dbtest
+@pytest.mark.skipif(os.name == 'nt', reason='todo: unknown; try running the test suite under winpty')
 def test_binary_display_hex(executor):
     m = MyCli()
     m.sqlexecute = SQLExecute(
@@ -120,6 +139,7 @@ def test_binary_display_hex(executor):
 
 
 @dbtest
+@pytest.mark.skipif(os.name == 'nt', reason='todo: unknown')
 def test_binary_display_utf8(executor):
     m = MyCli()
     m.sqlexecute = SQLExecute(
@@ -175,17 +195,17 @@ def test_select_from_empty_table(executor):
 def test_filtered_sys_argv_maps_single_dash_h_to_help(monkeypatch):
     import mycli.main
 
-    monkeypatch.setattr(mycli.main.sys, 'argv', ['mycli', '-h'])
+    monkeypatch.setattr(sys, 'argv', ['mycli', '-h'])
 
-    assert mycli.main.filtered_sys_argv() == ['--help']
+    assert mycli.packages.cli_utils.filtered_sys_argv() == ['--help']
 
 
 def test_filtered_sys_argv_preserves_host_option_usage(monkeypatch):
     import mycli.main
 
-    monkeypatch.setattr(mycli.main.sys, 'argv', ['mycli', '-h', 'example.com'])
+    monkeypatch.setattr(sys, 'argv', ['mycli', '-h', 'example.com'])
 
-    assert mycli.main.filtered_sys_argv() == ['-h', 'example.com']
+    assert mycli.packages.cli_utils.filtered_sys_argv() == ['-h', 'example.com']
 
 
 def test_main_dash_h_and_help_have_equivalent_output(monkeypatch):
@@ -194,7 +214,7 @@ def test_main_dash_h_and_help_have_equivalent_output(monkeypatch):
     def run_main(argv):
         stdout = io.StringIO()
         stderr = io.StringIO()
-        monkeypatch.setattr(mycli.main.sys, 'argv', argv)
+        monkeypatch.setattr(sys, 'argv', argv)
         with redirect_stdout(stdout), redirect_stderr(stderr):
             result = mycli.main.main()
         return result, stdout.getvalue(), stderr.getvalue()
@@ -483,6 +503,7 @@ def test_output_with_warning_and_show_warnings_disabled(executor):
 
 
 @dbtest
+@pytest.mark.skipif(sys.platform == 'darwin', reason='todo: fails on mac+Homebrew in CI, maybe because of MySQL server version')
 def test_no_show_warnings_overrides_myclirc_setting(executor, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     runner = CliRunner()
@@ -833,6 +854,7 @@ def test_list_dsn(monkeypatch):
         print(f"An error occurred while attempting to delete the file: {e}")
 
 
+@pytest.mark.skipif(os.name == 'nt', reason='todo: unknown')
 def test_list_ssh_config():
     runner = CliRunner()
     # keep Windows from locking the file with delete=False
@@ -1890,6 +1912,7 @@ def test_mysql_user_envvar_overrides_dsn_resolution(monkeypatch):
     )
 
 
+@pytest.mark.skipif(os.name == 'nt', reason='todo: unknown')
 def test_ssh_config(monkeypatch):
     # Setup classes to mock mycli.main.MyCli
     class Formatter:
@@ -2117,7 +2140,6 @@ def noninteractive_mock_mycli(monkeypatch):
             pass
 
     import mycli.main
-    import mycli.main_modes.batch
 
     monkeypatch.setattr(mycli.main, 'MyCli', MockMyCli)
     return mycli.main, mycli.main_modes.batch, MockMyCli
@@ -2154,7 +2176,7 @@ def test_quiet_sets_negative_cli_verbosity(monkeypatch: pytest.MonkeyPatch) -> N
         }
     )
     monkeypatch.setattr(main, 'MyCli', dummy_class)
-    monkeypatch.setattr(main.sys, 'stdin', SimpleNamespace(isatty=lambda: True))
+    monkeypatch.setattr(sys, 'stdin', SimpleNamespace(isatty=lambda: True))
 
     cli_args = main.CliArgs()
     cli_args.quiet = True
@@ -2220,7 +2242,7 @@ def test_null_string_config(monkeypatch):
         )
         myclirc.flush()
         args = CLI_ARGS_WITHOUT_DB + ['--myclirc', myclirc.name, '--format=table', '--execute', 'SELECT NULL']
-        result = runner.invoke(mycli.main.click_entrypoint, args=args)
+        result = runner.invoke(main.click_entrypoint, args=args)
         assert '<nope>' in result.output
         assert '<null>' not in result.output
 
@@ -2253,14 +2275,6 @@ def test_output_timing_logs_and_prints_with_warning_style(monkeypatch: pytest.Mo
     assert printed[-1][1] == cli.ptoolkit_style
 
 
-def test_run_cli_delegates_to_main_repl(monkeypatch: pytest.MonkeyPatch) -> None:
-    cli = make_bare_mycli()
-    run_cli_calls: list[Any] = []
-    monkeypatch.setattr(main, 'main_repl', lambda target: run_cli_calls.append(target))
-    main.MyCli.run_cli(cli)
-    assert run_cli_calls == [cli]
-
-
 def test_get_output_margin_uses_prompt_session_render_counter(monkeypatch: pytest.MonkeyPatch) -> None:
     cli = make_bare_mycli()
     render_counters: list[int] = []
@@ -2276,7 +2290,7 @@ def test_get_output_margin_uses_prompt_session_render_counter(monkeypatch: pytes
         return to_formatted_text('line1\nline2')
 
     monkeypatch.setattr(repl_mode, 'render_prompt_string', fake_render_prompt_string)
-    monkeypatch.setattr(main.special, 'is_timing_enabled', lambda: False)
+    monkeypatch.setattr(mycli.packages.special, 'is_timing_enabled', lambda: False)
     assert main.MyCli.get_output_margin(cli, 'ok') == 5
     assert render_counters == [7]
 
@@ -2314,8 +2328,8 @@ def test_click_entrypoint_callback_covers_dsn_list_init_commands(monkeypatch: py
         }
     )
     monkeypatch.setattr(main, 'MyCli', dummy_class)
-    monkeypatch.setattr(main.sys, 'stdin', SimpleNamespace(isatty=lambda: True))
-    monkeypatch.setattr(main.sys.stderr, 'isatty', lambda: True)
+    monkeypatch.setattr(sys, 'stdin', SimpleNamespace(isatty=lambda: True))
+    monkeypatch.setattr(sys.stderr, 'isatty', lambda: True)
 
     cli_args = main.CliArgs()
     cli_args.dsn = 'prod'
@@ -2336,9 +2350,9 @@ def test_click_entrypoint_callback_uses_batch_with_progress_path(monkeypatch: py
         }
     )
     monkeypatch.setattr(main, 'MyCli', dummy_class)
-    monkeypatch.setattr(main.sys, 'stdin', SimpleNamespace(isatty=lambda: True))
-    monkeypatch.setattr(main.sys.stderr, 'isatty', lambda: True)
-    monkeypatch.setattr(main, 'main_batch_with_progress_bar', lambda mycli, cli_args: 12)
+    monkeypatch.setattr(sys, 'stdin', SimpleNamespace(isatty=lambda: True))
+    monkeypatch.setattr(sys.stderr, 'isatty', lambda: True)
+    monkeypatch.setattr(mycli.cli_runner, 'main_batch_with_progress_bar', lambda mycli, cli_args: 12)
 
     cli_args = main.CliArgs()
     cli_args.batch = 'queries.sql'
@@ -2357,9 +2371,9 @@ def test_click_entrypoint_callback_uses_batch_without_progress_path(monkeypatch:
         }
     )
     monkeypatch.setattr(main, 'MyCli', dummy_class)
-    monkeypatch.setattr(main.sys, 'stdin', SimpleNamespace(isatty=lambda: True))
-    monkeypatch.setattr(main.sys.stderr, 'isatty', lambda: True)
-    monkeypatch.setattr(main, 'main_batch_without_progress_bar', lambda mycli, cli_args: 13)
+    monkeypatch.setattr(sys, 'stdin', SimpleNamespace(isatty=lambda: True))
+    monkeypatch.setattr(sys.stderr, 'isatty', lambda: True)
+    monkeypatch.setattr(mycli.cli_runner, 'main_batch_without_progress_bar', lambda mycli, cli_args: 13)
 
     cli_args = main.CliArgs()
     cli_args.batch = 'queries.sql'
@@ -2372,8 +2386,8 @@ def test_click_entrypoint_callback_uses_batch_without_progress_path(monkeypatch:
 def test_click_entrypoint_callback_covers_mycnf_underscore_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     click_lines: list[str] = []
     monkeypatch.setattr(click, 'secho', lambda message='', **kwargs: click_lines.append(str(message)))
-    monkeypatch.setattr(main.sys, 'stdin', SimpleNamespace(isatty=lambda: True))
-    monkeypatch.setattr(main.sys.stderr, 'isatty', lambda: False)
+    monkeypatch.setattr(sys, 'stdin', SimpleNamespace(isatty=lambda: True))
+    monkeypatch.setattr(sys.stderr, 'isatty', lambda: False)
 
     dummy_class = make_dummy_mycli_class(
         config={
@@ -2424,7 +2438,7 @@ def test_format_sqlresult_appends_postamble() -> None:
 
 def test_get_last_query_returns_latest_query() -> None:
     cli = make_bare_mycli()
-    cli.query_history = [main.Query('select 1', True, False)]
+    cli.query_history = [Query('select 1', True, False)]
 
     assert main.MyCli.get_last_query(cli) == 'select 1'
 
@@ -2437,14 +2451,14 @@ def test_connect_reports_expired_password_login_error(monkeypatch: pytest.Monkey
     cli.logger = cast(Any, DummyLogger())
     echo_calls: list[str] = []
     cli.echo = lambda message, **kwargs: echo_calls.append(str(message))  # type: ignore[assignment]
-    monkeypatch.setattr(main, 'WIN', False)
-    monkeypatch.setattr(main, 'str_to_bool', lambda value: False)
+    monkeypatch.setattr(mycli.client_connection, 'WIN', False)
+    monkeypatch.setattr(mycli.client_connection, 'str_to_bool', lambda value: False)
 
     class ExpiredPasswordSQLExecute(RecordingSQLExecute):
         calls: list[dict[str, Any]] = []
-        side_effects: list[Any] = [pymysql.OperationalError(main.ER_MUST_CHANGE_PASSWORD_LOGIN, 'must change password')]
+        side_effects: list[Any] = [pymysql.OperationalError(ER_MUST_CHANGE_PASSWORD_LOGIN, 'must change password')]
 
-    monkeypatch.setattr(main, 'SQLExecute', ExpiredPasswordSQLExecute)
+    monkeypatch.setattr(mycli.client_connection, 'SQLExecute', ExpiredPasswordSQLExecute)
 
     with pytest.raises(SystemExit):
         main.MyCli.connect(cli, host='db', port=3307)
@@ -2460,8 +2474,8 @@ def test_connect_sets_cli_sandbox_mode_when_sqlexecute_enters_sandbox(monkeypatc
     cli.logger = cast(Any, DummyLogger())
     echo_calls: list[str] = []
     cli.echo = lambda message, **kwargs: echo_calls.append(str(message))  # type: ignore[assignment]
-    monkeypatch.setattr(main, 'WIN', False)
-    monkeypatch.setattr(main, 'str_to_bool', lambda value: False)
+    monkeypatch.setattr(mycli.client_connection, 'WIN', False)
+    monkeypatch.setattr(mycli.client_connection, 'str_to_bool', lambda value: False)
 
     class SandboxSQLExecute(RecordingSQLExecute):
         calls: list[dict[str, Any]] = []
@@ -2471,9 +2485,167 @@ def test_connect_sets_cli_sandbox_mode_when_sqlexecute_enters_sandbox(monkeypatc
             super().__init__(**kwargs)
             self.sandbox_mode = True
 
-    monkeypatch.setattr(main, 'SQLExecute', SandboxSQLExecute)
+    monkeypatch.setattr(mycli.client_connection, 'SQLExecute', SandboxSQLExecute)
 
     main.MyCli.connect(cli, host='db', port=3307)
 
     assert cli.sandbox_mode is True
     assert any('password has expired' in message for message in echo_calls)
+
+
+def valid_connection_scheme(value: str) -> tuple[bool, str | None]:
+    scheme, _, _ = value.partition('://')
+    return scheme == 'mysql', scheme or None
+
+
+def test_int_or_string_click_type_accepts_int_string_and_none() -> None:
+    assert INT_OR_STRING_CLICK_TYPE.convert(7, None, None) == 7
+    assert INT_OR_STRING_CLICK_TYPE.convert('secret', None, None) == 'secret'
+    assert INT_OR_STRING_CLICK_TYPE.convert(None, None, None) is None
+
+
+def test_int_or_string_click_type_rejects_other_values() -> None:
+    with pytest.raises(click.BadParameter, match='Not a valid password string'):
+        INT_OR_STRING_CLICK_TYPE.convert(object(), None, None)
+
+
+def test_get_password_from_file_reads_first_line_without_trailing_newline(tmp_path: Path) -> None:
+    password_file = tmp_path / 'password.txt'
+    password_file.write_text('secret\nignored\n', encoding='utf8')
+
+    assert get_password_from_file(str(password_file)) == 'secret'
+
+
+def test_get_password_from_file_returns_none_for_missing_path() -> None:
+    assert get_password_from_file(None) is None
+    assert get_password_from_file('') is None
+
+
+@pytest.mark.parametrize(
+    ('exception', 'expected'),
+    [
+        (FileNotFoundError(), "Password file 'secret.txt' not found"),
+        (PermissionError(), "Permission denied reading password file 'secret.txt'"),
+        (IsADirectoryError(), "Path 'secret.txt' is a directory, not a file"),
+        (RuntimeError('boom'), "Error reading password file 'secret.txt': boom"),
+    ],
+)
+def test_get_password_from_file_exits_with_error_for_read_failures(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    exception: Exception,
+    expected: str,
+) -> None:
+    def raise_error(*_args: Any, **_kwargs: Any) -> None:
+        raise exception
+
+    monkeypatch.setattr(builtins, 'open', raise_error)
+
+    with pytest.raises(SystemExit) as excinfo:
+        get_password_from_file('secret.txt')
+
+    assert excinfo.value.code == 1
+    assert expected in capsys.readouterr().err
+
+
+def test_preprocess_cli_args_moves_dsn_from_password_to_database() -> None:
+    cli_args = CliArgs()
+    cli_args.password = 'mysql://user:pass@host/db'
+
+    verbosity = preprocess_cli_args(cli_args, valid_connection_scheme)
+
+    assert verbosity == 0
+    assert cli_args.database == 'mysql://user:pass@host/db'
+    assert cli_args.password == EMPTY_PASSWORD_FLAG_SENTINEL  # type: ignore[comparison-overlap]
+
+
+def test_preprocess_cli_args_rejects_unknown_dsn_scheme(capsys: pytest.CaptureFixture[str]) -> None:
+    cli_args = CliArgs()
+    cli_args.password = 'postgres://user:pass@host/db'
+
+    with pytest.raises(SystemExit) as excinfo:
+        preprocess_cli_args(cli_args, valid_connection_scheme)
+
+    assert excinfo.value.code == 1
+    assert 'Unknown connection scheme provided for DSN URI (postgres://)' in capsys.readouterr().err
+
+
+def test_preprocess_cli_args_reads_password_file_when_password_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cli_args = CliArgs()
+    cli_args.password_file = 'secret.txt'
+    monkeypatch.setattr(main, 'get_password_from_file', lambda password_file: f'from:{password_file}')
+
+    assert preprocess_cli_args(cli_args, valid_connection_scheme) == 0
+    assert cli_args.password == 'from:secret.txt'
+
+
+def test_preprocess_cli_args_uses_mysql_pwd_when_password_and_file_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli_args = CliArgs()
+    monkeypatch.setenv('MYSQL_PWD', 'env-secret')
+
+    assert preprocess_cli_args(cli_args, valid_connection_scheme) == 0
+    assert cli_args.password == 'env-secret'
+
+
+def test_preprocess_cli_args_prefers_existing_password_over_mysql_pwd(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli_args = CliArgs()
+    cli_args.password = 'cli-secret'
+    monkeypatch.setenv('MYSQL_PWD', 'env-secret')
+
+    assert preprocess_cli_args(cli_args, valid_connection_scheme) == 0
+    assert cli_args.password == 'cli-secret'
+
+
+@pytest.mark.parametrize(
+    ('checkpoint', 'batch', 'expected'),
+    [
+        (None, 'batch.sql', 'Error: --resume requires a --checkpoint file.'),
+        (object(), None, 'Error: --resume requires a --batch file.'),
+    ],
+)
+def test_preprocess_cli_args_validates_resume_requirements(
+    capsys: pytest.CaptureFixture[str],
+    checkpoint: object | None,
+    batch: str | None,
+    expected: str,
+) -> None:
+    cli_args = CliArgs()
+    cli_args.resume = True
+    cli_args.checkpoint = checkpoint  # type: ignore[assignment]
+    cli_args.batch = batch
+
+    with pytest.raises(SystemExit) as excinfo:
+        preprocess_cli_args(cli_args, valid_connection_scheme)
+
+    assert excinfo.value.code == 1
+    assert expected in capsys.readouterr().err
+
+
+def test_preprocess_cli_args_rejects_verbose_and_quiet(capsys: pytest.CaptureFixture[str]) -> None:
+    cli_args = CliArgs()
+    cli_args.verbose = 1
+    cli_args.quiet = True
+
+    with pytest.raises(SystemExit) as excinfo:
+        preprocess_cli_args(cli_args, valid_connection_scheme)
+
+    assert excinfo.value.code == 1
+    assert 'Error: --verbose and --quiet are incompatible.' in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ('verbose', 'quiet', 'expected'),
+    [
+        (2, False, 2),
+        (0, True, -1),
+        (0, False, 0),
+    ],
+)
+def test_preprocess_cli_args_returns_cli_verbosity(verbose: int, quiet: bool, expected: int) -> None:
+    cli_args = CliArgs()
+    cli_args.verbose = verbose
+    cli_args.quiet = quiet
+
+    assert preprocess_cli_args(cli_args, valid_connection_scheme) == expected

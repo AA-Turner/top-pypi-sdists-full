@@ -483,11 +483,10 @@ class WriteFile(
             # actual recovery; this just gives one-line redirect.
             if recent_reads:
                 msg = (
-                    f"path required. Try one of: "
-                    f"{', '.join(recent_reads[:3])}"
+                    f"path required"
                 )
             else:
-                msg = "path required. Call ls or read_file first to locate the target."
+                msg = "path required"
             yield WriteFileResult(
                 path="(missing)",
                 bytes_written=0,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: abx-plugins
-Version: 1.11.179
+Version: 1.11.186
 Summary: ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)
 Project-URL: Homepage, https://github.com/ArchiveBox/abx-plugins
 Project-URL: Source, https://github.com/ArchiveBox/abx-plugins
@@ -21,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.12
 Requires-Dist: abxbus==2.5.10
-Requires-Dist: abxpkg>=1.11.175
+Requires-Dist: abxpkg>=1.11.182
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: jambo>=0.1.7
 Requires-Dist: rich-click>=1.9.7

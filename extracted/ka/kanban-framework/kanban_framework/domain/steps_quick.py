@@ -51,8 +51,6 @@ QUICK_STEPS: dict[str, list[StepDef]] = {
                          "kanban guard check-artifacts $task_id execute"]),
         StepDef("execute.checkpoint", "Git 提交代码改动",
                 actions=["kanban workflow checkpoint $task_id execute"]),
-        StepDef("execute.complete", "Execute 完成",
-                actions=["kanban workflow complete-phase $task_id"]),
     ],
     "user_decision": [
         StepDef("user_decision.present", "展示执行摘要",

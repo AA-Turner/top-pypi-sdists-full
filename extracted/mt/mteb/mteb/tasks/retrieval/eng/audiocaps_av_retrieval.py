@@ -7,7 +7,7 @@ from mteb.abstasks.retrieval_dataset_loaders import RetrievalSplitData
 from mteb.abstasks.task_metadata import TaskMetadata
 
 _DATASET_PATH = "mteb/AudioCaps_AV"
-_DATASET_REVISION = "dd2fe8cc347f590957ddf061ce3d3f179196ff03"
+_DATASET_REVISION = "5fd062d13a1ea8cdf36923faaacc32c43e6de14e"
 _BIBTEX = r"""
 @inproceedings{kim2019audiocaps,
   author = {Kim, Chris Dongjoo and Kim, Byeongchang and Lee, Hyunmin and Kim, Gunhee},
@@ -59,6 +59,7 @@ class AudioCapsAVV2TRetrieval(AbsTaskRetrieval):
             "Retrieve the English caption that describes a given video clip (video "
             "only) from AudioCaps-AV, an audio-visual extension of the AudioCaps "
             "dataset sourced from YouTube."
+            " Sampled the test split (~665 examples)."
         ),
         reference="https://audiocaps.github.io/",
         dataset={"path": _DATASET_PATH, "revision": _DATASET_REVISION},
@@ -91,6 +92,7 @@ class AudioCapsAVT2VRetrieval(AbsTaskRetrieval):
             "Retrieve the video clip (video only) that matches a given English "
             "caption from AudioCaps-AV, an audio-visual extension of the AudioCaps "
             "dataset sourced from YouTube."
+            " Sampled the test split (~665 examples)."
         ),
         reference="https://audiocaps.github.io/",
         dataset={"path": _DATASET_PATH, "revision": _DATASET_REVISION},
@@ -123,6 +125,7 @@ class AudioCapsAVVA2TRetrieval(AbsTaskRetrieval):
             "Retrieve the English caption that describes a given video+audio clip "
             "from AudioCaps-AV, an audio-visual extension of the AudioCaps dataset "
             "sourced from YouTube."
+            " Sampled the test split (~665 examples)."
         ),
         reference="https://audiocaps.github.io/",
         dataset={"path": _DATASET_PATH, "revision": _DATASET_REVISION},
@@ -157,6 +160,7 @@ class AudioCapsAVT2VARetrieval(AbsTaskRetrieval):
             "Retrieve the video+audio clip that matches a given English caption "
             "from AudioCaps-AV, an audio-visual extension of the AudioCaps dataset "
             "sourced from YouTube."
+            " Sampled the test split (~665 examples)."
         ),
         reference="https://audiocaps.github.io/",
         dataset={"path": _DATASET_PATH, "revision": _DATASET_REVISION},
@@ -192,6 +196,7 @@ class AudioCapsAVV2ARetrieval(AbsTaskRetrieval):
             "AudioCaps-AV, an audio-visual extension of the AudioCaps dataset "
             "sourced from YouTube. Tests cross-modal alignment between video "
             "frames and audio."
+            " Sampled the test split (~665 examples)."
         ),
         reference="https://audiocaps.github.io/",
         dataset={"path": _DATASET_PATH, "revision": _DATASET_REVISION},
@@ -225,6 +230,7 @@ class AudioCapsAVA2VRetrieval(AbsTaskRetrieval):
             "AudioCaps-AV, an audio-visual extension of the AudioCaps dataset "
             "sourced from YouTube. Tests cross-modal alignment between audio "
             "and video frames."
+            " Sampled the test split (~665 examples)."
         ),
         reference="https://audiocaps.github.io/",
         dataset={"path": _DATASET_PATH, "revision": _DATASET_REVISION},
@@ -248,3 +254,77 @@ class AudioCapsAVA2VRetrieval(AbsTaskRetrieval):
 
     def load_data(self, num_proc: int | None = None, **kwargs) -> None:
         _load_audiocaps_av(self, query_columns=["audio"], corpus_columns=["video"])
+
+
+class AudioCapsAVVT2ARetrieval(AbsTaskRetrieval):
+    metadata = TaskMetadata(
+        name="AudioCapsAVVT2ARetrieval",
+        description=(
+            "Retrieve the audio track that matches a given video clip and its "
+            "caption from AudioCaps-AV, an audio-visual extension of the AudioCaps "
+            "dataset sourced from YouTube."
+            " Sampled the test split (~665 examples)."
+        ),
+        reference="https://audiocaps.github.io/",
+        dataset={"path": _DATASET_PATH, "revision": _DATASET_REVISION},
+        type="Any2AnyRetrieval",
+        category="vt2a",
+        eval_splits=["test"],
+        eval_langs=["eng-Latn"],
+        main_score="ndcg_at_10",
+        modalities=["video", "text", "audio"],
+        date=("2018-01-01", "2018-12-31"),
+        domains=["Encyclopaedic", "Web"],
+        task_subtypes=["Cross-Modal Retrieval"],
+        license="mit",
+        annotations_creators="human-annotated",
+        dialect=[],
+        sample_creation="found",
+        bibtex_citation=_BIBTEX,
+        prompt={
+            "query": "Find the audio that corresponds to the following video and its description."
+        },
+        is_beta=True,
+    )
+
+    def load_data(self, num_proc: int | None = None, **kwargs) -> None:
+        _load_audiocaps_av(
+            self, query_columns=["video", "caption"], corpus_columns=["audio"]
+        )
+
+
+class AudioCapsAVAT2VRetrieval(AbsTaskRetrieval):
+    metadata = TaskMetadata(
+        name="AudioCapsAVAT2VRetrieval",
+        description=(
+            "Retrieve the video clip that matches a given audio track and its "
+            "caption from AudioCaps-AV, an audio-visual extension of the AudioCaps "
+            "dataset sourced from YouTube."
+            " Sampled the test split (~665 examples)."
+        ),
+        reference="https://audiocaps.github.io/",
+        dataset={"path": _DATASET_PATH, "revision": _DATASET_REVISION},
+        type="Any2AnyRetrieval",
+        category="at2v",
+        eval_splits=["test"],
+        eval_langs=["eng-Latn"],
+        main_score="ndcg_at_10",
+        modalities=["audio", "text", "video"],
+        date=("2018-01-01", "2018-12-31"),
+        domains=["Encyclopaedic", "Web"],
+        task_subtypes=["Cross-Modal Retrieval"],
+        license="mit",
+        annotations_creators="human-annotated",
+        dialect=[],
+        sample_creation="found",
+        bibtex_citation=_BIBTEX,
+        prompt={
+            "query": "Find the video that corresponds to the following audio and its description."
+        },
+        is_beta=True,
+    )
+
+    def load_data(self, num_proc: int | None = None, **kwargs) -> None:
+        _load_audiocaps_av(
+            self, query_columns=["audio", "caption"], corpus_columns=["video"]
+        )

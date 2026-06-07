@@ -34,6 +34,8 @@
 import numpy
 import pytest
 
+pytest.importorskip('imagecodecs._shared')
+
 from imagecodecs._shared import (
     IC,
     ExtraSample,

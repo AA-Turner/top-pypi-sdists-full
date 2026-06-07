@@ -43,11 +43,6 @@ LIGHTWEIGHT_STEPS: dict[str, list[StepDef]] = {
                     "- 不要调用任何 kanban CLI 命令\n\n"
                     "完成标志：$task_dir/plan/index.md 和 $task_dir/task_breakdown.json 文件存在且非空。"
                 )),
-        StepDef("plan.complete", "Plan 阶段完成",
-                actions=["kanban guard check-artifacts $task_id plan",
-                         "kanban workflow checkpoint $task_id plan",
-                         "kanban workflow complete-phase $task_id"],
-                required_artifacts=["spec.md", "task_breakdown.json", "plan/index.md"]),
     ],
     "execute": [
         StepDef("execute.spawn", "执行编码（轻量模式）",
@@ -66,10 +61,6 @@ LIGHTWEIGHT_STEPS: dict[str, list[StepDef]] = {
                 )),
         StepDef("execute.verify", "验证执行产物",
                 actions=["kanban guard check-artifacts $task_id execute"]),
-        StepDef("execute.commit", "Git 提交执行产物",
-                actions=["kanban workflow checkpoint $task_id execute"]),
-        StepDef("execute.complete", "Execute 完成",
-                actions=["kanban workflow complete-phase $task_id"]),
     ],
     "evaluate": [
         StepDef("evaluate.spawn_review", "通用审核 (lightweight)",
@@ -92,8 +83,6 @@ LIGHTWEIGHT_STEPS: dict[str, list[StepDef]] = {
                     "- 完成后立即停止，不要进入后续阶段\n\n"
                     "完成标志：$report_dir/reviews/review_report.json 文件存在且非空。"
                 )),
-        StepDef("evaluate.complete", "Evaluate 完成",
-                actions=["kanban workflow complete-phase $task_id"]),
     ],
     "user_decision": [
         StepDef("user_decision.present", "展示变更摘要",
@@ -108,8 +97,5 @@ LIGHTWEIGHT_STEPS: dict[str, list[StepDef]] = {
                 actions=["kanban guard check-inbox $task_id",
                          "kanban guard check-pending-subtasks $task_id",
                          "kanban guard check-archive-stray $task_id"]),
-        StepDef("archive.cleanup", "清理 worktree",
-                actions=["kanban worktree remove $task_id",
-                         "kanban clean $task_id"]),
     ],
 }

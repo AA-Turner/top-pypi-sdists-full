@@ -1330,11 +1330,33 @@ function _friendlyBytes(n) {
 // escalated, Z failed). Drill-down is lazy-loaded on click. Per memory
 // `feedback_no_em_dashes_in_user_facing_copy.md`, copy uses commas not
 // em-dashes.
+// UI-coverage audit: today's activity counters strip. Reads /api/activity-today
+// (local: cached DuckDB rollup; cloud: cm-cloud-activity serves it from the
+// snapshot's activityToday slice). Hidden until there is any activity today.
+async function loadActivityToday() {
+  var strip = document.getElementById('activity-today-strip');
+  if (!strip) return;
+  var _rt = (typeof _cmRuntimeFilter === 'function') ? _cmRuntimeFilter() : 'all';
+  var _q = (_rt && _rt !== 'all') ? ('?runtime=' + encodeURIComponent(_rt)) : '';
+  var d = {};
+  try { d = await fetchJsonWithTimeout('/api/activity-today' + _q, 4000) || {}; } catch (e) { return; }
+  var tool = d.tool_calls_today || 0, exec = d.exec_calls_today || 0,
+      brow = d.browser_actions_today || 0, msgs = d.messages_today || 0,
+      uniq = d.unique_tools_today || 0;
+  if (!(tool || exec || brow || msgs || uniq)) { strip.style.display = 'none'; return; }
+  var set = function(id, v){ var el = document.getElementById(id); if (el) el.textContent = v; };
+  set('at-tool-calls', tool); set('at-exec-calls', exec); set('at-browser-actions', brow);
+  set('at-messages', msgs); set('at-unique-tools', uniq);
+  strip.style.display = '';
+}
+
 async function loadOutcomeTile() {
   var summaryEl = document.getElementById('outcome-tile-summary');
   if (!summaryEl) return;
+  var _ocRt = (typeof _cmRuntimeFilter === 'function') ? _cmRuntimeFilter() : 'all';
+  var _ocQ = (_ocRt && _ocRt !== 'all') ? ('&runtime=' + encodeURIComponent(_ocRt)) : '';
   try {
-    var d = await fetchJsonWithTimeout('/api/outcomes?window=1d', 3000);
+    var d = await fetchJsonWithTimeout('/api/outcomes?window=1d' + _ocQ, 3000);
     if (!d || d.total === 0) {
       summaryEl.textContent = t("app.no_completed_tasks_yet_today_outcomes_will_appear_", null, "No completed tasks yet today. Outcomes will appear once sessions finish.");
       return;
@@ -2986,6 +3008,8 @@ async function loadAll() {
   if (Date.now() - _loadAllLastFinishedMs < _LOADALL_COALESCE_MS) return;
   _loadAllInFlight = (async function () {
   try {
+    // Runtime scope banner on first paint (showTab only fires on tab switch).
+    try { _cmApplyRuntimeScopeNote('overview'); } catch (e) {}
     // Render overview quickly; do not block on heavy usage aggregation.
     var overview = await fetchJsonWithTimeout('/api/overview', 3000);
     window._cmOverview = overview;
@@ -3009,6 +3033,8 @@ async function loadAll() {
     if (typeof loadActivityHeatmap === 'function') setTimeout(function(){ loadActivityHeatmap().catch(function(e){console.warn('activity heatmap failed',e)}); }, 4500);
     // Issue #1614 — outcome tile (Today: N tasks, X% success).
     if (typeof loadOutcomeTile === 'function') setTimeout(function(){ loadOutcomeTile().catch(function(e){console.warn('outcome tile failed',e)}); }, 800);
+    // UI-coverage audit — today's activity counters strip.
+    if (typeof loadActivityToday === 'function') setTimeout(function(){ loadActivityToday().catch(function(e){console.warn('activity today failed',e)}); }, 900);
     document.getElementById('refresh-time').textContent = t("app.updated", null, "Updated ") + new Date().toLocaleTimeString();
 
     if (overview.infra) {
@@ -7377,6 +7403,15 @@ async function ncReject(sandbox, chunkId, btn) {
 // disclosure, and condenses the hero card so the action items aren't
 // buried under a wall of green PASS cards.
 async function loadSecurityPosture() {
+  if (window.CLOUD_MODE) {
+    // Trial-bug fix #23: posture scans the local OpenClaw config (no DuckDB in
+    // cloud) so it errored on the hosted dashboard. Show an honest state.
+    var _pb = document.getElementById('posture-score-badge');
+    if (_pb) _pb.textContent = '--';
+    var _pl = document.getElementById('posture-score-label');
+    if (_pl) _pl.textContent = t('app.local_dashboard_only', null, 'Local dashboard only');
+    return;
+  }
   try {
     var data = await fetchJsonWithTimeout('/api/security/posture', 25000);
     var badge = document.getElementById('posture-score-badge');
@@ -7441,7 +7476,14 @@ async function loadSecurityPosture() {
 }
 
 async function loadSecurityPage(silent) {
-  if (window.CLOUD_MODE) return;
+  if (window.CLOUD_MODE) {
+    // Trial-bug fix #24: threat scanning runs on the local node (no DuckDB in
+    // cloud); the early-return left "Scanning..." spinning forever. Render an
+    // honest state instead.
+    var _tl = document.getElementById('security-threat-list');
+    if (_tl) _tl.innerHTML = '<div style="color:var(--text-muted);padding:20px;font-size:13px;">' + t('app.security_threats_local_only', null, 'Threat detection runs on your local node. Open the local dashboard to scan for misconfigurations.') + '</div>';
+    return;
+  }
   try {
     var data = await fetchJsonWithTimeout('/api/security/threats', 10000);
     var threats = data.threats || [];
@@ -7834,6 +7876,22 @@ function _cmApplyRuntimeScopeNote(name) {
   var noteId = 'cm-rt-scope-note';
   var existing = page.querySelector('#' + noteId);
   var rt = _cmRuntimeFilter();
+  // Overview is a MIX: some cards re-scope with the runtime switcher (today's
+  // tasks/outcome, the activity strip, the hero token/cost stats) and some stay
+  // node-wide (autonomy score, reliability, activity heatmap). A single
+  // nodewide/aggregate note would be wrong, so spell out exactly what is scoped
+  // so the same number never looks runtime-specific when it isn't. (Founder:
+  // "don't confuse users" after the outcome/activity cards read identically
+  // across runtimes.)
+  if (name === 'overview') {
+    if (rt === 'all') { if (existing) existing.parentNode.removeChild(existing); return; }
+    var _ovl = _cmRuntimeLabel(rt);
+    var _ovmsg = 'Showing <strong>' + escHtml(_ovl) + '</strong>: today\'s tasks, activity, tokens and cost below are scoped to it. The autonomy score, reliability and activity heatmap stay <strong>node-wide</strong> (all runtimes).';
+    var _ovhtml = '<div id="' + noteId + '" style="display:flex;align-items:center;gap:8px;margin:0 0 14px;padding:9px 13px;border-radius:8px;background:rgba(59,130,246,0.10);border:1px solid rgba(59,130,246,0.35);font-size:12px;color:var(--text-secondary);line-height:1.4;"><span style="color:#3b82f6;font-size:13px;flex-shrink:0;">&#127760;</span><span>' + _ovmsg + '</span></div>';
+    if (existing) existing.outerHTML = _ovhtml;
+    else page.insertAdjacentHTML('afterbegin', _ovhtml);
+    return;
+  }
   var scope = _CM_RT_NODEWIDE[name] ? 'nodewide' : (_CM_RT_AGGREGATE[name] ? 'aggregate' : null);
   if (rt === 'all' || !scope) { if (existing) existing.parentNode.removeChild(existing); return; }
   // For AGGREGATE tabs: if only one runtime actually has data, the cross-runtime
@@ -14582,7 +14640,7 @@ async function loadClusters() {
   if (!el) return;
   el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:16px;">' + t("app.analyzing_session_patterns", null, "Analyzing session patterns...") + '</div>';
   try {
-    var data = await fetch('/api/clusters').then(r => r.json());
+    var data = await fetch('/api/sessions/clusters').then(r => r.json());
     if (!data.clusters || data.clusters.length === 0) {
       el.innerHTML = '<div class="card" style="padding:20px;text-align:center;"><div style="font-size:13px;color:var(--text-muted);">' + t("app.no_sessions_found_to_cluster", null, "No sessions found to cluster.") + '</div></div>';
       return;

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: whoisit
-Version: 4.0.3
+Version: 4.0.4
 Summary: A Python client to RDAP WHOIS-like services for internet resources.
 Home-page: https://github.com/meeb/whoisit
 Author: https://github.com/meeb

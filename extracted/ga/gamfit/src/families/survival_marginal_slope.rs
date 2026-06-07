@@ -19589,6 +19589,16 @@ fn validate_spec(spec: &SurvivalMarginalSlopeTermSpec) -> Result<(), String> {
         }
         .into());
     }
+    // Fast-fail on a degenerate all-censored design: the marginal-slope partial
+    // likelihood has no events to anchor the hazard scale, so the outer/inner
+    // solve cannot make progress and otherwise spins without termination (#789B).
+    if !spec.event_target.is_empty() && spec.event_target.iter().all(|&d| d == 0.0) {
+        return Err(SurvivalMarginalSlopeError::InvalidInput {
+            reason: "survival-marginal-slope requires at least one event (event==1); the supplied design is entirely censored (all event==0), which has no finite marginal-slope fit"
+                .to_string(),
+        }
+        .into());
+    }
     if !spec.derivative_guard.is_finite() || spec.derivative_guard <= 0.0 {
         return Err(SurvivalMarginalSlopeError::InvalidInput {
             reason: format!(
@@ -22376,15 +22386,39 @@ pub fn fit_survival_marginal_slope_terms(
         "[survival-marginal-slope/outer] solve end elapsed={:.3}s",
         fit_started.elapsed().as_secs_f64(),
     );
+    // Never-fail outer escalation (#808), mirroring the bernoulli/custom-family
+    // path (`fit_custom_family`, src/families/custom_family.rs): when the outer
+    // smoothing optimizer cannot CERTIFY convergence we do NOT hard-error.
+    // Erroring here turned a (recoverable) outer stall on clustered-PC designs
+    // into a FATAL `IntegrationFailed`, killing the whole fit. The bernoulli
+    // path instead surfaces the non-convergence as a status flag and returns the
+    // best-iterate fit (a usable, posterior-conditional model) so a stalled
+    // landscape degrades gracefully rather than crashing.
+    //
+    // `solved.fit` is the best iterate the outer solve reached: `inner_fit`
+    // produced a full `UnifiedFitResult` (finite β + conditional covariance) at
+    // the terminating ρ. Its `outer_converged == false` propagates downstream to
+    // `PirlsStatus::StalledAtValidMinimum` (src/terms/smooth.rs), the SAME
+    // non-silent diagnostic flag every other family uses — so the caller can see
+    // the fit did not certify convergence (it is NOT reported as a clean
+    // success). This is containment for the underlying time/baseline↔η₁ alias
+    // stall, not a root-cause fix: the returned model is the reached mode, which
+    // on a genuinely stalled solve may be biased; the status flag is the honest
+    // signal of that. Kept MarginalSlope-survival-specific (the AFT
+    // location-scale family lives in survival_location_scale.rs and is
+    // untouched).
     if !solved.fit.outer_converged {
-        return Err(SurvivalMarginalSlopeError::IntegrationFailed {
-            reason: format!(
-                "survival marginal-slope outer optimization did not converge: \
-                 iterations={} final_objective={:.6e} |g|_inf={:?}",
-                solved.fit.outer_iterations, solved.fit.reml_score, solved.fit.outer_gradient_norm
-            ),
-        }
-        .into());
+        log::warn!(
+            "[robust][smgs] survival marginal-slope outer smoothing did not certify \
+             convergence (iterations={} final_objective={:.6e} |g|_inf={:?}); \
+             AUTO-ESCALATE to graceful degradation: returning the best-iterate fit \
+             with PirlsStatus::StalledAtValidMinimum (outer_converged=false) instead \
+             of erroring. The reached mode may be biased; the status flag is the \
+             honest non-convergence signal (#808).",
+            solved.fit.outer_iterations,
+            solved.fit.reml_score,
+            solved.fit.outer_gradient_norm,
+        );
     }
 
     // Recompile-after-first-PIRLS-accept refinement (math-agent review).
@@ -23026,8 +23060,15 @@ mod tests {
     }
 
     fn dummy_blockspec(cols: usize) -> ParameterBlockSpec {
+        // `validate_blockspecs` enforces unique block names so coefficient
+        // labels stay unambiguous. A monotonic per-process counter keeps
+        // each call's name distinct even when multiple specs are stacked
+        // into one `Vec`.
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        static SEQ: AtomicUsize = AtomicUsize::new(0);
+        let idx = SEQ.fetch_add(1, Ordering::Relaxed);
         ParameterBlockSpec {
-            name: "dummy".to_string(),
+            name: format!("dummy_{idx}"),
             design: DesignMatrix::Dense(DenseDesignMatrix::from(Array2::zeros((1, cols)))),
             offset: Array1::zeros(1),
             penalties: Vec::new(),

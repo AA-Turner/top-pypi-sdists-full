@@ -170,7 +170,12 @@ class SmplClient:
             app_base_url=app_url,
             extra_headers=extra_headers,
         )
-        self.audit = AuditClient(api_key=cfg.api_key, base_url=audit_url, extra_headers=extra_headers)
+        self.audit = AuditClient(
+            api_key=cfg.api_key,
+            base_url=audit_url,
+            environment=cfg.environment,
+            extra_headers=extra_headers,
+        )
 
         # Periodic flush of registration buffers (contexts, flags, loggers).
         self._closed = False
@@ -425,7 +430,12 @@ class AsyncSmplClient:
             app_base_url=app_url,
             extra_headers=extra_headers,
         )
-        self.audit = AsyncAuditClient(api_key=cfg.api_key, base_url=audit_url, extra_headers=extra_headers)
+        self.audit = AsyncAuditClient(
+            api_key=cfg.api_key,
+            base_url=audit_url,
+            environment=cfg.environment,
+            extra_headers=extra_headers,
+        )
 
         # Periodic flush of registration buffers (contexts, flags, loggers).
         self._closed = False

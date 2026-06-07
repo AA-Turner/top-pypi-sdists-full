@@ -5468,8 +5468,36 @@ def _today_start_iso_utc() -> str:
     return start.isoformat()
 
 
-def _collect_activity_counters_today() -> dict | None:
+def _outcomes_slice_for_snapshot(runtime: str | None = None) -> dict:
+    """Outcome roll-up (1d) for the Overview tile on the hosted dashboard.
+
+    Mirrors ``routes/sessions.api_outcomes`` (``query_outcomes`` then
+    ``aggregate_outcomes``) so the cloud can render the tile from the snapshot
+    instead of an empty /api/outcomes. ``runtime`` scopes to one runtime
+    (session_id prefix) for the per-runtime breakdown. Best-effort; ``{}`` on
+    any error so the snapshot never fails.
+    """
+    try:
+        from clawmetry import local_store as _ls_oc
+        from clawmetry.outcome_classifier import aggregate_outcomes
+        from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+        since = (_dt.now(_tz.utc) - _td(days=1)).isoformat().replace("+00:00", "Z")
+        rows = _ls_oc.get_store().query_outcomes(
+            agent_type="openclaw", since=since, runtime=runtime, limit=1000) or []
+        agg = aggregate_outcomes(rows)
+        agg["window"] = "1d"
+        return agg
+    except Exception as e:
+        log.debug("snapshot: outcomes slice failed: %s", e)
+        return {}
+
+
+def _collect_activity_counters_today(runtime: str | None = None) -> dict | None:
     """Plaintext activity counters for the heartbeat envelope (issue #1652).
+
+    ``runtime`` (optional): scope the counts to one runtime (session_id prefix,
+    e.g. "openclaw", "codex"). None / "all" = node-wide. Used to build the
+    per-runtime breakdown so the Overview cards re-scope with the runtime switcher.
 
     Cloud has no plaintext source for real exec/tool-call activity counts —
     sessions + nodes.metadata carry version/health bits but no per-day
@@ -5506,7 +5534,8 @@ def _collect_activity_counters_today() -> dict | None:
         # per ACTUAL tool call, not once per row (an assistant message
         # carrying 3 toolMetas yields 3 invocations, not 1).
         try:
-            invs = store.query_tool_call_invocations(since=since, limit=200_000)
+            invs = store.query_tool_call_invocations(
+                since=since, runtime=runtime, limit=200_000)
         except Exception:
             invs = []
         tool_calls = 0
@@ -5534,7 +5563,7 @@ def _collect_activity_counters_today() -> dict | None:
         for et in _MESSAGE_EVENT_TYPES_TODAY:
             try:
                 rows = store.query_events(
-                    event_type=et, since=since, limit=100_000,
+                    event_type=et, since=since, runtime=runtime, limit=100_000,
                 )
             except Exception:
                 continue
@@ -10064,11 +10093,147 @@ def _build_transcripts(limit_sessions=8, msg_cap=80, extra_sids=None):
                 t["messages"] = _project_snapshot_messages(msgs)
                 if title:
                     t["title"] = title
+                # Trial-bug fix: stamp the runtime so the cloud transcripts tab
+                # can filter by runtime (was unset -> every session looked like
+                # openclaw, so "Claude Code" filter showed "no sessions").
+                t["runtime"] = _runtime_of_session(sid)
                 out[sid] = t
         return out
     except Exception as _e:
         log.debug("transcripts snapshot build failed: %s", _e)
         return {}
+
+
+def _build_autonomy_snapshot():
+    """Autonomy block for the cloud snapshot (same shape as /api/autonomy).
+
+    Trial-bug fix: the Overview "How independent is your agent?" card fetches
+    /api/autonomy, which is empty on the hosted dashboard (no DuckDB) because no
+    snapshot slice carried it -> the card was stuck on "Just getting started".
+    Reuses the store-backed compute from routes.autonomy (best-effort -> empty).
+    """
+    try:
+        from routes.autonomy import _try_local_store_autonomy, _empty_response
+        try:
+            r = _try_local_store_autonomy()
+        except Exception:
+            r = None
+        return r if r is not None else _empty_response()
+    except Exception:
+        return {}
+
+
+def _build_usage_snapshot():
+    """Usage tab slices (anomalies, cost-comparison, cache-trends, cost-breakdown,
+    spend-optimization, forecast). Trial-bug #12: these Usage cards were blank on
+    the hosted dashboard (the /api/usage/* + /api/sessions/cost-breakdown routes
+    return empty without DuckDB and had no interceptor). Reuses the store-backed
+    fast-paths; each returns {} when the builder defers."""
+    out = {}
+    def _safe(fn):
+        try:
+            r = fn()
+            return r if r is not None else {}
+        except Exception:
+            return {}
+    try:
+        from routes.usage import (
+            _try_local_store_anomalies, _try_local_store_cost_comparison,
+            _try_local_store_cache_trends, _try_local_store_spend_optimization,
+            _try_local_store_usage_forecast,
+        )
+        out["anomalies"] = _safe(_try_local_store_anomalies)
+        out["costComparison"] = _safe(_try_local_store_cost_comparison)
+        out["cacheTrends"] = _safe(lambda: _try_local_store_cache_trends(30))
+        out["spendOptimization"] = _safe(_try_local_store_spend_optimization)
+        out["forecast"] = _safe(_try_local_store_usage_forecast)
+    except Exception:
+        pass
+    try:
+        from routes.sessions import _try_local_store_cost_breakdown
+        out["costBreakdown"] = _safe(_try_local_store_cost_breakdown)
+    except Exception:
+        out["costBreakdown"] = {}
+    return out
+
+
+def _build_approvals_audit_snapshot():
+    """Approvals audit slice (mirrors /api/approvals-audit). Trial-bug #22: the
+    Policy tab's exec-approval audit was blank on the hosted dashboard."""
+    try:
+        from routes.policy import _approvals_audit_payload
+        return _approvals_audit_payload(limit=100)
+    except Exception:
+        return {}
+
+
+def _build_harness_snapshot():
+    """Harness tab slice: templates + per-runtime data blobs. Trial-bug #10:
+    the Harness tab was blank ("Loading harness view...") on the hosted
+    dashboard (no slice + no interceptor)."""
+    out = {"templates": {}, "runtimes": [], "dataByRuntime": {}}
+    try:
+        from clawmetry import harness_templates as _ht
+        tmpls = _ht.all_templates()
+        out["templates"] = tmpls
+        out["runtimes"] = sorted(tmpls.keys())
+        from routes.harness import _harness_data_for
+        for _rt in out["runtimes"]:
+            try:
+                out["dataByRuntime"][_rt] = _harness_data_for(_rt)
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return out
+
+
+def _build_cron_health_summary_snapshot():
+    """Cron health summary slice (mirrors /api/cron/health-summary). Trial-bug
+    fix: the "Cron Health Monitor" card was blank on the hosted dashboard."""
+    try:
+        from routes.crons import _try_local_store_cron_health_summary
+        r = _try_local_store_cron_health_summary()
+        return r if r is not None else {}
+    except Exception:
+        return {}
+
+
+def _build_flow_runs_snapshot(limit=60):
+    """Flow runs slice (mirrors /api/flow/runs). Trial-bug fix: the Flow "Runs"
+    subtab was blank on the hosted dashboard (no interceptor + no slice)."""
+    try:
+        from clawmetry import local_store as _ls
+        runs = _ls.get_store().query_flow_runs(limit=limit) or []
+        return {
+            "runs": runs, "count": len(runs),
+            "_source": "local_store" if runs else "empty",
+            "capped_at_24h": False,
+        }
+    except Exception:
+        return {"runs": [], "count": 0, "_source": "empty", "capped_at_24h": False}
+
+
+def _build_flow_lanes_snapshot():
+    """Active session lanes slice (mirrors /api/flow/lanes): sessions touched in
+    the last 30 minutes. Trial-bug fix: "Active Session Lanes" was blank."""
+    try:
+        from datetime import datetime as _D, timezone as _TZ, timedelta as _TD
+        active_since = (_D.now(_TZ.utc) - _TD(minutes=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        from clawmetry import local_store as _ls
+        runs = _ls.get_store().query_flow_runs(since=active_since, limit=50) or []
+        lanes = [{
+            "session_id":    r.get("session_id") or "",
+            "session_short": (r.get("session_id") or "")[:8],
+            "channel":       r.get("channel") or "cli",
+            "event_count":   int(r.get("event_count") or 0),
+            "started_at":    r.get("started_at") or "",
+            "updated_at":    r.get("updated_at") or "",
+            "status":        "failed" if r.get("has_error") else "active",
+        } for r in runs]
+        return {"lanes": lanes, "_source": "local_store" if lanes else "empty"}
+    except Exception:
+        return {"lanes": [], "_source": "empty"}
 
 
 def _build_memory_access(limit=200):
@@ -12026,6 +12191,25 @@ def _build_cron_jobs(paths):
         return []
 
 
+def _seconds_since(ts) -> int:
+    """Seconds elapsed since an ISO-ish timestamp string (the store writes naive
+    local wall-clock), clamped to >= 0; returns 0 on any parse failure. Used so
+    the device's approval ``waiting_seconds`` is a real value, not always 0."""
+    if not ts:
+        return 0
+    try:
+        from datetime import datetime
+        s = str(ts).strip().replace("Z", "")
+        try:
+            dt = datetime.fromisoformat(s)
+        except ValueError:
+            dt = datetime.fromisoformat(s.split(".")[0].split("+")[0])
+        ref = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now()
+        return max(0, int((ref - dt).total_seconds()))
+    except Exception:
+        return 0
+
+
 def _build_device_summary(spending, daily_usage):
     """Compact, all-runtime payload for a WiFi hardware companion.
 
@@ -12034,19 +12218,29 @@ def _build_device_summary(spending, daily_usage):
     it rides the E2E-encrypted snapshot to cloud. The device GETs the snapshot,
     decrypts with the user's key, and reads this one small slice — the cloud
     never sees plaintext (E2E invariant preserved). Approve/Deny is wired (the
-    daemon owns the approvals queue); ``alert`` is sourced LAN-side for now
-    (the alert history lives in the dashboard process, not the daemon), so the
-    cloud summary leaves it ``null`` until that store is daemon-readable.
+    daemon owns the approvals queue), ``alert`` is sourced from the daemon's
+    loop-detection signals, and ``approval.waiting_seconds`` from the approval's
+    ``created_at`` -- the device reads all three, so they must be populated here.
+
+    Schema 2 adds a per-runtime ``runtimes`` array (cost / tokens / session
+    count per active runtime, costliest first) alongside the names-only
+    ``runtimes_active``; every schema-1 field is preserved (additive only).
 
     Never raises — every read degrades to a safe default so the device always
     gets a valid shape.
     """
     summary = {
-        "schema": 1,
+        # schema 2 adds the per-runtime ``runtimes`` array (cost/tokens/
+        # sessions per active runtime). Every schema-1 field is kept
+        # unchanged for back-compat -- the addition is purely additive and
+        # the firmware tolerates unknown fields, so an older device that
+        # only reads schema-1 keys keeps working.
+        "schema": 2,
         "cost_today_usd": round(float((spending or {}).get("today") or 0.0), 4),
         "tokens_today": int((daily_usage or {}).get("today") or 0),
         "active_sessions": 0,
         "runtimes_active": [],
+        "runtimes": [],
         "health": "green",
         "alert": None,
         "approval": None,
@@ -12066,6 +12260,50 @@ def _build_device_summary(spending, daily_usage):
             (_wf.runtime_from_session_id(s.get("session_id") or "") or "openclaw")
             for s in active
         })
+        # schema 2: per-runtime spend/tokens/session-count. Group the same
+        # active rows by runtime (session_id prefix) and sum the cost_usd +
+        # total_tokens that query_sessions_table already resolves (it
+        # GREATEST()s the stored column with the events SUM). Guarded
+        # separately so a grouping error degrades to the names-only
+        # ``runtimes_active`` above rather than dropping the whole slice.
+        try:
+            agg: dict = {}
+            for s in active:
+                name = (
+                    _wf.runtime_from_session_id(s.get("session_id") or "")
+                    or "openclaw"
+                )
+                bucket = agg.setdefault(
+                    name, {"cost": 0.0, "tokens": 0, "sessions": 0}
+                )
+                try:
+                    bucket["cost"] += float(s.get("cost_usd") or 0.0)
+                except (TypeError, ValueError):
+                    pass
+                try:
+                    bucket["tokens"] += int(s.get("total_tokens") or 0)
+                except (TypeError, ValueError):
+                    pass
+                bucket["sessions"] += 1
+            summary["runtimes"] = [
+                {
+                    "name": name,
+                    "cost_today_usd": round(b["cost"], 4),
+                    "tokens_today": b["tokens"],
+                    "sessions": b["sessions"],
+                    # An active runtime is healthy here; a stuck approval is
+                    # surfaced separately on the top-level ``health`` field.
+                    "health": "green",
+                }
+                # Highest spend first so the device shows the costliest
+                # runtime at the top.
+                for name, b in sorted(
+                    agg.items(),
+                    key=lambda kv: (-kv[1]["cost"], kv[0]),
+                )
+            ]
+        except Exception:
+            pass
     except Exception:
         pass
     try:
@@ -12080,11 +12318,29 @@ def _build_device_summary(spending, daily_usage):
                 "action": oldest.get("action") or "tool call",
                 "runtime": _wf.runtime_from_session_id(sid) or "openclaw",
                 "session_id": sid,
+                # The device renders a live "waiting Ns" timer; it read this
+                # field and got 0 every time because we never sent it (#contract).
+                "waiting_seconds": _seconds_since(oldest.get("created_at")),
             }
     except Exception:
         pass
-    # A waiting approval is the one thing on this slice that needs a human.
-    if summary["approval"]:
+    # Surface a "something is stuck" alert from the daemon's loop-detection
+    # signals so the device alert card can fire. It was always null while the
+    # alert source lived only in the dashboard process (#contract-drift).
+    try:
+        from clawmetry import waste_flags as _wf
+        sigs = store.query_recent_loop_signals(limit=5, since_minutes=30) or []
+        hot = next((s for s in sigs if isinstance(s, dict)
+                    and int(s.get("repeat_count") or 0) >= 5), None)
+        if hot:
+            rt = (_wf.runtime_from_session_id(hot.get("session_id") or "")
+                  or hot.get("agent_type") or "an agent")
+            n = int(hot.get("repeat_count") or 0)
+            summary["alert"] = {"message": f"{rt} looping, {n} repeats, no progress"}
+    except Exception:
+        pass
+    # A waiting approval or a stuck/looping agent is what needs a human.
+    if summary["approval"] or summary["alert"]:
         summary["health"] = "amber"
     return summary
 
@@ -12566,7 +12822,7 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
     # re-derive a coarse view from the summary + compactions, and the OSS tab
     # reads the live series directly.
     context_economics_slice: dict = {
-        "compactions": [], "overflow_sessions": [], "summary": {},
+        "compactions": [], "overflow_sessions": [], "summary": {}, "utilization": [],
     }
     try:
         from clawmetry import local_store as _ls_ce
@@ -12607,6 +12863,10 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
                 "overflow_sessions":  len(_ce.get("overflow_sessions") or []),
                 "utilization_points": len(_ce_util),
             }
+            # Trial-bug fix: ship the utilization time-series so the cloud
+            # context-window gauge has readings (it was computing _ce_util but
+            # never storing it -> "No readings" on the hosted dashboard).
+            context_economics_slice["utilization"] = _ce_util
             # Per-runtime context-economics for the runtime filter (founder
             # 2026-06-03: opencode/codex showed Claude Code's compactions). The
             # cloud interceptor picks byRuntime[<rt>]; empty for a runtime that
@@ -12618,6 +12878,42 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
             )
     except Exception as _e_ce:
         log.debug("snapshot: context_economics slice failed: %s", _e_ce)
+
+    # Eval (LLM-judge) scores, so the hosted dashboard's Eval card populates from
+    # the encrypted snapshot (cloud stays blind; E2E preserved). Built on the
+    # daemon's own store handle. Best-effort; empty until evals run (needs a
+    # judge key), which the card then reads as "scoring paused".
+    evals_slice = {"summary": {}, "recent": []}
+    try:
+        from clawmetry import local_store as _ls_ev
+        _ev_store = _ls_ev.get_store()
+        evals_slice["summary"] = _ev_store.query_eval_summary(window_hours=24) or {}
+        evals_slice["recent"] = _ev_store.query_recent_evals(limit=10) or []
+    except Exception as _e_ev:
+        log.debug("snapshot: evals slice failed: %s", _e_ev)
+
+    # Per-runtime breakdowns so the Overview cards (outcome tile + activity
+    # strip) re-scope with the runtime switcher on the hosted dashboard. Keyed
+    # by the runtimes that actually have data (runtimeSummary keys), so cost is
+    # bounded. The cloud cm-cloud-outcomes / cm-cloud-activity interceptors read
+    # ?runtime= and serve byRuntime[rt], falling back to the node-wide slice.
+    _runtime_summary = _build_runtime_summary()
+    _outcomes_by_rt: dict = {}
+    _activity_by_rt: dict = {}
+    try:
+        _rt_keys = list(_runtime_summary.keys()) if isinstance(_runtime_summary, dict) else []
+        for _rtk in _rt_keys:
+            try:
+                _o = _outcomes_slice_for_snapshot(runtime=_rtk)
+                if _o:
+                    _outcomes_by_rt[_rtk] = _o
+                _a = _collect_activity_counters_today(runtime=_rtk)
+                if _a:
+                    _activity_by_rt[_rtk] = _a
+            except Exception:
+                continue
+    except Exception as _e_rtb:
+        log.debug("snapshot: per-runtime breakdown failed: %s", _e_rtb)
 
     from clawmetry.providers_pricing import provider_for_model as _pfm
     payload = {
@@ -12649,12 +12945,24 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
         "toolCatalog": tool_catalog_slice,
         "mcpServers": mcp_servers_slice,
         "contextEconomics": context_economics_slice,
+        "autonomy": _build_autonomy_snapshot(),
+        "flowRuns": _build_flow_runs_snapshot(),
+        "flowLanes": _build_flow_lanes_snapshot(),
+        "evals": evals_slice,
+        "activityToday": _collect_activity_counters_today() or {},
+        "activityTodayByRuntime": _activity_by_rt,
+        "outcomes": _outcomes_slice_for_snapshot(),
+        "outcomesByRuntime": _outcomes_by_rt,
         "spending": spending,
         # Compact all-runtime slice a WiFi hardware companion decrypts + renders
         # (the device GETs the snapshot, decrypts with the user's key, reads
         # this). Cloud stays blind; E2E preserved.
         "deviceSummary": _build_device_summary(spending, _du),
         "cronJobs": _build_cron_jobs(paths),
+        "cronHealthSummary": _build_cron_health_summary_snapshot(),
+        "harness": _build_harness_snapshot(),
+        "usage": _build_usage_snapshot(),
+        "approvalsAudit": _build_approvals_audit_snapshot(),
         "channels": _build_channel_data(config),
         "toolStats": _build_tool_stats(),
         "externalCalls": _build_external_calls(),
@@ -12671,7 +12979,7 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
         "firstRun": _build_first_run(),
         "diagnostics": _build_diagnostics(paths.get("workspace")),
         "modelAttribution": _build_model_attribution(),
-        "runtimeSummary": _build_runtime_summary(),
+        "runtimeSummary": _runtime_summary,
         "transcripts": _build_transcripts(
             extra_sids=[
                 s["sessionId"]

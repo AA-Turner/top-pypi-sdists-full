@@ -86,7 +86,6 @@ from .models import (
     get_canned_acl,
     s3_backends,
 )
-from .select_object_content import serialize_select
 from .utils import (
     ARCHIVE_STORAGE_CLASSES,
     bucket_name_from_url,
@@ -173,6 +172,15 @@ ACTION_MAP = {
         "PUT": {"publicAccessBlock": "PutPublicAccessBlock"},
         "DELETE": {"publicAccessBlock": "DeletePublicAccessBlock"},
     },
+}
+
+ALLOWED_HEADER_OVERRIDES = {
+    "response-content-type": "content-type",
+    "response-content-language": "Content-Language",
+    "response-expires": "Expires",
+    "response-cache-control": "Cache-Control",
+    "response-content-disposition": "Content-Disposition",
+    "response-content-encoding": "Content-Encoding",
 }
 
 
@@ -2001,6 +2009,10 @@ class S3Response(BaseResponse):
         response_headers.update(key.metadata)
         response_headers.update({"Accept-Ranges": "bytes"})
 
+        for param_name, header_name in ALLOWED_HEADER_OVERRIDES.items():
+            if param_name in self.querystring:
+                response_headers[header_name] = self.querystring[param_name][0]
+
         part_number = self._get_int_param("partNumber")
         if part_number:
             if key.multipart:
@@ -3200,7 +3212,22 @@ class S3Response(BaseResponse):
             results, bytes_scanned = self.backend.select_object_content(
                 bucket_name, key_name, select_query, input_details, output_details
             )
-            return 200, {}, serialize_select(results, bytes_scanned)
+            bytes_returned = sum(len(line) for line in results)
+            event_stream = [
+                {"Records": {"Payload": b"".join(results)}},
+                {
+                    "Stats": {
+                        "Details": {
+                            "BytesScanned": bytes_scanned,
+                            "BytesProcessed": bytes_scanned,
+                            "BytesReturned": bytes_returned,
+                        }
+                    }
+                },
+                {"End": {}},
+            ]
+            self.data["Action"] = "SelectObjectContent"
+            return self.serialized(ActionResult({"Payload": event_stream}))
 
         else:
             raise NotImplementedError(

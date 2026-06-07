@@ -139,6 +139,15 @@ class OpenAIAdapter(APIAdapter):
                 if v is not None:
                     payload[k] = v
 
+        # 2026-06-06 PRD §5.3.5: grammar-constrained sampling.
+        # When a `grammar` (GBNF string) is supplied via extra_sampling,
+        # llama.cpp's sampler masks logits to physically prevent invalid
+        # JSON during generation. Eliminates the "missing closing quote"
+        # failure mode that 80 commits of client-side patches couldn't fix.
+        # The grammar is generated from each tool's Pydantic args schema
+        # via drydock.core.llm.grammar.pydantic_to_gbnf().
+        # No-op when extra_sampling doesn't include "grammar".
+
         return payload
 
     def build_headers(self, api_key: str | None = None) -> dict[str, str]:

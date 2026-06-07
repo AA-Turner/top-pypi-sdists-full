@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-grpcio"
-version = "1.0.0.20260518"
+version = "1.0.0.20260607"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for grpcio"
@@ -30,10 +30,10 @@ directory.
 
 This package was tested with the following type checkers:
 * [mypy](https://github.com/python/mypy/) 2.1.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.409
+* [pyright](https://github.com/microsoft/pyright) 1.1.410
 
 It was generated from typeshed commit
-[`3402466d17144ed7edfc92940c6973167ba285af`](https://github.com/python/typeshed/commit/3402466d17144ed7edfc92940c6973167ba285af).
+[`616424285beccaa76f90e87e1e922b1dc68710ca`](https://github.com/python/typeshed/commit/616424285beccaa76f90e87e1e922b1dc68710ca).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -54,4 +54,4 @@ packages = ['grpc-stubs']
 include-package-data = false
 
 [tool.setuptools.package-data]
-'grpc-stubs' = ['__init__.pyi', 'aio/__init__.pyi', 'METADATA.toml', 'py.typed']
+'grpc-stubs' = ['__init__.pyi', 'aio/__init__.pyi', 'experimental/gevent.pyi', 'METADATA.toml', 'py.typed']

@@ -2,7 +2,7 @@ import { type InterpolationValues, type MessageKey } from './i18n';
 
 export type Translator = (key: MessageKey, values?: InterpolationValues) => string;
 
-export type Panel = 'setup' | 'debug' | 'activity' | 'health' | 'instances' | 'tools' | 'workflows' | 'tasks' | 'openapi' | 'calls' | 'traces' | 'traffic' | 'stats' | 'governance' | 'logs' | 'skill-paths' | 'analytics' | 'marketplace';
+export type Panel = 'setup' | 'debug' | 'activity' | 'health' | 'instances' | 'tools' | 'workflows' | 'tasks' | 'openapi' | 'calls' | 'traces' | 'traffic' | 'stats' | 'governance' | 'logs' | 'skill-paths' | 'analytics' | 'marketplace' | 'integrations';
 
 export type AnalyticsOverview = {
   range: string;
@@ -1206,6 +1206,7 @@ export type MarketplaceEntry = {
   version?: string | null;
   min_core_version?: string | null;
   maintainer?: string | null;
+  icon?: string | null;
   source_name?: string;
   source_url?: string;
   install?: {
@@ -1251,6 +1252,44 @@ export type MarketplaceUninstallResult = {
   removed_files: boolean;
   reload_required: boolean;
 };
+
+/// Integration kind — the three integration types managed by the Integrations panel.
+export type IntegrationKind = 'sentry' | 'webhooks' | 'otlp';
+
+/// Integration status — lifecycle state of a single integration.
+export type IntegrationStatus = 'active' | 'inactive' | 'pending_restart';
+
+/// Per-field env lock descriptor — whether a config field is locked to an env var.
+export type EnvLockedField = {
+  key: string;
+  locked: boolean;
+  env_var: string;
+};
+
+/// A single integration entry returned by GET /admin/api/integrations.
+export type IntegrationEntry = {
+  kind: IntegrationKind;
+  label: string;
+  description: string;
+  status: IntegrationStatus;
+  config: Record<string, unknown>;
+  env_locked_fields: EnvLockedField[];
+  error?: string;
+};
+
+/// Payload for GET /admin/api/integrations.
+export type IntegrationsPayload = {
+  integrations: IntegrationEntry[];
+};
+
+/// Request body for PUT /admin/api/integrations.
+export type UpdateIntegrationRequest = {
+  kind: IntegrationKind;
+  config: Record<string, unknown>;
+};
+
+/// Response from PUT /admin/api/integrations.
+export type UpdateIntegrationResult = IntegrationEntry;
 
 /// DCC-type → icon URL (local SVGs, bundled by Vite + vite-plugin-singlefile).
 /// Unknown/missing types fall back to a generic puzzle-piece icon.

@@ -1,7 +1,7 @@
 """
 ClawMetry - See your agent think 🦞
 
-Real-time observability dashboard for OpenClaw AI agents.
+Real-time observability dashboard for your AI agents (OpenClaw, NVIDIA NemoClaw, Claude Code, Codex + 8 more runtimes).
 Single-file Flask app with zero config - auto-detects your setup.
 
 Usage:
@@ -164,7 +164,7 @@ except ImportError:
     trace_service_pb2 = None
     logs_service_pb2 = None
 
-__version__ = "0.12.445"
+__version__ = "0.12.460"
 
 # Extensions (Phase 2): import the plugin host now, but defer the actual
 # load_plugins() call until after the Flask app is created below so we can

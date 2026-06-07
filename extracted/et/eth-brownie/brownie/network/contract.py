@@ -10,7 +10,7 @@ from pathlib import Path
 from re import Match
 from textwrap import TextWrapper
 from threading import get_ident  # noqa
-from typing import TYPE_CHECKING, Any, Final, Optional, TypeAlias, Union
+from typing import TYPE_CHECKING, Any, Final, Optional, TypeAlias, Union, cast
 
 import requests
 import solcx
@@ -805,9 +805,7 @@ class _DeployedContractBase(_ContractBase):
         if not bytecode:
             # removeprefix is used for compatibility with both hexbytes<1 and >=1
             bytecode = web3.eth.get_code(address).hex().removeprefix("0x")
-        self.bytecode: Final[HexStr] = (  # type: ignore [assignment]
-            bytecode
-        )
+        self.bytecode: Final = cast(HexStr, bytecode)
         if not self.bytecode:
             raise ContractNotFound(f"No contract deployed at {address}")
         self._owner: Final = owner
@@ -1949,7 +1947,7 @@ class ContractCall(_ContractMethod):
         tx.update({"gas_price": 0, "from": self._owner or accounts[0]})
         tx["_skip_undo"] = True
         pc, revert_msg = None, None
-        snapshot_id = rpc.snapshot()
+        snapshot_id = rpc._snapshot()
 
         try:
             self.transact(*args, tx)

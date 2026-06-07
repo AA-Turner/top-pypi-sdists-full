@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hol-guard
-Version: 2.0.489
+Version: 2.0.506
 Summary: Protect local AI harnesses with HOL Guard before tools run in Codex, Claude Code, Cursor, Gemini, and OpenCode.
 Project-URL: Homepage, https://github.com/hashgraph-online/hol-guard
 Project-URL: Repository, https://github.com/hashgraph-online/hol-guard

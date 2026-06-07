@@ -59,8 +59,13 @@ async def main() -> None:
         assert event.event_type == "invoice.created"
         assert event.actor_id == "billing-bot:42"
         assert event.actor_label == "finance@example.com"
+        # The event is scoped to the environment the client is configured for.
+        # The SDK resolves this automatically from the client's environment —
+        # the recording call never carries it in the request body.
+        assert event.environment == "production"
         print(
-            f"Fetched event {event.id}: {event.event_type} by {event.actor_label}"
+            f"Fetched event {event.id}: {event.event_type} "
+            f"by {event.actor_label} in {event.environment}"
         )
 
         # list resource types observed

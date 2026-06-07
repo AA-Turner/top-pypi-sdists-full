@@ -74,20 +74,24 @@ class AbstractVideoManager:
     # ---------------------------------------------------------
     # STEP 3: Download
     # ---------------------------------------------------------
-    def download(self, *, url: str, filename: str):
+    def download(self, *, url: str, filename: str, session=None, user_agent=None):
         self.validate_direct_url(url)
 
         out_path = self.output_dir / filename
 
         headers = {
-            "User-Agent": "Mozilla/5.0",
+            "User-Agent": user_agent or "Mozilla/5.0",
             "Accept": "*/*",
             "Accept-Encoding": "identity",
             "Connection": "keep-alive",
             "Range": "bytes=0-",
         }
 
-        with requests.get(url, headers=headers, stream=True, timeout=30) as r:
+        # Reuse an injected (managed) session when provided so the download shares
+        # the request stack's identity/proxies; otherwise fall back to plain
+        # requests.get as before.
+        getter = session.get if session is not None else requests.get
+        with getter(url, headers=headers, stream=True, timeout=30) as r:
             r.raise_for_status()
             with open(out_path, "wb") as f:
                 for chunk in r.iter_content(chunk_size=1024 * 1024):

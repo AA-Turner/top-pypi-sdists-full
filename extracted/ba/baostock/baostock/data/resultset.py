@@ -62,7 +62,7 @@ class ResultData(object):
             # 当前页还有数据
             return True
         else:
-            # 当前页获取的总记录数不足cons.BAOSTOCK_PER_PAGE_COUNT(10000条)时，不请求下一页
+            # 当前页获取的总记录数不足cons.BAOSTOCK_PER_PAGE_COUNT时，不请求下一页
             if len(self.data) < cons.BAOSTOCK_PER_PAGE_COUNT:
                 return False
 

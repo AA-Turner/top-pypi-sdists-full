@@ -77,7 +77,7 @@ _CMD_MAP: dict[str, tuple[str, str]] = {
     "install-codeburn": ("kanban_framework.cli.task", "cmd_install_codeburn"),
 }
 
-_USE_JSON = False
+_USE_JSON = True
 _start_time = time.time()
 
 
@@ -126,9 +126,11 @@ def main() -> None:
     _start_time = time.time()
     args = sys.argv[1:]
 
-    if "--json" in args or "-o" in args:
-        _USE_JSON = True
-        args = [a for a in args if a not in ("--json", "-o")]
+    if "--text" in args:
+        _USE_JSON = False
+        args = [a for a in args if a != "--text"]
+    # --json is now default; keep flag for backward compat (no-op)
+    args = [a for a in args if a not in ("--json", "-o")]
 
     _setup_logging()
 

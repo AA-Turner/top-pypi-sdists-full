@@ -154,6 +154,7 @@ TaskDomain = Literal[
     "Spoken",
     "Music",
     "Bioacoustics",
+    "Sport",
 ]
 """
 The domains follow the categories used in the [Universal Dependencies project](https://universaldependencies.org), though
@@ -205,7 +206,7 @@ MVEB_TASK_TYPE = (
     "VideoMultilabelClassification",
     "VideoPairClassification",
     "VideoZeroshotClassification",
-    # "VideoCentricQA",  # TODO: uncomment when tasks exist
+    "VideoCentricQA",
     "Any2AnyRetrieval",
 )
 
@@ -268,8 +269,11 @@ TaskCategory = Literal[
     "va2t",
     "t2va",
     "vat2t",
+    "va2va",
     "v2a",
     "a2v",
+    "vt2a",
+    "at2v",
 ]
 """The category of the task.
 
@@ -306,8 +310,9 @@ TaskCategory = Literal[
 31. va2t: video+audio to text
 32. t2va: text to video+audio
 33. vat2t: video+audio+text to text
-34. v2a: video to audio
-35. a2v: audio to video
+34. va2va: video+audio to video+audio
+35. v2a: video to audio
+36. a2v: audio to video
 """
 
 _MODALITY_CODES: dict[str, str] = {
@@ -352,7 +357,7 @@ SimplifiedTaskType = Literal[
     "pair-classification",
 ]
 
-_TASKTYPE2SIMPLIFIEDTASKTYPE: dict[TaskType, SimplifiedTaskType] = {  # type: ignore[type-arg]
+_TASKTYPE2SIMPLIFIEDTASKTYPE: dict[TaskType, SimplifiedTaskType] = {
     "Any2AnyRetrieval": "retrieval",
     "Any2AnyMultilingualRetrieval": "retrieval",
     "VisionCentricQA": "retrieval",
@@ -383,9 +388,9 @@ _TASKTYPE2SIMPLIFIEDTASKTYPE: dict[TaskType, SimplifiedTaskType] = {  # type: ig
     "PairClassification": "pair-classification",
     "VideoClassification": "classification",
     "VideoClustering": "clustering",
-    # "VideoPairClassification": "pair-classification",  # TODO: uncomment when tasks exist
+    "VideoPairClassification": "pair-classification",
     "VideoZeroshotClassification": "classification",
-    # "VideoCentricQA": "retrieval",  # TODO: uncomment when tasks exist
+    "VideoCentricQA": "retrieval",
 }
 
 
@@ -455,7 +460,7 @@ class TaskMetadata(BaseModel):
     name: str
     description: str
     prompt: str | PromptDict | None = None
-    type: TaskType  # type: ignore[valid-type]
+    type: TaskType
     modalities: list[Modalities] = ["text"]
     category: TaskCategory | None = None
     reference: StrURL | None = None
@@ -600,7 +605,8 @@ class TaskMetadata(BaseModel):
         """Return the descriptive statistics for the dataset."""
         if self.descriptive_stat_path.exists():
             with self.descriptive_stat_path.open("r") as f:
-                return json.load(f)
+                js = cast("dict[str, DescriptiveStatistics]", json.load(f))
+                return js
         return None
 
     @property
@@ -609,11 +615,7 @@ class TaskMetadata(BaseModel):
         descriptive_stat_base_dir = Path(__file__).parent.parent / "descriptive_stats"
         if self.type in MIEB_TASK_TYPE:
             descriptive_stat_base_dir = descriptive_stat_base_dir / "Image"  # noqa: PLR6104
-        task_type_dir = descriptive_stat_base_dir / self.type
-        if not descriptive_stat_base_dir.exists():
-            descriptive_stat_base_dir.mkdir()
-        if not task_type_dir.exists():
-            task_type_dir.mkdir()
+        task_type_dir = descriptive_stat_base_dir / str(self.type)
         return task_type_dir / f"{self.name}.json"
 
     @property
@@ -725,7 +727,7 @@ class TaskMetadata(BaseModel):
                     split_stat.pop("hf_subset_descriptive_stats", {})
             descriptive_stats = json.dumps(descriptive_stats_, indent=4)
 
-        dataset_card_data_params = existing_dataset_card_data.to_dict()
+        dataset_card_data_params = existing_dataset_card_data.to_dict()  # type: ignore[no-untyped-call]
         # override the existing values
         dataset_card_data_params.update(
             dict(
@@ -816,10 +818,14 @@ class TaskMetadata(BaseModel):
         dataset_card_data, template_kwargs = self._create_dataset_card_data(
             existing_dataset_card_data
         )
-        dataset_card = DatasetCard.from_template(
-            card_data=dataset_card_data,
-            template_path=str(path),
-            **template_kwargs,
+        # HF hub, don't specify return type
+        dataset_card = cast(
+            "DatasetCard",
+            DatasetCard.from_template(
+                card_data=dataset_card_data,
+                template_path=str(path),
+                **template_kwargs,
+            ),
         )
         return dataset_card
 
@@ -968,6 +974,8 @@ class TaskMetadata(BaseModel):
             "AudioZeroshotClassification": ["other"],
             "AudioClassification": ["audio-classification"],
             "AudioPairClassification": ["audio-classification"],
+            # video
+            "VideoCentricQA": ["visual-question-answering"],
         }
         if self.type == "ZeroShotClassification":
             if self.modalities == ["image"]:

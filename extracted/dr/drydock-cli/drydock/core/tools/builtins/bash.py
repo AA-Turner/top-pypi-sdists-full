@@ -1305,7 +1305,7 @@ class Bash(
             if not _is_write_cmd:
                 _run_cnt = run_count_state.get(args.command, 0) + 1
                 run_count_state[args.command] = _run_cnt
-                if _run_cnt >= 5:
+                if _run_cnt >= 3:
                     cmd_preview = args.command[:80]
                     # Truncate the previous stdout heavily so the
                     # loop-breaker preamble isn't overshadowed by full
@@ -1346,7 +1346,7 @@ class Bash(
             if returncode != 0:
                 err_count = err_state.get(args.command, 0) + 1
                 err_state[args.command] = err_count
-                if err_count >= 5:
+                if err_count >= 3:
                     cmd_preview = args.command[:80]
                     notice = (
                         f"[NOTICE: `{cmd_preview}` has failed with a non-zero "

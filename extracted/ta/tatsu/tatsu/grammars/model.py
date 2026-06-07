@@ -11,7 +11,7 @@ from functools import cached_property
 from itertools import batched
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, Self
 
 from ..config import ParserConfig
 from ..contexts import AST, CanParse, Ctx, Func, ParseContext, RuleInfo
@@ -89,13 +89,13 @@ class Model(Node, CanParse):
     def _parse(self, ctx: Ctx) -> Any:
         return ()
 
-    def _set_grammar(self, grammar: Grammar):
+    def link(self, grammar: Grammar):
         assert isinstance(grammar, Grammar)
 
         self._grammar_ref = weakref.ref(grammar)
         for child in self.children():
             assert isinstance(child, Model)
-            child._set_grammar(grammar)
+            child.link(grammar)
 
     def _add_defined(self, ctx: Ctx):
         keys_single = self.defines_single
@@ -103,7 +103,7 @@ class Model(Node, CanParse):
         ctx.define(keys_single, keys_list)
 
     def lookahead(self, k: int = 1) -> ffset:
-        if not self._lookahead:
+        if not getattr(self, '_lookahead', None):
             self._lookahead = kdot(self.firstset(k), self.followset(k), k)
         return self._lookahead
 
@@ -120,11 +120,13 @@ class Model(Node, CanParse):
         return f'Expected one of: {' '.join(repr(s) for s in self.expecting)}'
 
     def firstset(self, k: int = 1) -> ffset:
-        if not self._firstset:
+        if not getattr(self, '_firstset', None):
             self._firstset = self._first(k, defaultdict(set))
         return self._firstset
 
     def followset(self, _k: int = 1) -> ffset:
+        if not getattr(self, '_follow_set', None):
+            self._follow_set = set()
         return self._follow_set
 
     def missing_rules(self, rulenames: set[str]) -> set[str]:
@@ -165,7 +167,7 @@ class Model(Node, CanParse):
         return railroads.text(self)
 
     def optimized(self) -> Model:
-        return self
+        return copy(self)
 
 
 @nodedataclass
@@ -183,6 +185,10 @@ class NIL(Model):
 
 @nodedataclass
 class Void(Model):
+    def __post_init__(self):
+        super().__post_init__()
+        self.ast = None
+
     def _parse(self, ctx: Ctx) -> Any:
         return ctx.void()
 
@@ -245,8 +251,11 @@ class Box(Model):
     def _nullable(self) -> bool:
         return self.exp._nullable
 
-    def optimized(self) -> Model:
-        return self.clone(exp=self.exp.optimized())
+    def optimized(self) -> Self | Model:
+        exp = self.exp.optimized()
+        new = copy(self)
+        new.exp = exp
+        return new
 
 
 @nodedataclass
@@ -259,6 +268,12 @@ class Synth(Box):
 @nodedataclass
 class NamedBox(Box):
     name: str = field(default='')  # type: ignore
+
+    def optimized(self) -> Self | Model:
+        exp = self.exp.optimized()
+        new = copy(self)
+        new.exp = exp
+        return new
 
 
 @nodedataclass
@@ -284,7 +299,9 @@ class Rule(NamedBox):
         self.kwparams = self.kwparams or {}
         self.decorators = self.decorators or []
 
+        # pyrefly: ignore [unnecessary-type-conversion]
         self.is_name = bool(self.is_name) or 'name' in self.decorators
+        # pyrefly: ignore [unnecessary-type-conversion]
         self.is_name = bool(self.is_name) or 'isname' in self.decorators
 
         if not self.kwparams:
@@ -294,6 +311,12 @@ class Rule(NamedBox):
         assert isinstance(self.kwparams, dict), f'{typename(self)}: {self.kwparams=!r}'
         self.is_tokn = self.is_tokn or self.name.lstrip('_')[:1].isupper()
 
+    def __pub__(self, sunderok: bool = False) -> dict[str, Any]:
+        pub = super().__pub__()
+        del pub['exp']
+        pub['exp'] = self.exp
+        return pub
+
     def missing_rules(self, rulenames: set[str]) -> set[str]:
         return self.exp.missing_rules(rulenames)
 
@@ -301,7 +324,7 @@ class Rule(NamedBox):
         return self._parse_rhs(ctx, self.exp)
 
     def _parse_rhs(self, ctx: Ctx, exp: Model) -> Any:
-        # note: BasedRule._parse() calls _parse_rhs() so ruleinfo is a mix
+        # NOTE: BasedRule._parse() calls _parse_rhs() so ruleinfo is a mix
         ruleinfo = RuleInfo(
             name=self.name,
             instance=exp,
@@ -335,11 +358,6 @@ class Rule(NamedBox):
     @property
     def should_trace(self) -> bool:
         return not self.no_stak
-
-    def optimized(self) -> Rule:
-        clone = copy(self)
-        clone.exp = self.exp.optimized()
-        return clone
 
     @staticmethod
     def param_repr(p):
@@ -389,6 +407,13 @@ class Rule(NamedBox):
             is_name='@name\n' if self.is_name else '',
         )
 
+    def optimized(self) -> Rule:
+        assert isinstance(self.exp, Model)
+        new = copy(self)
+        new.exp = self.exp.optimized()
+        new._lookahead = self.lookahead()
+        return new
+
 
 @nodedataclass
 class Patterns(Model):
@@ -435,17 +460,19 @@ class Grammar(Model):
         assert isinstance(keywords, tuple)
         self.keywords = keywords
 
-        # note: Ctx needs keywords in config
+        # NOTE Ctx needs keywords in config
         self._config = self._config.override(keywords=self.keywords)
 
         self.rules = tuple(rules)  # type: ignore
-        rulemap = {rule.name: rule for rule in rules}
-        self._rule = SimpleNamespace(**rulemap)
-        self._rulemap = self._rule.__dict__
 
         self.name = self._resolve_name(name)
+        self.initialize()
 
-        self._set_grammar(self)
+    def initialize(self):
+        rulemap = {rule.name: rule for rule in self.rules}
+        self._rule = SimpleNamespace(**rulemap)
+        self._rulemap = self._rule.__dict__
+        self.link(self)
         self._calc_lookahead_sets()
         self._mark_left_recursion()
 
@@ -532,9 +559,11 @@ class Grammar(Model):
         return name
 
     def _mark_left_recursion(self):
-        from .leftrec.pegen_leftrec import mark_left_recursion_pegen
+        # from .leftrec.depthf import mark_left_recursion
+        # from .leftrec.autumn import mark_left_recursion
+        from .leftrec.pegen import mark_left_recursion
 
-        leftrect_rules = mark_left_recursion_pegen(self.rules)
+        leftrect_rules = mark_left_recursion(self.rules)
         if leftrect_rules and not self.config.left_recursion:
             config = self.config
             raise GrammarError(
@@ -597,9 +626,24 @@ class Grammar(Model):
         asmodel: bool = False,
         **settings: Any,
     ) -> Any:
+        self = self.optimized()  # noqa: PLW0642
+        return self._do_parse(
+            text, start=start, config=config, asmodel=asmodel, **settings
+        )
+
+    def _do_parse(
+        self,
+        text: str | Text,
+        /,
+        *,
+        start: str | None = None,
+        config: Any = None,
+        asmodel: bool = False,
+        **settings: Any,
+    ) -> Any:
         config = self.config.override_config(config)
         assert isinstance(config, ParserConfig)
-        # note: bw-comp: allow overriding directives
+        # NOTE: bw-comp: allow overriding directives
         config = config.override(start=start, **settings)
 
         if isinstance(config.semantics, type):
@@ -660,14 +704,12 @@ class Grammar(Model):
         ).rstrip() + '\n\n'
         return directives + keywords + rules
 
-    def optimized(self) -> Model:
-        rules = [r.optimized() for r in self.rules]
-        return Grammar(
-            name=self.name,
-            rules=rules,
-            config=self.config,
-            directives=self.directives,
-        )
+    def optimized(self) -> Grammar:
+        optrules: tuple[Rule, ...] = tuple(r.optimized() for r in self.rules)
+        new = copy(self)
+        new.rules = optrules
+        new.initialize()
+        return new
 
 
 class ModelContext(ParseContext):

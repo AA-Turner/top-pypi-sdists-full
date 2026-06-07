@@ -194,13 +194,19 @@ class TestUserToolsDirs:
 
 
 class TestUserSkillsDirs:
-    def test_returns_empty_when_user_not_in_sources(self) -> None:
+    def test_returns_empty_when_user_not_in_sources(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Patch DRYDOCK_ROOT so bundled skills dir doesn't exist, isolating
+        # the "user" source gate check.
+        monkeypatch.setattr("drydock.DRYDOCK_ROOT", tmp_path)
         mgr = HarnessFilesManager(sources=("project",))
         assert mgr.user_skills_dirs == []
 
     def test_returns_empty_when_dir_does_not_exist(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        monkeypatch.setattr("drydock.DRYDOCK_ROOT", tmp_path)
         monkeypatch.setattr("drydock.core.paths._drydock_home._DEFAULT_DRYDOCK_HOME", tmp_path)
         mgr = HarnessFilesManager(sources=("user",))
         assert mgr.user_skills_dirs == []
@@ -208,8 +214,13 @@ class TestUserSkillsDirs:
     def test_returns_path_when_user_in_sources_and_dir_exists(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr("drydock.core.paths._drydock_home._DEFAULT_DRYDOCK_HOME", tmp_path)
-        skills_dir = tmp_path / "skills"
+        fake_root = tmp_path / "pkg"
+        fake_root.mkdir()
+        fake_home = tmp_path / "home"
+        fake_home.mkdir()
+        monkeypatch.setattr("drydock.DRYDOCK_ROOT", fake_root)
+        monkeypatch.setattr("drydock.core.paths._drydock_home._DEFAULT_DRYDOCK_HOME", fake_home)
+        skills_dir = fake_home / "skills"
         skills_dir.mkdir()
         mgr = HarnessFilesManager(sources=("user",))
         assert mgr.user_skills_dirs == [skills_dir]

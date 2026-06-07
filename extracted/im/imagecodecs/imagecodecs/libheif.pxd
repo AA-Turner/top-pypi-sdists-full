@@ -1,6 +1,6 @@
 # imagecodecs/libheif.pxd
 
-# Cython declarations for the `libheif 1.21.2` library.
+# Cython declarations for the `libheif 1.23.0` library.
 # https://github.com/strukturag/libheif
 
 from libc.stdint cimport (
@@ -173,6 +173,7 @@ cdef extern from 'libheif/heif.h' nogil:
         heif_suberror_Invalid_mini_box
         heif_suberror_Decompression_invalid_data
         heif_suberror_No_moov_box
+        heif_suberror_NCLX_colr_VUI_mismatch
         heif_suberror_Security_limit_exceeded
         heif_suberror_Compression_initialisation_error
         heif_suberror_Nonexisting_item_referenced
@@ -347,6 +348,11 @@ cdef extern from 'libheif/heif.h' nogil:
         int fd
     )
 
+    void heif_context_set_write_mini_format(
+        heif_context*,
+        int enable
+    )
+
     heif_error heif_context_write_to_file(
         heif_context*,
         const char* filename
@@ -371,7 +377,7 @@ cdef extern from 'libheif/heif.h' nogil:
 
     enum heif_chroma:
         heif_chroma_undefined
-        heif_chroma_monochrome
+        heif_chroma_planar
         heif_chroma_420
         heif_chroma_422
         heif_chroma_444
@@ -390,7 +396,8 @@ cdef extern from 'libheif/heif.h' nogil:
         heif_colorspace_YCbCr
         heif_colorspace_RGB
         heif_colorspace_monochrome
-        heif_colorspace_nonvisual
+        heif_colorspace_custom
+        heif_colorspace_filter_array
 
     enum heif_channel:
         heif_channel_Y
@@ -404,6 +411,7 @@ cdef extern from 'libheif/heif.h' nogil:
         heif_channel_filter_array
         heif_channel_depth
         heif_channel_disparity
+        heif_channel_unknown
 
     ctypedef struct heif_image:
         pass
@@ -659,6 +667,7 @@ cdef extern from 'libheif/heif.h' nogil:
 
     enum heif_color_primaries:
         heif_color_primaries_ITU_R_BT_709_5
+        heif_color_primaries_unspecified
         heif_color_primaries_ITU_R_BT_470_6_System_M
         heif_color_primaries_ITU_R_BT_470_6_System_B_G
         heif_color_primaries_ITU_R_BT_601_6
@@ -692,6 +701,7 @@ cdef extern from 'libheif/heif.h' nogil:
     enum heif_matrix_coefficients:
         heif_matrix_coefficients_RGB_GBR
         heif_matrix_coefficients_ITU_R_BT_709_5
+        heif_matrix_coefficients_unspecified
         heif_matrix_coefficients_US_FCC_T47
         heif_matrix_coefficients_ITU_R_BT_470_6_System_B_G
         heif_matrix_coefficients_ITU_R_BT_601_6
@@ -782,6 +792,10 @@ cdef extern from 'libheif/heif.h' nogil:
         const heif_image*
     )
 
+    int heif_image_handle_has_content_light_level(
+        const heif_image_handle*
+    )
+
     void heif_image_get_content_light_level(
         const heif_image*,
         heif_content_light_level* out
@@ -827,6 +841,64 @@ cdef extern from 'libheif/heif.h' nogil:
         const heif_image*
     )
 
+    int heif_image_handle_has_mastering_display_colour_volume(
+        const heif_image_handle*
+    )
+
+    int heif_image_has_ambient_viewing_environment(
+        const heif_image*
+    )
+
+    int heif_image_handle_has_ambient_viewing_environment(
+        const heif_image_handle*
+    )
+
+    int heif_image_get_ambient_viewing_environment(
+        const heif_image*,
+        heif_ambient_viewing_environment* out
+    )
+
+    int heif_image_handle_get_ambient_viewing_environment(
+        const heif_image_handle*,
+        heif_ambient_viewing_environment* out
+    )
+
+    void heif_image_set_ambient_viewing_environment(
+        const heif_image*,
+        const heif_ambient_viewing_environment* in_
+    )
+
+    void heif_image_handle_set_ambient_viewing_environment(
+        const heif_image_handle*,
+        const heif_ambient_viewing_environment* in_
+    )
+
+    int heif_image_has_nominal_diffuse_white_luminance(
+        const heif_image*
+    )
+
+    uint32_t heif_image_get_nominal_diffuse_white_luminance(
+        const heif_image*
+    )
+
+    void heif_image_set_nominal_diffuse_white_luminance(
+        const heif_image*,
+        uint32_t luminance
+    )
+
+    int heif_image_handle_has_nominal_diffuse_white_luminance(
+        const heif_image_handle*
+    )
+
+    uint32_t heif_image_handle_get_nominal_diffuse_white_luminance(
+        const heif_image_handle*
+    )
+
+    void heif_image_handle_set_nominal_diffuse_white_luminance(
+        const heif_image_handle*,
+        uint32_t luminance
+    )
+
     void heif_image_get_mastering_display_colour_volume(
         const heif_image*,
         heif_mastering_display_colour_volume* out
@@ -848,7 +920,8 @@ cdef extern from 'libheif/heif.h' nogil:
     )
 
     heif_error heif_mastering_display_colour_volume_decode(
-        const heif_mastering_display_colour_volume* in_
+        const heif_mastering_display_colour_volume* in_,
+        heif_decoded_mastering_display_colour_volume* out
     )
 
     # libheif/heif_brands.h
@@ -949,6 +1022,7 @@ cdef extern from 'libheif/heif.h' nogil:
         heif_metadata_compression_off
         heif_metadata_compression_auto
         heif_metadata_compression_unknown
+        heif_metadata_compression_deflate
         heif_metadata_compression_zlib
         heif_metadata_compression_brotli
 
@@ -1196,6 +1270,9 @@ cdef extern from 'libheif/heif.h' nogil:
         uint32_t max_sample_group_description_box_entries
         uint32_t max_sequence_frames
         uint32_t max_number_of_file_brands
+        uint32_t max_bad_pixels
+        uint32_t max_iso23001_17_pixel_size_bytes
+        const heif_security_limits* parent
 
     const heif_security_limits* heif_get_global_security_limits()
 
@@ -1207,7 +1284,7 @@ cdef extern from 'libheif/heif.h' nogil:
 
     heif_error heif_context_set_security_limits(
         heif_context*,
-        const heif_security_limits
+        const heif_security_limits*
     )
 
     void heif_context_set_maximum_image_size_limit(
@@ -1421,6 +1498,11 @@ cdef extern from 'libheif/heif.h' nogil:
         heif_orientation_rotate_90_cw_then_flip_vertically
         heif_orientation_rotate_270_cw
 
+    heif_orientation heif_orientation_concat(
+        heif_orientation first,
+        heif_orientation second
+    )
+
     ctypedef struct heif_encoding_options:
         uint8_t version
         uint8_t save_alpha_channel
@@ -1431,6 +1513,7 @@ cdef extern from 'libheif/heif.h' nogil:
         heif_orientation image_orientation
         heif_color_conversion_options color_conversion_options
         uint8_t prefer_uncC_short_form
+        const void* unci_parameters
 
     heif_encoding_options* heif_encoding_options_alloc()
 
@@ -1477,6 +1560,11 @@ cdef extern from 'libheif/heif.h' nogil:
         heif_brand2 compatible_brand
     )
 
+    void heif_context_set_unif(
+        heif_context* ctx,
+        int flag
+    )
+
     int heif_encoder_descriptor_supportes_lossy_compression(
         const heif_encoder_descriptor*
     )
@@ -1498,6 +1586,10 @@ cdef extern from 'libheif/heif.h' nogil:
     void heif_context_set_max_decoding_threads(
         heif_context* ctx,
         int max_threads
+    )
+
+    int heif_context_get_max_decoding_threads(
+        const heif_context* ctx
     )
 
     int heif_have_decoder_for_format(
@@ -1538,6 +1630,7 @@ cdef extern from 'libheif/heif.h' nogil:
         heif_color_profile_nclx* output_image_nclx_profile
         int num_library_threads
         int num_codec_threads
+        uint8_t autocorrect_broken_input
 
     heif_decoding_options* heif_decoding_options_alloc()
 
@@ -1639,6 +1732,40 @@ cdef extern from 'libheif/heif.h' nogil:
 
     const char* heif_image_handle_get_gimi_content_id(
         const heif_image_handle* handle
+    )
+
+    void heif_image_handle_set_gimi_content_id(
+        heif_image_handle* handle,
+        const char* content_id
+    )
+
+    uint32_t heif_image_handle_get_number_of_cmpd_components(
+        const heif_image_handle*
+    )
+
+    uint16_t heif_image_handle_get_cmpd_component_type(
+        const heif_image_handle*,
+        uint32_t component_idx
+    )
+
+    const char* heif_image_handle_get_cmpd_component_type_uri(
+        const heif_image_handle*,
+        uint32_t component_idx
+    )
+
+    int heif_image_handle_has_gimi_component_content_ids(
+        const heif_image_handle*
+    )
+
+    const char* heif_image_handle_get_gimi_component_content_id(
+        const heif_image_handle*,
+        uint32_t component_idx
+    )
+
+    void heif_image_handle_set_gimi_component_content_id(
+        heif_image_handle*,
+        uint32_t component_idx,
+        const char* content_id
     )
 
     # libheif/heif_tiling.h

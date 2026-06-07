@@ -17,14 +17,34 @@ from kanban_framework.cli.run_helpers import _resolve, _auto_track_step
 
 def handle_next_step(args: list[str], fs: Filesystem, tm: TaskManager,
                      we: WorkflowEngine) -> dict:
-    """Get the next available step for a task."""
+    """Get the next available step for a task.
+
+    When all steps in the current phase are completed, automatically
+    executes complete-phase (guard checks, knowledge extraction, token
+    tracking, phase transition) and returns the next phase's first step.
+    """
     if len(args) < 2:
         return {"error": "task_id required"}
     fs, cfg, _, _ = _resolve()
     task = tm.show(args[1])
     from kanban_framework.domain.state_machine import next_step, next_step_to_dict
     result = next_step(fs, cfg, task)
-    return next_step_to_dict(result)
+    result_dict = next_step_to_dict(result)
+
+    # Auto-complete: when all steps in phase are done, execute complete-phase
+    if result_dict.get("phase_complete") and not result_dict.get("all_complete"):
+        from kanban_framework.cli.workflow_phase import handle_complete_phase
+        complete_result = handle_complete_phase(args, fs, tm, we)
+        if "error" in complete_result:
+            complete_result["auto_completed_phase"] = False
+            return complete_result
+        # Phase completed — get next phase's first step
+        task = tm.show(args[1])
+        next_result = next_step(fs, cfg, task)
+        result_dict = next_step_to_dict(next_result)
+        result_dict["auto_completed_phase"] = True
+        result_dict["completed_phase"] = result.phase
+    return result_dict
 
 
 def handle_mark_step(args: list[str], fs: Filesystem, tm: TaskManager,
@@ -41,14 +61,21 @@ def handle_mark_step(args: list[str], fs: Filesystem, tm: TaskManager,
     fs, cfg, _, _ = _resolve()
     task_id = args[1]
     step_id = args[2]
-    # Validate step_id exists in current mode's workflow
+    # Validate step_id exists in current mode's workflow or dynamic subtask steps
+    is_valid = False
     try:
         task = tm.show(task_id)
         from kanban_framework.domain.step_registry import find_step_def
-        if not find_step_def(step_id, mode=getattr(task, 'mode', None)):
-            return {"error": f"unknown step: {step_id}. Use 'kanban workflow steps {task_id}' to see valid step IDs."}
+        if find_step_def(step_id, mode=getattr(task, 'mode', None)):
+            is_valid = True
     except Exception:
         pass
+    if not is_valid and step_id.startswith("execute.exec_"):
+        from kanban_framework.domain.state_machine import load_progress
+        progress = load_progress(fs, task_id)
+        is_valid = step_id in progress.get("steps", {})
+    if not is_valid:
+        return {"error": f"unknown step: {step_id}. Use 'kanban workflow steps {task_id}' to see valid step IDs."}
     status = "completed"
     if len(args) >= 4:
         status = args[3]
@@ -56,6 +83,30 @@ def handle_mark_step(args: list[str], fs: Filesystem, tm: TaskManager,
     for i, a in enumerate(args):
         if a == "--session" and i + 1 < len(args):
             session_id = args[i + 1]
+
+    # Guard check before marking completed — block if checkpoint guard fails (#542)
+    if status == "completed":
+        try:
+            task = tm.show(task_id)
+            from kanban_framework.domain.step_registry import find_step_def
+            step_def = find_step_def(step_id, mode=getattr(task, 'mode', None))
+            if step_def and (step_def.type == "checkpoint" or getattr(step_def, 'guard', None)):
+                from kanban_framework.domain.guard import Guard
+                guard = Guard(fs, cfg)
+                guard_result = guard.check_step(task, {
+                    "id": step_def.id,
+                    "type": getattr(step_def, 'type', 'action'),
+                    "guard": getattr(step_def, 'guard', None),
+                })
+                if not guard_result.passed:
+                    return {
+                        "task_id": task_id, "step_id": step_id, "status": "blocked",
+                        "error": f"guard check failed for {step_id}",
+                        "guard": {"passed": guard_result.passed, "errors": guard_result.errors,
+                                  "warnings": guard_result.warnings},
+                    }
+        except Exception:
+            pass
 
     from kanban_framework.domain.state_machine import mark_step
     progress = mark_step(fs, task_id, step_id, status)
@@ -180,6 +231,25 @@ def handle_steps(args: list[str], fs: Filesystem, tm: TaskManager,
     progress = load_progress(fs, task.id)
     completed = {k for k, v in progress.get("steps", {}).items() if v.get("status") == "completed"}
     skipped = {k for k, v in progress.get("steps", {}).items() if v.get("status") == "skipped"}
+
+    # Inject dynamic subtask steps from progress (injected by inject_subtask_steps)
+    existing_ids = {s["id"] for s in dag["steps"]}
+    for step_id, step_data in progress.get("steps", {}).items():
+        if step_id.startswith("execute.exec_") and step_id not in existing_ids:
+            sw = step_data.get("subworkflow", "")
+            dag["steps"].append({
+                "id": step_id,
+                "phase": "execute",
+                "description": step_data.get("subtask_title", step_id),
+                "type": "action",
+                "dependencies": ["execute.spawn"],
+                "agent_type": "general-purpose",
+                "gateway": None,
+                "guard": None,
+                "subworkflow": sw,
+            })
+            existing_ids.add(step_id)
+
     available = get_available_steps(dag, completed, skipped)
     all_steps = []
     for s in dag["steps"]:

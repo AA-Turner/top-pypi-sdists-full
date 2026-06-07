@@ -4853,11 +4853,55 @@ pub fn prepare_survival_time_stack(
             offsets.unloaded_hazard_exit,
         )
     } else {
+        // Baseline-hazard barrier conditioning for the marginal-slope likelihood
+        // (gam#797). That likelihood carries `-d·log(qd1)`, a log-barrier on the
+        // baseline-hazard time derivative `qd1 = X_d·β_time + derivative_offset`.
+        // The default `baseline-target=linear` is DEGENERATE for this barrier:
+        // `evaluate_survival_baseline` returns `(0, 0)` for Linear, so the offset
+        // collapses to `derivative_guard` (1e-6) and the I-spline time seed starts
+        // at `qd1 ≈ 1e-6` — exactly ON the barrier boundary, where the
+        // self-concordant Newton step is `∝ qd1` (intrinsically ~1e-4), the
+        // barrier gradient/Hessian are ~1e6 / ~1e12, and the inner joint-Newton
+        // crawls and never reaches the data-scale baseline within the cycle
+        // budget — every outer seed is rejected and the fit hard-fails.
+        //
+        // Condition the COLD START by building the baseline OFFSET from a fixed,
+        // data-seeded Weibull (scale = mean positive exit time, shape = 1) instead
+        // of the zero-derivative Linear baseline, but ONLY for the offset: the
+        // outer `baseline_cfg.target` stays `Linear`, so the
+        // `baseline_cfg.target != Linear` optimize gate
+        // (`optimize_survival_baseline_config*`) never fires and no baseline-shape
+        // search is introduced. With shape = 1 the Weibull baseline-hazard
+        // derivative is `1/age_exit` (the natural data hazard scale), so the seed
+        // starts with `qd1` at O(1/T) interior — barrier gradient O(10-10²),
+        // comparable to the marginal/logslope blocks — and `β_time ≈ 0`. This
+        // changes only the STARTING point / offset split: the I-spline still learns
+        // the data-driven deviation from this parametric baseline (the converged
+        // fitted hazard is the same flexible family), so the fix is a pure
+        // preconditioning of the cold start. Gated to MarginalSlope with a Linear
+        // target so every other Linear-baseline survival path is byte-unchanged.
+        let conditioning_cfg;
+        let offset_cfg = if likelihood_mode == SurvivalLikelihoodMode::MarginalSlope
+            && baseline_cfg.target == SurvivalBaselineTarget::Linear
+        {
+            let scale =
+                crate::families::survival_construction::positive_survival_time_seed(age_exit);
+            conditioning_cfg = crate::families::survival_construction::SurvivalBaselineConfig {
+                target: SurvivalBaselineTarget::Weibull,
+                scale: Some(scale),
+                shape: Some(1.0),
+                rate: None,
+                makeham: None,
+            };
+            &conditioning_cfg
+        } else {
+            baseline_cfg
+        };
         let (eta_offset_entry, eta_offset_exit, derivative_offset_exit) =
             build_survival_time_offsets_for_likelihood(
                 age_entry,
                 age_exit,
-                baseline_cfg,
+                offset_cfg,
                 likelihood_mode,
                 inverse_link,
             )?;
@@ -6311,7 +6355,7 @@ fn materialize_survival<'a>(
         && !event_codes.iter().any(|&code| code > 0)
     {
         return Err(WorkflowError::InvalidConfig {
-            reason: "survival marginal-slope requires at least one observed event; all rows are \
+            reason: "survival marginal-slope requires at least one target event; all rows are \
                      censored, so the likelihood has no event score and cannot identify the hazard"
                 .to_string(),
         });
@@ -6362,6 +6406,33 @@ fn materialize_survival<'a>(
             ),
         }
         .into());
+    }
+    // Hoist the survival marginal-slope z-column exclusion check above the
+    // time-basis / termspec construction below.  Those downstream steps fail
+    // fast on small or tightly-spaced time data (e.g. an I-spline of degree 3
+    // cannot be supported by a 2-row fixture), which would otherwise swallow
+    // the z-column misuse error and surface a knot-count error instead.
+    // Checking here keeps the user-visible error tied to the actual config
+    // problem the caller can fix (rename `z` or remove the alias) rather than
+    // to an unrelated basis-shape failure further downstream.
+    if matches!(survival_mode, SurvivalLikelihoodMode::MarginalSlope)
+        && let Some(z_column) = config.z_column.as_deref()
+    {
+        let logslope_parsed_for_check = match config.logslope_formula.as_deref() {
+            Some(ls_formula) => Some(
+                parse_matching_auxiliary_formula(ls_formula, &parsed.response, "logslope_formula")?
+                    .1,
+            ),
+            None => None,
+        };
+        let logslope_ref = logslope_parsed_for_check.as_ref().unwrap_or(parsed);
+        validate_marginal_slope_z_column_exclusion(
+            parsed,
+            logslope_ref,
+            z_column,
+            "survival marginal-slope",
+            "logslope_formula",
+        )?;
     }
     let effective_timewiggle = parsed.timewiggle.clone();
     let baseline_target_raw = match survival_mode {

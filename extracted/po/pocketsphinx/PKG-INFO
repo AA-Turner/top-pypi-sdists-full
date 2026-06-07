@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pocketsphinx
-Version: 5.1.0
+Version: 5.1.1
 Summary: Official Python bindings for PocketSphinx
 Keywords: asr,speech
 Author-Email: David Huggins-Daines <dhdaines@gmail.com>
@@ -23,7 +23,7 @@ Project-URL: Issues, https://github.com/cmusphinx/pocketsphinx/issues
 Requires-Dist: sounddevice
 Description-Content-Type: text/markdown
 
-PocketSphinx 5.1.0
+PocketSphinx 5.1.1
 =====================
 
 This is PocketSphinx, one of Carnegie Mellon University's open source large

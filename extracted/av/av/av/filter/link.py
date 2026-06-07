@@ -1,3 +1,5 @@
+import weakref
+
 import cython
 import cython.cimports.libav as lib
 from cython.cimports.av.filter.graph import Graph
@@ -5,11 +7,19 @@ from cython.cimports.av.filter.graph import Graph
 _cinit_sentinel = cython.declare(object, object())
 
 
+@cython.final
 @cython.cclass
 class FilterLink:
     def __cinit__(self, sentinel):
         if sentinel is not _cinit_sentinel:
             raise RuntimeError("cannot instantiate FilterLink")
+
+    @property
+    def graph(self) -> Graph:
+        if g := self._graph():
+            return g
+        else:
+            raise RuntimeError("graph is unallocated")
 
     @property
     def input(self):
@@ -22,7 +32,8 @@ class FilterLink:
                 break
         else:  # nobreak
             raise RuntimeError("could not find link in context")
-        ctx = self.graph._context_by_ptr[cython.cast(cython.long, cctx)]
+        graph: Graph = self.graph
+        ctx = graph._context_by_ptr[cython.cast(cython.long, cctx)]
         self._input = ctx.outputs[i]
         return self._input
 
@@ -38,7 +49,8 @@ class FilterLink:
         else:
             raise RuntimeError("could not find link in context")
         try:
-            ctx = self.graph._context_by_ptr[cython.cast(cython.long, cctx)]
+            graph: Graph = self.graph
+            ctx = graph._context_by_ptr[cython.cast(cython.long, cctx)]
         except KeyError:
             raise RuntimeError(
                 "could not find context in graph", (cctx.name, cctx.filter.name)
@@ -50,7 +62,7 @@ class FilterLink:
 @cython.cfunc
 def wrap_filter_link(graph: Graph, ptr: cython.pointer[lib.AVFilterLink]) -> FilterLink:
     link: FilterLink = FilterLink(_cinit_sentinel)
-    link.graph = graph
+    link._graph = weakref.ref(graph)
     link.ptr = ptr
     return link
 
@@ -78,6 +90,7 @@ class FilterPad:
         return lib.avfilter_pad_get_name(self.base_ptr, self.index)
 
 
+@cython.final
 @cython.cclass
 class FilterContextPad(FilterPad):
     def __repr__(self):

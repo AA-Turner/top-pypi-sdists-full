@@ -12,8 +12,13 @@ T = TypeVar("T", bound="ApiKeyScopes")
 
 @_attrs_define
 class ApiKeyScopes:
-    """Scope restrictions applied to the key. Empty object grants full account access; populated forms are reserved for
-    future scope syntax.
+    """Scope restrictions applied to the key, as a JSON object mapping dimension names to arrays of allowed values. An
+    empty object (the default) grants unrestricted access. The `environments` dimension lists the environment keys the
+    key may operate in (for example `{"environments": ["production"]}`); a request's environment must be one of them. A
+    dimension that is absent or set to an empty array is unrestricted in that dimension.
+
+        Example:
+            {'environments': ['production']}
 
     """
 

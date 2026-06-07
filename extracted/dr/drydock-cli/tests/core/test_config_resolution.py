@@ -102,7 +102,9 @@ class TestAutoCompactThresholdFallback:
         assert cfg.get_active_model().auto_compact_threshold == 99_000
 
     def test_default_global_threshold_used_when_nothing_set(self) -> None:
-        model = ModelConfig(name="m", provider="p", alias="m")
+        # context_window must exceed the global default (200K) or the ceiling
+        # clamp (context_window - 4096) fires and the assertion fails.
+        model = ModelConfig(name="m", provider="p", alias="m", context_window=500_000)
         cfg = build_test_drydock_config(models=[model], active_model="m")
         assert cfg.get_active_model().auto_compact_threshold == 200_000
 

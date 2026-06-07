@@ -77,7 +77,7 @@ class FuraffinityExtractor(Extractor):
         if self._new_layout is None:
             self._new_layout = ("http-equiv=" not in extr("<meta ", ">"))
 
-        pos = page.find(".net/art/")
+        pos = page.find(">Download<")
         if pos < 0:
             msg = text.remove_html(
                 extr('System Message', '</section>') or
@@ -89,37 +89,45 @@ class FuraffinityExtractor(Extractor):
         pi = text.parse_int
         rh = text.remove_html
 
-        path = page[page.rfind('"', None, pos)+1:page.find('"', pos)]
+        path = text.rextr(page, 'href="', '"', pos)
         data = text.nameext_from_url(path, {
             "id" : pi(post_id),
             "url": "https:" + path,
         })
 
         if self._new_layout:
-            data["tags"] = text.split_html(extr(
-                "<h3>Keywords</h3>", "</section>"))
-            data["scraps"] = (extr(' submissions">', "<") == "Scraps")
-            data["title"] = text.unescape(extr("<h2><p>", "</p></h2>"))
-            data["artist_url"] = extr('title="', '"').strip()
-            data["artist"] = extr(">", "<")
-            data["_description"] = extr(
-                'class="submission-description user-submitted-links">',
-                '                                    </div>')
-            data["views"] = pi(rh(extr('class="views">', '</span>')))
-            data["favorites"] = pi(rh(extr('class="favorites">', '</span>')))
-            data["comments"] = pi(rh(extr('class="comments">', '</span>')))
-            data["rating"] = rh(extr('class="rating">', '</span>'))
-            data["fa_category"] = rh(extr('>Category</strong>', '</span>'))
-            data["theme"] = rh(extr('>', '<'))
-            data["species"] = rh(extr('>Species</strong>', '</div>'))
-            data["gender"] = rh(extr('>Gender</strong>', '</div>'))
-            data["width"] = pi(extr("<span>", "x"))
-            data["height"] = pi(extr("", "p"))
-            data["folders"] = folders = []
-            for folder in extr(
-                    "<h3>Listed in Folders</h3>", "</section>").split("</a>"):
-                if folder := rh(folder):
-                    folders.append(folder)
+            data["scraps"] = ("/scraps/" in extr(
+                'class="minigallery-title', '</a>'))
+            data["artist_url"] = extr('displayName" title=" ', ' "').strip()
+            data["artist"] = extr('>', '<')
+            data["_description"] = extr('user-submitted-links">', '</section>')
+            data["views"] = pi(rh(extr('title="Views">', '</div>')))
+            data["comments"] = pi(rh(extr('title="Comments">', '</div>')))
+            data["favorites"] = pi(rh(extr('title="Favorites">', '</div>')))
+            data["rating"] = extr('inline c-contentRating--', '"')
+            contentstats = text.split_html(extr(
+                '<span class="highlight">', '</div>'))
+            try:
+                width, _, height = contentstats[8].partition("x")
+                data["fa_category"] = contentstats[5]
+                data["fa_subcategory"] = contentstats[6]
+                data["species"] = contentstats[7]
+                data["width"] = pi(width)
+                data["height"] = pi(height)
+            except Exception:
+                data["fa_category"] = contentstats[4]
+                data["fa_subcategory"] = contentstats[5]
+                data["species"] = contentstats[6]
+                data["width"] = data["height"] = 0
+            data["tags"] = text.split_html(extr('>Keywords</div>', '</div>'))
+            data["folders"] = [
+                name
+                for folder in extr(
+                    '>Folders</div>',
+                    '<div class="comments-list">').split('</a>')
+                if (name := rh(folder))
+            ]
+            data["title"] = text.unescape(extr('data-artwork-title="', '"'))
         else:
             # old site layout
             data["scraps"] = (

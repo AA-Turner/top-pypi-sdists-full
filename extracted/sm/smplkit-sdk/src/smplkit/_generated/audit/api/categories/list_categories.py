@@ -81,8 +81,8 @@ def sync_detailed(
      List the distinct `category` values recorded for this account.
 
     The resource `id` is the category value itself. Default sort is
-    `key` ascending; pass `sort=-key` for descending. Useful for
-    populating filter dropdowns in a UI.
+    `key` ascending; pass `sort=-key` for descending. Scoped to the
+    resolved environment. Useful for populating filter dropdowns in a UI.
 
     Args:
         sort (ListCategoriesSort | Unset): Field to sort by. Prefix with `-` for descending order.
@@ -133,8 +133,8 @@ def sync(
      List the distinct `category` values recorded for this account.
 
     The resource `id` is the category value itself. Default sort is
-    `key` ascending; pass `sort=-key` for descending. Useful for
-    populating filter dropdowns in a UI.
+    `key` ascending; pass `sort=-key` for descending. Scoped to the
+    resolved environment. Useful for populating filter dropdowns in a UI.
 
     Args:
         sort (ListCategoriesSort | Unset): Field to sort by. Prefix with `-` for descending order.
@@ -180,8 +180,8 @@ async def asyncio_detailed(
      List the distinct `category` values recorded for this account.
 
     The resource `id` is the category value itself. Default sort is
-    `key` ascending; pass `sort=-key` for descending. Useful for
-    populating filter dropdowns in a UI.
+    `key` ascending; pass `sort=-key` for descending. Scoped to the
+    resolved environment. Useful for populating filter dropdowns in a UI.
 
     Args:
         sort (ListCategoriesSort | Unset): Field to sort by. Prefix with `-` for descending order.
@@ -230,8 +230,8 @@ async def asyncio(
      List the distinct `category` values recorded for this account.
 
     The resource `id` is the category value itself. Default sort is
-    `key` ascending; pass `sort=-key` for descending. Useful for
-    populating filter dropdowns in a UI.
+    `key` ascending; pass `sort=-key` for descending. Scoped to the
+    resolved environment. Useful for populating filter dropdowns in a UI.
 
     Args:
         sort (ListCategoriesSort | Unset): Field to sort by. Prefix with `-` for descending order.

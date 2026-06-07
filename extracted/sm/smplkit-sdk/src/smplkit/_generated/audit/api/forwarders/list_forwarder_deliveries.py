@@ -120,9 +120,10 @@ def sync_detailed(
 
      List delivery log entries for a forwarder.
 
-    Default sort is `-created_at` (newest first). Filter by `status`
-    (`SUCCEEDED` or `FAILED`, case-insensitive), by `event`, or by a
-    `created_at` range using interval notation
+    Scoped to the resolved environment — only that environment's deliveries
+    for the forwarder are shown. Default sort is `-created_at` (newest
+    first). Filter by `status` (`SUCCEEDED` or `FAILED`, case-insensitive),
+    by `event`, or by a `created_at` range using interval notation
     (e.g. `[2026-01-01T00:00:00Z,*)`).
 
     Args:
@@ -176,9 +177,10 @@ def sync(
 
      List delivery log entries for a forwarder.
 
-    Default sort is `-created_at` (newest first). Filter by `status`
-    (`SUCCEEDED` or `FAILED`, case-insensitive), by `event`, or by a
-    `created_at` range using interval notation
+    Scoped to the resolved environment — only that environment's deliveries
+    for the forwarder are shown. Default sort is `-created_at` (newest
+    first). Filter by `status` (`SUCCEEDED` or `FAILED`, case-insensitive),
+    by `event`, or by a `created_at` range using interval notation
     (e.g. `[2026-01-01T00:00:00Z,*)`).
 
     Args:
@@ -227,9 +229,10 @@ async def asyncio_detailed(
 
      List delivery log entries for a forwarder.
 
-    Default sort is `-created_at` (newest first). Filter by `status`
-    (`SUCCEEDED` or `FAILED`, case-insensitive), by `event`, or by a
-    `created_at` range using interval notation
+    Scoped to the resolved environment — only that environment's deliveries
+    for the forwarder are shown. Default sort is `-created_at` (newest
+    first). Filter by `status` (`SUCCEEDED` or `FAILED`, case-insensitive),
+    by `event`, or by a `created_at` range using interval notation
     (e.g. `[2026-01-01T00:00:00Z,*)`).
 
     Args:
@@ -281,9 +284,10 @@ async def asyncio(
 
      List delivery log entries for a forwarder.
 
-    Default sort is `-created_at` (newest first). Filter by `status`
-    (`SUCCEEDED` or `FAILED`, case-insensitive), by `event`, or by a
-    `created_at` range using interval notation
+    Scoped to the resolved environment — only that environment's deliveries
+    for the forwarder are shown. Default sort is `-created_at` (newest
+    first). Filter by `status` (`SUCCEEDED` or `FAILED`, case-insensitive),
+    by `event`, or by a `created_at` range using interval notation
     (e.g. `[2026-01-01T00:00:00Z,*)`).
 
     Args:

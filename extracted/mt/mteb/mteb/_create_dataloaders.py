@@ -72,14 +72,19 @@ def _corpus_to_dict(
     return new_row
 
 
-def _combine_queries_with_instruction_text(row: dict[str, str]) -> dict[str, str]:
-    row["query"] = row["text"]
-
-    if "instruction" in row and row["instruction"] is not None:
-        row["text"] = row["query"] + " " + row["instruction"]
-    else:
-        row["text"] = row["query"]
-    return row
+def _combine_queries_with_instruction_text(dataset: Dataset) -> Dataset:
+    texts = dataset["text"]
+    if "query" in dataset.column_names:
+        dataset = dataset.remove_columns(["query"])
+    dataset = dataset.add_column("query", texts)
+    if "instruction" in dataset.column_names:
+        instructions = dataset["instruction"]
+        new_texts = [
+            t + " " + instr if instr is not None else t
+            for t, instr in zip(texts, instructions, strict=True)
+        ]
+        dataset = dataset.remove_columns(["text"]).add_column("text", new_texts)
+    return dataset
 
 
 def _convert_conv_history_to_query(
@@ -96,10 +101,10 @@ def _convert_conv_history_to_query(
     conversation = row["text"]
     # if it's a list of strings, just join them
     if isinstance(conversation, list) and isinstance(conversation[0], str):
-        conversation_ = cast("list[str]", conversation)
-        conv_str = "; ".join(conversation_)
+        conv_str = "; ".join(conversation)  # type: ignore[arg-type]
         current_conversation = [
-            ConversationTurn(role="user", content=message) for message in conversation_
+            ConversationTurn(role="user", content=message)  # type: ignore[typeddict-item]
+            for message in conversation
         ]
         warnings.warn(
             "Conversations are a list of strings. Used 'user' role for all turns.",
@@ -268,11 +273,7 @@ def _prepare_dataset(
                     num_proc=num_proc,
                 )
             else:
-                dataset = dataset.map(
-                    _combine_queries_with_instruction_text,
-                    desc="Processing queries for dataloading",
-                    num_proc=num_proc,
-                )
+                dataset = _combine_queries_with_instruction_text(dataset)
 
     if "image" in modalities:
         dataset = _prepare_image_dataset(

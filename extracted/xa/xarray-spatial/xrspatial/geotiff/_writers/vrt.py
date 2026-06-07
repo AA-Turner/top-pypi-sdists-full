@@ -1,9 +1,10 @@
-"""VRT writer entry point.
+"""Internal VRT writer.
 
-Wraps ``_vrt.write_vrt`` with the public ``write_vrt`` surface:
-deprecation handling for the ``crs_wkt`` and ``vrt_path`` aliases,
-normalisation of the ``crs`` kwarg to WKT via ``_resolve_crs_to_wkt``,
-and the parity surface vs ``to_geotiff`` / ``write_geotiff_gpu``.
+Wraps ``_vrt.write_vrt`` with the ``_build_vrt`` helper: deprecation
+handling for the ``crs_wkt`` and ``vrt_path`` aliases, normalisation of
+the ``crs`` kwarg to WKT via ``_resolve_crs_to_wkt``, and the parity
+surface vs ``to_geotiff`` / ``_write_geotiff_gpu``. ``to_geotiff``'s
+``.vrt`` write path is the only caller; it is not part of the public API.
 """
 from __future__ import annotations
 
@@ -15,26 +16,22 @@ from .._runtime import (_CRS_WKT_DEPRECATED_SENTINEL, _VRT_PATH_DEPRECATED_SENTI
 from .._validation import _validate_nodata_arg
 
 
-def write_vrt(path: str = _VRT_PATH_MISSING_SENTINEL,
-              source_files: list[str] | None = None, *,
-              vrt_path: str | None = _VRT_PATH_DEPRECATED_SENTINEL,
-              relative: bool = True,
-              crs: int | str | None = None,
-              crs_wkt: str | None = _CRS_WKT_DEPRECATED_SENTINEL,
-              nodata: float | int | None = None) -> str:
+def _build_vrt(path: str = _VRT_PATH_MISSING_SENTINEL,
+               source_files: list[str] | None = None, *,
+               vrt_path: str | None = _VRT_PATH_DEPRECATED_SENTINEL,
+               relative: bool = True,
+               crs: int | str | None = None,
+               crs_wkt: str | None = _CRS_WKT_DEPRECATED_SENTINEL,
+               nodata: float | int | None = None) -> str:
     """Generate a VRT file that mosaics multiple GeoTIFF tiles.
 
-    Release-contract tier (see
-    ``docs/source/reference/release_gate_geotiff.rst`` and
-    ``docs/source/reference/geotiff_release_contract.rst``): the
-    entry point is [advanced]. VRT mosaic output is supported but
-    targets a narrow subset of GDAL's VRT spec; the caller should
-    know the failure modes on the read side. A consumer reading the
-    resulting ``.vrt`` may hit cross-source nodata mismatch, missing
-    backing files, or per-band metadata disagreement. Full GDAL VRT
-    parity, warped / reprojection VRTs, and nested VRTs are out of
-    scope for this release. See
-    :data:`xrspatial.geotiff.SUPPORTED_FEATURES` for the full tier map.
+    [internal-only] This helper backs ``to_geotiff``'s ``.vrt`` write
+    path and is not part of the public API. VRT mosaic output targets a
+    narrow subset of GDAL's VRT spec; a consumer reading the resulting
+    ``.vrt`` may hit cross-source nodata mismatch, missing backing files,
+    or per-band metadata disagreement. Full GDAL VRT parity, warped /
+    reprojection VRTs, and nested VRTs are out of scope for this release.
+    See :data:`xrspatial.geotiff.SUPPORTED_FEATURES` for the full tier map.
 
     Output targets the same narrow subset of GDAL's VRT spec that the
     reader supports (see the "VRT support matrix" section in
@@ -58,25 +55,25 @@ def write_vrt(path: str = _VRT_PATH_MISSING_SENTINEL,
     Parameters
     ----------
     path : str
-        [advanced] Output .vrt file path. Mirrors the ``path`` kwarg
-        on ``to_geotiff`` and ``write_geotiff_gpu`` so the writer trio
+        [internal-only] Output .vrt file path. Mirrors the ``path`` kwarg
+        on ``to_geotiff`` and ``_write_geotiff_gpu`` so the writer trio
         shares a single destination-arg name.
     source_files : list of str
-        [advanced] Paths to the source GeoTIFF files.
+        [internal-only] Paths to the source GeoTIFF files.
     vrt_path : str, optional
         [internal-only] Deprecated alias for ``path``. Emits
         ``DeprecationWarning`` when supplied; passing both ``path``
         and ``vrt_path`` raises ``TypeError``. Kept so existing
-        callers (``write_vrt(vrt_path, sources)`` positional or
-        ``write_vrt(vrt_path=...)`` keyword) keep working through the
+        callers (``_build_vrt(vrt_path, sources)`` positional or
+        ``_build_vrt(vrt_path=...)`` keyword) keep working through the
         deprecation window. New code should use ``path``.
     relative : bool, optional
-        [advanced] Store source paths relative to the VRT file
+        [internal-only] Store source paths relative to the VRT file
         (default True).
     crs : int, str, or None, optional
-        [advanced] EPSG code (int), WKT string, or PROJ string. If
+        [internal-only] EPSG code (int), WKT string, or PROJ string. If
         None, the CRS is taken from the first source GeoTIFF. Mirrors
-        the ``crs`` kwarg on ``to_geotiff`` and ``write_geotiff_gpu``
+        the ``crs`` kwarg on ``to_geotiff`` and ``_write_geotiff_gpu``
         so the same value can be forwarded to whichever writer the
         caller picked without per-writer special-casing.
     crs_wkt : str or None, optional
@@ -90,11 +87,11 @@ def write_vrt(path: str = _VRT_PATH_MISSING_SENTINEL,
         ``str | None`` surface is preserved; new code should use
         ``crs`` instead, which additionally accepts ``int`` EPSG codes.
     nodata : float, int, or None, optional
-        [advanced] NoData value. If None, taken from the first source
+        [internal-only] NoData value. If None, taken from the first source
         GeoTIFF.
         Integer sentinels (e.g. ``65535`` for uint16, ``-9999`` for
         int32) are accepted so the surface lines up with the
-        ``nodata`` kwarg on ``to_geotiff`` and ``write_geotiff_gpu``.
+        ``nodata`` kwarg on ``to_geotiff`` and ``_write_geotiff_gpu``.
 
     Returns
     -------
@@ -108,8 +105,8 @@ def write_vrt(path: str = _VRT_PATH_MISSING_SENTINEL,
     below are illustrative; replace with paths to real GeoTIFF
     files on disk:
 
-    >>> from xrspatial.geotiff import write_vrt, open_geotiff
-    >>> vrt_path = write_vrt(  # doctest: +SKIP
+    >>> from xrspatial.geotiff import _build_vrt, open_geotiff
+    >>> vrt_path = _build_vrt(  # doctest: +SKIP
     ...     'mosaic.vrt',
     ...     source_files=['tile_west.tif', 'tile_east.tif'],
     ... )
@@ -117,14 +114,14 @@ def write_vrt(path: str = _VRT_PATH_MISSING_SENTINEL,
 
     Intentionally raises (on the read side). If the source tiles
     disagree on their per-band nodata sentinels, the default
-    ``band_nodata=None`` on ``open_geotiff`` / ``read_vrt`` rejects
+    ``band_nodata=None`` on ``open_geotiff`` / ``_read_vrt`` rejects
     the mosaic with ``MixedBandMetadataError``. The writer does not
     pre-validate cross-tile metadata; the failure mode lives on the
     read side:
 
     >>> from xrspatial.geotiff import MixedBandMetadataError
     >>> # tile_a.tif declares nodata=-9999; tile_b.tif declares nodata=0
-    >>> bad_path = write_vrt(  # doctest: +SKIP
+    >>> bad_path = _build_vrt(  # doctest: +SKIP
     ...     'mixed_nodata.vrt',
     ...     source_files=['tile_a.tif', 'tile_b.tif'],
     ... )
@@ -143,10 +140,10 @@ def write_vrt(path: str = _VRT_PATH_MISSING_SENTINEL,
     # The ``path`` / ``vrt_path`` shim resolves the destination kwarg
     # before any other processing so the rest of the function works
     # uniformly against a single ``vrt_path`` local. ``path`` is the
-    # new name (parity with to_geotiff / write_geotiff_gpu); ``vrt_path``
+    # new name (parity with to_geotiff / _write_geotiff_gpu); ``vrt_path``
     # is kept as a deprecated alias to preserve back-compat for callers
-    # using either positional ``write_vrt(vrt_path, sources)`` or
-    # keyword ``write_vrt(vrt_path=...)``.
+    # using either positional ``_build_vrt(vrt_path, sources)`` or
+    # keyword ``_build_vrt(vrt_path=...)``.
     path_passed = path is not _VRT_PATH_MISSING_SENTINEL
     vrt_path_passed = vrt_path is not _VRT_PATH_DEPRECATED_SENTINEL
     if path_passed and vrt_path_passed:
@@ -155,13 +152,13 @@ def write_vrt(path: str = _VRT_PATH_MISSING_SENTINEL,
         # picking one. Mirrors the same rule the ``crs`` / ``crs_wkt``
         # shim below applies.
         raise TypeError(
-            "write_vrt: pass either 'path' or the deprecated 'vrt_path' "
+            "_build_vrt: pass either 'path' or the deprecated 'vrt_path' "
             "alias, not both.")
     if vrt_path_passed:
         warnings.warn(
-            "write_vrt(..., vrt_path=...) is deprecated; use path=... "
+            "_build_vrt(..., vrt_path=...) is deprecated; use path=... "
             "instead. The kwarg was renamed for parity with to_geotiff "
-            "and write_geotiff_gpu, which already accept 'path' as the "
+            "and _write_geotiff_gpu, which already accept 'path' as the "
             "destination kwarg.",
             DeprecationWarning,
             stacklevel=2,
@@ -172,19 +169,19 @@ def write_vrt(path: str = _VRT_PATH_MISSING_SENTINEL,
         # required positional argument`` semantics by raising rather than
         # forwarding the sentinel into ``_write_vrt_internal``.
         raise TypeError(
-            "write_vrt: missing required argument 'path'")
+            "_build_vrt: missing required argument 'path'")
     if path is None:
-        # Explicit ``path=None`` (including positional ``write_vrt(None,
+        # Explicit ``path=None`` (including positional ``_build_vrt(None,
         # sources)``) is rejected up front so the error message names the
         # offending kwarg instead of crashing deep in
         # ``os.path.dirname(os.path.abspath(None))``. The sentinel default
         # on ``path`` is what lets us distinguish this case from "caller
         # passed nothing" above.
         raise TypeError(
-            "write_vrt: 'path' must be a str, got None")
+            "_build_vrt: 'path' must be a str, got None")
     if source_files is None:
         raise TypeError(
-            "write_vrt: missing required argument 'source_files'")
+            "_build_vrt: missing required argument 'source_files'")
 
     crs_wkt_passed = crs_wkt is not _CRS_WKT_DEPRECATED_SENTINEL
     if crs is not None and crs_wkt_passed:
@@ -192,21 +189,21 @@ def write_vrt(path: str = _VRT_PATH_MISSING_SENTINEL,
         # to encode the same CRS as the int. Refuse rather than silently
         # picking one.
         raise TypeError(
-            "write_vrt: pass either 'crs' or the deprecated 'crs_wkt' "
+            "_build_vrt: pass either 'crs' or the deprecated 'crs_wkt' "
             "alias, not both.")
     if crs_wkt_passed:
         warnings.warn(
-            "write_vrt(..., crs_wkt=...) is deprecated; use crs=... "
+            "_build_vrt(..., crs_wkt=...) is deprecated; use crs=... "
             "instead. The kwarg was renamed for parity with to_geotiff "
-            "and write_geotiff_gpu, which already accept 'crs' as either "
+            "and _write_geotiff_gpu, which already accept 'crs' as either "
             "an int EPSG code or a WKT string.",
             DeprecationWarning,
             stacklevel=2,
         )
         crs = crs_wkt
 
-    # Reject bool / non-numeric nodata at the entry point so write_vrt
-    # matches the to_geotiff / write_geotiff_gpu surface. ``bool`` is a
+    # Reject bool / non-numeric nodata at the entry point so _build_vrt
+    # matches the to_geotiff / _write_geotiff_gpu surface. ``bool`` is a
     # subclass of ``int`` in Python, so a typo like ``nodata=True`` would
     # slip past every downstream ``isinstance(nodata, (int, float))``
     # guard and the VRT XML emitter would write ``<NoDataValue>True

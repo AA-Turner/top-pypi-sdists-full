@@ -3,7 +3,7 @@ members = ["crates/djust_core", "crates/djust_templates", "crates/djust_vdom", "
 resolver = "2"
 
 [workspace.package]
-version = "1.0.1"
+version = "1.0.2"
 edition = "2021"
 authors = ["djust contributors"]
 license = "MIT"

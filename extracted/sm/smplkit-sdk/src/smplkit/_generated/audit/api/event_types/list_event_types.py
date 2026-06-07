@@ -90,9 +90,9 @@ def sync_detailed(
      List the distinct `event_type` slugs recorded for this account.
 
     Default sort is `key` ascending; pass `sort=-key` for descending.
-    Without `filter[resource_type]`, returns one row per distinct
-    event_type. With `filter[resource_type]`, returns the event_types
-    recorded for that specific resource type.
+    Scoped to the resolved environment. Without `filter[resource_type]`,
+    returns one row per distinct event_type. With `filter[resource_type]`,
+    returns the event_types recorded for that specific resource type.
 
     Args:
         filterresource_type (None | str | Unset):
@@ -146,9 +146,9 @@ def sync(
      List the distinct `event_type` slugs recorded for this account.
 
     Default sort is `key` ascending; pass `sort=-key` for descending.
-    Without `filter[resource_type]`, returns one row per distinct
-    event_type. With `filter[resource_type]`, returns the event_types
-    recorded for that specific resource type.
+    Scoped to the resolved environment. Without `filter[resource_type]`,
+    returns one row per distinct event_type. With `filter[resource_type]`,
+    returns the event_types recorded for that specific resource type.
 
     Args:
         filterresource_type (None | str | Unset):
@@ -197,9 +197,9 @@ async def asyncio_detailed(
      List the distinct `event_type` slugs recorded for this account.
 
     Default sort is `key` ascending; pass `sort=-key` for descending.
-    Without `filter[resource_type]`, returns one row per distinct
-    event_type. With `filter[resource_type]`, returns the event_types
-    recorded for that specific resource type.
+    Scoped to the resolved environment. Without `filter[resource_type]`,
+    returns one row per distinct event_type. With `filter[resource_type]`,
+    returns the event_types recorded for that specific resource type.
 
     Args:
         filterresource_type (None | str | Unset):
@@ -251,9 +251,9 @@ async def asyncio(
      List the distinct `event_type` slugs recorded for this account.
 
     Default sort is `key` ascending; pass `sort=-key` for descending.
-    Without `filter[resource_type]`, returns one row per distinct
-    event_type. With `filter[resource_type]`, returns the event_types
-    recorded for that specific resource type.
+    Scoped to the resolved environment. Without `filter[resource_type]`,
+    returns one row per distinct event_type. With `filter[resource_type]`,
+    returns the event_types recorded for that specific resource type.
 
     Args:
         filterresource_type (None | str | Unset):

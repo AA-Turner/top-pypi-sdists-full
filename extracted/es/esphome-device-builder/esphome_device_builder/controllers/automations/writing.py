@@ -17,15 +17,20 @@ from __future__ import annotations
 
 from ...helpers.api import CommandError
 from ...helpers.yaml import (
+    _block_end,
+    _indent_block,
     _splice_into_domain_block,
     remove_inline_handler,
+    remove_subentity_handler,
     upsert_inline_handler,
+    upsert_subentity_handler,
 )
 from ...models.api import ErrorCode
 from ...models.automations import (
     ApiActionLocation,
     AutomationLocation,
     AutomationTree,
+    AutomationTrigger,
     ComponentActionFieldLocation,
     ComponentOnLocation,
     DeviceOnLocation,
@@ -42,7 +47,18 @@ from .emitter import (
     render_script_item,
     render_trigger_handler,
 )
-from .parsing import make_yaml, resolve_component_domain
+from .parsing import (
+    ComponentTarget,
+    make_yaml,
+    resolve_component_domain,
+    resolve_component_target,
+)
+from .writing_layout import (
+    _build_diff_for_append,
+    _indent_for_top_list,
+    _locate_singleton_block,
+    _locate_top_list_item,
+)
 from .writing_lists import (
     delete_light_effect,
     delete_list_entry,
@@ -147,11 +163,11 @@ def _upsert_component_on(
     location: ComponentOnLocation,
 ) -> tuple[str, YamlDiff]:
     """Splice an inline ``on_*:`` handler under a configured component."""
-    instance_domain = _component_domain_from_yaml(yaml_text, location)
-    trigger = catalog.trigger_by_id(f"{instance_domain}.{location.trigger}")
-    if trigger is None:
-        msg = f"Unknown trigger id {location.trigger!r} on component {location.component_id!r}"
-        raise CommandError(ErrorCode.INVALID_ARGS, msg)
+    target = resolve_component_target(yaml_text, location.component_id)
+    if target is not None and target.is_sub_entity:
+        return _upsert_subentity_on(yaml_text, tree, location, target)
+    instance_domain = target.domain if target is not None else _component_domain(location)
+    trigger = _require_trigger(instance_domain, location)
     if location.index is not None:
         return upsert_component_on_entry(
             yaml_text,
@@ -182,6 +198,34 @@ def _upsert_component_on(
         toLine=to_line,
         replacement=replacement,
     )
+
+
+def _upsert_subentity_on(
+    yaml_text: str,
+    tree: AutomationTree,
+    location: ComponentOnLocation,
+    target: ComponentTarget,
+) -> tuple[str, YamlDiff]:
+    """Splice an ``on_*:`` handler under a nested sub-entity (``aht20_temperature``)."""
+    parent_domain, parent_id, sub_key = _subentity_context(target)
+    _require_trigger(target.domain, location)
+    rendered = render_trigger_handler(tree, key=location.trigger)
+    res = upsert_subentity_handler(
+        yaml_text,
+        parent_domain=parent_domain,
+        parent_id=parent_id,
+        sub_key=sub_key,
+        handler_key=location.trigger,
+        rendered_yaml=rendered,
+    )
+    if res is None:
+        msg = (
+            f"Sub-entity id={location.component_id!r} not found under "
+            f"{parent_domain!r}; can't splice handler {location.trigger!r}"
+        )
+        raise CommandError(ErrorCode.INVALID_ARGS, msg)
+    new_text, from_line, to_line, replacement = res
+    return new_text, YamlDiff(fromLine=from_line, toLine=to_line, replacement=replacement)
 
 
 def _upsert_component_action(
@@ -357,16 +401,7 @@ def _upsert_under_top_key(
         text = lines[idx].rstrip("\n\r")
         if text == handler_re_prefix or text.startswith(handler_re_prefix + " "):
             handler_start = idx
-            for jdx in range(idx + 1, end):
-                content = lines[jdx].rstrip("\n\r")
-                if not content:
-                    continue
-                leading = len(content) - len(content.lstrip(" "))
-                if leading <= len(indent):
-                    handler_end = jdx
-                    break
-            if handler_end is None:
-                handler_end = end
+            handler_end = _block_end(lines, idx, end, indent)
             break
     rendered_text = "\n".join(_indent_block(rendered_yaml, indent)) + "\n"
     if handler_start is not None and handler_end is not None:
@@ -474,15 +509,7 @@ def _delete_under_top_key(
     for idx in range(start + 1, end):
         text = lines[idx].rstrip("\n\r")
         if text == handler_prefix or text.startswith(handler_prefix + " "):
-            handler_end = end
-            for jdx in range(idx + 1, end):
-                content = lines[jdx].rstrip("\n\r")
-                if not content:
-                    continue
-                leading = len(content) - len(content.lstrip(" "))
-                if leading <= len(indent):
-                    handler_end = jdx
-                    break
+            handler_end = _block_end(lines, idx, end, indent)
             new_lines = [*lines[:idx], *lines[handler_end:]]
             return "".join(new_lines), YamlDiff(
                 fromLine=idx + 1,
@@ -498,7 +525,10 @@ def _delete_component_on(
     location: ComponentOnLocation,
 ) -> tuple[str, YamlDiff]:
     """Drop an inline ``on_*:`` handler from a configured component."""
-    instance_domain = _component_domain_from_yaml(yaml_text, location)
+    target = resolve_component_target(yaml_text, location.component_id)
+    if target is not None and target.is_sub_entity:
+        return _delete_subentity_on(yaml_text, location, target)
+    instance_domain = target.domain if target is not None else _component_domain(location)
     if location.index is not None:
         return delete_list_entry(
             yaml_text,
@@ -519,6 +549,30 @@ def _delete_component_on(
         msg = (
             f"Component instance id={location.component_id!r} not found "
             f"under {domain!r}; can't delete handler {location.trigger!r}"
+        )
+        raise CommandError(ErrorCode.NOT_FOUND, msg)
+    new_text, from_line, to_line = res
+    return new_text, YamlDiff(fromLine=from_line, toLine=to_line, replacement="")
+
+
+def _delete_subentity_on(
+    yaml_text: str,
+    location: ComponentOnLocation,
+    target: ComponentTarget,
+) -> tuple[str, YamlDiff]:
+    """Drop an ``on_*:`` handler from a nested sub-entity (``aht20_temperature``)."""
+    parent_domain, parent_id, sub_key = _subentity_context(target)
+    res = remove_subentity_handler(
+        yaml_text,
+        parent_domain=parent_domain,
+        parent_id=parent_id,
+        sub_key=sub_key,
+        handler_key=location.trigger,
+    )
+    if res is None:
+        msg = (
+            f"Sub-entity id={location.component_id!r} not found under "
+            f"{parent_domain!r}; can't delete handler {location.trigger!r}"
         )
         raise CommandError(ErrorCode.NOT_FOUND, msg)
     new_text, from_line, to_line = res
@@ -601,6 +655,23 @@ def _delete_api_action(
 # ---------------------------------------------------------------------------
 
 
+def _require_trigger(domain: str, location: ComponentOnLocation) -> AutomationTrigger:
+    """Look up the catalog trigger for ``<domain>.<trigger>``; raise if unknown."""
+    trigger = catalog.trigger_by_id(f"{domain}.{location.trigger}")
+    if trigger is None:
+        msg = f"Unknown trigger id {location.trigger!r} on component {location.component_id!r}"
+        raise CommandError(ErrorCode.INVALID_ARGS, msg)
+    return trigger
+
+
+def _subentity_context(target: ComponentTarget) -> tuple[str, str, str]:
+    """Parent context for a sub-entity target; raise if it's incomplete."""
+    if target.parent_domain is None or target.parent_id is None or target.sub_key is None:
+        msg = f"sub-entity target is missing parent context: {target!r}"
+        raise CommandError(ErrorCode.INVALID_ARGS, msg)
+    return target.parent_domain, target.parent_id, target.sub_key
+
+
 def _component_domain(location: ComponentOnLocation) -> str:
     """Return the inferred domain from a ComponentOnLocation.
 
@@ -611,10 +682,12 @@ def _component_domain(location: ComponentOnLocation) -> str:
     the first one. ``binary_sensor.on_press`` and ``switch.on_press``
     don't collide because their applies_to lists are disjoint.
 
-    Used as the fallback when the YAML hasn't been provided (no
-    ``yaml_text`` in scope) — see :func:`_component_domain_from_yaml`
-    for the disambiguated lookup the writer prefers when it has
-    the actual YAML.
+    Catalog-only fallback for when ``location.component_id`` isn't found in
+    the YAML (``resolve_component_target`` returned ``None``); the writer
+    prefers the resolved instance's actual domain when it has one. Picking
+    alphabetically here can mis-attribute a shared trigger key (``on_turn_on``
+    on ``fan`` vs ``switch``), but the upsert then surfaces a clear
+    "id not found" error.
     """
     matches = [
         t
@@ -631,185 +704,3 @@ def _component_domain(location: ComponentOnLocation) -> str:
         # tests are deterministic.
         matches.sort(key=lambda t: t.applies_to[0] if t.applies_to else "")
     return matches[0].applies_to[0] if matches[0].applies_to else ""
-
-
-def _component_domain_from_yaml(
-    yaml_text: str,
-    location: ComponentOnLocation,
-) -> str:
-    """Find the YAML domain that hosts ``location.component_id``.
-
-    Trigger keys like ``on_turn_on`` belong to multiple domains
-    (``switch``, ``fan``, ``light``, ``cover``, …). The catalog-only
-    fallback in :func:`_component_domain` picks one alphabetically,
-    which means a ``relay`` switch instance with an ``on_turn_on``
-    handler gets attributed to ``fan`` (alphabetically first), and
-    the writer then fails with "instance id='relay' not found
-    under 'fan'".
-
-    Resolve structurally against the parsed config — id-less and flat
-    singletons included — so only a declared instance id matches, never
-    an action *reference* to that id nested in another component's
-    handler. Falls back to the catalog guess when the id can't be
-    located (which also means the upsert won't find a splice
-    destination — the user gets a clearer "id not found" error from
-    ``upsert_inline_handler``).
-    """
-    domain = resolve_component_domain(yaml_text, location.component_id)
-    if domain is not None:
-        return domain
-    return _component_domain(location)
-
-
-def _indent_block(block_text: str, indent: str) -> list[str]:
-    """Prefix every non-empty line of *block_text* with *indent*."""
-    out: list[str] = []
-    for line in block_text.splitlines():
-        if not line:
-            out.append("")
-            continue
-        out.append(indent + line)
-    return out
-
-
-def _indent_for_top_list(rendered_item: str) -> str:
-    """Indent *rendered_item* (one ``- ...`` block) for top-level list use."""
-    # ``dump([item])`` already produces the dashed list form; we
-    # use it as-is. The block is left at column-0 so it lands
-    # correctly under any top-level domain.
-    if not rendered_item.endswith("\n"):
-        rendered_item += "\n"
-    return rendered_item
-
-
-def _locate_top_list_item(  # noqa: C901
-    lines: list[str],
-    domain: str,
-    index: int,
-) -> tuple[int, int]:
-    """Return the line range of the *index*'th item under ``<domain>:``."""
-    domain_start: int | None = None
-    for idx, line in enumerate(lines):
-        stripped = line.rstrip("\n\r")
-        if stripped == f"{domain}:" or stripped.startswith(f"{domain}:"):
-            domain_start = idx
-            break
-    if domain_start is None:
-        msg = f"Block {domain!r} not present"
-        raise CommandError(ErrorCode.NOT_FOUND, msg)
-    domain_end = len(lines)
-    for idx in range(domain_start + 1, len(lines)):
-        stripped = lines[idx].rstrip("\n\r")
-        if stripped and stripped[0].isalpha() and not stripped.startswith(" "):
-            domain_end = idx
-            break
-    # Only column-2 dashes count as top-level list items; deeper
-    # dashes belong to nested action lists inside the item body.
-    item_indent: str | None = None
-    item_starts: list[int] = []
-    for idx in range(domain_start + 1, domain_end):
-        raw = lines[idx].rstrip("\n\r")
-        stripped = raw.lstrip(" ")
-        if not stripped.startswith("- "):
-            continue
-        prefix = raw[: len(raw) - len(stripped)]
-        if item_indent is None:
-            item_indent = prefix
-        if prefix != item_indent:
-            continue
-        item_starts.append(idx)
-    if index < 0 or index >= len(item_starts):
-        msg = f"{domain}[{index}] out of range (have {len(item_starts)})"
-        raise CommandError(ErrorCode.NOT_FOUND, msg)
-    start = item_starts[index]
-    end = item_starts[index + 1] if index + 1 < len(item_starts) else domain_end
-    return start, end
-
-
-def _locate_singleton_block(
-    lines: list[str],
-    block_key: str,
-) -> tuple[int, int, str] | None:
-    """Return ``(start, end, child_indent)`` for a singleton mapping block."""
-    header = f"{block_key}:"
-    start: int | None = None
-    indent = "  "
-    for idx, line in enumerate(lines):
-        stripped = line.rstrip("\n\r")
-        if stripped == header or stripped.startswith(header + " "):
-            start = idx
-            break
-    if start is None:
-        return None
-    end = len(lines)
-    captured = False
-    for idx in range(start + 1, len(lines)):
-        stripped = lines[idx].rstrip("\n\r")
-        if not stripped:
-            continue
-        if not stripped.startswith(" "):
-            if stripped[0].isalpha():
-                end = idx
-                break
-            # Column-0 comment ends the block only when the next
-            # non-blank line is also column-0 (a section banner
-            # between two top-level blocks). A comment sitting
-            # between a parent key and an indented child below is
-            # a no-op — keep scanning.
-            if _next_non_blank_at_col_zero(lines, idx + 1):
-                end = idx
-                break
-            continue
-        if not captured:
-            indent = " " * (len(stripped) - len(stripped.lstrip(" ")))
-            captured = True
-    return start, end, indent
-
-
-def _next_non_blank_at_col_zero(lines: list[str], start: int) -> bool:
-    """Return True iff the next non-blank line at *start* or later sits at column 0."""
-    for idx in range(start, len(lines)):
-        stripped = lines[idx].rstrip("\n\r")
-        if not stripped:
-            continue
-        return not stripped.startswith(" ")
-    return False
-
-
-def _build_diff_for_append(old_yaml: str, new_yaml: str) -> YamlDiff:
-    """
-    Build a diff describing the lines changed by an append-style write.
-
-    Bounds the change to the region between the common leading and
-    trailing lines, so a splice into a block that isn't the last in
-    the file replaces only the changed span — without the suffix
-    match the unchanged tail would be re-emitted and duplicated.
-    """
-    old_lines = old_yaml.splitlines()
-    new_lines = new_yaml.splitlines()
-    prefix = 0
-    while (
-        prefix < len(old_lines)
-        and prefix < len(new_lines)
-        and old_lines[prefix] == new_lines[prefix]
-    ):
-        prefix += 1
-    suffix = 0
-    while (
-        suffix < len(old_lines) - prefix
-        and suffix < len(new_lines) - prefix
-        and old_lines[len(old_lines) - 1 - suffix] == new_lines[len(new_lines) - 1 - suffix]
-    ):
-        suffix += 1
-    from_line = prefix + 1
-    to_line = len(old_lines) - suffix  # == from_line - 1 ⇒ pure insert
-    replacement = "\n".join(new_lines[prefix : len(new_lines) - suffix])
-    if replacement and not replacement.endswith("\n"):
-        replacement += "\n"
-    return YamlDiff(fromLine=from_line, toLine=to_line, replacement=replacement)
-
-
-def _extract_replacement(yaml_text: str, from_line: int, to_line: int) -> str:
-    """Return the post-splice text spanned by the :class:`YamlDiff` range."""
-    lines = yaml_text.splitlines(keepends=True)
-    return "".join(lines[from_line - 1 : to_line])

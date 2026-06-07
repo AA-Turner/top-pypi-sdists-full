@@ -34,7 +34,7 @@ from PyPDF2 import PdfReader
 from uuid import uuid1
 from pathlib import Path
 from abstract_utilities import *
-from abstract_webtools import requests,derive_approved_headers_user_agent_session_for_url
+from abstract_webtools import requests,derive_approved_headers_for_url
 from datetime import datetime, timezone
 from enum import Enum
 from huggingface_hub import hf_hub_download, snapshot_download,HfApi

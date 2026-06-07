@@ -27,8 +27,8 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from xrspatial.geotiff import (open_geotiff, read_geotiff_dask, read_geotiff_gpu, to_geotiff,
-                               write_geotiff_gpu)
+from xrspatial.geotiff import (_read_geotiff_dask, _read_geotiff_gpu, _write_geotiff_gpu,
+                               open_geotiff, to_geotiff)
 
 from .._helpers.markers import requires_gpu
 
@@ -69,9 +69,9 @@ class TestSinglePixelRead:
         np.testing.assert_array_equal(computed.values, arr)
 
     def test_read_geotiff_dask_direct(self, single_pixel_path):
-        """The explicit ``read_geotiff_dask`` entry point matches dispatch."""
+        """The explicit ``_read_geotiff_dask`` entry point matches dispatch."""
         path, arr = single_pixel_path
-        result = read_geotiff_dask(path, chunks=8)
+        result = _read_geotiff_dask(path, chunks=8)
         assert result.shape == (1, 1)
         np.testing.assert_array_equal(result.compute().values, arr)
 
@@ -84,9 +84,9 @@ class TestSinglePixelRead:
 
     @requires_gpu
     def test_read_geotiff_gpu_direct(self, single_pixel_path):
-        """The explicit ``read_geotiff_gpu`` entry point matches dispatch."""
+        """The explicit ``_read_geotiff_gpu`` entry point matches dispatch."""
         path, arr = single_pixel_path
-        result = read_geotiff_gpu(path)
+        result = _read_geotiff_gpu(path)
         assert result.shape == (1, 1)
         np.testing.assert_array_equal(result.data.get(), arr)
 
@@ -185,7 +185,7 @@ class TestSingleColumnRead:
 
 @requires_gpu
 class TestGpuWriterDegenerateShapes:
-    """``write_geotiff_gpu`` must accept 1-pixel, 1-row, and 1-column inputs.
+    """``_write_geotiff_gpu`` must accept 1-pixel, 1-row, and 1-column inputs.
 
     The GPU writer's tile-encoding path uses an internal grid sizing
     helper that fell back to host code for shapes smaller than the
@@ -198,7 +198,7 @@ class TestGpuWriterDegenerateShapes:
         arr = cupy.array([[42.0]], dtype=cupy.float32)
         da_gpu = xr.DataArray(arr, dims=["y", "x"])
         p = str(tmp_path / "gpu_1x1.tif")
-        write_geotiff_gpu(da_gpu, p)
+        _write_geotiff_gpu(da_gpu, p)
 
         result = open_geotiff(p)
         assert result.shape == (1, 1)
@@ -210,7 +210,7 @@ class TestGpuWriterDegenerateShapes:
         arr = cupy.asarray(arr_np)
         da_gpu = xr.DataArray(arr, dims=["y", "x"])
         p = str(tmp_path / "gpu_1xN.tif")
-        write_geotiff_gpu(da_gpu, p)
+        _write_geotiff_gpu(da_gpu, p)
 
         result = open_geotiff(p)
         assert result.shape == (1, 10)
@@ -222,7 +222,7 @@ class TestGpuWriterDegenerateShapes:
         arr = cupy.asarray(arr_np)
         da_gpu = xr.DataArray(arr, dims=["y", "x"])
         p = str(tmp_path / "gpu_Nx1.tif")
-        write_geotiff_gpu(da_gpu, p)
+        _write_geotiff_gpu(da_gpu, p)
 
         result = open_geotiff(p)
         assert result.shape == (10, 1)
@@ -339,7 +339,7 @@ class TestNanSentinelDaskRead:
     def test_eager_path_baseline(self, nan_sentinel_path):
         """Baseline: eager path replaces the sentinel with NaN."""
         path, _ = nan_sentinel_path
-        result = open_geotiff(path)
+        result = open_geotiff(path, masked=True)
         assert np.isnan(result.values[2, 2])
         assert np.isnan(result.values[6, 0])
         assert result.values[0, 0] == 0.0  # non-sentinel survives
@@ -362,7 +362,7 @@ class TestNanSentinelDaskRead:
         exercises the per-block sentinel comparison.
         """
         path, _ = nan_sentinel_path
-        dk = open_geotiff(path, chunks=2).compute()
+        dk = open_geotiff(path, chunks=2, masked=True).compute()
         assert np.isnan(dk.values[2, 2])
         assert np.isnan(dk.values[3, 3])
         assert np.isnan(dk.values[6, 0])
@@ -525,7 +525,7 @@ def _parity_check_single_band(
         ras_crs = ds.crs
         ras_nodata = ds.nodata
 
-    xrs = open_geotiff(path)
+    xrs = open_geotiff(path, masked=True)
     xrs_np = np.asarray(xrs)
 
     # Pixel parity. For integer rasters with nodata, xrspatial promotes to
@@ -661,7 +661,7 @@ class TestMultibandUint16SharedNodata:
             ras_crs = ds.crs
             ras_nodata = ds.nodata
 
-        xrs = open_geotiff(str(path))           # dims (y, x, band)
+        xrs = open_geotiff(str(path), masked=True)           # dims (y, x, band)
         xrs_np = np.asarray(xrs)
 
         # xrspatial lays bands on the trailing axis; transpose for compare.

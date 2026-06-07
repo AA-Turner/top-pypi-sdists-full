@@ -8,7 +8,7 @@ use gam::alo::compute_alo_diagnostics_from_fit;
 use gam::estimate::{
     AdaptiveRegularizationOptions, BlockRole, ContinuousSmoothnessOrderStatus,
     ExternalOptimOptions, ExternalOptimResult, FitOptions, FittedLinkState, ModelSummary,
-    ParametricTermSummary, PredictInput, SmoothTermSummary, UnifiedFitResult,
+    ParametricTermSummary, PosteriorMeanOptions, PredictInput, SmoothTermSummary, UnifiedFitResult,
     compute_continuous_smoothness_order, fit_gam, optimize_external_design, predict_gam,
     saved_latent_cloglog_state_from_fit, saved_mixture_state_from_fit, saved_sas_state_from_fit,
 };
@@ -2618,8 +2618,16 @@ fn run_predict_unified(
             Some(pred.mean_upper),
         )
     } else if nonlinear && args.mode == PredictModeArg::PosteriorMean {
+        // Mirror the `--uncertainty` arm's covariance-mode handling so the
+        // posterior-mean credible interval includes smoothing-parameter
+        // uncertainty by default (issue #812), instead of the bare conditional.
+        let pm_options = PosteriorMeanOptions {
+            confidence_level: Some(args.level),
+            covariance_mode: infer_covariance_mode(args.covariance_mode),
+            include_observation_interval: false,
+        };
         let pm = predictor
-            .predict_posterior_mean(pred_input, &fit_for_predict, Some(args.level))
+            .predict_posterior_mean(pred_input, &fit_for_predict, &pm_options)
             .map_err(|e| format!("predict_posterior_mean failed: {e}"))?;
         (
             pm.eta,
@@ -3629,16 +3637,17 @@ fn run_predict_survival(
             Option<Array1<f64>>,
             Option<Array1<f64>>,
         ) = if args.mode == PredictModeArg::PosteriorMean {
+            let pm_options = PosteriorMeanOptions {
+                confidence_level: if args.uncertainty {
+                    Some(args.level)
+                } else {
+                    None
+                },
+                covariance_mode: infer_covariance_mode(args.covariance_mode),
+                include_observation_interval: false,
+            };
             let pred = predictor
-                .predict_posterior_mean(
-                    &pred_input,
-                    &predictor_fit,
-                    if args.uncertainty {
-                        Some(args.level)
-                    } else {
-                        None
-                    },
-                )
+                .predict_posterior_mean(&pred_input, &predictor_fit, &pm_options)
                 .map_err(|e| format!("predict_posterior_mean failed: {e}"))?;
             let eta = pred.eta;
             let eta_se = pred.eta_standard_error;
@@ -8018,7 +8027,18 @@ fn collect_term_column_names(terms: &[ParsedTerm], out: &mut BTreeSet<String>) {
             | ParsedTerm::RandomEffect { name } => {
                 out.insert(name.clone());
             }
-            ParsedTerm::Smooth { vars, .. } | ParsedTerm::Interaction { vars } => {
+            ParsedTerm::Smooth { vars, options, .. } => {
+                out.extend(vars.iter().cloned());
+                // A `by=` smooth (`s(x, by=g)`, factor or numeric varying
+                // coefficient) consumes the grouping/scaling variable from
+                // `options["by"]` (see `term_builder.rs` `options.get("by")`),
+                // but it is not among the positional `vars`. It must still be
+                // loaded from the data file, so list it as required.
+                if let Some(by) = options.get("by") {
+                    out.insert(by.clone());
+                }
+            }
+            ParsedTerm::Interaction { vars } => {
                 out.extend(vars.iter().cloned());
             }
             ParsedTerm::LinkWiggle { .. }
@@ -9434,9 +9454,10 @@ mod tests {
         fit_result_from_external, load_dataset_projected, parse_formula, parse_link_choice,
         parse_matching_auxiliary_formula, parse_surv_response, parse_survival_inverse_link,
         parse_survival_time_basis_config, predict_gam, prepend_id_column_to_prediction_csv,
-        required_columns_for_fit, resolve_family, summarizewiggle_domain,
-        validate_cli_firth_configuration, write_gaussian_location_scale_prediction_csv,
-        write_prediction_csv, write_survival_binary_prediction_csv, write_survival_prediction_csv,
+        required_columns_for_fit, required_columns_for_formula, resolve_family,
+        summarizewiggle_domain, validate_cli_firth_configuration,
+        write_gaussian_location_scale_prediction_csv, write_prediction_csv,
+        write_survival_binary_prediction_csv, write_survival_prediction_csv,
     };
     use super::{
         Cli, Command, CovarianceModeArg, FitArgs, PredictArgs, PredictModeArg, SampleArgs, run_fit,
@@ -11576,7 +11597,11 @@ mod tests {
             auxiliary_matrix: None,
         };
         let out = predictor
-            .predict_posterior_mean(&input, &fit, Some(0.95))
+            .predict_posterior_mean(
+                &input,
+                &fit,
+                &super::PosteriorMeanOptions::with_level(0.95),
+            )
             .expect("predict standard binomial wiggle");
         assert_eq!(out.eta.len(), 3);
         assert_eq!(
@@ -16369,6 +16394,32 @@ mod tests {
         assert_eq!(options.get("type").map(String::as_str), Some("duchon"));
         assert_eq!(options.get("power").map(String::as_str), Some("0"));
         assert_eq!(options.get("order").map(String::as_str), Some("1"));
+    }
+
+    #[test]
+    fn required_columns_include_the_by_smooth_grouping_variable() {
+        // Regression for #807: a `by=` smooth carries its grouping/scaling
+        // variable in options["by"], not in the positional `vars`. The CLI's
+        // required-column set must still list it, or the data file loads without
+        // that column and the fit aborts before any numerics. Covers the factor
+        // (`s(x, by=g)`), numeric varying-coefficient, and tensor (`te(..., by=w)`)
+        // forms — all share the ParsedTerm::Smooth representation.
+        let factor = parse_formula("y ~ s(x, by=g)").expect("parse factor by-smooth");
+        let cols = required_columns_for_formula(&factor).expect("required columns");
+        assert!(
+            cols.contains(&"g".to_string()),
+            "by= grouping column 'g' must be required, got {cols:?}"
+        );
+        assert!(cols.contains(&"x".to_string()) && cols.contains(&"y".to_string()));
+
+        let tensor = parse_formula("y ~ te(x, z, by=w)").expect("parse tensor by-smooth");
+        let tcols = required_columns_for_formula(&tensor).expect("required columns");
+        for needed in ["x", "y", "z", "w"] {
+            assert!(
+                tcols.contains(&needed.to_string()),
+                "te(x, z, by=w) must require '{needed}', got {tcols:?}"
+            );
+        }
     }
 
     #[test]

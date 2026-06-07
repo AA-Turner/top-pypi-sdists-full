@@ -66,6 +66,12 @@ class JPEG2K:
         SYCC = OPJ_CLRSPC_SYCC
         EYCC = OPJ_CLRSPC_EYCC
         CMYK = OPJ_CLRSPC_CMYK
+        # legacy
+        # UNKNOWN = OPJ_CLRSPC_UNSPECIFIED
+        # GRAYSCALE = OPJ_CLRSPC_GRAY
+        # MINISWHITE = OPJ_CLRSPC_GRAY
+        # MINISBLACK = OPJ_CLRSPC_GRAY
+        # RGBA = OPJ_CLRSPC_SRGB
 
 
 class Jpeg2kError(RuntimeError):
@@ -183,14 +189,8 @@ def jpeg2k_encode(
         if reversible is None:
             irreversible = 0
 
-    if codecformat is None:
-        codec_format = OPJ_CODEC_JP2  # use container format by default
-    elif codecformat in {OPJ_CODEC_JP2, 'JP2', 'jp2'}:
-        codec_format = OPJ_CODEC_JP2
-    elif codecformat in {OPJ_CODEC_J2K, 'J2K', 'j2k'}:
-        codec_format = OPJ_CODEC_J2K
-    else:
-        raise ValueError('invalid codecformat')
+    # use container format by default
+    codec_format = _enum_value(codecformat, JPEG2K.CODEC, OPJ_CODEC_JP2)
 
     sgnd = 1 if src.dtype.kind == 'i' else 0
     prec = <OPJ_UINT32> layout.bitspersample
@@ -245,7 +245,9 @@ def jpeg2k_encode(
         else:
             color_space = OPJ_CLRSPC_UNSPECIFIED
     else:
-        color_space = _opj_colorspace(colorspace)
+        color_space = _enum_value(
+            colorspace, JPEG2K.CLRSPC, OPJ_CLRSPC_UNSPECIFIED
+        )
 
     # create memory stream
     memopj.data = NULL
@@ -917,28 +919,3 @@ cdef void j2k_info_callback(char* msg, void* client_data) noexcept with gil:
         _log_warning('JPEG2K info: %s', msg.decode().strip())
     except Exception:
         pass
-
-
-cdef _opj_colorspace(colorspace):
-    """Return OPJ_COLOR_SPACE value from user input."""
-    return {
-        'GRAY': OPJ_CLRSPC_GRAY,
-        'GRAYSCALE': OPJ_CLRSPC_GRAY,
-        'MINISWHITE': OPJ_CLRSPC_GRAY,
-        'MINISBLACK': OPJ_CLRSPC_GRAY,
-        'RGB': OPJ_CLRSPC_SRGB,
-        'SRGB': OPJ_CLRSPC_SRGB,
-        'RGBA': OPJ_CLRSPC_SRGB,  # ?
-        'CMYK': OPJ_CLRSPC_CMYK,
-        'SYCC': OPJ_CLRSPC_SYCC,
-        'EYCC': OPJ_CLRSPC_EYCC,
-        'UNSPECIFIED': OPJ_CLRSPC_UNSPECIFIED,
-        'UNKNOWN': OPJ_CLRSPC_UNSPECIFIED,
-        None: OPJ_CLRSPC_UNSPECIFIED,
-        OPJ_CLRSPC_UNSPECIFIED: OPJ_CLRSPC_UNSPECIFIED,
-        OPJ_CLRSPC_SRGB: OPJ_CLRSPC_SRGB,
-        OPJ_CLRSPC_GRAY: OPJ_CLRSPC_GRAY,
-        OPJ_CLRSPC_SYCC: OPJ_CLRSPC_SYCC,
-        OPJ_CLRSPC_EYCC: OPJ_CLRSPC_EYCC,
-        OPJ_CLRSPC_CMYK: OPJ_CLRSPC_CMYK,
-    }[colorspace]  # .get(colorspace, OPJ_CLRSPC_UNSPECIFIED)

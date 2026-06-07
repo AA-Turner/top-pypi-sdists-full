@@ -84,8 +84,9 @@ def sync_detailed(
 
     The resource `id` is the slug itself. Default sort is `key`
     ascending; pass `sort=-key` for descending. Useful for populating
-    filter dropdowns in a UI. Results are scoped to the resource types
-    visible under the account's current plan.
+    filter dropdowns in a UI. Results are scoped to the resolved
+    environment and to the resource types visible under the account's
+    current plan.
 
     Args:
         sort (ListResourceTypesSort | Unset): Field to sort by. Prefix with `-` for descending
@@ -137,8 +138,9 @@ def sync(
 
     The resource `id` is the slug itself. Default sort is `key`
     ascending; pass `sort=-key` for descending. Useful for populating
-    filter dropdowns in a UI. Results are scoped to the resource types
-    visible under the account's current plan.
+    filter dropdowns in a UI. Results are scoped to the resolved
+    environment and to the resource types visible under the account's
+    current plan.
 
     Args:
         sort (ListResourceTypesSort | Unset): Field to sort by. Prefix with `-` for descending
@@ -185,8 +187,9 @@ async def asyncio_detailed(
 
     The resource `id` is the slug itself. Default sort is `key`
     ascending; pass `sort=-key` for descending. Useful for populating
-    filter dropdowns in a UI. Results are scoped to the resource types
-    visible under the account's current plan.
+    filter dropdowns in a UI. Results are scoped to the resolved
+    environment and to the resource types visible under the account's
+    current plan.
 
     Args:
         sort (ListResourceTypesSort | Unset): Field to sort by. Prefix with `-` for descending
@@ -236,8 +239,9 @@ async def asyncio(
 
     The resource `id` is the slug itself. Default sort is `key`
     ascending; pass `sort=-key` for descending. Useful for populating
-    filter dropdowns in a UI. Results are scoped to the resource types
-    visible under the account's current plan.
+    filter dropdowns in a UI. Results are scoped to the resolved
+    environment and to the resource types visible under the account's
+    current plan.
 
     Args:
         sort (ListResourceTypesSort | Unset): Field to sort by. Prefix with `-` for descending

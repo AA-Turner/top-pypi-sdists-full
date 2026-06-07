@@ -439,53 +439,61 @@ class UserAPIView(viewsets.ModelViewSet):
         detail=True,
         methods=['POST'],
     )
-    def removerProfile(self, request, id ):
+    def removeGroup(self, request, id ):
         user = User.objects.get(id=id)
-        group_id = request.data['profile']['id']
-        branch_id = request.data['branch_id']
-        branchUserGroups = BranchUserGroup.objects.filter(user__id=id, branch__id=request.branch_id, group__id=request.group_id).first()
-        branchUserGroups.delete()
+        group_id = request.data['group']
+        branchUserGroup = BranchUserGroup.objects.filter(user__id=id, branch__id=request.branch_id, group__id=group_id).first().delete()
         ar = []
-        branchUserGroups = BranchUserGroup.objects.filter(user__id=id, branch__id=request.branch_id)
-        if (branchUserGroups):
-            for branchUserGroup in branchUserGroups:
-                group = Group.objects.get(id=branchUserGroup.group.id)
-                ar.append({'id': group.id, 'name': group.name})
 
-        if True:
-            return Response(ar, status.HTTP_200_OK)
-        return Response([], status.HTTP_400_BAD_REQUEST)
+        return Response(ar, status.HTTP_200_OK)
+
 
 
     @action(
         detail=True,
         methods=['POST'],
     )
-    def adicionarProfile(self, request, id):
+    def addGroup(self, request, id):
+
         user = User.objects.get(id=id)
-        group_id = request.data['profile']['id']
-        group = Group.objects.get(id=request.group_id)
-        branch_id = request.data['branch_id']
+
+        group = Group.objects.get(id=request.data['group'])
+
         branch = Branch.objects.get(id=request.branch_id)
-        branchUserGroups = BranchUserGroup.objects.filter(user__id=id, branch__id=request.branch_id, group__id=request.group_id).first()
 
-        if None==branchUserGroups:
-            branchUserGroup = BranchUserGroup()
-            branchUserGroup.user = user
-            branchUserGroup.group = group
-            branchUserGroup.branch = branch
-            branchUserGroup.save()
-        branchUserGroups = BranchUserGroup.objects.filter(user__id=id, branch__id=request.branch_id)
+        branchUserGroup = BranchUserGroup.all_objects.filter(
+            user_id=user.id,
+            branch_id=branch.id,
+            group_id=group.id
+        ).first()
 
-        ar = []
-        if (branchUserGroups):
-            for branchUserGroup in branchUserGroups:
-                group = Group.objects.get(id=branchUserGroup.group.id)
-                ar.append({'id': group.id, 'name': group.name})
+        if branchUserGroup:
 
+            if branchUserGroup.deleted_at:
 
-        if True:
-            return Response(ar, status.HTTP_200_OK)
-        return Response([], status.HTTP_400_BAD_REQUEST)
+                branchUserGroup.deleted_at = None
 
+                branchUserGroup.save(update_fields=['deleted_at'])
 
+            message = 'Grupo associado com sucesso'
+
+        else:
+
+            branchUserGroup = BranchUserGroup.objects.create(
+                user=user,
+                group=group,
+                branch=branch
+            )
+
+            message = 'Grupo adicionado com sucesso'
+
+        return Response(
+            {
+                'id': branchUserGroup.id,
+                'user': str(user.id),
+                'group': str(group.id),
+                'branch': str(branch.id),
+                'alert_success': message,
+            },
+            status=status.HTTP_200_OK
+        )

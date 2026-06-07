@@ -13,8 +13,8 @@ print('login respond  error_msg:'+lg.error_msg)
 # 周月线指标：date,code,open,high,low,close,volume,amount,adjustflag,turn,pctChg
 rs = bs.query_history_k_data_plus("sh.605018",
     "date,time,code,open,high,low,close,volume,amount,adjustflag",
-    start_date='2023-01-01', end_date='2024-12-03',
-    frequency="5", adjustflag="3")
+    start_date='2024-01-01', end_date='2024-12-31',
+    frequency="5", adjustflag="2") #frequency="5"取5分钟k线，adjustflag="3"默认不复权，"2"前复权
 print('query_history_k_data_plus respond error_code:'+rs.error_code)
 print('query_history_k_data_plus respond  error_msg:'+rs.error_msg)
 

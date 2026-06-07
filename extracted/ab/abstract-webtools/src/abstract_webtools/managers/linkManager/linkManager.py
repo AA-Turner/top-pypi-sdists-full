@@ -60,13 +60,17 @@ class linkManager:
                  get_img=["data-title",'alt','title']
                  ):
 
-        self.url_mgr = get_url_mgr(url=url,url_mgr=url_mgr)
-        self.url = get_url(url=url,url_mgr=self.url_mgr)
-        self.req_mgr = get_req_mgr(url=self.url,url_mgr=self.url_mgr,source_code=source_code,req_mgr=req_mgr)
-        self.source_code = get_source(url=self.url,url_mgr=self.url_mgr,source_code=source_code,req_mgr=self.req_mgr)
-        self.soup_mgr = get_soup_mgr(url=self.url,url_mgr=self.url_mgr,source_code=self.source_code,req_mgr=self.req_mgr,soup_mgr=soup_mgr,soup=soup,parse_type=parse_type)
-        
-        self.soup = get_soup(url=self.url,url_mgr=self.url_mgr,req_mgr=self.req_mgr,source_code=self.source_code,soup_mgr=self.soup_mgr)
+        # Resolve the url -> request -> soup chain exactly once, reusing every
+        # instance downstream. Each manager is threaded into the next so nothing
+        # is rebuilt and the page is fetched at most once.
+        self.url_mgr = get_url_mgr(url=url, url_mgr=url_mgr)
+        self.url = self.url_mgr.url
+        self.req_mgr = get_req_mgr(url_mgr=self.url_mgr, source_code=source_code, req_mgr=req_mgr)
+        self.source_code = source_code if source_code is not None else self.req_mgr.source_code
+        self.soup_mgr = get_soup_mgr(url_mgr=self.url_mgr, source_code=self.source_code,
+                                     req_mgr=self.req_mgr, soup_mgr=soup_mgr, soup=soup,
+                                     parse_type=parse_type)
+        self.soup = self.soup_mgr.soup
 
         self.strict_order_tags=strict_order_tags
         self.image_link_tags=image_link_tags

@@ -71,7 +71,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from xrspatial.geotiff import open_geotiff, read_vrt, to_geotiff, write_vrt
+from xrspatial.geotiff import _build_vrt, _read_vrt, open_geotiff, to_geotiff
 from xrspatial.geotiff._attrs import _finalize_eager_read, _finalize_lazy_read_attrs
 from xrspatial.geotiff._errors import RotatedTransformError, UnparseableCRSError
 
@@ -407,7 +407,7 @@ def _build_vrt_mosaic(dir_path: Path, target: Path) -> Path:
         p = dir_path / f"{target.stem}_tile_{c}.tif"
         to_geotiff(da, str(p), compression="none", tiled=False)
         tile_paths.append(str(p))
-    write_vrt(str(target), tile_paths, relative=False, crs=4326)
+    _build_vrt(str(target), tile_paths, relative=False, crs=4326)
     return target
 
 
@@ -454,6 +454,7 @@ _FIXTURES: list[_FixtureSpec] = [
         expected_masked=True,
         source_type=_SRC_LOCAL_TIFF,
         builder=_build_float32_with_nodata,
+        read_kwargs={"masked": True},
     ),
     _FixtureSpec(
         fix_id="int8-unmasked",
@@ -715,8 +716,8 @@ def assert_parity(
 
     Run against an already-read DataArray rather than re-opening here so
     the same helper applies to both ``open_geotiff(path, **kwargs)`` and
-    the explicit ``read_geotiff_dask`` / ``read_geotiff_gpu`` /
-    ``read_vrt`` entry points. ``ref`` is the eager-numpy read of the
+    the explicit ``_read_geotiff_dask`` / ``_read_geotiff_gpu`` /
+    ``_read_vrt`` entry points. ``ref`` is the eager-numpy read of the
     same fixture, used as the reference for the
     pixel array, coord values, dims, and transform tuple.
 
@@ -1178,7 +1179,7 @@ def _fp_read_vrt_eager(path: pathlib.Path, fixture_id: str) -> xr.DataArray:
         shutil.copy2(path, local_src)
     vrt_path = cache_dir / f"{fixture_id}.vrt"
     if not vrt_path.exists():
-        write_vrt(str(vrt_path), [str(local_src)])
+        _build_vrt(str(vrt_path), [str(local_src)])
     return open_geotiff(str(vrt_path), **_FP_OPTIN)
 
 
@@ -1790,23 +1791,23 @@ class _ApBackend:
 
 
 def _ap_open_eager(path):
-    return open_geotiff(path)
+    return open_geotiff(path, masked=True)
 
 
 def _ap_open_dask(path):
-    return open_geotiff(path, chunks=16)
+    return open_geotiff(path, chunks=16, masked=True)
 
 
 def _ap_open_gpu(path):
-    return open_geotiff(path, gpu=True)
+    return open_geotiff(path, gpu=True, masked=True)
 
 
 def _ap_open_dask_gpu(path):
-    return open_geotiff(path, gpu=True, chunks=16)
+    return open_geotiff(path, gpu=True, chunks=16, masked=True)
 
 
 def _ap_open_vrt(path, meta):
-    """Wrap the TIFF in a single-source VRT and read via ``read_vrt``.
+    """Wrap the TIFF in a single-source VRT and read via ``_read_vrt``.
 
     GDAL GeoTransform XML expects the upper-left CORNER as origin while
     ``_ap_coord_array`` uses center-based coords, so the corner is
@@ -1848,7 +1849,7 @@ def _ap_open_vrt(path, meta):
     )
     with open(vrt_path, 'w') as f:
         f.write(xml)
-    return read_vrt(vrt_path)
+    return _read_vrt(vrt_path, mask_nodata=True)
 
 
 _AP_BACKENDS = (
@@ -1875,7 +1876,7 @@ def test_canonical_attrs_match_across_backends(tmp_path, fixture):
     path = str(tmp_path / f'attrs_parity_{fixture.name}.tif')
     meta = fixture.writer(path)
 
-    baseline = _ap_attrs_for_parity(open_geotiff(path).attrs)
+    baseline = _ap_attrs_for_parity(open_geotiff(path, masked=True).attrs)
 
     divergences = {}
     for backend in _AP_AVAILABLE_BACKENDS:
@@ -1915,7 +1916,7 @@ def test_canonical_attrs_keys_match_across_backends(tmp_path, fixture):
     path = str(tmp_path / f'attrs_parity_keys_{fixture.name}.tif')
     meta = fixture.writer(path)
 
-    baseline_keys = set(_ap_attrs_for_parity(open_geotiff(path).attrs).keys())
+    baseline_keys = set(_ap_attrs_for_parity(open_geotiff(path, masked=True).attrs).keys())
 
     diffs = {}
     for backend in _AP_AVAILABLE_BACKENDS:
