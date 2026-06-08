@@ -164,7 +164,7 @@ class Count(
         return ToolCallDisplay(summary=f"count {args.mode} in {target}")
 
     @classmethod
-    def get_result_display(cls, event: "ToolResultEvent") -> ToolResultDisplay:
+    def get_result_display(cls, event: ToolResultEvent) -> ToolResultDisplay:
         if isinstance(event.result, CountResult):
             if not event.result.ok:
                 return ToolResultDisplay(

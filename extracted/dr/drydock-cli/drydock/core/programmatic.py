@@ -84,7 +84,7 @@ def run_programmatic(
                 await asyncio.wait_for(
                     agent_loop.telemetry_client.aclose(), timeout=5.0
                 )
-            except (asyncio.TimeoutError, Exception):
+            except (TimeoutError, Exception):
                 pass
 
     try:

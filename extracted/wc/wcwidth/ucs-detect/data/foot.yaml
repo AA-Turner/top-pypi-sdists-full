@@ -1,5 +1,5 @@
 ambiguous_width: 1
-datetime: 2026-06-05 16:17:16 UTC
+datetime: 2026-06-08 04:41:03 UTC
 environment:
   COLORTERM: truecolor
   TERM: foot
@@ -10,26 +10,23 @@ resource_profile:
   cpu_pct:
   - 2.0
   - 0.0
-  - 0.0
-  - 16.0
-  - 29.0
+  - 21.0
+  - 31.9
   elapsed_s:
-  - 1.0010179769597016
-  - 2.0031133589800447
-  - 3.004799342015758
-  - 4.005994109960739
-  - 5.007579521974549
+  - 1.000981605029665
+  - 2.0023634620010853
+  - 3.003730781027116
+  - 4.004996759002097
   hardware:
     cpu_count: 12
     cpu_model: AMD Ryzen 5 7640U w/ Radeon 760M Graphics
     ram_total_kb: 13961408
   rss_mb:
-  - 17.4609375
-  - 17.6171875
-  - 17.6171875
-  - 26.625
-  - 35.453125
-seconds_elapsed: 1.9600858300109394
+  - 18.1015625
+  - 18.1015625
+  - 28.05078125
+  - 37.23828125
+seconds_elapsed: 1.7195921280654147
 session_arguments:
   all: false
   limit_category_time: 0
@@ -8002,6 +7999,51 @@ test_results:
       n_errors: 0
       n_total: 8
       pct_success: 100.0
+  narrow_results:
+    17.0.0:
+      failed_codepoints:
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \u0600
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \u0601
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \u0602
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \u0603
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \u0604
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \u0605
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \u06dd
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \u070f
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \u0890
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \u0891
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \u08e2
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \U000110bd
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \U000110cd
+      n_errors: 13
+      n_total: 187
+      pct_success: 93.04812834224599
   ri_results:
     17.0.0:
       failed_codepoints: []
@@ -8118,126 +8160,6 @@ test_results:
       failed_codepoints:
       - measured_by_terminal: 1
         measured_by_wcwidth: 2
-        wchar: \ufa6e
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufa6f
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufada
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufadb
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufadc
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufadd
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufade
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufadf
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufae0
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufae1
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufae2
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufae3
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufae4
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufae5
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufae6
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufae7
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufae8
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufae9
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufaea
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufaeb
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufaec
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufaed
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufaee
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufaef
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufaf0
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufaf1
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufaf2
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufaf3
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufaf4
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufaf5
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufaf6
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufaf7
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufaf8
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufaf9
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufafa
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufafb
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufafc
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufafd
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufafe
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \ufaff
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
         wchar: \U0001f1e6
       - measured_by_terminal: 1
         measured_by_wcwidth: 2
@@ -8329,8 +8251,8 @@ test_results:
       - measured_by_terminal: 1
         measured_by_wcwidth: 2
         wchar: \U0001f3ff
-      n_errors: 71
-      n_total: 553
-      pct_success: 87.16094032549728
-wcwidth_version: 0.8.0
+      n_errors: 31
+      n_total: 506
+      pct_success: 93.87351778656127
+wcwidth_version: 0.8.1
 width: 116

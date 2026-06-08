@@ -41,7 +41,8 @@ import logging
 import random
 import sys
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any
+from collections.abc import Iterable
 
 logger = logging.getLogger("drydock.steering.train.scan_sessions")
 
@@ -49,7 +50,7 @@ logger = logging.getLogger("drydock.steering.train.scan_sessions")
 # ---- Pattern detectors -----------------------------------------------------
 
 def _detect_empty_after_tool(
-    msgs: list[dict[str, Any]], tool_filter: Optional[str]
+    msgs: list[dict[str, Any]], tool_filter: str | None
 ) -> bool:
     """True if the session contains an empty assistant turn (no content
     AND no tool_calls) right after a tool result. With `tool_filter`,
@@ -80,7 +81,7 @@ def _detect_empty_after_tool(
 def _detect_loop(msgs: list[dict[str, Any]], tool_name: str) -> bool:
     """True if `tool_name` was called 3+ times in a row with identical args."""
     streak = 0
-    last_sig: Optional[str] = None
+    last_sig: str | None = None
     for m in msgs:
         if m.get("role") != "assistant":
             continue
@@ -167,9 +168,9 @@ def _extract_text(content: Any) -> str:
 
 def _last_user_assistant_pair(
     msgs: list[dict[str, Any]],
-) -> Optional[tuple[str, str]]:
-    last_user: Optional[str] = None
-    matched: Optional[tuple[str, str]] = None
+) -> tuple[str, str] | None:
+    last_user: str | None = None
+    matched: tuple[str, str] | None = None
     for m in msgs:
         role = m.get("role")
         if role == "user":

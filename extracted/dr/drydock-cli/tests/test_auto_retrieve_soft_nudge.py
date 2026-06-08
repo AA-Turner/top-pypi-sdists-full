@@ -22,11 +22,8 @@ and assert that:
 """
 from __future__ import annotations
 
-import sys
 from dataclasses import dataclass
 from typing import Any
-
-import pytest
 
 
 @dataclass
@@ -275,6 +272,7 @@ def test_fallback_disabled_when_env_empty(monkeypatch, tmp_path):
     class _Idx:
         def __init__(self, db_path):
             seen_dbs.append(str(db_path))
+
         def retrieve(self, query, *, symbol_limit=0, text_limit=4):
             return _FakeResult(primary_hits)
 
@@ -286,6 +284,7 @@ def test_fallback_disabled_when_env_empty(monkeypatch, tmp_path):
 
     class _FakeAgent:
         messages = _FakeMessages()
+
         def _inject_system_note(self, note):
             notes.append(note)
 

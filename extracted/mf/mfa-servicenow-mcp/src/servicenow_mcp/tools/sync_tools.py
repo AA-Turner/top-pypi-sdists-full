@@ -156,7 +156,7 @@ class PushLocalComponentParams(BaseModel):
     )
     force: bool = Field(
         default=False,
-        description="Force push even if remote is newer than local download. Default false.",
+        description="Override a conflict (remote changed since download) and push anyway. Default false.",
     )
 
 
@@ -442,6 +442,27 @@ def _reverse_lookup_name(map_data: Dict[str, str], safe_name: str) -> str | None
         if _safe_name(key) == safe_name or key == safe_name:
             return key
     return None
+
+
+def _push_actor_username(config: ServerConfig, auth_manager: AuthManager) -> str:
+    """Best-effort current user_name, in the same string form ServiceNow stores
+    in ``sys_updated_by`` — so a push can tell 'my own later edit' from 'someone
+    else changed it'.
+
+    The configured username lives on the ACTIVE sub-config (basic/oauth/browser),
+    not on AuthConfig itself. Empty when unknown (e.g. api_key, or SSO browser
+    auth with no configured username) — and that's deliberately safe: an unknown
+    'me' makes any identified remote editor compare as 'not me', so the stronger
+    cross-user gate applies rather than letting force silently overwrite."""
+    auth = getattr(config, "auth", None)
+    for sub in ("basic", "oauth", "browser"):
+        name = getattr(getattr(auth, sub, None), "username", None)
+        if name:
+            return str(name).strip()
+    # Fallbacks: a top-level username (test doubles) or the auth manager.
+    return str(
+        getattr(auth, "username", None) or getattr(auth_manager, "username", None) or ""
+    ).strip()
 
 
 def _validate_instance_url(resolved: _ResolvedComponent, config: ServerConfig) -> None:
@@ -815,7 +836,7 @@ def update_remote_from_local(
 
     # 1. Fetch remote content + sys_updated_on (+ sys_scope so we can align the
     #    session scope before writing — see the pre-write scope alignment below).
-    all_fields = list(resolved.fields.keys()) + ["sys_updated_on", "sys_scope"]
+    all_fields = list(resolved.fields.keys()) + ["sys_updated_on", "sys_updated_by", "sys_scope"]
     try:
         remote_record = _fetch_portal_component_record(
             config, auth_manager, resolved.table, resolved.sys_id, all_fields
@@ -823,29 +844,65 @@ def update_remote_from_local(
     except ValueError as e:
         return {"error": str(e)}
 
-    # 2. Conflict check
+    # 2. Baseline-drift verification gate — TIME-INDEPENDENT. Compares the remote's
+    #    CURRENT sys_updated_on against the value recorded in _sync_meta at
+    #    download, so it surfaces an overwrite whether it happened 3 minutes or 3
+    #    DAYS after your download (the 10-min concurrent-edit window can't). The
+    #    point is VERIFICATION, not a hard block: it stops a blind push by showing
+    #    WHO changed it and WHEN, so force=true is a deliberate "yes, overwrite
+    #    that" — never silent. force overrides either case; CONFLICT_OTHER_USER
+    #    just makes "this is someone else's edit" loud. (Pushing to the wrong
+    #    INSTANCE is the separate, hard _validate_instance_url block above.)
     table_dir = resolved.scope_root / resolved.table
     sync_meta = _read_sync_meta(table_dir)
     meta = sync_meta.get(resolved.name, {})
     local_updated_on = meta.get("sys_updated_on", "")
     remote_updated_on = str(remote_record.get("sys_updated_on") or "")
+    remote_updated_by = str(remote_record.get("sys_updated_by") or "").strip()
+    me = _push_actor_username(config, auth_manager)
 
-    if local_updated_on and remote_updated_on and remote_updated_on > local_updated_on:
+    drifted = bool(local_updated_on and remote_updated_on and remote_updated_on > local_updated_on)
+    # A known remote editor that isn't the current user (or 'me' is unknown, so we
+    # can't rule out a coworker) → flag it as someone else's edit in the message.
+    by_known_other = bool(remote_updated_by and remote_updated_by != me)
+
+    if drifted:
         if not params.force:
+            component_info = {
+                "table": resolved.table,
+                "sys_id": resolved.sys_id,
+                "name": resolved.name,
+            }
+            if by_known_other:
+                message = (
+                    f"'{remote_updated_by}' modified this record on {remote_updated_on}, after "
+                    f"your download ({local_updated_on}). Pushing OVERWRITES their work — verify "
+                    f"with them first (or re-download and re-apply). Pass force=true to override."
+                )
+                error_code = "CONFLICT_OTHER_USER"
+            else:
+                message = (
+                    f"Remote changed since your download (updated {remote_updated_on}; your "
+                    f"baseline {local_updated_on}). Pass force=true to override, or re-download."
+                )
+                error_code = "CONFLICT"
             return {
-                "error": "CONFLICT",
-                "message": (
-                    "Remote has been modified since your download. "
-                    "Use force=true to override, or re-download first."
-                ),
+                "error": error_code,
+                "message": message,
+                "remote_updated_by": remote_updated_by,
                 "remote_updated_on": remote_updated_on,
                 "local_downloaded_on": local_updated_on,
-                "component": {
-                    "table": resolved.table,
-                    "sys_id": resolved.sys_id,
-                    "name": resolved.name,
-                },
+                "component": component_info,
             }
+        if by_known_other:
+            logger.warning(
+                "force=true overwriting %s's edit on %s/%s (%s, updated %s)",
+                remote_updated_by,
+                resolved.table,
+                resolved.name,
+                resolved.sys_id,
+                remote_updated_on,
+            )
 
     # 3. Build update_data from local files (only changed fields)
     update_data: Dict[str, str] = {}

@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import json
 import tempfile
-from pathlib import Path
 
 from drydock.core.config import SessionLoggingConfig
 from drydock.core.session.session_logger import SessionLogger

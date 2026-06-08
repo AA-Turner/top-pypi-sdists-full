@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Callable, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from requests import Request
 from requests.status_codes import codes
@@ -13,6 +13,8 @@ from . import const
 from .exceptions import InvalidInvocation, OAuthException, ResponseException
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from requests.models import Response
 
     from prawcore.requestor import Requestor
@@ -102,7 +104,7 @@ class BaseAuthenticator(ABC):
         }
         url = self._requestor.reddit_url + const.AUTHORIZATION_PATH
         request = Request("GET", url, params=params)
-        return cast(str, request.prepare().url)
+        return cast("str", request.prepare().url)
 
     def revoke_token(self, token: str, token_type: str | None = None) -> None:
         """Ask Reddit to revoke the provided token.

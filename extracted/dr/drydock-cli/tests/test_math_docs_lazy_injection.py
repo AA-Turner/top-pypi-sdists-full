@@ -5,8 +5,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
-
 
 def _make_loop():
     """Build a minimal AgentLoop-like object with just enough state
@@ -26,6 +24,7 @@ def _make_loop():
     loop.agent_manager = am
     # Provide a no-op _inject_system_note that records calls
     loop._injected = []
+
     def _record(text, replace_last_tool=False):
         loop._injected.append(text)
     loop._inject_system_note = _record

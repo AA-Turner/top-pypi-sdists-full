@@ -5,7 +5,6 @@ continuation nudge. Without it, Gemma 4 sees 'completed: True' and stalls
 
 from __future__ import annotations
 
-import pytest
 
 from drydock.core.tools.builtins.task import TaskResult
 

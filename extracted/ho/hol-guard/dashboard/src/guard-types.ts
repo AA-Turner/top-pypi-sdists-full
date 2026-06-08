@@ -291,6 +291,54 @@ export type PackageManagerProtection = {
   unprotected_managers: string[];
 };
 
+export type SupplyChainBundleAdvisory = {
+  advisoryId: string;
+  aliases: string[];
+  confidence: number;
+  exploitLevel: string;
+  knownExploited: boolean;
+  malwareState: string;
+  normalizedSeverity: string;
+  recommendedFixVersion: string | null;
+  sourceKey: string;
+  summary: string;
+  title: string;
+};
+
+export type SupplyChainBundlePackage = {
+  confidence: number;
+  defaultAction: string;
+  ecosystem: string;
+  exploitLevel: string;
+  knownExploited: boolean;
+  malwareState: string;
+  name: string;
+  namespace: string | null;
+  normalizedSeverity: string;
+  packageAgeState: string;
+  purl: string;
+  reachability: string;
+  recommendedFixVersion: string | null;
+  relatedAdvisoryIds: string[];
+  riskScore: number;
+  sourceIntegrityState: string;
+  version: string;
+};
+
+export type SupplyChainBundle = {
+  bundleVersion: string;
+  expiresAt: string;
+  feedSnapshotHash: string;
+  generatedAt: string;
+  keyId: string;
+  policyHash: string;
+  scoringVersion: string;
+  advisories: SupplyChainBundleAdvisory[];
+  packages: SupplyChainBundlePackage[];
+  policyRules: unknown[];
+  cached_at?: string;
+};
+
 export type SupplyChainSnapshot = {
   package_manager_protection: PackageManagerProtection;
 };
@@ -348,6 +396,56 @@ export type GuardReceipt = {
   diff_summary?: string | null;
   scanner_evidence?: RiskSignalV2[];
   action_envelope_json?: GuardActionEnvelope | null;
+};
+
+export type GuardReceiptAnalyticsBucket = {
+  date_key: string;
+  label: string;
+  allowed: number;
+  blocked: number;
+  reviewed: number;
+};
+
+export type GuardReceiptDailyActivity = {
+  date_key: string;
+  total: number;
+};
+
+export type GuardReceiptHarnessStat = {
+  harness: string;
+  total: number;
+  allowed: number;
+  blocked: number;
+};
+
+export type GuardReceiptArtifactStat = {
+  name: string;
+  total: number;
+  allowed: number;
+  blocked: number;
+};
+
+export type GuardReceiptAnalytics = {
+  total: number;
+  allowed: number;
+  blocked: number;
+  reviewed: number;
+  first_activity_at: string | null;
+  last_activity_at: string | null;
+  active_day_streak: number;
+  peak_day_total: number;
+  daily_activity: GuardReceiptDailyActivity[];
+  trend_buckets: GuardReceiptAnalyticsBucket[];
+  by_harness: GuardReceiptHarnessStat[];
+  top_artifacts: GuardReceiptArtifactStat[];
+  loaded_sample_limit: number;
+};
+
+export type GuardInsightsShareResult = {
+  slug: string;
+  publicUrl: string;
+  ogImageUrl: string;
+  expiresAt: string;
 };
 
 export type GuardArtifactDiff = {
@@ -617,6 +715,12 @@ export type GuardUpdateStatus = {
   auto_updatable: boolean;
   update_available: boolean;
   blocked_reason: string | null;
+  update_in_progress?: boolean;
+};
+
+export type GuardUpdateReconnectOptions = {
+  expectedPreviousVersion?: string | null;
+  expectedLatestVersion?: string | null;
 };
 
 export type GuardUpdateScheduleResult = {

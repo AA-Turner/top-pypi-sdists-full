@@ -1,5 +1,5 @@
 ambiguous_width: 1
-datetime: 2026-06-05 16:17:43 UTC
+datetime: 2026-06-08 04:40:07 UTC
 environment:
   TERM: xterm
 height: 23
@@ -7,28 +7,28 @@ preferred_encoding: UTF-8
 python_version: 3.14.5
 resource_profile:
   cpu_pct:
-  - 5.0
-  - 1.0
+  - 6.0
   - 0.0
-  - 35.0
-  - 45.9
+  - 0.0
+  - 27.0
+  - 44.9
   elapsed_s:
-  - 1.0009397870162502
-  - 2.002482327981852
-  - 3.004343145992607
-  - 4.006248747988138
-  - 5.007527810987085
+  - 1.0009526469511911
+  - 2.0029030479490757
+  - 3.0048458859091625
+  - 4.007535465992987
+  - 5.009332287940197
   hardware:
     cpu_count: 12
     cpu_model: AMD Ryzen 5 7640U w/ Radeon 760M Graphics
     ram_total_kb: 13961408
   rss_mb:
-  - 59.1015625
-  - 59.1015625
-  - 59.1015625
-  - 67.87890625
-  - 71.09375
-seconds_elapsed: 2.049701871990692
+  - 59.2890625
+  - 59.296875
+  - 59.296875
+  - 67.140625
+  - 71.4921875
+seconds_elapsed: 2.0078368589747697
 session_arguments:
   all: false
   limit_category_time: 0
@@ -10453,6 +10453,51 @@ test_results:
       n_errors: 0
       n_total: 8
       pct_success: 100.0
+  narrow_results:
+    17.0.0:
+      failed_codepoints:
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \u0600
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \u0601
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \u0602
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \u0603
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \u0604
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \u0605
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \u06dd
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \u070f
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \u0890
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \u0891
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \u08e2
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \U000110bd
+      - measured_by_terminal: 0
+        measured_by_wcwidth: 1
+        wchar: \U000110cd
+      n_errors: 13
+      n_total: 187
+      pct_success: 93.04812834224599
   ri_results:
     17.0.0:
       failed_codepoints: []
@@ -10630,29 +10675,8 @@ test_results:
       - measured_by_terminal: 1
         measured_by_wcwidth: 2
         wchar: \U0001f1ff
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \U0001f6d8
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \U0001fa8a
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \U0001fa8e
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \U0001fac8
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \U0001facd
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \U0001faea
-      - measured_by_terminal: 1
-        measured_by_wcwidth: 2
-        wchar: \U0001faef
-      n_errors: 33
-      n_total: 553
-      pct_success: 94.03254972875226
-wcwidth_version: 0.8.0
+      n_errors: 26
+      n_total: 506
+      pct_success: 94.86166007905138
+wcwidth_version: 0.8.1
 width: 79

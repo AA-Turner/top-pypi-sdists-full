@@ -25,12 +25,14 @@ class ARN(BaseARN):
 
 
 CancelJobRun = Action("CancelJobRun")
+CreateCertificate = Action("CreateCertificate")
 CreateJobTemplate = Action("CreateJobTemplate")
 CreateManagedEndpoint = Action("CreateManagedEndpoint")
 CreateSecurityConfiguration = Action("CreateSecurityConfiguration")
 CreateVirtualCluster = Action("CreateVirtualCluster")
 DeleteJobTemplate = Action("DeleteJobTemplate")
 DeleteManagedEndpoint = Action("DeleteManagedEndpoint")
+DeleteSecurityConfiguration = Action("DeleteSecurityConfiguration")
 DeleteVirtualCluster = Action("DeleteVirtualCluster")
 DescribeJobRun = Action("DescribeJobRun")
 DescribeJobTemplate = Action("DescribeJobTemplate")

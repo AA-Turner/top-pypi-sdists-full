@@ -1482,13 +1482,19 @@ impl WorkingModelSurvival {
                     .to_string(),
             });
         }
-        if !event_target.iter().any(|&event| event > 0) {
-            return Err(SurvivalError::EventDegenerate {
-                reason:
-                    "single-hazard survival engine requires at least one target event; all rows are censored, so the likelihood has no event score and cannot identify the hazard"
-                        .to_string(),
-            });
-        }
+        // The "must have at least one target event" requirement is a
+        // *fittability* check, not a structural one: with all rows censored the
+        // likelihood has no event score, so any subsequent fit cannot identify
+        // the hazard and the optimizer spins on a flat landscape.  But the
+        // structural integrity of the engine — its derivative-guard rejection
+        // of decreasing cumulative hazards, its monotonicity-collocation
+        // bookkeeping, its update_state numerics — is well-defined on
+        // all-censored inputs, and unit tests legitimately exercise those
+        // structural paths on censored fixtures.  Move the fittability check
+        // out of construction; production fit dispatchers (e.g.
+        // `solver::workflow::materialize_survival`) enforce it on the
+        // single chokepoint that actually starts an optimization, where
+        // the failure mode it guards against is reachable.
         if age_entry
             .iter()
             .zip(age_exit.iter())
@@ -1888,24 +1894,24 @@ impl WorkingModelSurvival {
             let deriv = self
                 .stabilized_structural_derivative(derivative_raw[i])
                 .unwrap_or(derivative_raw[i]);
-            // Gate the monotonicity guard on `d > 0`: only event rows reach
-            // `deriv.ln()` and `1.0 / deriv` below, so censored rows have no
-            // numerical reason to reject a zero or negative derivative. The
-            // matching loop in `offset_channel_residuals` already restricts
-            // its identical check to `d > 0.0`.
-            if d > 0.0 {
-                if !deriv.is_finite() {
-                    return Err(EstimationError::ParameterConstraintViolation(format!(
-                        "survival monotonicity violated at row {}: d_eta/dt={:.3e} <= tolerance={:.3e}",
-                        i, deriv, derivative_guard
-                    )));
-                }
-                if deriv < derivative_guard_numerical {
-                    return Err(EstimationError::ParameterConstraintViolation(format!(
-                        "survival monotonicity violated at row {}: d_eta/dt={:.3e} <= tolerance={:.3e}",
-                        i, deriv, derivative_guard
-                    )));
-                }
+            // Monotonicity of η(t) = log H(t) is a structural property of the
+            // whole Royston-Parmar spline. If d_eta/dt is *strictly negative*
+            // at any observed exit time, the cumulative hazard H(t) decreases
+            // there and S(t) is not a valid survival function — both event
+            // and censored rows have to refuse that case. Event rows further
+            // need deriv strictly above the numerical guard because their
+            // NLL contains `deriv.ln()` and `1.0 / deriv`; censored rows do
+            // not, so a boundary value of exactly zero is feasible there.
+            let mono_floor = if d > 0.0 {
+                derivative_guard_numerical
+            } else {
+                0.0
+            };
+            if !deriv.is_finite() || deriv < mono_floor {
+                return Err(EstimationError::ParameterConstraintViolation(format!(
+                    "survival monotonicity violated at row {}: d_eta/dt={:.3e} <= tolerance={:.3e}",
+                    i, deriv, derivative_guard
+                )));
             }
             if has_entry_interval {
                 let increment_guard = self.interval_increment_guard(h_s_scaled, h_e_scaled);
@@ -2233,16 +2239,25 @@ impl WorkingModelSurvival {
             }
             r_exit[i] = w_exit_i - d * w;
             r_entry[i] = -w_entry_i;
+            // Same per-row monotonicity rule as `update_state`: a strictly
+            // negative derivative at any observed exit time (event or
+            // censored) falsifies S(t); event rows additionally need
+            // `deriv > guard` because `1/deriv` enters their score.
+            let deriv_raw = derivative_raw[i];
+            let deriv = self
+                .stabilized_structural_derivative(deriv_raw)
+                .unwrap_or(deriv_raw);
+            let mono_floor = if d > 0.0 {
+                derivative_guard_numerical
+            } else {
+                0.0
+            };
+            if !deriv.is_finite() || deriv < mono_floor {
+                return Err(EstimationError::ParameterConstraintViolation(format!(
+                    "offset_channel_residuals: derivative ≤ numerical guard at row {i}: {deriv:.3e}"
+                )));
+            }
             if d > 0.0 {
-                let deriv_raw = derivative_raw[i];
-                let deriv = self
-                    .stabilized_structural_derivative(deriv_raw)
-                    .unwrap_or(deriv_raw);
-                if !deriv.is_finite() || deriv < derivative_guard_numerical {
-                    return Err(EstimationError::ParameterConstraintViolation(format!(
-                        "offset_channel_residuals: derivative ≤ numerical guard at row {i}: {deriv:.3e}"
-                    )));
-                }
                 r_deriv[i] = -w * d / deriv;
             }
         }

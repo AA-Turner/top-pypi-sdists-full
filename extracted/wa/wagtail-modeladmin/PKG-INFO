@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: wagtail-modeladmin
-Version: 2.3.0
+Version: 2.4.0
 Summary: Add any model in your project to the Wagtail admin. Formerly wagtail.contrib.modeladmin.
 Author-email: Wagtail Core Team <hello@wagtail.org>
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+License-Expression: BSD-3-Clause
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -32,7 +32,10 @@ Requires-Dist: sphinxcontrib-spelling>=8.0,<9.0 ; extra == "docs"
 Requires-Dist: sphinx_copybutton>=0.5 ; extra == "docs"
 Requires-Dist: dj-database-url>=2.0.0 ; extra == "testing"
 Requires-Dist: pre-commit<3.0 ; extra == "testing"
-Project-URL: Home, https://github.com/wagtail-nest/wagtail-modeladmin
+Project-URL: Changelog, https://github.com/wagtail-nest/wagtail-modeladmin/blob/main/CHANGELOG.md
+Project-URL: Discussions, https://github.com/orgs/wagtail-nest/discussions
+Project-URL: Issue Tracker, https://github.com/wagtail-nest/wagtail-modeladmin/issues
+Project-URL: Source, https://github.com/wagtail-nest/wagtail-modeladmin
 Provides-Extra: docs
 Provides-Extra: testing
 

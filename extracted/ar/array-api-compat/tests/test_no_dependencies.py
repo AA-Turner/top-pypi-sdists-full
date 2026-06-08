@@ -17,7 +17,7 @@ class Array:
     # Dummy array namespace that doesn't depend on any array library
     def __array_namespace__(self, api_version=None):
         class Namespace:
-            pass
+            __name__: str = "foobar"
         return Namespace()
 
 def _test_dependency(mod):
@@ -38,11 +38,11 @@ def _test_dependency(mod):
         assert not is_mod_array(a)
         assert mod not in sys.modules
 
-    is_array_api_obj = getattr(array_api_compat, "is_array_api_obj")
+    is_array_api_obj = array_api_compat.is_array_api_obj
     assert is_array_api_obj(a)
     assert mod not in sys.modules
 
-    array_namespace = getattr(array_api_compat, "array_namespace")
+    array_namespace = array_api_compat.array_namespace
     array_namespace(Array())
     assert mod not in sys.modules
 

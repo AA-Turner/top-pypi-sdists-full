@@ -8,8 +8,6 @@ Skip if vLLM is not running.
 
 from __future__ import annotations
 
-import asyncio
-import os
 from pathlib import Path
 
 import httpx
@@ -19,7 +17,6 @@ from drydock.core.agent_loop import AgentLoop
 from drydock.core.agents.models import BuiltinAgentName
 from drydock.core.config import Backend, ModelConfig, ProviderConfig, DrydockConfig
 from drydock.core.types import (
-    AssistantEvent,
     BaseEvent,
     Role,
     ToolCallEvent,
@@ -92,7 +89,7 @@ async def test_no_understood_stops_agent(tmp_path):
     for msg in agent.messages:
         if msg.role == Role.assistant and msg.content:
             assert "Understood." not in msg.content, \
-                f"Found 'Understood.' in assistant message — causes premature stops"
+                "Found 'Understood.' in assistant message — causes premature stops"
 
 
 # ============================================================================
@@ -163,9 +160,9 @@ async def test_no_user_after_tool(tmp_path):
     events = await _run(agent, "What Python version is installed? Run python3 --version")
 
     for i in range(1, len(agent.messages)):
-        if agent.messages[i].role == Role.user and agent.messages[i-1].role == Role.tool:
+        if agent.messages[i].role == Role.user and agent.messages[i - 1].role == Role.tool:
             pytest.fail(f"user after tool at position {i}: "
-                       f"'{agent.messages[i].content[:50]}' after tool '{agent.messages[i-1].content[:50]}'")
+                       f"'{agent.messages[i].content[:50]}' after tool '{agent.messages[i - 1].content[:50]}'")
 
 
 # ============================================================================

@@ -12,7 +12,7 @@ from drydock.core.auto_solve import (
     _run_solve_sync,
     maybe_inject_auto_solve,
 )
-from drydock.core.constraint_extract import ExtractResult, extract
+from drydock.core.constraint_extract import ExtractResult
 
 
 # ── _build_args ─────────────────────────────────────────────────────────

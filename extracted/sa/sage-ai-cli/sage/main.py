@@ -1758,7 +1758,9 @@ def run(
 
     if prompt:
         try:
-            sage_agent.execute_task_prompt(prompt, save_history=True)
+            _, task_ok = sage_agent.execute_task_prompt(prompt, save_history=True)
+            if not task_ok:
+                raise typer.Exit(code=1)
         except KeyboardInterrupt:
             renderer.warning("\nInterrupted by user")
         except Exception as e:

@@ -1,29 +1,26 @@
 Metadata-Version: 2.4
 Name: bangla
-Version: 0.0.5
+Version: 0.0.6
 Summary: Bangla is a Python package for converting Gregorian dates to the Bengali calendar, translating English numerals to Bangla numerals, and generating Bangla ordinals for dates.
-Home-page: http://github.com/arsho/bangla
-Author: Ahmedur Rahman Shovon
-Author-email: shovon.sylhet@gmail.com
+Author-email: Ahmedur Rahman Shovon <shovon.sylhet@gmail.com>
 License: MIT
-Keywords: bangla bangla date bongabdo bangla digit
+Project-URL: Homepage, https://github.com/arsho/bangla
+Project-URL: Repository, https://github.com/arsho/bangla
+Keywords: bangla,bangla date,bongabdo,bangla digit,bengali calendar,bengali numerals
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: summary
 
 BANGLA
 ======

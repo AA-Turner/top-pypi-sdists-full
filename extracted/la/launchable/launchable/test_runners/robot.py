@@ -58,20 +58,22 @@ def parse_func(p: str) -> ET.ElementTree:
                 if status == "NOT_RUN" or nested_status == 'NOT_RUN':
                     skipped = ET.SubElement(testcase, "skipped")  # noqa: F841
 
+    def find_leaf_suites(suite: ET.Element):
+        nested = suite.findall(SUITE_TAG_NAME)
+        if not nested:
+            return [suite]
+        leaves = []
+        for child in nested:
+            leaves.extend(find_leaf_suites(child))
+        return leaves
+
     original_tree = ET.parse(p)
     testsuite = ET.Element("testsuite", {"name": "robot"})
 
     SUITE_TAG_NAME = "suite"
-    for suites in original_tree.findall(SUITE_TAG_NAME):
-        nested_suites = suites.findall(SUITE_TAG_NAME)
-
-        if nested_suites:
-            # Run tests in a directory
-            for suite in nested_suites:
-                parse_suite(suite)
-        else:
-            # Run tests in a single file
-            parse_suite(suites)
+    for top_suite in original_tree.findall(SUITE_TAG_NAME):
+        for leaf_suite in find_leaf_suites(top_suite):
+            parse_suite(leaf_suite)
 
     return ET.ElementTree(testsuite)
 

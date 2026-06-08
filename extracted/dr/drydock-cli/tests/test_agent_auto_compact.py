@@ -125,3 +125,24 @@ async def test_compact_replaces_messages_with_summary() -> None:
     assert agent.messages[0].role == Role.system
     assert agent.messages[-1].role == Role.assistant
     assert agent.messages[-1].content == "<final>"
+
+
+@pytest.mark.asyncio
+async def test_compact_failure_does_not_crash_session() -> None:
+    """If compact() raises (e.g. 400 from model server), session continues."""
+    from unittest.mock import AsyncMock, patch
+
+    backend = FakeBackend([
+        [mock_llm_chunk(content="<final>")],
+    ])
+    cfg = build_test_drydock_config(models=make_test_models(auto_compact_threshold=1))
+    agent = build_test_agent_loop(config=cfg, backend=backend)
+    agent.stats.context_tokens = 2
+
+    with patch.object(agent, "compact", new=AsyncMock(side_effect=RuntimeError("400 Bad Request"))):
+        events = [ev async for ev in agent.act("Hello")]
+
+    # Session should yield CompactStart + CompactEnd + AssistantEvent (no crash)
+    assert any(isinstance(ev, CompactStartEvent) for ev in events)
+    assert any(isinstance(ev, CompactEndEvent) for ev in events)
+    assert any(isinstance(ev, AssistantEvent) for ev in events)

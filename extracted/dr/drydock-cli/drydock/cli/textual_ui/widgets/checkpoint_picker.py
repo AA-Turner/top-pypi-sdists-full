@@ -23,7 +23,7 @@ from textual.widgets.option_list import Option
 from drydock.cli.textual_ui.widgets.no_markup_static import NoMarkupStatic
 
 if TYPE_CHECKING:
-    from drydock.core.checkpoint import Checkpoint, CheckpointStore
+    from drydock.core.checkpoint import Checkpoint
 
 
 _SECONDS_PER_MINUTE = 60
@@ -62,7 +62,7 @@ def _format_diff_stats(insertions: int, deletions: int,
     return " ".join(parts)
 
 
-def _build_checkpoint_option(cp: "Checkpoint",
+def _build_checkpoint_option(cp: Checkpoint,
                              diff_summary: str) -> Text:
     text = Text(no_wrap=True)
     text.append(f"#{cp.index:>3}  ", style="bold")
@@ -92,7 +92,7 @@ class CheckpointPickerApp(Container):
     class Cancelled(Message):
         """User hit Esc."""
 
-    def __init__(self, checkpoints: list["Checkpoint"],
+    def __init__(self, checkpoints: list[Checkpoint],
                  diff_summaries: dict[int, str], **kwargs: Any) -> None:
         super().__init__(id="checkpoint-picker", **kwargs)
         self._checkpoints = checkpoints

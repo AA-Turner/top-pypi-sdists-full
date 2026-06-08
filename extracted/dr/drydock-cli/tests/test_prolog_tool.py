@@ -11,8 +11,6 @@ from drydock.core.tools.builtins.prolog_tool import (
     PrologArgs,
     PrologConfig,
     PrologResult,
-    _build_kb,
-    _validate_kb,
 )
 
 

@@ -46,6 +46,12 @@ class Forwarder:
             description (None | str | Unset): Free-text description for the forwarder.
             enabled (bool | Unset): Always false. Enablement is per-environment: a forwarder delivers in an environment only
                 when `environments[<env>].enabled` is true. The base value is pinned false and cannot be set. Default: False.
+            forward_smplkit_events (bool | Unset): When true, this forwarder also receives platform change events that
+                smplkit records about your own resources (flag, configuration, and similar changes). Each such event is
+                delivered through every environment this forwarder is enabled in, using that environment's resolved
+                configuration. Defaults to false — platform change events are not forwarded unless you opt in. Independent of
+                the per-environment `enabled` settings, since platform change events are not tied to a deployment environment.
+                Default: False.
             filter_ (ForwarderFilterType0 | None | Unset): JSON Logic expression evaluated against each event. The event is
                 delivered only if the expression returns truthy. Omit to deliver every event.
             transform_type (Literal['JSONATA'] | None | Unset): Engine used to evaluate ``transform``. Must be set whenever
@@ -68,6 +74,7 @@ class Forwarder:
     configuration: HttpConfiguration
     description: None | str | Unset = UNSET
     enabled: bool | Unset = False
+    forward_smplkit_events: bool | Unset = False
     filter_: ForwarderFilterType0 | None | Unset = UNSET
     transform_type: Literal["JSONATA"] | None | Unset = UNSET
     transform: Any | None | Unset = UNSET
@@ -94,6 +101,8 @@ class Forwarder:
             description = self.description
 
         enabled = self.enabled
+
+        forward_smplkit_events = self.forward_smplkit_events
 
         filter_: dict[str, Any] | None | Unset
         if isinstance(self.filter_, Unset):
@@ -162,6 +171,8 @@ class Forwarder:
             field_dict["description"] = description
         if enabled is not UNSET:
             field_dict["enabled"] = enabled
+        if forward_smplkit_events is not UNSET:
+            field_dict["forward_smplkit_events"] = forward_smplkit_events
         if filter_ is not UNSET:
             field_dict["filter"] = filter_
         if transform_type is not UNSET:
@@ -204,6 +215,8 @@ class Forwarder:
         description = _parse_description(d.pop("description", UNSET))
 
         enabled = d.pop("enabled", UNSET)
+
+        forward_smplkit_events = d.pop("forward_smplkit_events", UNSET)
 
         def _parse_filter_(data: object) -> ForwarderFilterType0 | None | Unset:
             if data is None:
@@ -317,6 +330,7 @@ class Forwarder:
             configuration=configuration,
             description=description,
             enabled=enabled,
+            forward_smplkit_events=forward_smplkit_events,
             filter_=filter_,
             transform_type=transform_type,
             transform=transform,

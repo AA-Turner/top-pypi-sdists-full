@@ -120,12 +120,32 @@ def create_scim(
 @connection_app.command("create-saml")
 def create_saml(
     tenant: Annotated[str, typer.Option("--tenant", help="Organization (tenant) id")],
-    idp_entity_id: Annotated[str, typer.Option("--idp-entity-id", help="IdP entity id (issuer)")],
-    idp_sso_url: Annotated[str, typer.Option("--idp-sso-url", help="IdP SSO redirect URL")],
+    idp_entity_id: Annotated[
+        str,
+        typer.Option("--idp-entity-id", help="IdP entity id (issuer); from metadata if omitted"),
+    ] = "",
+    idp_sso_url: Annotated[
+        str,
+        typer.Option("--idp-sso-url", help="IdP SSO redirect URL; from metadata if omitted"),
+    ] = "",
     idp_cert_file: Annotated[
         str,
-        typer.Option("--idp-cert-file", help="Path to the IdP's X.509 signing cert (PEM)"),
-    ],
+        typer.Option(
+            "--idp-cert-file", help="IdP X.509 signing cert (PEM); from metadata if omitted"
+        ),
+    ] = "",
+    idp_metadata_url: Annotated[
+        str,
+        typer.Option(
+            "--idp-metadata-url", help="Fetch IdP metadata from this https URL (auto-fill)"
+        ),
+    ] = "",
+    idp_metadata_file: Annotated[
+        str,
+        typer.Option(
+            "--idp-metadata-file", help="Read IdP metadata from this local file (auto-fill)"
+        ),
+    ] = "",
     email_attribute: Annotated[
         str, typer.Option("--email-attribute", help="SAML attr holding email (else NameID)")
     ] = "",
@@ -139,25 +159,78 @@ def create_saml(
 ) -> None:
     """Create a SAML connection from the IdP's metadata (entity id, SSO URL, signing cert).
 
-    The IdP signing cert is PUBLIC (stored in config, not secrets). After creating, give the
-    IdP the ACS URL + SP entity id below, then verify a domain — SAML is SP-initiated only.
+    Provide the three values explicitly, or auto-fill them from the IdP's metadata with
+    ``--idp-metadata-url`` (https, SSRF-guarded fetch) or ``--idp-metadata-file`` (local).
+    Explicit flags override metadata. The IdP signing cert is PUBLIC (config, not secrets).
+    After creating, give the IdP the ACS URL + SP entity id below, then verify a domain —
+    SAML is SP-initiated only.
     """
     from pathlib import Path
 
-    try:
-        cert = Path(idp_cert_file).read_text(encoding="utf-8").strip()
-    except OSError as exc:
-        console.print(f"[red]Cannot read --idp-cert-file {idp_cert_file!r}: {exc}[/red]")
-        raise typer.Exit(code=1) from exc
-    if not cert:
-        console.print(f"[red]--idp-cert-file {idp_cert_file!r} is empty[/red]")
+    from dazzle.back.runtime.auth.saml_metadata import (
+        SamlMetadataError,
+        fetch_idp_metadata,
+        parse_idp_metadata_xml,
+    )
+
+    if idp_metadata_url and idp_metadata_file:
+        console.print(
+            "[red]--idp-metadata-url and --idp-metadata-file are mutually exclusive[/red]"
+        )
+        raise typer.Exit(code=1)
+
+    parsed: dict[str, str] = {}
+    if idp_metadata_url or idp_metadata_file:
+        try:
+            if idp_metadata_url:
+                xml = fetch_idp_metadata(idp_metadata_url)
+            else:
+                xml = Path(idp_metadata_file).read_text(encoding="utf-8")
+            parsed = parse_idp_metadata_xml(xml)
+        except SamlMetadataError as exc:
+            console.print(f"[red]IdP metadata import failed ({exc.reason}): {exc}[/red]")
+            raise typer.Exit(code=1) from exc
+        except OSError as exc:
+            console.print(
+                f"[red]Cannot read --idp-metadata-file {idp_metadata_file!r}: {exc}[/red]"
+            )
+            raise typer.Exit(code=1) from exc
+
+    cert = ""
+    if idp_cert_file:
+        try:
+            cert = Path(idp_cert_file).read_text(encoding="utf-8").strip()
+        except OSError as exc:
+            console.print(f"[red]Cannot read --idp-cert-file {idp_cert_file!r}: {exc}[/red]")
+            raise typer.Exit(code=1) from exc
+    # Explicit flags override metadata.
+    entity_id = idp_entity_id or parsed.get("idp_entity_id", "")
+    sso_url = idp_sso_url or parsed.get("idp_sso_url", "")
+    cert = cert or parsed.get("idp_x509_cert", "")
+
+    missing = [
+        name
+        for name, val in (
+            ("entity id", entity_id),
+            ("SSO URL", sso_url),
+            ("signing cert", cert),
+        )
+        if not val
+    ]
+    if missing:
+        console.print(
+            f"[red]Missing IdP {', '.join(missing)}. Provide --idp-metadata-url/"
+            "--idp-metadata-file, or pass --idp-entity-id/--idp-sso-url/--idp-cert-file.[/red]"
+        )
         raise typer.Exit(code=1)
 
     config: dict[str, str] = {
-        "idp_entity_id": idp_entity_id,
-        "idp_sso_url": idp_sso_url,
+        "idp_entity_id": entity_id,
+        "idp_sso_url": sso_url,
         "idp_x509_cert": cert,
     }
+    if parsed.get("idp_slo_url"):
+        config["idp_slo_url"] = parsed["idp_slo_url"]
     if email_attribute:
         config["email_attribute"] = email_attribute
     if groups_attribute:
@@ -182,6 +255,60 @@ def create_saml(
     )
 
 
+@connection_app.command("enable-request-signing")
+def enable_request_signing(
+    connection_id: Annotated[str, typer.Argument(help="SAML connection id")],
+) -> None:
+    """Generate an SP keypair and sign this connection's AuthnRequests (SAML only).
+
+    Re-import the connection's metadata at the IdP afterwards (printed URL) so it trusts the
+    SP signing cert. The Response signature is still the trust anchor. Rotate the key by
+    running disable-request-signing then this again.
+    """
+    from dazzle.back.runtime.auth.saml_sp_keys import generate_sp_keypair
+
+    store = _store()
+    conn = store.get_connection(connection_id)
+    if conn is None:
+        console.print(f"[red]No connection {connection_id!r}[/red]")
+        raise typer.Exit(code=1)
+    if conn.type != "saml":
+        console.print(
+            f"[red]Connection {connection_id!r} is {conn.type!r} — request signing is SAML-only[/red]"
+        )
+        raise typer.Exit(code=1)
+    if (conn.config or {}).get("sign_requests"):
+        console.print(
+            f"[yellow]Request signing already enabled[/yellow] for {connection_id} "
+            "(disable-request-signing then enable to rotate the key)."
+        )
+        raise typer.Exit(code=0)
+    common_name = (conn.config or {}).get("sp_entity_id") or connection_id
+    key_pem, cert_pem = generate_sp_keypair(common_name)
+    if not store.enable_connection_request_signing(
+        connection_id, sp_cert=cert_pem, sp_private_key=key_pem
+    ):
+        console.print(f"[red]Failed to enable request signing for {connection_id!r}[/red]")
+        raise typer.Exit(code=1)
+    console.print(f"[green]Request signing enabled[/green] for connection {connection_id}.")
+    console.print(
+        "Re-import this connection's SP metadata at the IdP so it trusts the signing cert:"
+    )
+    console.print(f"  [cyan]<base_url>/auth/saml/metadata?connection={connection_id}[/cyan]")
+
+
+@connection_app.command("disable-request-signing")
+def disable_request_signing(
+    connection_id: Annotated[str, typer.Argument(help="SAML connection id")],
+) -> None:
+    """Stop signing this connection's AuthnRequests and drop its SP keypair."""
+    store = _store()
+    if store.disable_connection_request_signing(connection_id):
+        console.print(f"[green]Request signing disabled[/green] for connection {connection_id}.")
+    else:
+        console.print(f"[yellow]Request signing was not enabled[/yellow] for {connection_id}.")
+
+
 @connection_app.command("rotate-secret")
 def rotate_secret(
     connection_id: Annotated[str, typer.Argument(help="Connection id")],
@@ -193,13 +320,24 @@ def rotate_secret(
             help="New OIDC client secret (OIDC only; prefer the env var)",
         ),
     ] = "",
+    grace: Annotated[
+        str,
+        typer.Option(
+            "--grace",
+            help="Keep the OLD SCIM bearer valid this long (e.g. 24h, 7d). SCIM only.",
+        ),
+    ] = "",
 ) -> None:
     """Rotate a connection's secret (after a leak / scheduled rotation).
 
     OIDC: replaces the ``client_secret`` (pass ``--client-secret``; the IdP must already
-    have the new one). SCIM: mints a NEW bearer and prints it once — the previous bearer
-    stops working immediately. SAML has no rotatable secret (the IdP cert is public config;
-    use ``create-saml`` to replace it). Existing user sessions are unaffected.
+    have the new one). SCIM: mints a NEW bearer and prints it once. SAML has no rotatable
+    secret (the IdP cert is public config; use ``create-saml`` to replace it).
+
+    By default the old secret stops working immediately (right for a leak). Pass
+    ``--grace 24h`` (SCIM only) to keep the OLD bearer valid for an overlap window so the
+    IdP can migrate without a provisioning outage; end it early with
+    ``revoke-previous-secret``. Existing user sessions are unaffected.
     """
     store = _store()
     conn = store.get_connection(connection_id)
@@ -228,7 +366,23 @@ def rotate_secret(
         )
         raise typer.Exit(code=1)
 
-    if not store.update_connection_secrets(connection_id, new_secrets):
+    grace_td = None
+    if grace:
+        if conn.type != "scim":
+            console.print(
+                "[red]--grace applies only to a SCIM bearer (an OIDC client_secret is "
+                "arbitrated by the IdP, so an overlap window can't help).[/red]"
+            )
+            raise typer.Exit(code=1)
+        from dazzle.back.runtime.auth.secret_rotation import parse_grace_duration
+
+        try:
+            grace_td = parse_grace_duration(grace)
+        except ValueError as exc:
+            console.print(f"[red]Invalid --grace: {exc}[/red]")
+            raise typer.Exit(code=1) from exc
+
+    if not store.rotate_connection_secret(connection_id, new_secrets, grace=grace_td, actor="cli"):
         console.print(f"[red]Rotation failed — connection {connection_id!r} not updated[/red]")
         raise typer.Exit(code=1)
 
@@ -236,12 +390,54 @@ def rotate_secret(
     if new_bearer is not None:
         console.print("\n[bold]New SCIM bearer (shown once — update the IdP):[/bold]")
         console.print(f"  [cyan]{new_bearer}[/cyan]")
-        console.print("The previous bearer is now [bold]invalid[/bold].")
+        if grace_td is not None:
+            console.print(
+                f"The previous bearer stays [bold]valid[/bold] for ~{grace} — run "
+                "`revoke-previous-secret` to end the window early."
+            )
+        else:
+            console.print("The previous bearer is now [bold]invalid[/bold].")
     else:
         console.print(
             "Ensure the IdP has the new client secret — the previous one no longer works "
             "for new logins. Existing user sessions are unaffected."
         )
+
+
+@connection_app.command("revoke-previous-secret")
+def revoke_previous_secret(
+    connection_id: Annotated[str, typer.Argument(help="Connection id")],
+) -> None:
+    """Immediately invalidate the OLD (grace) SCIM bearer left by `rotate-secret --grace`."""
+    store = _store()
+    # Distinguish "no such connection" from "nothing to revoke" — a mistyped id
+    # must not look like a benign no-op for a security operation.
+    if store.get_connection(connection_id) is None:
+        console.print(f"[red]No connection {connection_id!r}[/red]")
+        raise typer.Exit(code=1)
+    if store.revoke_previous_connection_secret(connection_id, actor="cli"):
+        console.print(f"[green]Revoked[/green] the previous (grace) secret for {connection_id}.")
+    else:
+        console.print(
+            f"[yellow]No active grace secret[/yellow] for {connection_id} — nothing to revoke."
+        )
+
+
+@connection_app.command("secret-history")
+def secret_history(
+    connection_id: Annotated[str, typer.Argument(help="Connection id")],
+) -> None:
+    """Show the append-only secret-rotation audit trail for a connection."""
+    import json
+
+    store = _store()
+    events = store.get_connection_secret_events(connection_id)
+    if not events:
+        console.print(f"No secret-rotation events for {connection_id}.")
+        return
+    for e in events:
+        detail = e.detail if isinstance(e.detail, dict) else json.loads(e.detail or "{}")
+        console.print(f"[cyan]{e.at}[/cyan]  {e.event}  (actor={e.actor or '-'})  {detail}")
 
 
 @connection_app.command("list")
@@ -347,17 +543,11 @@ def delete(
 
 
 def _env_flags() -> tuple[bool, bool, bool]:
-    """(secret_key_ok, sso_extra_ok, dns_extra_ok) for the doctor."""
-    from importlib.util import find_spec
+    """(secret_key_ok, sso_extra_ok, dns_extra_ok) for the doctor — shared with the
+    org-admin readiness panel via the runtime helper (single source of truth)."""
+    from dazzle.back.runtime.auth.connection_doctor import environment_flags
 
-    from dazzle.back.runtime.auth.connection_crypto import ConnectionSecretError, _load_key
-
-    try:
-        _load_key()
-        secret_key_ok = True
-    except ConnectionSecretError:
-        secret_key_ok = False
-    return secret_key_ok, find_spec("authlib") is not None, find_spec("dns") is not None
+    return environment_flags()
 
 
 @connection_app.command("doctor")

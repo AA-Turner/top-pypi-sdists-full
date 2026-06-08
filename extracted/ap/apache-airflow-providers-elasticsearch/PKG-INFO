@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-elasticsearch
-Version: 6.5.4
+Version: 6.6.0
 Summary: Provider package apache-airflow-providers-elasticsearch for Apache Airflow
 Keywords: airflow-provider,elasticsearch,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -27,13 +27,15 @@ Requires-Dist: apache-airflow>=2.11.0
 Requires-Dist: apache-airflow-providers-common-compat>=1.12.0
 Requires-Dist: apache-airflow-providers-common-sql>=1.32.0
 Requires-Dist: elasticsearch>=8.10,<10
+Requires-Dist: polars>=1.26.0 ; extra == "polars"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-elasticsearch/6.5.4/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-elasticsearch/6.5.4
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-elasticsearch/6.6.0/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-elasticsearch/6.6.0
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
 Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
+Provides-Extra: polars
 
 
 .. Licensed to the Apache Software Foundation (ASF) under one
@@ -60,7 +62,7 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-elasticsearch``
 
-Release: ``6.5.4``
+Release: ``6.6.0``
 
 
 `Elasticsearch <https://www.elastic.co/elasticsearch>`__
@@ -73,7 +75,7 @@ This is a provider package for ``elasticsearch`` provider. All classes for this 
 are in ``airflow.providers.elasticsearch`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-elasticsearch/6.5.4/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-elasticsearch/6.6.0/>`_.
 
 Installation
 ------------
@@ -116,6 +118,15 @@ Dependent package                                                               
 `apache-airflow-providers-common-sql <https://airflow.apache.org/docs/apache-airflow-providers-common-sql>`_        ``common.sql``
 ==================================================================================================================  =================
 
+Optional dependencies
+----------------------
+
+==========  ==================
+Extra       Dependencies
+==========  ==================
+``polars``  ``polars>=1.26.0``
+==========  ==================
+
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-elasticsearch/6.5.4/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-elasticsearch/6.6.0/changelog.html>`_.
 

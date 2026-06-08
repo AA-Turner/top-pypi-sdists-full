@@ -6,9 +6,7 @@ If these pass, DryDock is usable for normal work.
 
 from __future__ import annotations
 
-import asyncio
 import os
-from pathlib import Path
 
 import httpx
 import pytest
@@ -22,7 +20,7 @@ except RuntimeError:
 from drydock.core.agent_loop import AgentLoop
 from drydock.core.agents.models import BuiltinAgentName
 from drydock.core.config import Backend, ModelConfig, ProviderConfig, DrydockConfig
-from drydock.core.types import AssistantEvent, ToolCallEvent, ToolResultEvent
+from drydock.core.types import AssistantEvent, ToolResultEvent
 
 
 def _vllm_ok():
@@ -30,6 +28,7 @@ def _vllm_ok():
         return httpx.get("http://localhost:8000/v1/models", timeout=3).status_code == 200
     except Exception:
         return False
+
 
 pytestmark = pytest.mark.skipif(not _vllm_ok(), reason="vLLM not running")
 
@@ -77,7 +76,7 @@ async def test_build_project_from_prd(tmp_path):
                    and "FORCED STOP" in (e.content or "")]
     ordering = [e for e in errors if "Unexpected role" in str(e.error)]
 
-    assert not force_stops, f"Session force-stopped during normal project setup"
+    assert not force_stops, "Session force-stopped during normal project setup"
     assert not ordering, f"Message ordering crash: {ordering[0].error[:100]}"
     assert len(cb_errors) <= 2, f"Circuit breaker fired {len(cb_errors)} times during normal work"
 

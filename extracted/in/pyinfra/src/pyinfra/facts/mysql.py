@@ -5,7 +5,7 @@ from collections import defaultdict
 
 from typing_extensions import override
 
-from pyinfra.api import FactBase, MaskString, QuoteString, StringCommand
+from pyinfra.api import FactBase, HiddenValue, QuoteString, StringCommand
 from pyinfra.api.util import try_int
 
 from .util.databases import parse_columns_and_rows
@@ -26,17 +26,17 @@ def make_mysql_command(
 
     if user:
         # Quote the username as in may contain special characters
-        target_bits.append('-u"{0}"'.format(user))
+        target_bits.append(f'-u"{user}"')
 
     if password:
         # Quote the password as it may contain special characters
-        target_bits.append(MaskString('-p"{0}"'.format(password)))
+        target_bits.append(StringCommand("-p", QuoteString(HiddenValue(password)), _separator=""))
 
     if host:
-        target_bits.append("-h{0}".format(host))
+        target_bits.append(f"-h{host}")
 
     if port:
-        target_bits.append("-P{0}".format(port))
+        target_bits.append(f"-P{port}")
 
     return StringCommand(*target_bits)
 
@@ -166,12 +166,7 @@ class MysqlUsers(MysqlFactBase):
             details["privileges"] = sorted(privileges)
 
             # Attach the user in the format user@host
-            users[
-                "{0}@{1}".format(
-                    details.pop("User"),
-                    details.pop("Host"),
-                )
-            ] = details
+            users[f"{details.pop('User')}@{details.pop('Host')}"] = details
 
         return users
 
@@ -212,7 +207,7 @@ class MysqlUserGrants(MysqlFactBase):
         mysql_host=None,
         mysql_port=None,
     ) -> StringCommand:
-        self.mysql_command = 'SHOW GRANTS FOR "{0}"@"{1}"'.format(user, hostname)
+        self.mysql_command = f'SHOW GRANTS FOR "{user}"@"{hostname}"'
 
         return super().command(
             mysql_user,

@@ -28,10 +28,25 @@ bare ``uvx bty-lab`` suffices to run it.
 from __future__ import annotations
 
 import argparse
+import os
+import secrets
+import shutil
+import socket
+import subprocess
 import sys
 from pathlib import Path
 
 import bty
+
+# Where Quadlet units land on a system-wide podman install. Files dropped
+# here are picked up by the podman-system-generator on `systemctl
+# daemon-reload`.
+QUADLET_SYSTEM_DIR = Path("/etc/containers/systemd")
+
+# Service names the Quadlet units in this module generate. Used by
+# `deploy` (as root: start them) and `upgrade` (detect Quadlet-managed
+# stack + restart).
+_SYSTEMD_SERVICES = ("withcache.service", "bty-web.service", "bty-tftp.service")
 
 DEFAULT_DEST = Path("./bty-host")
 
@@ -76,7 +91,7 @@ services:
       - ${{BTY_HOST_DATA_DIR:-./data}}/withcache:/data
 
   bty-web:
-    image: ghcr.io/safl/bty-web:v{version}
+    image: ghcr.io/safl/bty-web:{version}
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -104,7 +119,7 @@ services:
       - withcache
 
   tftp:
-    image: ghcr.io/safl/bty-tftp:v{version}
+    image: ghcr.io/safl/bty-tftp:{version}
     profiles: ["tftp"]
     restart: unless-stopped
     # TFTP's data transfer hops to an ephemeral UDP port, so the sidecar
@@ -284,7 +299,7 @@ After=network-online.target withcache.service
 Wants=network-online.target
 
 [Container]
-Image=ghcr.io/safl/bty-web:v{version}
+Image=ghcr.io/safl/bty-web:{version}
 AutoUpdate=registry
 PublishPort=8080:8080
 Volume={data_dir_abs}/bty:/var/lib/bty:Z
@@ -338,7 +353,7 @@ After=network-online.target
 Wants=network-online.target
 
 [Container]
-Image=ghcr.io/safl/bty-tftp:v{version}
+Image=ghcr.io/safl/bty-tftp:{version}
 AutoUpdate=registry
 # TFTP data transfer uses an ephemeral UDP port; host networking is the
 # simplest way to make that work. The NBPs are baked into the image.
@@ -362,6 +377,303 @@ def _write(path: Path, body: str, *, force: bool) -> None:
         )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(body, encoding="utf-8")
+
+
+# ---- Shared deploy-file emission --------------------------------------------
+
+
+def _emit_deploy_files(
+    dest: Path,
+    *,
+    data_dir_abs: Path,
+    version: str,
+    with_systemd: bool,
+    force: bool,
+) -> list[Path]:
+    """Emit compose.yml + envvars.example + README + (optional) Quadlet
+    units into ``dest``. Returns the list of paths written.
+
+    Raises ``FileExistsError`` if a file exists and ``force`` is False,
+    or ``PermissionError`` if the operator can't write ``dest``. Callers
+    surface those with their own messaging."""
+    written: list[Path] = []
+
+    compose_path = dest / "compose.yml"
+    _write(compose_path, _compose_yaml(version), force=force)
+    written.append(compose_path)
+
+    env_path = dest / "envvars.example"
+    _write(env_path, _env_example(str(data_dir_abs)), force=force)
+    written.append(env_path)
+
+    readme_path = dest / "README.md"
+    _write(readme_path, _readme(version, with_systemd=with_systemd), force=force)
+    written.append(readme_path)
+
+    if with_systemd:
+        quadlet_dir = dest / "quadlet"
+        for fname, body in (
+            ("bty-web.container", _quadlet_bty_web(version, data_dir_abs)),
+            ("withcache.container", _quadlet_withcache(version, data_dir_abs)),
+            ("bty-tftp.container", _quadlet_bty_tftp(version)),
+        ):
+            p = quadlet_dir / fname
+            _write(p, body, force=force)
+            written.append(p)
+
+    # Pre-create the bind-mount roots so podman doesn't create them as
+    # root-owned and so the operator can see where state will land
+    # without starting the stack first.
+    data_dir = data_dir_abs if data_dir_abs.is_absolute() else dest / "data"
+    (data_dir / "bty").mkdir(parents=True, exist_ok=True)
+    (data_dir / "withcache").mkdir(parents=True, exist_ok=True)
+
+    return written
+
+
+# ---- Auto-fill envvars + host probe -----------------------------------------
+
+
+def _detect_host_addr() -> str:
+    """Best-effort LAN IP detection.
+
+    UDP-connects to a TEST-NET-2 address (no packet sent on UDP-connect;
+    the kernel just chooses an outbound interface) and reads the local
+    socket address. Returns whichever IP the host would actually use for
+    outbound traffic -- almost always the LAN address bty-web should
+    advertise. Falls back to ``127.0.0.1`` when no route is available;
+    the deploy hint surfaces this so the operator can override."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("198.51.100.1", 80))
+        # getsockname() returns Any per typeshed (the tuple shape
+        # depends on the address family); coerce to str for the
+        # IPv4 case we constructed the socket for.
+        addr: str = s.getsockname()[0]
+        return addr
+    except OSError:
+        return "127.0.0.1"
+    finally:
+        s.close()
+
+
+def _gen_secret(nbytes: int = 24) -> str:
+    """URL-safe random token. ``nbytes`` of entropy."""
+    return secrets.token_urlsafe(nbytes)
+
+
+def _render_envvars_filled(
+    *,
+    host_addr: str,
+    withcache_pw: str,
+    admin_pw: str,
+    session_secret: str,
+    data_dir_abs: str,
+) -> str:
+    """Render an envvars file with the required + recommended fields
+    filled in. Operator-tweakable optional knobs stay commented out --
+    same shape as :func:`_env_example` so the two files stay
+    diff-friendly."""
+    return f"""\
+# Generated by `bty-lab deploy`. Overwrites with `--force`.
+# HOST_ADDR + WITHCACHE_ADMIN_PASSWORD are required. The rest below
+# the REQUIRED block has sane defaults and stays commented unless you
+# need to override.
+
+# ==== REQUIRED ====
+
+HOST_ADDR={host_addr}
+WITHCACHE_ADMIN_PASSWORD={withcache_pw}
+
+# ==== STRONGLY RECOMMENDED ====
+
+# Gates the bty-web operator UI at http://<host>:8080/ui.
+BTY_ADMIN_PASSWORD={admin_pw}
+
+# Pinned session secret so cookies survive container restarts.
+BTY_SESSION_SECRET={session_secret}
+
+# ==== COMMON CUSTOMISATIONS ====
+
+# Where state lives on the host. Default: ./data (relative to this
+# directory). Point at a bigger disk for larger fleets:
+# BTY_HOST_DATA_DIR={data_dir_abs}
+
+# ==== ADVANCED ====
+
+# Override which GitHub repo bty fetches netboot artifacts from.
+# BTY_BOOT_RELEASE_REPO=your-fork/bty
+
+# Trust X-Forwarded-* from this CIDR (set when behind a reverse proxy).
+# BTY_TRUSTED_PROXY=10.0.0.0/8
+
+# Per-request upload cap for the operator UI's image-upload form.
+# BTY_MAX_UPLOAD_BYTES=214748364800
+
+# Concurrent-worker caps.
+# BTY_CATALOG_MAX_PARALLEL=2
+# BTY_HASH_MAX_PARALLEL=1
+# BTY_BACKUP_MAX_PARALLEL=1
+"""
+
+
+# ---- Visual step printer + subprocess wrappers ------------------------------
+
+
+# Module-level step counter, set up by :func:`_steps_begin` and bumped
+# by every :func:`_step` call. Lives in module state (rather than being
+# threaded through every helper) so the existing ``_step(...)`` call
+# sites stay one-liners. Deploy / upgrade are not re-entrant, so the
+# global is safe in practice.
+_STEP_CURRENT = 0
+_STEP_TOTAL = 0
+
+
+def _steps_begin(total: int) -> None:
+    """Reset the step counter and set the total for ``[N/M]`` headers.
+
+    Call once at the top of :func:`deploy_main` / :func:`upgrade_main`
+    after the mode-detection logic has decided how many steps the run
+    will fire (root/non-root + sudo-chown + Quadlet-managed all swing
+    the total)."""
+    global _STEP_CURRENT, _STEP_TOTAL
+    _STEP_CURRENT = 0
+    _STEP_TOTAL = total
+
+
+def _step(label: str, *, detail: str | None = None) -> None:
+    """Print a visible phase boundary, prefixed with ``[N/M]`` when
+    :func:`_steps_begin` has been called, or ``==>`` otherwise.
+    Subprocess output that follows streams through to stderr so the
+    operator sees what's happening between boundaries."""
+    global _STEP_CURRENT
+    _STEP_CURRENT += 1
+    prefix = f"[{_STEP_CURRENT}/{_STEP_TOTAL}]" if _STEP_TOTAL > 0 else "==>"
+    if detail is not None:
+        print(f"{prefix} {label}: {detail}", file=sys.stderr)
+    else:
+        print(f"{prefix} {label}", file=sys.stderr)
+
+
+def _require_prereqs(*, with_systemd: bool, prog: str) -> str:
+    """Verify podman + a compose backend are on PATH, and (with
+    ``with_systemd``) that systemctl is too AND the operator is root.
+    Returns the compose backend's display name for the step output.
+
+    Refuses with sys.exit on any missing piece. ``-f`` does NOT bypass
+    this -- the deploy genuinely can't proceed without these."""
+    if shutil.which("podman") is None:
+        print(
+            f"{prog}: podman is not on PATH. Install it first:\n"
+            "  # Debian / Ubuntu:  sudo apt install podman\n"
+            "  # Fedora / RHEL:    sudo dnf install podman",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    backend = None
+    if shutil.which("podman-compose") is not None:
+        backend = "podman-compose"
+    elif shutil.which("docker-compose") is not None:
+        backend = "docker-compose"
+    if backend is None:
+        print(
+            f"{prog}: no compose backend on PATH. `podman compose` needs one:\n"
+            "  pipx install podman-compose",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if with_systemd:
+        # The system install path needs systemctl + root for the
+        # Quadlet install + service start. `deploy` / `upgrade` call us
+        # with with_systemd=True only when we're already running as
+        # root, so the geteuid check is a safety net for direct callers
+        # (init --systemd just writes files, doesn't enter this branch).
+        if shutil.which("systemctl") is None:
+            print(f"{prog}: the system install needs systemctl on PATH", file=sys.stderr)
+            sys.exit(1)
+        if os.geteuid() != 0:
+            print(
+                f"{prog}: the system install writes units under {QUADLET_SYSTEM_DIR} "
+                "and runs systemctl, both of which require root.\n"
+                f"  sudo {prog} ...",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+    return backend
+
+
+def _run(cmd: list[str], *, cwd: Path | None = None, env: dict[str, str] | None = None) -> None:
+    """Run ``cmd`` with stdout/stderr inherited so the operator sees
+    progress. Exits 1 on non-zero status. Factored so tests can patch
+    this single point."""
+    proc = subprocess.run(cmd, cwd=cwd, env=env, check=False)
+    if proc.returncode != 0:
+        print(
+            f"\nbty-lab: `{' '.join(cmd)}` exited {proc.returncode}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
+def _compose(dest: Path, args: list[str]) -> None:
+    """Invoke `podman compose` in ``dest`` with the deploy's envvars file
+    already wired up via ``--env-file`` so the operator doesn't need
+    ``COMPOSE_ENV_FILES`` exported."""
+    _run(
+        ["podman", "compose", "--env-file", "envvars", *args],
+        cwd=dest,
+    )
+
+
+def _systemctl(args: list[str]) -> None:
+    """Invoke systemctl with output inherited."""
+    _run(["systemctl", *args])
+
+
+def _chown_to_sudo_user(paths: list[Path]) -> tuple[str, int, int] | None:
+    """When running under ``sudo`` (root + ``$SUDO_USER`` set), chown
+    each path to the original operator so they can edit ``envvars``
+    (and inspect the rest of the deploy dir) without needing ``sudo``
+    afterwards. Returns ``(user, uid, gid)`` on success, or ``None``
+    when the chown was skipped (not running under sudo, or
+    ``$SUDO_USER`` is missing from ``/etc/passwd``).
+
+    Does NOT recurse into ``data/`` -- those bind-mount dirs are
+    populated by the containers and get the container-uid ownership
+    podman wants; chowning them out from under podman would break
+    rootful bind-mount semantics."""
+    sudo_user = os.environ.get("SUDO_USER")
+    if os.geteuid() != 0 or not sudo_user:
+        return None
+    try:
+        import pwd
+
+        pw = pwd.getpwnam(sudo_user)
+    except KeyError:
+        return None
+    for p in paths:
+        if p.exists():
+            os.chown(p, pw.pw_uid, pw.pw_gid)
+    return (sudo_user, pw.pw_uid, pw.pw_gid)
+
+
+def _install_quadlets(dest: Path, *, force: bool) -> list[Path]:
+    """Copy ``dest/quadlet/*.container`` to ``QUADLET_SYSTEM_DIR``.
+    Returns the list of installed paths. Refuses to overwrite existing
+    units unless ``force``."""
+    src_dir = dest / "quadlet"
+    QUADLET_SYSTEM_DIR.mkdir(parents=True, exist_ok=True)
+    installed: list[Path] = []
+    for unit in sorted(src_dir.glob("*.container")):
+        target = QUADLET_SYSTEM_DIR / unit.name
+        if target.exists() and not force:
+            raise FileExistsError(f"{target} already exists; pass --force to overwrite.")
+        shutil.copy2(unit, target)
+        installed.append(target)
+    return installed
 
 
 def init_main(argv: list[str] | None = None, *, prog: str = "bty-lab init") -> None:
@@ -433,59 +745,417 @@ def init_main(argv: list[str] | None = None, *, prog: str = "bty-lab init") -> N
     # the deploy dir.
     data_dir_abs = data_dir.resolve()
 
-    written: list[Path] = []
-
     try:
-        compose_path = dest / "compose.yml"
-        _write(compose_path, _compose_yaml(version), force=args.force)
-        written.append(compose_path)
-
-        env_path = dest / "envvars.example"
-        _write(env_path, _env_example(str(data_dir_abs)), force=args.force)
-        written.append(env_path)
-
-        readme_path = dest / "README.md"
-        _write(readme_path, _readme(version, with_systemd=args.systemd), force=args.force)
-        written.append(readme_path)
-
-        if args.systemd:
-            quadlet_dir = dest / "quadlet"
-            for fname, body in (
-                ("bty-web.container", _quadlet_bty_web(version, data_dir_abs)),
-                ("withcache.container", _quadlet_withcache(version, data_dir_abs)),
-                ("bty-tftp.container", _quadlet_bty_tftp(version)),
-            ):
-                p = quadlet_dir / fname
-                _write(p, body, force=args.force)
-                written.append(p)
+        written = _emit_deploy_files(
+            dest,
+            data_dir_abs=data_dir_abs,
+            version=version,
+            with_systemd=args.systemd,
+            force=args.force,
+        )
     except FileExistsError as exc:
         print(f"{prog}: {exc}", file=sys.stderr)
         sys.exit(1)
-
-    # Pre-create the bind-mount roots so podman doesn't create them as
-    # root-owned (when run as root) and so the operator can see where
-    # state will land without starting the stack first.
-    (data_dir / "bty").mkdir(parents=True, exist_ok=True)
-    (data_dir / "withcache").mkdir(parents=True, exist_ok=True)
+    except PermissionError as exc:
+        # The mkdir-parents inside _write fails this way when the operator
+        # points init at a system path like /opt/bty without first making
+        # it writable. Without this branch the failure is a bare Python
+        # traceback the operator might miss inside a uvx wrapper.
+        reason = exc.strerror or "Permission denied"
+        print(f"{prog}: cannot write to {dest}: {reason}", file=sys.stderr)
+        print(
+            "hint: create the directory with the operator's ownership first:\n"
+            f"  sudo mkdir -p {dest}\n"
+            f'  sudo chown "$USER:$USER" {dest}\n'
+            f"  {prog} {dest}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     print(f"{prog}: wrote {len(written)} files to {dest}/", file=sys.stderr)
     for p in written:
         print(f"  {p.relative_to(dest.parent) if dest.parent != Path() else p}", file=sys.stderr)
-    print(f"\nNext: cd {dest}", file=sys.stderr)
-    print('      cp envvars.example envvars && "${EDITOR:-vi}" envvars', file=sys.stderr)
+
+    # Compose-backend probe. `podman compose` shells out to podman-compose
+    # (or docker-compose). When neither is on PATH the operator hits a
+    # cryptic "looking up compose provider failed" later -- surface it
+    # here instead. Silent on success.
+    if shutil.which("podman-compose") is None and shutil.which("docker-compose") is None:
+        print(
+            f"\n{prog}: heads-up -- no compose backend on PATH; "
+            "`podman compose` will fail. Install one:\n"
+            "  pipx install podman-compose",
+            file=sys.stderr,
+        )
+
     print(
-        "      export COMPOSE_ENV_FILES=envvars && podman compose up -d",
+        f"\nNext:\n"
+        f"  cd {dest}\n"
+        f'  cp envvars.example envvars && "${{EDITOR:-vi}}" envvars\n'
+        f"  COMPOSE_ENV_FILES=envvars podman compose --profile tftp up -d",
         file=sys.stderr,
     )
     print(
-        "      (BIOS PXE clients also need --profile tftp; UEFI HTTP-Boot does not.)",
+        f"\nFor a one-shot stand-up (auto-fills envvars + brings up the\n"
+        f"stack), use `{prog.replace(' init', '')} deploy` instead.",
         file=sys.stderr,
     )
+
+
+def deploy_main(argv: list[str] | None = None, *, prog: str = "bty-lab deploy") -> None:
+    """The ``bty-lab deploy`` subcommand: emit files, auto-fill envvars
+    with detected ``HOST_ADDR`` + ``"bty"`` admin passwords, then bring
+    the stack up via ``podman compose ... up -d``.
+
+    Mode is auto-detected from the operator's euid:
+
+    - **root** ("system install"): includes the TFTP sidecar
+      (``--profile tftp``), installs Quadlet units under
+      :data:`QUADLET_SYSTEM_DIR`, runs ``systemctl daemon-reload``,
+      starts the services. Stack survives host reboots.
+    - **non-root** ("user install"): compose-only. Skips the TFTP
+      sidecar (binds privileged UDP/69), no Quadlet install, no
+      systemctl. Operator must re-run ``podman compose up -d`` after
+      host reboot. UEFI HTTP Boot works; legacy BIOS PXE clients
+      need TFTP and so won't work in this mode.
+
+    Side-effecting by design -- prefer :func:`init_main` when you want
+    the files without the stand-up. ``--force`` overwrites existing
+    files (compose.yml, envvars, Quadlet units); it never bypasses
+    missing prereqs."""
+    parser = argparse.ArgumentParser(
+        prog=prog,
+        description=(
+            "Stand up the bty-web + withcache compose stack in one shot. "
+            "Auto-detects install mode from your euid: as root, does the "
+            "full install (TFTP sidecar + Podman Quadlet units installed "
+            f"to {QUADLET_SYSTEM_DIR} + systemctl start, so the stack "
+            "survives reboots); as a regular user, does the compose-only "
+            "install (no TFTP, no autostart). The user-install path "
+            "prints the limitations + re-run command at the end so it's "
+            "easy to upgrade to a system install later."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "dest",
+        nargs="?",
+        type=Path,
+        default=DEFAULT_DEST,
+        help=f"Output directory. Default: {DEFAULT_DEST}",
+    )
+    parser.add_argument(
+        "-f",
+        "--force",
+        action="store_true",
+        help="Overwrite existing compose.yml / envvars / Quadlet units. "
+        "Does NOT bypass missing prereqs (podman / podman-compose / systemctl).",
+    )
+    parser.add_argument(
+        "--data-dir",
+        type=Path,
+        default=None,
+        help="Where bty/withcache host state lives. Default: <DEST>/data. "
+        "Pass an absolute path on a dedicated disk for larger fleets.",
+    )
+    parser.add_argument(
+        "--host-addr",
+        type=str,
+        default=None,
+        help="Override auto-detected HOST_ADDR (the LAN IP booting clients "
+        "fetch images + boot scripts from). When omitted, deploy probes the "
+        "kernel's outbound-route IP and uses that.",
+    )
+    args = parser.parse_args(argv)
+
+    version = bty.__version__
+    dest: Path = args.dest
+    data_dir: Path = args.data_dir if args.data_dir is not None else (dest / "data")
+    data_dir_abs = data_dir.resolve()
+
+    is_root = os.geteuid() == 0
+    mode_label = "system install [root]" if is_root else "user install [non-root]"
+    will_chown = is_root and bool(os.environ.get("SUDO_USER"))
+
+    # Step total swings with mode + sudo presence. Counts: prereqs,
+    # prereqs-OK, install-mode, emit-files, HOST_ADDR, passwords,
+    # envvars, [chown?], pull, start, [quadlets, daemon-reload,
+    # start-svcs]*root, deploy-complete.
+    total = 10 + (1 if will_chown else 0) + (3 if is_root else 0)
+    _steps_begin(total)
+
+    _step("checking prereqs")
+    backend = _require_prereqs(with_systemd=is_root, prog=prog)
+    _step("prereqs OK", detail=backend)
+    _step("install mode", detail=mode_label)
+
+    _step(f"emitting compose files into {dest}")
+    try:
+        written = _emit_deploy_files(
+            dest,
+            data_dir_abs=data_dir_abs,
+            version=version,
+            with_systemd=is_root,
+            force=args.force,
+        )
+    except FileExistsError as exc:
+        print(f"\n{prog}: {exc}", file=sys.stderr)
+        sys.exit(1)
+    except PermissionError as exc:
+        reason = exc.strerror or "Permission denied"
+        print(f"\n{prog}: cannot write to {dest}: {reason}", file=sys.stderr)
+        print(
+            "hint: create the directory with the operator's ownership first:\n"
+            f"  sudo mkdir -p {dest}\n"
+            f'  sudo chown "$USER:$USER" {dest}\n'
+            f"  {prog} {dest}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    for p in written:
+        print(f"  {p.relative_to(dest.parent) if dest.parent != Path() else p}", file=sys.stderr)
+
+    host_addr = args.host_addr or _detect_host_addr()
+    source = "auto-detected" if args.host_addr is None else "override"
+    detail = f"{host_addr} [{source}]"
+    if host_addr == "127.0.0.1":
+        detail += "  WARNING: loopback fallback -- pass --host-addr"
+    _step("HOST_ADDR set", detail=detail)
+
+    # Admin passwords default to "bty" -- matches the historic PAM default
+    # and keeps first-boot UX trivial (operator types "bty" once, no
+    # scrollback hunting). Session secret stays random because it's
+    # crypto material, not a typed password.
+    withcache_pw = "bty"
+    admin_pw = "bty"
+    session_secret = _gen_secret(32)
+    _step("set admin passwords", detail='"bty" (default -- change in envvars before exposing)')
+
+    envvars_path = dest / "envvars"
+    if envvars_path.exists() and not args.force:
+        print(
+            f"\n{prog}: {envvars_path} already exists; pass --force to overwrite "
+            "(this would replace the operator's existing passwords).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    envvars_path.write_text(
+        _render_envvars_filled(
+            host_addr=host_addr,
+            withcache_pw=withcache_pw,
+            admin_pw=admin_pw,
+            session_secret=session_secret,
+            data_dir_abs=str(data_dir_abs),
+        ),
+        encoding="utf-8",
+    )
+    _step("wrote envvars", detail=str(envvars_path))
+
+    # Hand the deploy dir back to the original operator so they can
+    # edit envvars / inspect compose.yml without sudo afterwards. Only
+    # fires under `sudo bty-lab deploy ...` (root + SUDO_USER set);
+    # silent no-op when deploy was invoked as the operator already.
+    chown_info = _chown_to_sudo_user([dest, *written, envvars_path])
+    if chown_info is not None:
+        user, _uid, _gid = chown_info
+        _step("handed deploy dir to operator", detail=user)
+
+    # Root mode pulls + starts with the TFTP profile so the bty-tftp
+    # sidecar comes up alongside bty-web and withcache. Non-root mode
+    # skips it (TFTP needs root for UDP/69), so the stack still works
+    # for UEFI HTTP-Boot but not for legacy BIOS PXE clients.
+    compose_args = ["--profile", "tftp"] if is_root else []
+    _step("pulling images")
+    _compose(dest, [*compose_args, "pull"])
+    _step("starting stack")
+    _compose(dest, [*compose_args, "up", "-d"])
+
+    if is_root:
+        _step(f"installing Quadlet units to {QUADLET_SYSTEM_DIR}")
+        try:
+            installed = _install_quadlets(dest, force=args.force)
+        except FileExistsError as exc:
+            print(f"\n{prog}: {exc}", file=sys.stderr)
+            sys.exit(1)
+        for p in installed:
+            print(f"  {p}", file=sys.stderr)
+
+        _step("systemctl daemon-reload")
+        _systemctl(["daemon-reload"])
+
+        _step("starting systemd services")
+        _systemctl(["start", *_SYSTEMD_SERVICES])
+
+    print("", file=sys.stderr)
+    _step("deploy complete", detail=mode_label)
     print(
-        "      Prereq: podman compose needs a compose backend "
-        "(`pipx install podman-compose` if missing).",
+        f"  bty-web UI:  http://{host_addr}:8080/ui   (login: {admin_pw} / {admin_pw})\n"
+        f"  withcache:   http://{host_addr}:3000/     (login: {withcache_pw} / {withcache_pw})\n"
+        f"\n"
+        f"  Change the default passwords in {envvars_path} before exposing\n"
+        f"  the host past a trusted LAN.",
         file=sys.stderr,
     )
+
+    if not is_root:
+        # Loud + specific user-mode limitations so the operator knows
+        # what they didn't get and exactly how to upgrade to a system
+        # install when they're ready.
+        print(
+            "\n"
+            f"  Heads up: this was a user install (non-root). Active limitations:\n"
+            "    - No autostart on host reboot. Restart manually after a reboot:\n"
+            f"        cd {dest} && COMPOSE_ENV_FILES=envvars podman compose up -d\n"
+            "    - No TFTP sidecar (binds privileged UDP/69 -- needs root).\n"
+            "      UEFI HTTP Boot works; legacy BIOS PXE clients won't.\n"
+            "\n"
+            "  Upgrade to a system install (installs Quadlet units +\n"
+            "  systemctl autostart + TFTP sidecar) by re-running as root:\n"
+            f"    sudo {prog} {dest} --force",
+            file=sys.stderr,
+        )
+
+
+def upgrade_main(argv: list[str] | None = None, *, prog: str = "bty-lab upgrade") -> None:
+    """The ``bty-lab upgrade`` subcommand: re-emit compose + Quadlet
+    units against the current CLI's bty version, preserve ``envvars`` +
+    ``data/``, then ``podman compose pull`` + restart. Detects a
+    Quadlet-managed stack from installed units under
+    :data:`QUADLET_SYSTEM_DIR` and adds ``systemctl daemon-reload`` +
+    service restart in that case."""
+    parser = argparse.ArgumentParser(
+        prog=prog,
+        description=(
+            "Upgrade an existing bty-lab deploy in place. Regenerates "
+            "compose.yml (image tags pinned to this CLI's bty version) "
+            "and Quadlet units, preserves envvars + data/, then pulls "
+            "new images and restarts the stack. Auto-detects whether "
+            "the stack is Quadlet-managed (units under "
+            f"{QUADLET_SYSTEM_DIR}) and uses systemctl in that case."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "dest",
+        nargs="?",
+        type=Path,
+        default=DEFAULT_DEST,
+        help=f"Deploy directory. Default: {DEFAULT_DEST}",
+    )
+    parser.add_argument(
+        "--data-dir",
+        type=Path,
+        default=None,
+        help="Override BTY_HOST_DATA_DIR if envvars sets it. Default: <DEST>/data.",
+    )
+    args = parser.parse_args(argv)
+
+    version = bty.__version__
+    dest: Path = args.dest
+    data_dir: Path = args.data_dir if args.data_dir is not None else (dest / "data")
+    data_dir_abs = data_dir.resolve()
+
+    compose_path = dest / "compose.yml"
+    envvars_path = dest / "envvars"
+    if not compose_path.exists():
+        print(
+            f"{prog}: no compose.yml in {dest}; run `bty-lab deploy {dest}` first.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    if not envvars_path.exists():
+        print(
+            f"{prog}: no envvars in {dest}; an upgrade preserves envvars but it "
+            "must already exist. Did you mean `bty-lab deploy`?",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    # Detect Quadlet-managed stack by presence of any installed unit.
+    quadlet_managed = any(
+        (QUADLET_SYSTEM_DIR / u).exists()
+        for u in ("bty-web.container", "withcache.container", "bty-tftp.container")
+    )
+    is_root = os.geteuid() == 0
+
+    # Quadlet refresh + systemctl restart need root. If the stack is
+    # Quadlet-managed and we're not root, refuse cleanly -- a compose
+    # restart would race the running systemd-managed containers.
+    if quadlet_managed and not is_root:
+        print(
+            f"{prog}: {dest} is Quadlet-managed (system install) but "
+            "you're not root.\n"
+            "  Quadlet unit refresh + systemctl restart need root. "
+            f"Re-run as:\n"
+            f"    sudo {prog} {dest}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    mode_label = "system install [root]" if is_root else "user install [non-root]"
+
+    # Step total for upgrade. Counts: prereqs, prereqs-OK, install-mode,
+    # regen-files, envvars-preserved, pull, [quadlets, daemon-reload,
+    # restart-svcs]*quadlet OR [restart-stack]*compose, upgrade-complete.
+    total = 7 + (3 if quadlet_managed else 1)
+    _steps_begin(total)
+
+    _step("checking prereqs")
+    backend = _require_prereqs(with_systemd=is_root, prog=prog)
+    _step("prereqs OK", detail=backend)
+    _step("install mode", detail=mode_label)
+
+    _step(
+        f"regenerating compose files [bty {version}]",
+        detail="Quadlet-managed" if quadlet_managed else "compose-managed",
+    )
+    written = _emit_deploy_files(
+        dest,
+        data_dir_abs=data_dir_abs,
+        version=version,
+        with_systemd=is_root,
+        force=True,
+    )
+    for p in written:
+        print(f"  {p.relative_to(dest.parent) if dest.parent != Path() else p}", file=sys.stderr)
+    _step("envvars preserved", detail=str(envvars_path))
+
+    # Match the deploy-time profile choice: root pulls + restarts with
+    # the TFTP sidecar, non-root skips it (UEFI HTTP-Boot only).
+    compose_args = ["--profile", "tftp"] if is_root else []
+    _step("pulling images")
+    _compose(dest, [*compose_args, "pull"])
+
+    if quadlet_managed:
+        _step(f"refreshing Quadlet units in {QUADLET_SYSTEM_DIR}")
+        installed = _install_quadlets(dest, force=True)
+        for p in installed:
+            print(f"  {p}", file=sys.stderr)
+
+        _step("systemctl daemon-reload")
+        _systemctl(["daemon-reload"])
+
+        _step("restarting systemd services")
+        _systemctl(["restart", *_SYSTEMD_SERVICES])
+    else:
+        _step("restarting stack")
+        _compose(dest, [*compose_args, "up", "-d"])
+
+    print("", file=sys.stderr)
+    _step(f"upgrade to bty {version} complete", detail=mode_label)
+
+    if not is_root and not quadlet_managed:
+        # Same warning as deploy: surface what a non-root upgrade
+        # didn't get them, so they can promote to a system install if
+        # they want autostart / TFTP.
+        print(
+            "\n"
+            "  Heads up: this was a user install upgrade (non-root). The\n"
+            "  stack still has no autostart on host reboot, and no TFTP\n"
+            "  sidecar. Promote to a system install:\n"
+            f"    sudo bty-lab deploy {dest} --force",
+            file=sys.stderr,
+        )
 
 
 def main(argv: list[str] | None = None, *, prog: str = "bty-lab") -> None:
@@ -503,23 +1173,38 @@ def main(argv: list[str] | None = None, *, prog: str = "bty-lab") -> None:
     if argv is None:
         argv = sys.argv[1:]
 
-    # Subcommand sniff. Done before argparse so the subcommand's own
+    # Subcommand sniff. Done before argparse so each subcommand's own
     # argparse owns its ``--help`` text.
     if argv and argv[0] == "init":
         init_main(argv[1:], prog=f"{prog} init")
+        return
+    if argv and argv[0] == "deploy":
+        deploy_main(argv[1:], prog=f"{prog} deploy")
+        return
+    if argv and argv[0] == "upgrade":
+        upgrade_main(argv[1:], prog=f"{prog} upgrade")
         return
 
     parser = argparse.ArgumentParser(
         prog=prog,
         description=(
-            f"{prog}: bootstrap a bty-web + withcache container deploy.\n\n"
-            f"Subcommands:\n"
-            f"  {prog} init [DEST]   Emit a ready-to-run podman/docker compose\n"
-            f"                       deploy for bty-web + withcache (+ optional\n"
-            f"                       Quadlet units). Try:\n"
-            f"                         uvx bty-lab init ./bty-host\n"
-            f"                       Pass --help to the subcommand for its\n"
-            f"                       full flag set.\n\n"
+            f"{prog}: bootstrap and manage a bty-web + withcache container deploy.\n\n"
+            "Subcommands:\n"
+            f"  {prog} init [DEST]      Emit ready-to-run compose files (no side effects).\n"
+            f"  {prog} deploy [DEST]    Emit files + auto-fill envvars + bring up the\n"
+            "                          stack. Auto-detects install mode from euid:\n"
+            "                          as root, full system install (TFTP sidecar +\n"
+            f"                          Quadlet units in {QUADLET_SYSTEM_DIR}\n"
+            "                          + systemctl autostart); as a regular user,\n"
+            "                          compose-only (no TFTP, no autostart, with a\n"
+            "                          warning listing exactly what was skipped).\n"
+            f"  {prog} upgrade [DEST]   Re-emit compose against this CLI's bty version,\n"
+            "                          pull new images, restart the stack (preserves\n"
+            "                          envvars + data/). Same root vs user mode rules.\n\n"
+            "Pass --help to any subcommand for its full flag set.\n\n"
+            "Quick start (full system install, recommended):\n"
+            '  sudo mkdir -p /opt/bty && sudo chown "$USER:$USER" /opt/bty\n'
+            "  sudo uvx bty-lab deploy /opt/bty\n\n"
             "Other commands in this distribution:\n"
             "  bty      Interactive flash wizard (TUI). Requires the [tui] extra:\n"
             "             pipx install 'bty-lab[tui]'\n"

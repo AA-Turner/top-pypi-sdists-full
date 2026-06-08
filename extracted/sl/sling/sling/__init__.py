@@ -542,6 +542,102 @@ class SlingError(Exception):
     pass
 
 
+class _ArrowProcessReader:
+    """Wraps a pyarrow RecordBatchStreamReader bound to a subprocess.
+
+    Iteration/read_all are delegated to the underlying reader. The subprocess is
+    only waited on (and its exit code checked) once the stream is exhausted or the
+    reader is closed — never before the reader is handed back. Waiting eagerly
+    deadlocks: the lazy reader has not drained stdout yet, so the subprocess blocks
+    writing to a full pipe while process.wait() blocks on the process.
+    """
+
+    def __init__(self, reader, process, stderr_lines, on_close=None):
+        self._reader = reader
+        self._process = process
+        self._stderr_lines = stderr_lines
+        self._on_close = on_close
+        self._finalized = False
+
+    def _finalize(self, consumed=True):
+        # consumed=False means the reader is abandoned/closed before exhaustion:
+        # the subprocess may be blocked writing to an undrained pipe, so wait()
+        # would re-deadlock — terminate instead and don't raise on its exit code.
+        if self._finalized:
+            return
+        self._finalized = True
+
+        try:
+            if consumed:
+                self._process.wait()
+            else:
+                if self._process.poll() is None:
+                    self._process.terminate()
+                try:
+                    self._process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    self._process.kill()
+                    self._process.wait()
+        finally:
+            if self._on_close is not None:
+                self._on_close()
+
+        if consumed and self._process.returncode != 0:
+            stderr_output = '\n'.join(self._stderr_lines) if self._stderr_lines else "No stderr output captured"
+            raise SlingError(f"Sling command failed with return code: {self._process.returncode}\n{stderr_output}")
+
+    def read_next_batch(self):
+        try:
+            return self._reader.read_next_batch()
+        except StopIteration:
+            self._finalize()
+            raise
+
+    def __iter__(self):
+        consumed = False
+        try:
+            for batch in self._reader:
+                yield batch
+            consumed = True
+        finally:
+            # always reap, even on early break / exception
+            self._finalize(consumed=consumed)
+
+    def read_all(self):
+        table = self._reader.read_all()
+        self._finalize()
+        return table
+
+    @property
+    def schema(self):
+        return self._reader.schema
+
+    def close(self):
+        try:
+            self._reader.close()
+        finally:
+            self._finalize(consumed=False)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+
+    def __del__(self):
+        # last-resort cleanup for a dropped reader; must never raise
+        try:
+            self._finalize(consumed=False)
+        except Exception:
+            pass
+
+    def __getattr__(self, name):
+        # guard private/dunder names to avoid recursion if _reader isn't set yet
+        if name.startswith('_'):
+            raise AttributeError(name)
+        return getattr(self._reader, name)
+
+
 class Sling:
     """
     Sling class that mirrors the sling CLI functionalities.
@@ -1415,23 +1511,25 @@ class Sling:
                 # Write input data directly in the main thread
                 self._write_input_data_sync(process.stdin, self.input)
             
-            # Handle output streaming
+            # Handle output streaming.
+            #
+            # The reader is lazy: it does not drain stdout until the caller iterates
+            # it. We must therefore hand it back BEFORE waiting on the process —
+            # waiting here deadlocks, because the subprocess blocks writing to a full
+            # stdout pipe that nothing is reading yet. Defer process.wait() + exit-code
+            # check to the wrapper, which runs them once the stream is exhausted/closed.
             try:
                 reader = self._read_output_stream_arrow(process.stdout)
-                return reader
-            
-            finally:
-                # Wait for process to complete
+            except Exception:
                 process.wait()
-
-                # Restore original stdout setting
                 self.stdout = original_stdout
-                
-                if process.returncode != 0:
-                    # Use collected stderr lines for error message
-                    stderr_output = '\n'.join(stderr_lines) if stderr_lines else "No stderr output captured"
-                    raise SlingError(f"Sling command failed with return code: {process.returncode}\n{stderr_output}")
-                    
+                raise
+
+            return _ArrowProcessReader(
+                reader, process, stderr_lines,
+                on_close=lambda: setattr(self, 'stdout', original_stdout),
+            )
+
         except Exception as e:
             if isinstance(e, SlingError):
                 raise

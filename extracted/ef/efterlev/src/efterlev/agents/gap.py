@@ -70,8 +70,29 @@ __all__ = [
     "UnmappedFinding",
     "compute_unmapped_findings",
     "fill_missing_classifications",
+    "in_scope_evidence",
     "plan_batches",
 ]
+
+
+def in_scope_evidence(evidence: list[Evidence]) -> list[Evidence]:
+    """Drop `out_of_boundary` evidence before it reaches the Gap Agent.
+
+    Out-of-scope resources must NOT influence in-scope KSI determinations — a
+    3PAO would object to an excluded sandbox/staging resource dragging a verdict
+    or surfacing in the POA&M (govnotes-demo gap #27 regression, found in the
+    2026-06-07 validation: the agent cited `dev_scratch` / `staging` evidence in
+    in-boundary classifications because it was handed the full store).
+
+    Keeps `in_boundary` AND `boundary_undeclared`: when no boundary is declared,
+    every record is `boundary_undeclared`, so this is a no-op (boundary-free
+    workspaces — including every validated eval fixture — are unaffected, hence
+    zero regression risk to the maintainer-validated baselines). The boundary
+    state is computed at scan time via `compute_boundary_state`; this filter
+    only enforces it at the agent-input layer, where it was previously missing.
+    """
+    return [ev for ev in evidence if ev.boundary_state != "out_of_boundary"]
+
 
 # Substring of the message raised by `KsiClassification._positive_status_requires_evidence`
 # — used to detect the rejection from outside pydantic. Keep in sync with the

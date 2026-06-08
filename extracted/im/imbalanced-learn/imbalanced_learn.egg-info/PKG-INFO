@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: imbalanced-learn
-Version: 0.14.1
+Version: 0.14.2
 Summary: Toolbox for imbalanced dataset in machine learning
 Author-email: "G. Lemaitre" <g.lemaitre58@gmail.com>, "C. Aridas" <ichkoar@gmail.com>
 Project-URL: Homepage, https://imbalanced-learn.org/
@@ -25,7 +25,7 @@ License-File: AUTHORS.rst
 Requires-Dist: numpy<3,>=1.25.2
 Requires-Dist: scipy<2,>=1.11.4
 Requires-Dist: scikit-learn<2,>=1.4.2
-Requires-Dist: sklearn-compat<0.2,>=0.1.5
+Requires-Dist: sklearn-compat<0.2,>=0.1.6
 Requires-Dist: joblib<2,>=1.2.0
 Requires-Dist: threadpoolctl<4,>=2.0.0
 Provides-Extra: dev

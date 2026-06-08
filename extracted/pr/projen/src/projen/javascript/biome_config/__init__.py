@@ -11,22 +11,8 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ..._jsii import *
 
@@ -4123,6 +4109,7 @@ class OverrideFilesConfiguration:
         "indent_width": "indentWidth",
         "line_ending": "lineEnding",
         "line_width": "lineWidth",
+        "trailing_commas": "trailingCommas",
         "trailing_newline": "trailingNewline",
     },
 )
@@ -4141,6 +4128,7 @@ class OverrideFormatterConfiguration:
         indent_width: typing.Optional[jsii.Number] = None,
         line_ending: typing.Optional["LineEnding"] = None,
         line_width: typing.Optional[jsii.Number] = None,
+        trailing_commas: typing.Optional["JsTrailingCommas"] = None,
         trailing_newline: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
@@ -4155,6 +4143,7 @@ class OverrideFormatterConfiguration:
         :param indent_width: (experimental) The size of the indentation, 2 by default.
         :param line_ending: (experimental) The type of line ending.
         :param line_width: (experimental) What's the max width of a line. Defaults to 80. Default: 80.
+        :param trailing_commas: (experimental) Print trailing commas wherever possible in multi-line comma-separated syntactic structures.
         :param trailing_newline: (experimental) Whether to add a trailing newline at the end of the file. Setting this option to ``false`` is **highly discouraged** because it could cause many problems with other tools: - https://thoughtbot.com/blog/no-newline-at-end-of-file - https://callmeryan.medium.com/no-newline-at-end-of-file-navigating-gits-warning-for-android-developers-af14e73dd804 - https://unix.stackexchange.com/questions/345548/how-to-cat-files-together-adding-missing-newlines-at-end-of-some-files Disable the option at your own risk. Defaults to true. Default: true.
 
         :stability: experimental
@@ -4173,6 +4162,7 @@ class OverrideFormatterConfiguration:
             check_type(argname="argument indent_width", value=indent_width, expected_type=type_hints["indent_width"])
             check_type(argname="argument line_ending", value=line_ending, expected_type=type_hints["line_ending"])
             check_type(argname="argument line_width", value=line_width, expected_type=type_hints["line_width"])
+            check_type(argname="argument trailing_commas", value=trailing_commas, expected_type=type_hints["trailing_commas"])
             check_type(argname="argument trailing_newline", value=trailing_newline, expected_type=type_hints["trailing_newline"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if attribute_position is not None:
@@ -4197,6 +4187,8 @@ class OverrideFormatterConfiguration:
             self._values["line_ending"] = line_ending
         if line_width is not None:
             self._values["line_width"] = line_width
+        if trailing_commas is not None:
+            self._values["trailing_commas"] = trailing_commas
         if trailing_newline is not None:
             self._values["trailing_newline"] = trailing_newline
 
@@ -4324,6 +4316,16 @@ class OverrideFormatterConfiguration:
         '''
         result = self._values.get("line_width")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def trailing_commas(self) -> typing.Optional["JsTrailingCommas"]:
+        '''(experimental) Print trailing commas wherever possible in multi-line comma-separated syntactic structures.
+
+        :stability: experimental
+        :schema: OverrideFormatterConfiguration#trailingCommas
+        '''
+        result = self._values.get("trailing_commas")
+        return typing.cast(typing.Optional["JsTrailingCommas"], result)
 
     @builtins.property
     def trailing_newline(self) -> typing.Optional[builtins.bool]:
@@ -5757,6 +5759,7 @@ def _typecheckingstub__3602eb22e2d33d64a65f4ebb15f534391f93d1e72546965c7be88c0c1
     indent_width: typing.Optional[jsii.Number] = None,
     line_ending: typing.Optional[LineEnding] = None,
     line_width: typing.Optional[jsii.Number] = None,
+    trailing_commas: typing.Optional[JsTrailingCommas] = None,
     trailing_newline: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""

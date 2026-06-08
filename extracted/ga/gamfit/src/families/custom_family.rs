@@ -1407,10 +1407,19 @@ impl ExactOuterDerivativeOrder {
 /// the outer optimizer should see the exact second-order objective. Runtime
 /// representation choices (dense vs operator) belong below this declaration,
 /// not in a first-order downgrade.
+/// Precondition check for the family capability / operator hooks (e.g.
+/// `batched_outer_hessian_terms`, `outer_hyper_hessian_operator`).
+///
+/// These hooks operate on whatever block geometry the caller has assembled and
+/// must validate the *consistency* of the specs they are handed — never the
+/// fit-level "at least one block" precondition, which belongs to the fit entry
+/// points (`validate_blockspecs`). An empty, self-consistent argument set is a
+/// valid no-op probe of the operator path (the operator may ignore the specs
+/// entirely), so it must not panic here.
 fn assert_valid_blockspecs(specs: &[ParameterBlockSpec], context: &str) {
     assert!(
-        validate_blockspecs(specs).is_ok(),
-        "{context}: invalid parameter block specs"
+        validate_blockspec_consistency(specs).is_ok(),
+        "{context}: inconsistent parameter block specs"
     );
 }
 
@@ -7986,12 +7995,32 @@ impl From<CustomFamilyError> for String {
 }
 
 pub(crate) fn validate_blockspecs(specs: &[ParameterBlockSpec]) -> Result<Vec<usize>, String> {
+    // `fit_custom_family` is a fit entry point and genuinely requires at least
+    // one parameter block — an empty model has nothing to estimate. This is a
+    // *fit-level precondition*, distinct from the *consistency* of the block
+    // specs themselves, which is checked by `validate_blockspec_consistency`.
     if specs.is_empty() {
         return Err(CustomFamilyError::UnsupportedConfiguration {
             reason: "fit_custom_family requires at least one parameter block".to_string(),
         }
         .into());
     }
+    validate_blockspec_consistency(specs)
+}
+
+/// Validate the *internal consistency* of a slice of parameter block specs
+/// (unique names; design/offset/initial_beta/penalty dimensions agree) without
+/// imposing the fit-level "at least one block" precondition.
+///
+/// An empty slice is vacuously consistent and returns an empty penalty-count
+/// vector. The non-empty fit precondition lives in [`validate_blockspecs`];
+/// pure operator-materialization hooks (e.g. `batched_outer_hessian_terms`)
+/// must use this consistency check instead, so they can be probed with an
+/// empty, self-consistent argument set without tripping a fit precondition
+/// that does not apply to them.
+pub(crate) fn validate_blockspec_consistency(
+    specs: &[ParameterBlockSpec],
+) -> Result<Vec<usize>, String> {
     let mut seen_names = BTreeMap::<String, usize>::new();
     for (b, spec) in specs.iter().enumerate() {
         if let Some(prev) = seen_names.insert(spec.name.clone(), b) {
@@ -12836,7 +12865,37 @@ fn solve_joint_newton_step_on_spectral_range(
         ));
     }
 
+    // Two distinct thresholds on the eigenvalue magnitude:
+    //
+    //   * `cutoff = rank_tol · λ_max` is the caller's relative near-singularity
+    //     tol. Directions at or below it are "small curvature" — historically
+    //     they were *dropped* as null.
+    //   * `numerical_floor = λ_max · √p · f64::EPSILON` is the genuine numerical
+    //     rank floor: a curvature below it is indistinguishable from zero given
+    //     the matrix's own working precision.
+    //
+    // The two coincide when the spectrum has moderate dynamic range, but they
+    // diverge by many orders of magnitude at the oversmoothed-ρ operating point
+    // of a coupled location-scale inner solve (#826): there `λ_max` is dominated
+    // by the huge `S_λ` eigenvalues (`λ ~ exp(2·EXACT_JOINT_RHO_BOUND)`), so the
+    // RELATIVE `cutoff = 1e-10·λ_max` rises into the regime of the GENUINE
+    // likelihood curvature of the penalty-null (trend/mean) directions. Dropping
+    // those as null is the bug: they are identified by the data (curvature > 0),
+    // their Newton component is finite, and silently zeroing it freezes the
+    // block's stationarity residual at the unpenalized gradient while β stays at
+    // 0 — the "non-descent / frozen residual" stall the issue describes.
+    //
+    // Fix: only directions below the TRUE numerical floor are dropped as null.
+    // Directions in the band `(numerical_floor, cutoff]` carry small-but-real
+    // curvature; they are solved (range branch below) with the self-vanishing LM
+    // damping `effective_mu` that already caps the `component/λ` step on the
+    // near-singular modes the relative `cutoff` was meant to tame. Because μ ∝
+    // ‖∇L − Sβ‖∞ → 0 at the KKT fixed point, the converged β and the
+    // well-identified fast path are unchanged; far from the optimum the band is
+    // a bounded descent step instead of a discarded gradient component.
     let cutoff = rank_tol * lambda_max_abs;
+    let numerical_floor = lambda_max_abs * (p as f64).sqrt() * f64::EPSILON;
+    let null_cutoff = cutoff.min(numerical_floor);
     let mut delta = Array1::<f64>::zeros(p);
     let mut range_rhs_inf = 0.0_f64;
     let mut null_rhs_inf = 0.0_f64;
@@ -12911,7 +12970,11 @@ fn solve_joint_newton_step_on_spectral_range(
         let lambda = evals[k];
         let u_k = evecs.column(k);
         let component = u_k.iter().zip(rhs.iter()).map(|(u, r)| u * r).sum::<f64>();
-        if !lambda.is_finite() || lambda.abs() <= cutoff {
+        // Drop ONLY directions at the true numerical floor (genuine rank
+        // deficiency). Directions in the small-but-real band
+        // `(numerical_floor, cutoff]` are identified and solved below with the
+        // self-vanishing LM damping — see the threshold derivation above (#826).
+        if !lambda.is_finite() || lambda.abs() <= null_cutoff {
             nullity += 1;
             null_rhs_inf = null_rhs_inf.max(component.abs());
             continue;
@@ -13779,6 +13842,34 @@ fn constrained_stationary_certificate_decision(
     }
 }
 
+/// True iff the recent KKT-residual tail (`history`, oldest→newest) shows STEADY
+/// geometric descent: every consecutive pair strictly decreased by at least the
+/// factor `(1 - min_drop)` over the whole window.
+///
+/// This distinguishes a still-converging Newton direction from a genuine
+/// multiplier/null plateau at the certificate-refusal gate (gam#787 duchon
+/// centers≥20). The constrained-stationary refusal fires on a flat objective +
+/// `linearized_rel ≥ 0.5`, but those signals ALSO hold for a logslope block
+/// whose residual is dropping by a steady factor each cycle (objective already
+/// at its Φ-bounded floor while the KKT residual still polishes): refusing there
+/// rejects the seed a few cycles short of `residual_tol`. Requiring a STEADY
+/// drop over `≥ window` cycles (not a single lucky decrease) keeps a noisy
+/// near-plateau from being falsely extended, and the inner cycle cap still
+/// bounds the extra work.
+fn residual_in_steady_geometric_descent(history: &std::collections::VecDeque<f64>) -> bool {
+    let window = history.len();
+    if window < 3 {
+        return false;
+    }
+    let min_drop = 0.1; // each cycle must cut the residual by ≥ 10%.
+    history
+        .iter()
+        .zip(history.iter().skip(1))
+        .all(|(prev, next)| {
+            prev.is_finite() && next.is_finite() && *prev > 0.0 && *next < (1.0 - min_drop) * *prev
+        })
+}
+
 /// Inf-norm of the active-set-projected stationarity residual restricted to the
 /// **range** of the joint penalized Hessian `H_pen = H + S(λ) + ridge·I`.
 ///
@@ -14283,6 +14374,16 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
         const RESIDUAL_STALL_BLOCK_GRADIENT_FACTOR: f64 = 50.0;
         let mut best_residual_seen: f64 = f64::INFINITY;
         let mut cycles_since_residual_improved: usize = 0;
+        // Recent KKT-residual values (oldest→newest) used to detect STEADY
+        // geometric descent at the certificate-refusal gate. A still-converging
+        // Newton direction (residual dropping by a steady factor < 1 each cycle)
+        // must not be misclassified as a multiplier/null plateau and exited
+        // early (gam#787 duchon centers≥20: the logslope block converges
+        // geometrically — residual ~0.33×/cycle — but `linearized_rel ≥ 0.5`
+        // routed it into the plateau-refusal break a few cycles short of tol).
+        const RESIDUAL_DESCENT_WINDOW: usize = 3;
+        let mut residual_descent_history: std::collections::VecDeque<f64> =
+            std::collections::VecDeque::with_capacity(RESIDUAL_DESCENT_WINDOW);
         let mut tr_clamped_during_stall: bool = false;
         let mut last_joint_math: Option<JointNewtonMathDiagnostic> = None;
         // Stash for the structured cert-REFUSED report computed inside the
@@ -15328,8 +15429,27 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                 // workspace path is preserved behind
                 // `options.line_search_prefer_workspace` for A/B regression
                 // checks against the legacy numerics.
+                //
+                // EARLY-EXIT THRESHOLD MUST BOUND THE NLL, NOT THE FULL OBJECTIVE
+                // (was a stall — gam#787/#785, duchon centers≥20). The family's
+                // `bernoulli_margslope_line_search_ll_with_early_exit` short-
+                // circuits the row sweep when the accumulated `-Σ wᵢ log CDF` (the
+                // NLL ALONE — no penalty, no Jeffreys Φ) exceeds the threshold; its
+                // monotone-lower-bound proof is valid only for the NLL term. But the
+                // accept test is on the FULL augmented objective
+                // `F = -ℓ + ½βᵀSβ + Φ_trial`, accepted iff `F ≤ old_objective + slack`,
+                // i.e. iff `-ℓ_trial ≤ old_objective + slack − penalty_trial`. Passing
+                // the full `old_objective` as the NLL threshold therefore over-rejects
+                // by exactly `penalty_trial`: where the trial penalty is NEGATIVE
+                // (the Jeffreys term subtracts Φ, and `½βᵀSβ` can be net-negative
+                // under the reparam) the NLL threshold sits BELOW the true accept
+                // bound, so the early exit kills net-descent steps the trust region
+                // would accept — every backtracking attempt false-rejects, the radius
+                // collapses, and the inner exits non-converged at cycle ~2 (seed
+                // rejected pre-solver → hard raise, β pinned). Subtract the trial
+                // penalty so the threshold is the NLL the trial must beat.
                 let line_search_options =
-                    coefficient_line_search_options(options, old_objective + 1e-10);
+                    coefficient_line_search_options(options, old_objective + 1e-10 - trial_penalty);
                 let trial_ll = match joint_line_search_log_likelihood(
                     family,
                     specs,
@@ -15812,6 +15932,14 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                 Some(cached_active_sets.as_slice()),
             )?;
             prev_kkt_norm = Some(residual);
+            // Record this cycle's KKT residual for the steady-geometric-descent
+            // test at the certificate-refusal gate below (gam#787 centers≥20).
+            if residual.is_finite() {
+                residual_descent_history.push_back(residual);
+                while residual_descent_history.len() > RESIDUAL_DESCENT_WINDOW {
+                    residual_descent_history.pop_front();
+                }
+            }
 
             // Scale-aware tolerances. The objective check was already
             // relative (`inner_tol * (1 + |obj|)`), but the step and
@@ -16458,6 +16586,30 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                             converged = true;
                             break;
                         }
+                    }
+                    // Still-converging guard (gam#787 duchon centers≥20). The
+                    // certificates above all declined, so the iterate would be
+                    // refused as a multiplier/null plateau. But the
+                    // `linearized_rel ≥ 0.5` + flat-objective signature that
+                    // routed us here ALSO holds for a logslope block whose
+                    // objective is already at its Φ-bounded floor while the KKT
+                    // residual is still polishing by a STEADY geometric factor
+                    // each cycle. Refusing there rejects the seed a few cycles
+                    // short of `residual_tol` (→ outer seed-rejection → raise).
+                    // If the residual is in steady geometric descent over the
+                    // recent window, the direction is genuinely converging, not
+                    // plateaued: keep iterating (bounded by the inner cycle cap)
+                    // rather than refuse. The genuine plateau (flat/oscillating
+                    // residual above tol) fails this test and refuses as before.
+                    if residual_in_steady_geometric_descent(&residual_descent_history) {
+                        log::info!(
+                            "[PIRLS/joint-Newton convergence] cycle {:>3} | certificate declined but residual in steady geometric descent (history={:?}, residual={:.3e}, tol={:.3e}); continuing to convergence rather than refusing as a plateau",
+                            cycle,
+                            residual_descent_history,
+                            residual,
+                            residual_tol,
+                        );
+                        continue;
                     }
                     // Structured per-block + per-spectrum refusal report.
                     // The legacy one-line refusal log printed only aggregate
@@ -24183,6 +24335,29 @@ fn wire_output_channels<F: CustomFamily + ?Sized>(
     Ok(Some(wired))
 }
 
+/// True iff an outer-smoothing `Err` is a POST-AUDIT NUMERICAL pathology that
+/// the never-fail posterior-sampling rung can recover from (gam#860), rather
+/// than an ill-posed input that must keep raising.
+///
+/// All structural guards (the #531-class identifiability audit, the #789B
+/// zero-events guard, the #859 cross-fit alignment check) raise BEFORE the outer
+/// solver runs, so by the time the outer optimizer reports "no candidate seeds
+/// passed outer startup validation" (every seed rejected during exact-eval
+/// validation, e.g. the #787 kappa-driven penalty-topology dim-mismatch that
+/// surfaces as a non-finite cost) the design is structurally well-posed and a
+/// posterior mode exists to sample about. Those two signatures are the
+/// escalatable ones. Any other `Err` (a genuine solver contract violation,
+/// dimension error, etc.) keeps the hard raise.
+fn outer_startup_failure_is_escalatable(err: &EstimationError) -> bool {
+    match err {
+        EstimationError::RemlOptimizationFailed(message) => {
+            message.contains("no candidate seeds passed outer startup validation")
+                || message.contains("objective returned a non-finite cost")
+        }
+        _ => false,
+    }
+}
+
 pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 'static>(
     family: &F,
     specs: &[ParameterBlockSpec],
@@ -24861,36 +25036,70 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         })
         .unwrap_or_default();
 
-    let outer_result = outer_result.map_err(|e| {
-        format!(
-            "outer smoothing optimization failed after exhausting strategy fallbacks: {e}.{last_error_detail}"
-        )
-    })?;
-    // Geometry-driven terminal escalation. When the outer smoothing optimizer
-    // cannot certify convergence, the objective is always *proper* (Jeffreys/PC
-    // term unconditionally armed), so a non-convergence here is a geometry signal
-    // (indefinite / non-smooth LAML landscape that stalled Strong-Wolfe) — not a
-    // reason to fail. Instead we AUTO-ESCALATE to sampling the proper posterior
-    // about the best mode the inner solve reached (the never-fail bottom rung;
-    // see `hmc::sample_gaussian_mode_posterior`). The fast Arc/EFS path is
-    // untouched: this branch is only reached after the optimizer reports
-    // non-convergence, so nice landscapes never pay any sampling cost. The
-    // trigger is purely geometry/optimizer-derived (`outer_result.converged`),
-    // never a user flag — robustness is the unconditional default, so the legacy
-    // hard-`Err` dead-end is deleted.
-    let nonconvergence_escalation = !outer_result.converged;
-    if nonconvergence_escalation {
-        log::info!(
-            "[robust] outer smoothing did not certify convergence (plan={} iters={} |g|={}); \
-             AUTO-ESCALATE to never-fail posterior sampling about the best mode",
-            outer_result.plan_used,
-            outer_result.iterations,
-            outer_result.final_grad_norm_report(),
-        );
-    }
-    let outer_grad_norm = outer_result.final_grad_norm;
-    let rho_star = outer_result.rho;
-    let outer_iters = outer_result.iterations;
+    // Startup-validation escalation net (gam#860). When the outer optimizer
+    // returns `Err` because no candidate seed passed startup validation, the
+    // raise is a POST-AUDIT NUMERICAL pathology, not an ill-posed input: by the
+    // time we reach the outer solve the structural audits have already passed
+    // (the #531-class identifiability audit, the #789B zero-events guard, and
+    // the #859 cross-fit alignment all raise BEFORE the solver). So an
+    // all-seeds-rejected / non-finite-cost failure HERE is a solver numerical
+    // defect (e.g. the #787 kappa-driven penalty-topology dim-mismatch) on a
+    // structurally-well-posed design — exactly the regime the never-fail
+    // posterior-sampling rung exists for. Route it into the SAME AUTO-ESCALATE
+    // the non-convergence path below uses, seeding the sampler at the initial ρ
+    // (`rho0`, the bootstrap seed), instead of hard-raising. The carve-out is
+    // strict: this only catches the post-audit startup-validation failure, never
+    // the structural guards above (they keep raising with their own messages),
+    // and the degraded refit below STILL raises if even `rho0` produces a
+    // non-finite mode (sampling about NaN would manufacture meaningless
+    // infinite-width intervals that masquerade as a fit — see the finite-mode
+    // check after the refit). The result carries the existing escalation's
+    // degraded / sampled-not-certified flagging so confidence is honest.
+    let (rho_star, outer_grad_norm, outer_iters, nonconvergence_escalation) = match outer_result {
+        Ok(outer_result) => {
+            // Geometry-driven terminal escalation. When the outer smoothing
+            // optimizer cannot certify convergence, the objective is always
+            // *proper* (Jeffreys/PC term unconditionally armed), so a
+            // non-convergence here is a geometry signal (indefinite / non-smooth
+            // LAML landscape that stalled Strong-Wolfe) — not a reason to fail.
+            // Instead we AUTO-ESCALATE to sampling the proper posterior about the
+            // best mode the inner solve reached (the never-fail bottom rung; see
+            // `hmc::sample_gaussian_mode_posterior`). The fast Arc/EFS path is
+            // untouched: this branch is only reached after the optimizer reports
+            // non-convergence, so nice landscapes never pay any sampling cost.
+            let nonconvergence_escalation = !outer_result.converged;
+            if nonconvergence_escalation {
+                log::info!(
+                    "[robust] outer smoothing did not certify convergence (plan={} iters={} |g|={}); \
+                     AUTO-ESCALATE to never-fail posterior sampling about the best mode",
+                    outer_result.plan_used,
+                    outer_result.iterations,
+                    outer_result.final_grad_norm_report(),
+                );
+            }
+            (
+                outer_result.rho,
+                outer_result.final_grad_norm,
+                outer_result.iterations,
+                nonconvergence_escalation,
+            )
+        }
+        Err(e) if outer_startup_failure_is_escalatable(&e) => {
+            log::warn!(
+                "[robust] outer smoothing raised at startup validation on a structurally-audited \
+                 design (post-audit numerical pathology, gam#860): {e}.{last_error_detail} \
+                 AUTO-ESCALATE to never-fail posterior sampling about the initial ρ seed; the \
+                 degraded refit below still raises if even the seed produces a non-finite mode.",
+            );
+            (rho0.clone(), None, 0, true)
+        }
+        Err(e) => {
+            return Err(format!(
+                "outer smoothing optimization failed after exhausting strategy fallbacks: {e}.{last_error_detail}"
+            )
+            .into());
+        }
+    };
     screening_cap.store(0, Ordering::Relaxed);
 
     let per_block = split_labeled_log_lambdas(&rho_star, &label_layout)?;
@@ -24928,6 +25137,31 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
              sampling the proper posterior about the reached mode",
             inner.cycles,
         );
+    }
+    // Finite-mode carve-out for the escalation net (gam#860). The never-fail
+    // rung samples a Gaussian posterior ABOUT the reached mode; that is honest
+    // only when the mode is finite (a non-converged-but-finite mode just widens
+    // the sampled intervals). If the refit produced a NON-FINITE β — e.g. the
+    // degraded startup-validation fallback (`rho0`) still lands on garbage —
+    // sampling about NaN would manufacture meaningless infinite-width intervals
+    // that masquerade as a fit, so KEEP the hard raise with a clear message
+    // rather than escalate. (On the certified path β is finite by construction,
+    // so this guard only ever fires on a genuinely broken escalation seed.)
+    if nonconvergence_escalation
+        && inner
+            .block_states
+            .iter()
+            .any(|state| state.beta.iter().any(|value| !value.is_finite()))
+    {
+        return Err(CustomFamilyError::Optimization {
+            context: "fit_custom_family escalation finite-mode check",
+            reason: format!(
+                "outer smoothing escalation cannot sample a posterior: the refit mode is \
+                 non-finite (β contains NaN/inf), so there is no valid mode to sample about; \
+                 this is an ill-posed problem, not a recoverable numerical non-convergence.{}",
+                last_error_detail
+            ),
+        });
     }
     let final_warm_start = constrained_warm_start_from_inner(&rho_star, &inner);
     store_persistent_custom_family_warm_start(
@@ -25114,6 +25348,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
     let precomputed_edf = reduced_blockwise_edf(geometry.as_ref(), &canonical, &lambdas_final);
     let (covariance_conditional, geometry) =
         lift_fit_geometry_to_raw(&canonical, covariance_conditional, geometry);
+    let outer_converged = !nonconvergence_escalation;
     blockwise_fit_from_parts(
         BlockwiseFitResultParts {
             block_states: block_states_raw,
@@ -25126,7 +25361,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
             outer_iterations: outer_iters,
             outer_gradient_norm: outer_grad_norm,
             inner_cycles: inner.cycles,
-            outer_converged: outer_result.converged,
+            outer_converged,
             geometry,
             precomputed_edf,
         },
@@ -25556,6 +25791,36 @@ mod tests {
         assert!(
             options.inner_max_cycles > 300,
             "startup validation must not reject still-descending exact joint solves at the old cap"
+        );
+    }
+
+    #[test]
+    fn startup_validation_failure_routes_to_never_fail_escalation() {
+        use crate::estimate::EstimationError;
+
+        let all_seeds_rejected = EstimationError::RemlOptimizationFailed(
+            "no candidate seeds passed outer startup validation (custom family):\n  generated=4"
+                .to_string(),
+        );
+        assert!(
+            outer_startup_failure_is_escalatable(&all_seeds_rejected),
+            "post-audit all-seeds startup rejection must reach the never-fail escalation net"
+        );
+
+        let non_finite_eval = EstimationError::RemlOptimizationFailed(
+            "outer eval failed: objective returned a non-finite cost".to_string(),
+        );
+        assert!(
+            outer_startup_failure_is_escalatable(&non_finite_eval),
+            "non-finite startup evals are the same post-audit numerical pathology"
+        );
+
+        let structural_input = EstimationError::InvalidInput(
+            "zero-event survival marginal-slope input remains structurally invalid".to_string(),
+        );
+        assert!(
+            !outer_startup_failure_is_escalatable(&structural_input),
+            "structural input errors must not be converted into sampled fits"
         );
     }
 
@@ -31602,6 +31867,40 @@ mod tests {
     }
 
     #[test]
+    fn residual_steady_geometric_descent_distinguishes_converging_from_plateau() {
+        use std::collections::VecDeque;
+        // gam#787 duchon centers≥20: the logslope block converged geometrically
+        // (~0.33×/cycle) but `linearized_rel ≥ 0.5` + flat objective routed it
+        // into the plateau-refusal break a few cycles short of tol. The
+        // steady-descent guard must keep it iterating.
+        let converging: VecDeque<f64> = [6.985e-4, 2.388e-4, 7.987e-5, 2.597e-5]
+            .into_iter()
+            .collect();
+        assert!(
+            residual_in_steady_geometric_descent(&converging),
+            "a steadily ~0.33x/cycle descending residual must be recognized as converging"
+        );
+        // A genuine multiplier/null plateau: residual flat/oscillating above tol.
+        let plateau: VecDeque<f64> = [2.066e0, 2.063e0, 2.066e0, 2.063e0].into_iter().collect();
+        assert!(
+            !residual_in_steady_geometric_descent(&plateau),
+            "a flat/oscillating residual plateau must NOT be treated as converging"
+        );
+        // A single lucky drop inside an otherwise flat window must not qualify.
+        let noisy: VecDeque<f64> = [2.0e0, 2.0e0, 1.0e-3].into_iter().collect();
+        assert!(
+            !residual_in_steady_geometric_descent(&noisy),
+            "a single-cycle drop must not be mistaken for steady descent"
+        );
+        // Too few cycles to judge steadiness.
+        let short: VecDeque<f64> = [1.0e-3, 3.0e-4].into_iter().collect();
+        assert!(
+            !residual_in_steady_geometric_descent(&short),
+            "fewer than the window of cycles must not assert steady descent"
+        );
+    }
+
+    #[test]
     fn constrained_stationary_certificate_refuses_only_when_step_is_exhausted() {
         let math = JointNewtonMathDiagnostic {
             old_kkt_inf: 2.708e4,
@@ -31617,6 +31916,9 @@ mod tests {
         let step_tol = 1.0e-6;
         let residual_tol = 2.707e-2;
 
+        // Inside the certification band (`residual <= 4x residual_tol`, the
+        // documented gam#797 conditioning/round-off allowance) a fully
+        // stationary iterate is accepted.
         assert_eq!(
             constrained_stationary_certificate_decision(
                 &math,
@@ -31636,7 +31938,25 @@ mod tests {
                 objective_tol,
                 step_tol,
                 None,
+                // Still within 4x: a residual a hair above 1x must remain
+                // accepted, because the active-projected residual genuinely
+                // floors just above the scale-relative tolerance.
                 residual_tol + 1.0e-12,
+                residual_tol,
+            ),
+            ConstrainedStationaryCertificate::Accept,
+        );
+        // Beyond the 4x band the residual is too large to be a mere
+        // conditioning floor: the certificate must refuse the phantom
+        // multiplier rather than fake convergence.
+        assert_eq!(
+            constrained_stationary_certificate_decision(
+                &math,
+                objective_change,
+                objective_tol,
+                step_tol,
+                None,
+                4.0 * residual_tol + 1.0e-6,
                 residual_tol,
             ),
             ConstrainedStationaryCertificate::RefusePhantomMultiplier,

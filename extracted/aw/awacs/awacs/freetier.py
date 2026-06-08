@@ -24,6 +24,10 @@ class ARN(BaseARN):
         )
 
 
+GetAccountActivity = Action("GetAccountActivity")
+GetAccountPlanState = Action("GetAccountPlanState")
 GetFreeTierAlertPreference = Action("GetFreeTierAlertPreference")
 GetFreeTierUsage = Action("GetFreeTierUsage")
+ListAccountActivities = Action("ListAccountActivities")
 PutFreeTierAlertPreference = Action("PutFreeTierAlertPreference")
+UpgradeAccountPlan = Action("UpgradeAccountPlan")

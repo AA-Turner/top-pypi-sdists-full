@@ -113,7 +113,7 @@ class Lsp(
             return LspResult(action="diagnostics", results=diags[:50], count=len(diags))
         except FileNotFoundError:
             return LspResult(action="diagnostics", results=[], count=0,
-                           error=f"pyright not found. Install: pip install pyright")
+                           error="pyright not found. Install: pip install pyright")
         except Exception as e:
             return LspResult(action="diagnostics", results=[], count=0, error=str(e))
 

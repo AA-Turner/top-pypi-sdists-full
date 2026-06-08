@@ -21,3 +21,4 @@ class StepDef:
     guard: dict | None = None
     gateway: dict | None = None
     knowledge: dict | None = None
+    use_subagent: bool | None = None  # None=auto-detect, True=spawn, False=action

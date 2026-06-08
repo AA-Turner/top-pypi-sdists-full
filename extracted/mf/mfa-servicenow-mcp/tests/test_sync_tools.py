@@ -1573,3 +1573,92 @@ class TestOriginProvenance:
         result = _scan_download_root(self._cfg("https://dev.service-now.com"), MagicMock(), root)
         assert "Instance mismatch" in result.get("error", "")
         assert "prod.service-now.com" in result["error"]
+
+
+# ---------------------------------------------------------------------------
+# Hardened baseline-drift conflict gate — cross-user overwrite protection.
+# Baseline for "my-widget" in download_root is 2025-01-10 10:00:00; me = admin.
+# ---------------------------------------------------------------------------
+class TestPushConflictGate:
+    def _widget_path(self, download_root):
+        return download_root / "global" / "sp_widget" / "my-widget" / "script.js"
+
+    def _remote(self, *, updated_by, updated_on="2025-01-12 09:00:00", script="var x = 0;"):
+        return {
+            "sys_id": "wid-1",
+            "name": "my-widget",
+            "script": script,  # differs from local "var x = 1;"
+            "sys_updated_on": updated_on,  # newer than baseline → drift
+            "sys_updated_by": updated_by,
+        }
+
+    @patch("servicenow_mcp.tools.sync_tools.update_portal_component")
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_cross_user_drift_blocks_without_confirm(
+        self, mock_fetch, mock_update, mock_config, mock_auth, download_root
+    ):
+        mock_fetch.return_value = self._remote(updated_by="coworker@corp.com")
+        result = update_remote_from_local(
+            mock_config,
+            mock_auth,
+            PushLocalComponentParams(path=str(self._widget_path(download_root))),
+        )
+        assert result["error"] == "CONFLICT_OTHER_USER"
+        assert "coworker@corp.com" in result["message"]
+        assert result["remote_updated_by"] == "coworker@corp.com"
+        mock_update.assert_not_called()
+
+    @patch("servicenow_mcp.tools.sync_tools._write_sync_meta")
+    @patch("servicenow_mcp.tools.sync_tools.update_portal_component")
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_force_overrides_cross_user(
+        self, mock_fetch, mock_update, mock_write_meta, mock_config, mock_auth, download_root
+    ):
+        # Verification gate, not a hard block: once you've seen who/when (the
+        # un-forced call surfaces it), force=true overrides a coworker's edit too.
+        mock_fetch.side_effect = [
+            self._remote(updated_by="coworker@corp.com"),
+            {"sys_id": "wid-1", "sys_updated_on": "2025-01-12 10:00:00"},  # post-update meta
+        ]
+        mock_update.return_value = {"message": "Update successful", "sys_id": "wid-1"}
+        result = update_remote_from_local(
+            mock_config,
+            mock_auth,
+            PushLocalComponentParams(path=str(self._widget_path(download_root)), force=True),
+        )
+        assert result.get("success") is True
+        mock_update.assert_called_once()
+
+    @patch("servicenow_mcp.tools.sync_tools.update_portal_component")
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_self_drift_uses_force_gate_not_cross_user(
+        self, mock_fetch, mock_update, mock_config, mock_auth, download_root
+    ):
+        # Remote edited by ME (admin) after download → lighter CONFLICT, force-able.
+        mock_fetch.return_value = self._remote(updated_by="admin")
+        result = update_remote_from_local(
+            mock_config,
+            mock_auth,
+            PushLocalComponentParams(path=str(self._widget_path(download_root))),
+        )
+        assert result["error"] == "CONFLICT"  # not CONFLICT_OTHER_USER
+        mock_update.assert_not_called()
+
+    @patch("servicenow_mcp.tools.sync_tools._write_sync_meta")
+    @patch("servicenow_mcp.tools.sync_tools.update_portal_component")
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_self_drift_force_proceeds(
+        self, mock_fetch, mock_update, mock_write_meta, mock_config, mock_auth, download_root
+    ):
+        mock_fetch.side_effect = [
+            self._remote(updated_by="admin"),
+            {"sys_id": "wid-1", "sys_updated_on": "2025-01-12 10:00:00"},
+        ]
+        mock_update.return_value = {"message": "Update successful", "sys_id": "wid-1"}
+        result = update_remote_from_local(
+            mock_config,
+            mock_auth,
+            PushLocalComponentParams(path=str(self._widget_path(download_root)), force=True),
+        )
+        assert result.get("success") is True
+        mock_update.assert_called_once()

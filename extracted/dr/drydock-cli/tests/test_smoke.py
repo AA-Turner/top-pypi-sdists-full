@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 
 # ============================================================================
 # 1. Package imports don't crash
@@ -18,27 +16,19 @@ import pytest
 class TestImports:
     def test_core_imports(self):
         from drydock.core.agent_loop import AgentLoop
-        from drydock.core.types import LLMMessage, MessageList, Role
+        from drydock.core.types import LLMMessage, MessageList
         assert AgentLoop
         assert LLMMessage
         assert MessageList
 
     def test_config_imports(self):
-        from drydock.core.config import DrydockConfig, ModelConfig, ProviderConfig
+        from drydock.core.config import DrydockConfig
         assert DrydockConfig
 
     def test_tool_imports(self):
-        from drydock.core.tools.builtins.bash import Bash
-        from drydock.core.tools.builtins.grep import Grep
-        from drydock.core.tools.builtins.search_replace import SearchReplace
         from drydock.core.tools.builtins.glob_tool import Glob
-        from drydock.core.tools.builtins.notebook_edit import NotebookEdit
-        from drydock.core.tools.builtins._task_manager import TaskCreate
         from drydock.core.tools.builtins.lsp import Lsp
-        from drydock.core.tools.builtins.cron import CronCreate
         from drydock.core.tools.builtins.tool_search import ToolSearch
-        from drydock.core.tools.builtins.worktree import EnterWorktree
-        from drydock.core.tools.builtins.invoke_skill import InvokeSkill
         assert Glob and Lsp and ToolSearch
 
     def test_hook_imports(self):

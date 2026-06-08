@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiobotocore-otel
-Version: 1.6.0
+Version: 1.7.0
 Summary: OpenTelemetry aiobotocore instrumentation
 Project-URL: Homepage, https://github.com/kjagiello/aiobotocore-otel
 Project-URL: Source, https://github.com/kjagiello/aiobotocore-otel
@@ -19,7 +19,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
-Requires-Dist: aiobotocore<3.7.0,>=2.24.0
+Requires-Dist: aiobotocore<3.8.0,>=2.24.0
 Requires-Dist: opentelemetry-api~=1.0
 Requires-Dist: opentelemetry-instrumentation>=0.40b0
 Requires-Dist: opentelemetry-propagator-aws-xray~=1.0

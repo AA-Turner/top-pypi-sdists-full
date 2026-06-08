@@ -102,7 +102,7 @@ def handle_mark_step(args: list[str], fs: Filesystem, tm: TaskManager,
                     return {
                         "task_id": task_id, "step_id": step_id, "status": "blocked",
                         "error": f"guard check failed for {step_id}",
-                        "guard": {"passed": guard_result.passed, "errors": guard_result.errors,
+                        "guard": {"passed": guard_result.passed, "failures": guard_result.failures,
                                   "warnings": guard_result.warnings},
                     }
         except Exception:

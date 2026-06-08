@@ -14,7 +14,6 @@ Expected runtime: 30-60 minutes total
 
 from __future__ import annotations
 
-import asyncio
 import os
 from pathlib import Path
 
@@ -38,6 +37,7 @@ def _vllm_ok():
         return httpx.get("http://localhost:8000/v1/models", timeout=3).status_code == 200
     except Exception:
         return False
+
 
 pytestmark = pytest.mark.skipif(not _vllm_ok(), reason="vLLM not running")
 
@@ -135,7 +135,7 @@ async def test_build_cli_from_prd(tmp_path):
     agent = _agent(tmp_path, max_turns=25)
     result = await _run_and_evaluate(agent, "review the PRD and build the project", tmp_path)
 
-    print(f"\n=== BUILD CLI RESULTS ===")
+    print("\n=== BUILD CLI RESULTS ===")
     print(f"Events: {result['events']}, Tools: {result['tool_counts']}")
     print(f"Files: {result['py_files']} Python, {result['all_files']} total")
     print(f"Errors: {result['errors']}, CB: {result['circuit_breaker_fires']}, Stops: {result['force_stops']}")
@@ -166,7 +166,7 @@ async def test_build_simple_script(tmp_path):
         tmp_path,
     )
 
-    print(f"\n=== SIMPLE SCRIPT RESULTS ===")
+    print("\n=== SIMPLE SCRIPT RESULTS ===")
     print(f"Events: {result['events']}, Tools: {result['tool_counts']}")
     print(f"Files: {result['py_files']} Python")
 
@@ -200,14 +200,14 @@ async def test_add_feature_to_existing(tmp_path):
         tmp_path,
     )
 
-    print(f"\n=== ADD FEATURE RESULTS ===")
+    print("\n=== ADD FEATURE RESULTS ===")
     print(f"Events: {result['events']}, Tools: {result['tool_counts']}")
 
     assert result["ordering_crashes"] == 0
     assert result["force_stops"] == 0
     # Should have used search_replace or write_file
     edit_tools = result["tool_counts"].get("search_replace", 0) + result["tool_counts"].get("write_file", 0)
-    assert edit_tools >= 1, f"No edits made (search_replace={result['tool_counts'].get('search_replace',0)}, write_file={result['tool_counts'].get('write_file',0)})"
+    assert edit_tools >= 1, f"No edits made (search_replace={result['tool_counts'].get('search_replace', 0)}, write_file={result['tool_counts'].get('write_file', 0)})"
 
     content = (tmp_path / "app.py").read_text()
     assert "goodbye" in content.lower() or "bye" in content.lower(), "Feature not added"
@@ -233,7 +233,7 @@ async def test_fix_bug(tmp_path):
         tmp_path,
     )
 
-    print(f"\n=== FIX BUG RESULTS ===")
+    print("\n=== FIX BUG RESULTS ===")
     print(f"Events: {result['events']}, Tools: {result['tool_counts']}")
 
     assert result["ordering_crashes"] == 0
@@ -261,7 +261,7 @@ async def test_build_project_with_tests(tmp_path):
         tmp_path,
     )
 
-    print(f"\n=== PROJECT WITH TESTS RESULTS ===")
+    print("\n=== PROJECT WITH TESTS RESULTS ===")
     print(f"Events: {result['events']}, Tools: {result['tool_counts']}")
     print(f"Files: {result['py_files']} Python, {result['all_files']} total")
     print(f"Syntax errors: {result['syntax_errors']}")

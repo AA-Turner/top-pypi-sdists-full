@@ -172,10 +172,11 @@ def cmd_create(args: list[str]) -> dict:
     if control_mode:
         tm.update(task.id, control_mode=control_mode)
 
-    # Apply biz_tag if provided
+    # Apply biz_tag: explicit --biz takes priority, otherwise use inferred value
     parsed_biz = parsed.biz
-    if parsed_biz:
-        tm.update(task.id, biz_tag=parsed_biz)
+    biz_tag = parsed_biz or ai.get("biz_tag")
+    if biz_tag:
+        tm.update(task.id, biz_tag=biz_tag)
 
     mode_confirmation_pending = not user_specified_mode
     recommended_mode = task_mode or _default_mode
@@ -285,6 +286,7 @@ def cmd_create(args: list[str]) -> dict:
             ),
         },
         "scaffold": scaffold_info,
+        "biz_tag": biz_tag,
     }
 
     if scaffold_info:

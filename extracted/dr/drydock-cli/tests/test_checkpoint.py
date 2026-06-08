@@ -2,12 +2,10 @@
 from __future__ import annotations
 
 import subprocess
-from pathlib import Path
 
 import pytest
 
 from drydock.core.checkpoint import (
-    Checkpoint,
     CheckpointError,
     CheckpointStore,
     _parse_shortstat,

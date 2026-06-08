@@ -187,6 +187,7 @@ def _build_forwarder_attrs(
     configuration: HttpConfiguration,
     environments: dict[str, ForwarderEnvironment],
     description: str | None,
+    forward_smplkit_events: bool,
     filter: dict[str, Any] | None,
     transform: Any,
     transform_type: TransformType | None,
@@ -206,6 +207,12 @@ def _build_forwarder_attrs(
         attrs.environments = _environments_to_gen(environments)
     if description is not None:
         attrs.description = description
+    # Additive opt-in; only put it on the wire when enabled so the default
+    # (false) stays implicit and existing callers' bodies are unchanged.
+    # The generated model defaults this field to ``False`` (not ``UNSET``),
+    # so it would otherwise always be serialized — pin it back to ``UNSET``
+    # to keep the body minimal when the caller hasn't opted in.
+    attrs.forward_smplkit_events = True if forward_smplkit_events else UNSET
     if filter is not None:
         attrs.filter_ = _GenForwarderFilter.from_dict(filter)
     if transform is not None:
@@ -229,6 +236,7 @@ class ForwardersClient:
         configuration: HttpConfiguration,
         environments: dict[str, ForwarderEnvironment | dict[str, Any]] | None = None,
         description: str | None = None,
+        forward_smplkit_events: bool = False,
         filter: dict[str, Any] | None = None,
         transform: Any = None,
         transform_type: TransformType | None = None,
@@ -257,6 +265,13 @@ class ForwardersClient:
                 override). Omit to create a forwarder that delivers
                 nowhere until enabled per environment.
             description: Optional free-text description.
+            forward_smplkit_events: When ``True``, this forwarder also
+                receives platform change events that smplkit records about
+                your own resources (flag, configuration, and similar
+                changes), delivered through every environment this forwarder
+                is enabled in. Independent of the per-environment
+                ``environments`` settings. Defaults to ``False`` — platform
+                change events are not forwarded unless you opt in.
             filter: Optional JSON Logic filter; events that don't match
                 are recorded as ``filtered_out`` deliveries.
             transform: Optional template applied to the event payload
@@ -287,6 +302,7 @@ class ForwardersClient:
             configuration=configuration,
             environments=_normalize_environments(environments),
             description=description,
+            forward_smplkit_events=forward_smplkit_events,
             filter=filter,
             transform=transform,
             transform_type=transform_type,
@@ -341,6 +357,7 @@ class ForwardersClient:
             configuration=forwarder.configuration,
             environments=forwarder.environments,
             description=forwarder.description,
+            forward_smplkit_events=forwarder.forward_smplkit_events,
             filter=forwarder.filter,
             transform=forwarder.transform,
             transform_type=forwarder.transform_type,
@@ -369,6 +386,7 @@ class ForwardersClient:
             configuration=forwarder.configuration,
             environments=forwarder.environments,
             description=forwarder.description,
+            forward_smplkit_events=forwarder.forward_smplkit_events,
             filter=forwarder.filter,
             transform=forwarder.transform,
             transform_type=forwarder.transform_type,

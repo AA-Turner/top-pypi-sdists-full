@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: midea-local
-Version: 6.6.1
+Version: 6.7.2
 Summary: Control your Midea M-Smart appliances via local area network
 Home-page: https://github.com/rokam/midea-local
 Author: rokam
@@ -9,13 +9,12 @@ License: MIT
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiofiles
 Requires-Dist: aiohttp
 Requires-Dist: colorlog
-Requires-Dist: commonregex
 Requires-Dist: defusedxml
 Requires-Dist: deprecated
 Requires-Dist: ifaddr

@@ -1,4 +1,11 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+
+# /// script
+# dependencies = [
+#   "click",
+#   "jinja2",
+# ]
+# ///
 
 
 import os
@@ -33,13 +40,16 @@ def generate_project(path: Path, build_backend: BuildBackend) -> None:
     sys.path.insert(0, "")
     match build_backend:
         case "meson":
-            from test.test_projects.meson import new_meson_project as new_project  # noqa: PLC0415
+            from test.test_projects.meson import new_meson_project  # noqa: PLC0415
+
+            project = new_meson_project()
         case "setuptools":
-            from test.test_projects.setuptools import new_c_project as new_project  # noqa: PLC0415
+            from test.test_projects.setuptools import new_c_project  # noqa: PLC0415
+
+            project = new_c_project()
         case _:
             typing.assert_never(build_backend)
 
-    project = new_project()
     project.generate(path)
 
 
@@ -114,11 +124,6 @@ services = [
         name="gitlab",
         dst_config_path=".gitlab-ci.yml",
         badge_md="[![Gitlab](https://gitlab.com/joerick/cibuildwheel/badges/{branch}/pipeline.svg)](https://gitlab.com/joerick/cibuildwheel/-/commits/{branch})",
-    ),
-    CIService(
-        name="cirrus-ci",
-        dst_config_path=".cirrus.yml",
-        badge_md="[![Cirrus CI](https://api.cirrus-ci.com/github/pypa/cibuildwheel.svg?branch={branch})](https://cirrus-ci.com/github/pypa/cibuildwheel/{branch})",
     ),
 ]
 

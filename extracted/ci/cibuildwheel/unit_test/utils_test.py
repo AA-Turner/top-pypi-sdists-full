@@ -1,3 +1,4 @@
+import re
 import textwrap
 from pathlib import Path, PurePath
 from unittest.mock import Mock, call
@@ -6,7 +7,7 @@ import pytest
 
 from cibuildwheel import errors
 from cibuildwheel.ci import fix_ansi_codes_for_github_actions
-from cibuildwheel.util.file import copy_test_sources
+from cibuildwheel.util.file import copy_test_sources, remove_on_error
 from cibuildwheel.util.helpers import (
     FlexibleVersion,
     format_safe,
@@ -15,7 +16,7 @@ from cibuildwheel.util.helpers import (
     unwrap,
     unwrap_preserving_paragraphs,
 )
-from cibuildwheel.util.packaging import find_compatible_wheel
+from cibuildwheel.util.packaging import find_compatible_wheel, is_abi3_wheel
 
 
 def test_format_safe() -> None:
@@ -212,6 +213,28 @@ def test_parse_key_value_string() -> None:
     }
 
 
+def test_parse_key_value_string_unknown_name() -> None:
+    # Unknown fields are not allowed by default.
+    with pytest.raises(ValueError, match=r"Failed to parse 'key: value'. Unknown field name 'key'"):
+        parse_key_value_string("key: value")
+
+    # Unknown fields can be enabled by passing "*".
+    assert parse_key_value_string(
+        "key: value",
+        kw_arg_names=["*"],
+    ) == {
+        "key": ["value"],
+    }
+
+    assert parse_key_value_string(
+        "key1: value1a value1b; key2: value2",
+        kw_arg_names=["*"],
+    ) == {
+        "key1": ["value1a", "value1b"],
+        "key2": ["value2"],
+    }
+
+
 def test_flexible_version_comparisons() -> None:
     assert FlexibleVersion("2.0") == FlexibleVersion("2")
     assert FlexibleVersion("2.0") < FlexibleVersion("2.1")
@@ -373,6 +396,58 @@ def test_copy_test_sources_alternate_copy_into(sample_project: Path) -> None:
     )
 
 
+def test_remove_on_error_keeps_paths(tmp_path: Path) -> None:
+    file_path = tmp_path / "file.txt"
+    file_path.write_text("data")
+    dir_path = tmp_path / "dir"
+    dir_path.mkdir()
+
+    for path in (file_path, dir_path):
+        with remove_on_error(path):
+            pass
+
+    assert file_path.exists()
+    assert dir_path.exists()
+
+
+def test_remove_on_error_file_or_tree(tmp_path: Path) -> None:
+    file_path = tmp_path / "file.txt"
+    file_path.write_text("data")
+    dir_path = tmp_path / "dir"
+    nested_file_path = dir_path / "nested.txt"
+    nested_file_path.parent.mkdir()
+    nested_file_path.write_text("data")
+
+    for path in (file_path, dir_path):
+        with pytest.raises(RuntimeError), remove_on_error(path):
+            raise RuntimeError
+
+    assert not file_path.exists()
+    assert not dir_path.exists()
+
+
+def test_remove_on_error_cleanup_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = tmp_path / "cleanup-failure"
+    path.mkdir()
+    original_exception = RuntimeError("original error")
+    cleanup_exception = PermissionError("cleanup error")
+
+    def _raise_cleanup_error(_: Path) -> None:
+        raise cleanup_exception
+
+    monkeypatch.setattr("cibuildwheel.util.file.shutil.rmtree", _raise_cleanup_error)
+    with (
+        pytest.raises(
+            BaseExceptionGroup,
+            match=re.escape(f"Failed to remove {path}. Please remove it manually."),
+        ) as caught_exception,
+        remove_on_error(path),
+    ):
+        raise original_exception
+
+    assert caught_exception.value.exceptions == (original_exception, cleanup_exception)
+
+
 def test_unwrap() -> None:
     assert (
         unwrap("""
@@ -401,3 +476,23 @@ def test_unwrap_preserving_paragraphs() -> None:
         """)
         == "paragraph one\n\nparagraph two"
     )
+
+
+class TestIsAbi3Wheel:
+    def test_abi3_wheel(self) -> None:
+        assert is_abi3_wheel("foo-1.0-cp310-abi3-manylinux_2_28_x86_64.whl") is True
+
+    def test_abi3_wheel_macos(self) -> None:
+        assert is_abi3_wheel("foo-1.0-cp311-abi3-macosx_11_0_arm64.whl") is True
+
+    def test_abi3_wheel_windows(self) -> None:
+        assert is_abi3_wheel("foo-1.0-cp310-abi3-win_amd64.whl") is True
+
+    def test_cpython_wheel(self) -> None:
+        assert is_abi3_wheel("foo-1.0-cp310-cp310-manylinux_2_28_x86_64.whl") is False
+
+    def test_none_any_wheel(self) -> None:
+        assert is_abi3_wheel("foo-1.0-py3-none-any.whl") is False
+
+    def test_none_platform_wheel(self) -> None:
+        assert is_abi3_wheel("foo-1.0-cp310-none-win_amd64.whl") is False

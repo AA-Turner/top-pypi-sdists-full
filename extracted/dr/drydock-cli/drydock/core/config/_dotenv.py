@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Union
 
 _LINE_RE = re.compile(
     r"""
@@ -55,7 +54,7 @@ def _parse_value(raw: str | None) -> str | None:
     return raw
 
 
-def dotenv_values(path: Union[str, Path]) -> dict[str, str | None]:
+def dotenv_values(path: str | Path) -> dict[str, str | None]:
     """Read a .env file and return a dict of key→value pairs."""
     path = Path(path)
     result: dict[str, str | None] = {}
@@ -74,7 +73,7 @@ def dotenv_values(path: Union[str, Path]) -> dict[str, str | None]:
 
 
 def set_key(
-    path: Union[str, Path],
+    path: str | Path,
     key: str,
     value: str,
     quote_mode: str = "auto",
@@ -119,7 +118,7 @@ def set_key(
 
 
 def unset_key(
-    path: Union[str, Path],
+    path: str | Path,
     key: str,
 ) -> None:
     """Remove KEY=... line from a .env file. No-op if file or key is absent."""

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: a3s-code
-Version: 3.4.0
+Version: 3.5.0
 Summary: A3S Code Python SDK — pure-Python bootstrap that fetches the native wheel from GitHub Releases
 Author: A3S Lab
 License: MIT

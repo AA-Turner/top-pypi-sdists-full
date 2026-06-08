@@ -26,6 +26,7 @@ class ARN(BaseARN):
 
 GetPreferences = Action("GetPreferences")
 GetRecommendation = Action("GetRecommendation")
+ListEfficiencyMetrics = Action("ListEfficiencyMetrics")
 ListEnrollmentStatuses = Action("ListEnrollmentStatuses")
 ListRecommendationSummaries = Action("ListRecommendationSummaries")
 ListRecommendations = Action("ListRecommendations")

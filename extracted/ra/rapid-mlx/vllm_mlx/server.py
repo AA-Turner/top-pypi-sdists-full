@@ -361,6 +361,23 @@ async def lifespan(app: FastAPI):
         await _engine.stop()
         logger.info("Engine stopped")
 
+    # Round 19 codex review (PR #532): Drive the telemetry session_end
+    # path here too. ``atexit`` does NOT fire on SIGTERM (systemd /
+    # Docker / Kubernetes graceful stop), so an opted-in user running
+    # ``rapid-mlx serve`` under a service manager would otherwise lose
+    # the lifecycle end event. uvicorn drives this lifespan shutdown
+    # on SIGTERM, so the hook lands. The latch inside the telemetry
+    # emit module ensures the event is sent exactly once even if
+    # atexit fires later as well.
+    try:
+        from vllm_mlx.telemetry import emit as _telemetry_emit
+
+        _telemetry_emit.fire_session_end_hook()
+    except Exception:
+        # Telemetry must never crash the shutdown path. Logged at
+        # debug only -- this is best-effort cleanup.
+        logger.debug("telemetry session_end hook failed (non-fatal)")
+
 
 app = FastAPI(
     title="Rapid-MLX API",
@@ -511,6 +528,8 @@ def load_model(
     no_hybrid: bool = False,
     force_spec_decode: bool = False,
     no_spec_decode: bool = False,
+    force_openai_harmony_streaming: bool = False,
+    no_openai_harmony_streaming: bool = False,
 ):
     """
     Load a model (auto-detects MLLM vs LLM).
@@ -626,6 +645,12 @@ def load_model(
             "force_spec_decode and no_spec_decode are mutually exclusive — "
             "pick at most one to override auto-detection."
         )
+    if force_openai_harmony_streaming and no_openai_harmony_streaming:
+        raise ValueError(
+            "force_openai_harmony_streaming and no_openai_harmony_streaming "
+            "are mutually exclusive — pick at most one to override the "
+            "HarmonyStreamingRouter auto-upgrade gate (#516)."
+        )
     if force_mllm:
         logger.info("Force MLLM mode enabled via --mllm flag")
     if force_text:
@@ -646,6 +671,8 @@ def load_model(
         no_hybrid=no_hybrid,
         force_spec_decode=force_spec_decode,
         no_spec_decode=no_spec_decode,
+        force_openai_harmony_streaming=force_openai_harmony_streaming,
+        no_openai_harmony_streaming=no_openai_harmony_streaming,
     )
     logger.info(f"Model loaded: {model_name}")
 
@@ -946,6 +973,21 @@ Examples:
         default=False,
         help="Force-disable speculative-decode eligibility (suffix/MTP/DFlash). Mutually exclusive with --force-spec-decode.",
     )
+    # #516 — HarmonyStreamingRouter auto-upgrade escape hatches (SOP G11).
+    parser.add_argument(
+        "--force-openai-harmony-streaming",
+        dest="force_openai_harmony_streaming",
+        action="store_true",
+        default=False,
+        help="Force-on HarmonyStreamingRouter (bypass compat gate). Debug only. Mutually exclusive with --no-openai-harmony-streaming.",
+    )
+    parser.add_argument(
+        "--no-openai-harmony-streaming",
+        dest="no_openai_harmony_streaming",
+        action="store_true",
+        default=False,
+        help="Force-off HarmonyStreamingRouter upgrade; use legacy state machine. Mutually exclusive with --force-openai-harmony-streaming.",
+    )
     parser.add_argument(
         "--continuous-batching",
         action="store_true",
@@ -1221,6 +1263,13 @@ Examples:
         args, "no_spec_decode", False
     ):
         parser.error("--force-spec-decode and --no-spec-decode are mutually exclusive")
+    if getattr(args, "force_openai_harmony_streaming", False) and getattr(
+        args, "no_openai_harmony_streaming", False
+    ):
+        parser.error(
+            "--force-openai-harmony-streaming and "
+            "--no-openai-harmony-streaming are mutually exclusive"
+        )
     load_model(
         args.model,
         scheduler_config=scheduler_config,
@@ -1235,6 +1284,10 @@ Examples:
         no_hybrid=getattr(args, "no_hybrid", False),
         force_spec_decode=getattr(args, "force_spec_decode", False),
         no_spec_decode=getattr(args, "no_spec_decode", False),
+        force_openai_harmony_streaming=getattr(
+            args, "force_openai_harmony_streaming", False
+        ),
+        no_openai_harmony_streaming=getattr(args, "no_openai_harmony_streaming", False),
     )
 
     # Start server

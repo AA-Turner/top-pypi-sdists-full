@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import Any
 
@@ -76,7 +76,7 @@ def record_finding(code: str, session_id: str) -> dict[str, Any]:
     if session_id and session_id not in entry["sessions"]:
         entry["sessions"].append(session_id)
     entry["total_fires"] = int(entry["total_fires"]) + 1
-    entry["last_seen"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    entry["last_seen"] = datetime.now(UTC).isoformat(timespec="seconds")
     save_state(state)
     return entry
 
@@ -118,7 +118,7 @@ def record_proposal_fingerprint(code: str, fingerprint: str, status: str) -> Non
     props.setdefault(code, []).append({
         "fingerprint": fingerprint,
         "status": status,
-        "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "ts": datetime.now(UTC).isoformat(timespec="seconds"),
     })
     save_state(state)
 

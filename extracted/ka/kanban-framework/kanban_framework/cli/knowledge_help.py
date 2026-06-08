@@ -20,6 +20,7 @@ def handle_help(km: KnowledgeManager, args: list[str]) -> dict:
             "list": "按 domain/category/status 过滤列表",
             "get": "获取单条完整详情 K001",
             "add": "添加知识条目",
+            "edit": "编辑知识条目（--title/--content/--domain/--tags 等）",
             "import": "从 JSON 文件批量导入",
             "learn": "从复盘文档提取知识",
             "teach": "创建步骤化教程条目",
@@ -90,6 +91,15 @@ def _help_for_command(sub: str) -> dict:
             "examples": [
                 'kanban knowledge add --domain python --category 踩坑 --title "GIL 死锁" --content "多线程注意..." --severity high --ttl 90',
                 'kanban knowledge add --title "SQL 优化" --content "EXPLAIN 分析..." --tags sql,performance',
+            ],
+        },
+        "edit": {
+            "usage": "kanban knowledge edit <id> [--title T] [--content C] [--domain D] [--category C] [--severity S] [--status S] [--tags T1,T2] [--code-example E] [--biz B]",
+            "description": "编辑已有知识条目。只更新指定的字段，id 和 created_at 不变",
+            "examples": [
+                'kanban knowledge edit K001 --title "新标题" --content "新内容"',
+                'kanban knowledge edit K002 --domain arch --severity high',
+                'kanban knowledge edit K003 --tags "sql,performance,index"',
             ],
         },
         "import": {

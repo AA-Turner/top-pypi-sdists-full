@@ -11,8 +11,6 @@ the files in the directory. The model can then correct the path instead of loopi
 """
 from __future__ import annotations
 
-import os
-from pathlib import Path
 
 import pytest
 

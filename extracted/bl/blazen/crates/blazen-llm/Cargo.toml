@@ -85,7 +85,10 @@ audio-tts-spark    = ["audio-tts", "blazen-audio-tts/spark-tts"]
 audio-stt          = ["dep:blazen-audio", "dep:blazen-audio-stt"]
 audio-stt-whispercpp = ["audio-stt", "blazen-audio-stt/whispercpp"]
 audio-stt-candle   = ["audio-stt", "blazen-audio-stt/candle"]
-audio-stt-whisper-streaming = ["audio-stt", "blazen-audio-stt/whisper-streaming"]
+# Defaults the VAD runtime to `vad-ort` (ONNX Runtime) for the native
+# targets this is built for; musl/wasm consumers wanting the streaming
+# backend would instead select `blazen-audio-stt/vad-tract` (pure-Rust).
+audio-stt-whisper-streaming = ["audio-stt", "blazen-audio-stt/whisper-streaming", "blazen-audio-stt/vad-ort"]
 audio-stt-faster-whisper = ["audio-stt", "blazen-audio-stt/faster-whisper"]
 
 # Music / SFX bridge surface (DynMusicProvider impl of AudioGeneration).
@@ -185,7 +188,7 @@ blazen-llm-llamacpp-server = { workspace = true, optional = true }
 blazen-llm-tgi = { workspace = true, optional = true }
 blazen-llm-lmstudio = { workspace = true, optional = true }
 blazen-audio-vc = { workspace = true, optional = true }
-blazen-3d = { version = "0.6.5", path = "../blazen-3d", optional = true }
+blazen-3d = { version = "0.6.6", path = "../blazen-3d", optional = true }
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png"], optional = true }
 candle-core = { workspace = true, optional = true }
 blazen-embed-fastembed = { workspace = true, optional = true }

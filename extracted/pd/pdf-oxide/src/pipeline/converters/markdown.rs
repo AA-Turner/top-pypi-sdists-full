@@ -3192,6 +3192,7 @@ mod tests {
                 is_monospace: false,
                 color: Color::black(),
                 mcid: None,
+                mcid_scope: None,
                 sequence: 0,
                 offset_semantic: false,
                 split_boundary_before: false,
@@ -3202,6 +3203,7 @@ mod tests {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             },
             0,
         )
@@ -3226,6 +3228,7 @@ mod tests {
                 is_monospace: false,
                 color: Color::black(),
                 mcid: None,
+                mcid_scope: None,
                 sequence: 0,
                 offset_semantic: false,
                 split_boundary_before: false,
@@ -3236,6 +3239,7 @@ mod tests {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             },
             0,
         )
@@ -3750,6 +3754,7 @@ mod tests {
                 is_monospace: false,
                 color: Color::black(),
                 mcid: None,
+                mcid_scope: None,
                 sequence: 0,
                 offset_semantic: false,
                 split_boundary_before: false,
@@ -3760,6 +3765,7 @@ mod tests {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             },
             order,
         );
@@ -4518,6 +4524,7 @@ mod tests {
             is_monospace: false,
             color: Color::black(),
             mcid: None,
+            mcid_scope: None,
             sequence: 0,
             offset_semantic: false,
             split_boundary_before: false,
@@ -4528,6 +4535,7 @@ mod tests {
             char_widths: vec![],
             heading_level: None,
             rotation_degrees: 0.0,
+            wmode: 0,
         };
         let mut cell = TableCell::new("Critical".to_string(), false);
         cell.spans.push(bold_span.clone());

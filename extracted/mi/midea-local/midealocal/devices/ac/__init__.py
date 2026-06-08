@@ -72,6 +72,12 @@ class DeviceAttributes(StrEnum):
     current_operating_time = "current_operating_time"
     wind_lr_angle = "wind_lr_angle"
     wind_ud_angle = "wind_ud_angle"
+    out_silent = "out_silent"
+    anion = "anion"
+    sound = "sound"
+    self_clean = "self_clean"
+    pmv = "pmv"
+    error_code = "error_code"
 
 
 class MideaACDevice(MideaDevice):
@@ -169,6 +175,12 @@ class MideaACDevice(MideaDevice):
                 DeviceAttributes.fresh_air_2: None,
                 DeviceAttributes.wind_lr_angle: None,
                 DeviceAttributes.wind_ud_angle: None,
+                DeviceAttributes.out_silent: False,
+                DeviceAttributes.anion: False,
+                DeviceAttributes.sound: True,
+                DeviceAttributes.self_clean: False,
+                DeviceAttributes.pmv: None,
+                DeviceAttributes.error_code: 0,
             },
         )
         self._fresh_air_version: DeviceAttributes | None = None
@@ -304,6 +316,7 @@ class MideaACDevice(MideaDevice):
         message.temp_fahrenheit = self._attributes[DeviceAttributes.temp_fahrenheit]
         message.frost_protect = self._attributes[DeviceAttributes.frost_protect]
         message.comfort_mode = self._attributes[DeviceAttributes.comfort_mode]
+        message.anion = self._attributes[DeviceAttributes.anion]
         return message
 
     def make_newprotocol_message_set(
@@ -439,6 +452,9 @@ class MideaACDevice(MideaDevice):
                 DeviceAttributes.fresh_air_mode,
                 DeviceAttributes.wind_lr_angle,
                 DeviceAttributes.wind_ud_angle,
+                DeviceAttributes.out_silent,
+                DeviceAttributes.sound,
+                DeviceAttributes.self_clean,
             ]:
                 message = self.make_newprotocol_message_set(attr=attr, value=value)
             elif attr in self._attributes:

@@ -7,6 +7,29 @@
  * session markers before the tab hook runs.
  */
 
+
+// Cleanup can SIGTERM the process immediately after spawn; remember early
+// signals and replay them to the hook-specific cleanup handler once it exists.
+let __abxEarlyShutdownSignal = null;
+function __abxRememberEarlyShutdown(signal) {
+  if (__abxEarlyShutdownSignal === null) {
+    __abxEarlyShutdownSignal = signal;
+  }
+}
+function __abxInstallShutdownHandler(handler) {
+  process.removeAllListeners("SIGTERM");
+  process.removeAllListeners("SIGINT");
+  process.on("SIGTERM", () => handler("SIGTERM"));
+  process.on("SIGINT", () => handler("SIGINT"));
+  if (__abxEarlyShutdownSignal !== null) {
+    const signal = __abxEarlyShutdownSignal;
+    __abxEarlyShutdownSignal = null;
+    setImmediate(() => handler(signal));
+  }
+}
+process.on("SIGTERM", () => __abxRememberEarlyShutdown("SIGTERM"));
+process.on("SIGINT", () => __abxRememberEarlyShutdown("SIGINT"));
+
 const fs = require("fs");
 const path = require("path");
 const {
@@ -20,6 +43,7 @@ const {
   waitForChromeSessionState,
   ensureChromeSession,
   closeBrowserInChromeSession,
+  getChromeSessionOptionsFromConfig,
   resolvePuppeteerModule,
 } = require("./chrome_utils.js");
 const puppeteer = resolvePuppeteerModule();
@@ -28,21 +52,11 @@ const PLUGIN_DIR = path.basename(__dirname);
 const hookConfig = loadConfig();
 const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || ".").trim());
 const CRAWL_DIR = path.resolve((hookConfig.CRAWL_DIR || ".").trim());
-const CHROME_USER_DATA_DIR = hookConfig.CHROME_USER_DATA_DIR
-  ? path.resolve(String(hookConfig.CHROME_USER_DATA_DIR).trim())
-  : null;
-const CHROME_ARGS = Array.isArray(hookConfig.CHROME_ARGS)
-  ? hookConfig.CHROME_ARGS
-  : [];
-const CHROME_ARGS_EXTRA = Array.isArray(hookConfig.CHROME_ARGS_EXTRA)
-  ? hookConfig.CHROME_ARGS_EXTRA
-  : [];
-const CHROME_LAUNCH_ATTEMPTS = Number(hookConfig.CHROME_LAUNCH_ATTEMPTS) || 3;
-const CHROME_TIMEOUT_MS = (Number(hookConfig.CHROME_TIMEOUT) || 60) * 1000;
-const CHROME_CDP_URL = String(hookConfig.CHROME_CDP_URL || "").trim();
-const CHROME_IS_LOCAL = CHROME_CDP_URL
-  ? false
-  : hookConfig.CHROME_IS_LOCAL !== false;
+const chromeSessionOptions = getChromeSessionOptionsFromConfig(hookConfig);
+const CHROME_USER_DATA_DIR = chromeSessionOptions.CHROME_USER_DATA_DIR;
+const CHROME_TIMEOUT_MS = chromeSessionOptions.timeoutMs;
+const CHROME_CDP_URL = chromeSessionOptions.CHROME_CDP_URL;
+const CHROME_IS_LOCAL = chromeSessionOptions.CHROME_IS_LOCAL;
 const CHROME_KEEPALIVE = hookConfig.CHROME_KEEPALIVE === true;
 const CHROME_ISOLATION =
   String(hookConfig.CHROME_ISOLATION || "crawl").toLowerCase() === "snapshot"
@@ -91,8 +105,7 @@ async function cleanup() {
   return cleanupPromise;
 }
 
-process.on("SIGTERM", cleanup);
-process.on("SIGINT", cleanup);
+__abxInstallShutdownHandler(cleanup);
 
 async function main() {
   let releaseLock = null;
@@ -130,13 +143,9 @@ async function main() {
       const relaunched = await ensureChromeSession({
         outputDir: crawlChromeDir,
         puppeteer,
+        ...chromeSessionOptions,
         CHROME_IS_LOCAL: chromeProcessIsLocal,
         CHROME_CDP_URL: cdpUrlOverride,
-        timeoutMs: CHROME_TIMEOUT_MS,
-        CHROME_USER_DATA_DIR,
-        CHROME_ARGS,
-        CHROME_ARGS_EXTRA,
-        CHROME_LAUNCH_ATTEMPTS,
       });
       console.error(
         `[+] relaunched crawl-scoped ${CHROME_BINARY} pid=${
@@ -159,13 +168,9 @@ async function main() {
     const session = await ensureChromeSession({
       outputDir: OUTPUT_DIR,
       puppeteer,
+      ...chromeSessionOptions,
       CHROME_IS_LOCAL: chromeProcessIsLocal,
       CHROME_CDP_URL: cdpUrlOverride,
-      timeoutMs: CHROME_TIMEOUT_MS,
-      CHROME_USER_DATA_DIR,
-      CHROME_ARGS,
-      CHROME_ARGS_EXTRA,
-      CHROME_LAUNCH_ATTEMPTS,
     });
 
     chromePid = session.pid;

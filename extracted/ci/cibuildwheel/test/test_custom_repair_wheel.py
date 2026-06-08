@@ -1,13 +1,18 @@
+from __future__ import annotations
+
 import subprocess
 import textwrap
 from contextlib import nullcontext as does_not_raise
-from pathlib import Path
 
 import pytest
 
 from test import test_projects
 
 from . import utils
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from pathlib import Path
 
 basic_project = test_projects.new_c_project()
 basic_project.files["repair.py"] = """
@@ -18,10 +23,10 @@ from pathlib import Path
 wheel = Path(sys.argv[1])
 dest_dir = Path(sys.argv[2])
 platform = wheel.stem.split("-")[-1]
-if platform.startswith("pyodide"):
-    # for the sake of this test, munge the pyodide platforms into one, it's
+if platform.startswith("pyemscripten"):
+    # for the sake of this test, munge the pyemscripten platforms into one, it's
     # not valid, but it does activate the uniqueness check
-    platform = "pyodide"
+    platform = "pyemscripten"
 
 name = f"spam-0.1.0-py2-none-{platform}.whl"
 dest = dest_dir / name

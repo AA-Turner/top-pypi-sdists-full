@@ -24,7 +24,6 @@ import logging
 import os
 from typing import Any
 
-from drydock.core.llm.grammar import pydantic_to_gbnf
 
 logger = logging.getLogger(__name__)
 

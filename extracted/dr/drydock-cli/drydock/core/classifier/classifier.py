@@ -20,10 +20,10 @@ from __future__ import annotations
 
 from collections import Counter
 from pathlib import Path
-from typing import Iterable
+from collections.abc import Iterable
 
 from drydock.core.classifier.rules import RULES, ClassificationRule
-from drydock.core.classifier.signal import Bucket, FailureSignal
+from drydock.core.classifier.signal import FailureSignal
 
 
 class Classifier:

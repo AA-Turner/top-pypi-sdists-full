@@ -330,6 +330,7 @@ mod tests {
                     b: 0.0,
                 },
                 mcid: None,
+                mcid_scope: None,
                 sequence: 0,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -340,6 +341,7 @@ mod tests {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             },
             TextSpan {
                 artifact_type: None,
@@ -356,6 +358,7 @@ mod tests {
                     b: 0.0,
                 },
                 mcid: None,
+                mcid_scope: None,
                 sequence: 1,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -366,6 +369,7 @@ mod tests {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             },
         ];
 

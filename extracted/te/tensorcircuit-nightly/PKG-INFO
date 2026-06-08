@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tensorcircuit-nightly
-Version: 1.6.0.dev20260606
+Version: 1.6.0.dev20260607
 Summary: High performance unified quantum computing framework for the NISQ era
 Author-email: TensorCircuit-NG Authors <znfesnpbh@gmail.com>
 License-Expression: Apache-2.0
@@ -88,7 +88,7 @@ For beginners, please refer to [quantum computing lectures with TC-NG](https://g
 
 ### AI-Native R&D (Recommended)
 
-To write TC-NG scripts and applications efficiently with AI coding agents (e.g., Claude Code, Cursor, Antigravity), we strongly recommend **working directly within the local tensorcircuit-ng repository** rather than an empty folder.
+To write TC-NG scripts and applications efficiently with AI coding agents (e.g., Claude Code, Cursor, CodeX), we strongly recommend **working directly within the local tensorcircuit-ng repository** rather than an empty folder.
 
 1.  **Rich Context:** The 100+ scripts in `examples/` and extensive test cases in `tests/` provide essential references that significantly reduce AI hallucinations.
 2.  **Built-in Rules:** We provide a dedicated [AGENTS.md](/AGENTS.md) file. It serves as the "handbook" (i.e. `CLAUDE.md`) for AI agents, defining coding standards and best practices to ensure the generated code is idiomatic.
@@ -138,7 +138,7 @@ print(c.sample(allow_state=True, batch=1024, format="count_dict_bin"))
 ```python
 tc.set_backend("jax")
 tc.set_dtype("complex128")
-tc.set_contractor("greedy")
+tc.set_contractor("cotengra")
 ```
 
 - Automatic differentiation with jit:
@@ -239,7 +239,7 @@ pip install tensorcircuit-nightly
 - HPC native, distributed simulation enabled, multiple devices/hosts support
 
 - Efficiency
-  - Time: 10 to 10^6+ times acceleration compared to TensorFlow Quantum, Pennylane or Qiskit
+  - Time: 10 to 10^6+ times acceleration compared to TensorFlow Quantum, Pennylane, CuQuantum, TorchQuantum or Qiskit
 
   - Space: 600+ qubits 1D VQE workflow (converged energy inaccuracy: < 1%)
 

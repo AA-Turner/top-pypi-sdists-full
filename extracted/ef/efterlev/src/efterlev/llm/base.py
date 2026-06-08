@@ -94,6 +94,7 @@ class StubLLMClient:
     last_system: str = ""
     last_messages: list[LLMMessage] = field(default_factory=list)
     last_prompt_hash: str = ""
+    last_max_tokens: int = 0
     call_count: int = 0
 
     def complete(
@@ -120,6 +121,7 @@ class StubLLMClient:
 
         self.last_system = system
         self.last_messages = list(messages)
+        self.last_max_tokens = max_tokens
         self.call_count += 1
         joined = system + "\n".join(m.content for m in messages)
         prompt_hash = hashlib.sha256(joined.encode("utf-8")).hexdigest()

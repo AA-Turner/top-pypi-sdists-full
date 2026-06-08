@@ -47,7 +47,10 @@ def _gemma4_available_names() -> set[str]:
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("forbidden", [
-    "task",            # v2.9.97: re-disabled after looping pattern
+    # task removed from forbidden list in v2.9.113 — re-enabled after
+    # experiment_REPASS_v2.9.110 showed extract-elf PASS->FAIL because
+    # task delegation was lost. Loop guards (v2.9.93 preflight + v2.9.98
+    # union grammar off) make it safer this time.
     "task_create",
     "task_update",
     "task_list",
@@ -81,6 +84,9 @@ def test_gemma4_does_not_expose_loop_prone_tool(forbidden):
     "bash",
     "grep",
     "glob",
+    # task re-enabled in v2.9.113 — needed for the explore-subagent
+    # delegation pattern that won extract-elf in v2.9.95.
+    "task",
 ])
 def test_gemma4_keeps_core_tools(required):
     names = _gemma4_available_names()

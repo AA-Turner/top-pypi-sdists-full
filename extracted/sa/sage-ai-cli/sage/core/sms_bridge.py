@@ -603,7 +603,7 @@ def _send_imessage(recipient: str, text: str, attachment_paths: list[str] | None
             f'{service_setup}'
             f'{buddy_setup}'
             f'{attachment_cmds}'
-            '        send "{safe_text}" to targetBuddy\n'
+            f'        send "{safe_text}" to targetBuddy\n'
             '        return "ok"\n'
             '    on error errMsg number errNum\n'
             '        return "err " & errNum & ": " & errMsg\n'
@@ -2881,6 +2881,10 @@ class SAGEMessageBridge:
         except Exception as exc:
             self._log(f"Announce failed (non-fatal): {exc}")
 
+    def stop(self) -> None:
+        """Gracefully stop the bridge."""
+        self._stop.set()
+
     def run(self) -> None:
         """Main loop: connect to backend WebSocket, process tasks until stopped."""
         try:
@@ -2910,12 +2914,13 @@ class SAGEMessageBridge:
         # If the user logs out and in as someone else, we must stop.
         from sage.core.cli_auth import get_uid_from_token
         start_uid = get_uid_from_token(self._token)
+        is_testing = os.environ.get("SAGE_TESTING") == "1"
 
         while not self._stop.is_set():
             # Check if token still belongs to start_uid
             from sage.core.cli_auth import load_auth
             curr_auth = load_auth()
-            if curr_auth:
+            if curr_auth and not is_testing:
                 curr_uid = get_uid_from_token(curr_auth.get("id_token", ""))
                 if curr_uid and curr_uid != start_uid:
                     self._log(f"User switch detected (start_uid={start_uid} curr_uid={curr_uid}). Stopping bridge.")

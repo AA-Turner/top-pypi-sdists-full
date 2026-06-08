@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ouroboros-ai
-Version: 0.40.1
+Version: 0.41.0
 Summary: Specification-first workflow engine for AI coding agents. Works with Claude Code and Codex CLI.
 Author-email: Q00 <jqyu.lee@gmail.com>
 License-File: LICENSE
@@ -12,28 +12,21 @@ Requires-Dist: jsonschema<5.0.0,>=4.21.0
 Requires-Dist: prompt-toolkit<4.0.0,>=3.0.0
 Requires-Dist: pydantic<3.0.0,>=2.0.0
 Requires-Dist: pyyaml<7.0.0,>=6.0.0
-Requires-Dist: questionary<3.0.0,>=2.0.0
 Requires-Dist: rich<15.0.0,>=13.0.0
 Requires-Dist: sqlalchemy[asyncio]<3.0.0,>=2.0.0
 Requires-Dist: structlog<26.0.0,>=24.0.0
-Requires-Dist: typer<1.0.0,>=0.12.0
+Requires-Dist: typer<0.26.0,>=0.12.0
 Provides-Extra: all
 Requires-Dist: anthropic<1.0.0,>=0.52.0; extra == 'all'
 Requires-Dist: claude-agent-sdk<1.0.0,>=0.1.0; extra == 'all'
 Requires-Dist: litellm<=1.82.6,>=1.80.0; extra == 'all'
 Requires-Dist: mcp<2.0.0,>=1.26.0; extra == 'all'
-Requires-Dist: pandas<3.0.0,>=2.2.0; extra == 'all'
-Requires-Dist: plotly<7.0.0,>=5.24.0; extra == 'all'
-Requires-Dist: streamlit<2.0.0,>=1.40.0; extra == 'all'
 Requires-Dist: textual<9.0.0,>=1.0.0; extra == 'all'
 Provides-Extra: claude
 Requires-Dist: anthropic<1.0.0,>=0.52.0; extra == 'claude'
 Requires-Dist: claude-agent-sdk<1.0.0,>=0.1.0; extra == 'claude'
 Provides-Extra: copilot
 Provides-Extra: dashboard
-Requires-Dist: pandas<3.0.0,>=2.2.0; extra == 'dashboard'
-Requires-Dist: plotly<7.0.0,>=5.24.0; extra == 'dashboard'
-Requires-Dist: streamlit<2.0.0,>=1.40.0; extra == 'dashboard'
 Provides-Extra: litellm
 Requires-Dist: litellm<=1.82.6,>=1.80.0; extra == 'litellm'
 Provides-Extra: mcp
@@ -80,7 +73,7 @@ Description-Content-Type: text/markdown
   <a href="#from-wonder-to-ontology">Philosophy</a>
 </p>
 
-**Turn a vague idea into a verified, working codebase -- across Claude Code, Codex CLI, OpenCode, and Hermes.**
+**Turn a vague idea into a verified, working codebase -- across Claude Code, Codex CLI, OpenCode, Hermes, Gemini, Kiro, Copilot, and Pi.**
 
 Ouroboros is an **Agent OS** for AI coding: a local-first runtime layer that
 turns non-deterministic agent work into a replayable, observable, policy-bound
@@ -156,7 +149,7 @@ curl -fsSL https://raw.githubusercontent.com/Q00/ouroboros/main/scripts/install.
 > ooo interview "I want to build a task management CLI"
 ```
 
-> Works with Claude Code, Codex CLI, GitHub Copilot CLI, OpenCode, Hermes, Gemini, and Kiro CLI. The installer detects Claude Code, Codex CLI, and Hermes CLI automatically and registers the MCP server. For OpenCode, Kiro, or GitHub Copilot CLI, run `ouroboros setup --runtime <opencode|kiro|copilot>` after installation. The Copilot CLI runtime live-discovers its model catalog via the GitHub Copilot models API and lets you pick a default during setup.
+> Works with Claude Code, Codex CLI, GitHub Copilot CLI, OpenCode, Hermes, Gemini, Kiro CLI, and Pi CLI. The installer detects Claude Code, Codex CLI, and Hermes CLI automatically and registers the MCP server where the host supports it. For OpenCode, Kiro, GitHub Copilot CLI, Gemini CLI, or Pi CLI, run `ouroboros setup --runtime <opencode|kiro|copilot|gemini|pi>` after installation. The Copilot CLI runtime live-discovers its model catalog via the GitHub Copilot models API and lets you pick a default during setup.
 
 <details>
 <summary><strong>Kiro CLI quick start</strong></summary>
@@ -207,13 +200,13 @@ pip install ouroboros-ai[claude]        # + Claude Code deps
 pip install ouroboros-ai[litellm]       # + LiteLLM multi-provider
 pip install ouroboros-ai[mcp]           # + MCP server/client support
 pip install ouroboros-ai[tui]           # + Textual terminal UI
-pip install ouroboros-ai[all]           # everything (claude + litellm + mcp + tui + dashboard)
+pip install ouroboros-ai[all]           # everything (claude + litellm + mcp + tui)
 ouroboros setup                         # configure runtime
 ```
 
-Legacy compatibility: `ouroboros-ai[dashboard]` is still accepted as a compatibility alias while extras migrate.
+Legacy compatibility: `ouroboros-ai[dashboard]` is still accepted as a compatibility alias/no-op; it does not install dashboard runtime payload. `ouroboros-ai[all]` includes that no-op alias only for compatibility.
 
-See runtime guides: [Claude Code](./docs/runtime-guides/claude-code.md) · [Codex CLI](./docs/runtime-guides/codex.md) · [Hermes](./docs/runtime-guides/hermes.md) · [OpenCode](./docs/runtime-guides/opencode.md) · [Kiro CLI](./docs/runtime-guides/kiro.md) · [Gemini CLI](./docs/runtime-guides/gemini.md) · [GitHub Copilot CLI](./docs/runtime-guides/copilot.md)
+See runtime guides: [Claude Code](./docs/runtime-guides/claude-code.md) · [Codex CLI](./docs/runtime-guides/codex.md) · [Hermes](./docs/runtime-guides/hermes.md) · [OpenCode](./docs/runtime-guides/opencode.md) · [Kiro CLI](./docs/runtime-guides/kiro.md) · [Gemini CLI](./docs/runtime-guides/gemini.md) · [GitHub Copilot CLI](./docs/runtime-guides/copilot.md) · [Pi JSON mode](https://pi.dev/docs/latest/json)
 
 </details>
 
@@ -379,7 +372,7 @@ src/ouroboros/
 +-- resilience/     4-pattern stagnation detection, 5 lateral personas
 +-- observability/  3-component drift measurement, auto-retrospective
 +-- persistence/    Event sourcing (SQLAlchemy + aiosqlite), checkpoints
-+-- orchestrator/   Runtime abstraction layer (Claude Code, Codex CLI, OpenCode, Hermes)
++-- orchestrator/   Runtime abstraction layer (Claude Code, Codex CLI, OpenCode, Hermes, Gemini, Kiro, Copilot, Pi)
 +-- core/           Types, errors, seed, ontology, security
 +-- providers/      LiteLLM adapter (100+ models)
 +-- mcp/            MCP client/server integration
@@ -395,7 +388,7 @@ src/ouroboros/
 - **Evolution** -- Up to 30 generations, convergence at ontology similarity >= 0.95
 - **Stagnation** -- Detects spinning, oscillation, no-drift, and diminishing returns patterns
 - **Agent OS runtime** -- Replayable execution contract across capability discovery, policy, directives, event journal, and agent processes
-- **Runtime backends** -- Pluggable abstraction layer (`orchestrator.runtime_backend` config) with first-class support for Claude Code, Codex CLI, OpenCode, and Hermes; same workflow spec, different execution engines
+- **Runtime backends** -- Pluggable abstraction layer (`orchestrator.runtime_backend` config) with first-class support for Claude Code, Codex CLI, OpenCode, Hermes, Gemini, Goose, Kiro, Copilot, and Pi; same workflow spec, different execution engines
 
 See [Architecture](./docs/architecture.md) for the full design document.
 

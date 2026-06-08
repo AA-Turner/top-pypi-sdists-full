@@ -9,8 +9,6 @@ from __future__ import annotations
 from drydock.core.classifier import (
     Bucket,
     Classifier,
-    FailureSignal,
-    classify_lines,
     classify_text,
 )
 

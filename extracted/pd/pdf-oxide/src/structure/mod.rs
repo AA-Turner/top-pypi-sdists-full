@@ -39,6 +39,7 @@
 //! }
 //! ```
 
+pub mod article_threads;
 pub mod converter;
 mod parser;
 pub mod spatial_table_detector;
@@ -46,6 +47,7 @@ pub mod table_extractor;
 pub mod traversal;
 pub mod types;
 
+pub use article_threads::{parse_article_threads, ArticleThread, Bead};
 pub use converter::StructureConverter;
 pub use parser::parse_structure_tree;
 pub use spatial_table_detector::{
@@ -59,4 +61,7 @@ pub use traversal::{
     extract_reading_order, traverse_structure_tree, traverse_structure_tree_all_pages, ListRole,
     OrderedContent,
 };
-pub use types::{MarkInfo, ParentTree, StructChild, StructElem, StructTreeRoot, StructType};
+pub use types::{
+    ActualTextIndex, MarkInfo, McidScope, ParentTree, StructChild, StructElem, StructTreeRoot,
+    StructType,
+};

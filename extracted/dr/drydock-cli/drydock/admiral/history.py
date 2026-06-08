@@ -6,7 +6,7 @@ no JSON, no rotation logic, just append-only timestamped lines.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from pathlib import Path
 
 
@@ -17,7 +17,7 @@ def _log_path() -> Path:
 
 
 def append(event: str, detail: str) -> None:
-    ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    ts = datetime.now(UTC).isoformat(timespec="seconds")
     line = f"{ts} | {event} | {detail}\n"
     with _log_path().open("a") as f:
         f.write(line)

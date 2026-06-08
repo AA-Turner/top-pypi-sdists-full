@@ -81,9 +81,15 @@ def _main_callback(
     try:
         from dotenv import load_dotenv
 
+        # Most-specific first, all override=False: the first load to set a var
+        # wins, so project-local files take precedence over the global fallback,
+        # while real shell env vars (already in os.environ) still beat them all.
+        # Ordering the global ~/.pydantic-deep/.env LAST stops a stale global
+        # OPENROUTER_API_KEY from shadowing the project's working key in ./.env —
+        # which otherwise surfaces as a 401 "User not found".
+        load_dotenv(Path.cwd() / ".pydantic-deep" / ".env", override=False)
+        load_dotenv(Path.cwd() / ".env", override=False)
         load_dotenv(Path.home() / ".pydantic-deep" / ".env", override=False)
-        load_dotenv(Path.cwd() / ".pydantic-deep" / ".env", override=True)
-        load_dotenv()
     except ImportError:  # pragma: no cover
         pass
 

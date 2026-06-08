@@ -17,7 +17,7 @@ from __future__ import annotations
 import pytest
 
 from tests.mock.utils import collect_result
-from drydock.core.tools.base import BaseToolState, ToolPermission
+from drydock.core.tools.base import BaseToolState
 from drydock.core.tools.builtins.bash import Bash, BashArgs, BashToolConfig
 
 
@@ -63,7 +63,7 @@ async def test_heredoc_write_confirmation_append(bash, tmp_path):
 async def test_heredoc_write_no_confirmation_when_file_missing(bash, tmp_path):
     """If file doesn't exist after write (e.g. permission error), no false positive."""
     # A path in a non-existent dir — the cat will fail with rc != 0
-    cmd = f"cat <<EOF > /nonexistent_dir_xyz/plugin.py\nprint('x')\nEOF"
+    cmd = "cat <<EOF > /nonexistent_dir_xyz/plugin.py\nprint('x')\nEOF"
     result = await collect_result(bash.run(BashArgs(command=cmd)))
     assert "File written" not in result.stdout
 

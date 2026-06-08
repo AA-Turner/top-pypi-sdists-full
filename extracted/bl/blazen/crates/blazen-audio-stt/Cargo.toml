@@ -59,6 +59,23 @@ whisper-rs = { version = "0.16", default-features = false, optional = true }
 [target.'cfg(not(any(all(target_arch = "x86_64", target_os = "macos"), all(target_arch = "x86_64", target_os = "windows"), target_env = "musl")))'.dependencies]
 ct2rs = { version = "0.9.18", features = ["whisper"], optional = true }
 
+# `ort` (ONNX Runtime) has no prebuilt `x86_64-apple-darwin` binary as of
+# `ort-sys` 2.0.0-rc.12 (pyke dropped Intel-mac from their distribution), and
+# building ONNX Runtime from source is not viable in CI. We target-gate `ort`
+# OUT of that triple; the `whisper-streaming` VAD routes to the pure-Rust
+# `tract` engine there instead (see the target-cfg below + the `vad-ort`/
+# x86_64-apple-darwin arm in `src/backends/whisper_streaming/vad.rs`).
+# Mirrors the `ct2rs` precedent above and the `blazen-embed-fastembed` ORT stub.
+[target.'cfg(not(all(target_arch = "x86_64", target_os = "macos")))'.dependencies]
+ort = { version = "2.0.0-rc.12", optional = true }
+
+# On `x86_64-apple-darwin`, `vad-ort` cannot use ORT (gated out above), so the
+# VAD engine falls back to pure-Rust `tract`. Make `tract-onnx` available on
+# that triple regardless of the `vad-tract` feature (it is already in the
+# native build graph via blazen-audio-piper-vendored, so this adds no cost).
+[target.'cfg(all(target_arch = "x86_64", target_os = "macos"))'.dependencies]
+tract-onnx = { workspace = true }
+
 [features]
 default = []
 
@@ -116,11 +133,28 @@ coreml = ["whispercpp"]
 
 # `whisper-streaming` enables the low-latency streaming Whisper backend in
 # `src/backends/whisper_streaming.rs`. It builds on the Candle Whisper
-# weights (`candle` feature) and uses `tract-onnx` to run the Silero VAD
-# ONNX model that chunks incoming audio into utterance windows. Implements
-# [`SttBackend::stream`]; the file-based `transcribe` returns `Unsupported`
-# (callers should route to the `candle` backend for blocking transcription).
-whisper-streaming = ["candle", "dep:tract-onnx"]
+# weights (`candle` feature) and runs an embedded, control-flow-free Silero
+# VAD v5 (16 kHz) ONNX to chunk incoming audio into utterance windows.
+#
+# It requires exactly one VAD runtime backend:
+#   - `vad-ort`   — ONNX Runtime (native: macOS / Linux-gnu / Windows, CPU+GPU)
+#   - `vad-tract` — pure-Rust tract (musl / wasm, where ONNX Runtime doesn't ship)
+# `vad.rs` raises a `compile_error!` if neither is enabled. They are mutually
+# exclusive — a real artifact enables exactly one. When both are on (a CI
+# convenience like `--all-features`), the pure-Rust `vad-tract` takes
+# precedence so the VAD links no native runtime and cannot collide with the
+# other native ML libs `--all-features` pulls in (ort / ct2rs / whisper.cpp),
+# which otherwise SIGSEGVs when an ort session is created. Consumers select
+# `vad-ort` (native) or `vad-tract` (musl/wasm).
+#
+# Implements [`SttBackend::stream`]; the file-based `transcribe` returns
+# `Unsupported` (route to the `candle` backend for blocking work).
+whisper-streaming = ["candle"]
+
+# VAD runtime backends for `whisper-streaming` (see above). Both execute the
+# same embedded `assets/silero_vad_16k.onnx`; only the runtime differs.
+vad-ort = ["dep:ort"]
+vad-tract = ["dep:tract-onnx"]
 
 # `faster-whisper` enables the CTranslate2-backed Whisper SttBackend in
 # `src/backends/faster_whisper/`. Pulls in `ct2rs` (Rust bindings to

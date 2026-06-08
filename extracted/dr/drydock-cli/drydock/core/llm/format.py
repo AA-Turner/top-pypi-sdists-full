@@ -553,9 +553,9 @@ class APIToolFormatHandler:
                         )
                     else:
                         recovery_hint = (
-                            f"Use read_file on the target file, then call write_file "
-                            f"with fully typed content, OR use search_replace to make "
-                            f"targeted edits without rewriting the whole file."
+                            "Use read_file on the target file, then call write_file "
+                            "with fully typed content, OR use search_replace to make "
+                            "targeted edits without rewriting the whole file."
                         )
                     escalation_suffix = (
                         f"\n\n[REPEATED FAILURE #{hit_count}: your {tool_name_hint} call "

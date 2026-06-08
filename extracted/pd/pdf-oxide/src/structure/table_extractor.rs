@@ -806,6 +806,7 @@ fn extract_cell(
                         is_monospace: false,
                         color: Color::black(),
                         mcid: block.mcid,
+                        mcid_scope: None,
                         sequence: 0,
                         offset_semantic: false,
                         split_boundary_before: false,
@@ -816,6 +817,7 @@ fn extract_cell(
                         char_widths: vec![],
                         heading_level: None,
                         rotation_degrees: 0.0,
+                        wmode: 0,
                     });
                     prev_block = Some(block);
                     break;
@@ -955,7 +957,11 @@ mod tests {
         let mut tr = StructElem::new(StructType::TR);
         for &mcid in mcids {
             let mut td = StructElem::new(StructType::TD);
-            td.add_child(StructChild::MarkedContentRef { mcid, page });
+            td.add_child(StructChild::MarkedContentRef {
+                mcid,
+                page,
+                scope: crate::structure::McidScope::Page(page),
+            });
             tr.add_child(StructChild::StructElem(Box::new(td)));
         }
         table.add_child(StructChild::StructElem(Box::new(tr)));
@@ -1086,7 +1092,11 @@ mod tests {
     #[test]
     fn test_element_has_page_content_via_mcid() {
         let mut elem = StructElem::new(StructType::P);
-        elem.add_child(StructChild::MarkedContentRef { mcid: 1, page: 3 });
+        elem.add_child(StructChild::MarkedContentRef {
+            mcid: 1,
+            page: 3,
+            scope: crate::structure::McidScope::Page(3),
+        });
 
         assert!(element_has_page_content(&elem, 3));
         assert!(!element_has_page_content(&elem, 0));
@@ -1105,7 +1115,11 @@ mod tests {
     fn test_element_has_page_content_recursive() {
         let mut parent = StructElem::new(StructType::Sect);
         let mut child = StructElem::new(StructType::P);
-        child.add_child(StructChild::MarkedContentRef { mcid: 1, page: 2 });
+        child.add_child(StructChild::MarkedContentRef {
+            mcid: 1,
+            page: 2,
+            scope: crate::structure::McidScope::Page(2),
+        });
         parent.add_child(StructChild::StructElem(Box::new(child)));
 
         assert!(element_has_page_content(&parent, 2));
@@ -1143,6 +1157,7 @@ mod tests {
             is_monospace: false,
             color: Color::black(),
             mcid,
+            mcid_scope: None,
             sequence: 0,
             split_boundary_before: false,
             offset_semantic: false,
@@ -1153,6 +1168,7 @@ mod tests {
             char_widths: vec![],
             heading_level: None,
             rotation_degrees: 0.0,
+            wmode: 0,
         }
     }
 
@@ -1162,9 +1178,17 @@ mod tests {
         let mut table_elem = StructElem::new(StructType::Table);
         let mut tr = StructElem::new(StructType::TR);
         let mut td1 = StructElem::new(StructType::TD);
-        td1.add_child(StructChild::MarkedContentRef { mcid: 10, page: 0 });
+        td1.add_child(StructChild::MarkedContentRef {
+            mcid: 10,
+            page: 0,
+            scope: crate::structure::McidScope::Page(0),
+        });
         let mut td2 = StructElem::new(StructType::TD);
-        td2.add_child(StructChild::MarkedContentRef { mcid: 11, page: 0 });
+        td2.add_child(StructChild::MarkedContentRef {
+            mcid: 11,
+            page: 0,
+            scope: crate::structure::McidScope::Page(0),
+        });
         tr.add_child(StructChild::StructElem(Box::new(td1)));
         tr.add_child(StructChild::StructElem(Box::new(td2)));
         table_elem.add_child(StructChild::StructElem(Box::new(tr)));
@@ -1187,7 +1211,11 @@ mod tests {
         let mut table_elem = StructElem::new(StructType::Table);
         let mut tr = StructElem::new(StructType::TR);
         let mut td = StructElem::new(StructType::TD);
-        td.add_child(StructChild::MarkedContentRef { mcid: 10, page: 0 });
+        td.add_child(StructChild::MarkedContentRef {
+            mcid: 10,
+            page: 0,
+            scope: crate::structure::McidScope::Page(0),
+        });
         tr.add_child(StructChild::StructElem(Box::new(td)));
         table_elem.add_child(StructChild::StructElem(Box::new(tr)));
 
@@ -1204,7 +1232,11 @@ mod tests {
         let mut table_elem = StructElem::new(StructType::Table);
         let mut tr = StructElem::new(StructType::TR);
         let mut td = StructElem::new(StructType::TD);
-        td.add_child(StructChild::MarkedContentRef { mcid: 5, page: 0 });
+        td.add_child(StructChild::MarkedContentRef {
+            mcid: 5,
+            page: 0,
+            scope: crate::structure::McidScope::Page(0),
+        });
         tr.add_child(StructChild::StructElem(Box::new(td)));
         table_elem.add_child(StructChild::StructElem(Box::new(tr)));
 
@@ -1226,7 +1258,11 @@ mod tests {
         let mut thead = StructElem::new(StructType::THead);
         let mut hdr_tr = StructElem::new(StructType::TR);
         let mut th = StructElem::new(StructType::TH);
-        th.add_child(StructChild::MarkedContentRef { mcid: 1, page: 0 });
+        th.add_child(StructChild::MarkedContentRef {
+            mcid: 1,
+            page: 0,
+            scope: crate::structure::McidScope::Page(0),
+        });
         hdr_tr.add_child(StructChild::StructElem(Box::new(th)));
         thead.add_child(StructChild::StructElem(Box::new(hdr_tr)));
         table_elem.add_child(StructChild::StructElem(Box::new(thead)));
@@ -1235,7 +1271,11 @@ mod tests {
         let mut tbody = StructElem::new(StructType::TBody);
         let mut body_tr = StructElem::new(StructType::TR);
         let mut td = StructElem::new(StructType::TD);
-        td.add_child(StructChild::MarkedContentRef { mcid: 2, page: 0 });
+        td.add_child(StructChild::MarkedContentRef {
+            mcid: 2,
+            page: 0,
+            scope: crate::structure::McidScope::Page(0),
+        });
         body_tr.add_child(StructChild::StructElem(Box::new(td)));
         tbody.add_child(StructChild::StructElem(Box::new(body_tr)));
         table_elem.add_child(StructChild::StructElem(Box::new(tbody)));
@@ -1274,9 +1314,21 @@ mod tests {
 
         // Build TD > [MCID 1, MCID 2, MCID 3]  (three adjacent spans on the same line)
         let mut td = StructElem::new(StructType::TD);
-        td.add_child(StructChild::MarkedContentRef { mcid: 1, page: 0 });
-        td.add_child(StructChild::MarkedContentRef { mcid: 2, page: 0 });
-        td.add_child(StructChild::MarkedContentRef { mcid: 3, page: 0 });
+        td.add_child(StructChild::MarkedContentRef {
+            mcid: 1,
+            page: 0,
+            scope: crate::structure::McidScope::Page(0),
+        });
+        td.add_child(StructChild::MarkedContentRef {
+            mcid: 2,
+            page: 0,
+            scope: crate::structure::McidScope::Page(0),
+        });
+        td.add_child(StructChild::MarkedContentRef {
+            mcid: 3,
+            page: 0,
+            scope: crate::structure::McidScope::Page(0),
+        });
         let mut tr = StructElem::new(StructType::TR);
         tr.add_child(StructChild::StructElem(Box::new(td)));
         let mut table_elem = StructElem::new(StructType::Table);
@@ -1297,6 +1349,7 @@ mod tests {
             is_monospace: false,
             color: Color::black(),
             mcid: None,
+            mcid_scope: None,
             sequence: 0,
             split_boundary_before: false,
             offset_semantic: false,
@@ -1307,24 +1360,28 @@ mod tests {
             char_widths: vec![],
             heading_level: None,
             rotation_degrees: 0.0,
+            wmode: 0,
         };
         let spans = vec![
             crate::layout::TextSpan {
                 text: "Q".into(),
                 bbox: Rect::new(345.79, 678.0, 8.22, 10.56),
                 mcid: Some(1),
+                mcid_scope: None,
                 ..base.clone()
             },
             crate::layout::TextSpan {
                 text: "（".into(),
                 bbox: Rect::new(353.83, 678.0, 10.56, 10.56),
                 mcid: Some(2),
+                mcid_scope: None,
                 ..base.clone()
             },
             crate::layout::TextSpan {
                 text: "peu/d".into(),
                 bbox: Rect::new(364.39, 678.0, 25.24, 10.56),
                 mcid: Some(3),
+                mcid_scope: None,
                 ..base.clone()
             },
         ];
@@ -1340,8 +1397,16 @@ mod tests {
     #[test]
     fn test_extract_cell_multiline_mcid_spans_have_space() {
         let mut td = StructElem::new(StructType::TD);
-        td.add_child(StructChild::MarkedContentRef { mcid: 1, page: 0 });
-        td.add_child(StructChild::MarkedContentRef { mcid: 2, page: 0 });
+        td.add_child(StructChild::MarkedContentRef {
+            mcid: 1,
+            page: 0,
+            scope: crate::structure::McidScope::Page(0),
+        });
+        td.add_child(StructChild::MarkedContentRef {
+            mcid: 2,
+            page: 0,
+            scope: crate::structure::McidScope::Page(0),
+        });
         let mut tr = StructElem::new(StructType::TR);
         tr.add_child(StructChild::StructElem(Box::new(td)));
         let mut table_elem = StructElem::new(StructType::Table);
@@ -1358,6 +1423,7 @@ mod tests {
             is_monospace: false,
             color: crate::layout::text_block::Color::black(),
             mcid: None,
+            mcid_scope: None,
             sequence: 0,
             split_boundary_before: false,
             offset_semantic: false,
@@ -1368,6 +1434,7 @@ mod tests {
             char_widths: vec![],
             heading_level: None,
             rotation_degrees: 0.0,
+            wmode: 0,
         };
         // Line 1: "Hello" ends at x=100, y=200.  Line 2: "World" starts at x=10, y=188.
         // y_diff = 12 > line_h * 0.5 = 6 → different lines → space inserted.
@@ -1376,12 +1443,14 @@ mod tests {
                 text: "Hello".into(),
                 bbox: Rect::new(10.0, 200.0, 90.0, 12.0),
                 mcid: Some(1),
+                mcid_scope: None,
                 ..base.clone()
             },
             crate::layout::TextSpan {
                 text: "World".into(),
                 bbox: Rect::new(10.0, 188.0, 90.0, 12.0),
                 mcid: Some(2),
+                mcid_scope: None,
                 ..base.clone()
             },
         ];
@@ -1401,8 +1470,16 @@ mod tests {
         use crate::layout::text_block::{Color, FontWeight};
 
         let mut td = StructElem::new(StructType::TD);
-        td.add_child(StructChild::MarkedContentRef { mcid: 1, page: 0 });
-        td.add_child(StructChild::MarkedContentRef { mcid: 2, page: 0 });
+        td.add_child(StructChild::MarkedContentRef {
+            mcid: 1,
+            page: 0,
+            scope: crate::structure::McidScope::Page(0),
+        });
+        td.add_child(StructChild::MarkedContentRef {
+            mcid: 2,
+            page: 0,
+            scope: crate::structure::McidScope::Page(0),
+        });
         let mut tr = StructElem::new(StructType::TR);
         tr.add_child(StructChild::StructElem(Box::new(td)));
         let mut table_elem = StructElem::new(StructType::Table);
@@ -1419,6 +1496,7 @@ mod tests {
             is_monospace: false,
             color: Color::black(),
             mcid: None,
+            mcid_scope: None,
             sequence: 0,
             split_boundary_before: false,
             offset_semantic: false,
@@ -1429,6 +1507,7 @@ mod tests {
             char_widths: vec![],
             heading_level: None,
             rotation_degrees: 0.0,
+            wmode: 0,
         };
         // Line 1: bold "Bold" (y=200).  Line 2 (wrapped): italic "Italic" (y=188).
         let spans = vec![
@@ -1437,6 +1516,7 @@ mod tests {
                 bbox: Rect::new(10.0, 200.0, 40.0, 12.0),
                 font_weight: FontWeight::Bold,
                 mcid: Some(1),
+                mcid_scope: None,
                 ..base.clone()
             },
             crate::layout::TextSpan {
@@ -1444,6 +1524,7 @@ mod tests {
                 bbox: Rect::new(10.0, 188.0, 40.0, 12.0),
                 is_italic: true,
                 mcid: Some(2),
+                mcid_scope: None,
                 ..base.clone()
             },
         ];
@@ -1483,9 +1564,21 @@ mod tests {
         // Place them with a gap of 3.0 pt (> font_size * 0.15 = 1.5 for 10 pt font)
         // so the gap branch fires, then the CJK suppression should prevent a space.
         let mut td = StructElem::new(StructType::TD);
-        td.add_child(StructChild::MarkedContentRef { mcid: 10, page: 0 });
-        td.add_child(StructChild::MarkedContentRef { mcid: 11, page: 0 });
-        td.add_child(StructChild::MarkedContentRef { mcid: 12, page: 0 });
+        td.add_child(StructChild::MarkedContentRef {
+            mcid: 10,
+            page: 0,
+            scope: crate::structure::McidScope::Page(0),
+        });
+        td.add_child(StructChild::MarkedContentRef {
+            mcid: 11,
+            page: 0,
+            scope: crate::structure::McidScope::Page(0),
+        });
+        td.add_child(StructChild::MarkedContentRef {
+            mcid: 12,
+            page: 0,
+            scope: crate::structure::McidScope::Page(0),
+        });
         let mut tr = StructElem::new(StructType::TR);
         tr.add_child(StructChild::StructElem(Box::new(td)));
         let mut table_elem = StructElem::new(StructType::Table);
@@ -1502,6 +1595,7 @@ mod tests {
             is_monospace: false,
             color: Color::black(),
             mcid: None,
+            mcid_scope: None,
             sequence: 0,
             split_boundary_before: false,
             offset_semantic: false,
@@ -1512,6 +1606,7 @@ mod tests {
             char_widths: vec![],
             heading_level: None,
             rotation_degrees: 0.0,
+            wmode: 0,
         };
         // "数" ends at x=10+10=20; "≤" starts at x=23 → gap=3.0 > 1.5 → gap branch fires
         // CJK("数")→math_op("≤") with at least one CJK side → suppress space
@@ -1521,18 +1616,21 @@ mod tests {
                 text: "数".into(),
                 bbox: Rect::new(10.0, 100.0, 10.0, 10.0),
                 mcid: Some(10),
+                mcid_scope: None,
                 ..base.clone()
             },
             crate::layout::TextSpan {
                 text: "≤".into(),
                 bbox: Rect::new(23.0, 100.0, 10.0, 10.0),
                 mcid: Some(11),
+                mcid_scope: None,
                 ..base.clone()
             },
             crate::layout::TextSpan {
                 text: "量".into(),
                 bbox: Rect::new(36.0, 100.0, 10.0, 10.0),
                 mcid: Some(12),
+                mcid_scope: None,
                 ..base.clone()
             },
         ];
@@ -1553,8 +1651,16 @@ mod tests {
         use crate::layout::text_block::{Color, FontWeight};
 
         let mut td = StructElem::new(StructType::TD);
-        td.add_child(StructChild::MarkedContentRef { mcid: 20, page: 0 });
-        td.add_child(StructChild::MarkedContentRef { mcid: 21, page: 0 });
+        td.add_child(StructChild::MarkedContentRef {
+            mcid: 20,
+            page: 0,
+            scope: crate::structure::McidScope::Page(0),
+        });
+        td.add_child(StructChild::MarkedContentRef {
+            mcid: 21,
+            page: 0,
+            scope: crate::structure::McidScope::Page(0),
+        });
         let mut tr = StructElem::new(StructType::TR);
         tr.add_child(StructChild::StructElem(Box::new(td)));
         let mut table_elem = StructElem::new(StructType::Table);
@@ -1571,6 +1677,7 @@ mod tests {
             is_monospace: false,
             color: Color::black(),
             mcid: None,
+            mcid_scope: None,
             sequence: 0,
             split_boundary_before: false,
             offset_semantic: false,
@@ -1581,6 +1688,7 @@ mod tests {
             char_widths: vec![],
             heading_level: None,
             rotation_degrees: 0.0,
+            wmode: 0,
         };
         // "Hello" ends at 50; "world" starts at 53 → gap=3.0 > 1.5 → space inserted
         // Neither side is CJK, so the CJK suppression must NOT fire.
@@ -1589,12 +1697,14 @@ mod tests {
                 text: "Hello".into(),
                 bbox: Rect::new(0.0, 100.0, 50.0, 10.0),
                 mcid: Some(20),
+                mcid_scope: None,
                 ..base.clone()
             },
             crate::layout::TextSpan {
                 text: "world".into(),
                 bbox: Rect::new(53.0, 100.0, 30.0, 10.0),
                 mcid: Some(21),
+                mcid_scope: None,
                 ..base.clone()
             },
         ];

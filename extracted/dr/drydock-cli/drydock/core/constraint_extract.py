@@ -143,6 +143,7 @@ def _normalize_for_z3(formula: str) -> str:
     # solve_tool happy without depending on Python's ** parsing through
     # the AST validator. x**3 → x*x*x. Skip if exponent is >= 6 (avoid
     # huge expressions) or non-integer.
+
     def _expand_pow(m: re.Match) -> str:
         var = m.group(1)
         try:
@@ -301,9 +302,9 @@ def extract(question: str) -> ExtractResult | None:
     # Try predicates in specificity order. Single-formula predicates first.
     for kind, pat in [
         ("perfect_square", _RE_PERFECT_SQUARE),
-        ("perfect_cube",   _RE_PERFECT_CUBE),
-        ("prime",          _RE_PRIME),
-        ("divisible_by",   _RE_DIVISIBLE),
+        ("perfect_cube", _RE_PERFECT_CUBE),
+        ("prime", _RE_PRIME),
+        ("divisible_by", _RE_DIVISIBLE),
     ]:
         m = pat.search(cleaned)
         if not m:
@@ -361,7 +362,7 @@ def extract(question: str) -> ExtractResult | None:
 
     # Range bounds
     for kind, pat in [("smallest_with", _RE_SMALLEST),
-                      ("largest_with",  _RE_LARGEST)]:
+                      ("largest_with", _RE_LARGEST)]:
         m = pat.search(cleaned)
         if not m:
             continue

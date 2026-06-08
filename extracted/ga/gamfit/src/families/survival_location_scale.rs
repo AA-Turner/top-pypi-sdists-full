@@ -4149,9 +4149,29 @@ fn prepare_survival_location_scale_model(
 
     let threshold_prep = prepare_cov_block_kind(&spec.threshold_block)?;
     let threshold_full_ncols = threshold_prep.design_exit.ncols();
-    let threshold_fixed_cols =
+    let time_reduced_to_parametric = time_block_reduces_to_parametric(
+        &spec.time_block.penalties,
+        spec.time_block.design_exit.ncols(),
+        survival_constant_scale(spec),
+        protected_timewiggle_cols,
+    );
+    let threshold_fixed_cols = if time_reduced_to_parametric {
+        // Reduced constant-scale parametric-AFT regime: the time-warp has
+        // collapsed to a constant-free affine shape basis (its reduced design
+        // columns are strictly monotone in t and span no constant-in-t
+        // direction), so it no longer carries the location intercept the gauge
+        // contract normally attributes to it. Keep the threshold (location)
+        // intercept here — it is the free location level b0, NOT aliased with
+        // the multiplicative scale constant nor with any time-warp constant
+        // (there is none) — exactly mirroring why the constant log_sigma block
+        // keeps its intercept (`log_sigma_fixed_cols = 0`). Dropping it (#736)
+        // left the raw covariate column to double as both level and slope,
+        // pinning the covariate to a wrong-signed level-matching value.
+        0
+    } else {
         infer_non_intercept_start_design(&threshold_prep.design_exit, &spec.weights)?
-            .min(threshold_full_ncols);
+            .min(threshold_full_ncols)
+    };
     let threshold_design = design_column_tail(
         &threshold_prep.design_exit,
         threshold_fixed_cols,
@@ -12226,9 +12246,33 @@ mod tests {
         );
     }
 
+    /// Build a location-scale family whose three coefficient blocks are each
+    /// `p`-columns wide (and `n`-rows) so `joint_block_dims()` == `[p, p, p]`.
+    /// The advertisement guards (`validate_joint_specs`) compare the spec
+    /// widths against `joint_block_dims()`, so the family's design widths must
+    /// equal the spec widths for the HVP-availability path to be exercised
+    /// (gam#848); the previous fixture left the family at 1-column designs
+    /// while building width-200 specs, so the guard correctly rejected them.
+    fn survival_biobank_block_test_family(p: usize) -> SurvivalLocationScaleFamily {
+        let n = 3usize;
+        let mut family = survival_exact_newton_test_family();
+        family.x_threshold =
+            DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(
+                Array2::<f64>::zeros((n, p)),
+            ));
+        family.x_log_sigma =
+            DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(
+                Array2::<f64>::zeros((n, p)),
+            ));
+        family.x_time_entry = Arc::new(Array2::<f64>::zeros((n, p)));
+        family.x_time_exit = Arc::new(Array2::<f64>::zeros((n, p)));
+        family.x_time_deriv = Arc::new(Array2::<f64>::zeros((n, p)));
+        family
+    }
+
     #[test]
     fn survival_location_scale_advertises_outer_hvp_at_biobank_dimensions() {
-        let family = survival_exact_newton_test_family();
+        let family = survival_biobank_block_test_family(200);
         let mk_spec = |name: &str, p: usize| ParameterBlockSpec {
             name: name.to_string(),
             design: DesignMatrix::Dense(DenseDesignMatrix::from(Array2::<f64>::zeros((
@@ -12263,7 +12307,7 @@ mod tests {
 
     #[test]
     fn survival_location_scale_planner_keeps_analytic_hessian_at_biobank_dimensions() {
-        let family = survival_exact_newton_test_family();
+        let family = survival_biobank_block_test_family(200);
         let mk_spec = |name: &str, p: usize| ParameterBlockSpec {
             name: name.to_string(),
             design: DesignMatrix::Dense(DenseDesignMatrix::from(Array2::<f64>::zeros((

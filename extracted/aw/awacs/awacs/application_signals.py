@@ -27,17 +27,28 @@ class ARN(BaseARN):
 BatchGetServiceLevelObjectiveBudgetReport = Action(
     "BatchGetServiceLevelObjectiveBudgetReport"
 )
+BatchUpdateExclusionWindows = Action("BatchUpdateExclusionWindows")
 CreateServiceLevelObjective = Action("CreateServiceLevelObjective")
+DeleteGroupingConfiguration = Action("DeleteGroupingConfiguration")
 DeleteServiceLevelObjective = Action("DeleteServiceLevelObjective")
 GetService = Action("GetService")
 GetServiceLevelObjective = Action("GetServiceLevelObjective")
+Link = Action("Link")
+ListAuditFindings = Action("ListAuditFindings")
+ListEntityEvents = Action("ListEntityEvents")
+ListGroupingAttributeDefinitions = Action("ListGroupingAttributeDefinitions")
 ListObservedEntities = Action("ListObservedEntities")
 ListServiceDependencies = Action("ListServiceDependencies")
 ListServiceDependents = Action("ListServiceDependents")
+ListServiceLevelObjectiveExclusionWindows = Action(
+    "ListServiceLevelObjectiveExclusionWindows"
+)
 ListServiceLevelObjectives = Action("ListServiceLevelObjectives")
 ListServiceOperations = Action("ListServiceOperations")
+ListServiceStates = Action("ListServiceStates")
 ListServices = Action("ListServices")
 ListTagsForResource = Action("ListTagsForResource")
+PutGroupingConfiguration = Action("PutGroupingConfiguration")
 StartDiscovery = Action("StartDiscovery")
 TagResource = Action("TagResource")
 UntagResource = Action("UntagResource")

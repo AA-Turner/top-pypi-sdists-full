@@ -9,7 +9,6 @@ from unittest.mock import MagicMock
 
 from drydock.core.llm.format import (
     APIToolFormatHandler,
-    FailedToolCall,
     ParsedMessage,
     ParsedToolCall,
     ResolvedMessage,

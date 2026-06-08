@@ -30,7 +30,7 @@ from .local.helpers import (
     _staging_size_gb,
     _vast_has_renter,
 )
-from .local.disk.staging import setup_agent_staging
+from .local.disk.staging import flush_fleet_staging, setup_agent_staging
 
 
 POLL_INTERVAL = 10
@@ -40,15 +40,7 @@ HEARTBEAT_INTERVAL = 300
 # decides whether to claim again. Empirically a torch model load starts
 # allocating GPU memory within ~5 seconds of subprocess start.
 SETTLE_AFTER_CLAIM_SECONDS = 5
-# Hard VRAM safety buffer at admission. The agent refuses to claim a
-# job if accepting it would leave less than this margin between
-# declared total VRAM use and the GPU's physical capacity. Catches the
-# class of failure where neighbor processes' actual peak exceeds their
-# declared gpu_mem_gb (estimate_gpu_memory has been observed to
-# under-call by 5-10 GB on 7-8B activation extraction workloads). The
-# buffer is independent of the per-job multipliers because it's the
-# LAST line of defense — if the per-job estimate is wrong, this catches
-# it before the n+1th job OOMs the entire VM.
+# Admission reserve; also leaves room for driver/runtime baseline usage.
 VRAM_SAFETY_BUFFER_GB = 8
 
 
@@ -161,12 +153,7 @@ def run_agent(gpu_type: str = "", idle_shutdown: bool = False, kind: str = "loca
             except Exception:
                 pass
         if time.time() - last_fleet_flush > FLEET_FLUSH_INTERVAL or _staging_size_gb(fleet_staging) > 5:
-            from wisent.core.reading.modules.utilities.data.sources.hf.hf_writers import flush_staging_dir
-            if os.path.isdir(fleet_staging) and any(os.scandir(fleet_staging)):
-                flush_staging_dir(fleet_staging)
-                shutil.rmtree(fleet_staging)
-                os.makedirs(fleet_staging, exist_ok=True)
-                _log("flushed fleet staging dir to HF (1 commit)")
+            flush_fleet_staging(fleet_staging, _log)
             last_fleet_flush = time.time()
         t = lookup_self(hostname, source="auto")
         if t and t.kind == "local":
@@ -231,9 +218,7 @@ def run_agent(gpu_type: str = "", idle_shutdown: bool = False, kind: str = "loca
         if free_vram_gb <= 0 or (hard_slot_cap > 0 and len(slots) >= hard_slot_cap):
             time.sleep(10)
             continue
-        # RAM gate: refuse new slots when system free RAM (MemAvailable, which
-        # captures the forked-worker procs + page-cache the per-slot RSS sum
-        # missed) drops below a MemTotal reserve. Prevents the ~100G OOM.
+        # RAM gate: refuse new slots when MemAvailable drops below reserve.
         _fr = _free_ram_gb()
         if 0 <= _fr < _total_ram_gb() * 0.30:
             time.sleep(10); continue
@@ -251,16 +236,20 @@ def run_agent(gpu_type: str = "", idle_shutdown: bool = False, kind: str = "loca
         for job in queued:
             if hard_slot_cap > 0 and len(slots) >= hard_slot_cap:
                 break
-            need = max(
-                int(getattr(job, "gpu_mem_gb", 0) or 0),
-                estimate_gpu_memory(getattr(job, "command", "") or ""),
+            stored_need = int(getattr(job, "gpu_mem_gb", 0) or 0)
+            estimated_need = estimate_gpu_memory(getattr(job, "command", "") or "")
+            need = max(stored_need, estimated_need)
+            full_card_probe = (
+                stored_need == 0 and estimated_need >= total_vram_gb and not slots
             )
-            if need > free_vram_gb:
+            if (need > free_vram_gb and full_card_probe
+                    and free_vram_gb >= total_vram_gb - VRAM_SAFETY_BUFFER_GB):
+                need = total_vram_gb - VRAM_SAFETY_BUFFER_GB
+                agent_diag["last_full_card_probe_job_id"] = job.job_id
+                agent_diag["last_full_card_probe_at"] = datetime.now(timezone.utc).isoformat()
+            elif need > free_vram_gb:
                 diag_vram_rejected += 1
                 continue
-            # Hard VRAM safety buffer: refuse if declared use after admission
-            # would leave less than VRAM_SAFETY_BUFFER_GB, catching neighbor
-            # jobs whose actual peak exceeds their declared gpu_mem_gb.
             projected_used = sum(_slot_vram(s) for s in slots) + need
             if projected_used > total_vram_gb - VRAM_SAFETY_BUFFER_GB:
                 diag_vram_rejected += 1
@@ -275,8 +264,6 @@ def run_agent(gpu_type: str = "", idle_shutdown: bool = False, kind: str = "loca
             diag_eligible += 1
             new_slot = start_slot(store, job, hostname, _log, kind=kind)
             if new_slot is None:
-                # apt-install refused or failed; job stays in queue/ for
-                # another (cloud-kind or registry-fixed) agent to claim.
                 continue
             slots.append(new_slot)
             free_vram_gb -= need

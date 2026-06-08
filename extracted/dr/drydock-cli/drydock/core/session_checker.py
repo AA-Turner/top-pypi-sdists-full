@@ -12,7 +12,7 @@ from collections import Counter
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from drydock.core.types import LLMMessage, Role
+    pass
 
 
 class SessionIssue:

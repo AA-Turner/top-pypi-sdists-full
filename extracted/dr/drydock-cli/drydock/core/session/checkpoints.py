@@ -7,7 +7,6 @@ Stores snapshots in memory (session-scoped, not persisted).
 from __future__ import annotations
 
 import logging
-import shutil
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path

@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pytest-aiohttp
-Version: 1.1.0
+Version: 1.1.1
 Summary: Pytest plugin for aiohttp support
 Home-page: https://github.com/aio-libs/pytest-aiohttp
 Maintainer: aiohttp team <team@aiohttp.org>
@@ -11,25 +11,26 @@ Project-URL: Changelog, https://github.com/aio-libs/pytest-aiohttp/blob/master/C
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Testing
 Classifier: Framework :: AsyncIO
 Classifier: Framework :: Pytest
 Classifier: Framework :: aiohttp
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: pytest>=6.1.0
-Requires-Dist: aiohttp>=3.11.0b0
+Requires-Dist: aiohttp>=3.11.0
 Requires-Dist: pytest-asyncio>=0.17.2
 Provides-Extra: testing
-Requires-Dist: coverage==6.2; extra == "testing"
-Requires-Dist: mypy==1.12.1; extra == "testing"
+Requires-Dist: coverage==7.14.1; extra == "testing"
+Requires-Dist: mypy==2.1.0; extra == "testing"
+Dynamic: license-file
 
 pytest-aiohttp
 ==============

@@ -8,7 +8,7 @@ from typing import Optional
 from .aws import Action as BaseAction
 from .aws import BaseARN
 
-service_name = "AWS IAM Identity Center (successor to AWS Single Sign-On) directory"
+service_name = "AWS IAM Identity Center directory"
 prefix = "sso-directory"
 
 
@@ -65,6 +65,7 @@ GetUserId = Action("GetUserId")
 GetUserPoolInfo = Action("GetUserPoolInfo")
 ImportExternalIdPCertificate = Action("ImportExternalIdPCertificate")
 IsMemberInGroup = Action("IsMemberInGroup")
+IsMemberInGroups = Action("IsMemberInGroups")
 ListBearerTokens = Action("ListBearerTokens")
 ListExternalIdPCertificates = Action("ListExternalIdPCertificates")
 ListExternalIdPConfigurationsForDirectory = Action(

@@ -8,7 +8,7 @@ from typing import Optional
 from .aws import Action as BaseAction
 from .aws import BaseARN
 
-service_name = "AWS IAM Identity Center (successor to AWS Single Sign-On)"
+service_name = "AWS IAM Identity Center"
 prefix = "sso"
 
 
@@ -25,6 +25,7 @@ class ARN(BaseARN):
 
 
 AddMemberToGroup = Action("AddMemberToGroup")
+AddRegion = Action("AddRegion")
 AssociateDirectory = Action("AssociateDirectory")
 AssociateProfile = Action("AssociateProfile")
 AttachCustomerManagedPolicyReferenceToPermissionSet = Action(
@@ -91,6 +92,7 @@ DescribePermissionSetProvisioningStatus = Action(
     "DescribePermissionSetProvisioningStatus"
 )
 DescribePermissionsPolicies = Action("DescribePermissionsPolicies")
+DescribeRegion = Action("DescribeRegion")
 DescribeRegisteredRegions = Action("DescribeRegisteredRegions")
 DescribeTrustedTokenIssuer = Action("DescribeTrustedTokenIssuer")
 DescribeTrusts = Action("DescribeTrusts")
@@ -108,6 +110,7 @@ GetApplicationAssignmentConfiguration = Action("GetApplicationAssignmentConfigur
 GetApplicationAuthenticationMethod = Action("GetApplicationAuthenticationMethod")
 GetApplicationGrant = Action("GetApplicationGrant")
 GetApplicationInstance = Action("GetApplicationInstance")
+GetApplicationSessionConfiguration = Action("GetApplicationSessionConfiguration")
 GetApplicationTemplate = Action("GetApplicationTemplate")
 GetInlinePolicyForPermissionSet = Action("GetInlinePolicyForPermissionSet")
 GetManagedApplicationInstance = Action("GetManagedApplicationInstance")
@@ -161,6 +164,7 @@ ListPermissionSetsProvisionedToAccount = Action(
 )
 ListProfileAssociations = Action("ListProfileAssociations")
 ListProfiles = Action("ListProfiles")
+ListRegions = Action("ListRegions")
 ListTagsForResource = Action("ListTagsForResource")
 ListTrustedTokenIssuers = Action("ListTrustedTokenIssuers")
 ProvisionPermissionSet = Action("ProvisionPermissionSet")
@@ -168,11 +172,13 @@ PutApplicationAccessScope = Action("PutApplicationAccessScope")
 PutApplicationAssignmentConfiguration = Action("PutApplicationAssignmentConfiguration")
 PutApplicationAuthenticationMethod = Action("PutApplicationAuthenticationMethod")
 PutApplicationGrant = Action("PutApplicationGrant")
+PutApplicationSessionConfiguration = Action("PutApplicationSessionConfiguration")
 PutInlinePolicyToPermissionSet = Action("PutInlinePolicyToPermissionSet")
 PutMfaDeviceManagementForDirectory = Action("PutMfaDeviceManagementForDirectory")
 PutPermissionsBoundaryToPermissionSet = Action("PutPermissionsBoundaryToPermissionSet")
 PutPermissionsPolicy = Action("PutPermissionsPolicy")
 RemoveMemberFromGroup = Action("RemoveMemberFromGroup")
+RemoveRegion = Action("RemoveRegion")
 SearchGroups = Action("SearchGroups")
 SearchUsers = Action("SearchUsers")
 SetTemporaryPassword = Action("SetTemporaryPassword")

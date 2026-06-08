@@ -131,6 +131,32 @@ def test_documentation_agent_drafts_attestation_for_each_eligible_ksi(
     assert att.claim_record_id is not None
 
 
+def test_documentation_agent_requests_enough_max_tokens(tmp_path: Path) -> None:
+    """Regression (govnotes-demo validation 2026-06-07): the doc agent used to
+    call _invoke_llm with no max_tokens, defaulting to 4096. A verbose KSI
+    narrative truncated on Bedrock-Sonnet and aborted the whole `report run`.
+    It must request a generous per-narrative cap (>=16384), like the gap agent
+    sets its own. A/B: revert the fix and last_max_tokens is 4096 < the floor."""
+    ev = _ev()
+    stub = StubLLMClient(response_text=_canned_narrative(ev.evidence_id))
+    with ProvenanceStore(tmp_path) as store, active_store(store):
+        _persist_evidence(store, [ev])
+        agent = DocumentationAgent(client=stub)
+        agent.run(
+            DocumentationAgentInput(
+                indicators={"KSI-SVC-VRI": _ind()},
+                evidence=[ev],
+                classifications=[_clf(evidence_ids=[ev.evidence_id])],
+                baseline_id="fedramp-20x-moderate",
+                frmr_version="0.9.43-beta",
+            )
+        )
+    assert stub.last_max_tokens >= 16384, (
+        f"doc agent requested only {stub.last_max_tokens} max_tokens; a verbose "
+        "narrative would truncate and abort report run (the 4096-default bug)."
+    )
+
+
 def test_documentation_agent_prompt_carries_ksi_classification_and_fenced_evidence(
     tmp_path: Path,
 ) -> None:

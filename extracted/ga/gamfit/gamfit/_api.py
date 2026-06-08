@@ -48,12 +48,12 @@ def _normalize_shared_precision_group(
     if isinstance(value, SharedPrecisionGroup):
         return value
     if isinstance(value, Mapping):
-        name = value.get("name", value.get("label", default_name))
+        name = value.get("name", default_name)
         if name is None:
-            raise ValueError("shared precision group mapping needs a name/label")
-        shape = value.get("shape", value.get("a", value.get("a_p", 1.0)))
-        rate = value.get("rate", value.get("b", value.get("b_p", 0.0)))
-        labels = value.get("labels", value.get("terms", value.get("selectors")))
+            raise ValueError("shared precision group mapping needs a name")
+        shape = value.get("shape", 1.0)
+        rate = value.get("rate", 0.0)
+        labels = value.get("labels")
         return SharedPrecisionGroup(
             name=str(name),
             shape=float(shape),
@@ -506,8 +506,8 @@ def _normalize_aux_strength(value: Any) -> float | None:
 
 def _normalize_precision_pair(value: Any, label: str) -> list[float]:
     if isinstance(value, dict):
-        shape = value.get("shape", value.get("a", value.get("a_p")))
-        rate = value.get("rate", value.get("b", value.get("b_p")))
+        shape = value.get("shape")
+        rate = value.get("rate")
     else:
         try:
             shape, rate = value
@@ -516,13 +516,9 @@ def _normalize_precision_pair(value: Any, label: str) -> list[float]:
                 f"precision_hyperpriors[{label!r}] must be (shape, rate)"
             ) from exc
     if shape is None:
-        raise ValueError(
-            f"precision_hyperpriors[{label!r}] needs a shape/a/a_p value"
-        )
+        raise ValueError(f"precision_hyperpriors[{label!r}] needs a shape value")
     if rate is None:
-        raise ValueError(
-            f"precision_hyperpriors[{label!r}] needs a rate/b/b_p value"
-        )
+        raise ValueError(f"precision_hyperpriors[{label!r}] needs a rate value")
     shape_f = float(shape)
     rate_f = float(rate)
     if (
@@ -831,10 +827,10 @@ def fit(
         score-influence directions so the fitted slope surface ``β(x)`` is
         insensitive to Stage-1 calibration error. There is no boolean to toggle
         orthogonalization — supplying this recipe *is* the request (magic by
-        default). Omit it (and pass a raw ``z_column`` instead) for the legacy
-        free-warp ``score_warp`` fallback. All numerics stay in Rust; this only
-        marshals the recipe. The Stage-1 ``response`` column must exist in
-        ``data`` alongside the Stage-2 response and covariates.
+        default). A raw ``z_column`` selects the free-warp ``score_warp`` path.
+        All numerics stay in Rust; this only marshals the recipe. The Stage-1
+        ``response`` column must exist in ``data`` alongside the Stage-2
+        response and covariates.
     survival_likelihood:
         Survival likelihood formulation. One of ``"transformation"``,
         ``"weibull"``, ``"location-scale"``, ``"marginal-slope"``,
@@ -1676,7 +1672,7 @@ def duchon_basis(
     m: int = 2,
     periodic_per_axis: Any = None,
     length_scale: float | None = None,
-    nullspace_order: str | None = None,
+    nullspace_order: str = "linear",
     power: float | None = None,
 ) -> Any:
     """Evaluate the Duchon m-spline basis at ``points`` against ``centers``.
@@ -1704,10 +1700,9 @@ def duchon_basis(
         hybrid kernel keeps the polynomial nullspace order **linear in d**
         (a single dim+1 column block), letting the same basis scale cleanly
         to d=8, 16, 32, 64 without ratcheting the nullspace.
-    nullspace_order : optional string. ``"zero"`` (constant nullspace),
+    nullspace_order : string. ``"zero"`` (constant nullspace),
         ``"linear"`` (constant + linear), or ``"degree<k>"`` for k ≥ 2.
-        ``None`` (default) falls back to the legacy ``m``-derived choice
-        (``m=1 → zero``, ``m=2 → linear``, ``m=k → degree(k-1)``).
+        Defaults to ``"linear"``.
     power : optional float. Riesz spectral power ``s``. ``None`` (default)
         auto-resolves the minimum admissible ``s`` for the requested
         ``nullspace_order`` and dimension (matches the formula API).
@@ -1764,6 +1759,8 @@ def duchon_basis(
         raise ValueError("length_scale must be finite and > 0")
     if power is not None and not math.isfinite(float(power)):
         raise ValueError("power must be finite")
+    if nullspace_order is None:
+        raise TypeError("nullspace_order must be a string")
     try:
         return np.asarray(
             rust_module().duchon_basis(
@@ -1772,7 +1769,7 @@ def duchon_basis(
                 m_i,
                 periodic_arg,
                 None if length_scale is None else float(length_scale),
-                None if nullspace_order is None else str(nullspace_order),
+                str(nullspace_order),
                 None if power is None else float(power),
             ),
             dtype=float,
@@ -2088,11 +2085,10 @@ def duchon_function_norm_penalty(
     centers: Any,
     *,
     m: int = 2,
-    periodic: bool = False,
     period: float | None = None,
     periodic_per_axis: Any = None,
     length_scale: float | None = None,
-    nullspace_order: str | None = None,
+    nullspace_order: str = "linear",
     power: float | None = None,
 ) -> Any:
     """Single-λ smoothness penalty matrix for the cubic (r³) Duchon basis.
@@ -2109,8 +2105,7 @@ def duchon_function_norm_penalty(
     Parameters
     ----------
     centers : array-like
-        Control points. Shape ``(K,)`` or ``(K, 1)`` for 1D, or ``(K, d)``
-        for d-dimensional centers.
+        Control points with shape ``(K, d)``.
     m : int, default 2
         Spline ORDER — selects the unpenalized polynomial nullspace, not the
         spectral power ``s``.
@@ -2124,9 +2119,8 @@ def duchon_function_norm_penalty(
         scale-free pure Duchon spectrum. A positive value enables the
         hybrid (Matérn-blended) spectrum, keeping the polynomial nullspace
         order **linear in d** for clean scaling to d=8, 16, 32, 64.
-    nullspace_order : optional string. ``"zero"``, ``"linear"``, or
-        ``"degree<k>"`` (k ≥ 2). ``None`` falls back to the legacy
-        ``m``-derived choice.
+    nullspace_order : string. ``"zero"``, ``"linear"``, or ``"degree<k>"``
+        (k ≥ 2). Defaults to ``"linear"``.
     power : optional float. Riesz spectral power ``s``. ``None`` (default)
         auto-resolves the minimum admissible ``s``.
 
@@ -2137,14 +2131,9 @@ def duchon_function_norm_penalty(
     import numpy as np
 
     ctrs = np.asarray(centers, dtype=float)
-    if ctrs.ndim == 1:
-        ctrs_in = ctrs
-        d = 1
-    elif ctrs.ndim == 2:
-        ctrs_in = ctrs
-        d = ctrs.shape[1]
-    else:
-        raise ValueError(f"centers must be 1D or 2D, got {ctrs.ndim}D")
+    if ctrs.ndim != 2:
+        raise ValueError(f"centers must be 2D with shape (K, d), got {ctrs.ndim}D")
+    d = ctrs.shape[1]
     if ctrs.size == 0:
         raise ValueError("centers cannot be empty")
     if not np.all(np.isfinite(ctrs)):
@@ -2152,6 +2141,8 @@ def duchon_function_norm_penalty(
     m_i = int(m)
     if m_i < 1:
         raise ValueError(f"m must be at least 1, got {m}")
+    if nullspace_order is None:
+        raise TypeError("nullspace_order must be a string")
     if period is not None and (
         not math.isfinite(float(period)) or float(period) <= 0.0
     ):
@@ -2171,26 +2162,15 @@ def duchon_function_norm_penalty(
                 f"periodic_per_axis must have length matching centers dim ({d}), "
                 f"got {len(per_list)}"
             )
-    elif periodic:
-        # Legacy scalar `periodic=True` only made sense for 1D centers; map
-        # to per-axis flags for the Rust binding which prefers the explicit
-        # per-axis form.
-        if d != 1:
-            raise ValueError(
-                "scalar `periodic=True` only valid for 1D centers; "
-                "use `periodic_per_axis` for d > 1"
-            )
-        per_list = [True]
-
     try:
         penalty = rust_module().duchon_function_norm_penalty(
-            ctrs_in,
+            ctrs,
             m_i,
             False,
             float(period) if period is not None else None,
             per_list,
             None if length_scale is None else float(length_scale),
-            None if nullspace_order is None else str(nullspace_order),
+            str(nullspace_order),
             None if power is None else float(power),
         )
     except Exception as exc:
@@ -3994,6 +3974,8 @@ def _resolve_position_penalty(
       routed through the cubic-basis single-λ penalty at ``m=2``.
     * ``"bspline"``  → P-spline 2nd-difference coefficient penalty.
     """
+    import numpy as np
+
     if isinstance(penalty, str):
         penalty_kind = str(penalty).strip().lower().replace("_", "-")
     else:
@@ -4004,9 +3986,9 @@ def _resolve_position_penalty(
         if kind in {"duchon", "duchonspline"}:
             if penalty_kind in {None, "function-norm", "functionnorm", "rkhs", "smoothness"}:
                 return duchon_function_norm_penalty(
-                    knots_or_centers,
+                    np.asarray(knots_or_centers, dtype=float).reshape(-1, 1),
                     m=int(basis_order),
-                    periodic=bool(periodic),
+                    periodic_per_axis=[True] if periodic else None,
                     # Honor the explicit domain-wrap period so the periodic Gram
                     # matches the basis (both now use the same period). Passing
                     # None here auto-derived the center span and produced a
@@ -4049,9 +4031,9 @@ def _resolve_position_penalty(
             if penalty_kind not in {None, "function-norm", "functionnorm", "bending-energy", "bendingenergy"}:
                 raise ValueError(f"unsupported thin-plate penalty {penalty!r}")
             return duchon_function_norm_penalty(
-                knots_or_centers,
+                np.asarray(knots_or_centers, dtype=float).reshape(-1, 1),
                 m=2,
-                periodic=bool(periodic),
+                periodic_per_axis=[True] if periodic else None,
                 period=None,
             )
     return _numeric_matrix(penalty, "penalty")

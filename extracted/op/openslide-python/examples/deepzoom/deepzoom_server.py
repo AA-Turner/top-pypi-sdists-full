@@ -27,21 +27,17 @@ from io import BytesIO
 import os
 from pathlib import Path
 import re
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal, TypeAlias
 from unicodedata import normalize
 import zlib
 
-from PIL import Image, ImageCms
 from flask import Flask, Response, abort, make_response, render_template, url_for
-
-if TYPE_CHECKING:
-    # Python 3.10+
-    from typing import TypeAlias
+from PIL import Image, ImageCms
 
 if os.name == 'nt':
     _dll_path = os.getenv('OPENSLIDE_PATH')
     if _dll_path is not None:
-        with os.add_dll_directory(_dll_path):  # type: ignore[attr-defined,unused-ignore]  # noqa: E501
+        with os.add_dll_directory(_dll_path):  # type: ignore[attr-defined,unused-ignore]
             import openslide
     else:
         import openslide
@@ -70,17 +66,16 @@ SRGB_PROFILE_BYTES = zlib.decompress(
 )
 SRGB_PROFILE = ImageCms.getOpenProfile(BytesIO(SRGB_PROFILE_BYTES))
 
-if TYPE_CHECKING:
-    ColorMode: TypeAlias = Literal[
-        'default',
-        'absolute-colorimetric',
-        'perceptual',
-        'relative-colorimetric',
-        'saturation',
-        'embed',
-        'ignore',
-    ]
-    Transform: TypeAlias = Callable[[Image.Image], None]
+ColorMode: TypeAlias = Literal[
+    'default',
+    'absolute-colorimetric',
+    'perceptual',
+    'relative-colorimetric',
+    'saturation',
+    'embed',
+    'ignore',
+]
+Transform: TypeAlias = Callable[[Image.Image], None]
 
 
 class DeepZoomServer(Flask):
@@ -193,7 +188,7 @@ def create_app(
             icc_profile=tile.info.get('icc_profile'),
         )
         resp = make_response(buf.getvalue())
-        resp.mimetype = 'image/%s' % format
+        resp.mimetype = f'image/{format}'
         return resp
 
     return app

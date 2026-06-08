@@ -1,5 +1,6 @@
 ci:
   autoupdate_schedule: monthly
+exclude: "^cibuildwheel/resources/ios-support/(?!make_cross_venv\\.py)"
 
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -14,21 +15,22 @@ repos:
     exclude: (cibuildwheel/resources/pinned_docker_images.cfg)|(.svg$)
   - id: mixed-line-ending
   - id: trailing-whitespace
+    exclude: ^cibuildwheel/resources/android/android.patch$
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: 4924b0e01e032fea073ad04a1c5cfa7e4add0afb  # frozen: v0.15.6
+  rev: 0671d8ab202c4ac093b78433ae5baf74f3fc7246  # frozen: v0.15.15
   hooks:
   - id: ruff-check
     args: ["--fix"]
   - id: ruff-format
 
 - repo: https://github.com/pre-commit/mirrors-mypy
-  rev: a66e98df7b4aeeb3724184b332785976d062b92e  # frozen: v1.19.1
+  rev: d2823d321df3af8f878f7ee3414dc94d037145b9  # frozen: v2.1.0
   hooks:
   - id: mypy
     name: mypy 3.11 on cibuildwheel/
     args: ["--python-version=3.11"]
-    exclude: ^cibuildwheel/resources/_cross_venv.py$  # Requires Python 3.13 or later
+    exclude: ^cibuildwheel/resources/android/_cross_venv.py$  # Requires Python 3.13 or later
     additional_dependencies: &mypy-dependencies
       - bracex
       - build
@@ -37,7 +39,6 @@ repos:
       - nox>=2025.2.9
       - orjson
       - packaging
-      - pyelftools
       - pygithub
       - pytest
       - rich
@@ -85,7 +86,7 @@ repos:
 
 
 - repo: https://github.com/python-jsonschema/check-jsonschema
-  rev: 9f48a48aa91a6040d749ad68ec70907d907a5a7f  # frozen: 0.37.0
+  rev: 943377262562a12b57292fc98fabd7dbf81451fe  # frozen: 0.37.2
   hooks:
     - id: check-dependabot
     - id: check-github-actions

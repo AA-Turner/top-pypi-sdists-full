@@ -5,11 +5,11 @@ Extraction configuration and processing functions.
 
 import logging
 import warnings
-
+from configparser import ConfigParser
 from copy import copy, deepcopy
-from typing import Any, Dict, Optional, Set, Tuple, Union
+from typing import Any
 
-from lxml.etree import _Element, Element, XPath, strip_tags
+from lxml.etree import Element, XPath, _Element, strip_tags
 from lxml.html import HtmlElement
 
 # own
@@ -32,9 +32,8 @@ from .utils import (
     load_html,
     normalize_unicode,
 )
-from .xml import build_json_output, control_xml_output, xmltotxt, xmltocsv
+from .xml import build_json_output, control_xml_output, xmltocsv, xmltotxt
 from .xpaths import REMOVE_COMMENTS_XPATH
-
 
 LOGGER = logging.getLogger(__name__)
 
@@ -47,12 +46,7 @@ def determine_returnstring(document: Document, options: Extractor) -> str:
     if "xml" in options.format:
         # last cleaning
         for element in document.body.iter("*"):
-            if (
-                element.tag != "graphic"
-                and len(element) == 0
-                and not element.text
-                and not element.tail
-            ):
+            if element.tag != "graphic" and len(element) == 0 and not element.text and not element.tail:
                 parent = element.getparent()
                 # do not remove elements inside <code> to preserve formatting
                 if parent is not None and parent.tag != "code":
@@ -103,7 +97,7 @@ def trafilatura_sequence(
     cleaned_tree_backup: HtmlElement,
     tree_backup: HtmlElement,
     options: Extractor,
-) -> Tuple[_Element, str, int]:
+) -> tuple[_Element, str, int]:
     "Execute the standard cascade of extractors used by Trafilatura."
     # Trafilatura's main extractor
     postbody, temp_text, len_text = extract_content(cleaned_tree, options)
@@ -120,7 +114,7 @@ def trafilatura_sequence(
         )
 
     # rescue: baseline extraction on original/dirty tree
-    if len_text < options.min_extracted_size and not options.focus == "precision":  # type: ignore[attr-defined]
+    if len_text < options.min_extracted_size and not options.focus == "precision":
         postbody, temp_text, len_text = baseline(deepcopy(tree_backup))
         LOGGER.debug("non-clean extracted length: %s (extraction)", len_text)
 
@@ -129,37 +123,37 @@ def trafilatura_sequence(
 
 def bare_extraction(
     filecontent: Any,
-    url: Optional[str] = None,
+    url: str | None = None,
     fast: bool = False,
     no_fallback: bool = False,
     favor_precision: bool = False,
     favor_recall: bool = False,
     include_comments: bool = True,
     output_format: str = "python",
-    target_language: Optional[str] = None,
+    target_language: str | None = None,
     include_tables: bool = True,
     include_images: bool = False,
     include_formatting: bool = False,
     include_links: bool = False,
     deduplicate: bool = False,
-    date_extraction_params: Optional[Dict[str, Any]] = None,
+    date_extraction_params: dict[str, Any] | None = None,
     with_metadata: bool = False,
     only_with_metadata: bool = False,
-    max_tree_size: Optional[int] = None,
-    url_blacklist: Optional[Set[str]] = None,
-    author_blacklist: Optional[Set[str]] = None,
+    max_tree_size: int | None = None,
+    url_blacklist: set[str] | None = None,
+    author_blacklist: set[str] | None = None,
     as_dict: bool = False,
-    prune_xpath: Optional[Any] = None,
-    config: Any = DEFAULT_CONFIG,
-    options: Optional[Extractor] = None,
-) -> Optional[Union[Document, Dict[str, Any]]]:
+    prune_xpath: str | list[str] | None = None,
+    config: ConfigParser = DEFAULT_CONFIG,
+    options: Extractor | None = None,
+) -> Document | dict[str, Any] | None:
     """Internal function for text extraction returning bare Python variables.
 
     Args:
         filecontent: HTML code as string.
         url: URL of the webpage.
         fast: Use faster heuristics and skip backup extraction.
-        no_fallback: Will be deprecated, use "fast" instead.
+        no_fallback: Deprecated, use "fast" instead.
         favor_precision: prefer less text but correct extraction.
         favor_recall: prefer more text even when unsure.
         include_comments: Extract comments along with the main text.
@@ -179,7 +173,7 @@ def bare_extraction(
             (date, title, url).
         url_blacklist: Provide a blacklist of URLs as set() to filter out documents.
         author_blacklist: Provide a blacklist of Author Names as set() to filter out authors.
-        as_dict: Will be deprecated, use the .as_dict() method of the document class.
+        as_dict: Deprecated, use the .as_dict() method instead.
         prune_xpath: Provide an XPath expression to prune the tree before extraction.
             can be str or list of str.
         config: Directly provide a configparser configuration.
@@ -192,20 +186,14 @@ def bare_extraction(
         ValueError: Extraction problem.
     """
 
-    # deprecations
-    if no_fallback:
-        fast = no_fallback
-        warnings.warn(
-            '"no_fallback" will be deprecated in a future version, use "fast" instead',
-            PendingDeprecationWarning
-        )
-    if as_dict:
-        warnings.warn(
-            '"as_dict" will be deprecated, use the .as_dict() method on bare_extraction results',
-            PendingDeprecationWarning
-        )
-    if max_tree_size:
-        raise ValueError("max_tree_size is deprecated, use settings.cfg file instead")
+    # deprecations: stacklevel=3 → user → bare_extraction → _check_deprecation
+    fast = _check_deprecation(
+        fast,
+        no_fallback=no_fallback,
+        as_dict=as_dict,
+        max_tree_size=max_tree_size,
+        stacklevel=3,
+    )
 
     # regroup extraction options
     if not options or not isinstance(options, Extractor):
@@ -245,7 +233,6 @@ def bare_extraction(
 
         # extract metadata if necessary
         if options.with_metadata:
-
             document = extract_metadata(
                 tree,
                 options.url,
@@ -260,9 +247,7 @@ def bare_extraction(
                 raise ValueError
 
             # cut short if core elements are missing
-            if options.only_with_metadata and not (
-                document.date and document.title and document.url
-            ):
+            if options.only_with_metadata and not (document.date and document.title and document.url):
                 LOGGER.error("no metadata: %s", options.source)
                 raise ValueError
 
@@ -285,17 +270,13 @@ def bare_extraction(
 
         # comments first, then remove
         if options.comments:
-            commentsbody, temp_comments, len_comments, cleaned_tree = extract_comments(
-                cleaned_tree, options
-            )
+            commentsbody, temp_comments, len_comments, cleaned_tree = extract_comments(cleaned_tree, options)
         else:
             commentsbody, temp_comments, len_comments = Element("body"), "", 0
         if options.focus == "precision":
             cleaned_tree = prune_unwanted_nodes(cleaned_tree, REMOVE_COMMENTS_XPATH)
 
-        postbody, temp_text, len_text = trafilatura_sequence(
-            cleaned_tree, cleaned_tree_backup, tree, options
-        )
+        postbody, temp_text, len_text = trafilatura_sequence(cleaned_tree, cleaned_tree_backup, tree, options)
 
         # tree size sanity check
         if options.max_tree_size:
@@ -312,12 +293,9 @@ def bare_extraction(
                 )
                 raise ValueError
         # size checks
-        if options.comments and len_comments < options.min_extracted_comm_size:  # type: ignore[attr-defined]
+        if options.comments and len_comments < options.min_extracted_comm_size:
             LOGGER.debug("not enough comments: %s", options.source)
-        if (
-            len_text < options.min_output_size  # type: ignore[attr-defined]
-            and len_comments < options.min_output_comm_size  # type: ignore[attr-defined]
-        ):
+        if len_text < options.min_output_size and len_comments < options.min_output_comm_size:
             LOGGER.debug(
                 "text and comments not long enough: %s %s %s",
                 len_text,
@@ -333,9 +311,7 @@ def bare_extraction(
 
         # sanity check on language
         if options.lang:
-            is_not_target_lang, document = language_filter(
-                temp_text, temp_comments, options.lang, document
-            )
+            is_not_target_lang, document = language_filter(temp_text, temp_comments, options.lang, document)
             if is_not_target_lang is True:
                 LOGGER.debug("wrong language: %s", options.source)
                 raise ValueError
@@ -360,8 +336,8 @@ def bare_extraction(
 
 def extract(
     filecontent: Any,
-    url: Optional[str] = None,
-    record_id: Optional[str] = None,
+    url: str | None = None,
+    record_id: str | None = None,
     fast: bool = False,
     no_fallback: bool = False,
     favor_precision: bool = False,
@@ -369,23 +345,23 @@ def extract(
     include_comments: bool = True,
     output_format: str = "txt",
     tei_validation: bool = False,
-    target_language: Optional[str] = None,
+    target_language: str | None = None,
     include_tables: bool = True,
     include_images: bool = False,
     include_formatting: bool = False,
     include_links: bool = False,
     deduplicate: bool = False,
-    date_extraction_params: Optional[Dict[str, Any]] = None,
+    date_extraction_params: dict[str, Any] | None = None,
     with_metadata: bool = False,
     only_with_metadata: bool = False,
-    max_tree_size: Optional[int] = None,
-    url_blacklist: Optional[Set[str]] = None,
-    author_blacklist: Optional[Set[str]] = None,
-    settingsfile: Optional[str] = None,
-    prune_xpath: Optional[Any] = None,
-    config: Any = DEFAULT_CONFIG,
-    options: Optional[Extractor] = None,
-) -> Optional[str]:
+    max_tree_size: int | None = None,
+    url_blacklist: set[str] | None = None,
+    author_blacklist: set[str] | None = None,
+    settingsfile: str | None = None,
+    prune_xpath: str | list[str] | None = None,
+    config: ConfigParser = DEFAULT_CONFIG,
+    options: Extractor | None = None,
+) -> str | None:
     """Main function exposed by the package:
        Wrapper for text extraction and conversion to chosen output format.
 
@@ -394,7 +370,7 @@ def extract(
         url: URL of the webpage.
         record_id: Add an ID to the metadata.
         fast: Use faster heuristics and skip backup extraction.
-        no_fallback: Will be deprecated, use "fast" instead.
+        no_fallback: Deprecated, use "fast" instead.
         favor_precision: prefer less text but correct extraction.
         favor_recall: when unsure, prefer more text.
         include_comments: Extract comments along with the main text.
@@ -424,20 +400,192 @@ def extract(
         A string in the desired format or None.
 
     """
-    if no_fallback:
-        fast = no_fallback
-        warnings.warn(
-            '"no_fallback" will be deprecated in a future version, use "fast" instead',
-            PendingDeprecationWarning
-        )
+    document = _internal_extraction(
+        filecontent=filecontent,
+        url=url,
+        record_id=record_id,
+        fast=fast,
+        no_fallback=no_fallback,
+        favor_precision=favor_precision,
+        favor_recall=favor_recall,
+        include_comments=include_comments,
+        output_format=output_format,
+        tei_validation=tei_validation,
+        target_language=target_language,
+        include_tables=include_tables,
+        include_images=include_images,
+        include_formatting=include_formatting,
+        include_links=include_links,
+        deduplicate=deduplicate,
+        date_extraction_params=date_extraction_params,
+        with_metadata=with_metadata,
+        only_with_metadata=only_with_metadata,
+        max_tree_size=max_tree_size,
+        url_blacklist=url_blacklist,
+        author_blacklist=author_blacklist,
+        settingsfile=settingsfile,
+        prune_xpath=prune_xpath,
+        config=config,
+        options=options,
+    )
+    return document.text if document is not None else None
 
+
+def extract_with_metadata(
+    filecontent: Any,
+    url: str | None = None,
+    record_id: str | None = None,
+    fast: bool = False,
+    favor_precision: bool = False,
+    favor_recall: bool = False,
+    include_comments: bool = True,
+    output_format: str = "txt",
+    tei_validation: bool = False,
+    target_language: str | None = None,
+    include_tables: bool = True,
+    include_images: bool = False,
+    include_formatting: bool = False,
+    include_links: bool = False,
+    deduplicate: bool = False,
+    date_extraction_params: dict[str, Any] | None = None,
+    url_blacklist: set[str] | None = None,
+    author_blacklist: set[str] | None = None,
+    settingsfile: str | None = None,
+    prune_xpath: str | list[str] | None = None,
+    config: ConfigParser = DEFAULT_CONFIG,
+    options: Extractor | None = None,
+) -> Document | None:
+    """Main function exposed by the package:
+       Wrapper for text extraction and conversion to chosen output format.
+       This method also returns document metadata.
+
+    Args:
+        filecontent: HTML code as string.
+        url: URL of the webpage.
+        record_id: Add an ID to the metadata.
+        fast: Use faster heuristics and skip backup extraction.
+        favor_precision: prefer less text but correct extraction.
+        favor_recall: when unsure, prefer more text.
+        include_comments: Extract comments along with the main text.
+        output_format: Define an output format:
+            "csv", "html", "json", "markdown", "txt", "xml", and "xmltei".
+        tei_validation: Validate the XML-TEI output with respect to the TEI standard.
+        target_language: Define a language to discard invalid documents (ISO 639-1 format).
+        include_tables: Take into account information within the HTML <table> element.
+        include_images: Take images into account (experimental).
+        include_formatting: Keep structural elements related to formatting
+            (only valuable if output_format is set to XML).
+        include_links: Keep links along with their targets (experimental).
+        deduplicate: Remove duplicate segments and documents.
+        date_extraction_params: Provide extraction parameters to htmldate as dict().
+        url_blacklist: Provide a blacklist of URLs as set() to filter out documents.
+        author_blacklist: Provide a blacklist of Author Names as set() to filter out authors.
+        settingsfile: Use a configuration file to override the standard settings.
+        prune_xpath: Provide an XPath expression to prune the tree before extraction.
+            can be str or list of str.
+        config: Directly provide a configparser configuration.
+        options: Directly provide a whole extractor configuration.
+
+    Returns:
+        Document metadata with content string in the desired format or None.
+    """
+    return _internal_extraction(
+        filecontent=filecontent,
+        url=url,
+        record_id=record_id,
+        fast=fast,
+        favor_precision=favor_precision,
+        favor_recall=favor_recall,
+        include_comments=include_comments,
+        output_format=output_format,
+        tei_validation=tei_validation,
+        target_language=target_language,
+        include_tables=include_tables,
+        include_images=include_images,
+        include_formatting=include_formatting,
+        include_links=include_links,
+        deduplicate=deduplicate,
+        date_extraction_params=date_extraction_params,
+        with_metadata=True,
+        only_with_metadata=False,
+        url_blacklist=url_blacklist,
+        author_blacklist=author_blacklist,
+        settingsfile=settingsfile,
+        prune_xpath=prune_xpath,
+        config=config,
+        options=options,
+    )
+
+
+def _check_deprecation(
+    fast: bool = False,
+    *,
+    no_fallback: bool = False,
+    as_dict: bool = False,
+    max_tree_size: int | None = None,
+    stacklevel: int = 2,
+) -> bool:
+    """Check deprecated params and return the effective "fast" flag.
+    stacklevel is set by the caller so the warning points at user code."""
+    if no_fallback:
+        warnings.warn(
+            '"no_fallback" will be removed, use "fast" instead',
+            DeprecationWarning,
+            stacklevel=stacklevel,
+        )
+    if as_dict:
+        warnings.warn(
+            '"as_dict" will be removed, use the .as_dict() method instead',
+            DeprecationWarning,
+            stacklevel=stacklevel,
+        )
     if max_tree_size:
-        raise ValueError("max_tree_size is deprecated, use settings.cfg file instead")
+        raise ValueError('"max_tree_size" will be removed, use settings.cfg instead')
+    return fast or no_fallback
+
+
+def _internal_extraction(
+    filecontent: Any,
+    url: str | None = None,
+    record_id: str | None = None,
+    fast: bool = False,
+    no_fallback: bool = False,
+    favor_precision: bool = False,
+    favor_recall: bool = False,
+    include_comments: bool = True,
+    output_format: str = "txt",
+    tei_validation: bool = False,
+    target_language: str | None = None,
+    include_tables: bool = True,
+    include_images: bool = False,
+    include_formatting: bool = False,
+    include_links: bool = False,
+    deduplicate: bool = False,
+    date_extraction_params: dict[str, Any] | None = None,
+    with_metadata: bool = False,
+    only_with_metadata: bool = False,
+    max_tree_size: int | None = None,
+    url_blacklist: set[str] | None = None,
+    author_blacklist: set[str] | None = None,
+    settingsfile: str | None = None,
+    prune_xpath: str | list[str] | None = None,
+    config: ConfigParser = DEFAULT_CONFIG,
+    options: Extractor | None = None,
+) -> Document | None:
+    """Internal method to do the extraction"""
+    # stacklevel=4 → user → extract → _internal_extraction → _check_deprecation
+    fast = _check_deprecation(
+        fast,
+        no_fallback=no_fallback,
+        as_dict=False,
+        max_tree_size=max_tree_size,
+        stacklevel=4,
+    )
 
     # regroup extraction options
     if not options or not isinstance(options, Extractor):
         options = Extractor(
-            config=use_config(settingsfile, config),
+            config=use_config(settingsfile) if settingsfile else config,
             output_format=output_format,
             fast=fast,
             precision=favor_precision,
@@ -473,16 +621,13 @@ def extract(
     if options.format not in TXT_FORMATS:
         # control output
         if options.format == "python":
-            raise ValueError(
-                "'python' format only usable in bare_extraction() function"
-            )
+            raise ValueError("'python' format only usable in bare_extraction() function")
         # add record ID to metadata
         document.id = record_id
         # calculate fingerprint
         if document.raw_text is not None:
-            document.fingerprint = content_fingerprint(
-                str(document.title) + " " + str(document.raw_text)
-            )
+            document.fingerprint = content_fingerprint(str(document.title) + " " + str(document.raw_text))
 
     # return
-    return determine_returnstring(document, options)
+    document.text = determine_returnstring(document, options)
+    return document

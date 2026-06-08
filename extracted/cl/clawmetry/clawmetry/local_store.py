@@ -41,6 +41,7 @@ import json
 import logging
 import math
 import os
+from clawmetry import ccr as _ccr  # reversible event-payload compression (#2843)
 import threading
 import time
 from collections import deque
@@ -254,6 +255,15 @@ _DDL = [
         eval_judge_model        VARCHAR,
         eval_scored_at          BIGINT,
         eval_rubric             VARCHAR,
+        -- Content-grounded faithfulness evaluator. The store (OSS) owns the
+        -- column; the COMPUTE lives in clawmetry-pro (claim-by-claim check on
+        -- the user's own key). faithfulness_score is 0-1 (1 = every claim is
+        -- grounded in the session's tool results / context); faithfulness_detail
+        -- is a small JSON blob with the unsupported-claim list. NULL until the
+        -- Pro evaluator runs.
+        faithfulness_score      DOUBLE,
+        faithfulness_detail     VARCHAR,
+        faithfulness_scored_at  BIGINT,
         PRIMARY KEY (agent_type, session_id)
     )
     """,
@@ -342,6 +352,19 @@ _DDL = [
         last_test_ok           BOOLEAN,
         last_test_error        VARCHAR,
         updated_at             VARCHAR
+    )
+    """,
+    # Agent Inventory: a small per-runtime label store so the user can name who
+    # "owns" each agent on the node (a free-text chip, default "me") and jot a
+    # note. Keyed by the runtime key (== _runtime_of_session prefix; "openclaw"
+    # for the default bucket). Edited only on the LOCAL dashboard; the value
+    # rides the snapshot so cloud renders it read-only. No secrets here.
+    """
+    CREATE TABLE IF NOT EXISTS agent_meta (
+        agent_key   VARCHAR PRIMARY KEY,
+        owner       VARCHAR,
+        notes       VARCHAR,
+        updated_at  VARCHAR
     )
     """,
     # Shared by OpenClaw + Hermes (and any future cron-supporting agent).
@@ -946,6 +969,12 @@ _MIGRATIONS_V2 = [
     ("sessions", "eval_judge_model",  "VARCHAR"),
     ("sessions", "eval_scored_at",    "BIGINT"),
     ("sessions", "eval_rubric",       "VARCHAR"),
+    # Content-grounded faithfulness evaluator (compute in clawmetry-pro).
+    # Idempotent column-adds so existing stores pick up the column without a
+    # fresh DB. The DDL above carries the same columns for fresh stores.
+    ("sessions", "faithfulness_score",     "DOUBLE"),
+    ("sessions", "faithfulness_detail",    "VARCHAR"),
+    ("sessions", "faithfulness_scored_at", "BIGINT"),
     # Issue #2200 — hash-chain columns. chain_prev_hash/chain_hash are NULL on
     # existing rows and populated on new events when CLAWMETRY_INTEGRITY=1.
     ("events",   "chain_prev_hash",   "VARCHAR"),
@@ -2199,6 +2228,65 @@ class LocalStore:
                 now_iso,
             ])
 
+    def set_agent_meta(
+        self,
+        agent_key: str,
+        owner: str | None = None,
+        notes: str | None = None,
+    ) -> None:
+        """Upsert one Agent-Inventory label row (owner / notes) for a runtime.
+
+        ``agent_key`` is the runtime key (``_runtime_of_session`` prefix, with
+        ``"openclaw"`` for the default bucket). Partial updates are honored via
+        COALESCE so setting only ``notes`` preserves an existing ``owner`` (and
+        vice versa). An explicit empty string is stored as-is (the client
+        renders an empty owner as "me"); ``None`` means "don't touch this
+        field". Idempotent; mirrors the ``ingest_channel_config`` write-lock
+        idiom. The daemon owns the writer lock, so this goes through the daemon
+        proxy from the dashboard process (see ``set_agent_meta`` in
+        ``routes/local_query._DAEMON_METHODS``)."""
+        if not agent_key:
+            raise ValueError("agent_meta must include 'agent_key'")
+        agent_key = str(agent_key).lower().strip()
+        now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        with self._write_lock:
+            self._conn.execute("""
+                INSERT INTO agent_meta (agent_key, owner, notes, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT (agent_key) DO UPDATE SET
+                    owner      = COALESCE(excluded.owner, agent_meta.owner),
+                    notes      = COALESCE(excluded.notes, agent_meta.notes),
+                    updated_at = excluded.updated_at
+            """, [
+                agent_key,
+                owner,
+                notes,
+                now_iso,
+            ])
+
+    def query_agent_meta(self) -> dict[str, dict[str, Any]]:
+        """Return ``{agent_key: {owner, notes, updated_at}}`` for every labeled
+        runtime. Read-only. Goes through ``self._fetch`` (which already takes
+        the write lock for read+write serialization), so callers MUST NOT wrap
+        this in an outer ``with self._write_lock`` (regular Lock, would deadlock
+        per memory ``feedback_local_store_fetch_takes_writelock``)."""
+        sql = """
+            SELECT agent_key, owner, notes, updated_at
+            FROM agent_meta
+            ORDER BY agent_key ASC
+        """
+        out: dict[str, dict[str, Any]] = {}
+        for r in self._fetch(sql, []):
+            key = r[0]
+            if not key:
+                continue
+            out[str(key)] = {
+                "owner": r[1],
+                "notes": r[2],
+                "updated_at": r[3],
+            }
+        return out
+
     def ingest_cron(self, cron: dict[str, Any]) -> None:
         """Upsert one cron-job row. Required: cron_id.
 
@@ -2621,6 +2709,7 @@ class LocalStore:
             raw = d.get("details")
             if raw is not None:
                 try:
+                    raw = _ccr.maybe_decompress(raw)
                     text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
                     try:
                         d["details"] = json.loads(text)
@@ -3358,6 +3447,7 @@ class LocalStore:
                 if raw is None:
                     continue
                 try:
+                    raw = _ccr.maybe_decompress(raw)
                     text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
                     try:
                         d[k] = json.loads(text)
@@ -3672,6 +3762,7 @@ class LocalStore:
                 if raw is None:
                     continue
                 try:
+                    raw = _ccr.maybe_decompress(raw)
                     text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
                     try:
                         d[c] = json.loads(text)
@@ -3799,6 +3890,101 @@ class LocalStore:
             })
         return out
 
+    def query_otlp_app_rollup(
+        self,
+        *,
+        exclude_agent_types: "Iterable[str] | None" = None,
+        since: float | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """One row per DISTINCT ``agent_type`` in the spans table for foreign
+        OTLP / OpenLLMetry apps (#2822 stamps ``agent_type`` from the resource
+        ``service.name``), so the runtime switcher + Agent Inventory can surface
+        a LangChain / CrewAI / OpenAI-Agents app that only ever sent OTLP traces
+        (it has no session-id prefix, so it appears in NONE of the
+        session-prefix rollups).
+
+        This is a SINGLE ``GROUP BY agent_type`` aggregate (one index-backed
+        scan over ``spans``), meant to run on the daemon's snapshot timer inside
+        the cached rollup path, NEVER per HTTP request (FLYWHEEL 1e CPU budget).
+
+        ``exclude_agent_types`` removes the 12 known session-prefix runtimes
+        (plus ``openclaw``) so we only return the foreign apps. ``since`` bounds
+        to recent activity. Rows are ordered by recent activity desc and capped
+        at ``limit`` (the caller logs when truncated). Each row::
+
+            {agent_type, service_name, sessions, traces, spans, turns,
+             tokens, cost_usd, primary_model, last_ts}
+
+        ``turns`` counts model-bearing spans (a chat/LLM call), mirroring the
+        per-runtime ``turns`` semantics; ``sessions`` counts distinct non-null
+        session ids (often 0 for a pure-trace app, which is honest). Best-effort:
+        any failure (e.g. an old store without the spans table) yields ``[]``.
+        """
+        try:
+            excl = {str(x).lower() for x in (exclude_agent_types or [])}
+            clauses: list[str] = []
+            params: list[Any] = []
+            if since is not None:
+                clauses.append("start_ts >= ?")
+                params.append(float(since))
+            if excl:
+                placeholders = ", ".join(["?"] * len(excl))
+                clauses.append(f"LOWER(agent_type) NOT IN ({placeholders})")
+                params.extend(sorted(excl))
+            # Defensive: never return a NULL/blank bucket as a phantom runtime.
+            clauses.append("agent_type IS NOT NULL AND agent_type <> ''")
+            where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+            sql = f"""
+                SELECT
+                    agent_type,
+                    MAX(service_name)                                  AS service_name,
+                    COUNT(DISTINCT session_id)                         AS sessions,
+                    COUNT(DISTINCT trace_id)                           AS traces,
+                    COUNT(*)                                           AS spans,
+                    SUM(CASE WHEN model IS NOT NULL AND model <> ''
+                             THEN 1 ELSE 0 END)                        AS turns,
+                    SUM(COALESCE(token_count, 0))                      AS tokens,
+                    SUM(COALESCE(cost_usd, 0.0))                       AS cost_usd,
+                    MAX(start_ts)                                      AS last_ts
+                FROM spans
+                {where}
+                GROUP BY agent_type
+                ORDER BY MAX(start_ts) DESC
+                LIMIT ?
+            """
+            params.append(int(limit))
+            cols = [
+                "agent_type", "service_name", "sessions", "traces", "spans",
+                "turns", "tokens", "cost_usd", "last_ts",
+            ]
+            out: list[dict[str, Any]] = []
+            for r in self._fetch(sql, params):
+                d = dict(zip(cols, r))
+                # Per-app primary model (most frequent model on its spans). One
+                # tiny grouped read per app; the app set is already capped at
+                # ``limit`` so this stays bounded.
+                atype = d.get("agent_type")
+                primary = ""
+                try:
+                    mrows = self._fetch(
+                        """
+                        SELECT model, COUNT(*) AS n FROM spans
+                        WHERE agent_type = ? AND model IS NOT NULL AND model <> ''
+                        GROUP BY model ORDER BY n DESC LIMIT 1
+                        """,
+                        [atype],
+                    )
+                    if mrows:
+                        primary = mrows[0][0] or ""
+                except Exception:
+                    primary = ""
+                d["primary_model"] = primary
+                out.append(d)
+            return out
+        except Exception:
+            return []
+
     def query_recent_read_tool_calls(
         self,
         *,
@@ -3875,6 +4061,7 @@ class LocalStore:
             data: dict[str, Any] = {}
             if raw is not None:
                 try:
+                    raw = _ccr.maybe_decompress(raw)
                     text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
                     parsed = json.loads(text) if text else {}
                     if isinstance(parsed, dict):
@@ -3962,6 +4149,7 @@ class LocalStore:
             data: dict[str, Any] = {}
             if raw is not None:
                 try:
+                    raw = _ccr.maybe_decompress(raw)
                     text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
                     parsed = json.loads(text) if text else {}
                     if isinstance(parsed, dict):
@@ -4026,6 +4214,7 @@ class LocalStore:
             data: dict[str, Any] = {}
             if raw is not None:
                 try:
+                    raw = _ccr.maybe_decompress(raw)
                     text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
                     parsed = json.loads(text) if text else {}
                     if isinstance(parsed, dict):
@@ -4445,6 +4634,7 @@ class LocalStore:
         for (eid, data, model) in rows:
             try:
                 if isinstance(data, (bytes, bytearray)):
+                    data = _ccr.maybe_decompress(data)
                     data = bytes(data).decode("utf-8", "replace")
                 obj = json.loads(data) if isinstance(data, str) else data
             except Exception:
@@ -4524,6 +4714,7 @@ class LocalStore:
                 max_id = eid
             try:
                 if isinstance(data, (bytes, bytearray)):
+                    data = _ccr.maybe_decompress(data)
                     data = bytes(data).decode("utf-8", "replace")
                 obj = json.loads(data) if isinstance(data, str) else data
             except Exception:
@@ -5010,6 +5201,7 @@ class LocalStore:
             raw = d.get("raw_blob")
             if raw is not None:
                 try:
+                    raw = _ccr.maybe_decompress(raw)
                     text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
                     try:
                         d["raw_blob"] = json.loads(text)
@@ -5901,6 +6093,7 @@ class LocalStore:
             raw = d.get("condition_json")
             if raw is not None:
                 try:
+                    raw = _ccr.maybe_decompress(raw)
                     text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
                     try:
                         d["condition_json"] = json.loads(text)
@@ -6220,6 +6413,41 @@ class LocalStore:
                 log.exception("local store: persist_eval_score failed for %s",
                               session_id)
 
+    def persist_faithfulness_score(
+        self,
+        *,
+        session_id: str,
+        score: float,
+        detail: str = "",
+        scored_at: int,
+    ) -> None:
+        """Persist a content-grounded faithfulness score onto the ``sessions``
+        row. Mirrors ``persist_eval_score`` (same single-writer connection +
+        upsert-in-place semantics).
+
+        The COMPUTE lives in clawmetry-pro (the claim-by-claim verifier); the
+        store column is OSS so a free install can still read a Pro-written value
+        and the catalogue can surface it. ``detail`` is a small JSON string with
+        the unsupported-claim list; ``score`` is 0-1.
+        """
+        with self._write_lock:
+            try:
+                self._conn.execute(
+                    """
+                    UPDATE sessions
+                       SET faithfulness_score     = ?,
+                           faithfulness_detail    = ?,
+                           faithfulness_scored_at = ?
+                     WHERE session_id             = ?
+                    """,
+                    [float(score), detail or "", int(scored_at), session_id],
+                )
+            except Exception:
+                log.exception(
+                    "local store: persist_faithfulness_score failed for %s",
+                    session_id,
+                )
+
     def query_unscored_sessions(
         self,
         *,
@@ -6304,6 +6532,157 @@ class LocalStore:
                 "eval_score", "eval_reason", "eval_judge_model",
                 "eval_scored_at", "eval_rubric"]
         return [dict(zip(cols, r)) for r in rows]
+
+    def query_session_quality_window(
+        self,
+        *,
+        window_minutes: int = 60,
+    ) -> dict[str, Any]:
+        """Quality snapshot over a recent window for the eval->monitor alert
+        loop (``eval_score_below`` + ``outcome_failure_rate`` rule types).
+
+        Closes the loop the LLM-as-judge eval scores (``sessions.eval_score``,
+        stamped by ``clawmetry/eval_runner.py``) and the outcome classifier
+        (``sessions.outcome``, stamped by ``clawmetry/outcome_classifier.py``)
+        opened but never fed into anything actionable. The daemon's alert
+        evaluator reads this slice and fires when production quality drops.
+
+        Two independent windows, both anchored ``now - window_minutes``:
+
+        * ``eval`` — sessions whose ``eval_scored_at`` (epoch ms) falls in the
+          window. Returns the score list + average so a rule can fire when the
+          mean dips below a threshold (with a ``min_sessions`` floor to avoid
+          single-sample noise).
+        * ``outcome`` — sessions whose ``outcome_classified_at`` (epoch ms)
+          falls in the window AND whose ``outcome`` is a terminal label (not
+          ``ongoing``/NULL). Returns the per-label counts + the failure-ish
+          fraction (``failed`` / ``tool_call_stuck`` / ``cognitive_loop``).
+
+        Degrades gracefully: an empty / un-scored / un-classified store returns
+        zero counts (the evaluators then no-fire) rather than raising. The
+        timestamp columns are BIGINT epoch *milliseconds* (see the schema at
+        the top of this file), so the cutoff is computed in ms.
+        """
+        try:
+            window_minutes = max(1, int(window_minutes))
+        except (TypeError, ValueError):
+            window_minutes = 60
+        now_ms = int(time.time() * 1000)
+        cutoff_ms = now_ms - window_minutes * 60 * 1000
+
+        # ── Eval-score window ────────────────────────────────────────────────
+        eval_scores: list[float] = []
+        try:
+            rows = self._fetch(
+                """
+                SELECT eval_score
+                  FROM sessions
+                 WHERE eval_score IS NOT NULL
+                   AND eval_scored_at IS NOT NULL
+                   AND eval_scored_at >= ?
+                """,
+                [cutoff_ms],
+            )
+            for r in rows:
+                if r and r[0] is not None:
+                    try:
+                        eval_scores.append(float(r[0]))
+                    except (TypeError, ValueError):
+                        continue
+        except Exception as e:
+            log.warning("local store: session quality eval window failed: %s", e)
+        eval_count = len(eval_scores)
+        eval_avg = (sum(eval_scores) / eval_count) if eval_count else None
+
+        # ── Outcome window ───────────────────────────────────────────────────
+        # Failure-ish = the outcome classifier's negative terminal labels.
+        # ``ongoing`` and NULL are excluded from the denominator (not yet a
+        # finished session — counting them would dilute the rate).
+        failure_labels = {"failed", "tool_call_stuck", "cognitive_loop"}
+        outcome_counts: dict[str, int] = {}
+        classified_total = 0
+        failed_count = 0
+        try:
+            rows = self._fetch(
+                """
+                SELECT outcome, COUNT(*) AS n
+                  FROM sessions
+                 WHERE outcome IS NOT NULL
+                   AND outcome <> 'ongoing'
+                   AND outcome_classified_at IS NOT NULL
+                   AND outcome_classified_at >= ?
+                 GROUP BY outcome
+                """,
+                [cutoff_ms],
+            )
+            for r in rows:
+                label = (r[0] or "").strip()
+                if not label:
+                    continue
+                n = int(r[1] or 0)
+                outcome_counts[label] = n
+                classified_total += n
+                if label in failure_labels:
+                    failed_count += n
+        except Exception as e:
+            log.warning("local store: session quality outcome window failed: %s", e)
+        failure_rate = (failed_count / classified_total) if classified_total else None
+
+        return {
+            "window_minutes":    window_minutes,
+            "eval_count":        eval_count,
+            "eval_avg":          eval_avg,
+            "eval_scores":       eval_scores,
+            "outcome_counts":    outcome_counts,
+            "classified_total":  classified_total,
+            "failed_count":      failed_count,
+            "failure_rate":      failure_rate,
+        }
+
+    def query_session_quality(
+        self,
+        *,
+        session_ids: list[str] | None = None,
+    ) -> dict[str, dict[str, Any]]:
+        """Per-session eval/outcome fields for the given session ids, keyed by
+        ``session_id``. Powers the quality rows in ``/api/run-compare``.
+
+        Returns ``{}`` when ``session_ids`` is empty. Sessions with no eval
+        score / no outcome simply come back with those fields ``None`` (the
+        run-compare route renders ``null`` so the response stays additive +
+        backward compatible). Never raises — a read error yields ``{}``.
+        """
+        if not session_ids:
+            return {}
+        ids = [str(s) for s in session_ids if s]
+        if not ids:
+            return {}
+        placeholders = ",".join("?" for _ in ids)
+        out: dict[str, dict[str, Any]] = {}
+        try:
+            rows = self._fetch(
+                f"""
+                SELECT session_id, eval_score, eval_reason,
+                       outcome, outcome_confidence
+                  FROM sessions
+                 WHERE session_id IN ({placeholders})
+                """,
+                list(ids),
+            )
+            for r in rows:
+                sid = r[0]
+                if sid is None:
+                    continue
+                out[str(sid)] = {
+                    "eval_score":         (None if r[1] is None else float(r[1])),
+                    "eval_reason":        r[2],
+                    "outcome":            r[3],
+                    "outcome_confidence": (None if r[4] is None else float(r[4])),
+                }
+        except Exception as e:
+            log.warning("local store: query_session_quality failed: %s", e)
+            return {}
+        return out
 
     def query_eval_summary(
         self,
@@ -6609,6 +6988,7 @@ class LocalStore:
             meta: dict[str, Any] = {}
             if raw:
                 try:
+                    raw = _ccr.maybe_decompress(raw)
                     text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
                     meta = json.loads(text) if text else {}
                     if not isinstance(meta, dict):
@@ -6656,6 +7036,7 @@ class LocalStore:
             data: dict[str, Any] = {}
             if raw is not None:
                 try:
+                    raw = _ccr.maybe_decompress(raw)
                     text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
                     parsed = json.loads(text) if text else {}
                     if isinstance(parsed, dict):
@@ -6709,6 +7090,7 @@ class LocalStore:
             data: dict[str, Any] = {}
             if raw is not None:
                 try:
+                    raw = _ccr.maybe_decompress(raw)
                     text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
                     parsed = json.loads(text) if text else {}
                     if isinstance(parsed, dict):
@@ -6941,6 +7323,7 @@ class LocalStore:
                 data: dict[str, Any] = {}
                 if raw is not None:
                     try:
+                        raw = _ccr.maybe_decompress(raw)
                         text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
                         parsed = json.loads(text) if text else {}
                         if isinstance(parsed, dict):
@@ -7084,6 +7467,7 @@ class LocalStore:
             if raw is None:
                 return {}
             try:
+                raw = _ccr.maybe_decompress(raw)
                 text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
                 parsed = json.loads(text) if text else {}
                 return parsed if isinstance(parsed, dict) else {}
@@ -7315,6 +7699,7 @@ class LocalStore:
             data: dict[str, Any] = {}
             if raw is not None:
                 try:
+                    raw = _ccr.maybe_decompress(raw)
                     text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
                     parsed = json.loads(text) if text else {}
                     if isinstance(parsed, dict):
@@ -7440,6 +7825,7 @@ class LocalStore:
             data: dict[str, Any] = {}
             if raw is not None:
                 try:
+                    raw = _ccr.maybe_decompress(raw)
                     text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
                     parsed = json.loads(text) if text else {}
                     if isinstance(parsed, dict):
@@ -7647,6 +8033,7 @@ class LocalStore:
             data: dict[str, Any] = {}
             if raw is not None:
                 try:
+                    raw = _ccr.maybe_decompress(raw)
                     text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
                     parsed = json.loads(text) if text else {}
                     if isinstance(parsed, dict):
@@ -8798,6 +9185,8 @@ def _event_to_row(e: dict[str, Any]) -> tuple:
             data = data.encode("utf-8")
         else:
             data = json.dumps(data, separators=(",", ":")).encode("utf-8")
+            if _ccr.enabled():
+                data = _ccr.compress(data)
     cost, tokens, model = _extract_event_metrics(e)
     return (
         str(e["id"]),
@@ -8823,6 +9212,7 @@ def _row_to_event(row: tuple, cols: list[str]) -> dict[str, Any]:
     raw = out.get("data")
     if raw is not None:
         try:
+            raw = _ccr.maybe_decompress(raw)
             text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
             try:
                 out["data"] = json.loads(text)
@@ -9548,6 +9938,7 @@ def _decode_data_blob_rows(rows: Iterable[tuple], cols: list[str]) -> list[dict[
         raw = d.get("data")
         if raw is not None:
             try:
+                raw = _ccr.maybe_decompress(raw)
                 text = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
                 try:
                     d["data"] = json.loads(text)

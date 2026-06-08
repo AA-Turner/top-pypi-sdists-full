@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: praw
-Version: 7.8.1
+Version: 7.8.2
 Summary: Python Reddit API Wrapper.
 Keywords: reddit,api,wrapper
 Author-email: Bryce Boe <bbzbryce@gmail.com>
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Utilities
+License-File: LICENSE.txt
 Requires-Dist: prawcore >=2.4, <3
 Requires-Dist: update_checker >=0.18
 Requires-Dist: websocket-client >=0.54.0

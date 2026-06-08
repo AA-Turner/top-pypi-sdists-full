@@ -1,13 +1,13 @@
 [project]
 name = "flet-desktop"
-version = "0.85.2"
+version = "0.85.3"
 description = "Flet Desktop client in Flutter"
 authors = [{ name = "Appveyor Systems Inc.", email = "hello@flet.dev" }]
 license = "Apache-2.0"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "flet==0.85.2"
+    "flet==0.85.3"
 ]
 
 [project.urls]

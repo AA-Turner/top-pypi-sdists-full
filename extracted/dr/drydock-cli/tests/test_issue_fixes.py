@@ -139,7 +139,6 @@ class TestIssue14EmptyAssistantDropped:
         """Empty assistant message (no content, no tool_calls) is dropped."""
         from drydock.core.agent_loop import AgentLoop
         from drydock.core.types import LLMMessage, Role, MessageList
-        import os
         al = object.__new__(AgentLoop)
         al.messages = MessageList()
         al._truncate_old_tool_results = lambda: None
@@ -166,7 +165,6 @@ class TestIssue14EmptyAssistantDropped:
         to avoid a dangling tool message with no matching assistant turn."""
         from drydock.core.agent_loop import AgentLoop
         from drydock.core.types import LLMMessage, Role, MessageList, ToolCall, FunctionCall
-        import os
         al = object.__new__(AgentLoop)
         al.messages = MessageList()
         al._truncate_old_tool_results = lambda: None
@@ -199,7 +197,6 @@ class TestIssue14EmptyAssistantDropped:
         """Assistant messages with content are never dropped."""
         from drydock.core.agent_loop import AgentLoop
         from drydock.core.types import LLMMessage, Role, MessageList
-        import os
         al = object.__new__(AgentLoop)
         al.messages = MessageList()
         al._truncate_old_tool_results = lambda: None

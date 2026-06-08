@@ -4,7 +4,6 @@ from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import ClassVar, final
 
-import anyio
 from pydantic import BaseModel, Field
 
 from drydock.core.tools.base import (
@@ -450,43 +449,11 @@ class WriteFile(
         # model gets a gentle advisory result instead of a ToolError that
         # triggers panic-retry loops (feedback_no_tool_errors_for_loop_detection).
         if not args.path.strip():
-            cwd = Path.cwd()
-            # Make the response ROBUST and IMMEDIATE — name concrete
-            # recently-read files in the FIRST advisory. 2026-06-05:
-            # operator showed v2.9.59 streak-based escalation not
-            # kicking in (model saw 1st-miss message repeatedly).
-            # Suspect: streak state didn't persist reliably across
-            # tool-call boundaries. Stateless approach: every miss
-            # gets the full advisory + recent-reads suggestion +
-            # repeat-history awareness via the ctx.read_file_state
-            # signature. Strictly better than the streak version.
-            read_state = ctx.read_file_state if ctx else None
-            recent_reads: list[str] = []
-            if read_state:
-                try:
-                    recent_reads = list(read_state.keys())[-5:]
-                except Exception:
-                    pass
-
-            try:
-                pkg_dirs = [
-                    d.name for d in sorted(cwd.iterdir())
-                    if d.is_dir() and not d.name.startswith('.') and not d.name.startswith('_')
-                ][:4]
-                hint = f"Package dirs in {cwd.name}/: {', '.join(pkg_dirs)}" if pkg_dirs else f"cwd: {cwd}"
-            except OSError:
-                hint = f"cwd: {cwd}"
-
-            # 2026-06-05: keep advisory SHORT. Long error text in
-            # tool result accumulates in context and reinforces the
-            # locked-in loop pattern. The loop-surgery hook handles
-            # actual recovery; this just gives one-line redirect.
-            if recent_reads:
-                msg = (
-                    f"path required"
-                )
-            else:
-                msg = "path required"
+            # 2026-06-05: keep advisory SHORT. Long error text in tool
+            # result accumulates in context and reinforces the locked-
+            # in loop pattern. The loop-surgery hook handles actual
+            # recovery; this just gives one-line redirect.
+            msg = "path required"
             yield WriteFileResult(
                 path="(missing)",
                 bytes_written=0,
@@ -682,7 +649,7 @@ class WriteFile(
                     start = max(0, err_line - 3)
                     end = min(len(src_lines), err_line + 4)
                     numbered = [
-                        f"  {'>' if i == err_line else ' '} {i+1:>4}: {src_lines[i]}"
+                        f"  {'>' if i == err_line else ' '} {i + 1:>4}: {src_lines[i]}"
                         for i in range(start, end)
                     ]
                     context_block = "\n" + "\n".join(numbered)
@@ -755,7 +722,7 @@ class WriteFile(
                     start = max(0, err_line - 3)
                     end = min(len(src_lines), err_line + 4)
                     numbered = [
-                        f"  {'>' if i == err_line else ' '} {i+1:>4}: {src_lines[i]}"
+                        f"  {'>' if i == err_line else ' '} {i + 1:>4}: {src_lines[i]}"
                         for i in range(start, end)
                     ]
                     context_block = "\n" + "\n".join(numbered)
@@ -776,9 +743,9 @@ class WriteFile(
                     )
                 elif thrash_n == 2:
                     syntax_warning += (
-                        f"\n  [2nd syntax error on this file — consider "
-                        f"read_file + search_replace on the lines shown "
-                        f"above instead of another full rewrite.]"
+                        "\n  [2nd syntax error on this file — consider "
+                        "read_file + search_replace on the lines shown "
+                        "above instead of another full rewrite.]"
                     )
             else:
                 # Reset thrash counter on a successful parse.
@@ -999,7 +966,6 @@ class WriteFile(
 
     async def _write_file(self, args: WriteFileArgs, file_path: Path) -> None:
         import asyncio
-        import concurrent.futures
 
         def _sync_write():
             with open(file_path, "w", encoding="utf-8") as f:
@@ -1013,7 +979,7 @@ class WriteFile(
                 loop.run_in_executor(None, _sync_write),
                 timeout=10,  # 10 seconds is generous for a text file write
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise ToolError(
                 f"Timed out writing {file_path} after 10s. "
                 f"The file may be locked by another process."

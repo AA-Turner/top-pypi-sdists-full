@@ -98,7 +98,7 @@ async def _try_claude_cli(prompt: str) -> str | None:
             stdout, _ = await asyncio.wait_for(
                 proc.communicate(), timeout=OPUS_TIMEOUT_SEC
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             proc.kill()
             await proc.wait()
             return None

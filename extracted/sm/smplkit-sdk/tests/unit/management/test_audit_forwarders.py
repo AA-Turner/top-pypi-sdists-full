@@ -41,6 +41,7 @@ def _forwarder_resource(
     transform: Any = None,
     transform_type: str | None = None,
     environments: dict[str, Any] | None = None,
+    forward_smplkit_events: bool = False,
 ) -> dict[str, Any]:
     # The base ``enabled`` is server-pinned false (ADR-055); the audit
     # service always returns it false regardless of per-environment state.
@@ -51,6 +52,7 @@ def _forwarder_resource(
             "name": name,
             "forwarder_type": forwarder_type,
             "enabled": False,
+            "forward_smplkit_events": forward_smplkit_events,
             "environments": environments if environments is not None else {},
             "description": description,
             "filter": filter_,
@@ -163,8 +165,23 @@ class TestModels:
         # Base ``enabled`` is server-pinned false; no environments by default.
         assert f.enabled is False
         assert f.environments == {}
+        # forward_smplkit_events defaults to false.
+        assert f.forward_smplkit_events is False
         # No client attached when _from_resource is called bare.
         assert f._client is None
+
+    def test_forwarder_from_resource_surfaces_forward_smplkit_events(self):
+        # A forwarder opted in to platform change events reads back true.
+        f = Forwarder._from_resource(_forwarder_resource(forward_smplkit_events=True))
+        assert f.forward_smplkit_events is True
+
+    def test_forwarder_from_resource_defaults_forward_smplkit_events_when_absent(self):
+        # A forwarder persisted before the field landed has no
+        # ``forward_smplkit_events`` on the wire — it must read back false.
+        resource = _forwarder_resource()
+        del resource["attributes"]["forward_smplkit_events"]
+        f = Forwarder._from_resource(resource)
+        assert f.forward_smplkit_events is False
 
     def test_forwarder_from_resource_reads_environments(self):
         # Per-environment overrides round-trip on read: enablement plus an
@@ -364,6 +381,72 @@ class TestForwardersCrud:
         fwd.save()
         # An empty/omitted environments map is not advertised on the wire.
         assert '"environments"' not in captured["body"]
+
+    def test_new_with_forward_smplkit_events_posts_field(self):
+        # Opting in to platform change events sends forward_smplkit_events:true
+        # on create and reads the server-truthful value back.
+        captured: dict[str, Any] = {}
+
+        def handler(req: httpx.Request) -> httpx.Response:
+            captured["body"] = req.content.decode()
+            return httpx.Response(201, json={"data": _forwarder_resource(forward_smplkit_events=True)})
+
+        c = _client_with_handler(handler)
+        fwd = c.forwarders.new(
+            FWD_ID,
+            name="x",
+            forwarder_type="http",
+            configuration=HttpConfiguration(url="https://x"),
+            forward_smplkit_events=True,
+        )
+        assert fwd.forward_smplkit_events is True
+        fwd.save()
+        assert '"forward_smplkit_events":true' in captured["body"]
+        # Server-truthful value is reflected back on the instance.
+        assert fwd.forward_smplkit_events is True
+
+    def test_new_without_forward_smplkit_events_omits_field(self):
+        # The additive default (false) stays implicit: existing callers who
+        # don't set it produce a body without the field.
+        captured: dict[str, Any] = {}
+
+        def handler(req: httpx.Request) -> httpx.Response:
+            captured["body"] = req.content.decode()
+            return httpx.Response(201, json={"data": _forwarder_resource()})
+
+        c = _client_with_handler(handler)
+        fwd = c.forwarders.new(
+            FWD_ID,
+            name="x",
+            forwarder_type="http",
+            configuration=HttpConfiguration(url="https://x"),
+        )
+        # Defaults to false on the unsaved instance.
+        assert fwd.forward_smplkit_events is False
+        fwd.save()
+        assert "forward_smplkit_events" not in captured["body"]
+        assert fwd.forward_smplkit_events is False
+
+    def test_get_then_toggle_forward_smplkit_events_then_save_puts(self):
+        # Get-mutate-put: flip forward_smplkit_events on an existing forwarder.
+        captured: dict[str, Any] = {}
+
+        def handler(req: httpx.Request) -> httpx.Response:
+            captured["method"] = req.method
+            captured["body"] = req.content.decode() if req.method == "PUT" else ""
+            if req.method == "GET":
+                return httpx.Response(200, json={"data": _forwarder_resource(forward_smplkit_events=False)})
+            return httpx.Response(200, json={"data": _forwarder_resource(forward_smplkit_events=True)})
+
+        c = _client_with_handler(handler)
+        fwd = c.forwarders.get(FWD_ID)
+        assert fwd.forward_smplkit_events is False
+        fwd.forward_smplkit_events = True
+        fwd.save()
+        assert captured["method"] == "PUT"
+        assert '"forward_smplkit_events":true' in captured["body"]
+        # Server-truthful value back on the instance after PUT.
+        assert fwd.forward_smplkit_events is True
 
     def test_list_does_not_send_filter_enabled(self):
         # ADR-055 removed filter[enabled] on list forwarders. The wrapper no

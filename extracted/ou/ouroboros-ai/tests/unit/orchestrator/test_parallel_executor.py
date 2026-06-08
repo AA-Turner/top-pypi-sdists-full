@@ -33,6 +33,7 @@ from ouroboros.orchestrator.parallel_executor import (
     _criterion_satisfied_by_evidence,
     _effective_evidence_schema_for_ac,
     _message_contains_test_success,
+    _runtime_messages_have_masked_test_command_form,
     _runtime_messages_support_command_claim,
     _runtime_messages_support_test_claim,
     render_parallel_completion_message,
@@ -1162,6 +1163,136 @@ def test_gradle_tests_passed_claim_supports_class_target_and_build_success() -> 
         messages=(command_message, result_message),
         task_cwd=None,
     )
+
+
+def test_unprotected_tail_pipe_is_form_mismatch_not_command_proof() -> None:
+    """A bare output-filter pipe is visible but still not trusted as proof."""
+    message = AgentMessage(
+        type="tool",
+        content="Bash command started",
+        tool_name="Bash",
+        data={
+            "tool_input": {
+                "command": (
+                    './gradlew test --tests "com.example.app.unit.SomeNewTest" -i 2>&1 | tail -100'
+                )
+            }
+        },
+    )
+
+    assert not _runtime_messages_support_command_claim(
+        "./gradlew test --tests com.example.app.unit.SomeNewTest -i",
+        (message,),
+    )
+    assert _runtime_messages_have_masked_test_command_form(
+        "./gradlew test --tests com.example.app.unit.SomeNewTest -i",
+        (message,),
+    )
+
+
+def test_atomic_verifier_classifies_masked_test_command_as_form_mismatch() -> None:
+    """Masked test commands are contract mismatches, not fabricated work."""
+    profile = load_profile("code").model_copy(
+        update={"evidence_schema": EvidenceSchema(required=("commands_run",))}
+    )
+    executor = ParallelACExecutor(
+        adapter=MagicMock(working_directory="/workspace"),
+        event_store=AsyncMock(),
+        console=MagicMock(),
+        enable_decomposition=False,
+        execution_profile=profile,
+        fat_harness_mode=True,
+    )
+
+    verdict = executor._verify_atomic_evidence_against_runtime_messages(
+        messages=(
+            AgentMessage(
+                type="tool",
+                content="Bash command started",
+                tool_name="Bash",
+                data={
+                    "tool_input": {
+                        "command": (
+                            './gradlew test --tests "com.example.app.unit.SomeNewTest" '
+                            "-i 2>&1 | tail -100"
+                        )
+                    }
+                },
+            ),
+        ),
+        typed_evidence=EvidenceRecord(
+            data={"commands_run": ["./gradlew test --tests com.example.app.unit.SomeNewTest -i"]}
+        ),
+        ac_content="Run SomeNewTest.",
+    )
+
+    assert verdict.passed is False
+    assert verdict.failure_class == "EVIDENCE_FORM_MISMATCH"
+    assert "unprotected output-filter pipeline" in " ".join(verdict.reasons)
+
+
+def test_atomic_verifier_classifies_dependent_masked_test_evidence_as_form_mismatch(
+    tmp_path,
+) -> None:
+    """Full code evidence with masked test output is one evidence-form mismatch."""
+    source_file = tmp_path / "src" / "app.py"
+    executor = ParallelACExecutor(
+        adapter=MagicMock(working_directory=str(tmp_path)),
+        event_store=AsyncMock(),
+        console=MagicMock(),
+        enable_decomposition=False,
+        execution_profile=load_profile("code"),
+        fat_harness_mode=True,
+    )
+
+    verdict = executor._verify_atomic_evidence_against_runtime_messages(
+        messages=(
+            AgentMessage(
+                type="tool",
+                content="Edit src/app.py",
+                tool_name="Edit",
+                data={"tool_input": {"file_path": str(source_file)}},
+            ),
+            AgentMessage(
+                type="tool",
+                content="Bash command started",
+                tool_name="Bash",
+                data={
+                    "tool_input": {
+                        "command": (
+                            './gradlew test --tests "com.example.app.unit.SomeNewTest" '
+                            "-i 2>&1 | tail -100"
+                        )
+                    }
+                },
+            ),
+            AgentMessage(
+                type="tool_result",
+                content="> Task :test\nBUILD SUCCESSFUL in 8s",
+                tool_name=None,
+                data={
+                    "subtype": "tool_result",
+                    "output": "> Task :test\nBUILD SUCCESSFUL in 8s",
+                },
+            ),
+        ),
+        typed_evidence=EvidenceRecord(
+            data={
+                "files_touched": ["src/app.py"],
+                "commands_run": ["./gradlew test --tests com.example.app.unit.SomeNewTest -i"],
+                "tests_passed": ["com.example.app.unit.SomeNewTest"],
+            }
+        ),
+        ac_content="Update app.py and run SomeNewTest.",
+    )
+
+    assert verdict.passed is False
+    assert verdict.failure_class == "EVIDENCE_FORM_MISMATCH"
+    assert (
+        "commands_run: ./gradlew test --tests com.example.app.unit.SomeNewTest -i"
+        in (verdict.reasons[0])
+    )
+    assert "tests_passed: com.example.app.unit.SomeNewTest" in verdict.reasons[0]
 
 
 @pytest.mark.parametrize(
@@ -6243,6 +6374,9 @@ class TestParallelACExecutor:
             verifier_passed=False,
             verifier_reasons=["claimed test command did not support the AC"],
             verifier_failure_class="FABRICATION_SUSPECTED",
+            verifier_status="FAIL",
+            retry_admission="ESCALATE_MODEL",
+            verifier_evidence_used=[],
         )
 
         assert result.success is False
@@ -6261,6 +6395,9 @@ class TestParallelACExecutor:
         assert evidence_event.data["verifier_ran"] is True
         assert evidence_event.data["verifier_passed"] is False
         assert evidence_event.data["verifier_failure_class"] == "FABRICATION_SUSPECTED"
+        assert evidence_event.data["verifier_status"] == "FAIL"
+        assert evidence_event.data["retry_admission"] == "ESCALATE_MODEL"
+        assert evidence_event.data["verifier_evidence_used"] == []
         assert evidence_event.data["verifier_reasons"] == [
             "claimed test command did not support the AC"
         ]

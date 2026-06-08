@@ -186,7 +186,7 @@ class Memory(
         return ToolCallDisplay(summary=f"memory {args.op}")
 
     @classmethod
-    def get_result_display(cls, event: "ToolResultEvent") -> ToolResultDisplay:
+    def get_result_display(cls, event: ToolResultEvent) -> ToolResultDisplay:
         if isinstance(event.result, MemoryResult):
             r = event.result
             if not r.ok:

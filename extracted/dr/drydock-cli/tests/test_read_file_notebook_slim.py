@@ -40,7 +40,7 @@ def _make_notebook(path: Path, n_cells: int = 3, output_bytes: int = 5000) -> No
     for i in range(n_cells):
         cells.append({
             "cell_type": "code",
-            "source": [f"x = {i}\n", f"print(x * 2)\n"],
+            "source": [f"x = {i}\n", "print(x * 2)\n"],
             "execution_count": i + 1,
             "outputs": [
                 {

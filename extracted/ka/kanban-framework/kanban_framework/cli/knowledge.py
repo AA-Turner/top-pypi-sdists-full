@@ -66,8 +66,10 @@ def dispatch(args: list[str]) -> dict:
 
     _READ_ONLY = {"search", "hybrid", "semantic", "get", "list", "match",
                   "domains", "categories", "similar", "usage", "health",
-                  "stale", "gaps", "pending"}
-    km = KnowledgeManager(fs, read_only=(sub in _READ_ONLY))
+                  "gaps", "pending", "delete", "remove"}
+    # stale is read-only unless --purge is passed
+    _stale_readonly = sub == "stale" and "--purge" not in args
+    km = KnowledgeManager(fs, read_only=(sub in _READ_ONLY or _stale_readonly))
 
     if sub == "search":
         return _handle_search(km, args[1:])
@@ -82,7 +84,7 @@ def dispatch(args: list[str]) -> dict:
     if sub == "match":
         return _handle_match(km, args[1:])
     if sub == "stale":
-        return {"stale_ids": km.mark_stale_entries()}
+        return _handle_stale(km, args[1:])
     if sub == "gaps":
         return {"gaps": km.get_knowledge_gap_report()}
     if sub == "migrate":
@@ -119,6 +121,8 @@ def dispatch(args: list[str]) -> dict:
         return _handle_delete(km, args[1:])
     if sub == "remove":
         return _handle_delete(km, args[1:])
+    if sub == "edit":
+        return _handle_edit(km, args[1:])
     if sub == "maintenance":
         return _handle_maintenance(km, args[1:])
     if sub == "benchmark":
@@ -344,6 +348,43 @@ def _handle_delete(km: KnowledgeManager, args: list[str]) -> dict:
     return {"deleted": entry_id, "title": entry.get("title", "")}
 
 
+def _handle_edit(km: KnowledgeManager, args: list[str]) -> dict:
+    """kanban knowledge edit <id> [--title X] [--content X] [--domain X] [--category X]
+       [--severity X] [--status X] [--tags a,b,c] [--code-example X] [--biz X]
+    """
+    if not args:
+        return {"error": "usage: kanban knowledge edit <id> [--title X] [--content X] ..."}
+    entry_id = args[0]
+    entry = km.get_entry(entry_id)
+    if entry is None:
+        return {"error": f"entry {entry_id} not found"}
+    updates: dict = {}
+    i = 1
+    while i < len(args):
+        if args[i] in ("--title", "--content", "--domain", "--category",
+                        "--severity", "--status", "--code-example"):
+            updates[args[i][2:]] = args[i + 1]; i += 2
+        elif args[i] == "--tags":
+            raw_tags = args[i + 1]
+            try:
+                parsed = json.loads(raw_tags)
+                updates["tags"] = parsed if isinstance(parsed, list) else [parsed]
+            except (json.JSONDecodeError, ValueError):
+                updates["tags"] = raw_tags.split(",")
+            i += 2
+        elif args[i] == "--biz":
+            updates["biz_context"] = args[i + 1]; i += 2
+        else:
+            return {"error": f"unknown option: {args[i]}"}
+    if not updates:
+        return {"error": "no fields to update. Use --title, --content, --domain, etc."}
+    try:
+        updated = km.update_entry(entry_id, **updates)
+    except ValueError as e:
+        return {"error": str(e)}
+    return {"updated": entry_id, "fields": list(updates.keys()), "entry": updated}
+
+
 def _handle_similar(km: KnowledgeManager, args: list[str]) -> dict:
     tags: list[str] = []
     i = 0
@@ -390,6 +431,78 @@ def _scan_stale_candidates(km) -> list[str]:
         (threshold,),
     ).fetchall()
     return [r[0] for r in rows]
+
+
+def _handle_stale(km: KnowledgeManager, args: list[str]) -> dict:
+    """Handle `kanban knowledge stale` — scan, mark, or purge zombie entries.
+
+    Flags:
+      --threshold N   Days threshold for staleness (default: STALE_DAYS=30)
+      --dry-run        Preview what would be cleaned, don't act
+      --purge           Actually delete zombie entries (no confirmation)
+    """
+    from kanban_framework.domain.knowledge_management import (
+        scan_stale_candidates, cleanup_zombies,
+    )
+    from kanban_framework.domain.knowledge_lazy import STALE_DAYS
+
+    threshold = STALE_DAYS
+    dry_run = False
+    purge = False
+
+    i = 0
+    while i < len(args):
+        if args[i] == "--threshold" and i + 1 < len(args):
+            try:
+                threshold = int(args[i + 1])
+            except ValueError:
+                return {"error": f"invalid threshold: {args[i+1]}"}
+            i += 2
+        elif args[i] == "--dry-run":
+            dry_run = True
+            i += 1
+        elif args[i] == "--purge":
+            purge = True
+            i += 1
+        else:
+            i += 1
+
+    if purge:
+        if dry_run:
+            candidates = scan_stale_candidates(km, threshold_days=threshold)
+            return {
+                "dry_run": True,
+                "action": "purge",
+                "threshold_days": threshold,
+                "would_delete": len(candidates["candidates"]),
+                "candidates": candidates["candidates"],
+            }
+        deleted = cleanup_zombies(km, min_age_days=threshold)
+        return {
+            "action": "purge",
+            "threshold_days": threshold,
+            "deleted_count": len(deleted),
+            "deleted_ids": deleted,
+        }
+
+    # Default: scan mode (read-only, mark as stale)
+    if dry_run:
+        candidates = scan_stale_candidates(km, threshold_days=threshold)
+        return {
+            "dry_run": True,
+            "action": "mark_stale",
+            "threshold_days": threshold,
+            "candidates_found": len(candidates["candidates"]),
+            "candidates": candidates["candidates"],
+        }
+
+    stale_ids = km.mark_stale_entries(threshold_days=threshold)
+    return {
+        "action": "mark_stale",
+        "threshold_days": threshold,
+        "stale_ids": stale_ids,
+        "count": len(stale_ids),
+    }
 
 
 def _handle_health(km: KnowledgeManager) -> dict:
@@ -461,6 +574,10 @@ def _handle_health(km: KnowledgeManager) -> dict:
     stale_candidates = _scan_stale_candidates(km)
     gaps = km.get_knowledge_gap_report()
 
+    # Domain distribution for health report
+    domain_counts = Counter(e.get("domain", "unknown") for e in entries)
+    domain_dist = dict(domain_counts.most_common())
+
     benchmark_count = sum(1 for e in entries if e.get("benchmark"))
     benchmark_coverage = f"{benchmark_count / total * 100:.1f}%" if total else "0.0%"
 
@@ -515,6 +632,7 @@ def _handle_health(km: KnowledgeManager) -> dict:
     return {
         "total_entries": total,
         "pending_entries": pending_count,
+        "domain_distribution": domain_dist,
         "category_distribution": dict(cat_counts.most_common()),
         "by_type": by_type,
         "expired": expired, "expiring_soon": expiring_soon,
@@ -651,7 +769,7 @@ def _handle_maintenance(km: KnowledgeManager, args: list[str]) -> dict:
         }
 
     if "scan-stale" in flags or "report" in flags:
-        stale = scan_stale_candidates(km)
+        stale = scan_stale_candidates(km, threshold_days=threshold)
         result["stale"] = {
             "threshold_days": stale["stale_days_threshold"],
             "candidates_found": len(stale["candidates"]),

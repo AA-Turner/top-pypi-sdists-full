@@ -1,24 +1,33 @@
-from typing import Iterable, Optional, Union
+from typing import Dict, Iterable, Optional, Union
 
 from crowdin_api.api_resources.abstract.resources import BaseResource
-from crowdin_api.api_resources.ai.enums import AIPromptAction, AiPromptFineTuningJobStatus, AIProviderType
+from crowdin_api.api_resources.ai.enums import (
+    AIPromptAction,
+    AiPromptFineTuningJobStatus,
+    AIProviderType,
+)
 from crowdin_api.api_resources.ai.types import (
+    AddAiCustomPlaceholderRequest,
     AddAIPromptRequestScheme,
     AddAIProviderReqeustScheme,
+    AiFileTranslationRequest,
+    AiTranslateStringsRequest,
+    CreateAIPromptFineTuningJobRequest,
+    EditAiCustomPlaceholderPatch,
     EditAIPromptScheme,
     EditAIProviderRequestScheme,
+    EditAiSettingsPatch,
+    GenerateAiPromptCompletionRequest,
+    GenerateAIPromptFineTuningDatasetRequest,
+    GenerateAiReportRequest,
     GoogleGeminiChatProxy,
     OtherChatProxy,
-    GenerateAIPromptFineTuningDatasetRequest,
-    CreateAIPromptFineTuningJobRequest,
-    AddAiCustomPlaceholderRequest,
-    EditAiCustomPlaceholderPatch,
-    GenerateAiPromptCompletionRequest,
-    GenerateAiReportRequest,
-    EditAiSettingsPatch,
 )
 from crowdin_api.sorting import Sorting
-from crowdin_api.utils import convert_enum_collection_to_string_if_exists, convert_enum_to_string_if_exists
+from crowdin_api.utils import (
+    convert_enum_collection_to_string_if_exists,
+    convert_enum_to_string_if_exists,
+)
 
 
 class AIResource(BaseResource):
@@ -684,6 +693,207 @@ class AIResource(BaseResource):
             params=params
         )
 
+    def get_ai_file_translations_path(
+        self, user_id: int, job_identifier: Optional[str] = None
+    ):
+        if job_identifier is not None:
+            return f"users/{user_id}/ai/file-translations/{job_identifier}"
+        return f"users/{user_id}/ai/file-translations"
+
+    def create_ai_file_translation(
+        self,
+        user_id: int,
+        request_data: AiFileTranslationRequest,
+    ):
+        """
+        AI File Translations
+
+        Link to documentation:
+        https://support.crowdin.com/developer/api/v2/#tag/AI/operation/api.users.ai.file-translations.post
+        """
+
+        return self.requester.request(
+            method="post",
+            path=self.get_ai_file_translations_path(user_id),
+            request_data=request_data,
+        )
+
+    def get_ai_file_translation_status(
+        self,
+        user_id: int,
+        job_identifier: str,
+    ):
+        """
+        Get File Translations Status
+
+        Link to documentation:
+        https://support.crowdin.com/developer/api/v2/#tag/AI/operation/api.users.ai.file-translations.get
+        """
+
+        return self.requester.request(
+            method="get",
+            path=self.get_ai_file_translations_path(user_id, job_identifier),
+        )
+
+    def cancel_ai_file_translation(
+        self,
+        user_id: int,
+        job_identifier: str,
+    ):
+        """
+        Cancel File Translations
+
+        Link to documentation:
+        https://support.crowdin.com/developer/api/v2/#tag/AI/operation/api.users.ai.file-translations.delete
+        """
+
+        return self.requester.request(
+            method="delete",
+            path=self.get_ai_file_translations_path(user_id, job_identifier),
+        )
+
+    def download_ai_file_translation(
+        self,
+        user_id: int,
+        job_identifier: str,
+    ):
+        """
+        Download Translated File
+
+        Link to documentation:
+        https://support.crowdin.com/developer/api/v2/#tag/AI/operation/api.users.ai.file-translations.download
+        """
+
+        return self.requester.request(
+            method="get",
+            path=self.get_ai_file_translations_path(user_id, job_identifier) + "/download",
+        )
+
+    def download_ai_file_translation_strings(
+        self,
+        user_id: int,
+        job_identifier: str,
+    ):
+        """
+        Download Translated File Strings
+
+        Link to documentation:
+        https://support.crowdin.com/developer/api/v2/#tag/AI/operation/api.users.ai.file-translations.download-strings
+        """
+
+        return self.requester.request(
+            method="get",
+            path=self.get_ai_file_translations_path(user_id, job_identifier) + "/translations",
+        )
+
+    def translate_ai_strings(
+        self,
+        user_id: int,
+        request_data: AiTranslateStringsRequest,
+    ):
+        """
+        AI Translate Strings
+
+        Link to documentation:
+        https://support.crowdin.com/developer/api/v2/#tag/AI/operation/api.users.ai.translate.strings.post
+        """
+
+        return self.requester.request(
+            method="post",
+            path=f"users/{user_id}/ai/translate",
+            request_data=request_data,
+        )
+
+    def get_ai_provider_gateway_path(
+        self, user_id: int, ai_provider_id: int, path: str
+    ) -> str:
+        return f"users/{user_id}/ai/providers/{ai_provider_id}/gateway/{path}"
+
+    def get_ai_provider_gateway(
+        self, user_id: int, ai_provider_id: int, path: str
+    ):
+        """
+        AI Provider Gateway GET Request
+
+        Link to documentation:
+        https://support.crowdin.com/developer/api/v2/#tag/AI-Gateway/operation/api.ai.providers.gateway.crowdin.get
+        """
+        return self.requester.request(
+            method="get",
+            path=self.get_ai_provider_gateway_path(user_id, ai_provider_id, path),
+        )
+
+    def create_ai_provider_gateway(
+        self,
+        user_id: int,
+        ai_provider_id: int,
+        path: str,
+        request_data: Optional[Dict] = None,
+    ):
+        """
+        AI Provider Gateway POST Request
+
+        Link to documentation:
+        https://support.crowdin.com/developer/api/v2/#tag/AI-Gateway/operation/api.ai.providers.gateway.crowdin.post
+        """
+        return self.requester.request(
+            method="post",
+            path=self.get_ai_provider_gateway_path(user_id, ai_provider_id, path),
+            request_data=request_data,
+        )
+
+    def replace_ai_provider_gateway(
+        self,
+        user_id: int,
+        ai_provider_id: int,
+        path: str,
+        request_data: Optional[Dict] = None,
+    ):
+        """
+        AI Provider Gateway PUT Request
+
+        Link to documentation:
+        https://support.crowdin.com/developer/api/v2/#tag/AI-Gateway/operation/api.ai.providers.gateway.crowdin.put
+        """
+        return self.requester.request(
+            method="put",
+            path=self.get_ai_provider_gateway_path(user_id, ai_provider_id, path),
+            request_data=request_data,
+        )
+
+    def edit_ai_provider_gateway(
+        self,
+        user_id: int,
+        ai_provider_id: int,
+        path: str,
+        request_data: Optional[Dict] = None,
+    ):
+        """
+        AI Provider Gateway PATCH Request
+
+        Link to documentation:
+        https://support.crowdin.com/developer/api/v2/#tag/AI-Gateway/operation/api.ai.providers.gateway.crowdin.patch
+        """
+        return self.requester.request(
+            method="patch",
+            path=self.get_ai_provider_gateway_path(user_id, ai_provider_id, path),
+            request_data=request_data,
+        )
+
+    def delete_ai_provider_gateway(
+        self, user_id: int, ai_provider_id: int, path: str
+    ):
+        """
+        AI Provider Gateway DELETE Request
+
+        Link to documentation:
+        https://support.crowdin.com/developer/api/v2/#tag/AI-Gateway/operation/api.ai.providers.gateway.crowdin.delete
+        """
+        return self.requester.request(
+            method="delete",
+            path=self.get_ai_provider_gateway_path(user_id, ai_provider_id, path),
+        )
+
 
 class EnterpriseAIResource(BaseResource):
     """
@@ -1314,4 +1524,190 @@ class EnterpriseAIResource(BaseResource):
             method="get",
             path="ai/providers/supported-models",
             params=params
+        )
+
+    def get_ai_file_translations_path(
+        self, job_identifier: Optional[str] = None
+    ):
+        if job_identifier is not None:
+            return f"ai/file-translations/{job_identifier}"
+        return "ai/file-translations"
+
+    def create_ai_file_translation(
+        self,
+        request_data: AiFileTranslationRequest,
+    ):
+        """
+        AI File Translations
+
+        Link to documentation:
+        https://support.crowdin.com/developer/enterprise/api/v2/#tag/AI/operation/api.ai.file-translations.post
+        """
+
+        return self.requester.request(
+            method="post",
+            path=self.get_ai_file_translations_path(),
+            request_data=request_data,
+        )
+
+    def get_ai_file_translation_status(
+        self,
+        job_identifier: str,
+    ):
+        """
+        Get File Translations Status
+
+        Link to documentation:
+        https://support.crowdin.com/developer/enterprise/api/v2/#tag/AI/operation/api.ai.file-translations.get
+        """
+
+        return self.requester.request(
+            method="get",
+            path=self.get_ai_file_translations_path(job_identifier),
+        )
+
+    def cancel_ai_file_translation(
+        self,
+        job_identifier: str,
+    ):
+        """
+        Cancel File Translations
+
+        Link to documentation:
+        https://support.crowdin.com/developer/enterprise/api/v2/#tag/AI/operation/api.ai.file-translations.delete
+        """
+
+        return self.requester.request(
+            method="delete",
+            path=self.get_ai_file_translations_path(job_identifier),
+        )
+
+    def download_ai_file_translation(
+        self,
+        job_identifier: str,
+    ):
+        """
+        Download Translated File
+
+        Link to documentation:
+        https://support.crowdin.com/developer/enterprise/api/v2/#tag/AI/operation/api.ai.file-translations.download
+        """
+
+        return self.requester.request(
+            method="get",
+            path=self.get_ai_file_translations_path(job_identifier) + "/download",
+        )
+
+    def download_ai_file_translation_strings(
+        self,
+        job_identifier: str,
+    ):
+        """
+        Download File Strings
+
+        Link to documentation:
+        https://support.crowdin.com/developer/enterprise/api/v2/#tag/AI/operation/api.ai.file-translations.download-strings
+        """
+
+        return self.requester.request(
+            method="get",
+            path=self.get_ai_file_translations_path(job_identifier) + "/translations",
+        )
+
+    def translate_ai_strings(
+        self,
+        request_data: AiTranslateStringsRequest,
+    ):
+        """
+        AI Translate Strings
+
+        Link to documentation:
+        https://support.crowdin.com/developer/enterprise/api/v2/#tag/AI/operation/api.ai.translate-strings.post
+        """
+
+        return self.requester.request(
+            method="post",
+            path="ai/translate",
+            request_data=request_data,
+        )
+
+    def get_ai_provider_gateway_path(self, ai_provider_id: int, path: str) -> str:
+        return f"ai/providers/{ai_provider_id}/gateway/{path}"
+
+    def get_ai_provider_gateway(self, ai_provider_id: int, path: str):
+        """
+        AI Provider Gateway GET Request
+
+        Link to documentation:
+        https://support.crowdin.com/developer/enterprise/api/v2/#tag/AI-Gateway/operation/api.ai.providers.gateway.enterprise.get
+        """
+        return self.requester.request(
+            method="get",
+            path=self.get_ai_provider_gateway_path(ai_provider_id, path),
+        )
+
+    def create_ai_provider_gateway(
+        self,
+        ai_provider_id: int,
+        path: str,
+        request_data: Optional[Dict] = None,
+    ):
+        """
+        AI Provider Gateway POST Request
+
+        Link to documentation:
+        https://support.crowdin.com/developer/enterprise/api/v2/#tag/AI-Gateway/operation/api.ai.providers.gateway.enterprise.post
+        """
+        return self.requester.request(
+            method="post",
+            path=self.get_ai_provider_gateway_path(ai_provider_id, path),
+            request_data=request_data,
+        )
+
+    def replace_ai_provider_gateway(
+        self,
+        ai_provider_id: int,
+        path: str,
+        request_data: Optional[Dict] = None,
+    ):
+        """
+        AI Provider Gateway PUT Request
+
+        Link to documentation:
+        https://support.crowdin.com/developer/enterprise/api/v2/#tag/AI-Gateway/operation/api.ai.providers.gateway.enterprise.put
+        """
+        return self.requester.request(
+            method="put",
+            path=self.get_ai_provider_gateway_path(ai_provider_id, path),
+            request_data=request_data,
+        )
+
+    def edit_ai_provider_gateway(
+        self,
+        ai_provider_id: int,
+        path: str,
+        request_data: Optional[Dict] = None,
+    ):
+        """
+        AI Provider Gateway PATCH Request
+
+        Link to documentation:
+        https://support.crowdin.com/developer/enterprise/api/v2/#tag/AI-Gateway/operation/api.ai.providers.gateway.enterprise.patch
+        """
+        return self.requester.request(
+            method="patch",
+            path=self.get_ai_provider_gateway_path(ai_provider_id, path),
+            request_data=request_data,
+        )
+
+    def delete_ai_provider_gateway(self, ai_provider_id: int, path: str):
+        """
+        AI Provider Gateway DELETE Request
+
+        Link to documentation:
+        https://support.crowdin.com/developer/enterprise/api/v2/#tag/AI-Gateway/operation/api.ai.providers.gateway.enterprise.delete
+        """
+        return self.requester.request(
+            method="delete",
+            path=self.get_ai_provider_gateway_path(ai_provider_id, path),
         )

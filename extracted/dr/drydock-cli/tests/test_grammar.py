@@ -9,11 +9,9 @@ Covers:
 """
 from __future__ import annotations
 
-import os
 from typing import Any
 from unittest.mock import MagicMock
 
-import pytest
 from pydantic import BaseModel
 
 from drydock.core.llm.grammar import json_schema_to_gbnf, pydantic_to_gbnf

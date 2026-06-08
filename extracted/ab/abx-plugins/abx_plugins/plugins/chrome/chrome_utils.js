@@ -73,6 +73,103 @@ function replaceChromeUserAgentVersion(userAgent, browserVersionOutput) {
   );
 }
 
+function getOption(options, key, fallback) {
+  return Object.prototype.hasOwnProperty.call(options, key) &&
+    options[key] !== undefined
+    ? options[key]
+    : fallback;
+}
+
+function resolveChromeLaunchOptions(options = {}) {
+  return {
+    CHROME_USER_DATA_DIR: getOption(
+      options,
+      "CHROME_USER_DATA_DIR",
+      getEnv("CHROME_USER_DATA_DIR") ||
+        path.join(
+          getPersonasDir(),
+          getEnv("ACTIVE_PERSONA", "Default"),
+          "chrome_profile"
+        )
+    ),
+    CHROME_RESOLUTION: getOption(
+      options,
+      "CHROME_RESOLUTION",
+      getEnv("CHROME_RESOLUTION") || getEnv("RESOLUTION", "1440,2000")
+    ),
+    CHROME_USER_AGENT: getOption(
+      options,
+      "CHROME_USER_AGENT",
+      getEnv("CHROME_USER_AGENT") || getEnv("USER_AGENT", "")
+    ),
+    CHROME_HEADLESS: getOption(
+      options,
+      "CHROME_HEADLESS",
+      getEnvBool("CHROME_HEADLESS", getEnvBool("IN_DOCKER", false))
+    ),
+    CHROME_SANDBOX: getOption(
+      options,
+      "CHROME_SANDBOX",
+      getEnvBool("CHROME_SANDBOX", !getEnvBool("IN_DOCKER", false))
+    ),
+    CHROME_CHECK_SSL_VALIDITY: getOption(
+      options,
+      "CHROME_CHECK_SSL_VALIDITY",
+      getEnvBool(
+        "CHROME_CHECK_SSL_VALIDITY",
+        getEnvBool("CHECK_SSL_VALIDITY", true)
+      )
+    ),
+    CHROME_ARGS: getOption(
+      options,
+      "CHROME_ARGS",
+      getEnvArray("CHROME_ARGS", [])
+    ),
+    CHROME_ARGS_EXTRA: getOption(
+      options,
+      "CHROME_ARGS_EXTRA",
+      getEnvArray("CHROME_ARGS_EXTRA", [])
+    ),
+    CHROME_LAUNCH_ATTEMPTS: getOption(
+      options,
+      "CHROME_LAUNCH_ATTEMPTS",
+      getEnvInt("CHROME_LAUNCH_ATTEMPTS", 3)
+    ),
+  };
+}
+
+function getChromeSessionOptionsFromConfig(hookConfig = {}) {
+  const CHROME_CDP_URL = String(hookConfig.CHROME_CDP_URL || "").trim();
+  return {
+    CHROME_CDP_URL,
+    CHROME_IS_LOCAL: CHROME_CDP_URL
+      ? false
+      : hookConfig.CHROME_IS_LOCAL !== false,
+    CHROME_USER_DATA_DIR: hookConfig.CHROME_USER_DATA_DIR
+      ? path.resolve(String(hookConfig.CHROME_USER_DATA_DIR).trim())
+      : null,
+    CHROME_RESOLUTION: String(
+      hookConfig.CHROME_RESOLUTION || hookConfig.RESOLUTION || "1440,2000"
+    ),
+    CHROME_USER_AGENT: String(
+      hookConfig.CHROME_USER_AGENT || hookConfig.USER_AGENT || ""
+    ),
+    CHROME_HEADLESS: hookConfig.CHROME_HEADLESS !== false,
+    CHROME_SANDBOX: hookConfig.CHROME_SANDBOX !== false,
+    CHROME_CHECK_SSL_VALIDITY:
+      hookConfig.CHROME_CHECK_SSL_VALIDITY !== false &&
+      hookConfig.CHECK_SSL_VALIDITY !== false,
+    CHROME_ARGS: Array.isArray(hookConfig.CHROME_ARGS)
+      ? hookConfig.CHROME_ARGS
+      : [],
+    CHROME_ARGS_EXTRA: Array.isArray(hookConfig.CHROME_ARGS_EXTRA)
+      ? hookConfig.CHROME_ARGS_EXTRA
+      : [],
+    CHROME_LAUNCH_ATTEMPTS: Number(hookConfig.CHROME_LAUNCH_ATTEMPTS) || 3,
+    timeoutMs: (Number(hookConfig.CHROME_TIMEOUT) || 60) * 1000,
+  };
+}
+
 function chromiumVersionAtLeast(output, minimum) {
   const version = parseChromiumVersion(output);
   if (!version) return false;
@@ -286,6 +383,110 @@ function waitForDebugPort(port, timeout = 30000) {
   });
 }
 
+function fetchDebugJson(port, pathName, timeout = 5000) {
+  const hosts = ["127.0.0.1", "::1", "localhost"];
+
+  const probeHost = (host) =>
+    new Promise((resolve, reject) => {
+      const req = http.request(
+        {
+          host,
+          port,
+          path: pathName,
+          method: "GET",
+          headers: {
+            Host: `${host}:${port}`,
+            Connection: "close",
+          },
+          timeout,
+        },
+        (res) => {
+          let data = "";
+          res.on("data", (chunk) => (data += chunk));
+          res.on("end", () => {
+            if ((res.statusCode || 0) >= 400) {
+              reject(new Error(`HTTP ${res.statusCode}`));
+              return;
+            }
+            try {
+              resolve(JSON.parse(data));
+            } catch (error) {
+              reject(
+                new Error(`invalid ${pathName} payload: ${error.message}`)
+              );
+            }
+          });
+        }
+      );
+      req.on("error", reject);
+      req.on("timeout", () => {
+        req.destroy(new Error("request timeout"));
+      });
+      req.end();
+    });
+
+  return new Promise((resolve, reject) => {
+    let remaining = hosts.length;
+    let lastFailure = "no response yet";
+    for (const host of hosts) {
+      probeHost(host)
+        .then(resolve)
+        .catch((error) => {
+          lastFailure = `${host}: ${error.message}`;
+          remaining -= 1;
+          if (remaining === 0) {
+            reject(new Error(lastFailure));
+          }
+        });
+    }
+  });
+}
+
+async function waitForDebugTargetsStable(port, timeout = 30000, stableMs = 500) {
+  if (stableMs <= 0) return;
+
+  const startedAt = Date.now();
+  let lastSignature = null;
+  let stableSince = 0;
+  let lastFailure = "target list not stable yet";
+
+  while (Date.now() - startedAt <= timeout) {
+    try {
+      const targets = await fetchDebugJson(port, "/json/list", 5000);
+      const signature = JSON.stringify(
+        (Array.isArray(targets) ? targets : [])
+          .map((target) => ({
+            id: target.id,
+            type: target.type,
+            url: target.url,
+            attached: target.attached,
+          }))
+          .sort((left, right) =>
+            String(left.id).localeCompare(String(right.id))
+          )
+      );
+      if (signature === lastSignature) {
+        if (!stableSince) stableSince = Date.now();
+        if (Date.now() - stableSince >= stableMs) {
+          return;
+        }
+      } else {
+        lastSignature = signature;
+        stableSince = Date.now();
+      }
+    } catch (error) {
+      lastFailure = error?.message || String(error);
+      lastSignature = null;
+      stableSince = 0;
+    }
+    await sleep(100);
+  }
+
+  throw new Error(
+    `Timeout waiting for Chrome DevTools targets to stabilize (${lastFailure})`
+  );
+}
+
 // ============================================================================
 // Zombie process cleanup
 // ============================================================================
@@ -339,52 +540,6 @@ async function killZombieChrome(snapDir = null, options = {}) {
     );
   }
 
-  /**
-   * Recursively find all chrome/chrome.pid files in directory tree
-   * @param {string} dir - Directory to search
-   * @param {number} depth - Current recursion depth (limit to 10)
-   * @returns {Array<{pidFile: string, chromeDir: string, sessionDir: string}>} - Array of PID file info
-   */
-  function findChromePidFiles(dir, depth = 0) {
-    if (depth > 10) return []; // Prevent infinite recursion
-
-    const results = [];
-    try {
-      const entries = fs.readdirSync(dir, { withFileTypes: true });
-
-      for (const entry of entries) {
-        if (!entry.isDirectory()) continue;
-
-        const fullPath = path.join(dir, entry.name);
-
-        // Found a chrome directory - only consider the shared browser marker.
-        if (entry.name === "chrome") {
-          try {
-            const crawlDir = dir; // Parent of chrome/ is the crawl dir
-            const chromePidFile = path.join(fullPath, "chrome.pid");
-            if (fs.existsSync(chromePidFile)) {
-              results.push({
-                pidFile: chromePidFile,
-                chromeDir: fullPath,
-                sessionDir: crawlDir,
-              });
-            }
-          } catch (e) {
-            // Skip if can't read chrome dir
-          }
-        } else {
-          // Recurse into subdirectory (skip hidden dirs and node_modules)
-          if (!entry.name.startsWith(".") && entry.name !== "node_modules") {
-            results.push(...findChromePidFiles(fullPath, depth + 1));
-          }
-        }
-      }
-    } catch (e) {
-      // Skip if can't read directory
-    }
-    return results;
-  }
-
   function findOwningCrawlDir(sessionDir) {
     let currentDir = path.resolve(sessionDir);
     while (pathIsWithinSnapRoot(currentDir)) {
@@ -436,18 +591,30 @@ async function killZombieChrome(snapDir = null, options = {}) {
     }
   }
 
-  function findChromeHookPidFiles(dir, depth = 0) {
-    if (depth > 10) return [];
+  function findChromeRuntimeFiles(dir, depth = 0, results = null) {
+    if (depth > 10) return results || { chromePids: [], hookPids: [], personaDirs: [] };
 
-    const results = [];
+    const found = results || { chromePids: [], hookPids: [], personaDirs: [] };
+    const normalizeHookPidFileName = (fileName) =>
+      fileName.slice(0, -4).replace(/\.[0-9a-f]{32}$/i, "");
+
     try {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
         if (!entry.isDirectory()) continue;
         const fullPath = path.join(dir, entry.name);
+
         if (entry.name === "chrome") {
+          const crawlDir = dir;
+          const chromePidFile = path.join(fullPath, "chrome.pid");
           try {
-            const crawlDir = dir;
+            if (fs.existsSync(chromePidFile)) {
+              found.chromePids.push({
+                pidFile: chromePidFile,
+                chromeDir: fullPath,
+                sessionDir: crawlDir,
+              });
+            }
             for (const chromeEntry of fs.readdirSync(fullPath, {
               withFileTypes: true,
             })) {
@@ -456,55 +623,36 @@ async function killZombieChrome(snapDir = null, options = {}) {
               if (chromeEntry.name === "chrome.pid") continue;
               if (!chromeEntry.name.startsWith("on_")) continue;
               if (!chromeEntry.name.includes("chrome_")) continue;
-              const pidFile = path.join(fullPath, chromeEntry.name);
-              results.push({
-                pidFile,
-                hookName: chromeEntry.name.slice(0, -4),
+              found.hookPids.push({
+                pidFile: path.join(fullPath, chromeEntry.name),
+                hookName: normalizeHookPidFileName(chromeEntry.name),
                 chromeDir: fullPath,
                 sessionDir: crawlDir,
               });
             }
           } catch (error) {
-            // Skip unreadable chrome directories
+            // Skip unreadable chrome directories.
           }
-        } else if (
-          !entry.name.startsWith(".") &&
-          entry.name !== "node_modules"
-        ) {
-          results.push(...findChromeHookPidFiles(fullPath, depth + 1));
+          continue;
         }
-      }
-    } catch (error) {
-      // Skip unreadable directories
-    }
-    return results;
-  }
 
-  function findRuntimePersonaDirs(dir, depth = 0) {
-    if (depth > 10) return [];
-
-    const results = [];
-    try {
-      const entries = fs.readdirSync(dir, { withFileTypes: true });
-      for (const entry of entries) {
-        if (!entry.isDirectory()) continue;
-        const fullPath = path.join(dir, entry.name);
         if (entry.name === ".persona") {
-          results.push({
+          found.personaDirs.push({
             personaDir: fullPath,
             sessionDir: path.dirname(fullPath),
           });
-        } else if (
-          !entry.name.startsWith(".") &&
-          entry.name !== "node_modules"
-        ) {
-          results.push(...findRuntimePersonaDirs(fullPath, depth + 1));
+          continue;
+        }
+
+        if (!entry.name.startsWith(".") && entry.name !== "node_modules") {
+          findChromeRuntimeFiles(fullPath, depth + 1, found);
         }
       }
     } catch (error) {
-      // Skip unreadable directories
+      // Skip unreadable directories.
     }
-    return results;
+
+    return found;
   }
 
   function getParentPid(pid) {
@@ -550,13 +698,22 @@ async function killZombieChrome(snapDir = null, options = {}) {
   }
 
   function getProcessWorkingDir(pid) {
+    const procCwdPath = `/proc/${pid}/cwd`;
+    try {
+      if (fs.existsSync(procCwdPath)) {
+        return path.resolve(fs.readlinkSync(procCwdPath));
+      }
+    } catch (error) {
+      // Fall back to lsof on platforms without /proc, e.g. macOS.
+    }
+
     try {
       const output = execFileSync(
         "lsof",
         ["-a", "-p", String(pid), "-d", "cwd", "-Fn"],
         {
           encoding: "utf8",
-          timeout: 5000,
+          timeout: 500,
           stdio: ["ignore", "pipe", "ignore"],
         }
       );
@@ -613,13 +770,30 @@ async function killZombieChrome(snapDir = null, options = {}) {
     }
   }
 
+  let chromeHookProcesses = null;
+  const hookWorkingDirCache = new Map();
+
+  function getChromeHookProcesses() {
+    if (chromeHookProcesses === null) {
+      chromeHookProcesses = findChromeHookProcesses();
+    }
+    return chromeHookProcesses;
+  }
+
+  function getChromeHookWorkingDir(pid) {
+    if (!hookWorkingDirCache.has(pid)) {
+      hookWorkingDirCache.set(pid, getProcessWorkingDir(pid));
+    }
+    return hookWorkingDirCache.get(pid);
+  }
+
   function crawlHasLiveChromeHook(crawlDir) {
     const resolvedCrawlDir = path.resolve(crawlDir);
-    for (const { pid } of findChromeHookProcesses()) {
+    for (const { pid } of getChromeHookProcesses()) {
       if (pid === currentPid || !isProcessAlive(pid)) {
         continue;
       }
-      const currentWorkingDir = getProcessWorkingDir(pid);
+      const currentWorkingDir = getChromeHookWorkingDir(pid);
       if (!currentWorkingDir) {
         continue;
       }
@@ -650,7 +824,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
       }
     }
 
-    const deadline = Date.now() + 5000;
+    const deadline = Date.now() + 1000;
     while (Date.now() < deadline) {
       if (!isProcessAlive(pid)) {
         return true;
@@ -670,7 +844,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
       }
     }
 
-    const killDeadline = Date.now() + 5000;
+    const killDeadline = Date.now() + 1000;
     while (Date.now() < killDeadline) {
       if (!isProcessAlive(pid)) {
         return true;
@@ -682,8 +856,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
   }
 
   try {
-    const chromePids = findChromePidFiles(snapDir);
-    const hookPids = findChromeHookPidFiles(snapDir);
+    const { chromePids, hookPids, personaDirs } = findChromeRuntimeFiles(snapDir);
     const handledHookPids = new Set();
 
     for (const { pidFile, chromeDir, sessionDir } of chromePids) {
@@ -790,14 +963,14 @@ async function killZombieChrome(snapDir = null, options = {}) {
       }
     }
 
-    for (const { pid, hookName } of findChromeHookProcesses()) {
+    for (const { pid, hookName } of getChromeHookProcesses()) {
       if (handledHookPids.has(pid)) {
         continue;
       }
       if (pid === currentPid) {
         continue;
       }
-      const currentWorkingDir = getProcessWorkingDir(pid);
+      const currentWorkingDir = getChromeHookWorkingDir(pid);
       if (!currentWorkingDir) {
         continue;
       }
@@ -833,7 +1006,7 @@ async function killZombieChrome(snapDir = null, options = {}) {
       }
     }
 
-    for (const { personaDir, sessionDir } of findRuntimePersonaDirs(snapDir)) {
+    for (const { personaDir, sessionDir } of personaDirs) {
       const resolvedCrawlDir = findOwningCrawlDir(sessionDir);
       if (
         excludeCrawlDirs.has(resolvedCrawlDir) ||
@@ -910,34 +1083,21 @@ async function launchChromium(options = {}) {
   const {
     binary = findChromium(),
     outputDir = "chrome",
-    CHROME_USER_DATA_DIR = getEnv("CHROME_USER_DATA_DIR") ||
-      path.join(
-        getPersonasDir(),
-        getEnv("ACTIVE_PERSONA", "Default"),
-        "chrome_profile"
-      ),
-    CHROME_RESOLUTION = getEnv("CHROME_RESOLUTION") ||
-      getEnv("RESOLUTION", "1440,2000"),
-    CHROME_USER_AGENT = getEnv("CHROME_USER_AGENT") || getEnv("USER_AGENT", ""),
-    CHROME_HEADLESS = getEnvBool(
-      "CHROME_HEADLESS",
-      getEnvBool("IN_DOCKER", false)
-    ),
-    CHROME_SANDBOX = getEnvBool(
-      "CHROME_SANDBOX",
-      !getEnvBool("IN_DOCKER", false)
-    ),
-    CHROME_CHECK_SSL_VALIDITY = getEnvBool(
-      "CHROME_CHECK_SSL_VALIDITY",
-      getEnvBool("CHECK_SSL_VALIDITY", true)
-    ),
     enableExtensionDebugging = false,
     extensionPaths = [],
-    CHROME_ARGS = getEnvArray("CHROME_ARGS", []),
-    CHROME_ARGS_EXTRA = getEnvArray("CHROME_ARGS_EXTRA", []),
-    CHROME_LAUNCH_ATTEMPTS = getEnvInt("CHROME_LAUNCH_ATTEMPTS", 3),
     timeoutMs = getEnvInt("CHROME_TIMEOUT", 60) * 1000,
   } = options;
+  const {
+    CHROME_USER_DATA_DIR,
+    CHROME_RESOLUTION,
+    CHROME_USER_AGENT,
+    CHROME_HEADLESS,
+    CHROME_SANDBOX,
+    CHROME_CHECK_SSL_VALIDITY,
+    CHROME_ARGS,
+    CHROME_ARGS_EXTRA,
+    CHROME_LAUNCH_ATTEMPTS,
+  } = resolveChromeLaunchOptions(options);
   const launchAttempts = Math.max(1, Number(CHROME_LAUNCH_ATTEMPTS) || 1);
   const userDataDir = CHROME_USER_DATA_DIR;
 
@@ -1155,6 +1315,16 @@ async function launchChromium(options = {}) {
       ]);
       const wsUrl = versionInfo.webSocketDebuggerUrl;
 
+      // /json/version only proves the debugging socket is bound. The target
+      // list can still churn while Chrome finishes startup pages or extension
+      // background targets. Puppeteer attaches during connect, and CDP
+      // correctly reports "No target with given id found" if one of those
+      // early targets disappears between discovery and attach.
+      await waitForDebugTargetsStable(
+        debugPort,
+        Math.min(timeoutMs, debugProbeTimeoutMs),
+        getEnvInt("CHROME_DEBUG_TARGET_STABLE_MS", 500)
+      );
       console.error(`[+] Chromium ready: ${wsUrl}`);
 
       const result = {
@@ -1195,6 +1365,7 @@ async function launchChromium(options = {}) {
       const isTransientStartupFailure =
         lastError.includes("Chromium exited before opening the debug port") ||
         lastError.includes("Timeout waiting for Chrome debug port") ||
+        lastError.includes("Chrome DevTools targets to stabilize") ||
         lastError.includes("Chromium exited during startup") ||
         lastError.includes("Chromium exited after opening the debug port") ||
         lastError.includes("Chromium CDP session not stable after startup");
@@ -2347,10 +2518,32 @@ async function connectToBrowserEndpoint(
   cdpUrl,
   connectOptions = {}
 ) {
-  return await puppeteer.connect({
+  const options = {
     ...getPuppeteerConnectOptionsForCdpUrl(cdpUrl),
     ...connectOptions,
-  });
+  };
+  const deadline =
+    Date.now() + getEnvInt("CHROME_CONNECT_RETRY_TIMEOUT_MS", 5000);
+  let lastError = null;
+
+  while (Date.now() <= deadline) {
+    try {
+      return await puppeteer.connect(options);
+    } catch (error) {
+      lastError = error;
+      const message = String(error?.message || error || "");
+      const isTargetChurn =
+        message.includes("No target with given id found") ||
+        message.includes("Target closed") ||
+        message.includes("Session closed");
+      if (!isTargetChurn || Date.now() >= deadline) {
+        throw error;
+      }
+      await sleep(100);
+    }
+  }
+
+  throw lastError;
 }
 
 async function withTimeout(promiseFactory, timeoutMs, timeoutMessage) {
@@ -3834,25 +4027,17 @@ async function ensureChromeSession(options = {}) {
     CHROME_IS_LOCAL = CHROME_CDP_URL
       ? false
       : getEnvBool("CHROME_IS_LOCAL", true),
-    CHROME_USER_DATA_DIR = getEnv("CHROME_USER_DATA_DIR") ||
-      path.join(
-        getPersonasDir(),
-        getEnv("ACTIVE_PERSONA", "Default"),
-        "chrome_profile"
-      ),
     downloadsDir = getEnv("CHROME_DOWNLOADS_DIR"),
     cookiesFile = getEnv("COOKIES_TXT_FILE") || getEnv("COOKIES_FILE"),
     extensionsDir = getExtensionsDir(),
     timeoutMs = getEnvInt("CHROME_TIMEOUT", 60) * 1000,
     reuseExisting = !CHROME_CDP_URL,
     binary = null,
-    CHROME_ARGS = getEnvArray("CHROME_ARGS", []),
-    CHROME_ARGS_EXTRA = getEnvArray("CHROME_ARGS_EXTRA", []),
-    CHROME_LAUNCH_ATTEMPTS = getEnvInt("CHROME_LAUNCH_ATTEMPTS", 3),
   } = options;
+  const chromeLaunchOptions = resolveChromeLaunchOptions(options);
   const cdpUrl = CHROME_CDP_URL;
   const processIsLocal = CHROME_CDP_URL ? false : CHROME_IS_LOCAL;
-  const userDataDir = CHROME_USER_DATA_DIR;
+  const userDataDir = chromeLaunchOptions.CHROME_USER_DATA_DIR;
 
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
@@ -3972,12 +4157,10 @@ async function ensureChromeSession(options = {}) {
     const result = await launchChromium({
       binary: resolvedBinary,
       outputDir,
+      ...chromeLaunchOptions,
       CHROME_USER_DATA_DIR: userDataDir,
       enableExtensionDebugging: installedExtensions.length > 0,
       extensionPaths: getExtensionPaths(installedExtensions),
-      CHROME_ARGS,
-      CHROME_ARGS_EXTRA,
-      CHROME_LAUNCH_ATTEMPTS,
       timeoutMs,
     });
     if (!result.success) {
@@ -4247,6 +4430,8 @@ module.exports = {
   // Zombie cleanup
   killZombieChrome,
   // Chrome launching
+  resolveChromeLaunchOptions,
+  getChromeSessionOptionsFromConfig,
   launchChromium,
   killChrome,
   // Chromium binary finding

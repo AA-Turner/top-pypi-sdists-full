@@ -5,28 +5,15 @@ import abc
 import builtins
 import datetime
 import enum
+import importlib as _importlib
 import typing
 
 import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from .._jsii import *
 
@@ -10500,10 +10487,30 @@ __all__ = [
     "workflows",
 ]
 
+# Type-checking-only imports for static analyzers (pyright/mypy).
+# At runtime TYPE_CHECKING is False, preserving lazy loading.
+if typing.TYPE_CHECKING:
+    from . import workflows as workflows
+
 publication.publish()
 
-# Loading modules to ensure their types are registered with the jsii runtime library
-from . import workflows
+_SUBMODULES = {
+    "workflows",
+}
+
+def __getattr__(name: str) -> object:
+    if name in _SUBMODULES:
+        mod = _importlib.import_module(f".{name}", __name__)
+        globals()[name] = mod
+        return mod
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+def __dir__() -> "list[str]":
+    return [*__all__, *_SUBMODULES]
+
+import sys as _sys
+setattr(_sys.modules[__name__], "__getattr__", __getattr__)
+setattr(_sys.modules[__name__], "__dir__", __dir__)
 
 def _typecheckingstub__b9950225018303493365be2cb651e0d7d64a1e6439bed8efe63e4e98ab101e8a(
     github: GitHub,

@@ -12,6 +12,20 @@ from wisent.core.utils.config_tools.constants import DISPLAY_TRUNCATION_MEDIUM
 from .extraction_strategy import ExtractionStrategy, ROLE_PLAY_TOKENS
 
 
+def _is_qwen_tokenizer(tokenizer) -> bool:
+    return "qwen" in str(getattr(tokenizer, "name_or_path", "")).lower()
+
+
+def _qwen_chat_text(messages, add_generation_prompt: bool = False) -> str:
+    text = "".join(
+        f"<|im_start|>{m['role']}\n{m['content']}<|im_end|>\n"
+        for m in messages
+    )
+    if add_generation_prompt:
+        text += "<|im_start|>assistant\n"
+    return text
+
+
 def build_extraction_texts(
     strategy: ExtractionStrategy,
     prompt: str,
@@ -87,6 +101,16 @@ def _build_chat_texts(strategy, prompt, response, tokenizer):
             f"supported for chat_* strategies. Use completion_last, "
             f"completion_mean, or mc_completion instead."
         )
+    if _is_qwen_tokenizer(tokenizer):
+        prompt_only = _qwen_chat_text(
+            [{"role": "user", "content": prompt}],
+            add_generation_prompt=True,
+        )
+        full_text = _qwen_chat_text(
+            [{"role": "user", "content": prompt},
+             {"role": "assistant", "content": response}],
+        )
+        return full_text, response, prompt_only
 
     prompt_only = tokenizer.apply_chat_template(
         [{"role": "user", "content": prompt}],
@@ -115,6 +139,16 @@ def _build_role_play_texts(prompt, response, tokenizer):
             "apply_chat_template. Use completion_last or mc_completion "
             "for base models."
         )
+    if _is_qwen_tokenizer(tokenizer):
+        prompt_only = _qwen_chat_text(
+            [{"role": "user", "content": instruction}],
+            add_generation_prompt=True,
+        )
+        full_text = _qwen_chat_text(
+            [{"role": "user", "content": instruction},
+             {"role": "assistant", "content": random_token}],
+        )
+        return full_text, random_token, prompt_only
 
     prompt_only = tokenizer.apply_chat_template(
         [{"role": "user", "content": instruction}],
@@ -168,6 +202,16 @@ def _build_mc_balanced_texts(
             "Strategy mc_balanced requires a tokenizer with "
             "apply_chat_template. Use mc_completion for base models."
         )
+    if _is_qwen_tokenizer(tokenizer):
+        prompt_only = _qwen_chat_text(
+            [{"role": "user", "content": mc_prompt}],
+            add_generation_prompt=True,
+        )
+        full_text = _qwen_chat_text(
+            [{"role": "user", "content": mc_prompt},
+             {"role": "assistant", "content": answer}],
+        )
+        return full_text, answer, prompt_only
 
     prompt_only = tokenizer.apply_chat_template(
         [{"role": "user", "content": mc_prompt}],

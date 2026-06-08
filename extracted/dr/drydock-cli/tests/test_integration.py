@@ -11,9 +11,6 @@ Run manually: pytest tests/test_integration.py -v -s
 
 from __future__ import annotations
 
-import asyncio
-import json
-import os
 from pathlib import Path
 
 import httpx
@@ -32,7 +29,6 @@ from drydock.core.types import (
     BaseEvent,
     ToolCallEvent,
     ToolResultEvent,
-    UserMessageEvent,
 )
 
 

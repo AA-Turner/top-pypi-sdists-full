@@ -11,13 +11,10 @@ Run: pytest tests/test_bank_tools.py -v -s --timeout=1800
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 
 import pytest
 
 from tests.testbank_helpers import (
-    check_content_contains,
     check_files_exist,
     check_runs,
     check_syntax_all,
@@ -252,7 +249,7 @@ class TestSearchTools:
             content = (tmp_path / fname).read_text()
             if "old-api" not in content:
                 updated += 1
-        assert updated >= 1, f"No files were updated with new URL"
+        assert updated >= 1, "No files were updated with new URL"
 
     async def test_find_unused_imports(self, tmp_path):
         """Use grep to find and remove unused imports."""
@@ -453,8 +450,7 @@ class TestToolCombinations:
     async def test_create_project_with_tests(self, tmp_path):
         """Create code AND tests — full development workflow."""
         agent = make_agent(tmp_path, max_turns=30)
-        r = await run_workload(agent, max_events=400, prompt=
-            "Build a 'StringUtils' class in string_utils.py with these methods:\n"
+        r = await run_workload(agent, max_events=400, prompt="Build a 'StringUtils' class in string_utils.py with these methods:\n"
             "- capitalize_words(s) -> 'hello world' to 'Hello World'\n"
             "- snake_to_camel(s) -> 'hello_world' to 'helloWorld'\n"
             "- camel_to_snake(s) -> 'helloWorld' to 'hello_world'\n"

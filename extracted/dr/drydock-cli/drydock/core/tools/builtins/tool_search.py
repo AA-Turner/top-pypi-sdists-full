@@ -13,7 +13,7 @@ from typing import ClassVar, final
 from pydantic import BaseModel, Field
 
 from drydock.core.tools.base import (
-    BaseTool, BaseToolConfig, BaseToolState, InvokeContext, ToolError, ToolPermission,
+    BaseTool, BaseToolConfig, BaseToolState, InvokeContext, ToolPermission,
 )
 from drydock.core.tools.ui import ToolCallDisplay, ToolResultDisplay, ToolUIData
 from drydock.core.types import ToolStreamEvent, ToolResultEvent

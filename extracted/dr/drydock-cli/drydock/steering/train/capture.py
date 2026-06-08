@@ -53,10 +53,10 @@ def _read_pairs(path: Path) -> list[dict[str, Any]]:
         try:
             pair = json.loads(line)
         except json.JSONDecodeError as e:
-            raise SystemExit(f"{path}:{i+1}: invalid JSON: {e}")
+            raise SystemExit(f"{path}:{i + 1}: invalid JSON: {e}")
         if "prompt" not in pair or "completion" not in pair:
             raise SystemExit(
-                f"{path}:{i+1}: pair missing required 'prompt'/'completion' fields"
+                f"{path}:{i + 1}: pair missing required 'prompt'/'completion' fields"
             )
         if "label" not in pair:
             pair["label"] = "unknown"
@@ -66,7 +66,7 @@ def _read_pairs(path: Path) -> list[dict[str, Any]]:
                 path, i + 1, pair["label"],
             )
         if "id" not in pair:
-            pair["id"] = f"{path.stem}:{i+1}"
+            pair["id"] = f"{path.stem}:{i + 1}"
         out.append(pair)
     return out
 

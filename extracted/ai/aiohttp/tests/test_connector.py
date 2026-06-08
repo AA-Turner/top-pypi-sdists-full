@@ -24,7 +24,9 @@ from yarl import URL
 
 import aiohttp
 from aiohttp import client, connector as connector_module, hdrs, web
+from aiohttp.abc import AbstractResolver
 from aiohttp.client import ClientRequest, ClientTimeout
+from aiohttp.client_exceptions import InvalidUrlClientError
 from aiohttp.client_proto import ResponseHandler
 from aiohttp.client_reqrep import ConnectionKey
 from aiohttp.connector import (
@@ -1249,6 +1251,35 @@ async def test_tcp_connector_resolve_host(loop: asyncio.AbstractEventLoop) -> No
             else:
                 assert rec["host"] == "::1"
 
+    await conn.close()
+
+
+async def test_tcp_connector_rejects_non_canonical_ipv4_alias() -> None:
+    """Legacy numeric IPv4 aliases must not bypass the configured resolver."""
+    calls: list[str] = []
+
+    class _RecordingResolver(AbstractResolver):
+        async def resolve(
+            self,
+            host: str,
+            port: int = 0,
+            family: socket.AddressFamily = socket.AF_INET,
+        ) -> list[ResolveResult]:
+            assert False
+
+        async def close(self) -> None:
+            """Close the resolver."""
+
+    conn = aiohttp.TCPConnector(resolver=_RecordingResolver())
+    for alias in ("2130706433", "017700000001", "127.1"):
+        with pytest.raises(InvalidUrlClientError, match="canonical IPv4"):
+            await conn._resolve_host(alias, 8080)
+
+    # Resolver is never consulted, and a canonical IP still short-circuits it.
+    assert calls == []
+    res = await conn._resolve_host("127.0.0.1", 8080)
+    assert res[0]["host"] == "127.0.0.1"
+    assert calls == []
     await conn.close()
 
 
@@ -4525,3 +4556,49 @@ async def test_connect_tunnel_connection_release(
 
     # Clean up to avoid resource warning
     conn.close()
+
+
+async def test_tcp_connector_close_race_condition() -> None:
+    """Test closing TCPConnector while DNS resolution is in-flight."""
+    loop = asyncio.get_running_loop()
+    resolve_started = loop.create_future()
+    close_started = loop.create_future()
+
+    class FakeResolver(AbstractResolver):
+        async def resolve(
+            self, host: str, port: int = 0, family: int = socket.AF_INET
+        ) -> list[ResolveResult]:
+            resolve_started.set_result(None)
+            await close_started
+            return [
+                {
+                    "hostname": host,
+                    "host": host,
+                    "port": port,
+                    "family": family,
+                    "proto": 0,
+                    "flags": socket.AI_NUMERICHOST,
+                }
+            ]
+
+        async def close(self) -> None:
+            assert False
+
+    connector = TCPConnector(use_dns_cache=False, resolver=FakeResolver())
+
+    async def resolve_host() -> None:
+        # The in-flight resolve should complete normally since close()
+        # happens after the resolver returns
+        result = await connector._resolve_host("localhost", 80)
+        assert len(result) == 1
+
+    async def close_connector() -> None:
+        await resolve_started
+        close_started.set_result(None)
+        await connector.close()
+
+    await asyncio.gather(resolve_host(), close_connector())
+
+    # After close, new resolves should raise ClientConnectionError
+    with pytest.raises(aiohttp.ClientConnectionError, match="Connector is closed"):
+        await connector._resolve_host("localhost", 80)

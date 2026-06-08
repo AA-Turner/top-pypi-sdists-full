@@ -18,7 +18,7 @@ Public surface:
 from __future__ import annotations
 
 import re
-from typing import Iterable
+from collections.abc import Iterable
 
 # Common English words that look like Title Case but aren't entities.
 # Keep small — the goal is "minimize false positives on conversational
@@ -389,6 +389,7 @@ def _is_template_noise(candidate: str) -> bool:
     if re.match(r"^[a-z][a-z0-9]*_to_[a-z][a-z0-9_]*$", norm):
         return True
     return False
+
 
 # Acronyms shorter than this are too noisy to chase ("ID", "OK", "OS").
 _MIN_ACRONYM_LEN = 3

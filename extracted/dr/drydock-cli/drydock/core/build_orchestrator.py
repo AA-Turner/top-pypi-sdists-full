@@ -20,7 +20,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from drydock.core.config import ProviderConfig, DrydockConfig
 from drydock.core.llm.types import BackendLike
@@ -53,9 +53,9 @@ def _get_active_provider(config: DrydockConfig) -> ProviderConfig | None:
     # Last resort: first provider
     return config.providers[0] if config.providers else None
 
+
 if TYPE_CHECKING:
-    from drydock.core.agents.manager import AgentManager
-    from drydock.core.types import EntrypointMetadata
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -554,7 +554,6 @@ async def run_build_pipeline(
     # _verify_and_fix_imports(plan, base_dir)
 
     # Build summary
-    succeeded = sum(1 for _, ok in results if ok)
     failed_files = [path for path, ok in results if not ok]
 
     # List the actual public APIs so the model can fix imports
@@ -570,26 +569,26 @@ async def run_build_pipeline(
 
     summary_lines = [
         f"I have already created all files for package '{plan.package_name}'.",
-        f"",
-        f"Files and their APIs:",
+        "",
+        "Files and their APIs:",
     ]
     summary_lines.extend(api_summary_parts)
     summary_lines.extend([
-        f"",
-        f"YOUR NEXT STEPS (follow exactly):",
+        "",
+        "YOUR NEXT STEPS (follow exactly):",
         f"1. Run: python3 -m {plan.package_name} --help",
-        f"2. If ImportError or NameError: read the failing file, fix with search_replace",
+        "2. If ImportError or NameError: read the failing file, fix with search_replace",
         f"3. Create a sample log file with write_file, then test: python3 -m {plan.package_name} --log-file sample.log",
-        f"4. When it works, tell the user",
-        f"",
-        f"DO NOT run git commands. DO NOT run ls. DO NOT create new .py files.",
+        "4. When it works, tell the user",
+        "",
+        "DO NOT run git commands. DO NOT run ls. DO NOT create new .py files.",
     ])
 
     if failed_files:
         summary_lines.extend([
-            f"",
+            "",
             f"These files need implementation: {', '.join(failed_files)}",
-            f"Use write_file with overwrite=true to implement them.",
+            "Use write_file with overwrite=true to implement them.",
         ])
 
     return "\n".join(summary_lines)
@@ -716,7 +715,6 @@ def _fix_circular_imports(plan: BuildPlan, base_dir: Path) -> None:
                 # Circular: A imports B and B imports A
                 # Break by removing the import from the "utility" module
                 # (the one with fewer definitions is likely the utility)
-                file_a = base_dir / plan.package_name / f"{mod_a.split('.')[-1]}.py"
                 file_b = base_dir / plan.package_name / f"{mod_b.split('.')[-1]}.py"
                 try:
                     content_b = file_b.read_text()

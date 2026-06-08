@@ -37,7 +37,8 @@ import contextvars
 import logging
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterator, Optional
+from typing import Any
+from collections.abc import Callable, Iterator
 
 from drydock.steering.sidecar.header_parser import SteeringDirective
 
@@ -47,7 +48,7 @@ logger = logging.getLogger(__name__)
 # Module-level ContextVar so a request handler's `activate()` block
 # is visible to the model.generate it wraps, even when generate dips
 # into torch C++ that calls back into our Python hook.
-_active_directives: contextvars.ContextVar[Optional["ActiveSteering"]] = (
+_active_directives: contextvars.ContextVar[ActiveSteering | None] = (
     contextvars.ContextVar("drydock_steering_active", default=None)
 )
 
@@ -56,7 +57,7 @@ _active_directives: contextvars.ContextVar[Optional["ActiveSteering"]] = (
 # Any here to keep `import torch` out of this module's import path —
 # the manager is constructed with a real model and torch is already
 # imported by then.
-VectorLookup = Callable[[str, int], Optional[Any]]
+VectorLookup = Callable[[str, int], Any | None]
 
 
 @dataclass(frozen=True)
@@ -73,7 +74,7 @@ class ActiveSteering:
         return sorted(self.by_layer.keys())
 
 
-def get_active_steering() -> Optional[ActiveSteering]:
+def get_active_steering() -> ActiveSteering | None:
     """Read the current ContextVar. Exposed for tests."""
     return _active_directives.get()
 
@@ -163,7 +164,7 @@ class SteeringHookManager:
     @contextmanager
     def activate(
         self, directives: list[SteeringDirective]
-    ) -> Iterator[Optional[ActiveSteering]]:
+    ) -> Iterator[ActiveSteering | None]:
         """Set the ContextVar for the duration of one generate() call.
 
         Resolves each directive's vector NOW (not in the hook hot
@@ -231,7 +232,7 @@ class SteeringHookManager:
 # both modes (in different processes — capture is offline, inject is
 # online — but the abstraction stays uniform).
 
-_active_capture: contextvars.ContextVar[Optional["CaptureBuffer"]] = (
+_active_capture: contextvars.ContextVar[CaptureBuffer | None] = (
     contextvars.ContextVar("drydock_steering_capture", default=None)
 )
 
@@ -274,7 +275,7 @@ class CaptureBuffer:
         return out
 
 
-def get_active_capture() -> Optional[CaptureBuffer]:
+def get_active_capture() -> CaptureBuffer | None:
     """Read the current capture ContextVar. Exposed for tests."""
     return _active_capture.get()
 

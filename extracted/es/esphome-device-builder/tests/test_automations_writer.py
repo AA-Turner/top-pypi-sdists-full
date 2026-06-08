@@ -113,6 +113,101 @@ def test_delete_device_on_boot_drops_the_block() -> None:
     assert diff.replacement == ""
 
 
+_LIST_ON_BOOT = (
+    "esphome:\n  name: x\n"
+    "  on_boot:\n"
+    "    - priority: -300\n"
+    "      then:\n"
+    "        - logger.log: first\n"
+)
+
+
+def test_upsert_device_on_boot_appends_list_entry() -> None:
+    """An index past the end appends a second on_boot handler as a list entry."""
+    tree = AutomationTree(
+        trigger_id="on_boot",
+        trigger_params={"priority": 200},
+        actions=[ActionNode(action_id="delay", params={"id": "1s"})],
+    )
+    new_text, _ = render_upsert(
+        _LIST_ON_BOOT, tree=tree, location=DeviceOnLocation(trigger="on_boot", index=1)
+    )
+    parsed = parse_device_yaml(new_text)
+    assert [p.location.index for p in parsed] == [0, 1]
+    assert parsed[1].automation.trigger_params == {"priority": 200}
+
+
+def test_upsert_device_on_boot_replaces_list_entry() -> None:
+    """An in-range index replaces that entry, leaving siblings intact."""
+    tree = AutomationTree(
+        trigger_id="on_boot",
+        trigger_params={"priority": -300},
+        actions=[ActionNode(action_id="logger.log", params={"format": "second"})],
+    )
+    new_text, _ = render_upsert(
+        _LIST_ON_BOOT, tree=tree, location=DeviceOnLocation(trigger="on_boot", index=0)
+    )
+    parsed = parse_device_yaml(new_text)
+    assert len(parsed) == 1
+    assert parsed[0].automation.actions[0].params == {"format": "second"}
+
+
+def test_upsert_device_on_boot_replace_keeps_sibling_entries() -> None:
+    """Replacing one entry of a 2-entry on_boot leaves the sibling untouched."""
+    two = _LIST_ON_BOOT + "    - priority: 200\n      then:\n        - delay: 1s\n"
+    tree = AutomationTree(
+        trigger_id="on_boot",
+        trigger_params={"priority": -300},
+        actions=[ActionNode(action_id="logger.log", params={"format": "second"})],
+    )
+    new_text, _ = render_upsert(
+        two, tree=tree, location=DeviceOnLocation(trigger="on_boot", index=0)
+    )
+    parsed = parse_device_yaml(new_text)
+    assert [p.location.index for p in parsed] == [0, 1]
+    assert parsed[0].automation.actions[0].params == {"format": "second"}
+    assert parsed[1].automation.trigger_params == {"priority": 200}
+
+
+def test_delete_device_on_boot_list_entry() -> None:
+    """Deleting one entry of a multi-handler on_boot keeps the rest as a list."""
+    two = _LIST_ON_BOOT + "    - priority: 200\n      then:\n        - delay: 1s\n"
+    new_text, _ = render_delete(two, location=DeviceOnLocation(trigger="on_boot", index=0))
+    parsed = parse_device_yaml(new_text)
+    assert len(parsed) == 1
+    assert parsed[0].automation.trigger_params == {"priority": 200}
+
+
+def test_delete_last_device_on_boot_list_entry_removes_block() -> None:
+    """Deleting the only entry of a list-form on_boot removes the handler key."""
+    loc = DeviceOnLocation(trigger="on_boot", index=0)
+    new_text, _ = render_delete(_LIST_ON_BOOT, location=loc)
+    assert "on_boot:" not in new_text
+
+
+def test_delete_device_on_boot_list_entry_out_of_range_raises() -> None:
+    """Deleting an out-of-range on_boot list index raises NOT_FOUND."""
+    with pytest.raises(CommandError):
+        render_delete(_LIST_ON_BOOT, location=DeviceOnLocation(trigger="on_boot", index=5))
+
+
+def test_upsert_device_on_boot_index_out_of_range_raises() -> None:
+    """An index beyond append position is rejected."""
+    tree = AutomationTree(trigger_id="on_boot", actions=[ActionNode(action_id="delay", params={})])
+    with pytest.raises(CommandError):
+        render_upsert(
+            _LIST_ON_BOOT, tree=tree, location=DeviceOnLocation(trigger="on_boot", index=5)
+        )
+
+
+def test_upsert_device_on_boot_indexed_refuses_single_mapping() -> None:
+    """An indexed upsert against a single-mapping on_boot refuses rather than rewriting it."""
+    text = _load("device_on_boot.yaml")  # single-mapping form
+    tree = AutomationTree(trigger_id="on_boot", actions=[ActionNode(action_id="delay", params={})])
+    with pytest.raises(CommandError):
+        render_upsert(text, tree=tree, location=DeviceOnLocation(trigger="on_boot", index=1))
+
+
 # ---------------------------------------------------------------------------
 # Inline component
 # ---------------------------------------------------------------------------
@@ -358,6 +453,117 @@ def test_upsert_flat_singleton_unknown_id_raises() -> None:
             location=ComponentOnLocation(component_id="nonexistent", trigger="on_sunrise"),
         )
     assert err.value.code == ErrorCode.INVALID_ARGS
+
+
+def test_upsert_list_form_trigger_on_idd_singleton() -> None:
+    """A list-form trigger (carries an index) adds under a flat singleton with an id (#1297)."""
+    text = "logger:\n  level: DEBUG\n  id: logger_id\n"
+    new_text, _diff = render_upsert(
+        text,
+        tree=AutomationTree(
+            trigger_id="logger.on_message",
+            actions=[ActionNode(action_id="logger.log", params={"format": "hi"})],
+        ),
+        location=ComponentOnLocation(component_id="logger_id", trigger="on_message", index=0),
+    )
+    assert "level: DEBUG" in new_text
+    assert "id: logger_id" in new_text
+    parsed = parse_device_yaml(new_text)
+    assert len(parsed) == 1
+    loc = parsed[0].location
+    assert (loc.component_id, loc.trigger, loc.index) == ("logger_id", "on_message", 0)
+
+
+def test_upsert_list_form_trigger_on_idless_singleton() -> None:
+    """A list-form trigger adds under an id-less singleton (``component_id == domain``)."""
+    text = "logger:\n  level: DEBUG\n"
+    new_text, _diff = render_upsert(
+        text,
+        tree=AutomationTree(
+            trigger_id="logger.on_message",
+            actions=[ActionNode(action_id="logger.log", params={"format": "hi"})],
+        ),
+        location=ComponentOnLocation(component_id="logger", trigger="on_message", index=0),
+    )
+    assert "level: DEBUG" in new_text
+    parsed = parse_device_yaml(new_text)
+    assert len(parsed) == 1
+    assert parsed[0].location.component_id == "logger"
+    assert parsed[0].location.index == 0
+
+
+def test_upsert_list_form_trigger_appends_second_entry_on_singleton() -> None:
+    """Upserting at the list length appends a second entry under the singleton."""
+    text = (
+        "logger:\n"
+        "  level: DEBUG\n"
+        "  id: logger_id\n"
+        "  on_message:\n"
+        "    - then:\n"
+        "        - logger.log: first\n"
+    )
+    new_text, _diff = render_upsert(
+        text,
+        tree=AutomationTree(
+            trigger_id="logger.on_message",
+            actions=[ActionNode(action_id="logger.log", params={"format": "second"})],
+        ),
+        location=ComponentOnLocation(component_id="logger_id", trigger="on_message", index=1),
+    )
+    assert "first" in new_text
+    assert "second" in new_text
+    assert [p.location.index for p in parse_device_yaml(new_text)] == [0, 1]
+
+
+def test_upsert_list_form_trigger_on_null_id_singleton_raises() -> None:
+    """An explicit ``id: null`` is not treated as id-less; domain-name match is refused."""
+    text = "logger:\n  level: DEBUG\n  id: null\n"
+    with pytest.raises(CommandError) as err:
+        render_upsert(
+            text,
+            tree=AutomationTree(trigger_id="logger.on_message", actions=[]),
+            location=ComponentOnLocation(component_id="logger", trigger="on_message", index=0),
+        )
+    assert err.value.code == ErrorCode.INVALID_ARGS
+
+
+def test_upsert_list_form_trigger_on_ambiguous_key_singleton() -> None:
+    """A list-form trigger with an ambiguous key resolves to its singleton (mqtt)."""
+    text = "mqtt:\n  broker: 192.168.1.10\n"
+    new_text, _diff = render_upsert(
+        text,
+        tree=AutomationTree(
+            trigger_id="mqtt.on_message",
+            actions=[ActionNode(action_id="logger.log", params={"format": "hi"})],
+        ),
+        location=ComponentOnLocation(component_id="mqtt", trigger="on_message", index=0),
+    )
+    assert "broker: 192.168.1.10" in new_text
+    parsed = parse_device_yaml(new_text)
+    assert [(p.location.component_id, p.location.trigger, p.location.index) for p in parsed] == [
+        ("mqtt", "on_message", 0),
+    ]
+
+
+def test_delete_list_form_trigger_entry_on_singleton() -> None:
+    """Deleting the only list-form entry drops the handler key but keeps config."""
+    text = (
+        "logger:\n"
+        "  level: DEBUG\n"
+        "  id: logger_id\n"
+        "  on_message:\n"
+        "    - then:\n"
+        "        - logger.log: only\n"
+    )
+    new_text, diff = render_delete(
+        text,
+        location=ComponentOnLocation(component_id="logger_id", trigger="on_message", index=0),
+    )
+    assert "on_message:" not in new_text
+    assert "level: DEBUG" in new_text
+    assert "id: logger_id" in new_text
+    assert parse_device_yaml(new_text) == []
+    assert diff.replacement == ""
 
 
 def test_stale_positional_id_on_idd_instance_is_refused() -> None:
@@ -1510,8 +1716,8 @@ def test_round_trip_on_time_list_entry_is_stable() -> None:
     assert reparsed[0].automation.trigger_params == {"seconds": 0, "minutes": 30, "hours": 8}
 
 
-def test_upsert_appends_entry_for_non_on_time_repeatable_trigger() -> None:
-    """A second entry on a non-on_time repeatable trigger appends, not overwrites."""
+def test_upsert_appends_entry_for_non_on_time_list_trigger() -> None:
+    """A second entry on a non-on_time list-form trigger appends, not overwrites."""
     yaml_text = (
         "sensor:\n"
         "  - platform: template\n"

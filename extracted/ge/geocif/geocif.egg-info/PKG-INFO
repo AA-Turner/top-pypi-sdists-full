@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.725
+Version: 0.4.729
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -105,6 +105,8 @@ Requires-Dist: desReg>=0.1; extra == "desreg"
 Dynamic: license-file
 
 # geocif
+
+MIKES EDITS
 
 [![image](https://img.shields.io/pypi/v/geocif.svg)](https://pypi.python.org/pypi/geocif)
 

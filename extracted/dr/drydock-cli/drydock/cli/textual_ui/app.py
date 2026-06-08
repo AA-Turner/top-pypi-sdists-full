@@ -743,7 +743,6 @@ class DrydockApp(App):  # noqa: PLR0904
         else:
             # Clean up unreplaced placeholders
             skill_content = skill_content.replace("$ARGUMENTS", "")
-            import re
             for i in range(10):
                 skill_content = skill_content.replace(f"$ARGUMENTS[{i}]", "")
                 skill_content = skill_content.replace(f"${i}", "")
@@ -2053,6 +2052,21 @@ class DrydockApp(App):  # noqa: PLR0904
                     f"`/graphrag ingest <path>` to refresh."
                 )
             await self._mount_and_scroll(UserCommandMessage(msg))
+            return
+
+        if sub == "setup":
+            # Self-bootstrap — invokes the same logic as
+            # `python -m drydock.graphrag setup`. No-op safe to re-run.
+            import subprocess
+            import sys as _sys
+            res = subprocess.run(
+                [_sys.executable, "-m", "drydock.graphrag", "setup"],
+                capture_output=True, text=True, timeout=300,
+            )
+            output = (res.stdout or "") + (res.stderr or "")
+            await self._mount_and_scroll(UserCommandMessage(
+                f"### GraphRAG setup\n\n```\n{output.strip()}\n```"
+            ))
             return
 
         if sub == "ingest":

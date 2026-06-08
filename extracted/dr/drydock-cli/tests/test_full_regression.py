@@ -8,8 +8,6 @@ Run: pytest tests/test_full_regression.py -v
 
 from __future__ import annotations
 
-import asyncio
-from pathlib import Path
 
 import httpx
 import pytest
@@ -24,7 +22,7 @@ from drydock.core.agent_loop import AgentLoop
 from drydock.core.agents.models import BuiltinAgentName
 from drydock.core.config import Backend, ModelConfig, ProviderConfig, DrydockConfig
 from drydock.core.types import (
-    AssistantEvent, BaseEvent, Role, ToolCallEvent, ToolResultEvent,
+    AssistantEvent, Role, ToolCallEvent, ToolResultEvent,
 )
 
 
@@ -33,6 +31,7 @@ def _vllm_ok():
         return httpx.get("http://localhost:8000/v1/models", timeout=3).status_code == 200
     except Exception:
         return False
+
 
 pytestmark = pytest.mark.skipif(not _vllm_ok(), reason="vLLM not running")
 
@@ -46,8 +45,10 @@ def _config(tmp_path):
         session_logging={"enabled": False, "save_dir": str(tmp_path / "logs")},
     )
 
+
 def _agent(tmp_path, max_turns=8):
     return AgentLoop(config=_config(tmp_path), agent_name=BuiltinAgentName.AUTO_APPROVE, max_turns=max_turns)
+
 
 async def _run(agent, prompt, max_events=80):
     events = []
@@ -71,11 +72,13 @@ async def test_bash_executes(tmp_path):
         if isinstance(e, ToolResultEvent) and e.error:
             assert "AttributeError" not in str(e.error)
 
+
 @pytest.mark.asyncio
 async def test_grep_executes(tmp_path):
     agent = _agent(tmp_path)
     events = await _run(agent, "Search for 'def ' in the current directory")
     assert len(events) >= 1
+
 
 @pytest.mark.asyncio
 async def test_read_file_executes(tmp_path):
@@ -84,6 +87,7 @@ async def test_read_file_executes(tmp_path):
     agent = _agent(tmp_path)
     events = await _run(agent, f"Read the file {test_file}")
     assert len(events) >= 1
+
 
 @pytest.mark.asyncio
 async def test_write_file_executes(tmp_path):
@@ -119,8 +123,9 @@ async def test_no_user_after_tool(tmp_path):
     agent = _agent(tmp_path)
     events = await _run(agent, "What Python version is installed?")
     for i in range(1, len(agent.messages)):
-        assert not (agent.messages[i].role == Role.user and agent.messages[i-1].role == Role.tool), \
+        assert not (agent.messages[i].role == Role.user and agent.messages[i - 1].role == Role.tool), \
             f"user after tool at {i}"
+
 
 @pytest.mark.asyncio
 async def test_messagelist_integrity(tmp_path):
@@ -141,11 +146,13 @@ async def test_ambiguous_prompt_no_infinite_loop(tmp_path):
     tool_calls = [e for e in events if isinstance(e, ToolCallEvent)]
     assert len(tool_calls) < 20, f"Ambiguous 'test' caused {len(tool_calls)} tool calls"
 
+
 @pytest.mark.asyncio
 async def test_agent_stops_cleanly(tmp_path):
     agent = _agent(tmp_path)
     events = await _run(agent, "What is 2+2?", max_events=20)
     assert len(events) < 20
+
 
 @pytest.mark.asyncio
 async def test_system_prompt_present(tmp_path):
@@ -153,6 +160,7 @@ async def test_system_prompt_present(tmp_path):
     await _run(agent, "hi")
     assert agent.messages[0].role == Role.system
     assert "DryDock" in agent.messages[0].content
+
 
 @pytest.mark.asyncio
 async def test_no_understood_in_messages(tmp_path):

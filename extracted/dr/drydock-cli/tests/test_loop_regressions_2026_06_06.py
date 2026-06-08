@@ -21,7 +21,6 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-import pytest
 
 from drydock.core.agents.models import AgentType
 from drydock.core.tools.manager import ToolManager
@@ -248,9 +247,14 @@ class TestGemma4DisableListCovers2026_06_06Loops:
     test_gemma4_tool_filter.py too; these are duplicate explicit
     assertions so a refactor that breaks the param suite still catches."""
 
-    def test_task_blocked(self):
+    def test_task_re_enabled_in_v2_9_113(self):
+        """task was disabled in v2.9.97, re-enabled in v2.9.113 after
+        the experiment_REPASS_v2.9.110 PASS->FAIL regression on
+        extract-elf showed losing subagent delegation broke proven
+        capability. Union grammar OFF (v2.9.98) + consecutive-task
+        preflight (v2.9.93) are the new loop guards."""
         names = set(_gemma4_tool_manager().available_tools.keys())
-        assert "task" not in names
+        assert "task" in names
 
     def test_notebook_edit_blocked(self):
         names = set(_gemma4_tool_manager().available_tools.keys())
@@ -294,7 +298,6 @@ class TestUnionGrammarDefaultOff:
         monkeypatch.setenv("DRYDOCK_UNION_GRAMMAR_ENABLE", "1")
         from drydock.core.llm.grammar.policy_union import (
             build_union_gbnf,
-            select_union_grammar,
         )
         from drydock.core.tools.builtins.write_file import WriteFileArgs
 
@@ -302,6 +305,254 @@ class TestUnionGrammarDefaultOff:
         gbnf = build_union_gbnf([("write_file", WriteFileArgs)])
         assert gbnf is not None
         assert "write_file" in gbnf or "root" in gbnf
+
+
+class TestReadonlyStreakOnlyCountsDoomLoops:
+    """v2.9.111: the readonly streak only grows on DUPLICATE results,
+    not every distinct read. Operator session 2026-06-07: model running
+    legit diagnosis (run script -> ls -> read -> count -> cat) was hit
+    by the 18-readonly hard-stop before it could use the new info cat
+    revealed. Productive read-shaped tool calls (each yields novel
+    content) must not count toward the doom-loop streak."""
+
+    def test_novel_results_do_not_grow_streak(self):
+        """20 distinct readonly results -> streak stays at 0."""
+        import hashlib
+
+        recent: list[str] = []
+        streak = 0
+        for i in range(20):
+            text = f"unique content {i} - {'x' * 100}"
+            h = hashlib.sha256(text.encode()).hexdigest()[:16]
+            if h in recent:
+                streak += 1
+            recent.append(h)
+            recent = recent[-30:]
+        assert streak == 0, (
+            f"20 distinct reads should not grow streak; got {streak}"
+        )
+
+    def test_duplicate_results_grow_streak(self):
+        """Same result returned 6 times -> streak hits 5 (first is
+        novel, next 5 are duplicates)."""
+        import hashlib
+
+        recent: list[str] = []
+        streak = 0
+        identical_text = "stuck loop content"
+        h = hashlib.sha256(identical_text.encode()).hexdigest()[:16]
+        for _ in range(6):
+            if h in recent:
+                streak += 1
+            recent.append(h)
+            recent = recent[-30:]
+        assert streak == 5
+
+    def test_v2_9_114_strips_dedup_headers_before_hash(self):
+        """v2.9.114: read_file's dedup advisory headers change every time
+        ([2nd identical read...], [REPEATED READ #3...], #4 etc.). Each
+        carries the same underlying file content but a unique header.
+        v2.9.112 hashed the full text and saw each as "novel", missing
+        the loop. v2.9.114 strips the leading [advisory] block before
+        hashing so the underlying content is the comparison key.
+
+        Direct test of the marker-detection fast path: any text starting
+        with the dedup marker is forced to count as duplicate even
+        without hash collision."""
+        DEDUP_MARKERS = (
+            "[2nd identical read",
+            "[REPEATED READ",
+        )
+        cases = [
+            ("[2nd identical read of this file - content is unchanged]\nfile contents go here", True),
+            ("[REPEATED READ #5: file has not changed across 5 reads]\nfile contents", True),
+            ("normal file output 1\nline 2\nline 3", False),
+            ("no header just content", False),
+        ]
+        for text, expected_forced_dup in cases:
+            forced_dup = text.startswith("[") and any(
+                m in text[:200] for m in DEDUP_MARKERS
+            )
+            assert forced_dup == expected_forced_dup, (
+                f"{text[:40]!r} -> forced_dup={forced_dup}, "
+                f"expected {expected_forced_dup}"
+            )
+
+    def test_marker_present_in_agent_loop(self):
+        text = open(
+            "/data3/drydock/drydock/core/agent_loop.py"
+        ).read()
+        assert "_recent_readonly_hashes" in text
+        assert "doom-loop signature is" in text or "v2.9.111" in text
+
+
+class TestNoWriteStreakHardStop:
+    """v2.9.116: replace the arbitrary 100-call hard stop with two
+    layered limits — HARD_STOP_CALLS raised to 500 as runaway safety,
+    and a new NO_WRITE_HARD_STOP at 80 consecutive readonly/neutral
+    tool calls without any write/edit. Operator's reasoning: real
+    work shouldn't get killed by a count cap, only real loops should
+    stop. The no-write streak is the actual "stuck without progress"
+    detector."""
+
+    def test_hard_stop_calls_raised_from_100_to_500(self):
+        """The arbitrary count cap that killed legit work."""
+        text = open(
+            "/data3/drydock/drydock/core/agent_loop.py"
+        ).read()
+        assert (
+            '"DRYDOCK_HARD_STOP_CALLS"' in text
+            and 'getattr(self, "_admiral_hard_stop_tool_calls", 500)' in text
+        ), "HARD_STOP_CALLS default should be 500 (env-configurable)"
+
+    def test_no_write_hard_stop_default_80(self):
+        text = open(
+            "/data3/drydock/drydock/core/agent_loop.py"
+        ).read()
+        assert "DRYDOCK_NO_WRITE_HARD_STOP" in text
+        assert '"_admiral_no_write_hard_stop", 80' in text
+
+    def test_no_write_streak_skips_subagent(self):
+        """The no-write streak hard-stop must skip subagents (explore /
+        diagnostic / planner / builder) — they're read-mostly by design.
+        Same gate v2.9.91 added for the readonly-streak hard-stop."""
+        text = open(
+            "/data3/drydock/drydock/core/agent_loop.py"
+        ).read()
+        # Find the no-write check block and verify it has the SUBAGENT
+        # type check
+        idx = text.find("no_write_streak >= NO_WRITE_HARD_STOP")
+        assert idx >= 0, "no-write hard-stop block missing"
+        # Within a reasonable window after, AgentType.SUBAGENT must
+        # appear (the skip-condition)
+        window = text[idx : idx + 400]
+        assert "AgentType.SUBAGENT" in window, (
+            "subagent skip missing from no-write hard-stop"
+        )
+
+    def test_write_resets_no_write_streak(self):
+        """Verify the reset path in _maybe_reflect: a write tool sets
+        _no_write_streak back to 0."""
+        text = open(
+            "/data3/drydock/drydock/core/agent_loop.py"
+        ).read()
+        # The reset is paired with the readonly-streak reset
+        idx = text.find('if effective_kind == "write":')
+        assert idx >= 0
+        window = text[idx : idx + 300]
+        assert "self._no_write_streak = 0" in window
+
+
+class TestPerPromptTimeBudget:
+    """v2.9.119: raise per-prompt wall-clock budget 30 min -> 4 hours.
+    Operator session 2026-06-07 hit the 30-min cap mid-edit on a real
+    slide-app debugging session — model had written 2 files and was
+    iterating, then got killed. Same principle as v2.9.116's
+    HARD_STOP_CALLS raise: arbitrary caps that kill legit work."""
+
+    def test_default_raised_to_4_hours(self):
+        text = open(
+            "/data3/drydock/drydock/core/agent_loop.py"
+        ).read()
+        # Default is 4h = 14400s, expressed as `4 * 60 * 60` in source
+        assert (
+            'getattr(self, "_admiral_per_prompt_budget_sec", 4 * 60 * 60)' in text
+        ), "PER_PROMPT_BUDGET_SEC default should be 4 hours (4*60*60)"
+
+    def test_env_override_supported(self):
+        text = open(
+            "/data3/drydock/drydock/core/agent_loop.py"
+        ).read()
+        assert '"DRYDOCK_PER_PROMPT_BUDGET_SEC"' in text
+
+
+class TestContextWindowProbe:
+    """v2.9.115: drydock probes the live llama.cpp backend's /props
+    endpoint at AgentLoop init to discover the runtime n_ctx, then
+    uses that to recompute auto_compact_threshold (instead of the
+    stale config value). Prevents the 32K backend / 131K config skew
+    that would let context bloat past the wire limit."""
+
+    def test_probe_extracts_n_ctx_from_llamacpp_props_shape(self):
+        """Verify the JSON walk that finds n_ctx in llama.cpp's exact
+        /props response shape."""
+        import json as _json
+        from unittest.mock import patch, MagicMock
+        from drydock.core.agent_loop import _probe_backend_context_window
+
+        class FakeModel:
+            base_url = "http://test:8000/v1"
+
+        # Mock urllib.request.urlopen to return the exact /props shape
+        # llama.cpp emits (the inner `default_generation_settings.params`
+        # dict carries the runtime n_ctx).
+        fake_resp = _json.dumps({
+            "default_generation_settings": {
+                "params": {
+                    "n_ctx": 32768,
+                    "temperature": 1.0,
+                },
+            },
+        }).encode()
+        mock_handle = MagicMock()
+        mock_handle.read.return_value = fake_resp
+        mock_handle.__enter__.return_value = mock_handle
+        mock_handle.__exit__.return_value = None
+
+        with patch("urllib.request.urlopen", return_value=mock_handle):
+            n = _probe_backend_context_window(FakeModel())
+        assert n == 32768
+
+    def test_probe_returns_none_when_no_base_url(self):
+        """Cloud-backed models (Mistral, Anthropic) have no base_url for
+        the llama.cpp /props endpoint — probe must short-circuit cleanly."""
+        from drydock.core.agent_loop import _probe_backend_context_window
+
+        class CloudModel:
+            base_url = ""
+
+        assert _probe_backend_context_window(CloudModel()) is None
+
+    def test_probe_returns_none_on_network_error(self):
+        """If the backend is unreachable, the probe must not raise — it
+        falls through to the static config value."""
+        from unittest.mock import patch
+        from drydock.core.agent_loop import _probe_backend_context_window
+
+        class FakeModel:
+            base_url = "http://nonexistent.invalid:8000/v1"
+
+        # Force urlopen to raise
+        with patch("urllib.request.urlopen", side_effect=OSError("nope")):
+            assert _probe_backend_context_window(FakeModel()) is None
+
+    def test_probe_handles_v1_suffix_correctly(self):
+        """base_url often ends in /v1 (OpenAI-compatible convention).
+        /props sits at the root, not under /v1. The probe must strip
+        /v1 before appending /props."""
+        from unittest.mock import patch, MagicMock
+        import json as _json
+        from drydock.core.agent_loop import _probe_backend_context_window
+
+        class FakeModel:
+            base_url = "http://test:8000/v1"
+
+        captured_url = {}
+
+        def fake_urlopen(url, timeout=None):
+            captured_url["u"] = url
+            mock = MagicMock()
+            mock.read.return_value = _json.dumps(
+                {"default_generation_settings": {"params": {"n_ctx": 32768}}}
+            ).encode()
+            mock.__enter__.return_value = mock
+            mock.__exit__.return_value = None
+            return mock
+
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            _probe_backend_context_window(FakeModel())
+        # /v1 must be stripped before appending /props
+        assert captured_url["u"] == "http://test:8000/props"
 
 
 class TestGeneralizedDuplicatePreflight:
@@ -403,7 +654,7 @@ class TestGeneralizedDuplicatePreflight:
             ))
             msgs.append(LLMMessage(
                 role=Role.tool,
-                content=f"contents at offset {i*100}",
+                content=f"contents at offset {i * 100}",
                 tool_call_id=f"read_{i}",
             ))
 

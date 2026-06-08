@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
 
 from drydock.core.types import (
     FunctionCall,
@@ -162,6 +161,7 @@ class TestValidationErrorScrub:
         )
         # Build a stand-in that only exposes `call_id` (the canonical
         # attribute on the real ResolvedToolCall Pydantic class).
+
         class _CallIdOnly:
             def __init__(self, cid):
                 self.call_id = cid

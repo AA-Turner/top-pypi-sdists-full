@@ -4,7 +4,6 @@ Each test should FAIL before the fix and PASS after.
 """
 import hashlib
 import pytest
-from unittest.mock import patch, MagicMock
 
 
 class TestMD5Crash:

@@ -25,14 +25,16 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/fairlearn/fairlearn",
-    packages=setuptools.find_packages(),
-    python_requires=">=3.9",
+    packages=setuptools.find_packages(
+        exclude=["test", "test.*", "test_othermlpackages", "test_othermlpackages.*"]
+    ),
+    python_requires=">=3.10",
     install_requires=install_requires,
     classifiers=[
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Development Status :: 3 - Alpha",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: testgres
-Version: 1.14.0
+Version: 1.14.1
 Summary: Testing utility for PostgreSQL and its extensions
 Author-email: Postgres Professional <testgres@postgrespro.ru>
 License: PostgreSQL

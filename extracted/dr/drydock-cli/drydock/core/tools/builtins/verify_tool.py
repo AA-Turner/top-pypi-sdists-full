@@ -32,7 +32,6 @@ from __future__ import annotations
 
 import os
 import re
-import shlex
 import subprocess
 from collections.abc import AsyncGenerator
 from pathlib import Path
@@ -181,7 +180,7 @@ class Verify(
         return ToolCallDisplay(summary=f"verify [{args.expect_mode}]: {c}")
 
     @classmethod
-    def get_result_display(cls, event: "ToolResultEvent") -> ToolResultDisplay:
+    def get_result_display(cls, event: ToolResultEvent) -> ToolResultDisplay:
         if isinstance(event.result, VerifyResult):
             r = event.result
             if not r.ok:

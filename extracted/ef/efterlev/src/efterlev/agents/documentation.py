@@ -162,6 +162,14 @@ class DocumentationAgent(Agent):
         store = get_active_store()
         total = len(eligible)
 
+        # One narrative per KSI call. The base default (4096) truncates on a
+        # verbose KSI (Bedrock-Sonnet + a large repo crashed the whole
+        # `report run` at max_tokens=4096 — govnotes-demo validation
+        # 2026-06-07). A single narrative never needs the gap agent's 32768,
+        # but 16384 clears any realistic narrative + reasoning with headroom;
+        # honors the per-workspace `LLMConfig.max_tokens` override.
+        max_tokens = self._resolve_max_tokens(default_anthropic=16384, default_bedrock=16384)
+
         for idx, clf in enumerate(eligible, start=1):
             indicator = input.indicators.get(clf.ksi_id)
             if indicator is None:
@@ -269,7 +277,9 @@ class DocumentationAgent(Agent):
                 nonce=nonce,
                 scan_summary=input.scan_summary,
             )
-            narrative_output, response, system_prompt = self._invoke_llm(user_message=user_message)
+            narrative_output, response, system_prompt = self._invoke_llm(
+                user_message=user_message, max_tokens=max_tokens
+            )
             assert isinstance(narrative_output, NarrativeOutput)
 
             _validate_cited_ids(

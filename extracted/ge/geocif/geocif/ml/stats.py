@@ -24,6 +24,42 @@ STANDARD_PRODUCTION_SYSTEMS = (
 )
 
 
+# Region-name synonym map — applied AFTER normalize (lower / underscore→
+# space / strip period) to bridge convention drift between the boundary
+# shapefile (which the sweep reads) and AMIS yield files. Keyed by the
+# canonical country name. Values map any one form to the same target
+# form; the resolver applies it to BOTH sides of the comparison so the
+# direction of disagreement doesn't matter.
+#
+# India entries trace to two causes (Jun 7 2026 audit):
+#   * Stale shapefile: Level_1.shp still has pre-2011 "Orissa" and
+#     pre-2007 "Uttaranchal" instead of "Odisha" / "Uttarakhand".
+#   * Convention drift: AMIS abbreviates "Dadra and Nagar Haveli" as
+#     "D & N Haveli", spells Chhattisgarh with one t, and uses "Delhi"
+#     where the shapefile has "New Delhi".
+# Without these synonyms the boundary→AMIS join silently produced NaN
+# for these regions; with them, India maize coverage goes from 26/31
+# (84%) to 31/31 (100%) over AMIS-listed Indian states.
+_REGION_SYNONYMS = {
+    "India": {
+        # sweep slug (normalized)     : AMIS form (normalized)
+        "orissa":                       "odisha",
+        "uttaranchal":                  "uttarakhand",
+        "chhattisgarh":                 "chattisgarh",
+        "new delhi":                    "delhi",
+        "dadra and nagar haveli":       "d & n haveli",
+    },
+}
+
+
+def _canonicalize_region(region_norm, country):
+    """Map a normalized region name to its canonical form for the given
+    country. Returns the input unchanged when no synonym applies.
+    Country lookup is exact (post-normalization callers pass the same
+    string into _REGION_SYNONYMS as the keys here)."""
+    return _REGION_SYNONYMS.get(country, {}).get(region_norm, region_norm)
+
+
 def aggregate_yield_across_ps(yield_values, area_values, prod_values):
     """Area-weighted aggregation across multiple production-system rows
     for one (region, year) combo.
@@ -137,7 +173,40 @@ def get_yld_prd(df, name_crop, cntr, region, calendar_year, region_column="ADM1_
             else:
                 mask_tmp_country = df_tmp["ADM0_NAME"].str.lower() == "viet nam"
             if region:
-                mask_tmp_adm1 = df_tmp[region_column].str.lower() == region.lower()
+                # Normalize slug-vs-canonical asymmetry between callers:
+                # extract_sweep writes region names as lowercase + underscore
+                # ("andhra_pradesh", "district_of_columbia") while AMIS stores
+                # canonical Title-Case with spaces ("Andhra Pradesh",
+                # "District of Columbia"). The old comparison lowercased both
+                # sides but kept underscores on the lhs and spaces on the rhs,
+                # so multi-word region names (most of India's admin1, USA
+                # multi-word states, etc.) never matched and yielded NaN
+                # downstream — flagged by the India soybean threshold-sweep
+                # audit (Jun 7 2026): every state had n_years=0 / metric=NaN.
+                # Single-word states (Iowa, Alabama, Gujarat) passed by
+                # coincidence because no underscore existed to mismatch.
+                #
+                # Also strip periods — AMIS uses trailing-period abbreviations
+                # for Russian regions ("Adygeya Rep.", "Bashkortostan Rep.")
+                # while the sweep CSV slugifies these to "adygeya_rep" with
+                # no period. Lift Russia's Pearson-correlation coverage from
+                # ~33% to ~50% (the rest are genuinely Far East regions with
+                # no AMIS data).
+                def _norm(s):
+                    return (
+                        str(s).lower().replace("_", " ").replace(".", "").strip()
+                        if pd.notna(s) else s
+                    )
+                # Canonicalize both sides via the country-keyed synonym
+                # map so stale-shapefile names ("orissa") and AMIS
+                # variants ("odisha") resolve to the same key. Applied
+                # post-_norm so both inputs are in the same lowercase /
+                # space / no-period space.
+                adm1_norm = df_tmp[region_column].map(_norm).map(
+                    lambda s: _canonicalize_region(s, cntr)
+                )
+                region_norm = _canonicalize_region(_norm(region), cntr)
+                mask_tmp_adm1 = adm1_norm == region_norm
             else:
                 # ADM1_NAME column should be NaN to get country level stats
                 mask_tmp_adm1 = df_tmp[region_column].isnull()

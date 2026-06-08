@@ -4812,10 +4812,12 @@ def hasattr(obj: object, name: str, /) -> bool:
     ...
 def hash(obj: object, /) -> int:
     """
-    Return the hash value for the given object.
+    Return the integer hash value for the given object.
 
-    Two objects that compare equal must also have the same hash value, but the
-    reverse is not necessarily true.
+    Two objects that compare equal must also have the same hash value, but
+    the reverse is not necessarily true.  Hash values may differ between
+    Python processes.  Not all objects are hashable; calling hash() on an
+    unhashable object raises TypeError.
     """
     ...
 

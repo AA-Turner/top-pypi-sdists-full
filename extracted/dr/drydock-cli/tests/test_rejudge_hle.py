@@ -15,6 +15,7 @@ import time
 from pathlib import Path
 
 import pytest
+from datetime import UTC
 
 
 @pytest.fixture(scope="module")
@@ -55,16 +56,16 @@ def test_iter_runs_skips_non_run_dirs(rj_mod, tmp_path, monkeypatch):
 
 
 def test_iter_runs_filters_by_since(rj_mod, tmp_path, monkeypatch):
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
     monkeypatch.setattr(rj_mod, "RESULTS_ROOT", tmp_path)
     old = _mkrun(tmp_path, "run_old", [])
     time.sleep(0.05)
     new = _mkrun(tmp_path, "run_new", [])
     # Force old to be 1 day in the past.
-    old_ts = (datetime.now(timezone.utc) - timedelta(days=1)).timestamp()
+    old_ts = (datetime.now(UTC) - timedelta(days=1)).timestamp()
     import os
     os.utime(old, (old_ts, old_ts))
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=12)
+    cutoff = datetime.now(UTC) - timedelta(hours=12)
     runs = rj_mod._iter_runs(cutoff)
     assert {r.name for r in runs} == {"run_new"}
 
@@ -148,6 +149,7 @@ def test_main_skips_rows_with_empty_predicted(rj_mod, tmp_path, monkeypatch):
     ])
 
     call_count = [0]
+
     def fake_judge(q, g, p):
         call_count[0] += 1
         return ("YES", "should not be called")
@@ -174,6 +176,7 @@ def test_main_only_rejudges_error_rows(rj_mod, tmp_path, monkeypatch):
         },
     ])
     call_count = [0]
+
     def fake_judge(q, g, p):
         call_count[0] += 1
         return ("YES", "")

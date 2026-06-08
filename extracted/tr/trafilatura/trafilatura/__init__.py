@@ -7,13 +7,13 @@ __title__ = "Trafilatura"
 __author__ = "Adrien Barbaresi and contributors"
 __license__ = "Apache-2.0"
 __copyright__ = "Copyright 2019-present, Adrien Barbaresi"
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 
 
 import logging
 
 from .baseline import baseline, html2txt
-from .core import bare_extraction, extract
+from .core import bare_extraction, extract, extract_with_metadata
 from .downloads import fetch_response, fetch_url
 from .metadata import extract_metadata
 from .utils import load_html
@@ -25,6 +25,7 @@ __all__ = [
     "baseline",
     "extract",
     "extract_metadata",
+    "extract_with_metadata",
     "fetch_response",
     "fetch_url",
     "html2txt",

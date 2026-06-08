@@ -93,7 +93,7 @@ class TodoArgs(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def _infer_write_action(self) -> "TodoArgs":
+    def _infer_write_action(self) -> TodoArgs:
         """Gemma 4 often calls todo with a todos list but forgets
         action='write' (leaving it at the default 'read'). Drydock
         would then silently do a read, return 0 todos, and the model

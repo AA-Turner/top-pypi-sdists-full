@@ -14,6 +14,7 @@ from ...types import Unset
 
 def _get_kwargs(
     *,
+    filterenvironment: None | str | Unset = UNSET,
     sort: ListCategoriesSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -21,6 +22,13 @@ def _get_kwargs(
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
+
+    json_filterenvironment: None | str | Unset
+    if isinstance(filterenvironment, Unset):
+        json_filterenvironment = UNSET
+    else:
+        json_filterenvironment = filterenvironment
+    params["filter[environment]"] = json_filterenvironment
 
     json_sort: str | Unset = UNSET
     if not isinstance(sort, Unset):
@@ -71,6 +79,7 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
+    filterenvironment: None | str | Unset = UNSET,
     sort: ListCategoriesSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -82,9 +91,16 @@ def sync_detailed(
 
     The resource `id` is the category value itself. Default sort is
     `key` ascending; pass `sort=-key` for descending. Scoped to the
-    resolved environment. Useful for populating filter dropdowns in a UI.
+    selected environments (see `filter[environment]`). Useful for
+    populating filter dropdowns in a UI.
 
     Args:
+        filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
+            results to (e.g. `production,staging`). When omitted, results are scoped to your single
+            accessible environment; send the `X-Smplkit-Environment` header instead if you can access
+            more than one. The reserved value `smplkit` selects platform change events that smplkit
+            records about your own resources (flags, configuration, and so on); these are not tied to
+            a deployment environment and are readable regardless of which environments you manage.
         sort (ListCategoriesSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `key`, `-key`. Default: 'key'.
         pagenumber (int | Unset): 1-based page number to return. Optional; defaults to `1` when
@@ -107,6 +123,7 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
+        filterenvironment=filterenvironment,
         sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
@@ -123,6 +140,7 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
+    filterenvironment: None | str | Unset = UNSET,
     sort: ListCategoriesSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -134,9 +152,16 @@ def sync(
 
     The resource `id` is the category value itself. Default sort is
     `key` ascending; pass `sort=-key` for descending. Scoped to the
-    resolved environment. Useful for populating filter dropdowns in a UI.
+    selected environments (see `filter[environment]`). Useful for
+    populating filter dropdowns in a UI.
 
     Args:
+        filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
+            results to (e.g. `production,staging`). When omitted, results are scoped to your single
+            accessible environment; send the `X-Smplkit-Environment` header instead if you can access
+            more than one. The reserved value `smplkit` selects platform change events that smplkit
+            records about your own resources (flags, configuration, and so on); these are not tied to
+            a deployment environment and are readable regardless of which environments you manage.
         sort (ListCategoriesSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `key`, `-key`. Default: 'key'.
         pagenumber (int | Unset): 1-based page number to return. Optional; defaults to `1` when
@@ -160,6 +185,7 @@ def sync(
 
     return sync_detailed(
         client=client,
+        filterenvironment=filterenvironment,
         sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
@@ -170,6 +196,7 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
+    filterenvironment: None | str | Unset = UNSET,
     sort: ListCategoriesSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -181,9 +208,16 @@ async def asyncio_detailed(
 
     The resource `id` is the category value itself. Default sort is
     `key` ascending; pass `sort=-key` for descending. Scoped to the
-    resolved environment. Useful for populating filter dropdowns in a UI.
+    selected environments (see `filter[environment]`). Useful for
+    populating filter dropdowns in a UI.
 
     Args:
+        filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
+            results to (e.g. `production,staging`). When omitted, results are scoped to your single
+            accessible environment; send the `X-Smplkit-Environment` header instead if you can access
+            more than one. The reserved value `smplkit` selects platform change events that smplkit
+            records about your own resources (flags, configuration, and so on); these are not tied to
+            a deployment environment and are readable regardless of which environments you manage.
         sort (ListCategoriesSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `key`, `-key`. Default: 'key'.
         pagenumber (int | Unset): 1-based page number to return. Optional; defaults to `1` when
@@ -206,6 +240,7 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
+        filterenvironment=filterenvironment,
         sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
@@ -220,6 +255,7 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
+    filterenvironment: None | str | Unset = UNSET,
     sort: ListCategoriesSort | Unset = "key",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
@@ -231,9 +267,16 @@ async def asyncio(
 
     The resource `id` is the category value itself. Default sort is
     `key` ascending; pass `sort=-key` for descending. Scoped to the
-    resolved environment. Useful for populating filter dropdowns in a UI.
+    selected environments (see `filter[environment]`). Useful for
+    populating filter dropdowns in a UI.
 
     Args:
+        filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
+            results to (e.g. `production,staging`). When omitted, results are scoped to your single
+            accessible environment; send the `X-Smplkit-Environment` header instead if you can access
+            more than one. The reserved value `smplkit` selects platform change events that smplkit
+            records about your own resources (flags, configuration, and so on); these are not tied to
+            a deployment environment and are readable regardless of which environments you manage.
         sort (ListCategoriesSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `key`, `-key`. Default: 'key'.
         pagenumber (int | Unset): 1-based page number to return. Optional; defaults to `1` when
@@ -258,6 +301,7 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
+            filterenvironment=filterenvironment,
             sort=sort,
             pagenumber=pagenumber,
             pagesize=pagesize,

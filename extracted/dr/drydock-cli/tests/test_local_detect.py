@@ -25,7 +25,7 @@ class _FakeResp:
         self._buf = BytesIO(json.dumps(payload).encode("utf-8"))
         self.status = status
 
-    def __enter__(self) -> "_FakeResp":
+    def __enter__(self) -> _FakeResp:
         return self
 
     def __exit__(self, *_args: Any) -> None:

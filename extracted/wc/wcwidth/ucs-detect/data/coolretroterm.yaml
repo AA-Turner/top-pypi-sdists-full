@@ -1,5 +1,5 @@
 ambiguous_width: 1
-datetime: 2026-06-05 16:16:12 UTC
+datetime: 2026-06-08 04:38:29 UTC
 environment:
   COLORTERM: truecolor
   TERM: xterm-256color
@@ -8,181 +8,100 @@ preferred_encoding: UTF-8
 python_version: 3.14.5
 resource_profile:
   cpu_pct:
-  - 26.0
-  - 92.9
-  - 106.3
-  - 107.5
-  - 143.6
-  - 135.8
-  - 156.5
-  - 153.6
-  - 157.7
-  - 158.6
-  - 156.3
-  - 153.6
-  - 155.7
-  - 146.7
-  - 151.8
-  - 150.7
-  - 152.7
-  - 154.7
-  - 151.7
-  - 147.1
-  - 152.5
-  - 140.7
-  - 146.7
+  - 73.9
+  - 107.2
+  - 130.7
+  - 136.8
+  - 145.8
+  - 149.8
+  - 143.7
+  - 142.6
   - 148.8
-  - 151.8
-  - 150.8
-  - 151.8
-  - 150.7
-  - 149.8
-  - 149.8
-  - 151.7
-  - 151.7
-  - 149.8
-  - 151.8
-  - 153.7
-  - 154.8
-  - 142.8
+  - 144.6
+  - 132.8
+  - 155.8
+  - 147.7
   - 157.7
+  - 135.8
+  - 149.8
+  - 149.8
+  - 149.8
+  - 155.7
   - 149.7
-  - 150.7
-  - 153.6
-  - 150.3
-  - 150.5
+  - 141.8
+  - 161.6
   - 152.8
-  - 147.2
-  - 149.7
-  - 150.7
-  - 159.6
-  - 152.7
-  - 158.7
-  - 151.8
+  - 158.6
+  - 158.4
   - 153.7
-  - 157.7
-  - 154.7
-  - 157.8
-  - 146.7
+  - 160.8
+  - 145.3
+  - 127.8
   elapsed_s:
-  - 1.0014242409961298
-  - 2.002413342008367
-  - 3.027481650991831
-  - 4.029437799996231
-  - 5.035345857031643
-  - 6.036939343030099
-  - 7.038511838007253
-  - 8.041785261011682
-  - 9.044020080997143
-  - 10.045710415986832
-  - 11.04966472700471
-  - 12.053136840986554
-  - 13.055185198027175
-  - 14.05712820601184
-  - 15.058874643989839
-  - 16.060246857989114
-  - 17.06199886603281
-  - 18.064454014995135
-  - 19.066275431017857
-  - 20.067967895010952
-  - 21.128823701001238
-  - 22.132055338006467
-  - 23.133909013005905
-  - 24.135747809021268
-  - 25.137313202023506
-  - 26.138771691999864
-  - 27.14019936398836
-  - 28.141716554004233
-  - 29.143401739012916
-  - 30.144843736023176
-  - 31.14663415797986
-  - 32.148324841982685
-  - 33.150424072984606
-  - 34.151698753994424
-  - 35.1532932749833
-  - 36.15504836803302
-  - 37.15658870601328
-  - 38.158151847019326
-  - 39.16041727701668
-  - 40.162610632018186
-  - 41.16435195598751
-  - 42.168421156005934
-  - 43.17235721403267
-  - 44.174790025979746
-  - 45.22765216103289
-  - 46.22919984802138
-  - 47.231067316024564
-  - 48.23289641097654
-  - 49.2356112410198
-  - 50.23755780601641
-  - 51.239238029986154
-  - 52.24084226001287
-  - 53.2425822649966
-  - 54.24458268901799
-  - 55.24651540600462
-  - 56.24841221398674
+  - 1.00110243097879
+  - 2.0456856510136276
+  - 3.04814233595971
+  - 4.04951732896734
+  - 5.050931663950905
+  - 6.052610156009905
+  - 7.054147933027707
+  - 8.05587085802108
+  - 9.05904413794633
+  - 10.061405811924487
+  - 11.063103377935477
+  - 12.064704512013122
+  - 13.066175290965475
+  - 14.068252027966082
+  - 15.069895199965686
+  - 16.071164958993904
+  - 17.07285816501826
+  - 18.074367002933286
+  - 19.075956522952765
+  - 20.078142291982658
+  - 21.079725007992238
+  - 22.081362096010707
+  - 23.08385463198647
+  - 24.08604209299665
+  - 25.089929929934442
+  - 26.091678805998527
+  - 27.093471845029853
+  - 28.094726010924205
+  - 29.14761341700796
   hardware:
     cpu_count: 12
     cpu_model: AMD Ryzen 5 7640U w/ Radeon 760M Graphics
     ram_total_kb: 13961408
   rss_mb:
-  - 113.3125
-  - 339.48046875
-  - 360.54296875
-  - 360.015625
-  - 360.0625
-  - 362.04296875
-  - 376.92578125
-  - 418.75
-  - 426.28125
-  - 429.3203125
-  - 429.3671875
-  - 429.41796875
-  - 429.6796875
-  - 429.55859375
-  - 429.5625
-  - 432.23046875
-  - 437.37890625
-  - 464.8984375
-  - 479.0234375
-  - 482.2890625
-  - 482.85546875
-  - 483.875
-  - 467.61328125
-  - 489.19921875
-  - 489.9296875
-  - 490.23828125
-  - 490.58203125
-  - 490.58203125
-  - 490.5859375
-  - 490.58984375
-  - 490.58984375
-  - 490.65625
-  - 490.66015625
-  - 490.66015625
-  - 490.6640625
-  - 490.66796875
-  - 490.66796875
-  - 490.671875
-  - 490.57421875
-  - 490.578125
-  - 490.58203125
-  - 490.58203125
-  - 490.48046875
-  - 490.23046875
-  - 490.20703125
-  - 490.2109375
-  - 490.6328125
-  - 490.92578125
-  - 493.7109375
-  - 494.46484375
-  - 500.1875
-  - 501.61328125
-  - 503.765625
-  - 503.84375
-  - 504.3671875
-  - 505.90625
-seconds_elapsed: 50.110409964981955
+  - 340.140625
+  - 364.2421875
+  - 364.2578125
+  - 364.3125
+  - 416.0859375
+  - 424.5078125
+  - 425.265625
+  - 425.53125
+  - 425.53125
+  - 428.0078125
+  - 481.8203125
+  - 469.015625
+  - 475.24609375
+  - 486.74609375
+  - 487.609375
+  - 488.9296875
+  - 492.734375
+  - 495.52734375
+  - 495.77734375
+  - 495.9765625
+  - 498.7890625
+  - 499.45703125
+  - 500.01171875
+  - 500.55859375
+  - 506.3671875
+  - 508.17578125
+  - 508.5703125
+  - 508.75
+  - 509.26171875
+seconds_elapsed: 24.22064789396245
 session_arguments:
   all: false
   limit_category_time: 0
@@ -10601,6 +10520,36 @@ test_results:
       n_errors: 0
       n_total: 8
       pct_success: 100.0
+  narrow_results:
+    17.0.0:
+      failed_codepoints:
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u3248
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u3249
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u324a
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u324b
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u324c
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u324d
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u324e
+      - measured_by_terminal: 2
+        measured_by_wcwidth: 1
+        wchar: \u324f
+      n_errors: 8
+      n_total: 187
+      pct_success: 95.72192513368985
   ri_results:
     17.0.0:
       failed_codepoints: []
@@ -10700,126 +10649,6 @@ test_results:
   unicode_wide_results:
     17.0.0:
       failed_codepoints:
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufa6e
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufa6f
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufada
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufadb
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufadc
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufadd
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufade
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufadf
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufae0
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufae1
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufae2
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufae3
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufae4
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufae5
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufae6
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufae7
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufae8
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufae9
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufaea
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufaeb
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufaec
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufaed
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufaee
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufaef
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufaf0
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufaf1
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufaf2
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufaf3
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufaf4
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufaf5
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufaf6
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufaf7
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufaf8
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufaf9
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufafa
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufafb
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufafc
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufafd
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufafe
-      - measured_by_terminal: 0
-        measured_by_wcwidth: 2
-        wchar: \ufaff
       - measured_by_terminal: 1
         measured_by_wcwidth: 2
         wchar: \U0001f1e6
@@ -10898,8 +10727,8 @@ test_results:
       - measured_by_terminal: 1
         measured_by_wcwidth: 2
         wchar: \U0001f1ff
-      n_errors: 66
-      n_total: 553
-      pct_success: 88.06509945750453
-wcwidth_version: 0.8.0
+      n_errors: 26
+      n_total: 506
+      pct_success: 94.86166007905138
+wcwidth_version: 0.8.1
 width: 80

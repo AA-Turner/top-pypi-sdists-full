@@ -912,6 +912,7 @@ impl MarkdownConverter {
                 is_monospace: false,
                 color: Color::black(),
                 mcid: block.mcid,
+                mcid_scope: None,
                 sequence: seq,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -923,6 +924,7 @@ impl MarkdownConverter {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             })
             .collect();
 
@@ -1557,6 +1559,7 @@ mod tests {
                 is_monospace: false,
                 color: Color::black(),
                 mcid: None,
+                mcid_scope: None,
                 sequence: 0,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -1567,6 +1570,7 @@ mod tests {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             },
             TextSpan {
                 artifact_type: None,
@@ -1579,6 +1583,7 @@ mod tests {
                 is_monospace: false,
                 color: Color::black(),
                 mcid: None,
+                mcid_scope: None,
                 sequence: 1,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -1589,6 +1594,7 @@ mod tests {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             },
             TextSpan {
                 artifact_type: None,
@@ -1601,6 +1607,7 @@ mod tests {
                 is_monospace: false,
                 color: Color::black(),
                 mcid: None,
+                mcid_scope: None,
                 sequence: 2,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -1611,6 +1618,7 @@ mod tests {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             },
         ];
 
@@ -1645,6 +1653,7 @@ mod tests {
                 is_monospace: false,
                 color: Color::black(),
                 mcid: None,
+                mcid_scope: None,
                 sequence: 0,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -1655,6 +1664,7 @@ mod tests {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             },
             TextSpan {
                 artifact_type: None,
@@ -1667,6 +1677,7 @@ mod tests {
                 is_monospace: false,
                 color: Color::black(),
                 mcid: None,
+                mcid_scope: None,
                 sequence: 1,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -1677,6 +1688,7 @@ mod tests {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             },
             TextSpan {
                 artifact_type: None,
@@ -1689,6 +1701,7 @@ mod tests {
                 is_monospace: false,
                 color: Color::black(),
                 mcid: None,
+                mcid_scope: None,
                 sequence: 2,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -1699,6 +1712,7 @@ mod tests {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             },
         ];
 
@@ -1737,6 +1751,7 @@ mod tests {
                 is_monospace: false,
                 color: Color::black(),
                 mcid: None,
+                mcid_scope: None,
                 sequence: 0,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -1747,6 +1762,7 @@ mod tests {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             },
             TextSpan {
                 artifact_type: None,
@@ -1759,6 +1775,7 @@ mod tests {
                 is_monospace: false,
                 color: Color::black(),
                 mcid: None,
+                mcid_scope: None,
                 sequence: 1,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -1769,6 +1786,7 @@ mod tests {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             },
         ];
 
@@ -1806,6 +1824,7 @@ mod tests {
                 is_monospace: false,
                 color: Color::black(),
                 mcid: None,
+                mcid_scope: None,
                 sequence: 0,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -1816,6 +1835,7 @@ mod tests {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             },
             TextSpan {
                 artifact_type: None,
@@ -1828,6 +1848,7 @@ mod tests {
                 is_monospace: false,
                 color: Color::black(),
                 mcid: None,
+                mcid_scope: None,
                 sequence: 1,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -1838,6 +1859,7 @@ mod tests {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             },
             TextSpan {
                 artifact_type: None,
@@ -1850,6 +1872,7 @@ mod tests {
                 is_monospace: false,
                 color: Color::black(),
                 mcid: None,
+                mcid_scope: None,
                 sequence: 2,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -1860,6 +1883,7 @@ mod tests {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             },
             TextSpan {
                 artifact_type: None,
@@ -1872,6 +1896,7 @@ mod tests {
                 is_monospace: false,
                 color: Color::black(),
                 mcid: None,
+                mcid_scope: None,
                 sequence: 3,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -1882,6 +1907,7 @@ mod tests {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             },
             TextSpan {
                 artifact_type: None,
@@ -1894,6 +1920,7 @@ mod tests {
                 is_monospace: false,
                 color: Color::black(),
                 mcid: None,
+                mcid_scope: None,
                 sequence: 4,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -1904,6 +1931,7 @@ mod tests {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             },
         ];
 
@@ -2071,6 +2099,7 @@ mod tests {
                 is_monospace: false,
                 color: Color::black(),
                 mcid: None,
+                mcid_scope: None,
                 sequence: 0,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -2081,6 +2110,7 @@ mod tests {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             },
             TextSpan {
                 artifact_type: None,
@@ -2093,6 +2123,7 @@ mod tests {
                 is_monospace: false,
                 color: Color::black(),
                 mcid: None,
+                mcid_scope: None,
                 sequence: 1,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -2103,6 +2134,7 @@ mod tests {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             },
             TextSpan {
                 artifact_type: None,
@@ -2115,6 +2147,7 @@ mod tests {
                 is_monospace: false,
                 color: Color::black(),
                 mcid: None,
+                mcid_scope: None,
                 sequence: 2,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -2125,6 +2158,7 @@ mod tests {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             },
         ];
 

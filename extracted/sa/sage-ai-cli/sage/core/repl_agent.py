@@ -541,12 +541,6 @@ class SAGEAgent:
         except Exception as exc:
             err_str = str(exc)
             self.renderer.error(err_str)
-            # When EVERY provider has failed (rate-limited, down, mis-configured),
-            # there's no path forward. Returning None lets the autonomous
-            # agent loop pretend "the model gave an empty response" and try
-            # again — which produces the plan-loop garbage the user saw
-            # (multiple "Current Plan" attempts with progressively-degraded
-            # output). Re-raise so the REPL boundary handles it once.
             if "All providers failed" in err_str:
                 self.renderer.warning(
                     "No model is currently available. Try:\n"
@@ -555,8 +549,7 @@ class SAGEAgent:
                     "  • Switch model: `/model ollama:llama3.2`\n"
                     "  • Check connectivity: `sage doctor`"
                 )
-                raise
-            return None
+            raise
 
     def process_response(
         self,
@@ -1579,6 +1572,11 @@ class SAGEAgent:
                 seeded_shell_inventory_context=seeded_shell_inventory_context,
                 seeded_full_file_coverage_context=seeded_full_file_coverage_context,
             )
+            if not phase_response and phase_name != "synthesis":
+                # Critical phase failure
+                self._sync_plan_task_status(phase_name, "failed", classification)
+                return all_step_written, ""
+
             all_step_written.extend(phase_written)
             if phase_response:
                 accumulated_responses.append(phase_response)
@@ -2406,7 +2404,7 @@ class SAGEAgent:
         # Skip for greenfield scaffolds — running npm install / pytest on a
         # partial scaffold produces spurious errors (missing deps, unfinished
         # modules) that halt the batch continuation before the project is done.
-        task_ok = True
+        task_ok = bool(response) or is_info or is_investigation
         if written and not classification.read_only:
             if _is_gf_exec:
                 # Run validation ONCE at the very end of the greenfield scaffold

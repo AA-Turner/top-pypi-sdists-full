@@ -1480,11 +1480,20 @@ fn reml_jeffreys_supported_link(likelihood: &GlmLikelihoodSpec) -> Option<Invers
 /// Resolve whether the Jeffreys/Firth term should be assembled on the REML path
 /// and, if so, the inverse link to evaluate the Fisher weight with.
 ///
-/// Robustness is unconditionally on, so the gate covers every Binomial inverse
-/// link with a Fisher-weight jet. Unsupported links return `None` instead of
-/// pretending they are Logit.
+/// The Jeffreys term is assembled iff the caller requested Firth bias reduction
+/// (`firth_bias_reduction`) on a Binomial inverse link that exposes a
+/// Fisher-weight jet. This MUST agree with the inner P-IRLS Firth activation in
+/// `loop_driver.rs`: the outer analytic derivatives (`H`, `u`, IFT) and the
+/// converged inner mode have to be derivatives of the SAME penalized objective.
+/// Arming the outer term while the inner mode is non-Firth (or vice-versa)
+/// desyncs the two by exactly the Jeffreys score/curvature contribution and
+/// breaks the τ-τ Hessian-vs-FD and stationarity-cancellation identities
+/// (#825). Unsupported links return `None` instead of pretending they are Logit.
 #[inline]
 pub(super) fn reml_robust_jeffreys_link(config: &RemlConfig) -> Option<InverseLink> {
+    if !config.firth_bias_reduction {
+        return None;
+    }
     reml_jeffreys_supported_link(&config.likelihood)
 }
 
@@ -3223,6 +3232,45 @@ impl<'a> RemlState<'a> {
             });
         }
 
+        let compute_gradient = compute_gradient_for_tk(mode);
+        let zero_correction = || TkCorrectionTerms {
+            value: 0.0,
+            gradient: if compute_gradient {
+                Some(Array1::zeros(rho.len() + ext_coords.len()))
+            } else {
+                None
+            },
+            hessian: if mode == super::unified::EvalMode::ValueGradientHessian {
+                Some(Array2::zeros((
+                    rho.len() + ext_coords.len(),
+                    rho.len() + ext_coords.len(),
+                )))
+            } else {
+                None
+            },
+        };
+
+        // The outer Firth gate (`firth_problem_scale_allows`) disables the dense
+        // Firth operator at the same problem scale that makes the TK refinement's
+        // dense calculus infeasible. When that gate trips, the inner PIRLS solve
+        // logs `jeffreys_logdet=none` and falls back to plain Laplace REML, and
+        // both `bundle.firth_dense_operator` and `bundle.firth_dense_operator_original`
+        // are `None`. The TK refinement is a higher-order correction on top of the
+        // Firth/Jeffreys-augmented Laplace expansion; without the operator it has
+        // nothing to refine. Mirror the gate here so large-model fits silently drop
+        // the refinement rather than erroring out — matching the established skip
+        // pattern for non-canonical-logit links above.
+        let n_x = self.x().nrows();
+        let p_x = self.x().ncols();
+        if !super::firth_problem_scale_allows(n_x, p_x) {
+            return Ok(zero_correction());
+        }
+        let dense_work = n_x.saturating_mul(p_x);
+        if n_x > TK_MAX_OBSERVATIONS || p_x > TK_MAX_COEFFICIENTS || dense_work > TK_MAX_DENSE_WORK
+        {
+            return Ok(zero_correction());
+        }
+
         let pirls_result = bundle.pirls_result.as_ref();
         let (c_array, d_array, e_array, f_array) = self.hessian_cdef_arrays(pirls_result)?;
         if let Some(idx) = c_array.iter().position(|v| !v.is_finite()) {
@@ -3237,34 +3285,8 @@ impl<'a> RemlState<'a> {
                 d_array[idx]
             );
         }
-        let compute_gradient = compute_gradient_for_tk(mode);
         if c_array.is_empty() || d_array.is_empty() {
-            return Ok(TkCorrectionTerms {
-                value: 0.0,
-                gradient: if compute_gradient {
-                    Some(Array1::zeros(rho.len() + ext_coords.len()))
-                } else {
-                    None
-                },
-                hessian: if mode == super::unified::EvalMode::ValueGradientHessian {
-                    Some(Array2::zeros((
-                        rho.len() + ext_coords.len(),
-                        rho.len() + ext_coords.len(),
-                    )))
-                } else {
-                    None
-                },
-            });
-        }
-
-        let n_x = self.x().nrows();
-        let p_x = self.x().ncols();
-        let dense_work = n_x.saturating_mul(p_x);
-        if n_x > TK_MAX_OBSERVATIONS || p_x > TK_MAX_COEFFICIENTS || dense_work > TK_MAX_DENSE_WORK
-        {
-            crate::bail_invalid_estim!(
-                "Tierney-Kadane correction requires dense small-model calculus; refusing to silently disable it for n={n_x}, p={p_x}, n*p={dense_work}"
-            );
+            return Ok(zero_correction());
         }
 
         if let Some(sparse) = bundle.sparse_exact.as_ref() {
@@ -4514,6 +4536,7 @@ impl<'a> RemlState<'a> {
             kronecker_penalty_system: None,
             kronecker_factored: None,
             gaussian_fixed_cache: RwLock::new(None),
+            alo_frozen_nuisance: RwLock::new(None),
             persistent_warm_start_key: RwLock::new(None),
             persistent_latent_values_fingerprint: None,
             persistent_latent_values_cache: RwLock::new(PersistentLatentValuesCache::default()),
@@ -4567,6 +4590,7 @@ impl<'a> RemlState<'a> {
         // The Gaussian-fixed cache is keyed to (X, y, w, offset); replacing the
         // design invalidates it. The new surface will repopulate it on demand.
         *self.gaussian_fixed_cache.write().unwrap() = None;
+        *self.alo_frozen_nuisance.write().unwrap() = None;
         *self.persistent_warm_start_key.write().unwrap() = None;
         self.persistent_warm_start_loaded
             .store(false, Ordering::Relaxed);
@@ -4719,6 +4743,19 @@ impl<'a> RemlState<'a> {
         rho: &Array1<f64>,
     ) -> Result<Array2<f64>, EstimationError> {
         let bundle = self.obtain_eval_bundle(rho)?;
+        if let Some(sparse) = bundle.sparse_exact.as_ref() {
+            let h = crate::linalg::sparse_exact::assemble_sparse_factor_h_dense(&sparse.factor)?;
+            if h.nrows() != self.p || h.ncols() != self.p {
+                crate::bail_invalid_estim!(
+                    "sparse exact objective inner Hessian shape {}x{} != {}x{}",
+                    h.nrows(),
+                    h.ncols(),
+                    self.p,
+                    self.p
+                );
+            }
+            return Ok(h);
+        }
         Ok(bundle.h_total.as_ref().clone())
     }
 
@@ -9190,17 +9227,41 @@ impl<'a> RemlState<'a> {
         // 4× band bounds how far a single PSIS-smoothed influence weight can
         // pull the deviance term, guaranteeing no point can dominate the
         // augmented objective even if the tail fit is imperfect.
-        let influence_scale: Vec<f64> = smoothed_influence
+        let fresh_influence_scale: Vec<f64> = smoothed_influence
             .iter()
             .map(|w| (*w / mean_influence.max(f64::MIN_POSITIVE)).clamp(0.25, 4.0))
             .collect();
-        let phi = match self.config.likelihood.scale.fixed_phi() {
+        let fresh_phi = match self.config.likelihood.scale.fixed_phi() {
             Some(phi) if phi.is_finite() && phi > 0.0 => phi,
             Some(_) => 1.0,
             None => {
                 let dp = bundle.pirls_result.deviance + bundle.pirls_result.stable_penalty_term;
                 let denom = (n as f64 - bundle.pirls_result.edf).max(1.0);
                 (dp / denom).max(f64::MIN_POSITIVE)
+            }
+        };
+        // Freeze the reweight and dispersion at their first-activation values
+        // for this REML surface so the augmented cost and its analytic gradient
+        // stay consistent. Recomputing them per outer evaluation while the
+        // gradient holds them constant is the #821/#813 inconsistency. The
+        // cache must be owned by this RemlState, not a static pointer-keyed map:
+        // cold model sweeps commonly allocate a new state at the same address
+        // with the same n, and reusing another formula's ALO weights recreates
+        // the #862 smooth+linear outer-REML grind.
+        let (influence_scale, phi) = {
+            let mut frozen = self.alo_frozen_nuisance.write().unwrap();
+            match frozen.as_ref() {
+                Some(cached) if cached.n_obs == n && cached.influence_scale.len() == n => {
+                    (cached.influence_scale.clone(), cached.phi)
+                }
+                _ => {
+                    *frozen = Some(super::AloFrozenNuisance {
+                        n_obs: n,
+                        influence_scale: fresh_influence_scale.clone(),
+                        phi: fresh_phi,
+                    });
+                    (fresh_influence_scale, fresh_phi)
+                }
             }
         };
         let mut cost = 0.0_f64;

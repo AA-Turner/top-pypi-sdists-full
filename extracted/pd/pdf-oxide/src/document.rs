@@ -380,6 +380,33 @@ pub struct PdfDocument {
     /// Built once from the structure tree, then O(1) lookup per page.
     /// Mutex provides interior mutability for `&self` read-path methods (#398).
     structure_content_cache: Mutex<Option<HashMap<u32, Vec<crate::structure::OrderedContent>>>>,
+    /// Cached resolved structure-tree `/ActualText` scopes.
+    ///
+    /// `None` = not yet built, `Some(None)` = built and the document has
+    /// no resolvable ActualText (untagged, or every bearing element
+    /// dropped during finalisation), `Some(Some(idx))` = built.
+    ///
+    /// Mirrors `structure_tree_cache` so every extraction surface
+    /// applies tree-scope ActualText consistently without re-walking the
+    /// structure tree. Decoupled from `/MarkInfo /Suspects`: producer-
+    /// supplied ActualText is trusted regardless of Suspects (it is
+    /// content replacement, not reading order — see
+    /// `actualtext_index`).
+    actualtext_index_cache: Mutex<Option<Option<Arc<crate::structure::ActualTextIndex>>>>,
+    /// Per-page set of MCIDs whose marked-content sequence carried an
+    /// inline `/ActualText` property (ISO 32000-1:2008 §14.6).
+    ///
+    /// Populated by `extract_spans_impl` from the text extractor's
+    /// per-call detection: the per-page entry is REPLACED on each
+    /// extraction so MC-scope precedence reflects the latest run, not
+    /// stale data from an earlier filter set.
+    ///
+    /// The struct-tree-scope ActualText applier consults this set to
+    /// enforce the precedence rule: the MC-scope (inline) replacement
+    /// is the innermost and most specific declaration for the MCID
+    /// it covers, so a struct-tree-scope `/ActualText` on an ancestor
+    /// element must NOT override it.
+    pub(crate) mc_actualtext_mcids: Mutex<HashMap<usize, HashSet<u32>>>,
     /// `Table` structure elements bucketed by page, built once via
     /// `find_table_elements_all_pages` (one tree walk) so the converter table
     /// path does an O(1) lookup instead of walking the tree per page.
@@ -721,6 +748,29 @@ fn extract_inks_from_color_space_dict(
     }
 }
 
+/// Per-page MCID action computed from the
+/// [`crate::structure::ActualTextIndex`].
+///
+/// Drives every consumer of struct-tree-scope `/ActualText`
+/// (`extract_text`'s structure-order assembler, the raw-span applier,
+/// and the ordered-span applier). The map is computed once per page
+/// from the cached `ActualTextIndex` plus the visibility / MC-scope
+/// filters; consumers then dispatch per MCID without re-walking the
+/// structure tree.
+#[derive(Debug, Clone)]
+pub(crate) enum ActualTextAction {
+    /// Replace this MCID's span text with the supplied string AND drop
+    /// subsequent spans / MCIDs in the same consecutive-replacement
+    /// run. Assigned to exactly one MCID per emitting run: the first
+    /// visible MCID that is not exempted by MC-scope-wins.
+    EmitAndSuppress(std::sync::Arc<str>),
+    /// Suppress the raw glyphs for this MCID without emitting anything.
+    /// Used for run continuations after the run's emission MCID, for
+    /// suppress-only entries (non-first-page coverage of a multi-page
+    /// ActualText scope), and for MCIDs in a fully-hidden run.
+    Suppress,
+}
+
 impl PdfDocument {
     /// Open a PDF document from in-memory bytes.
     ///
@@ -923,6 +973,8 @@ impl PdfDocument {
             font_id_hash_cache: Mutex::new(HashMap::new()),
             structure_tree_cache: Mutex::new(None),
             structure_content_cache: Mutex::new(None),
+            actualtext_index_cache: Mutex::new(None),
+            mc_actualtext_mcids: Mutex::new(HashMap::new()),
             table_elements_cache: Mutex::new(None),
             page_cache: Mutex::new(HashMap::new()),
             page_cache_populated: AtomicBool::new(false),
@@ -3574,6 +3626,68 @@ impl PdfDocument {
         }
     }
 
+    /// Returns the document's structure tree whenever it is **available**,
+    /// independent of `/MarkInfo /Suspects`.
+    ///
+    /// The `/Suspects` flag (§14.7.1) signals that the producer's *reading
+    /// order* may be unreliable, so `struct_tree_trustworthy` rejects the
+    /// tree for ordering. `/ActualText`, however, is content replacement
+    /// (§14.9.4) and remains trustworthy: a producer that bothered to
+    /// supply the replacement text for a glyph run is asserting what
+    /// that run is *meant* to read as, regardless of whether sibling
+    /// reading-order tags are reliable. This accessor lets the
+    /// ActualText pipeline honour the producer's intent on Suspects=true
+    /// documents while geometric reading order takes over the ordering
+    /// problem.
+    ///
+    /// Shares `structure_tree_cache` with `struct_tree_trustworthy`, so
+    /// both predicates cost a single cached parse.
+    pub(crate) fn struct_tree_marked(&self) -> Option<Arc<crate::structure::StructTreeRoot>> {
+        let cached = self.structure_tree_cache.lock_or_recover().clone();
+        match cached {
+            Some(tree) => tree,
+            None => {
+                let mark = self.mark_info().unwrap_or_default();
+                let has_struct_tree_root = self
+                    .catalog()
+                    .ok()
+                    .and_then(|cat| cat.as_dict().map(|d| d.contains_key("StructTreeRoot")))
+                    .unwrap_or(false);
+                let tree = if mark.marked || has_struct_tree_root {
+                    self.structure_tree().ok().flatten().map(Arc::new)
+                } else {
+                    None
+                };
+                *self.structure_tree_cache.lock_or_recover() = Some(tree.clone());
+                tree
+            },
+        }
+    }
+
+    /// Returns the cached [`ActualTextIndex`] for this document.
+    ///
+    /// Builds the index lazily on first call, then serves cached copies.
+    /// Returns `None` for untagged documents and for tagged documents
+    /// whose structure tree carries no `/ActualText`.
+    ///
+    /// Decoupled from `/MarkInfo /Suspects` — see [`struct_tree_marked`].
+    pub(crate) fn actualtext_index(&self) -> Option<Arc<crate::structure::ActualTextIndex>> {
+        if let Some(cached) = self.actualtext_index_cache.lock_or_recover().clone() {
+            return cached;
+        }
+        let tree = self.struct_tree_marked();
+        let built = tree.and_then(|t| {
+            let idx = crate::structure::traversal::build_actualtext_index(&t);
+            if idx.is_empty() {
+                None
+            } else {
+                Some(Arc::new(idx))
+            }
+        });
+        *self.actualtext_index_cache.lock_or_recover() = Some(built.clone());
+        built
+    }
+
     /// Whether text extraction uses the Tagged-PDF *logical structure order* (a
     /// depth-first traversal of `/StructTreeRoot`) rather than geometric
     /// page-content order for this document.
@@ -4991,6 +5105,13 @@ impl PdfDocument {
         }
 
         let base_spans = Self::apply_region_filters(base_spans, options);
+        // Struct-tree-scope `/ActualText` is applied per branch below
+        // — the structure-order assembler handles it natively via the
+        // per-page action map, and the geometric branch applies the
+        // raw-span applier on its own input. Pre-applying here would
+        // double-process: the structure-order path would see already-
+        // mutated spans and lose run-position information, dropping
+        // sibling MCIDs of a nested scope (CRITICAL-1 shape).
 
         // Structure tree: use it for reading order only when it is trustworthy
         // per the shared predicate (§14.8.2.3.1) — the document is /Marked or
@@ -5044,8 +5165,16 @@ impl PdfDocument {
             }
             self.extract_text_structure_order_cached_with_spans(page_index, all_spans)?
         } else {
-            // Untagged PDF: Use page content order
+            // Untagged or Suspects=true PDF: use page content
+            // (geometric) order. Apply struct-tree-scope `/ActualText`
+            // here — the structure-order assembler above handles it
+            // natively for the trustworthy branch. Suspects=true
+            // documents still get their producer-supplied replacement
+            // because `actualtext_index()` is decoupled from
+            // `struct_tree_marked` (§14.9.4 is content replacement,
+            // not a reading-order signal).
             let mut spans = all_spans;
+            self.apply_actualtext_to_spans(page_index, &mut spans);
 
             // Exclude spans that are inside detected tables, BUT
             // preserve multi-row-spanning label columns.
@@ -6946,13 +7075,34 @@ impl PdfDocument {
             }
         }
         if rtl >= 2 && !has_latin {
-            let reversed: String = span.text.chars().rev().collect();
             let mut tmp = span.clone();
-            tmp.text = reversed;
+            tmp.text = Self::reverse_rtl_keeping_marks(&span.text);
             Self::push_span_text(out, &tmp);
         } else {
             Self::push_span_text(out, span);
         }
+    }
+
+    /// Reverse a pure-RTL run from visual to logical order while keeping each
+    /// Arabic/Hebrew combining mark attached to its base letter (#656).
+    ///
+    /// A naive `chars().rev()` reverses by Unicode scalar value, so a base
+    /// letter's diacritics (which follow it in logical order — kasra/shadda
+    /// U+0650/U+0651, Hebrew points U+05B0..) jump *in front* of the base and
+    /// float off as standalone marks. Grouping each base char with the
+    /// combining marks that trail it, then reversing the group order (each
+    /// group's internal order preserved), keeps marks bound to their base.
+    fn reverse_rtl_keeping_marks(text: &str) -> String {
+        use crate::text::rtl_detector::is_rtl_diacritic;
+        let mut groups: Vec<Vec<char>> = Vec::new();
+        for c in text.chars() {
+            if is_rtl_diacritic(c as u32) && !groups.is_empty() {
+                groups.last_mut().unwrap().push(c);
+            } else {
+                groups.push(vec![c]);
+            }
+        }
+        groups.iter().rev().flatten().collect()
     }
 
     /// Parse font size from a /DA (Default Appearance) string.
@@ -7298,6 +7448,7 @@ impl PdfDocument {
                     b: 0.0,
                 },
                 mcid: None,
+                mcid_scope: None,
                 sequence: base_sequence + idx,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -7308,6 +7459,7 @@ impl PdfDocument {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             });
         }
 
@@ -7463,6 +7615,7 @@ impl PdfDocument {
                     b: 0.0,
                 },
                 mcid: None,
+                mcid_scope: None,
                 sequence: base_sequence + idx,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -7473,6 +7626,7 @@ impl PdfDocument {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             });
         }
 
@@ -8329,6 +8483,32 @@ impl PdfDocument {
             ordered_content.len()
         );
 
+        // Resolve struct-tree-scope `/ActualText`. The mcid-driven
+        // emission walk consults the cached index and assigns at most
+        // one action per MCID — either "emit the replacement and
+        // suppress this MCID's raw glyphs" or "suppress only".
+        let at_index = self.actualtext_index();
+        let mc_wins: HashSet<u32> = self
+            .mc_actualtext_mcids
+            .lock_or_recover()
+            .get(&page_index)
+            .cloned()
+            .unwrap_or_default();
+        let default_scope = crate::structure::McidScope::Page(page_index as u32);
+        let mcid_order: Vec<(crate::structure::McidScope, u32)> = ordered_content
+            .iter()
+            .filter_map(|c| {
+                c.mcid
+                    .map(|m| (c.mcid_scope.clone().unwrap_or(default_scope.clone()), m))
+            })
+            .collect();
+        let actions = Self::actualtext_actions_for_page(
+            at_index.as_deref(),
+            &mcid_order,
+            |_scope, m| mcid_map.contains_key(&m),
+            &mc_wins,
+        );
+
         // Step 4: Assemble text in structure order
         let mut text = String::with_capacity(mcid_map.len() * 50); // estimate
         let mut prev_span: Option<&TextSpan> = None;
@@ -8343,21 +8523,33 @@ impl PdfDocument {
                 continue;
             }
 
-            // If the structure element has ActualText, use it instead of the extracted spans
-            if let Some(ref actual_text_val) = content.actual_text {
-                if !actual_text_val.is_empty() {
-                    if !text.is_empty() && !text.ends_with(' ') && !text.ends_with('\n') {
-                        text.push('\n');
-                    }
-                    text.push_str(actual_text_val);
-                    continue;
-                }
-            }
-
             // For regular content with MCID
             let Some(mcid) = content.mcid else {
                 continue;
             };
+            let mcid_scope_key = content.mcid_scope.clone().unwrap_or(default_scope.clone());
+
+            // ActualText action dispatch. `EmitAndSuppress` is set only
+            // on the first visible covered MCID of a consecutive-same-
+            // replacement run; subsequent MCIDs in the run carry
+            // `Suppress`. MC-scope-wins MCIDs (their BDC carried inline
+            // /ActualText) are exempt and walk the raw-span path so
+            // the extractor's in-stream replacement reaches output.
+            match actions.get(&(mcid_scope_key, mcid)) {
+                Some(ActualTextAction::EmitAndSuppress(repl)) => {
+                    consumed_mcids.insert(mcid);
+                    if !text.is_empty() && !text.ends_with(' ') && !text.ends_with('\n') {
+                        text.push('\n');
+                    }
+                    text.push_str(repl);
+                    continue;
+                },
+                Some(ActualTextAction::Suppress) => {
+                    consumed_mcids.insert(mcid);
+                    continue;
+                },
+                None => {},
+            }
 
             if let Some(spans) = mcid_map.get(&mcid) {
                 consumed_mcids.insert(mcid);
@@ -8455,18 +8647,305 @@ impl PdfDocument {
     /// span MCIDs and for any MCID containing RTL text (whose span order is
     /// handled by the bidi passes) — both stay byte-identical.
     fn order_mcid_spans(spans: &[crate::layout::TextSpan]) -> Vec<&crate::layout::TextSpan> {
+        use crate::text::rtl_detector::is_rtl_text;
         let mut ordered: Vec<&crate::layout::TextSpan> = spans.iter().collect();
-        let has_rtl = |s: &crate::layout::TextSpan| {
-            s.text
-                .chars()
-                .any(|c| crate::text::rtl_detector::is_rtl_text(c as u32))
-        };
-        if spans.len() > 1 && !spans.iter().any(has_rtl) {
+        if spans.len() <= 1 {
+            return ordered;
+        }
+        let has_rtl = spans
+            .iter()
+            .any(|s| s.text.chars().any(|c| is_rtl_text(c as u32)));
+        let has_latin = spans
+            .iter()
+            .any(|s| s.text.chars().any(|c| c.is_ascii_alphabetic()));
+        if !has_rtl {
+            // LTR multi-span MCID: left-to-right row-aware reading order.
             ordered.sort_by(|a, b| {
                 crate::utils::row_aware_span_cmp(a.bbox.y, a.bbox.x, b.bbox.y, b.bbox.x)
             });
+        } else if !has_latin {
+            // #656/#657: pure-RTL MCID. The tagged struct-tree path never
+            // reaches `reverse_rtl_visual_order_runs`, so without an explicit
+            // span-order pass the words emerge in visual (reversed) sequence.
+            // Emitting each row right-to-left (X descending) reconstructs
+            // logical reading order from geometry, independent of whether the
+            // producer stored the run visually or logically. Per-span glyph
+            // order is corrected separately by `push_span_text_bidi`.
+            ordered.sort_by(|a, b| {
+                crate::utils::row_aware_span_cmp_rtl(a.bbox.y, a.bbox.x, b.bbox.y, b.bbox.x)
+            });
         }
+        // Mixed RTL+Latin MCIDs keep raw order (full UAX #9 bidi deferred).
         ordered
+    }
+
+    ///
+    /// Used by paths that operate on raw spans rather than ordered
+    /// spans (`extract_page_text`, `extract_structured`,
+    /// `extract_spans_with_reading_order`). Mutates each covered span's
+    /// text to the replacement (run-first only) or clears it
+    /// (continuation / suppress-only / non-first-page coverage); fully
+    /// suppressed spans are removed.
+    ///
+    /// Untagged documents and pages with no coverage are no-ops.
+    pub(crate) fn apply_actualtext_to_spans(
+        &self,
+        page_index: usize,
+        spans: &mut Vec<crate::layout::TextSpan>,
+    ) {
+        let Some(idx) = self.actualtext_index() else {
+            return;
+        };
+        if idx.covered_mcids.is_empty() {
+            return;
+        }
+        let mc_wins: HashSet<u32> = self
+            .mc_actualtext_mcids
+            .lock_or_recover()
+            .get(&page_index)
+            .cloned()
+            .unwrap_or_default();
+
+        let default_scope = crate::structure::McidScope::Page(page_index as u32);
+        // Visibility = "has at least one raw span at this (scope, mcid)".
+        let mut present: HashSet<(crate::structure::McidScope, u32)> = HashSet::new();
+        for s in spans.iter() {
+            if let Some(m) = s.mcid {
+                let scope = s.mcid_scope.clone().unwrap_or(default_scope.clone());
+                present.insert((scope, m));
+            }
+        }
+        // Walk the structure-tree's per-page MCID order so the
+        // consecutive-run dedup matches the assemblers'.
+        let mcid_order = self
+            .struct_tree_marked()
+            .map(|t| self.cached_mcid_order_for_page(&t, page_index as u32))
+            .unwrap_or_default();
+        let actions = Self::actualtext_actions_for_page(
+            Some(&idx),
+            &mcid_order,
+            |scope, m| present.contains(&(scope.clone(), m)),
+            &mc_wins,
+        );
+        if actions.is_empty() {
+            return;
+        }
+
+        // Apply actions to the raw spans. EmitAndSuppress mutates the
+        // first span of the (scope, mcid) key; subsequent spans for
+        // the same key are dropped (so a key with multiple spans
+        // collapses to one span carrying the replacement). Suppress
+        // drops every span with that key.
+        let mut emit_used: HashSet<(crate::structure::McidScope, u32)> = HashSet::new();
+        let mut drop_idx: Vec<usize> = Vec::new();
+        for (i, s) in spans.iter_mut().enumerate() {
+            let Some(m) = s.mcid else { continue };
+            let scope = s.mcid_scope.clone().unwrap_or(default_scope.clone());
+            let key = (scope, m);
+            match actions.get(&key) {
+                Some(ActualTextAction::EmitAndSuppress(repl)) => {
+                    if emit_used.insert(key) {
+                        s.text = repl.to_string();
+                    } else {
+                        s.text.clear();
+                        drop_idx.push(i);
+                    }
+                },
+                Some(ActualTextAction::Suppress) => {
+                    s.text.clear();
+                    drop_idx.push(i);
+                },
+                None => {},
+            }
+        }
+        for &i in drop_idx.iter().rev() {
+            spans.remove(i);
+        }
+    }
+
+    /// Apply struct-tree-scope `/ActualText` to a vector of ordered
+    /// spans, in place. Mirrors [`Self::apply_actualtext_to_spans`]
+    /// over the converters' [`crate::pipeline::OrderedTextSpan`]
+    /// shape; renumbers `reading_order` after dropping suppressed
+    /// spans so downstream converters see a contiguous sequence.
+    pub(crate) fn apply_actualtext_to_ordered_spans(
+        &self,
+        page_index: usize,
+        ordered: &mut Vec<crate::pipeline::OrderedTextSpan>,
+    ) {
+        let Some(idx) = self.actualtext_index() else {
+            return;
+        };
+        if idx.covered_mcids.is_empty() {
+            return;
+        }
+        let mc_wins: HashSet<u32> = self
+            .mc_actualtext_mcids
+            .lock_or_recover()
+            .get(&page_index)
+            .cloned()
+            .unwrap_or_default();
+
+        let default_scope = crate::structure::McidScope::Page(page_index as u32);
+        let mut present: HashSet<(crate::structure::McidScope, u32)> = HashSet::new();
+        for o in ordered.iter() {
+            if let Some(m) = o.span.mcid {
+                let scope = o.span.mcid_scope.clone().unwrap_or(default_scope.clone());
+                present.insert((scope, m));
+            }
+        }
+        let mcid_order = self
+            .struct_tree_marked()
+            .map(|t| self.cached_mcid_order_for_page(&t, page_index as u32))
+            .unwrap_or_default();
+        let actions = Self::actualtext_actions_for_page(
+            Some(&idx),
+            &mcid_order,
+            |scope, m| present.contains(&(scope.clone(), m)),
+            &mc_wins,
+        );
+        if actions.is_empty() {
+            return;
+        }
+
+        let mut emit_used: HashSet<(crate::structure::McidScope, u32)> = HashSet::new();
+        for o in ordered.iter_mut() {
+            let Some(m) = o.span.mcid else { continue };
+            let scope = o.span.mcid_scope.clone().unwrap_or(default_scope.clone());
+            let key = (scope, m);
+            match actions.get(&key) {
+                Some(ActualTextAction::EmitAndSuppress(repl)) => {
+                    if emit_used.insert(key) {
+                        o.span.text = repl.to_string();
+                        o.actualtext_replacement = Some(repl.clone());
+                    } else {
+                        o.span.text.clear();
+                        o.actualtext_replacement = Some(std::sync::Arc::from(""));
+                    }
+                },
+                Some(ActualTextAction::Suppress) => {
+                    o.span.text.clear();
+                    o.actualtext_replacement = Some(std::sync::Arc::from(""));
+                },
+                None => {},
+            }
+        }
+
+        ordered.retain(|o| !o.is_suppressed());
+        for (i, o) in ordered.iter_mut().enumerate() {
+            o.reading_order = i;
+        }
+    }
+
+    /// Compute the per-page `MCID → ActualTextAction` map.
+    ///
+    /// Walks `mcid_order` (the structure-tree's per-page MCID sequence
+    /// in pre-order) and groups consecutive covered MCIDs by the
+    /// replacement text they share. Each group emits ONE replacement at
+    /// the first visible-and-not-MC-scope-wins MCID; the rest of the
+    /// group is marked `Suppress` (raw glyphs dropped). MCIDs whose
+    /// `(page, mcid)` lands in `suppress_only` are always `Suppress`
+    /// (their replacement already fired on a different page).
+    ///
+    /// `visible(mcid)` returns `true` when at least one span carries
+    /// the MCID and survives all upstream filters (artifact / OCG /
+    /// region). A run with zero visible MCIDs is dropped entirely (no
+    /// emission, no suppression — nothing to drop).
+    ///
+    /// MCIDs in `mc_wins` keep the in-stream MC-scope `/ActualText`
+    /// replacement applied by the extractor and are exempt from the
+    /// ancestor struct-tree scope; they do not break the run dedup —
+    /// the run can still find a non-MC-wins MCID to emit at.
+    fn actualtext_actions_for_page<F: Fn(&crate::structure::McidScope, u32) -> bool>(
+        idx: Option<&crate::structure::ActualTextIndex>,
+        mcid_order: &[(crate::structure::McidScope, u32)],
+        visible: F,
+        mc_wins: &HashSet<u32>,
+    ) -> HashMap<(crate::structure::McidScope, u32), ActualTextAction> {
+        let mut out: HashMap<(crate::structure::McidScope, u32), ActualTextAction> = HashMap::new();
+        let Some(idx) = idx else {
+            return out;
+        };
+        if idx.covered_mcids.is_empty() {
+            return out;
+        }
+
+        // Two-pass walk to support runs that span the input order
+        // perfectly: collect (scope, mcid, replacement?) tuples for
+        // covered MCIDs on this page (across all scopes that render on
+        // it), then group consecutive equal-replacement entries into
+        // runs.
+        //
+        // Replacement = None for `suppress_only` entries and for
+        // covered keys with no text (defensive — shouldn't happen
+        // given the builder invariants).
+        let mut entries: Vec<(crate::structure::McidScope, u32, Option<&str>)> = Vec::new();
+        for (scope, m) in mcid_order {
+            let key = (scope.clone(), *m);
+            if !idx.covered_mcids.contains(&key) {
+                continue;
+            }
+            if idx.suppress_only.contains(&key) {
+                entries.push((scope.clone(), *m, None));
+                continue;
+            }
+            let text = idx.mcid_to_actual_text.get(&key).map(|s| &**s);
+            entries.push((scope.clone(), *m, text));
+        }
+
+        // Walk entries and assign actions per consecutive same-
+        // replacement run.
+        let mut i = 0usize;
+        while i < entries.len() {
+            let repl_opt = entries[i].2;
+            // Find the end of the consecutive run sharing this
+            // replacement (None matches None — i.e. suppress-only runs
+            // also collapse).
+            let mut j = i;
+            while j < entries.len() && entries[j].2 == repl_opt {
+                j += 1;
+            }
+
+            if let Some(repl) = repl_opt {
+                // Find first emit-eligible entry (visible, not MC-wins).
+                // MC-wins keys are skipped because their replacement
+                // came from the extractor's in-stream BDC /ActualText.
+                let mut emit_pick: Option<(crate::structure::McidScope, u32)> = None;
+                for entry in &entries[i..j] {
+                    if visible(&entry.0, entry.1) && !mc_wins.contains(&entry.1) {
+                        emit_pick = Some((entry.0.clone(), entry.1));
+                        break;
+                    }
+                }
+                let repl_arc: std::sync::Arc<str> = std::sync::Arc::from(repl);
+                for entry in &entries[i..j] {
+                    if mc_wins.contains(&entry.1) {
+                        // MC-scope wins: do not touch this MCID at all.
+                        // The extractor's inline replacement reaches
+                        // output unmodified.
+                        continue;
+                    }
+                    let key = (entry.0.clone(), entry.1);
+                    if emit_pick.as_ref() == Some(&key) {
+                        out.insert(key, ActualTextAction::EmitAndSuppress(repl_arc.clone()));
+                    } else {
+                        out.insert(key, ActualTextAction::Suppress);
+                    }
+                }
+            } else {
+                // suppress_only run: every key is suppressed (no
+                // emission). MC-wins MCIDs stay untouched.
+                for entry in &entries[i..j] {
+                    if mc_wins.contains(&entry.1) {
+                        continue;
+                    }
+                    out.insert((entry.0.clone(), entry.1), ActualTextAction::Suppress);
+                }
+            }
+
+            i = j;
+        }
+        out
     }
 
     /// Page's MCID reading order from the all-pages traversal cache
@@ -8477,7 +8956,7 @@ impl PdfDocument {
         &self,
         struct_tree: &crate::structure::StructTreeRoot,
         page_index: u32,
-    ) -> Vec<u32> {
+    ) -> Vec<(crate::structure::McidScope, u32)> {
         if self.structure_content_cache.lock_or_recover().is_none() {
             let all_content = crate::structure::traverse_structure_tree_all_pages(struct_tree);
             *self.structure_content_cache.lock_or_recover() = Some(all_content);
@@ -8486,7 +8965,24 @@ impl PdfDocument {
             .lock_or_recover()
             .as_ref()
             .and_then(|c| c.get(&page_index))
-            .map(|content| content.iter().filter_map(|c| c.mcid).collect())
+            .map(|content| {
+                content
+                    .iter()
+                    .filter_map(|c| {
+                        // Word break markers have mcid=None; skip.
+                        let m = c.mcid?;
+                        // Page-scoped MCIDs default to Page(c.page) when
+                        // the parser didn't capture a scope. New parses
+                        // always populate `mcid_scope`; the unwrap_or
+                        // is for legacy traversals only.
+                        let scope = c
+                            .mcid_scope
+                            .clone()
+                            .unwrap_or(crate::structure::McidScope::Page(c.page));
+                        Some((scope, m))
+                    })
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
@@ -8507,6 +9003,19 @@ impl PdfDocument {
             self.append_non_widget_annotation_text(page_index, &mut text);
             return Ok(text);
         }
+
+        // Drop content marked /Artifact (PDF Spec ISO 32000-1:2008
+        // §14.8.2.2 — headers, footers, page numbers, decorations).
+        // The geometric branch in `assemble_text_from_spans` applies
+        // the same filter; tagged PDFs taking the structure-order path
+        // must honour it too, otherwise artifact spans (including any
+        // MC-scope `/ActualText` replacements inside an `/Artifact`
+        // BDC) leak into output. Untagged-PDF running-header
+        // detection runs at document level and feeds the same flag.
+        let all_spans: Vec<TextSpan> = all_spans
+            .into_iter()
+            .filter(|s| s.artifact_type.is_none())
+            .collect();
 
         // Step 2: Build MCID → Vec<TextSpan> map
         let mut mcid_map: HashMap<u32, Vec<TextSpan>> = HashMap::new();
@@ -8532,11 +9041,42 @@ impl PdfDocument {
             &ordered_content_owned as &[crate::structure::OrderedContent]
         };
 
+        // Resolve struct-tree-scope `/ActualText` via the mcid-driven
+        // action map (see `actualtext_actions_for_page`). The index is
+        // built once per document (cached). For untagged documents the
+        // map stays empty and the assembler behaves exactly as before.
+        let at_index = self.actualtext_index();
+        // MC-scope-wins precedence set: MCIDs whose BDC carried inline
+        // `/ActualText` keep the in-stream replacement (most specific
+        // declaration) and are exempt from ancestor struct-tree
+        // emissions.
+        let mc_wins: HashSet<u32> = self
+            .mc_actualtext_mcids
+            .lock_or_recover()
+            .get(&page_index)
+            .cloned()
+            .unwrap_or_default();
+        let default_scope = crate::structure::McidScope::Page(page_index as u32);
+        let mcid_order: Vec<(crate::structure::McidScope, u32)> = ordered_content
+            .iter()
+            .filter_map(|c| {
+                c.mcid
+                    .map(|m| (c.mcid_scope.clone().unwrap_or(default_scope.clone()), m))
+            })
+            .collect();
+        let actions = Self::actualtext_actions_for_page(
+            at_index.as_deref(),
+            &mcid_order,
+            |_scope, m| mcid_map.contains_key(&m),
+            &mc_wins,
+        );
+
         log::debug!(
-            "Cached structure content: {} items for page {}, {} MCIDs with spans",
+            "Cached structure content: {} items for page {}, {} MCIDs with spans, {} ActualText actions on this page",
             ordered_content.len(),
             page_index,
-            mcid_map.len()
+            mcid_map.len(),
+            actions.len()
         );
 
         // Step 4: Assemble text in structure order
@@ -8552,19 +9092,26 @@ impl PdfDocument {
                 continue;
             }
 
-            if let Some(ref actual_text_val) = content.actual_text {
-                if !actual_text_val.is_empty() {
-                    if !text.is_empty() && !text.ends_with(' ') && !text.ends_with('\n') {
-                        text.push('\n');
-                    }
-                    text.push_str(actual_text_val);
-                    continue;
-                }
-            }
-
             let Some(mcid) = content.mcid else {
                 continue;
             };
+            let mcid_scope_key = content.mcid_scope.clone().unwrap_or(default_scope.clone());
+
+            match actions.get(&(mcid_scope_key, mcid)) {
+                Some(ActualTextAction::EmitAndSuppress(repl)) => {
+                    consumed_mcids.insert(mcid);
+                    if !text.is_empty() && !text.ends_with(' ') && !text.ends_with('\n') {
+                        text.push('\n');
+                    }
+                    text.push_str(repl);
+                    continue;
+                },
+                Some(ActualTextAction::Suppress) => {
+                    consumed_mcids.insert(mcid);
+                    continue;
+                },
+                None => {},
+            }
 
             if let Some(spans) = mcid_map.get(&mcid) {
                 consumed_mcids.insert(mcid);
@@ -8907,22 +9454,41 @@ impl PdfDocument {
         lower.starts_with("cm") || lower.contains("symbol")
     }
 
-    /// Replace a `¬` (U+00AC) that sits directly between two ASCII digits with
-    /// `.` (the decimal point a math subset drew from its `logicalnot` slot).
-    /// Leaves every other `¬` untouched.
+    /// Replace a `¬` (U+00AC) that a math subset drew from its `logicalnot`
+    /// slot as a decimal point. Two shapes are recovered:
+    ///
+    ///   - `digit ¬ digit`         → `digit.digit` (e.g. `1¬00` → `1.00`)
+    ///   - `digit ¬ <space> digit` → `digit.digit` (e.g. `1¬ 00` → `1.00`)
+    ///
+    /// The second form covers subsets that emit a single space between the
+    /// decimal glyph and the fractional digits; the lone separating space is
+    /// dropped so the number reads as one token. The leading digit must abut
+    /// `¬` directly in both shapes, so a genuinely spaced negation (`5 ¬ 3`,
+    /// `A ¬ B`) is left untouched. Every other `¬` is preserved.
     fn fix_digit_logicalnot_decimal(text: &str) -> String {
         let chars: Vec<char> = text.chars().collect();
         let mut out = String::with_capacity(text.len());
-        for (i, &c) in chars.iter().enumerate() {
-            if c == '\u{00AC}'
-                && i > 0
-                && chars[i - 1].is_ascii_digit()
-                && chars.get(i + 1).is_some_and(|n| n.is_ascii_digit())
-            {
-                out.push('.');
-            } else {
-                out.push(c);
+        let mut i = 0;
+        while i < chars.len() {
+            let c = chars[i];
+            if c == '\u{00AC}' && i > 0 && chars[i - 1].is_ascii_digit() {
+                // Unspaced: digit ¬ digit.
+                if chars.get(i + 1).is_some_and(|n| n.is_ascii_digit()) {
+                    out.push('.');
+                    i += 1;
+                    continue;
+                }
+                // Spaced: digit ¬ <single space> digit — drop the lone space.
+                if chars.get(i + 1) == Some(&' ')
+                    && chars.get(i + 2).is_some_and(|n| n.is_ascii_digit())
+                {
+                    out.push('.');
+                    i += 2; // skip the ¬ and the single separating space
+                    continue;
+                }
             }
+            out.push(c);
+            i += 1;
         }
         out
     }
@@ -9007,14 +9573,41 @@ impl PdfDocument {
             }
         }
 
-        // Reading order: XY-cut when the page has multiple columns (B4);
-        // otherwise the cheap row-aware sort. XY-cut is spatial recursion
-        // that correctly orders multi-column layouts (newspapers, academic
-        // papers, dashboards) but is overkill for single-column pages
-        // doesn't handle tabular rowspan labels specifically. Heuristic:
-        // count distinct X-center clusters with vertical overlap; ≥2
-        // clusters → multi-column.
-        if Self::is_multi_column_page(&spans) {
+        // Tategaki (vertical writing) intercept. Pages whose majority of
+        // spans were emitted under WMode 1 (font /Encoding ends in -V or
+        // the CMap declares /WMode 1) need right-to-left, top-to-bottom
+        // ordering. Row-aware / XY-cut sorts assume horizontal flow and
+        // scramble vertical text; per-span wmode lets us route just those
+        // pages through a tategaki comparator while leaving every existing
+        // horizontal corpus untouched.
+        let vertical_count = spans.iter().filter(|s| s.wmode == 1).count();
+        if !spans.is_empty() && vertical_count * 2 >= spans.len() {
+            // Cluster tolerance: median span width. Wide enough to keep one
+            // vertical column together, narrow enough to separate adjacent
+            // columns. Robust to single rotated outliers.
+            //
+            // Assumption (M7): tategaki CJK body text is functionally
+            // monospaced (full-width kanji/kana, half-width digits all
+            // advance by similar widths), so the median span width
+            // approximates the column pitch. Mixed-pitch tategaki (rare —
+            // typically only ruby annotations) may overcluster; that
+            // would be an explicit follow-up if it shows up in real
+            // corpora.
+            let mut widths: Vec<f32> = spans.iter().map(|s| s.bbox.width.max(1.0)).collect();
+            widths.sort_by(|a, b| crate::utils::safe_float_cmp(*a, *b));
+            let tol = widths[widths.len() / 2].max(1.0);
+            spans.sort_by(|a, b| {
+                let ax = a.bbox.x + a.bbox.width * 0.5;
+                let bx = b.bbox.x + b.bbox.width * 0.5;
+                if (ax - bx).abs() <= tol {
+                    // Same column: top first (descending y in PDF user space).
+                    crate::utils::safe_float_cmp(b.bbox.y, a.bbox.y)
+                } else {
+                    // Different column: rightmost first.
+                    crate::utils::safe_float_cmp(bx, ax)
+                }
+            });
+        } else if Self::is_multi_column_page(&spans) {
             use crate::pipeline::reading_order::{
                 ReadingOrderContext as ROContext, ReadingOrderStrategy, XYCutStrategy,
             };
@@ -10451,6 +11044,10 @@ impl PdfDocument {
         }
 
         let mut extractor = TextExtractor::with_config(config);
+        // Stamp the page index so spans carry McidScope::Page(page_index)
+        // by default; Form XObject Do invocations push their own scope
+        // on top of the stack inside the extractor.
+        extractor.set_page_index(page_index as u32);
         if !excluded_layers.is_empty() {
             extractor.set_excluded_layers(excluded_layers);
         }
@@ -10469,7 +11066,25 @@ impl PdfDocument {
             }
         }
 
-        extractor.extract_text_spans(&content_data)
+        let spans = extractor.extract_text_spans(&content_data)?;
+        // Drain MCIDs whose in-stream /ActualText was applied during
+        // extraction and stash on the document so the struct-tree-
+        // scope applier honours MC-scope-wins precedence (§14.9.4).
+        //
+        // The per-page entry is REPLACED, not extended: every
+        // `extract_spans_impl` call is a self-contained per-page
+        // extraction and its own MC-scope detections must be
+        // authoritative. Accumulating would make stale results from
+        // an earlier filter-set leak into a later, differently-
+        // filtered call.
+        let mc_set = extractor.take_mc_actualtext_mcids();
+        let mut guard = self.mc_actualtext_mcids.lock_or_recover();
+        if mc_set.is_empty() {
+            guard.remove(&page_index);
+        } else {
+            guard.insert(page_index, mc_set);
+        }
+        Ok(spans)
     }
 
     /// Extract text from a page, excluding content from specified layers and inks.
@@ -10595,6 +11210,9 @@ impl PdfDocument {
         if let Some(regions) = erase {
             spans.retain(|span| !regions.iter().any(|r| r.intersects(&span.bbox)));
         }
+
+        // Apply struct-tree-scope /ActualText (ISO 32000-1 §14.9.4).
+        self.apply_actualtext_to_spans(page_index, &mut spans);
 
         Ok(spans)
     }
@@ -12377,6 +12995,7 @@ impl PdfDocument {
                 is_monospace: false,
                 color: crate::layout::Color::black(),
                 mcid: w.mcid,
+                mcid_scope: None,
                 sequence: 0,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -12387,6 +13006,7 @@ impl PdfDocument {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             })
             .collect();
 
@@ -13172,11 +13792,175 @@ impl PdfDocument {
             return Some(h);
         }
         let font = self.load_object(font_ref).ok()?;
-        let h = Self::font_identity_hash_cheap(&font);
+        let h = self.font_identity_hash_with_descendants(&font);
         self.font_id_hash_cache
             .lock_or_recover()
             .insert(font_ref, h);
         Some(h)
+    }
+
+    /// Document-aware extension of `font_identity_hash_cheap` that resolves
+    /// `/DescendantFonts` references on Type0 fonts and folds the descendant
+    /// CIDFont's width metrics (`/DW`, `/DW2`, `/W`, `/W2`) into the hash.
+    ///
+    /// Without this, two Type0 fonts whose Type0 dicts have identical inline
+    /// shape (same BaseFont, Encoding, ToUnicode/DescendantFonts refs) but
+    /// whose referenced CIDFonts carry different vertical metrics collide on
+    /// the Layer 5/6 caches — the second document silently inherits the
+    /// first's `w1y` and renders vertical text at the wrong advance. This is
+    /// the same bug class as the ToUnicode-stream poisoning fixed in
+    /// `a327bcd` and the `/Widths` poisoning fixed in #598, applied to the
+    /// descendant CIDFont's horizontal AND vertical width arrays.
+    ///
+    /// Cost: one `load_object` per descendant CIDFont (typically one) on the
+    /// first call; subsequent calls hit `font_id_hash_cache`. The descendant
+    /// load is the same work `FontInfo::from_dict` will do later, so the
+    /// marginal cost when a font actually needs parsing is zero; the only
+    /// new work is on cache *hits* that previously skipped descendant
+    /// resolution entirely. In return we trade off one indirect-ref load per
+    /// unique Type0 font per process for correctness on /W2 + /DW2.
+    fn font_identity_hash_with_descendants(&self, font_obj: &Object) -> u64 {
+        use std::hash::{Hash, Hasher};
+        // Seed with the cheap inline hash so existing identity coverage is
+        // preserved bit-for-bit when there are no descendants to fold in.
+        let base = Self::font_identity_hash_cheap(font_obj);
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        base.hash(&mut hasher);
+
+        if let Some(d) = font_obj.as_dict() {
+            if let Some(Object::Array(arr)) = d.get("DescendantFonts") {
+                // Domain separator for the descendant section.
+                11u8.hash(&mut hasher);
+                for item in arr {
+                    let resolved = match item {
+                        Object::Reference(r) => self.load_object(*r).ok(),
+                        Object::Dictionary(_) => Some(item.clone()),
+                        _ => None,
+                    };
+                    let desc = match resolved {
+                        Some(d) => d,
+                        None => continue,
+                    };
+                    let dd = match desc.as_dict() {
+                        Some(dd) => dd,
+                        None => continue,
+                    };
+
+                    // /DW — default horizontal width on the CIDFont. Always
+                    // int in well-formed PDFs; we accept Real defensively.
+                    if let Some(dw) = dd.get("DW") {
+                        12u8.hash(&mut hasher);
+                        Self::hash_pdf_object_deterministic(dw, &mut hasher);
+                    }
+                    // /DW2 — default vertical metrics [v_y w1y]. Two-element
+                    // numeric array per ISO 32000-1 §9.7.4.3.
+                    if let Some(dw2) = dd.get("DW2") {
+                        13u8.hash(&mut hasher);
+                        Self::hash_pdf_object_deterministic(dw2, &mut hasher);
+                    }
+                    // /W — per-CID horizontal widths, may use form-a
+                    // (c [w1 w2 …]) or form-b (c_first c_last w).
+                    if let Some(w) = dd.get("W") {
+                        14u8.hash(&mut hasher);
+                        Self::hash_pdf_object_deterministic(w, &mut hasher);
+                    }
+                    // /W2 — per-CID vertical metrics, analogous to /W.
+                    if let Some(w2) = dd.get("W2") {
+                        15u8.hash(&mut hasher);
+                        Self::hash_pdf_object_deterministic(w2, &mut hasher);
+                    }
+                    // /CIDSystemInfo — folded so otherwise-identical dicts
+                    // targeting different registries don't collide.
+                    if let Some(csi) = dd.get("CIDSystemInfo") {
+                        16u8.hash(&mut hasher);
+                        Self::hash_pdf_object_deterministic(csi, &mut hasher);
+                    }
+                }
+            }
+        }
+
+        hasher.finish()
+    }
+
+    /// Hash a PDF `Object` deterministically. Used by the descendant-aware
+    /// font identity hash to fold raw width-array content into the key.
+    ///
+    /// Cycles are not possible for /W, /W2, /DW2 or /CIDSystemInfo content
+    /// in any conformant PDF: these are pure data subtrees (numbers,
+    /// arrays of numbers, occasional name/integer dicts), never indirect
+    /// references back to a font dict. We still avoid recursing into
+    /// streams (whose data we deliberately exclude from the cheap hash)
+    /// and into unresolved references (we hash the ref's id/gen, not the
+    /// pointed-to bytes — the per-font cache key already covers the
+    /// referenced descendant CIDFont).
+    fn hash_pdf_object_deterministic<H: std::hash::Hasher>(obj: &Object, hasher: &mut H) {
+        use std::hash::Hash;
+        match obj {
+            Object::Null => 0u8.hash(hasher),
+            Object::Boolean(b) => {
+                1u8.hash(hasher);
+                b.hash(hasher);
+            },
+            Object::Integer(i) => {
+                2u8.hash(hasher);
+                i.hash(hasher);
+            },
+            // Bit-pattern hash so two equal values hash identically without
+            // tripping over f64's missing `Hash` impl. NaN is not produced
+            // by PDF parsers from numeric tokens.
+            Object::Real(r) => {
+                3u8.hash(hasher);
+                r.to_bits().hash(hasher);
+            },
+            Object::String(s) => {
+                4u8.hash(hasher);
+                s.hash(hasher);
+            },
+            Object::Name(n) => {
+                5u8.hash(hasher);
+                n.hash(hasher);
+            },
+            Object::Array(arr) => {
+                6u8.hash(hasher);
+                (arr.len() as u64).hash(hasher);
+                for item in arr {
+                    Self::hash_pdf_object_deterministic(item, hasher);
+                }
+            },
+            Object::Dictionary(d) => {
+                7u8.hash(hasher);
+                // Sort keys for deterministic ordering — HashMap iteration
+                // is randomized per process.
+                let mut keys: Vec<&str> = d.keys().map(|k| k.as_str()).collect();
+                keys.sort_unstable();
+                (keys.len() as u64).hash(hasher);
+                for k in keys {
+                    k.hash(hasher);
+                    if let Some(v) = d.get(k) {
+                        Self::hash_pdf_object_deterministic(v, hasher);
+                    }
+                }
+            },
+            Object::Reference(r) => {
+                8u8.hash(hasher);
+                r.id.hash(hasher);
+                r.gen.hash(hasher);
+            },
+            // Streams: dict shape only; we do not pull stream data into
+            // the font identity hash (kept consistent with the cheap path).
+            Object::Stream { dict, .. } => {
+                9u8.hash(hasher);
+                let mut keys: Vec<&str> = dict.keys().map(|k| k.as_str()).collect();
+                keys.sort_unstable();
+                (keys.len() as u64).hash(hasher);
+                for k in keys {
+                    k.hash(hasher);
+                    if let Some(v) = dict.get(k) {
+                        Self::hash_pdf_object_deterministic(v, hasher);
+                    }
+                }
+            },
+        }
     }
 
     fn font_identity_hash_cheap(font_obj: &Object) -> u64 {
@@ -13489,8 +14273,14 @@ impl PdfDocument {
                         all_from_cache = false;
                         let font = self.load_object(font_ref)?;
 
-                        // Compute identity hash (cheap: 3-6 dict lookups, ~200ns)
-                        let id_hash = Self::font_identity_hash_cheap(&font);
+                        // Compute identity hash. For Type0 fonts this also
+                        // resolves the descendant CIDFont and folds its
+                        // /DW, /DW2, /W, /W2 into the key — otherwise two
+                        // Type0 fonts whose top-level dicts have identical
+                        // inline shape but whose CIDFonts ship different
+                        // horizontal or vertical metrics would collide on
+                        // the Layer 5/6 caches.
+                        let id_hash = self.font_identity_hash_with_descendants(&font);
 
                         // Type 3 fonts and subset fonts must not cross
                         // PdfDocument boundaries via the global cache — their
@@ -13819,6 +14609,7 @@ impl PdfDocument {
                 is_monospace: false,
                 color: crate::layout::Color::black(),
                 mcid: w.mcid,
+                mcid_scope: None,
                 sequence: 0,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -13829,6 +14620,7 @@ impl PdfDocument {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             })
             .collect();
 
@@ -14262,6 +15054,12 @@ impl PdfDocument {
             }
         }
 
+        // Apply struct-tree-scope /ActualText (ISO 32000-1 §14.9.4):
+        // replace covered MCIDs' text with the emission's replacement,
+        // suppress non-anchor spans of multi-MCID subtrees. Untagged
+        // documents are no-ops.
+        self.apply_actualtext_to_ordered_spans(page_index, &mut ordered_spans);
+
         // Step 8: Use pipeline converter with tables
         let converter = MarkdownOutputConverter::new();
         let mut markdown =
@@ -14577,7 +15375,11 @@ impl PdfDocument {
         };
 
         // Step 6: Process through pipeline (applies reading order strategy)
-        let ordered_spans = pipeline.process(spans, context)?;
+        let mut ordered_spans = pipeline.process(spans, context)?;
+
+        // Apply struct-tree-scope /ActualText; see `to_markdown` for
+        // the rationale.
+        self.apply_actualtext_to_ordered_spans(page_index, &mut ordered_spans);
 
         // Step 7: Use pipeline converter with tables
         let converter = HtmlOutputConverter::new();
@@ -14702,6 +15504,16 @@ impl PdfDocument {
         page_index: usize,
         options: &crate::converters::ConversionOptions,
     ) -> Result<String> {
+        // Encrypted-and-undecryptable parity: extract_text / to_markdown / to_html
+        // all short-circuit to an empty string here (ISO 32000-1:2008 §7.6); the
+        // geometric plain-text path below would also yield empty (no decryptable
+        // content) but went through the full pipeline first. Guard explicitly so
+        // every text surface returns the same empty result on the same input.
+        if self.is_encrypted_unreadable() {
+            log::warn!("PDF is encrypted and could not be decrypted; returning empty text");
+            return Ok(String::new());
+        }
+
         // #608: for a trustworthy tagged PDF, read in logical structure order
         // (§14.8.2.3.1) by assembling directly from the structure tree — the
         // same path `extract_text` uses. The geometric plain-text converter
@@ -14750,7 +15562,11 @@ impl PdfDocument {
         let context = ReadingOrderContext::new().with_page(page_index as u32);
 
         // Step 6: Process through pipeline (applies reading order strategy)
-        let ordered_spans = pipeline.process(spans, context)?;
+        let mut ordered_spans = pipeline.process(spans, context)?;
+
+        // Apply struct-tree-scope /ActualText; see `to_markdown` for
+        // the rationale.
+        self.apply_actualtext_to_ordered_spans(page_index, &mut ordered_spans);
 
         // Step 7: Use pipeline converter with tables
         let converter = PlainTextConverter::new();
@@ -18134,6 +18950,7 @@ mod tests {
             is_monospace: false,
             color: crate::layout::Color::new(0.0, 0.0, 0.0),
             mcid: None,
+            mcid_scope: None,
             sequence: 0,
             split_boundary_before: false,
             offset_semantic: false,
@@ -18144,6 +18961,7 @@ mod tests {
             char_widths: vec![],
             heading_level: None,
             rotation_degrees: 0.0,
+            wmode: 0,
         }
     }
 
@@ -18342,6 +19160,7 @@ mod tests {
             is_monospace: false,
             color: crate::layout::Color::new(0.0, 0.0, 0.0),
             mcid: None,
+            mcid_scope: None,
             sequence: 0,
             split_boundary_before: false,
             offset_semantic: false,
@@ -18353,6 +19172,7 @@ mod tests {
             char_widths,
             heading_level: None,
             rotation_degrees: 0.0,
+            wmode: 0,
         }
     }
 
@@ -18705,6 +19525,65 @@ mod tests {
             "#557: per-word RTL spans must be reordered into logical word order \
              without char-flipping (got {texts:?})"
         );
+    }
+
+    // #656/#657: the tagged struct-tree path collapses a page into one MCID
+    // whose pure-RTL word-spans are laid out left-to-right (visual, X
+    // ascending). `order_mcid_spans` must emit them right-to-left (logical)
+    // using geometry, since the tagged path never reaches the untagged
+    // `reverse_rtl_visual_order_runs`. (Per-span glyph order is handled
+    // separately by `push_span_text_bidi`; this test asserts span ORDER.)
+    #[test]
+    fn test_order_mcid_spans_pure_rtl_emitted_right_to_left() {
+        // One Hebrew row, three words placed left-to-right by X.
+        let spans = vec![
+            make_rtl_test_span("שלוש", 100.0, 700.0), // leftmost  → logically last
+            make_rtl_test_span("שתיים", 200.0, 700.0),
+            make_rtl_test_span("אחת", 300.0, 700.0), // rightmost → logically first
+        ];
+        let ordered = PdfDocument::order_mcid_spans(&spans);
+        let texts: Vec<&str> = ordered.iter().map(|s| s.text.as_str()).collect();
+        assert_eq!(
+            texts,
+            vec!["אחת", "שתיים", "שלוש"],
+            "pure-RTL MCID spans must emit rightmost-first (logical RTL order), got {texts:?}"
+        );
+    }
+
+    // #656: grapheme-aware RTL reversal keeps Arabic combining marks bound to
+    // their base letter (vs. a naive chars().rev() that floats them off).
+    #[test]
+    fn test_reverse_rtl_keeping_marks_keeps_diacritics_attached() {
+        // قِطّ = QAF + KASRA(U+0650) + TAH + SHADDA(U+0651). Reversing must
+        // keep each mark immediately after its base, not lead the string.
+        let src = "\u{0642}\u{0650}\u{0637}\u{0651}"; // قِطّ
+        let out = PdfDocument::reverse_rtl_keeping_marks(src);
+        // Expected: base order reversed (TAH+SHADDA group, then QAF+KASRA group).
+        assert_eq!(out, "\u{0637}\u{0651}\u{0642}\u{0650}");
+        // No combining mark ever leads a base it doesn't belong to: every
+        // diacritic is immediately preceded by a non-diacritic.
+        let chars: Vec<char> = out.chars().collect();
+        for (i, c) in chars.iter().enumerate() {
+            if crate::text::rtl_detector::is_rtl_diacritic(*c as u32) {
+                assert!(
+                    i > 0 && !crate::text::rtl_detector::is_rtl_diacritic(chars[i - 1] as u32),
+                    "diacritic at {i} is detached from its base"
+                );
+            }
+        }
+    }
+
+    // Mixed RTL+Latin MCIDs are left in raw order (full UAX #9 deferred) —
+    // guards against the pure-RTL reorder accidentally firing on mixed runs.
+    #[test]
+    fn test_order_mcid_spans_mixed_rtl_latin_kept_raw() {
+        let spans = vec![
+            make_rtl_test_span("שלום", 100.0, 700.0),
+            make_rtl_test_span("World", 200.0, 700.0),
+        ];
+        let ordered = PdfDocument::order_mcid_spans(&spans);
+        let texts: Vec<&str> = ordered.iter().map(|s| s.text.as_str()).collect();
+        assert_eq!(texts, vec!["שלום", "World"], "mixed RTL+Latin must stay in raw order");
     }
 
     // #553: bare page-number detection (applied only inside the margin band).
@@ -21566,6 +22445,7 @@ mod tests {
                     b: 0.0,
                 },
                 mcid: None,
+                mcid_scope: None,
                 sequence: 0,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -21576,6 +22456,7 @@ mod tests {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             }
         }
 
@@ -21629,6 +22510,7 @@ mod tests {
                 b: 0.0,
             },
             mcid: None,
+            mcid_scope: None,
             sequence: 0,
             split_boundary_before: false,
             offset_semantic: false,
@@ -21639,6 +22521,7 @@ mod tests {
             char_widths: vec![],
             heading_level: None,
             rotation_degrees: 0.0,
+            wmode: 0,
         }
     }
 
@@ -21913,6 +22796,20 @@ mod tests {
         assert_eq!(PdfDocument::fix_digit_logicalnot_decimal("5 \u{00AC} 3"), "5 \u{00AC} 3");
         // Leading/trailing `¬` with only one digit neighbour: untouched.
         assert_eq!(PdfDocument::fix_digit_logicalnot_decimal("\u{00AC}5"), "\u{00AC}5");
+        // Spaced decimal: a subset that emits a single space between the decimal
+        // glyph and the fractional digits → drop the lone space, recover `.`.
+        assert_eq!(PdfDocument::fix_digit_logicalnot_decimal("1\u{00AC} 00"), "1.00");
+        assert_eq!(
+            PdfDocument::fix_digit_logicalnot_decimal("0\u{00AC} 75 1\u{00AC} 00"),
+            "0.75 1.00"
+        );
+        // Still NOT a decimal when the leading digit does not abut `¬`
+        // (genuine spaced negation): `5 ¬ 3` stays untouched even though a
+        // digit follows the space.
+        assert_eq!(PdfDocument::fix_digit_logicalnot_decimal("5 \u{00AC} 3"), "5 \u{00AC} 3");
+        // Only a single separating space is absorbed; two spaces is not a
+        // decimal rendering and is left alone.
+        assert_eq!(PdfDocument::fix_digit_logicalnot_decimal("1\u{00AC}  00"), "1\u{00AC}  00");
     }
 
     #[test]
@@ -22001,6 +22898,7 @@ mod tests {
                 is_monospace: false,
                 color: crate::layout::Color::black(),
                 mcid: None,
+                mcid_scope: None,
                 sequence: 0,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -22011,6 +22909,7 @@ mod tests {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             }
         }
 
@@ -22070,6 +22969,7 @@ mod tests {
                 is_monospace: false,
                 color: crate::layout::Color::black(),
                 mcid: None,
+                mcid_scope: None,
                 sequence: 0,
                 split_boundary_before: false,
                 offset_semantic: false,
@@ -22080,6 +22980,7 @@ mod tests {
                 char_widths: vec![],
                 heading_level: None,
                 rotation_degrees: 0.0,
+                wmode: 0,
             }
         }
 

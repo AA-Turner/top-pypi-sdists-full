@@ -6,7 +6,8 @@ import itertools
 import json
 import re
 import sys
-from typing import Any, List, Optional, Set, Tuple, Union
+from typing import Any
+
 
 def _build_repetition(item_rule, min_items, max_items, separator_rule=None):
 
@@ -27,7 +28,8 @@ def _build_repetition(item_rule, min_items, max_items, separator_rule=None):
     result = item_rule + ' ' + _build_repetition(f'({separator_rule} {item_rule})', min_items - 1 if min_items > 0 else 0, max_items - 1 if max_items is not None else None)
     return f'({result})?' if min_items == 0 else result
 
-def _generate_min_max_int(min_value: Optional[int], max_value: Optional[int], out: list, decimals_left: int = 16, top_level: bool = True):
+
+def _generate_min_max_int(min_value: int | None, max_value: int | None, out: list, decimals_left: int = 16, top_level: bool = True):
     def digit_range(from_char: str, to_char: str):
         out.append("[")
         if from_char == to_char:
@@ -63,8 +65,8 @@ def _generate_min_max_int(min_value: Optional[int], max_value: Optional[int], ou
                 out.append(" ")
             sub_len = len(from_str) - i - 1
             if sub_len > 0:
-                from_sub = from_str[i+1:]
-                to_sub = to_str[i+1:]
+                from_sub = from_str[i + 1:]
+                to_sub = to_str[i + 1:]
                 sub_zeros = "0" * sub_len
                 sub_nines = "9" * sub_len
 
@@ -189,36 +191,38 @@ def _generate_min_max_int(min_value: Optional[int], max_value: Optional[int], ou
 
     raise RuntimeError("At least one of min_value or max_value must be set")
 
+
 class BuiltinRule:
     def __init__(self, content: str, deps: list | None = None):
         self.content = content
         self.deps = deps or []
 
+
 # Constraining spaces to prevent model "running away".
 SPACE_RULE = '| " " | "\\n"{1,2} [ \\t]{0,20}'
 
 PRIMITIVE_RULES = {
-    'boolean'      : BuiltinRule('("true" | "false") space', []),
-    'decimal-part' : BuiltinRule('[0-9]{1,16}', []),
+    'boolean': BuiltinRule('("true" | "false") space', []),
+    'decimal-part': BuiltinRule('[0-9]{1,16}', []),
     'integral-part': BuiltinRule('[0] | [1-9] [0-9]{0,15}', []),
-    'number'       : BuiltinRule('("-"? integral-part) ("." decimal-part)? ([eE] [-+]? integral-part)? space', ['integral-part', 'decimal-part']),
-    'integer'      : BuiltinRule('("-"? integral-part) space', ['integral-part']),
-    'value'        : BuiltinRule('object | array | string | number | boolean | null', ['object', 'array', 'string', 'number', 'boolean', 'null']),
-    'object'       : BuiltinRule('"{" space ( string ":" space value ("," space string ":" space value)* )? "}" space', ['string', 'value']),
-    'array'        : BuiltinRule('"[" space ( value ("," space value)* )? "]" space', ['value']),
-    'uuid'         : BuiltinRule(r'"\"" [0-9a-fA-F]{8} "-" [0-9a-fA-F]{4} "-" [0-9a-fA-F]{4} "-" [0-9a-fA-F]{4} "-" [0-9a-fA-F]{12} "\"" space', []),
-    'char'         : BuiltinRule(r'[^"\\\x7F\x00-\x1F] | [\\] (["\\bfnrt] | "u" [0-9a-fA-F]{4})', []),
-    'string'       : BuiltinRule(r'"\"" char* "\"" space', ['char']),
-    'null'         : BuiltinRule('"null" space', []),
+    'number': BuiltinRule('("-"? integral-part) ("." decimal-part)? ([eE] [-+]? integral-part)? space', ['integral-part', 'decimal-part']),
+    'integer': BuiltinRule('("-"? integral-part) space', ['integral-part']),
+    'value': BuiltinRule('object | array | string | number | boolean | null', ['object', 'array', 'string', 'number', 'boolean', 'null']),
+    'object': BuiltinRule('"{" space ( string ":" space value ("," space string ":" space value)* )? "}" space', ['string', 'value']),
+    'array': BuiltinRule('"[" space ( value ("," space value)* )? "]" space', ['value']),
+    'uuid': BuiltinRule(r'"\"" [0-9a-fA-F]{8} "-" [0-9a-fA-F]{4} "-" [0-9a-fA-F]{4} "-" [0-9a-fA-F]{4} "-" [0-9a-fA-F]{12} "\"" space', []),
+    'char': BuiltinRule(r'[^"\\\x7F\x00-\x1F] | [\\] (["\\bfnrt] | "u" [0-9a-fA-F]{4})', []),
+    'string': BuiltinRule(r'"\"" char* "\"" space', ['char']),
+    'null': BuiltinRule('"null" space', []),
 }
 
 # TODO: support "uri", "email" string formats
 STRING_FORMAT_RULES = {
-    'date'            : BuiltinRule('[0-9]{4} "-" ( "0" [1-9] | "1" [0-2] ) "-" ( \"0\" [1-9] | [1-2] [0-9] | "3" [0-1] )', []),
-    'time'            : BuiltinRule('([01] [0-9] | "2" [0-3]) ":" [0-5] [0-9] ":" [0-5] [0-9] ( "." [0-9]{3} )? ( "Z" | ( "+" | "-" ) ( [01] [0-9] | "2" [0-3] ) ":" [0-5] [0-9] )', []),
-    'date-time'       : BuiltinRule('date "T" time', ['date', 'time']),
-    'date-string'     : BuiltinRule('"\\"" date "\\"" space', ['date']),
-    'time-string'     : BuiltinRule('"\\"" time "\\"" space', ['time']),
+    'date': BuiltinRule('[0-9]{4} "-" ( "0" [1-9] | "1" [0-2] ) "-" ( \"0\" [1-9] | [1-2] [0-9] | "3" [0-1] )', []),
+    'time': BuiltinRule('([01] [0-9] | "2" [0-3]) ":" [0-5] [0-9] ":" [0-5] [0-9] ( "." [0-9]{3} )? ( "Z" | ( "+" | "-" ) ( [01] [0-9] | "2" [0-3] ) ":" [0-5] [0-9] )', []),
+    'date-time': BuiltinRule('date "T" time', ['date', 'time']),
+    'date-string': BuiltinRule('"\\"" date "\\"" space', ['date']),
+    'time-string': BuiltinRule('"\\"" time "\\"" space', ['time']),
     'date-time-string': BuiltinRule('"\\"" date-time "\\"" space', ['date-time']),
 }
 
@@ -254,12 +258,13 @@ class SchemaConverter:
         )
         return f'"{escaped}"'
 
-    def not_literal(self, literal: str, dotall: bool = True, maybe_escaped_underscores = False) -> str:
+    def not_literal(self, literal: str, dotall: bool = True, maybe_escaped_underscores=False) -> str:
         '''
             not_literal('a') -> '[^a]'
             not_literal('abc') -> '([^a] | "a" ([^b] | "b" ([^c])?)?)?'
         '''
         assert len(literal) > 0, 'Empty literal not supported'
+
         def recurse(i: int):
             c = literal[i]
             if maybe_escaped_underscores and c == '_':
@@ -308,7 +313,7 @@ class SchemaConverter:
                     out.append(' | ')
                 out.append(f'[{c}]')
                 if child.children:
-                    out.append(f' (')
+                    out.append(' (')
                     visit(child)
                     out.append(')')
                 elif child.is_end_of_string:
@@ -439,7 +444,7 @@ class SchemaConverter:
                 else:
                     # Accept any character... except \n and \r line break chars (\x0A and \xOD)
                     rule = DOT
-                return self._add_rule(f'dot', rule)
+                return self._add_rule('dot', rule)
 
             def join_seq():
                 nonlocal seq
@@ -465,14 +470,14 @@ class SchemaConverter:
                     seq.append((f'({to_rule(transform())})', False))
                 elif c == ')':
                     i += 1
-                    assert start > 0 and pattern[start-1] == '(', f'Unbalanced parentheses; start = {start}, i = {i}, pattern = {pattern}'
+                    assert start > 0 and pattern[start - 1] == '(', f'Unbalanced parentheses; start = {start}, i = {i}, pattern = {pattern}'
                     return join_seq()
                 elif c == '[':
                     square_brackets = c
                     i += 1
                     while i < length and pattern[i] != ']':
                         if pattern[i] == '\\':
-                            square_brackets += pattern[i:i+2]
+                            square_brackets += pattern[i:i + 2]
                             i += 2
                         else:
                             square_brackets += pattern[i]
@@ -530,13 +535,13 @@ class SchemaConverter:
                                 literal += pattern[i]
                                 i += 1
                             else:
-                                literal += pattern[i:i+2]
+                                literal += pattern[i:i + 2]
                                 i += 2
                         elif pattern[i] == '"' and not self._raw_pattern:
                             literal += '\\"'
                             i += 1
                         elif pattern[i] not in NON_LITERAL_SET and \
-                                (i == length - 1 or literal == '' or pattern[i+1] == '.' or pattern[i+1] not in NON_LITERAL_SET):
+                                (i == length - 1 or literal == '' or pattern[i + 1] == '.' or pattern[i + 1] not in NON_LITERAL_SET):
                             literal += pattern[i]
                             i += 1
                         else:
@@ -550,7 +555,6 @@ class SchemaConverter:
             name,
             to_rule(transform()) if self._raw_pattern \
                 else "\"\\\"\" (" + to_rule(transform()) + ") \"\\\"\" space")
-
 
     def _resolve_ref(self, ref):
         ref_fragment = ref.split('#')[-1]
@@ -583,7 +587,7 @@ class SchemaConverter:
             return self._add_rule(rule_name, self._generate_constant_rule(schema['const']) + ' space')
 
         elif 'enum' in schema:
-            rule = '(' + ' | '.join((self._generate_constant_rule(v) for v in schema['enum'])) + ') space'
+            rule = '(' + ' | '.join(self._generate_constant_rule(v) for v in schema['enum']) + ') space'
             return self._add_rule(rule_name, rule)
 
         elif schema_type in (None, 'object') and \
@@ -598,6 +602,7 @@ class SchemaConverter:
             properties = []
             enum_sets = []
             hybrid_name = name
+
             def add_component(comp_schema, is_required):
                 if (ref := comp_schema.get('$ref')) is not None:
                     comp_schema = self._refs[ref]
@@ -624,7 +629,7 @@ class SchemaConverter:
                     enum_intersection &= s
 
                 if enum_intersection:
-                    rule = '(' + ' | '.join((self._generate_constant_rule(v) for v in sorted(enum_intersection))) + ') space'
+                    rule = '(' + ' | '.join(self._generate_constant_rule(v) for v in sorted(enum_intersection)) + ') space'
                     return self._add_rule(rule_name, rule)
 
             return self._add_rule(rule_name, self._build_object_rule(properties, required, hybrid_name, additional_properties=None))
@@ -706,7 +711,7 @@ class SchemaConverter:
                 self._add_primitive(dep, dep_rule)
         return n
 
-    def _build_object_rule(self, properties: List[Tuple[str, Any]], required: Set[str], name: str, additional_properties: Optional[Union[bool, Any]]):
+    def _build_object_rule(self, properties: list[tuple[str, Any]], required: set[str], name: str, additional_properties: bool | Any | None):
         prop_order = self._prop_order
         # sort by position in prop_order (if specified) then by original order
         sorted_props = [kv[0] for _, kv in sorted(enumerate(properties), key=lambda ikv: (prop_order.get(ikv[1][0], len(prop_order)), ikv[0]))]
@@ -776,7 +781,7 @@ class SchemaConverter:
         )
 
 
-def main(args_in = None):
+def main(args_in=None):
     parser = argparse.ArgumentParser(
         description='''
             Generates a grammar (suitable for use in ./llama-cli) that produces JSON conforming to a

@@ -8,8 +8,6 @@ assertion helpers, and common fixtures.
 from __future__ import annotations
 
 import ast
-import asyncio
-import json
 import os
 import subprocess
 import textwrap
@@ -41,6 +39,7 @@ def vllm_ok() -> bool:
         return httpx.get("http://localhost:8000/v1/models", timeout=3).status_code == 200
     except Exception:
         return False
+
 
 requires_vllm = pytest.mark.skipif(not vllm_ok(), reason="vLLM not running at localhost:8000")
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest
 
 from drydock.core.tools.base import BaseToolState
 from drydock.core.tools.builtins.set_tool import (

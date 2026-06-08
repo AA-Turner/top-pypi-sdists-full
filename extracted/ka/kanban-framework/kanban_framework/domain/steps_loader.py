@@ -29,6 +29,7 @@ def _parse_phases_to_steps(phases_config: list[dict]) -> dict[str, list[StepDef]
             gateway_cfg = s.get("gateway")
             if not isinstance(gateway_cfg, dict):
                 gateway_cfg = None
+            use_subagent = s.get("use_subagent")
             steps.append(StepDef(
                 id=full_id,
                 description=s.get("description", ""),
@@ -44,7 +45,17 @@ def _parse_phases_to_steps(phases_config: list[dict]) -> dict[str, list[StepDef]
                 guard=guard_cfg,
                 gateway=gateway_cfg,
                 knowledge=s.get("knowledge") if isinstance(s.get("knowledge"), dict) else None,
+                use_subagent=use_subagent if use_subagent is not None else None,
             ))
+            # Validate: use_subagent=true requires spawn_prompt
+            if use_subagent is True and not s.get("spawn_prompt"):
+                import sys
+                print(
+                    f"WARNING: step '{full_id}' has use_subagent=true but no spawn_prompt. "
+                    f"A basic prompt will be auto-generated from step metadata at runtime. "
+                    f"Fix: add 'spawn_prompt' field to the step definition.",
+                    file=sys.stderr,
+                )
         result[phase_id] = steps
     return result
 

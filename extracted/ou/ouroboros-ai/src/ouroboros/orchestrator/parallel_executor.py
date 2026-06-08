@@ -692,6 +692,86 @@ def _runtime_messages_support_command_claim(
     return any(_runtime_message_supports_command_claim(value, message) for message in messages)
 
 
+def _runtime_messages_have_masked_test_command_form(
+    value: str,
+    messages: tuple[AgentMessage, ...],
+) -> bool:
+    """Return True when a test command claim matches only after unsafe plumbing.
+
+    This deliberately does NOT prove the command claim. It distinguishes a real
+    transcript shape that failed the evidence contract (for example a test run
+    piped through ``tail`` without ``set -o pipefail``) from a fabrication where
+    no related test command appears at all.
+    """
+    claim_invocation = _test_command_invocation(value)
+    if claim_invocation is None:
+        return False
+    for message in messages:
+        if message.tool_name != "Bash":
+            continue
+        for runtime_command in _runtime_message_command_values(message):
+            if not _has_trailing_output_filter_pipeline(runtime_command):
+                continue
+            runtime_invocation = _test_command_invocation_allowing_output_plumbing(runtime_command)
+            if runtime_invocation is None:
+                continue
+            if runtime_invocation == claim_invocation or runtime_invocation.startswith(
+                claim_invocation + " "
+            ):
+                return True
+    return False
+
+
+def _runtime_messages_have_masked_test_command_for_test_claim(
+    *,
+    value: str,
+    messages: tuple[AgentMessage, ...],
+    task_cwd: str | None,
+) -> bool:
+    """Return True when a rejected test claim depends on masked test output.
+
+    This is diagnostic only. It lets the verifier classify a dependent
+    ``tests_passed`` failure with the same evidence-form mismatch as the
+    rejected ``commands_run`` claim, while still refusing to accept the masked
+    command as proof.
+    """
+    for index, message in enumerate(messages):
+        if message.tool_name != "Bash":
+            continue
+        masked_invocations: list[str] = []
+        for runtime_command in _runtime_message_command_values(message):
+            if not _has_trailing_output_filter_pipeline(runtime_command):
+                continue
+            runtime_invocation = _test_command_invocation_allowing_output_plumbing(runtime_command)
+            if runtime_invocation is not None:
+                masked_invocations.append(runtime_invocation)
+        if not masked_invocations:
+            continue
+
+        chunk = [message]
+        for following in messages[index + 1 :]:
+            if following.tool_name and not _is_tool_result_message(following):
+                break
+            chunk.append(following)
+        if not any(_message_contains_test_success(item) for item in chunk):
+            continue
+        chunk_text = "\n".join(_runtime_message_search_text(item) for item in chunk)
+        chunk_test_proof_text = "\n".join(_runtime_message_test_proof_text(item) for item in chunk)
+        if any(
+            _test_command_targets_claim(
+                command=command,
+                claim=value,
+                chunk_text=chunk_text,
+                chunk_test_proof_text=chunk_test_proof_text,
+                messages=messages,
+                task_cwd=task_cwd,
+            )
+            for command in masked_invocations
+        ):
+            return True
+    return False
+
+
 def _runtime_messages_support_file_claim(
     value: str,
     messages: tuple[AgentMessage, ...],
@@ -934,6 +1014,29 @@ def _test_command_invocation(command: str) -> str | None:
     if body is None:
         return None
     return _test_invocation_from_shell_body(body)
+
+
+def _test_command_invocation_allowing_output_plumbing(command: str) -> str | None:
+    """Return a test invocation after stripping output plumbing unconditionally.
+
+    This must not be used as command proof. It exists only to classify rejected
+    evidence forms for diagnostics while preserving the #1208 masking guard.
+    """
+    normalized = command.strip().lower()
+    if not normalized:
+        return None
+    direct = _test_invocation_from_prefix(_strip_command_output_plumbing(normalized))
+    if direct is not None:
+        return direct
+    body = _shell_command_body(normalized)
+    if body is None:
+        return None
+    for segment, _pipefail_enabled in _segments_after_safe_shell_preamble_with_pipefail(body):
+        invocation = _test_invocation_from_prefix(_strip_command_output_plumbing(segment))
+        if invocation is not None:
+            return invocation
+        return None
+    return None
 
 
 def _shell_command_body(command: str) -> str | None:
@@ -5531,6 +5634,17 @@ Files present:
                     verifier_failure_class=(
                         verifier_verdict.failure_class if verifier_verdict is not None else None
                     ),
+                    verifier_status=(
+                        verifier_verdict.status.value if verifier_verdict is not None else None
+                    ),
+                    retry_admission=(
+                        verifier_verdict.retry_admission.value
+                        if verifier_verdict is not None
+                        else None
+                    ),
+                    verifier_evidence_used=(
+                        list(verifier_verdict.evidence_used) if verifier_verdict is not None else []
+                    ),
                 )
                 result_final_message = (
                     f"{fat_harness_error}\n\nRuntime final message:\n{final_message}"
@@ -5808,6 +5922,7 @@ Files present:
             )
 
         unsupported: list[str] = []
+        evidence_form_mismatches: list[str] = []
         backed_commands = tuple(
             command
             for command in _flatten_evidence_values(typed_evidence.get("commands_run"))
@@ -5831,6 +5946,13 @@ Files present:
                 if field_name == "commands_run":
                     if _runtime_messages_support_command_claim(value, field_messages):
                         continue
+                    if _runtime_messages_have_masked_test_command_form(
+                        value,
+                        field_messages,
+                    ):
+                        evidence_form_mismatches.append(f"{field_name}: {value}")
+                        unsupported.append(f"{field_name}: {value}")
+                        continue
                     unsupported.append(f"{field_name}: {value}")
                     continue
                 if field_name == "files_touched":
@@ -5850,16 +5972,35 @@ Files present:
                         task_cwd=self._task_cwd or self._adapter.working_directory,
                     ):
                         continue
+                    if _runtime_messages_have_masked_test_command_for_test_claim(
+                        value=value,
+                        messages=support_messages,
+                        task_cwd=self._task_cwd or self._adapter.working_directory,
+                    ):
+                        evidence_form_mismatches.append(f"{field_name}: {value}")
+                        unsupported.append(f"{field_name}: {value}")
+                        continue
                     unsupported.append(f"{field_name}: {value}")
                     continue
                 if not _runtime_messages_support_claim(value, field_messages):
                     unsupported.append(f"{field_name}: {value}")
 
         if unsupported:
+            failure_class = (
+                "EVIDENCE_FORM_MISMATCH"
+                if evidence_form_mismatches and len(evidence_form_mismatches) == len(unsupported)
+                else "FABRICATION_SUSPECTED"
+            )
+            reason_prefix = (
+                "evidence form mismatch; unprotected output-filter pipeline "
+                "cannot prove a clean command claim"
+                if failure_class == "EVIDENCE_FORM_MISMATCH"
+                else "unsupported evidence claims"
+            )
             return VerifierVerdict(
                 passed=False,
-                reasons=("unsupported evidence claims: " + "; ".join(unsupported),),
-                failure_class="FABRICATION_SUSPECTED",
+                reasons=(reason_prefix + ": " + "; ".join(unsupported),),
+                failure_class=failure_class,
             )
 
         return VerifierVerdict(passed=True)
@@ -5906,6 +6047,9 @@ Files present:
         if verifier_verdict is not None:
             data["verifier_reasons"] = list(verifier_verdict.reasons)
             data["verifier_failure_class"] = verifier_verdict.failure_class
+            data["verifier_status"] = verifier_verdict.status.value
+            data["retry_admission"] = verifier_verdict.retry_admission.value
+            data["verifier_evidence_used"] = list(verifier_verdict.evidence_used)
         if typed_evidence is not None:
             data["typed_evidence_fields"] = sorted(typed_evidence.data)
             data["ignored_out_of_scope_evidence_fields"] = list(

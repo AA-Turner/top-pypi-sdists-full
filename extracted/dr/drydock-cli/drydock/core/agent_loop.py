@@ -182,6 +182,61 @@ def _should_raise_rate_limit_error(e: Exception) -> bool:
     return isinstance(e, BackendError) and e.status == HTTPStatus.TOO_MANY_REQUESTS
 
 
+def _probe_backend_context_window(active_model: Any) -> int | None:
+    """Probe a llama.cpp-style backend's runtime context window via its
+    /props endpoint.
+
+    Returns the integer n_ctx (the value the server was started with via
+    `-c <N>`), or None if the probe fails for any reason. Failure cases
+    that should silently fall through to the static config value:
+      - non-llama.cpp backend (no /props endpoint)
+      - network error, timeout, malformed JSON, missing field
+      - no base_url configured (cloud-backed models like Mistral API)
+
+    Why this exists: drydock's `context_window` setting historically
+    lived in `~/.drydock/config.toml` and got out of sync with the
+    backend's actual `-c <N>` parameter. The auto-compact threshold
+    clamps off `context_window - 4K`, so a 131K config against a 32K
+    backend never compacted -> context bloated past the wire limit ->
+    backend returned 400. The probe pulls the truth from the source.
+
+    llama.cpp exposes the runtime ctx in `/props` ->
+    `default_generation_settings.params.n_ctx`. Other servers (vLLM,
+    Ollama) expose different shapes; we silently fall through and let
+    the static config win there.
+    """
+    try:
+        base_url = getattr(active_model, "base_url", "") or ""
+    except Exception:
+        return None
+    if not base_url:
+        return None
+    # /props sits at the server root, not under /v1
+    root = base_url.rstrip("/")
+    if root.endswith("/v1"):
+        root = root[:-3]
+    probe_url = root + "/props"
+    try:
+        import urllib.request as _u
+        with _u.urlopen(probe_url, timeout=2) as resp:
+            d = json.loads(resp.read().decode("utf-8", errors="replace"))
+    except Exception:
+        return None
+    # Walk the JSON looking for n_ctx (llama.cpp's exact shape)
+    try:
+        v = d.get("default_generation_settings", {})
+        if isinstance(v, dict):
+            params = v.get("params", {}) or {}
+            n_ctx = params.get("n_ctx") or v.get("n_ctx")
+            if n_ctx:
+                return int(n_ctx)
+        if "n_ctx" in d:
+            return int(d["n_ctx"])
+    except Exception:
+        pass
+    return None
+
+
 class AgentLoop:
     def __init__(
         self,
@@ -426,7 +481,7 @@ class AgentLoop:
             # Newest first, since later prompts usually supersede earlier
             # context. Number them so the model can refer back.
             numbered = "\n".join(
-                f"  ({i+1}) {text}"
+                f"  ({i + 1}) {text}"
                 for i, text in enumerate(reversed(injections))
             )
             note = (
@@ -745,6 +800,29 @@ class AgentLoop:
 
         active_model = self.config.get_active_model()
         _compact_thresh = active_model.auto_compact_threshold
+
+        # 2026-06-07 (v2.9.115): probe the live llama.cpp backend for its
+        # runtime n_ctx via /props, so the compact threshold reflects
+        # reality instead of a stale config value.
+        # User session: backends were unified at 32K but their config
+        # still listed context_window=131072 -> compact never fired ->
+        # context bloated past the actual 32K -> backend returned 400.
+        # The probe is HTTP-bound and gated by base_url presence, so it
+        # only fires for self-hosted models. On failure it silently
+        # falls through to the static config value.
+        probed_ctx = _probe_backend_context_window(active_model)
+        if probed_ctx and probed_ctx > 0:
+            probed_thresh = max(4_000, probed_ctx - 4_096)
+            static_ctx = getattr(active_model, "context_window", 0) or 0
+            if static_ctx != probed_ctx:
+                logger.warning(
+                    "[CONTEXT-PROBE] backend reports n_ctx=%d but config "
+                    "says context_window=%d. Using detected value. "
+                    "auto_compact_threshold: %d -> %d.",
+                    probed_ctx, static_ctx, _compact_thresh, probed_thresh,
+                )
+                _compact_thresh = probed_thresh
+
         _env_thresh = os.environ.get("DRYDOCK_AUTO_COMPACT_THRESHOLD", "")
         if _env_thresh.strip():
             try:
@@ -825,7 +903,20 @@ class AgentLoop:
                 )
                 self.telemetry_client.send_auto_compact_triggered()
 
-                summary = await self.compact()
+                try:
+                    summary = await self.compact()
+                except Exception as _compact_err:
+                    # compact() failed (e.g. 400 from model server during
+                    # compaction request). Log and continue — the session
+                    # can keep running with its current context rather than
+                    # crashing. The context is not reduced, so it may hit
+                    # limits sooner, but that is recoverable; a crash is not.
+                    import logging as _logging
+                    _logging.getLogger(__name__).warning(
+                        "compact() failed, continuing without compaction: %s",
+                        _compact_err,
+                    )
+                    summary = ""
 
                 yield CompactEndEvent(
                     tool_call_id=tool_call_id,
@@ -921,11 +1012,12 @@ class AgentLoop:
         self._last_post_edit_spec_fp = None
         # Clear any stale auto-goal state from a previous turn — the
         # user's new prompt may have nothing to do with the prior goal.
-        if (getattr(self, "goal", None) is not None
-                and getattr(self.goal, "active", False)):
+        _goal = getattr(self, "goal", None)
+        if _goal is not None and getattr(_goal, "active", False):
+            _cond = getattr(_goal, "condition", "") or ""
             logger.warning(
                 "[recovery] clearing stale goal on new user turn: %r",
-                self.goal.condition[:80] if self.goal.condition else "",
+                _cond[:80],
             )
             try:
                 self.clear_goal()
@@ -1129,12 +1221,44 @@ class AgentLoop:
             # for a multi-file refactor, short enough that a runaway loop
             # still hands control back before the user gives up.
             # Admiral Phase 3a: per-(model, task) override if configured.
-            PER_PROMPT_BUDGET_SEC = int(
-                getattr(self, "_admiral_per_prompt_budget_sec", 30 * 60)
-            )
-            HARD_STOP_CALLS = int(
-                getattr(self, "_admiral_hard_stop_tool_calls", 100)
-            )
+            # 2026-06-07 (v2.9.119): raised default 30 min -> 4 hours.
+            # Same operator principle that drove v2.9.116's HARD_STOP_CALLS
+            # raise: "if it is doing work correctly a higher number is just
+            # going to stop it there". 30-min cap killed an operator
+            # slide-reviewer session that was writing files + iterating
+            # legit. 4h is a runaway safety net, not a productivity cap.
+            # Override via DRYDOCK_PER_PROMPT_BUDGET_SEC.
+            PER_PROMPT_BUDGET_SEC = int(os.environ.get(
+                "DRYDOCK_PER_PROMPT_BUDGET_SEC",
+                getattr(self, "_admiral_per_prompt_budget_sec", 4 * 60 * 60),
+            ))
+            # 2026-06-07 (v2.9.116): raised from 100 -> 500. The lower cap
+            # was firing on legitimate complex investigations (operator's
+            # slide-reviewer session hit 100 while genuinely debugging a
+            # silent app failure — every tool call yielded new info, but
+            # the dumb count cap killed it). Keep it as a runaway safety
+            # net but pitched far above the "complex but real work"
+            # ceiling. The no-write streak (NO_WRITE_HARD_STOP, below)
+            # is the actual stuck-without-progress detector. Override
+            # via DRYDOCK_HARD_STOP_CALLS env or per-(model,task) admiral.
+            HARD_STOP_CALLS = int(os.environ.get(
+                "DRYDOCK_HARD_STOP_CALLS",
+                getattr(self, "_admiral_hard_stop_tool_calls", 500),
+            ))
+            # 2026-06-07 (v2.9.116): new no-write streak hard-stop.
+            # Fires when the model has done N consecutive readonly/neutral
+            # tool calls without committing a single write_file /
+            # search_replace / mechanical_rename. Catches "exploration
+            # without convergence" — the gap that HARD_STOP_CALLS=100 was
+            # plugging with an arbitrary count. Reset by any write tool
+            # or by a substantive plain-text response (model summarizing
+            # for the user counts as progress, just not file-system
+            # progress). Skip for SUBAGENT contexts because investigation
+            # subagents are legitimately read-mostly.
+            NO_WRITE_HARD_STOP = int(os.environ.get(
+                "DRYDOCK_NO_WRITE_HARD_STOP",
+                getattr(self, "_admiral_no_write_hard_stop", 80),
+            ))
             WRAP_UP_WARN_AT = int(getattr(self, "_admiral_wrap_up_warn_at",
                 int(os.environ.get("DRYDOCK_WRAP_UP_WARN_AT", 30))))
             STOP_NOW_WARN_AT = int(getattr(self, "_admiral_stop_now_warn_at",
@@ -1224,7 +1348,7 @@ class AgentLoop:
                 if _elapsed > PER_PROMPT_BUDGET_SEC:
                     yield AssistantEvent(
                         content=(
-                            f"\n\n[Drydock: {int(_elapsed/60)} minutes "
+                            f"\n\n[Drydock: {int(_elapsed / 60)} minutes "
                             f"elapsed on this single prompt — over the "
                             f"{PER_PROMPT_BUDGET_SEC // 60}-min budget. "
                             "Stopping. Work done so far is on disk; "
@@ -1316,18 +1440,39 @@ class AgentLoop:
                         + (f" {_stop_suffix}" if _stop_suffix else "")
                     )
                 elif tool_turns >= HARD_STOP_CALLS:
-                    # Hard end-of-turn: synthesize a user-facing message
-                    # and stop. Was 50 but issue #9 showed "really
-                    # difficult" tasks legitimately need more than 50
-                    # tool calls. 100 preserves the runaway-loop safety
-                    # while giving complex builds room to finish.
+                    # v2.9.116: cap raised 100 -> 500. The no-write-streak
+                    # hard-stop below is the real "stuck without progress"
+                    # detector. This remains as runaway safety.
                     yield AssistantEvent(
                         content=(
                             f"\n\n[Drydock: stopped after {tool_turns} tool "
-                            "calls on a single request — too long without "
-                            "closing the turn. Returning control to the "
+                            "calls on a single request — runaway safety "
+                            "limit reached. Returning control to the "
                             "user. The work done so far is on disk; your "
                             "next prompt can review or continue.]\n"
+                        ),
+                        stopped_by_middleware=True,
+                    )
+                    return
+                # v2.9.116: no-write-streak hard-stop. Fires when the
+                # model has spent NO_WRITE_HARD_STOP turns reading and
+                # running diagnostics without committing a single edit.
+                # Skip for SUBAGENT contexts (explore/diagnostic/...) —
+                # they're read-mostly by design and the parent owns the
+                # overall budget. Same gate v2.9.91 added for the
+                # readonly-streak hard-stop.
+                no_write_streak = getattr(self, "_no_write_streak", 0)
+                if (no_write_streak >= NO_WRITE_HARD_STOP
+                        and self.agent_profile.agent_type
+                        != AgentType.SUBAGENT):
+                    yield AssistantEvent(
+                        content=(
+                            f"\n\n[Drydock: {no_write_streak} consecutive "
+                            "tool calls without any write/edit. Stuck in "
+                            "exploration. Returning control to the user. "
+                            "If you need to continue, your next prompt "
+                            "can pick up from where this trail off — "
+                            "every read result is still in history.]\n"
                         ),
                         stopped_by_middleware=True,
                     )
@@ -1679,7 +1824,6 @@ class AgentLoop:
                     # message that didn't break loop because it had tool_calls)
                     self._consecutive_empty_turns = 0
                 else:
-                    streak = getattr(self, "_consecutive_empty_turns", 0)
                     # Count consecutive text-only assistant turns by walking
                     # backward through history.
                     text_only_streak = 0
@@ -1928,7 +2072,7 @@ class AgentLoop:
                                 f"⚠ PREMATURE EXIT BLOCK #{nudges + 1}/10. "
                                 f"The task explicitly names this verify "
                                 f"command: `{missing_verify_cmds[0]}`"
-                                f"{' (+%d more)' % (len(missing_verify_cmds)-1) if len(missing_verify_cmds) > 1 else ''}"
+                                f"{' (+%d more)' % (len(missing_verify_cmds) - 1) if len(missing_verify_cmds) > 1 else ''}"
                                 f". You have NOT run it. The external "
                                 f"verifier will use that exact command (or "
                                 f"equivalent) after you exit — run it NOW "
@@ -2021,9 +2165,8 @@ class AgentLoop:
                                 "go test", "python ", "python3 ",
                             )
                             if any(cmd.strip().startswith(p) for p in safe_prefixes):
+                                import subprocess as _sub
                                 try:
-                                    import subprocess as _sub
-                                    import shlex as _sx
                                     _proc = _sub.run(
                                         cmd, shell=True, capture_output=True,
                                         timeout=45, text=True,
@@ -2076,13 +2219,13 @@ class AgentLoop:
                 # system note and DON'T break — let the agent loop
                 # do another iteration. Cap at goal.max_iterations.
                 # Targets P1-S1 / P1-S2 partial-completion failures.
+                g = getattr(self, "goal", None)
                 if (should_break_loop
-                        and getattr(self, "goal", None) is not None
-                        and getattr(self.goal, "active", False)
+                        and g is not None
+                        and getattr(g, "active", False)
                         and os.environ.get(
                             "DRYDOCK_AUTO_GOAL", "1"
                         ).strip().lower() in ("1", "true", "yes")):
-                    g = self.goal
                     if g.iterations < g.max_iterations:
                         try:
                             ok, msg = self._verify_rename_goal(Path.cwd())
@@ -2991,7 +3134,7 @@ class AgentLoop:
             if len(last_result) > 800:
                 result_preview = (
                     last_result[:400]
-                    + f"\n  …[{len(last_result)-400} chars omitted on dedup re-display]"
+                    + f"\n  …[{len(last_result) - 400} chars omitted on dedup re-display]"
                 )
             else:
                 result_preview = last_result
@@ -3589,11 +3732,11 @@ class AgentLoop:
                     sr_args = tool_call.args_dict
                     sr_path = sr_args.get("file_path", sr_args.get("path", ""))
                     if sr_path and Path(sr_path).exists():
-                        with open(sr_path, "r", encoding="utf-8", errors="replace") as f:
+                        with open(sr_path, encoding="utf-8", errors="replace") as f:
                             lines = f.readlines()
                         # Show first 50 lines or the whole file if small
                         preview_lines = lines[:50]
-                        numbered = [f"{i+1}\t{line.rstrip()}" for i, line in enumerate(preview_lines)]
+                        numbered = [f"{i + 1}\t{line.rstrip()}" for i, line in enumerate(preview_lines)]
                         auto_read_content = (
                             f"\n\nAUTO-READ of {sr_path} (first {len(preview_lines)} lines):\n"
                             + "\n".join(numbered)
@@ -3742,7 +3885,7 @@ class AgentLoop:
         "Empty content provided",     # search_replace empty content
         "REFUSED: write blocked",     # write_file pre-write syntax gate (2026-05-31)
         "REFUSED: bash inplace file edit",       # bash sed -i redirect (2026-05-31)
-        "REFUSED: bash redirect-to-source-file", # bash > file redirect (2026-05-31)
+        "REFUSED: bash redirect-to-source-file",  # bash > file redirect (2026-05-31)
         # Pydantic schema rejections — model emitted `{}` for required-field tool.
         # Found in operator session 2026-05-31 14:24: model called bash({}) repeatedly
         # after a REFUSED sed -i, dispatcher rejected with this exact text, and the
@@ -3769,7 +3912,7 @@ class AgentLoop:
     )
 
     def _scrub_validation_error_call(
-        self, failed_tool_call: "ResolvedToolCall"
+        self, failed_tool_call: ResolvedToolCall
     ) -> None:
         """Strip the args of a validation-error tool_call from history.
 
@@ -4153,6 +4296,12 @@ class AgentLoop:
             self._readonly_streak = 0
         if not hasattr(self, "_last_reflection_streak"):
             self._last_reflection_streak = 0
+        # v2.9.116: parallel counter — tool calls since the last write.
+        # Grows on readonly + neutral, resets only on write tools or a
+        # substantive assistant text response (resetting on text is
+        # handled in the main loop where assistant content is observed).
+        if not hasattr(self, "_no_write_streak"):
+            self._no_write_streak = 0
 
         # Reclassify bash → readonly when it's a read-shaped command.
         # Pull the command out of args; default to "" if missing.
@@ -4193,9 +4342,97 @@ class AgentLoop:
         if effective_kind == "write":
             self._readonly_streak = 0
             self._last_reflection_streak = 0
+            self._no_write_streak = 0  # v2.9.116: real write -> progress
+            self._consecutive_dedup_reads = 0  # v2.9.122: write breaks the marker streak
             return
+        # v2.9.116: every readonly + neutral grows the no-write streak.
+        # Reset only on a real write (above) or substantive assistant
+        # text (handled in the main loop after we see the LLM response).
+        self._no_write_streak += 1
         if effective_kind == "readonly":
-            self._readonly_streak += 1
+            # 2026-06-07 (v2.9.111/v2.9.114): Only count toward the streak
+            # when this readonly call's RESULT was already seen in the
+            # recent window. The doom-loop signature is IDENTICAL results,
+            # not many results.
+            #
+            # v2.9.114 fix: strip dedup-advisory headers from result text
+            # BEFORE hashing. Otherwise read_file's escalating
+            # "[REPEATED READ #N]" headers produce a different hash every
+            # time, and the model's re-read loop looks "novel" forever.
+            # Operator session 2026-06-07 showed cli.py being re-read 6+
+            # times with each hitting a different advisory header (#2,
+            # #3, #4, …) — my v2.9.112 missed all of them.
+            # Also fast-path: any result that opens with a dedup advisory
+            # marker is by definition a duplicate-content read.
+            DEDUP_MARKERS = (
+                "[2nd identical read",
+                "[REPEATED READ",
+                "[2nd identical read of this file",
+            )
+            raw_text = text or ""
+            stripped_text = raw_text
+            forced_dup = False
+            # Strip leading dedup advisory header if present
+            if raw_text.startswith("[") and any(
+                m in raw_text[:200] for m in DEDUP_MARKERS
+            ):
+                # Header runs to the closing bracket; content begins after
+                idx = raw_text.find("]\n")
+                if idx > 0:
+                    stripped_text = raw_text[idx + 2 :]
+                forced_dup = True
+
+            # v2.9.122: tighter hard-stop for pure read-loops.
+            # Track CONSECUTIVE dedup-marker reads. Operator session
+            # 2026-06-07 showed model on read #9 of llm.py and #6 of
+            # planner.py with each hitting "[REPEATED READ #N]" — strong
+            # evidence the readonly streak (caps at 18) takes too long
+            # to fire when 100% of streak entries are duplicates.
+            # If we see 3 consecutive marker-prefixed reads, the model
+            # is provably ignoring the advisory and needs to stop now.
+            consecutive_dedup = self.__dict__.setdefault(
+                "_consecutive_dedup_reads", 0
+            )
+            if forced_dup:
+                self._consecutive_dedup_reads = consecutive_dedup + 1
+            else:
+                self._consecutive_dedup_reads = 0
+            if (self._consecutive_dedup_reads >= 3
+                    and self.agent_profile.agent_type
+                    != AgentType.SUBAGENT):
+                logger.warning(
+                    "[CONSECUTIVE-DEDUP-READS] %d in a row — hard-stop",
+                    self._consecutive_dedup_reads,
+                )
+                # Don't return here — let the streak grow naturally so the
+                # ADAPTIVE-BUDGET hard-stop in the main loop fires next
+                # turn. Setting the streak past threshold ensures the
+                # existing hard-stop triggers without us bypassing the
+                # SUBAGENT-skip / env-disable gates above.
+                self._readonly_streak = max(
+                    self._readonly_streak, 18
+                )
+            try:
+                content_for_hash = stripped_text[:8192]
+                cur_hash = hashlib.sha256(
+                    content_for_hash.encode("utf-8", errors="replace")
+                ).hexdigest()[:16]
+            except Exception:
+                cur_hash = ""
+            seen_window = self.__dict__.setdefault(
+                "_recent_readonly_hashes", []
+            )
+            is_duplicate = forced_dup or (
+                bool(cur_hash) and cur_hash in seen_window
+            )
+            if is_duplicate:
+                self._readonly_streak += 1
+            # else: novel content -> productive readonly, don't increment.
+            if cur_hash:
+                seen_window.append(cur_hash)
+                self._recent_readonly_hashes = seen_window[-30:]
+            if not is_duplicate:
+                return
         else:
             # Neutral tool — don't change streak.
             return
@@ -4414,10 +4651,10 @@ class AgentLoop:
         )
         if not passed:
             note += (
-                f"\nThe test suite went RED after your edit. Read the failure "
-                f"above, fix the cause BEFORE declaring done or moving to a "
-                f"different file. Re-running pytest manually if you need a "
-                f"fresh view.\n"
+                "\nThe test suite went RED after your edit. Read the failure "
+                "above, fix the cause BEFORE declaring done or moving to a "
+                "different file. Re-running pytest manually if you need a "
+                "fresh view.\n"
             )
         self._inject_system_note(note)
         logger.warning(
@@ -4895,23 +5132,6 @@ class AgentLoop:
                 )
                 if not is_stub:
                     continue
-                # Extract path hint from any of the known fields.
-                path_hint = ""
-                for k in ("path", "file_path", "command", "cmd",
-                          "url", "file"):
-                    v = parsed.get(k)
-                    if isinstance(v, str) and v:
-                        path_hint = (
-                            v if len(v) <= 200 else v[:200] + "…"
-                        )
-                        break
-                # Try to recover an approximate original size.
-                orig_bytes = parsed.get("_original_bytes")
-                size_str = (
-                    f"original {int(orig_bytes)} bytes"
-                    if isinstance(orig_bytes, (int, float))
-                    else "compacted"
-                )
                 # 2026-05-29: upgrade legacy AND post-2026-05-24 stubs
                 # (which used the marker key `__drydock_compacted_args__`)
                 # to the new empty-args format `{}`. The marker-bearing
@@ -4920,10 +5140,9 @@ class AgentLoop:
                 # fake arg, triggering format.py's placeholder-loop
                 # recovery dance. Empty args produce a clean pydantic
                 # field-required error instead. Path hint and size
-                # info from `note` is dropped — debugging value was
-                # offset by the copy-bait cost.
+                # info dropped — debugging value was offset by the
+                # copy-bait cost.
                 tc.function.arguments = "{}"
-                _ = size_str  # retain for future logging if useful
                 try:
                     self.stats.legacy_stubs_upgraded += 1
                 except Exception:
@@ -5920,7 +6139,7 @@ class AgentLoop:
                         # Truncate args for readability
                         if len(args_str) > 120:
                             args_str = args_str[:120] + "..."
-                        recent.append(f"  {count+1}. {name}({args_str})")
+                        recent.append(f"  {count + 1}. {name}({args_str})")
                         count += 1
                         if count >= 8:
                             break
@@ -5928,11 +6147,11 @@ class AgentLoop:
                 # Add result summary to last entry
                 result = str(msg.content or "")[:150]
                 if "error" in result.lower() or "Error" in result:
-                    recent[-1] += f" → ERROR"
+                    recent[-1] += " → ERROR"
                 elif "not found" in result.lower():
-                    recent[-1] += f" → NOT FOUND"
+                    recent[-1] += " → NOT FOUND"
                 else:
-                    recent[-1] += f" → ok"
+                    recent[-1] += " → ok"
 
         if len(recent) < 3:
             return None
@@ -6354,7 +6573,6 @@ class AgentLoop:
         ):
             return
 
-        from drydock.core.prompts import SystemPrompt
         try:
             # SystemPrompt enum value names lowercased = file stems.
             # gemma4_math isn't in the enum — load by path.
@@ -7063,7 +7281,6 @@ class AgentLoop:
             db_chain.append(fallback_db)
 
         good_hits: list = []
-        text_hits: list = []
         used_db: str | None = None
         for db in db_chain:
             if not Path(db).is_file():
@@ -7098,7 +7315,6 @@ class AgentLoop:
                 db, len(hits), len(gh), QUALITY_THRESHOLD,
             )
             if gh:
-                text_hits = hits
                 good_hits = gh
                 used_db = db
                 break

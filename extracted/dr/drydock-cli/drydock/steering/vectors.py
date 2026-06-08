@@ -31,7 +31,7 @@ the active model, or whose sha256 doesn't match the loaded bytes.
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -64,7 +64,7 @@ class VectorManifest:
     tokens_suppress: tuple[str, ...] = ()   # token-level steering (logit_bias)
 
     @classmethod
-    def from_toml_dict(cls, data: dict[str, Any]) -> "VectorManifest":
+    def from_toml_dict(cls, data: dict[str, Any]) -> VectorManifest:
         v = data.get("vector", {})
         tags = data.get("tags", {})
         modes = tags.get("mode", []) if isinstance(tags, dict) else []
@@ -111,7 +111,7 @@ class Vector:
     payload_path: Path
 
     @classmethod
-    def load(cls, manifest_path: str | Path) -> "Vector":
+    def load(cls, manifest_path: str | Path) -> Vector:
         """Load (manifest.toml, payload.npy) pair. Verifies sha256."""
         manifest_path = Path(manifest_path)
         with manifest_path.open("rb") as f:

@@ -126,6 +126,7 @@ mod tests {
             is_monospace: false,
             color: Color::black(),
             mcid: Some(0),
+            mcid_scope: None,
             sequence: 0,
             split_boundary_before: false,
             offset_semantic: false,
@@ -136,6 +137,7 @@ mod tests {
             char_widths: vec![],
             heading_level: None,
             rotation_degrees: 0.0,
+            wmode: 0,
         }
     }
 

@@ -77,6 +77,7 @@ def _emit_telemetry(record: dict) -> None:
     except OSError:
         pass
 
+
 if TYPE_CHECKING:
     from drydock.core.constraint_extract import ExtractResult
 
@@ -95,7 +96,7 @@ _DEFAULT_BOUNDS = {
 }
 
 
-def _build_args(extr: "ExtractResult") -> dict | None:
+def _build_args(extr: ExtractResult) -> dict | None:
     """Build the SolveArgs dict for this ExtractResult, or None if the
     predicate isn't one Z3 can decide. The dict is what the model
     *would* have written when calling the tool — used both for the
@@ -249,7 +250,7 @@ def _run_solve_sync(args_dict: dict) -> dict | None:
         # bounds the whole orchestration including streaming setup.
         wall_ms = int(args_dict.get("timeout_ms", 15000)) + 5000
         result = asyncio.run(asyncio.wait_for(_run(), timeout=wall_ms / 1000))
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("[AUTO-SOLVE] hard timeout exceeded")
         return None
     except RuntimeError as e:
@@ -267,7 +268,7 @@ def _run_solve_sync(args_dict: dict) -> dict | None:
 
 
 def _format_result(args_dict: dict, result_dict: dict,
-                   extr: "ExtractResult") -> str:
+                   extr: ExtractResult) -> str:
     """Render the Solve result the way the real Solve tool prints it,
     matching what the model sees from a normal tool call. Adds a
     one-line summary at the bottom so the model can extract the

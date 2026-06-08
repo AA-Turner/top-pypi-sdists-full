@@ -31,6 +31,7 @@ from efterlev.agents.gap import (
     GapReport,
     KsiClassification,
     UnmappedFinding,
+    in_scope_evidence,
 )
 from efterlev.agents.remediation import (
     RemediationAgent,
@@ -58,6 +59,7 @@ __all__ = [
     "count_duplicate_classification_runs",
     "format_evidence_for_prompt",
     "format_source_files_for_prompt",
+    "in_scope_evidence",
     "new_fence_nonce",
     "parse_evidence_fence_ids",
     "parse_source_file_fence_paths",

@@ -1,0 +1,106 @@
+import pytest
+import yaml
+import itertools
+import os
+from pathlib import Path
+
+# Load the matrix once
+with open(Path(__file__).parent / "matrix.yml") as f:
+    MATRIX = yaml.safe_load(f)
+
+def build_request(channel: str, entry: dict, model: str, flag_set: dict) -> dict:
+    args = []
+    for flag, value in flag_set.items():
+        if value is not None:
+            args.extend([flag, str(value)])
+
+    request = {
+        "channel": channel,
+        "model": model,
+        "command": entry["command"],
+        "args": args,
+    }
+
+    # Generate a sensible prompt string from the args
+    prompt_str = f"{entry['command']} " + " ".join([f"{k.lstrip('-')} {v}" for k, v in flag_set.items() if v is not None])
+
+    if channel == "sms":
+        request["sms_request"] = f"sage {prompt_str}"
+    elif channel == "web":
+        request["web_request"] = {"task": prompt_str}
+    elif channel == "cli":
+        request["cli_request"] = f"sage ask '{prompt_str}' --raw"
+        
+    request["description"] = entry["description"]
+    request["success_criteria"] = dict(entry.get("success_criteria", {}))
+    # For file validation:
+    if "--extension" in flag_set and flag_set["--extension"] is not None:
+        request["success_criteria"]["extension"] = flag_set["--extension"]
+    elif "--format" in flag_set and flag_set["--format"] is not None:
+        request["success_criteria"]["extension"] = "." + flag_set["--format"]
+    elif "--lang" in flag_set and flag_set["--lang"] is not None:
+         lang_map = {
+             "python": ".py", "go": ".go", "rust": ".rs", "java": ".java", 
+             "javascript": ".js", "typescript": ".ts", "c++": ".cpp", "c#": ".cs",
+             "swift": ".swift", "kotlin": ".kt", "ruby": ".rb", "php": ".php",
+             "perl": ".pl", "dart": ".dart", "scala": ".scala", "elixir": ".ex",
+             "haskell": ".hs", "clojure": ".clj", "r": ".r", "lua": ".lua"
+         }
+         if flag_set["--lang"] in lang_map:
+             request["success_criteria"]["extension"] = lang_map[flag_set["--lang"]]
+    elif entry["domain"] == "web":
+         request["success_criteria"]["extension"] = ".html"
+    elif entry["domain"] == "backend":
+         request["success_criteria"]["extension"] = ".py" # Default for backend if not specified
+    elif entry["domain"] == "animation":
+         request["success_criteria"]["extension"] = ".mp4"
+    elif entry["domain"] == "music_video":
+         request["success_criteria"]["extension"] = ".mp4"
+
+    return request
+
+def _flag_combinations(entry):
+    flag_names = [f["name"] for f in entry.get("flags", [])]
+    value_sets = []
+    for f in entry.get("flags", []):
+        # include both valid and invalid values
+        vals = f["values"]["valid"] + f["values"]["invalid"]
+        value_sets.append(vals)
+    for combo in itertools.product(*value_sets):
+        yield dict(zip(flag_names, combo))
+
+def pytest_generate_tests(metafunc):
+    if "test_case" not in metafunc.fixturenames:
+        return
+
+    # Use a stable set of models for the exhaustive sweep
+    models = ["cloud:qwen3-coder", "ollama:llama3.2:latest"]
+    channels = ["sms", "cli", "web"]
+
+    cases = []
+    ids = []
+
+    for entry in MATRIX:
+        # Generate combinatorial cases only if it matches the test file's domain
+        test_file_name = os.path.basename(str(metafunc.definition.fspath))
+        if entry["domain"] not in test_file_name:
+             continue
+             
+        for flag_set in _flag_combinations(entry):
+            for channel in channels:
+                for model in models:
+                    request = build_request(channel, entry, model, flag_set)
+                    case = {
+                        "entry": entry,
+                        "request": request,
+                        "flag_set": flag_set,
+                        "channel": channel,
+                        "model": model,
+                    }
+                    cases.append(case)
+                    ids.append(
+                        f"{entry['domain']}-{entry['command']}"
+                        f"-{channel}-{model.split(':')[-1]}-"
+                        f"{'_'.join(f'{k}{v}' for k, v in flag_set.items() if v is not None)}"
+                    )
+    metafunc.parametrize("test_case", cases, ids=ids)

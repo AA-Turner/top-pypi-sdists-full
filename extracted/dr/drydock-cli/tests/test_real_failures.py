@@ -6,8 +6,6 @@ They should FAIL until the underlying code is fixed.
 
 from __future__ import annotations
 
-import asyncio
-import os
 from pathlib import Path
 
 import httpx
@@ -25,9 +23,6 @@ from drydock.core.agent_loop import AgentLoop
 from drydock.core.agents.models import BuiltinAgentName
 from drydock.core.config import Backend, ModelConfig, ProviderConfig, DrydockConfig
 from drydock.core.types import (
-    AssistantEvent,
-    BaseEvent,
-    Role,
     ToolCallEvent,
     ToolResultEvent,
 )
@@ -38,6 +33,7 @@ def _vllm_ok() -> bool:
         return httpx.get("http://localhost:8000/v1/models", timeout=3).status_code == 200
     except Exception:
         return False
+
 
 pytestmark = pytest.mark.skipif(not _vllm_ok(), reason="vLLM not running")
 

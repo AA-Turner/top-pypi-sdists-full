@@ -41,6 +41,8 @@ from ...models.automations import (
 )
 from . import api_actions, catalog
 from .emitter import (
+    dump,
+    emit_trigger_list_item,
     render_action_field,
     render_api_action_item,
     render_interval_item,
@@ -60,10 +62,14 @@ from .writing_layout import (
     _locate_top_list_item,
 )
 from .writing_lists import (
+    ListContainerStrategy,
     delete_light_effect,
     delete_list_entry,
+    delete_list_entry_for,
     upsert_component_on_entry,
     upsert_light_effect,
+    upsert_list_entry,
+    wrap_handler_list_block,
 )
 
 # ---------------------------------------------------------------------------
@@ -152,9 +158,73 @@ def _upsert_device_on(
     tree: AutomationTree,
     location: DeviceOnLocation,
 ) -> tuple[str, YamlDiff]:
-    """Splice a device-level ``on_*:`` handler under ``esphome:``."""
+    """Splice a device-level ``on_*:`` handler under ``esphome:`` (mapping or list entry)."""
+    if location.index is not None:
+        return _upsert_device_on_entry(yaml_text, tree, location.trigger, location.index)
     rendered = render_trigger_handler(tree, key=location.trigger)
     return _upsert_under_top_key(yaml_text, "esphome", location.trigger, rendered)
+
+
+def _esphome_container(yaml_text: str, _error_code: ErrorCode) -> dict | None:
+    """Return the ``esphome:`` mapping, or ``None`` when absent (never raises)."""
+    data = make_yaml().load(yaml_text) or {}
+    esphome = data.get("esphome") if isinstance(data, dict) else None
+    return esphome if isinstance(esphome, dict) else None
+
+
+def _esphome_resplice(yaml_text: str, handler_key: str, entries: list) -> tuple[str, YamlDiff]:
+    """Re-emit a device handler list under ``esphome:``; remove the key when emptied."""
+    if entries:
+        rendered = wrap_handler_list_block(handler_key, dump(entries))
+        return _upsert_under_top_key(yaml_text, "esphome", handler_key, rendered)
+    return _delete_under_top_key(yaml_text, "esphome", handler_key)
+
+
+def _esphome_not_present_msg(key: str, index: int) -> str:
+    """Delete not-found message for a device-level list handler."""
+    return f"{key}[{index}] not present"
+
+
+_DEVICE_STRATEGY = ListContainerStrategy(
+    locate=_esphome_container,
+    resplice=_esphome_resplice,
+    not_present_msg=_esphome_not_present_msg,
+)
+
+
+def _upsert_device_on_entry(
+    yaml_text: str,
+    tree: AutomationTree,
+    trigger: str,
+    index: int,
+) -> tuple[str, YamlDiff]:
+    """Insert or replace one entry of a list-form device handler (``esphome.on_boot``).
+
+    Refuses to grow a single mapping into a list (the user picked that shape).
+    No ``supports_list`` gate here: every device-level trigger is list-capable,
+    and the wizard already withholds the affordance for any that are not.
+    """
+    return upsert_list_entry(
+        yaml_text,
+        key=trigger,
+        item=emit_trigger_list_item(tree),
+        index=index,
+        strategy=_DEVICE_STRATEGY,
+    )
+
+
+def _delete_device_on_entry(
+    yaml_text: str,
+    trigger: str,
+    index: int,
+) -> tuple[str, YamlDiff]:
+    """Drop one entry of a list-form device handler; remove the key when emptied."""
+    return delete_list_entry_for(
+        yaml_text,
+        key=trigger,
+        index=index,
+        strategy=_DEVICE_STRATEGY,
+    )
 
 
 def _upsert_component_on(
@@ -447,6 +517,8 @@ def _delete_top_level(
     if isinstance(location, IntervalLocation):
         return _delete_top_level_list_by_index(yaml_text, "interval", location.index)
     if isinstance(location, DeviceOnLocation):
+        if location.index is not None:
+            return _delete_device_on_entry(yaml_text, location.trigger, location.index)
         return _delete_under_top_key(yaml_text, "esphome", location.trigger)
     # Unreachable when called from ``render_delete`` (the dispatch
     # there only forwards the three union members above). Kept as

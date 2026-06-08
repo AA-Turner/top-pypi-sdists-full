@@ -1,11 +1,16 @@
+from __future__ import annotations
+
 import inspect
 import subprocess
 import textwrap
-from pathlib import Path
 
 import pytest
 
 from . import test_projects, utils
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from pathlib import Path
 
 project_with_a_test = test_projects.new_c_project(
     setup_cfg_add=textwrap.dedent(
@@ -167,11 +172,6 @@ def test_failing_test(tmp_path: Path) -> None:
             add_env={
                 "CIBW_TEST_REQUIRES": "pytest",
                 "CIBW_TEST_COMMAND": f"{utils.invoke_pytest()} {{project}}/test",
-                # CPython 3.8 when running on macOS arm64 is unusual. The build
-                # always runs in x86_64, so the arm64 tests are not run. See
-                # #1169 for reasons why. That means the build succeeds, which
-                # we don't want. So we skip that build.
-                "CIBW_SKIP": "cp38-macosx_arm64",
             },
         )
 
@@ -199,9 +199,6 @@ def test_bare_pytest_invocation(
                 "CIBW_TEST_COMMAND": (
                     "python -m pytest" if test_runner == "pytest" else "python -m unittest"
                 ),
-                # Skip CPython 3.8 on macOS arm64, see comment above in
-                # 'test_failing_test'
-                "CIBW_SKIP": "cp38-macosx_arm64",
             },
         )
 

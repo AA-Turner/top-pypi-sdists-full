@@ -15,7 +15,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
 
 from drydock.core.llm.format import APIToolFormatHandler, ParsedMessage, ParsedToolCall
 

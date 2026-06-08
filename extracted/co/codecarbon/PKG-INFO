@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: codecarbon
-Version: 3.2.7
+Version: 3.2.8
 Author: Mila, DataForGood, BCG GAMMA, Comet.ml, Haverford College
 License-Expression: MIT
 Project-URL: Homepage, https://codecarbon.io/
@@ -20,13 +20,14 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: arrow
 Requires-Dist: authlib>=1.2.1
+Requires-Dist: joserfc>=1.0.0
 Requires-Dist: click
 Requires-Dist: pandas>=2.3.3; python_version >= "3.14"
 Requires-Dist: pandas; python_version < "3.14"
 Requires-Dist: prometheus_client
 Requires-Dist: psutil>=6.0.0
 Requires-Dist: py-cpuinfo
-Requires-Dist: pydantic
+Requires-Dist: pydantic<3.0.0,>=2.0.0
 Requires-Dist: nvidia-ml-py
 Requires-Dist: rapidfuzz
 Requires-Dist: requests
@@ -42,8 +43,6 @@ Provides-Extra: viz-legacy
 Requires-Dist: dash; extra == "viz-legacy"
 Requires-Dist: dash_bootstrap_components>1.0.0; extra == "viz-legacy"
 Requires-Dist: fire; extra == "viz-legacy"
-Provides-Extra: amdsmi
-Requires-Dist: amdsmi>=6.0.0; extra == "amdsmi"
 Dynamic: license-file
 
 ![banner](docs/images/banner.png)
@@ -123,6 +122,8 @@ Configuration precedence and examples: [configuration guide](https://docs.codeca
 ## How it works
 
 We created a Python package that estimates your hardware electricity power consumption (GPU + CPU + RAM) and we apply to it the carbon intensity of the region where the computing is done.
+
+CodeCarbon focuses on the main compute components it can measure or estimate directly: CPU, GPU, and RAM. It does not separately model disk I/O, network transfers, displays, cooling, or other peripherals because those sources are usually much smaller for local code-level experiments and are not exposed through the same low-overhead measurement interfaces.
 
 ![calculation Summary](docs/images/calculation.png)
 

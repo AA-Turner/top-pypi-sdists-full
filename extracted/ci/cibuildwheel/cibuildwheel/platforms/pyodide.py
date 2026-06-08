@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import dataclasses
 import functools
 import json
@@ -7,7 +9,6 @@ import subprocess
 import sys
 import tomllib
 import typing
-from collections.abc import Set
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Final, TypedDict
@@ -16,11 +17,9 @@ from filelock import FileLock
 
 from cibuildwheel import errors
 from cibuildwheel.architecture import Architecture
-from cibuildwheel.environment import ParsedEnvironment
-from cibuildwheel.frontend import get_build_frontend_extra_flags
+from cibuildwheel.audit import run_audit
+from cibuildwheel.frontend import get_build_frontend_extra_flags, prepare_config_settings
 from cibuildwheel.logger import log
-from cibuildwheel.options import Options
-from cibuildwheel.selector import BuildSelector
 from cibuildwheel.util import resources
 from cibuildwheel.util.cmd import call, shell
 from cibuildwheel.util.file import (
@@ -30,6 +29,7 @@ from cibuildwheel.util.file import (
     extract_tar,
     extract_zip,
     move_file,
+    remove_on_error,
 )
 from cibuildwheel.util.helpers import prepare_command, unwrap, unwrap_preserving_paragraphs
 from cibuildwheel.util.packaging import find_compatible_wheel, get_pip_version
@@ -38,6 +38,14 @@ from cibuildwheel.util.python_build_standalone import (
     create_python_build_standalone_environment,
 )
 from cibuildwheel.venv import constraint_flags, virtualenv
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from collections.abc import Set
+
+    from cibuildwheel.environment import ParsedEnvironment
+    from cibuildwheel.options import Options
+    from cibuildwheel.selector import BuildSelector
 
 IS_WIN: Final[bool] = sys.platform.startswith("win")
 
@@ -48,6 +56,7 @@ class PythonConfiguration:
     identifier: str
     default_pyodide_version: str
     node_version: str
+    sha256: str = ""
 
 
 class PyodideXBuildEnvInfoVersionRange(TypedDict):
@@ -84,32 +93,40 @@ def ensure_node(major_version: str) -> Path:
             with TemporaryDirectory() as tmp_path:
                 archive = Path(tmp_path) / f"{name}.{ext}"
                 download(url, archive)
-                if ext == "zip":
-                    extract_zip(archive, path.parent)
-                else:
-                    extract_tar(archive, path.parent)
+                with remove_on_error(path):
+                    if ext == "zip":
+                        extract_zip(archive, path.parent)
+                    else:
+                        extract_tar(archive, path.parent)
     assert path.exists()
     if not IS_WIN:
         return path / "bin"
     return path
 
 
-def install_emscripten(tmp: Path, version: str) -> Path:
-    url = f"https://github.com/emscripten-core/emsdk/archive/refs/tags/{version}.zip"
-    installation_path = CIBW_CACHE_PATH / f"emsdk-{version}"
-    emsdk_path = installation_path / f"emsdk-{version}/emsdk"
-    emcc_path = installation_path / f"emsdk-{version}/upstream/emscripten/emcc"
-    with FileLock(f"{installation_path}.lock"):
-        if installation_path.exists():
-            return emcc_path
-        emsdk_zip = tmp / "emsdk.zip"
-        download(url, emsdk_zip)
-        installation_path.mkdir()
-        extract_zip(emsdk_zip, installation_path)
-        call(emsdk_path, "install", version)
-        call(emsdk_path, "activate", version)
-
-    return emcc_path
+def install_emscripten(env: dict[str, str], version: str, xbuildenv_cache_path: Path) -> Path:
+    """Install Emscripten via pyodide-build, which also applies Pyodide-specific patches."""
+    emscripten_dir = Path(
+        call("pyodide", "config", "get", "emscripten_dir", env=env, capture_stdout=True).strip()
+    )
+    with FileLock(CIBW_CACHE_PATH / "emscripten.lock"):
+        if emscripten_dir.exists():
+            return emscripten_dir
+        with remove_on_error(emscripten_dir):
+            call(
+                "pyodide",
+                "xbuildenv",
+                "install-emscripten",
+                "--force",
+                "--version",
+                version,
+                "--path",
+                str(xbuildenv_cache_path),
+                env=env,
+                cwd=CIBW_CACHE_PATH,
+            )
+    assert emscripten_dir.exists()
+    return emscripten_dir
 
 
 def get_all_xbuildenv_version_info(env: dict[str, str]) -> list[PyodideXBuildEnvInfo]:
@@ -180,12 +197,8 @@ def validate_pyodide_build_version(
         raise errors.FatalError(msg)
 
 
-def install_xbuildenv(env: dict[str, str], pyodide_build_version: str, pyodide_version: str) -> str:
+def install_xbuildenv(env: dict[str, str], xbuildenv_cache_path: Path, pyodide_version: str) -> str:
     """Install a particular Pyodide xbuildenv version and set a path to the Pyodide root."""
-    # Since pyodide-build was unvendored from Pyodide v0.27.0, the versions of
-    # pyodide-build are uncoupled from the versions of Pyodide. So, we specify
-    # both the pyodide-build version and the Pyodide version in the temp path.
-    xbuildenv_cache_path = CIBW_CACHE_PATH / f"pyodide-build-{pyodide_build_version}"
     pyodide_root = xbuildenv_cache_path / pyodide_version / "xbuildenv" / "pyodide-root"
 
     with FileLock(CIBW_CACHE_PATH / "xbuildenv.lock"):
@@ -198,17 +211,18 @@ def install_xbuildenv(env: dict[str, str], pyodide_build_version: str, pyodide_v
         env.pop("PYODIDE_ROOT", None)
 
         # Install the xbuildenv
-        call(
-            "pyodide",
-            "xbuildenv",
-            "install",
-            "--path",
-            str(xbuildenv_cache_path),
-            pyodide_version,
-            env=env,
-            cwd=CIBW_CACHE_PATH,
-        )
-        assert pyodide_root.exists()
+        with remove_on_error(xbuildenv_cache_path / pyodide_version):
+            call(
+                "pyodide",
+                "xbuildenv",
+                "install",
+                "--path",
+                str(xbuildenv_cache_path),
+                pyodide_version,
+                env=env,
+                cwd=CIBW_CACHE_PATH,
+            )
+            assert pyodide_root.exists()
 
     return str(pyodide_root)
 
@@ -268,7 +282,7 @@ def setup_python(
     if which_python != str(venv_bin_path / "python"):
         msg = "python available on PATH doesn't match our venv instance. If you have modified PATH, ensure that you don't overwrite cibuildwheel's entry or insert python above it."
         raise errors.FatalError(msg)
-    call("python", "--version", env=env)
+    call("python", "-V", "-V", env=env)
 
     # check what pip version we're on
     assert (venv_bin_path / "pip").exists()
@@ -303,14 +317,18 @@ def setup_python(
         pyodide_build_version=pyodide_build_version,
     )
 
-    emscripten_version = xbuildenv_info["emscripten"]
-    log.step(f"Installing Emscripten version: {emscripten_version} ...")
-    emcc_path = install_emscripten(tmp, emscripten_version)
-
-    env["PATH"] = os.pathsep.join([str(emcc_path.parent), env["PATH"]])
+    xbuildenv_cache_path = CIBW_CACHE_PATH / f"pyodide-build-{pyodide_build_version}"
 
     log.step(f"Installing Pyodide xbuildenv version: {pyodide_version} ...")
-    env["PYODIDE_ROOT"] = install_xbuildenv(env, pyodide_build_version, pyodide_version)
+    env["PYODIDE_ROOT"] = install_xbuildenv(env, xbuildenv_cache_path, pyodide_version)
+
+    emscripten_version = xbuildenv_info["emscripten"]
+    log.step(
+        f"Installing Emscripten {emscripten_version} and applying Pyodide-specific patches ..."
+    )
+    emscripten_dir = install_emscripten(env, emscripten_version, xbuildenv_cache_path)
+
+    env["PATH"] = os.pathsep.join([str(emscripten_dir), env["PATH"]])
 
     return env
 
@@ -378,6 +396,7 @@ def build(options: Options, tmp_path: Path) -> None:
                 environment=build_options.environment,
                 user_pyodide_version=build_options.pyodide_version,
             )
+            env["CIBUILDWHEEL_BUILD_IDENTIFIER"] = config.identifier
             pip_version = get_pip_version(env)
             # The Pyodide command line runner mounts all directories in the host
             # filesystem into the Pyodide file system, except for the custom
@@ -417,8 +436,11 @@ def build(options: Options, tmp_path: Path) -> None:
                 extra_flags = get_build_frontend_extra_flags(
                     build_frontend,
                     build_options.build_verbosity,
-                    build_options.config_settings,
-                    py38=False,
+                    prepare_config_settings(
+                        build_options.config_settings,
+                        project=".",
+                        package=build_options.package_dir,
+                    ),
                 )
 
                 call(
@@ -453,6 +475,8 @@ def build(options: Options, tmp_path: Path) -> None:
 
                 if repaired_wheel.name in {wheel.name for wheel in built_wheels}:
                     raise errors.AlreadyBuiltWheelError(repaired_wheel.name)
+
+                run_audit(tmp_dir=tmp_path, build_options=build_options, wheel=repaired_wheel)
 
             if build_options.test_command and build_options.test_selector(config.identifier):
                 log.step("Testing wheel...")

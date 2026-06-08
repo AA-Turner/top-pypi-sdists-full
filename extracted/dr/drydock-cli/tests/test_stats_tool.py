@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest
 
 from drydock.core.tools.base import BaseToolState
 from drydock.core.tools.builtins.stats_tool import (
@@ -96,7 +95,7 @@ def test_binomial_op_matches_pmf():
     """binomial(n=10, k=3, p=0.5) = C(10,3)/2^10 = 120/1024."""
     r = _drive(StatsArgs(op="binomial", n="10", k="3", p="0.5"))
     assert r.ok
-    assert abs(float(r.result) - 120/1024) < 1e-6
+    assert abs(float(r.result) - 120 / 1024) < 1e-6
 
 
 def test_poisson_pmf():

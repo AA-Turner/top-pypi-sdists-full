@@ -41,13 +41,11 @@ import datetime as dt
 import hashlib
 import json
 import logging
-import os
 import re
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 logger = logging.getLogger(__name__)
 
@@ -143,11 +141,11 @@ def _recently_handled(state: dict, key: str) -> bool:
             continue
         try:
             when = dt.datetime.fromisoformat(ts.rstrip("Z")).replace(
-                tzinfo=dt.timezone.utc
+                tzinfo=dt.UTC
             )
         except Exception:
             continue
-        if (dt.datetime.now(dt.timezone.utc) - when).days < DUPLICATE_BACKOFF_DAYS:
+        if (dt.datetime.now(dt.UTC) - when).days < DUPLICATE_BACKOFF_DAYS:
             return True
     return False
 
@@ -276,19 +274,21 @@ def _harvest_zero_hit_queries(state: dict, hours: int = 2) -> list[str]:
     """
     if not DRYDOCK_LOG.is_file():
         return []
-    cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=hours)
+    cutoff = dt.datetime.now(dt.UTC) - dt.timedelta(hours=hours)
     last_query = None
     zeros: collections.Counter[str] = collections.Counter()
     for line in DRYDOCK_LOG.read_text(errors="replace").splitlines():
         if "[AUTO-RETRIEVE]" not in line:
             continue
         m = re.match(r"(\S+)", line)
+        if m is None:
+            continue
         try:
             ts = dt.datetime.fromisoformat(m.group(1))
         except Exception:
             continue
         if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=dt.timezone.utc)
+            ts = ts.replace(tzinfo=dt.UTC)
         if ts < cutoff:
             continue
         m2 = re.search(r"extracted query: (.+)$", line)
@@ -313,7 +313,7 @@ def _harvest_zero_hit_queries(state: dict, hours: int = 2) -> list[str]:
 def _is_still_a_gap(query: str) -> bool:
     """Re-query the current cookbook DB; True if it still scores below threshold."""
     try:
-        import sqlite3, math
+        import sqlite3
     except Exception:
         return True
     if not COOKBOOK_DB.is_file():
@@ -522,7 +522,7 @@ def _write_staging(draft: Draft) -> Path:
 
 
 def _now() -> str:
-    return dt.datetime.now(dt.timezone.utc).isoformat()
+    return dt.datetime.now(dt.UTC).isoformat()
 
 
 def promote(slug: str, target_subdir: str = "python") -> Path | None:

@@ -43,7 +43,6 @@ Read-only, side-effect free, ALWAYS permission.
 """
 from __future__ import annotations
 
-import json
 import re
 from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, final
@@ -154,7 +153,7 @@ def _safe_globals() -> dict[str, Any]:
     global _ALLOWED_NAMES
     if _ALLOWED_NAMES:
         return _ALLOWED_NAMES
-    from sympy import Symbol, true, false
+    from sympy import true, false
     from sympy.logic.boolalg import (
         And, Or, Not, Implies, Equivalent, Xor, ITE, Nand, Nor,
     )
@@ -404,18 +403,18 @@ def _op_modus_ponens(p_str: str, pq_str: str) -> tuple[str, str]:
 
 
 _DISPATCH = {
-    "evaluate":      lambda a: _op_evaluate(a.expression, a.variables),
-    "truth_table":   lambda a: _op_truth_table(a.expression),
-    "equivalent":    lambda a: _op_equivalent(a.expression, a.expression2),
-    "tautology":     lambda a: _op_tautology(a.expression),
+    "evaluate": lambda a: _op_evaluate(a.expression, a.variables),
+    "truth_table": lambda a: _op_truth_table(a.expression),
+    "equivalent": lambda a: _op_equivalent(a.expression, a.expression2),
+    "tautology": lambda a: _op_tautology(a.expression),
     "contradiction": lambda a: _op_contradiction(a.expression),
-    "satisfiable":   lambda a: _op_satisfiable(a.expression),
-    "cnf":           lambda a: _op_cnf(a.expression),
-    "dnf":           lambda a: _op_dnf(a.expression),
-    "simplify":      lambda a: _op_simplify(a.expression),
-    "negate":        lambda a: _op_negate(a.expression),
+    "satisfiable": lambda a: _op_satisfiable(a.expression),
+    "cnf": lambda a: _op_cnf(a.expression),
+    "dnf": lambda a: _op_dnf(a.expression),
+    "simplify": lambda a: _op_simplify(a.expression),
+    "negate": lambda a: _op_negate(a.expression),
     "contrapositive": lambda a: _op_contrapositive(a.expression),
-    "modus_ponens":  lambda a: _op_modus_ponens(a.expression, a.expression2),
+    "modus_ponens": lambda a: _op_modus_ponens(a.expression, a.expression2),
 }
 
 
@@ -439,7 +438,7 @@ class Logic(
         return ToolCallDisplay(summary=f"logic[{args.op}]: {e}")
 
     @classmethod
-    def get_result_display(cls, event: "ToolResultEvent") -> ToolResultDisplay:
+    def get_result_display(cls, event: ToolResultEvent) -> ToolResultDisplay:
         if isinstance(event.result, LogicResult):
             if not event.result.ok:
                 return ToolResultDisplay(
@@ -462,8 +461,8 @@ class Logic(
 
     @final
     async def run(
-        self, args: LogicArgs, ctx: "InvokeContext | None" = None
-    ) -> AsyncGenerator["ToolStreamEvent | LogicResult", None]:
+        self, args: LogicArgs, ctx: InvokeContext | None = None
+    ) -> AsyncGenerator[ToolStreamEvent | LogicResult, None]:
         handler = _DISPATCH.get(args.op)
         if handler is None:
             yield LogicResult(

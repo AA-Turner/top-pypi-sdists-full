@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import json
 import logging
-import subprocess
 from dataclasses import dataclass, field
 from enum import StrEnum, auto
 from pathlib import Path
@@ -179,7 +178,7 @@ class HookManager:
 
             return HookResult(decision=HookDecision.ALLOW, message=output)
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("Hook timed out: %s", hook.command)
             return HookResult()
 

@@ -69,7 +69,17 @@ fn page_reading_order_inner(
         return Ok(Vec::new());
     }
 
+    // Article threads (#458): the parser (`crate::structure::parse_article_threads`)
+    // and `ArticleThreadStrategy` ship as a tested foundation, but are NOT yet
+    // auto-wired into this default path. The v0.3.61 corpus sweep showed the
+    // ≥80%-bead-coverage gate activated on regular technical books (single-column,
+    // where geometric order is already correct) and reordered content
+    // non-improvingly. Until the activation gate can be proven to *only improve*
+    // on true multi-column magazine threads (deferred → v0.3.62), the default
+    // reading order stays geometric so the corpus is byte-identical. Callers can
+    // still use the parser/strategy directly.
     let context = build_context(doc, page_index);
+
     let pipeline = TextPipeline::with_config(TextPipelineConfig::default());
     pipeline.process(spans, context)
 }
@@ -102,7 +112,14 @@ pub(crate) fn build_context(doc: &PdfDocument, page_index: usize) -> ReadingOrde
 
     // Use the all-pages traversal cache (O(1) per page) instead of re-walking
     // the whole structure tree here (≈ O(pages²) across a tagged document).
-    let mcid_order: Vec<u32> = doc.cached_mcid_order_for_page(&tree, page_index as u32);
+    // Reading-order strategies only need the bare MCID sequence (for
+    // geometric checks); they don't disambiguate by content-stream
+    // scope. Project the scoped list down to MCID-only here.
+    let mcid_order: Vec<u32> = doc
+        .cached_mcid_order_for_page(&tree, page_index as u32)
+        .into_iter()
+        .map(|(_scope, m)| m)
+        .collect();
 
     if !mcid_order.is_empty() {
         ctx = ctx.with_mcid_order(mcid_order);

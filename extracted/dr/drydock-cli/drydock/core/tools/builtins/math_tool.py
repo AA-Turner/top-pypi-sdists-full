@@ -181,7 +181,7 @@ class Math(
         return ToolCallDisplay(summary=f"math: {e}")
 
     @classmethod
-    def get_result_display(cls, event: "ToolResultEvent") -> ToolResultDisplay:
+    def get_result_display(cls, event: ToolResultEvent) -> ToolResultDisplay:
         if isinstance(event.result, MathResult):
             if not event.result.ok:
                 return ToolResultDisplay(

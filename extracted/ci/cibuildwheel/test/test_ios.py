@@ -1,15 +1,18 @@
+from __future__ import annotations
+
 import os
 import platform
 import shutil
 import subprocess
 import textwrap
-from pathlib import Path
 
 import pytest
 
-from cibuildwheel.ci import CIProvider, detect_ci_provider
-
 from . import test_projects, utils
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from pathlib import Path
 
 pytestmark = pytest.mark.ios
 
@@ -36,11 +39,6 @@ def skip_if_ios_testing_not_supported() -> None:
         pytest.skip("this test can only run on macOS")
     if utils.get_xcode_version() < (13, 0):
         pytest.skip("this test only works with Xcode 13.0 or greater")
-    if detect_ci_provider() == CIProvider.cirrus_ci:
-        pytest.skip(
-            "iOS testing not currently supported on Cirrus CI due to a failure "
-            "to start the simulator."
-        )
 
 
 # iOS tests shouldn't be run in parallel, because they're dependent on calling
@@ -50,7 +48,7 @@ def skip_if_ios_testing_not_supported() -> None:
 # which is guaranteed to run single-process.
 # This can also fail the first time sometimes.
 @pytest.mark.serial
-@pytest.mark.flaky(reruns=2)
+@pytest.mark.flaky(reruns=1)
 @pytest.mark.parametrize(
     "build_config",
     [
@@ -175,7 +173,7 @@ def test_ios_testing_with_placeholder(tmp_path: Path, capfd: pytest.CaptureFixtu
 
 
 @pytest.mark.serial
-@pytest.mark.flaky(reruns=2)
+@pytest.mark.flaky(reruns=1)
 def test_ios_test_command_short_circuit(tmp_path: Path, capfd: pytest.CaptureFixture[str]) -> None:
     skip_if_ios_testing_not_supported()
 

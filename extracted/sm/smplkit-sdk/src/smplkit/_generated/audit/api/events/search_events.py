@@ -60,8 +60,10 @@ def sync_detailed(
 
      Search audit events with column filters and an optional JSON Logic expression.
 
-    Scoped to the resolved environment (a single-environment credential
-    implies it; otherwise send the `X-Smplkit-Environment` header).
+    Scoped by `filter[environment]` (a comma-separated set). When omitted, a
+    single-environment credential is implied; otherwise send the
+    `X-Smplkit-Environment` header. The reserved `smplkit` value selects
+    platform change events smplkit records about your own resources.
 
     Without a JSON Logic `filter`: behaves like `GET /api/v1/events`
     with the same column filters.
@@ -125,8 +127,10 @@ def sync(
 
      Search audit events with column filters and an optional JSON Logic expression.
 
-    Scoped to the resolved environment (a single-environment credential
-    implies it; otherwise send the `X-Smplkit-Environment` header).
+    Scoped by `filter[environment]` (a comma-separated set). When omitted, a
+    single-environment credential is implied; otherwise send the
+    `X-Smplkit-Environment` header. The reserved `smplkit` value selects
+    platform change events smplkit records about your own resources.
 
     Without a JSON Logic `filter`: behaves like `GET /api/v1/events`
     with the same column filters.
@@ -185,8 +189,10 @@ async def asyncio_detailed(
 
      Search audit events with column filters and an optional JSON Logic expression.
 
-    Scoped to the resolved environment (a single-environment credential
-    implies it; otherwise send the `X-Smplkit-Environment` header).
+    Scoped by `filter[environment]` (a comma-separated set). When omitted, a
+    single-environment credential is implied; otherwise send the
+    `X-Smplkit-Environment` header. The reserved `smplkit` value selects
+    platform change events smplkit records about your own resources.
 
     Without a JSON Logic `filter`: behaves like `GET /api/v1/events`
     with the same column filters.
@@ -248,8 +254,10 @@ async def asyncio(
 
      Search audit events with column filters and an optional JSON Logic expression.
 
-    Scoped to the resolved environment (a single-environment credential
-    implies it; otherwise send the `X-Smplkit-Environment` header).
+    Scoped by `filter[environment]` (a comma-separated set). When omitted, a
+    single-environment credential is implied; otherwise send the
+    `X-Smplkit-Environment` header. The reserved `smplkit` value selects
+    platform change events smplkit records about your own resources.
 
     Without a JSON Logic `filter`: behaves like `GET /api/v1/events`
     with the same column filters.

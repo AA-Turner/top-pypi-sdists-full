@@ -9,17 +9,19 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from .adapters import get_adapter
 from .adapters.base import HarnessContext
 from .approval_gate import ApprovalGateInput, require_approval_decision
 from .config import load_guard_config
+from .daemon.manager import load_guard_daemon_auth_token
 from .desktop_notifications import (
     DesktopApprovalNotification,
     notify_pending_approval_once,
 )
 from .incident import build_incident_context
+from .local_dashboard_session import build_local_dashboard_session_token
 from .local_supply_chain import build_local_supply_chain_posture
 from .models import GuardApprovalRequest, HarnessDetection, PolicyDecision
 from .risk import artifact_risk_signals, artifact_risk_summary
@@ -346,6 +348,24 @@ def _workspace_policy_artifact_keys(request: Mapping[str, object], scope: str) -
     return artifact_id, artifact_hash
 
 
+def _append_guard_token_to_url(url: str, auth_token: str) -> str:
+    """Append a fresh guard-token fragment to an approval URL."""
+    parsed = urlparse(url)
+    fragment_pairs = [
+        (key, value) for key, value in parse_qsl(parsed.fragment, keep_blank_values=True) if key != "guard-token"
+    ]
+    fragment_pairs.append(
+        (
+            "guard-token",
+            build_local_dashboard_session_token(
+                auth_token=auth_token,
+                surface="approval-center",
+            ),
+        )
+    )
+    return urlunparse(parsed._replace(fragment=urlencode(fragment_pairs)))
+
+
 def _notify_pending_approval(*, store: GuardStore, request: GuardApprovalRequest) -> None:
     try:
         config = load_guard_config(
@@ -358,12 +378,16 @@ def _notify_pending_approval(*, store: GuardStore, request: GuardApprovalRequest
         return
     if store.approval_desktop_notified_at(request.request_id) is not None:
         return
+    auth_token = load_guard_daemon_auth_token(store.guard_home)
+    approval_url = request.approval_url
+    if auth_token:
+        approval_url = _append_guard_token_to_url(approval_url, auth_token)
     notify_pending_approval_once(
         DesktopApprovalNotification(
             request_id=request.request_id,
             title="HOL Guard needs approval",
             message=_approval_notification_message(request),
-            approval_url=request.approval_url,
+            approval_url=approval_url,
         ),
         on_success=lambda: store.mark_approval_desktop_notified(
             request.request_id,
@@ -583,7 +607,12 @@ def build_runtime_snapshot(
     snapshot_now = now or _now()
     config = load_guard_config(store.guard_home)
     latest_connect_state = _build_latest_connect_state(store, snapshot_now)
-    cloud_context = _build_runtime_cloud_context(store, latest_connect_state=latest_connect_state)
+    oauth_storage_health = store.get_oauth_local_credential_health()
+    cloud_context = _build_runtime_cloud_context(
+        store,
+        latest_connect_state=latest_connect_state,
+        oauth_storage_health=oauth_storage_health,
+    )
     headline_state = _resolve_runtime_headline_state(
         pending_count=store.count_approval_requests(),
         runtime_state=store.get_runtime_state(),
@@ -593,7 +622,7 @@ def build_runtime_snapshot(
         "generated_at": snapshot_now,
         "approval_center_url": approval_center_url,
         "runtime_state": store.get_runtime_state(),
-        "oauth_storage_health": store.get_oauth_local_credential_health(),
+        "oauth_storage_health": oauth_storage_health,
         "device": _build_runtime_device_context(store),
         "latest_connect_state": latest_connect_state,
         "proof_status": _build_runtime_proof_status(latest_connect_state),
@@ -774,9 +803,12 @@ def _now() -> str:
 def _build_runtime_cloud_context(
     store: GuardStore,
     latest_connect_state: dict[str, object] | None,
+    *,
+    oauth_storage_health: dict[str, object] | None = None,
 ) -> dict[str, object]:
     cloud_profile = store.get_cloud_sync_profile()
-    oauth_storage_health = store.get_oauth_local_credential_health()
+    if oauth_storage_health is None:
+        oauth_storage_health = store.get_oauth_local_credential_health()
     oauth_repair_required = (
         bool(oauth_storage_health.get("configured")) and oauth_storage_health.get("state") == "degraded"
     )

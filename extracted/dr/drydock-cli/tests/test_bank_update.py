@@ -16,13 +16,10 @@ Run: pytest tests/test_bank_update.py -v -s --timeout=1800
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
 from tests.testbank_helpers import (
-    check_content_contains,
-    check_files_exist,
     check_runs,
     check_syntax_all,
     count_python_files,
@@ -619,8 +616,7 @@ class TestUpdateHard:
             "textool/__main__.py": "from textool.cli import main\nmain()\n",
         })
         agent = make_agent(tmp_path, max_turns=30)
-        r = await run_workload(agent, max_events=400, prompt=
-            "Add a plugin system to the textool package:\n"
+        r = await run_workload(agent, max_events=400, prompt="Add a plugin system to the textool package:\n"
             "1. Create textool/plugins.py with a PluginManager class\n"
             "2. Plugins are Python files in a 'plugins/' directory\n"
             "3. Each plugin defines a 'commands' dict mapping name -> function\n"
@@ -709,8 +705,7 @@ class TestUpdateHard:
             ''',
         })
         agent = make_agent(tmp_path, max_turns=30)
-        r = await run_workload(agent, max_events=400, prompt=
-            "Add a middleware pipeline to the server:\n"
+        r = await run_workload(agent, max_events=400, prompt="Add a middleware pipeline to the server:\n"
             "1. Create server/middleware.py with middleware support\n"
             "2. Middleware functions take (request, next) and return a response\n"
             "3. They can modify the request before passing to next(request)\n"
@@ -783,8 +778,7 @@ class TestUpdateHard:
             ''',
         })
         agent = make_agent(tmp_path, max_turns=35)
-        r = await run_workload(agent, max_events=400, prompt=
-            "Add SQLite persistence to bookshelf.py:\n"
+        r = await run_workload(agent, max_events=400, prompt="Add SQLite persistence to bookshelf.py:\n"
             "1. Bookshelf.__init__ takes an optional db_path parameter\n"
             "2. Books are stored in SQLite, not just in memory\n"
             "3. All methods (add, find, rate, list_all) work with the database\n"
@@ -867,8 +861,7 @@ class TestUpdateHard:
             ]),
         })
         agent = make_agent(tmp_path, max_turns=35)
-        r = await run_workload(agent, max_events=400, prompt=
-            "Convert the single-file analyzer.py into a proper Python package:\n"
+        r = await run_workload(agent, max_events=400, prompt="Convert the single-file analyzer.py into a proper Python package:\n"
             "1. Create analyzer/ package directory\n"
             "2. Split into: loader.py, summarizer.py, validator.py, exporter.py\n"
             "3. Create analyzer/__init__.py with clean public API\n"
@@ -920,8 +913,7 @@ class TestUpdateHard:
             ''',
         })
         agent = make_agent(tmp_path, max_turns=25)
-        r = await run_workload(agent, max_events=300, prompt=
-            "Add concurrent processing to batch.py:\n"
+        r = await run_workload(agent, max_events=300, prompt="Add concurrent processing to batch.py:\n"
             "1. Add a process_batch_parallel(items, workers=4) function\n"
             "2. Use concurrent.futures.ProcessPoolExecutor\n"
             "3. Update __main__ to compare sequential vs parallel times\n"

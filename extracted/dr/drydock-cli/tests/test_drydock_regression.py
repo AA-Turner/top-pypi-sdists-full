@@ -337,7 +337,6 @@ class TestCLIFlags:
 
     def test_dangerous_skip_permissions_sets_auto_approve(self):
         from drydock.cli.entrypoint import parse_arguments
-        from drydock.core.agents.models import BuiltinAgentName
         import sys
 
         with patch.object(sys, "argv", ["drydock", "--dangerously-skip-permissions", "-p", "test"]):
@@ -377,7 +376,7 @@ class TestLoopDetection:
 class TestWriteFileSafety:
     def test_binary_extension_rejected(self):
         from drydock.core.tools.builtins.write_file import WriteFile, WriteFileArgs, WriteFileConfig
-        from drydock.core.tools.base import BaseToolState, ToolError
+        from drydock.core.tools.base import ToolError
 
         wf = object.__new__(WriteFile)
         wf.config = WriteFileConfig()

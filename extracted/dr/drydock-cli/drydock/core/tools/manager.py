@@ -181,26 +181,23 @@ class ToolManager:
         }
 
         # Auto-disable tools that misfire for Gemma 4.
-        # `task` RE-DISABLED 2026-06-06 (v2.9.96): the v2.6.93 re-enable
-        # was justified by parallelism (two vLLM backends used at once
-        # via a builder subagent). That benefit never materialized in
-        # practice; what materialized was a recurring loop pattern.
-        # Trail of fixes: v2.9.91 stopped subagents tripping the parent's
-        # 18-readonly hard-stop, v2.9.93 blocked consecutive task calls
-        # at the preflight, v2.9.95 disabled notebook_edit (the next
-        # escape-hatch branch). User session 2026-06-06 then showed the
-        # model hammering the blocked task preflight 6+ times in a row,
-        # ignoring the advisory. Under union grammar, `task` has the
-        # lowest-entropy argument schema (`{task: str}`) so the model
-        # keeps committing to it. The only durable fix is removing it
-        # from the grammar union entirely — disable here so it never
-        # appears in the model's tool list.
+        # `task` RE-ENABLED 2026-06-07 (v2.9.113) AGAIN. History:
+        #   v2.6.93 enabled task for parallelism
+        #   v2.9.96/97 RE-DISABLED after loop pattern under union grammar
+        #   v2.9.113 RE-ENABLED after experiment_REPASS_v2.9.110 showed
+        #     extract-elf going PASS->FAIL because the model lost the
+        #     subagent delegation capability that was using task 14x in
+        #     v2.9.95's successful run.
+        # The loop pattern that motivated the v2.9.97 disable was driven
+        # by union grammar making task the lowest-entropy branch the
+        # model could commit to. v2.9.98 turned union grammar OFF by
+        # default; without it, task is just another tool. The v2.9.93
+        # consecutive-task preflight remains as the loop guard.
         # Kept disabled: `ask_user_question` (Gemma 4 asks in a loop),
         # `invoke_skill` (not proven), `tool_search` (confuses the
         # small-model tool list), `task_create/update/list` (duplicates
         # the `todo` tool and Gemma 4 mixes them up).
         _GEMMA4_AUTO_DISABLE = {
-            "task",
             "task_create", "task_update", "task_list",
             "ask_user_question", "invoke_skill", "tool_search",
             # todo disabled for Gemma 4: the model calls todo(read) in

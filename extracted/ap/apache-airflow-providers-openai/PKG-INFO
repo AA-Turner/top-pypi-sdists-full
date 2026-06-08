@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-openai
-Version: 1.7.4
+Version: 1.7.5
 Summary: Provider package apache-airflow-providers-openai for Apache Airflow
 Keywords: airflow-provider,openai,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -27,8 +27,8 @@ Requires-Dist: apache-airflow>=2.11.0
 Requires-Dist: apache-airflow-providers-common-compat>=1.12.0
 Requires-Dist: openai[datalib]>=1.66.0
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-openai/1.7.4/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-openai/1.7.4
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-openai/1.7.5/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-openai/1.7.5
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -59,7 +59,7 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-openai``
 
-Release: ``1.7.4``
+Release: ``1.7.5``
 
 
 `OpenAI <https://platform.openai.com/docs/introduction>`__ provider for Apache Airflow.
@@ -74,7 +74,7 @@ This is a provider package for ``openai`` provider. All classes for this provide
 are in ``airflow.providers.openai`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-openai/1.7.4/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-openai/1.7.5/>`_.
 
 Installation
 ------------
@@ -116,5 +116,5 @@ Dependent package                                                               
 ==================================================================================================================  =================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-openai/1.7.4/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-openai/1.7.5/changelog.html>`_.
 

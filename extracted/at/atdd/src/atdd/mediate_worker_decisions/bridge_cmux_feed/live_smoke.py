@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import tempfile
 import time
 from typing import List, Optional
 
@@ -64,10 +65,10 @@ def _surfaces(ws: str) -> List[str]:
     return re.findall(r"surface:\d+", _cmux("tree", "--workspace", ws).stdout)
 
 
-def _spawn_claude_worker(name: str) -> tuple:
+def _spawn_claude_worker(name: str, cwd: str = "/tmp") -> tuple:
     """Create a throwaway workspace running a real claude worker; return (ws, surface)."""
     created = _cmux(
-        "new-workspace", "--name", name, "--cwd", "/tmp",
+        "new-workspace", "--name", name, "--cwd", cwd,
         "--command", "claude", "--focus", "false",
     )
     ws = next((t for t in created.stdout.split() if t.startswith("workspace:")), None)
@@ -317,6 +318,79 @@ def danger_live_smoke() -> dict:
         _cmux("close-workspace", "--workspace", ws)
 
 
+def scope_isolation_live_smoke(evidence_path: Optional[str] = None) -> dict:
+    """L005 — two live workers, each scoped consumer sees ONLY its own (#993).
+
+    The headline #993 proof. Spawns TWO real claude workers in TWO workspaces,
+    each in its OWN throwaway worktree cwd (faithful to how the coach spawns real
+    workers), and blocks each on a DISTINCT AskUserQuestion. Builds a
+    workspace-scoped ``CmuxFeedSource`` for each and asserts each sees ONLY its
+    own worker's pending decision — no cross-decide, and no duplicate
+    ``request_id`` across the two scoped result sets (the live two-daemon bug).
+    The scope is resolved per workspace from ``surface.list`` (the claude session
+    workstream is the precise signal; the distinct worktree cwd corroborates).
+
+    Captures a screen/identity evidence artifact (#983 evidence-bound smokes) and
+    always closes both workspaces. Runs in throwaway /tmp scratch dirs, never the
+    caller's worktree.
+    """
+    question_a = (
+        "Use the AskUserQuestion tool right now to ask whether to indent with "
+        "Tabs or Spaces (options: Tabs, Spaces). Do nothing else first."
+    )
+    question_b = (
+        "Use the AskUserQuestion tool right now to ask whether you prefer "
+        "Cats or Dogs (options: Cats, Dogs). Do nothing else first."
+    )
+    cwd_a = tempfile.mkdtemp(prefix="atdd-993-a-")
+    cwd_b = tempfile.mkdtemp(prefix="atdd-993-b-")
+    ws_a, worker_a = _spawn_claude_worker("atdd-993-scope-a", cwd=cwd_a)
+    try:
+        ws_b, worker_b = _spawn_claude_worker("atdd-993-scope-b", cwd=cwd_b)
+        try:
+            _send_task(ws_a, worker_a, question_a)
+            _send_task(ws_b, worker_b, question_b)
+
+            # Each scoped source must surface ONLY its own workspace's decision.
+            source_a = CmuxFeedSource(workspace_id=ws_a)
+            source_b = CmuxFeedSource(workspace_id=ws_b)
+            item_a = _wait_for_pending(source_a, kind=QUESTION)
+            item_b = _wait_for_pending(source_b, kind=QUESTION)
+            assert item_a is not None, "workspace A scoped source saw no decision"
+            assert item_b is not None, "workspace B scoped source saw no decision"
+
+            # Re-read the full scoped sets to prove the isolation both ways.
+            a_ids = sorted({i.request_id for i in source_a.list_pending()})
+            b_ids = sorted({i.request_id for i in source_b.list_pending()})
+            shared = sorted(set(a_ids) & set(b_ids))
+
+            if evidence_path:
+                with open(evidence_path, "w", encoding="utf-8") as fh:
+                    fh.write("=== #993 workspace-scope isolation ===\n")
+                    fh.write(f"workspace A: {ws_a}  cwd={cwd_a}\n")
+                    fh.write(f"  scoped request_id: {item_a.request_id}\n")
+                    fh.write(f"  workstream_id: {item_a.workstream_id}\n")
+                    fh.write(f"  A scoped set: {a_ids}\n\n")
+                    fh.write(f"workspace B: {ws_b}  cwd={cwd_b}\n")
+                    fh.write(f"  scoped request_id: {item_b.request_id}\n")
+                    fh.write(f"  workstream_id: {item_b.workstream_id}\n")
+                    fh.write(f"  B scoped set: {b_ids}\n\n")
+                    fh.write(f"shared request_ids (must be empty): {shared}\n")
+
+            return {
+                "a_request_id": item_a.request_id,
+                "b_request_id": item_b.request_id,
+                "a_seen_request_ids": a_ids,
+                "b_seen_request_ids": b_ids,
+                "shared_request_ids": shared,
+                "evidence_path": evidence_path,
+            }
+        finally:
+            _cmux("close-workspace", "--workspace", ws_b)
+    finally:
+        _cmux("close-workspace", "--workspace", ws_a)
+
+
 def advance_live_smoke(evidence_path: Optional[str] = None) -> dict:
     """E009 — a cmux-native worker ACTUALLY proceeds after a Feed reply (#986).
 
@@ -372,6 +446,84 @@ def advance_live_smoke(evidence_path: Optional[str] = None) -> dict:
             "request_id": item.request_id,
             "parked_before": _screen_shows_menu(screen_before),
             "advanced": advanced,
+            "evidence_path": evidence_path,
+        }
+    finally:
+        _cmux("close-workspace", "--workspace", ws)
+
+
+def decide_with_convention_live_smoke(evidence_path: Optional[str] = None) -> dict:
+    """E011 — a live decider answers a benign question WITH the coach convention loaded.
+
+    The headline #987 (b) proof. Spawns a real claude worker blocked on a benign
+    AskUserQuestion, then drives the REAL runner whose ``LlmCoach`` carries the
+    repo coach convention / operating protocol into its ``claude -p`` call. A thin
+    recorder wraps the production claude provider CLI so the smoke captures the
+    EXACT system context the decider was handed (evidence per #983) while a real
+    ``claude -p`` still decides. Asserts BOTH: a verdict was produced AND the coach
+    convention was present in the decider's invocation.
+    """
+    from atdd.mediate_worker_decisions.bridge_cmux_feed.composition import (
+        build_feed_runner,
+    )
+    from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.coach_context import (
+        load_coach_context,
+    )
+    from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.llm_coach import (
+        LlmCoach,
+        resolve_provider_cli,
+    )
+    from atdd.mediate_worker_decisions.bridge_cmux_feed.src.integration.feed_advance_verifier import (
+        CmuxWorkerAdvance,
+    )
+
+    coach_context = load_coach_context()
+    real_cli = resolve_provider_cli("claude", None)
+    captured: dict = {}
+
+    def _recording_claude_cli(prompt, *, system=None, timeout):
+        captured["system"] = system  # what the decider was actually handed
+        return real_cli(prompt, system=system, timeout=timeout)
+
+    ws, worker = _spawn_claude_worker("atdd-feed-987-convention")
+    try:
+        _send_task(
+            ws, worker,
+            "Use the AskUserQuestion tool right now to ask whether to indent with "
+            "Tabs or Spaces (options: 'Tabs', 'Spaces'). Do nothing else first.",
+        )
+        source = CmuxFeedSource(workspace_id=ws)
+        item = _wait_for_pending(source, kind=QUESTION)
+        assert item is not None, "no pending question item appeared in the Feed"
+
+        recorder = _RecordingTransport(CmuxFeedTransport())
+        coach = LlmCoach(cli=_recording_claude_cli, coach_context=coach_context)
+        runner = build_feed_runner(
+            source=source,
+            reply=recorder,
+            coach=coach,
+            advance=CmuxWorkerAdvance(workspace_id=ws),
+        )
+        outcomes = runner.run_once()
+
+        outcome = next((o for o in outcomes if o.request_id == item.request_id), None)
+        verdict_produced = bool(outcome and outcome.verdict is not None)
+        system_seen = captured.get("system") or ""
+        convention_present = "Phase Machine Convention" in system_seen
+
+        if evidence_path:
+            with open(evidence_path, "w", encoding="utf-8") as fh:
+                fh.write("=== #987(b) decide-with-convention ===\n")
+                fh.write(f"request_id: {item.request_id}\n")
+                fh.write(f"verdict_produced: {verdict_produced}\n")
+                fh.write(f"convention_present: {convention_present}\n\n")
+                fh.write("=== coach context handed to the decider (head) ===\n")
+                fh.write(system_seen[:800] + "\n")
+
+        return {
+            "request_id": item.request_id,
+            "verdict_produced": verdict_produced,       # a verdict was produced
+            "convention_present": convention_present,   # convention reached the decider
             "evidence_path": evidence_path,
         }
     finally:

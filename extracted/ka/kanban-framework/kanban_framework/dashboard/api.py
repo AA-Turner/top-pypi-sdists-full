@@ -495,6 +495,26 @@ def create_app(kanban_dir: str | Path | None = None) -> FastAPI:
         except Exception as exc:
             raise HTTPException(500, str(exc))
 
+    @app.put("/api/knowledge/entries/{entry_id}")
+    async def knowledge_entry_update(entry_id: str, request: Request):
+        body = await request.json()
+        try:
+            km = _get_km()
+            entry = km.get_entry(entry_id)
+            if not entry:
+                raise HTTPException(404, f"Entry {entry_id} not found")
+            allowed = {"title", "content", "domain", "category", "severity",
+                        "status", "tags", "code_example", "biz_context"}
+            updates = {k: v for k, v in body.items() if k in allowed}
+            if not updates:
+                raise HTTPException(400, "No valid fields to update")
+            updated = km.update_entry(entry_id, **updates)
+            return updated
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(500, str(exc))
+
     @app.get("/api/knowledge/pending")
     def knowledge_pending():
         return knowledge_entries(status="pending")

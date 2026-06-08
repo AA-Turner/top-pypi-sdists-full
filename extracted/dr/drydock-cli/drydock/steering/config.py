@@ -11,7 +11,7 @@ Default config is `SteeringConfig.disabled()` — no vectors applied.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Iterable
+from collections.abc import Iterable
 
 
 @dataclass
@@ -29,13 +29,13 @@ class SteeringConfig:
     enabled: bool = True
 
     @classmethod
-    def disabled(cls) -> "SteeringConfig":
+    def disabled(cls) -> SteeringConfig:
         return cls(modes=[], enabled=False)
 
     @classmethod
     def from_mode_names(
         cls, names: Iterable[str], scales: dict[str, float] | None = None
-    ) -> "SteeringConfig":
+    ) -> SteeringConfig:
         """Build a config from a list of mode names and optional per-mode
         scale overrides. If a mode appears in `scales`, that scale wins;
         otherwise the manifest default is used at apply time."""

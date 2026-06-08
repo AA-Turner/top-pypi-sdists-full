@@ -60,19 +60,19 @@ class TestCircuitBreaker:
 
     def test_first_call_allowed(self):
         al = _make_agent()
-        tc = SimpleNamespace(tool_name="bash", args_dict={"command":"ls -ltr"})
+        tc = SimpleNamespace(tool_name="bash", args_dict={"command": "ls -ltr"})
         assert al._circuit_breaker_check(tc) is None
 
     def test_second_call_allowed(self):
         al = _make_agent()
-        tc = SimpleNamespace(tool_name="bash", args_dict={"command":"ls -ltr"})
+        tc = SimpleNamespace(tool_name="bash", args_dict={"command": "ls -ltr"})
         al._circuit_breaker_record(tc, "file1.py\nfile2.py")
         assert al._circuit_breaker_check(tc) is None
 
     def test_disabled_for_failed_after_3(self):
         """CB disabled — failed commands are NOT blocked even after 3 repeats."""
         al = _make_agent()
-        tc = SimpleNamespace(tool_name="bash", args_dict={"command":"bad_cmd"})
+        tc = SimpleNamespace(tool_name="bash", args_dict={"command": "bad_cmd"})
         for _ in range(3):
             al._circuit_breaker_record(tc, "FAILED: command not found")
         assert al._circuit_breaker_check(tc) is None
@@ -80,7 +80,7 @@ class TestCircuitBreaker:
     def test_failed_2_not_blocked(self):
         """Failed commands with only 2 repeats are not blocked."""
         al = _make_agent()
-        tc = SimpleNamespace(tool_name="bash", args_dict={"command":"bad_cmd"})
+        tc = SimpleNamespace(tool_name="bash", args_dict={"command": "bad_cmd"})
         al._circuit_breaker_record(tc, "FAILED: command not found")
         al._circuit_breaker_record(tc, "FAILED: command not found")
         assert al._circuit_breaker_check(tc) is None
@@ -91,7 +91,7 @@ class TestCircuitBreaker:
     def test_successful_never_blocked(self):
         """Successful commands are never blocked regardless of repeat count."""
         al = _make_agent()
-        tc = SimpleNamespace(tool_name="bash", args_dict={"command":"python3 app.py"})
+        tc = SimpleNamespace(tool_name="bash", args_dict={"command": "python3 app.py"})
         for _ in range(10):
             al._circuit_breaker_record(tc, "output ok")
         assert al._circuit_breaker_check(tc) is None
@@ -100,7 +100,7 @@ class TestCircuitBreaker:
         """Read-only tools that repeat 5+ times get a NOTE that includes the
         full cached result so the model can act on it without retrying."""
         al = _make_agent()
-        tc = SimpleNamespace(tool_name="grep", args_dict={"pattern":"foo"})
+        tc = SimpleNamespace(tool_name="grep", args_dict={"pattern": "foo"})
         content = "match.py:10:foo"
         for _ in range(10):
             al._circuit_breaker_record(tc, content)
@@ -113,7 +113,7 @@ class TestCircuitBreaker:
     def test_disabled_returns_none_even_for_failed(self):
         """CB disabled — returns None even for commands that would have been blocked."""
         al = _make_agent()
-        tc = SimpleNamespace(tool_name="bash", args_dict={"command":"python3 run.py"})
+        tc = SimpleNamespace(tool_name="bash", args_dict={"command": "python3 run.py"})
         for _ in range(3):
             al._circuit_breaker_record(tc, "FAILED: module not found")
         assert al._circuit_breaker_check(tc) is None
@@ -121,7 +121,7 @@ class TestCircuitBreaker:
     def test_disabled_returns_none_for_repeated_failures(self):
         """CB disabled — returns None regardless of failure count."""
         al = _make_agent()
-        tc = SimpleNamespace(tool_name="bash", args_dict={"command":"python3 run.py"})
+        tc = SimpleNamespace(tool_name="bash", args_dict={"command": "python3 run.py"})
         for _ in range(3):
             al._circuit_breaker_record(tc, "FAILED: error")
         assert al._circuit_breaker_check(tc) is None
@@ -129,8 +129,8 @@ class TestCircuitBreaker:
     def test_disabled_for_all_args(self):
         """CB disabled — no args are blocked, even after repeated failures."""
         al = _make_agent()
-        tc1 = SimpleNamespace(tool_name="bash", args_dict={"command":"bad_cmd"})
-        tc2 = SimpleNamespace(tool_name="bash", args_dict={"command":"ls -la"})
+        tc1 = SimpleNamespace(tool_name="bash", args_dict={"command": "bad_cmd"})
+        tc2 = SimpleNamespace(tool_name="bash", args_dict={"command": "ls -la"})
         for _ in range(3):
             al._circuit_breaker_record(tc1, "FAILED: not found")
         assert al._circuit_breaker_check(tc1) is None
@@ -139,8 +139,8 @@ class TestCircuitBreaker:
     def test_disabled_for_all_tools(self):
         """CB disabled — no tools are blocked, even after repeated failures."""
         al = _make_agent()
-        tc1 = SimpleNamespace(tool_name="bash", args_dict={"command":"bad_cmd"})
-        tc2 = SimpleNamespace(tool_name="grep", args_dict={"pattern":"foo"})
+        tc1 = SimpleNamespace(tool_name="bash", args_dict={"command": "bad_cmd"})
+        tc2 = SimpleNamespace(tool_name="grep", args_dict={"pattern": "foo"})
         for _ in range(3):
             al._circuit_breaker_record(tc1, "FAILED: not found")
         assert al._circuit_breaker_check(tc1) is None
@@ -149,7 +149,7 @@ class TestCircuitBreaker:
     def test_failed_then_success_not_blocked(self):
         """If a command fails then succeeds, it should not be blocked."""
         al = _make_agent()
-        tc = SimpleNamespace(tool_name="bash", args_dict={"command":"python3 run.py"})
+        tc = SimpleNamespace(tool_name="bash", args_dict={"command": "python3 run.py"})
         al._circuit_breaker_record(tc, "FAILED: error")
         al._circuit_breaker_record(tc, "FAILED: error")
         al._circuit_breaker_record(tc, "output ok")
@@ -494,7 +494,7 @@ class TestRealWorldLoops:
         """Successful `ls -ltr` is never blocked by circuit breaker.
         Loop detection (_check_tool_call_repetition) handles this instead."""
         al = _make_agent()
-        tc = SimpleNamespace(tool_name="bash", args_dict={"command":"ls -ltr"})
+        tc = SimpleNamespace(tool_name="bash", args_dict={"command": "ls -ltr"})
 
         # Successful commands are never blocked by the circuit breaker
         for _ in range(10):
@@ -538,9 +538,9 @@ class TestRealWorldLoops:
         al = _make_agent()
         for i in range(8):
             if i % 2 == 0:
-                _add_tool_call(al, "grep", json.dumps({"pattern": f"func_{i//2}"}))
+                _add_tool_call(al, "grep", json.dumps({"pattern": f"func_{i // 2}"}))
             else:
-                _add_tool_call(al, "read_file", json.dumps({"path": f"file_{i//2}.py"}))
+                _add_tool_call(al, "read_file", json.dumps({"path": f"file_{i // 2}.py"}))
         assert al._check_tool_call_repetition() is not None
 
     def test_normal_workflow_no_false_positive(self):
@@ -690,7 +690,6 @@ class TestBashEmptyCommandLoopStop:
 
     def test_empty_bash_included_in_bash_cmds(self):
         """_bash_cmds must include '' for bash({}) so consecutive check fires."""
-        import json
         # Replicate the extraction logic from agent_loop.py
         bash_cmds: list[str] = []
         for cmd_raw in [{}, {"command": ""}, {"command": None}]:

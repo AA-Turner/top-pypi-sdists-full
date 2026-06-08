@@ -57,13 +57,13 @@ def save_state(
     path = _get_state_path(project_dir)
 
     lines: list[str] = [
-        f"# DryDock Session State",
+        "# DryDock Session State",
         f"_Updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}_",
         "",
     ]
 
     if current_task:
-        lines.extend([f"## Current Task", current_task, ""])
+        lines.extend(["## Current Task", current_task, ""])
 
     if files_modified:
         lines.append("## Files Modified")

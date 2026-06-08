@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wyzeapy
-Version: 0.5.33
+Version: 0.6.0
 Summary: A library for interacting with Wyze devices
 Author-email: Katie Mulliken <katie@mulliken.net>
 License: GPL-3.0-only

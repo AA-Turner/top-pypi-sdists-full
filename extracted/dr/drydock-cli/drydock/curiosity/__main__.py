@@ -27,6 +27,7 @@ from pathlib import Path
 
 from drydock.curiosity.item import CuriosityKind
 from drydock.curiosity.queue import queue_path, read_recent
+from datetime import UTC
 
 
 CONSUMED_STATE = Path.home() / ".drydock" / "dispatch" / ".curiosity_consumed.json"
@@ -165,12 +166,12 @@ def cmd_reset(args: argparse.Namespace) -> int:
 
     # Bulk-mark mode.
     import re
-    from datetime import datetime, timezone
+    from datetime import datetime
     cutoff: datetime | None = None
     if args.since:
         try:
             cutoff = datetime.strptime(args.since, "%Y-%m-%d").replace(
-                tzinfo=timezone.utc
+                tzinfo=UTC
             )
         except ValueError:
             print(f"bad --since: {args.since!r} (expect YYYY-MM-DD)")

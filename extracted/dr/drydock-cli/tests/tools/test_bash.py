@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from tests.mock.utils import collect_result
-from drydock.core.tools.base import BaseToolState, ToolError, ToolPermission
+from drydock.core.tools.base import BaseToolState, ToolPermission
 from drydock.core.tools.builtins.bash import Bash, BashArgs, BashToolConfig
 
 

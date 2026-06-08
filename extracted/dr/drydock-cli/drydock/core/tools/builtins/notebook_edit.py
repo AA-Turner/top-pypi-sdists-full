@@ -13,7 +13,7 @@ from typing import ClassVar, final
 from pydantic import BaseModel, Field
 
 from drydock.core.tools.base import (
-    BaseTool, BaseToolConfig, BaseToolState, InvokeContext, ToolError, ToolPermission,
+    BaseTool, BaseToolConfig, BaseToolState, InvokeContext, ToolError,
 )
 from drydock.core.tools.ui import ToolCallDisplay, ToolResultDisplay, ToolUIData
 from drydock.core.types import ToolStreamEvent, ToolResultEvent
@@ -75,7 +75,7 @@ class NotebookEdit(
 
         cells = notebook.get("cells", [])
         if args.cell_index < 0 or args.cell_index >= len(cells):
-            raise ToolError(f"Cell index {args.cell_index} out of range (0-{len(cells)-1})")
+            raise ToolError(f"Cell index {args.cell_index} out of range (0-{len(cells) - 1})")
 
         # Update the cell
         cell = cells[args.cell_index]

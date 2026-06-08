@@ -5,6 +5,7 @@
 
 use crate::extractors::text::ArtifactType;
 use crate::geometry::{Point, Rect};
+use crate::structure::McidScope;
 use std::collections::HashMap;
 
 /// A text span (complete string from a Tj/TJ operator).
@@ -39,6 +40,26 @@ pub struct TextSpan {
     pub color: Color,
     /// Marked Content ID (for Tagged PDFs)
     pub mcid: Option<u32>,
+    /// Content-stream scope of [`Self::mcid`] (ISO 32000-1:2008 §14.7.4.3).
+    ///
+    /// MCIDs are scoped to a single content stream — page, Form
+    /// XObject, or Tiling Pattern — not to a page globally. When this
+    /// span's `mcid` was emitted inside a Form XObject's content
+    /// stream, `mcid_scope` is `Form(<form_ref>)`; inside a Tiling
+    /// Pattern, `Pattern(<pattern_ref>)`; otherwise `Page(page_index)`
+    /// for the page that owns the top-level content stream the span
+    /// came from.
+    ///
+    /// The struct-tree `/ActualText` applier keys lookups by
+    /// `(mcid_scope, mcid)` so two Form XObjects on the same page that
+    /// each carry MCID 0 do not collide and overwrite each other's
+    /// replacements.
+    ///
+    /// `None` for spans extracted before page-index attribution
+    /// completes (e.g. mid-extraction internal spans) or for synthetic
+    /// test fixtures.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub mcid_scope: Option<McidScope>,
     /// Extraction sequence number
     pub sequence: usize,
     /// If true, this span was created by splitting fused words
@@ -78,6 +99,24 @@ pub struct TextSpan {
     /// not hold for rotated text).
     #[serde(skip_serializing_if = "is_zero_f32", default)]
     pub rotation_degrees: f32,
+    /// Writing mode under which the glyphs in this span were emitted.
+    ///
+    /// `0` = horizontal (the overwhelming default), `1` = vertical (tategaki
+    /// / lateral CJK). Set from `GraphicsState::text_wmode` when the span
+    /// is constructed, so each span carries its own writing-mode metadata
+    /// even on mixed-mode pages (e.g. horizontal headings above vertical
+    /// body copy). The reading-order sort consults this to advance
+    /// downward-then-right-to-left within blocks of vertical spans while
+    /// leaving horizontal spans on their existing top-to-bottom,
+    /// left-to-right path.
+    #[serde(skip_serializing_if = "is_zero_u8", default)]
+    pub wmode: u8,
+}
+
+/// serde skip helper: omit a `0` writing mode (horizontal, the common case)
+/// from serialized output so existing fixtures stay unchanged.
+pub(crate) fn is_zero_u8(v: &u8) -> bool {
+    *v == 0
 }
 
 /// serde skip helper: omit a `0.0` rotation (the overwhelming common case) from
@@ -98,6 +137,7 @@ impl Default for TextSpan {
             is_monospace: false,
             color: Color::black(),
             mcid: None,
+            mcid_scope: None,
             sequence: 0,
             split_boundary_before: false,
             offset_semantic: false,
@@ -109,6 +149,7 @@ impl Default for TextSpan {
             char_widths: Vec::new(),
             heading_level: None,
             rotation_degrees: 0.0,
+            wmode: 0,
         }
     }
 }

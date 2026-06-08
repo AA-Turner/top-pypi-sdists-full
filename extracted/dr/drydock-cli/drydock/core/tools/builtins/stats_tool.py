@@ -334,7 +334,7 @@ def _op_t_test(args: StatsArgs) -> tuple[str, str]:
     xs = _parse_list(args.data)
     mu0 = _parse_num(args.mu0, name="mu0")
     res = st.ttest_1samp(xs, popmean=mu0)
-    return (f"t={_fmt(res.statistic)}  p_two_sided={_fmt(res.pvalue)}  df={len(xs)-1}", "summary")
+    return (f"t={_fmt(res.statistic)}  p_two_sided={_fmt(res.pvalue)}  df={len(xs) - 1}", "summary")
 
 
 def _op_chi2_test(args: StatsArgs) -> tuple[str, str]:
@@ -372,7 +372,7 @@ def _op_ci_mean(args: StatsArgs) -> tuple[str, str]:
     se = statistics.stdev(xs) / (n ** 0.5)
     t_crit = st.t.ppf(1 - alpha / 2, df=n - 1)
     return (
-        f"mean={_fmt(mean)}  CI[{(1-alpha)*100:.0f}%]=[{_fmt(mean - t_crit*se)}, {_fmt(mean + t_crit*se)}]",
+        f"mean={_fmt(mean)}  CI[{(1 - alpha) * 100:.0f}%]=[{_fmt(mean - t_crit * se)}, {_fmt(mean + t_crit * se)}]",
         "summary",
     )
 
@@ -445,7 +445,7 @@ class Stats(
         )
 
     @classmethod
-    def get_result_display(cls, event: "ToolResultEvent") -> ToolResultDisplay:
+    def get_result_display(cls, event: ToolResultEvent) -> ToolResultDisplay:
         if isinstance(event.result, StatsResult):
             if not event.result.ok:
                 return ToolResultDisplay(
@@ -466,8 +466,8 @@ class Stats(
 
     @final
     async def run(
-        self, args: StatsArgs, ctx: "InvokeContext | None" = None
-    ) -> AsyncGenerator["ToolStreamEvent | StatsResult", None]:
+        self, args: StatsArgs, ctx: InvokeContext | None = None
+    ) -> AsyncGenerator[ToolStreamEvent | StatsResult, None]:
         handler = _DISPATCH.get(args.op)
         if handler is None:
             yield StatsResult(

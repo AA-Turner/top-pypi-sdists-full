@@ -6,11 +6,8 @@ during a session, similar to Claude Code's TaskCreate/Get/List/Update.
 
 from __future__ import annotations
 
-import json
 from collections.abc import AsyncGenerator
-from pathlib import Path
 from typing import ClassVar, final
-from uuid import uuid4
 
 from pydantic import BaseModel, Field
 

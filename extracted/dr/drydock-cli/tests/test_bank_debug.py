@@ -14,14 +14,11 @@ Run: pytest tests/test_bank_debug.py -v -s --timeout=1800
 
 from __future__ import annotations
 
-import textwrap
-from pathlib import Path
 
 import pytest
 
 from tests.testbank_helpers import (
     check_runs,
-    check_syntax_all,
     make_agent,
     requires_vllm,
     run_workload,

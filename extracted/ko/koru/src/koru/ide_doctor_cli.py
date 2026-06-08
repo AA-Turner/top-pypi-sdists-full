@@ -243,6 +243,16 @@ def _add_reload_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser])
     reload.add_argument("--project", type=Path, default=Path.cwd())
     reload.add_argument("--dry-run", action="store_true")
     reload.add_argument(
+        "--connect-only",
+        action="store_true",
+        help="skip reload; only run `koru: Connect autopilot daemon` via command palette",
+    )
+    reload.add_argument(
+        "--detached",
+        action="store_true",
+        help="spawn reload in a detached session so an IDE window reload cannot kill this process",
+    )
+    reload.add_argument(
         "--format",
         dest="output_format",
         choices=("text", "json"),
@@ -299,8 +309,11 @@ def _add_scenario_parsers(sub: argparse._SubParsersAction[argparse.ArgumentParse
 
 
 def build_parser() -> argparse.ArgumentParser:
+    from koru.ide_control_cli import add_control_parser
+
     parser = argparse.ArgumentParser(prog="koru ide")
     sub = parser.add_subparsers(dest="action", required=True)
+    add_control_parser(sub)
     _add_discover_parser(sub)
     _add_doctor_parser(sub)
     _add_history_parser(sub)
@@ -403,14 +416,26 @@ def action_ide_history(args: argparse.Namespace) -> int:
 
 
 def action_ide_reload(args: argparse.Namespace) -> int:
-    from koru.ide_adapters.ide_reload import try_reload_vscode_family_ide
+    from koru.ide_adapters.ide_reload import (
+        spawn_detached_ide_reload,
+        try_reload_vscode_family_ide,
+    )
 
     ide = _resolve_ide(args.ide) or args.ide
-    outcome = try_reload_vscode_family_ide(
-        ide,
-        project=args.project.expanduser().resolve(),
-        dry_run=args.dry_run,
-    )
+    project = args.project.expanduser().resolve()
+    if args.detached:
+        outcome = spawn_detached_ide_reload(
+            ide,
+            project=project,
+            connect_only=args.connect_only,
+        )
+    else:
+        outcome = try_reload_vscode_family_ide(
+            ide,
+            project=project,
+            dry_run=args.dry_run,
+            connect_only=args.connect_only,
+        )
     payload = {
         "ide": ide,
         "attempted": outcome.attempted,
@@ -546,6 +571,10 @@ def action_ide_scenario_validate(args: argparse.Namespace) -> int:
 def ide_main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.action == "control":
+        from koru.ide_control_cli import dispatch_control_action
+
+        return dispatch_control_action(args)
     if args.action == "doctor":
         return action_ide_doctor(args)
     if args.action == "history":

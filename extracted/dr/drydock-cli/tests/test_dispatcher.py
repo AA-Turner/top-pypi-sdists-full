@@ -12,7 +12,6 @@ import pytest
 
 from drydock.core.classifier import (
     Bucket,
-    Classifier,
     Dispatcher,
     FailureSignal,
     classify_text,

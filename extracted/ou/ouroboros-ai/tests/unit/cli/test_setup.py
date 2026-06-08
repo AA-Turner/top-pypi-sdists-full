@@ -24,6 +24,7 @@ from ouroboros.cli.commands.setup import (
     _set_default_repo,
 )
 from ouroboros.codex import CodexArtifactInstallResult
+from ouroboros.config._model_defaults import DEFAULT_OPUS_MODEL
 
 # ── Codex setup tests ────────────────────────────────────────────
 
@@ -2595,6 +2596,7 @@ class TestOpenCodeSetupConfigYaml:
             patch("ouroboros.cli.commands.setup._ensure_opencode_mcp_entry"),
             patch("ouroboros.cli.commands.setup._ensure_claude_mcp_entry"),
             patch("ouroboros.cli.commands.setup._cleanup_plugin_artifacts"),
+            patch("ouroboros.cli.commands.setup._install_runtime_instruction_artifact"),
         ):
             from ouroboros.cli.commands.setup import _setup_opencode
 
@@ -2604,6 +2606,55 @@ class TestOpenCodeSetupConfigYaml:
         assert isinstance(result, dict)
         assert result["orchestrator"]["runtime_backend"] == "opencode"
         assert result["llm"]["backend"] == "opencode"
+
+    def test_subprocess_setup_installs_instruction_artifact(self, tmp_path: Path) -> None:
+        config_dir = tmp_path / ".ouroboros"
+        config_dir.mkdir()
+        (config_dir / "config.yaml").write_text("{}", encoding="utf-8")
+        opencode_dir = tmp_path / "opencode-config"
+
+        with (
+            patch("ouroboros.config.loader.ensure_config_dir", return_value=config_dir),
+            patch("ouroboros.cli.commands.setup._cleanup_plugin_artifacts"),
+            patch("ouroboros.cli.commands.setup.opencode_config_dir", return_value=opencode_dir),
+        ):
+            from ouroboros.cli.commands.setup import _setup_opencode
+
+            _setup_opencode("/usr/bin/opencode", mode="subprocess")
+
+        guide_path = opencode_dir / "AGENTS.md"
+        assert guide_path.is_file()
+        assert "## Ouroboros Skill Capability Guide: Opencode" in guide_path.read_text(
+            encoding="utf-8"
+        )
+
+    def test_plugin_setup_installs_instruction_artifact_after_success(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        config_dir = tmp_path / ".ouroboros"
+        config_dir.mkdir()
+        (config_dir / "config.yaml").write_text("{}", encoding="utf-8")
+        opencode_dir = tmp_path / "opencode-config"
+
+        with (
+            patch("ouroboros.config.loader.ensure_config_dir", return_value=config_dir),
+            patch(
+                "ouroboros.cli.commands.setup._install_opencode_bridge_plugin", return_value=True
+            ),
+            patch("ouroboros.cli.commands.setup._ensure_opencode_mcp_entry", return_value=True),
+            patch("ouroboros.cli.commands.setup._ensure_opencode_plugin_entry", return_value=True),
+            patch("ouroboros.cli.commands.setup.opencode_config_dir", return_value=opencode_dir),
+        ):
+            from ouroboros.cli.commands.setup import _setup_opencode
+
+            assert _setup_opencode("/usr/bin/opencode", mode="plugin") is True
+
+        guide_path = opencode_dir / "AGENTS.md"
+        assert guide_path.is_file()
+        assert "## Ouroboros Skill Capability Guide: Opencode" in guide_path.read_text(
+            encoding="utf-8"
+        )
 
     def test_orchestrator_as_list_repaired(self, tmp_path: Path) -> None:
         """If orchestrator is a list, _setup_opencode replaces with dict."""
@@ -2620,6 +2671,7 @@ class TestOpenCodeSetupConfigYaml:
             patch("ouroboros.cli.commands.setup._ensure_opencode_mcp_entry"),
             patch("ouroboros.cli.commands.setup._ensure_claude_mcp_entry"),
             patch("ouroboros.cli.commands.setup._cleanup_plugin_artifacts"),
+            patch("ouroboros.cli.commands.setup._install_runtime_instruction_artifact"),
         ):
             from ouroboros.cli.commands.setup import _setup_opencode
 
@@ -2644,6 +2696,7 @@ class TestOpenCodeSetupConfigYaml:
             patch("ouroboros.cli.commands.setup._ensure_opencode_plugin_entry"),
             patch("ouroboros.cli.commands.setup._install_opencode_bridge_plugin"),
             patch("ouroboros.cli.commands.setup._ensure_claude_mcp_entry") as mock_claude,
+            patch("ouroboros.cli.commands.setup._install_runtime_instruction_artifact"),
         ):
             from ouroboros.cli.commands.setup import _setup_opencode
 
@@ -2665,7 +2718,7 @@ class TestOpenCodeSetupConfigYaml:
         observed: list[str | None] = []
         monkeypatch.delenv("OUROBOROS_OPENCODE_CLI_PATH", raising=False)
 
-        def record_cli_path() -> bool:
+        def record_cli_path(*_args: object, **_kwargs: object) -> bool:
             observed.append(os.environ.get("OUROBOROS_OPENCODE_CLI_PATH"))
             return True
 
@@ -2683,12 +2736,16 @@ class TestOpenCodeSetupConfigYaml:
                 "ouroboros.cli.commands.setup._ensure_opencode_plugin_entry",
                 side_effect=record_cli_path,
             ),
+            patch(
+                "ouroboros.cli.commands.setup._install_runtime_instruction_artifact",
+                side_effect=record_cli_path,
+            ),
         ):
             from ouroboros.cli.commands.setup import _setup_opencode
 
             assert _setup_opencode(cli_path, mode="plugin") is True
 
-        assert observed == [cli_path, cli_path, cli_path]
+        assert observed == [cli_path, cli_path, cli_path, cli_path]
         assert os.environ.get("OUROBOROS_OPENCODE_CLI_PATH") is None
 
     def test_plugin_setup_failure_returns_false_without_persisting_config(
@@ -2700,6 +2757,7 @@ class TestOpenCodeSetupConfigYaml:
         config_dir.mkdir()
         config_path = config_dir / "config.yaml"
         config_path.write_text("{}", encoding="utf-8")
+        opencode_dir = tmp_path / "opencode-config"
 
         with (
             patch("ouroboros.config.loader.ensure_config_dir", return_value=config_dir),
@@ -2708,12 +2766,14 @@ class TestOpenCodeSetupConfigYaml:
             ),
             patch("ouroboros.cli.commands.setup._ensure_opencode_mcp_entry", return_value=True),
             patch("ouroboros.cli.commands.setup._ensure_opencode_plugin_entry", return_value=True),
+            patch("ouroboros.cli.commands.setup.opencode_config_dir", return_value=opencode_dir),
         ):
             from ouroboros.cli.commands.setup import _setup_opencode
 
             assert _setup_opencode("/usr/bin/opencode", mode="plugin") is False
 
         assert yaml.safe_load(config_path.read_text(encoding="utf-8")) == {}
+        assert not (opencode_dir / "AGENTS.md").exists()
 
     def test_plugin_setup_failure_exits_before_success_banner(self, tmp_path: Path) -> None:
         """Top-level setup must propagate plugin setup failure to exit status."""
@@ -2763,6 +2823,7 @@ class TestOpenCodeModePersisted:
             patch("ouroboros.cli.commands.setup._install_opencode_bridge_plugin"),
             patch("ouroboros.cli.commands.setup._ensure_claude_mcp_entry"),
             patch("ouroboros.cli.commands.setup._cleanup_plugin_artifacts"),
+            patch("ouroboros.cli.commands.setup._install_runtime_instruction_artifact"),
         ):
             from ouroboros.cli.commands.setup import _setup_opencode
 
@@ -2929,8 +2990,47 @@ class TestGooseSetup:
         assert chosen["path"] == "/custom/goose"
 
 
+class TestGeminiSetup:
+    """Tests for Gemini-specific setup behavior."""
+
+    def test_setup_gemini_installs_instruction_artifact(self, tmp_path: Path) -> None:
+        config_dir = tmp_path / ".ouroboros"
+        config_dir.mkdir()
+        (config_dir / "config.yaml").write_text("{}", encoding="utf-8")
+
+        with (
+            patch("pathlib.Path.home", return_value=tmp_path),
+            patch("ouroboros.config.loader.ensure_config_dir", return_value=config_dir),
+        ):
+            setup_cmd._setup_gemini("/opt/bin/gemini")
+
+        guide_path = tmp_path / ".gemini" / "GEMINI.md"
+        assert guide_path.is_file()
+        assert "## Ouroboros Skill Capability Guide: Gemini" in guide_path.read_text(
+            encoding="utf-8"
+        )
+
+
 class TestKiroSetup:
     """Tests for Kiro-specific setup behavior."""
+
+    def test_setup_kiro_installs_instruction_artifact(self, tmp_path: Path) -> None:
+        config_dir = tmp_path / ".ouroboros"
+        config_dir.mkdir()
+        (config_dir / "config.yaml").write_text("{}", encoding="utf-8")
+
+        with (
+            patch("pathlib.Path.home", return_value=tmp_path),
+            patch("ouroboros.config.loader.ensure_config_dir", return_value=config_dir),
+            patch("ouroboros.cli.commands.setup._register_kiro_mcp_server"),
+        ):
+            setup_cmd._setup_kiro("/opt/bin/kiro-cli")
+
+        guide_path = tmp_path / ".kiro" / "steering" / "ouroboros-skill-capability-guide.md"
+        assert guide_path.is_file()
+        assert "### When a skill requires `run_lateral_review`" in guide_path.read_text(
+            encoding="utf-8"
+        )
 
     def test_detect_runtimes_includes_kiro(self, tmp_path: Path) -> None:
         """_detect_runtimes should surface kiro when kiro-cli is on PATH.
@@ -3306,6 +3406,11 @@ class TestCopilotSetup:
         assert config["clarification"]["default_model"] == "claude-opus-4.6"
         # Explicit user overrides are preserved.
         assert config["llm"]["qa_model"] == "x"
+        guide_path = tmp_path / ".copilot" / "ouroboros-instructions" / "AGENTS.md"
+        assert guide_path.is_file()
+        assert "### When a skill requires `run_lateral_review`" in guide_path.read_text(
+            encoding="utf-8"
+        )
         mock_register.assert_called_once_with()
 
     def test_setup_copilot_replaces_shipped_default_model_fields(self, tmp_path: Path) -> None:
@@ -3318,8 +3423,8 @@ class TestCopilotSetup:
                 {
                     "orchestrator": {"runtime_backend": "claude"},
                     "llm": {"backend": "claude_code"},
-                    "clarification": {"default_model": "claude-opus-4-6"},
-                    "evaluation": {"semantic_model": "claude-opus-4-6"},
+                    "clarification": {"default_model": DEFAULT_OPUS_MODEL},
+                    "evaluation": {"semantic_model": DEFAULT_OPUS_MODEL},
                 },
                 sort_keys=False,
             ),
@@ -3352,6 +3457,75 @@ class TestCopilotSetup:
         assert config["consensus"]["devil_model"] == "claude-opus-4.6"
         assert config["consensus"]["judge_model"] == "claude-opus-4.6"
         assert "default_model" not in config["llm"]
+
+    def test_setup_copilot_replaces_legacy_shipped_default_model_fields(
+        self, tmp_path: Path
+    ) -> None:
+        """Regression for #1324 (ouroboros-agent[bot] req_1780391230_63).
+
+        A config persisted by a prior release holds the OLD shipped defaults
+        (``claude-opus-4-6``, ``claude-sonnet-4-20250514``, the old OpenRouter
+        consensus slug). These are untouched shipped defaults the user never
+        chose, so Copilot setup must rewrite them to the discovered model just
+        like the current shipped defaults — not mistake them for explicit
+        overrides and leave unrunnable Claude ids in config.yaml. An explicit
+        non-shipped override must still be preserved.
+        """
+        config_dir = tmp_path / ".ouroboros"
+        config_dir.mkdir()
+        config_path = config_dir / "config.yaml"
+        config_path.write_text(
+            yaml.safe_dump(
+                {
+                    "orchestrator": {"runtime_backend": "claude"},
+                    "llm": {"backend": "claude_code", "qa_model": "claude-sonnet-4-20250514"},
+                    "clarification": {"default_model": "claude-opus-4-6"},
+                    "evaluation": {"semantic_model": "claude-opus-4-6"},
+                    "resilience": {
+                        "wonder_model": "claude-opus-4-6",
+                        # Explicit, never-shipped override — must be preserved.
+                        "reflect_model": "gpt-5-mini",
+                    },
+                    "consensus": {
+                        "advocate_model": "openrouter/anthropic/claude-opus-4-6",
+                        "models": [
+                            "openrouter/openai/gpt-4o",
+                            "openrouter/anthropic/claude-opus-4-6",
+                            "openrouter/google/gemini-2.5-pro",
+                        ],
+                    },
+                },
+                sort_keys=False,
+            ),
+            encoding="utf-8",
+        )
+
+        with (
+            patch("pathlib.Path.home", return_value=tmp_path),
+            patch("ouroboros.config.loader.ensure_config_dir", return_value=config_dir),
+            patch(
+                "ouroboros.copilot.model_discovery.list_copilot_models",
+                return_value=self._stub_models(),
+            ),
+            patch("ouroboros.copilot.model_discovery.used_fallback", return_value=False),
+            patch("ouroboros.cli.commands.setup._register_copilot_mcp_server"),
+        ):
+            setup_cmd._setup_copilot("/opt/bin/copilot", non_interactive=True)
+
+        config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        # Legacy shipped defaults are rewritten to the discovered Copilot model.
+        assert config["llm"]["qa_model"] == "claude-opus-4.6"
+        assert config["clarification"]["default_model"] == "claude-opus-4.6"
+        assert config["evaluation"]["semantic_model"] == "claude-opus-4.6"
+        assert config["resilience"]["wonder_model"] == "claude-opus-4.6"
+        assert config["consensus"]["advocate_model"] == "claude-opus-4.6"
+        assert config["consensus"]["models"] == [
+            "claude-opus-4.6",
+            "claude-sonnet-4.5",
+            "claude-opus-4.6",
+        ]
+        # Explicit, never-shipped override is preserved (no over-broadening).
+        assert config["resilience"]["reflect_model"] == "gpt-5-mini"
 
     def test_setup_copilot_aborts_on_non_mapping_sections(self, tmp_path: Path) -> None:
         """Malformed sections must not be clobbered or crash setup."""
@@ -3725,6 +3899,148 @@ class TestCopilotSetup:
             runtimes = setup_cmd._detect_runtimes()
 
         assert runtimes["copilot"] == str(explicit)
+
+    def test_detect_runtimes_picks_up_pi_from_path(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """`_detect_runtimes()` should report pi when the binary is on PATH."""
+        fake = tmp_path / "pi"
+        fake.write_text("#!/bin/sh\n", encoding="utf-8")
+
+        monkeypatch.delenv("OUROBOROS_PI_CLI_PATH", raising=False)
+
+        def fake_which(name: str) -> str | None:
+            return str(fake) if name == "pi" else None
+
+        with patch("shutil.which", side_effect=fake_which):
+            runtimes = setup_cmd._detect_runtimes()
+
+        assert runtimes["pi"] == str(fake)
+
+    def test_detect_runtimes_honours_explicit_pi_path(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """OUROBOROS_PI_CLI_PATH wins over the bare PATH lookup."""
+        explicit = tmp_path / "from-env-pi"
+        explicit.write_text("#!/bin/sh\n", encoding="utf-8")
+        monkeypatch.setenv("OUROBOROS_PI_CLI_PATH", str(explicit))
+
+        on_path = tmp_path / "from-path-pi"
+        on_path.write_text("#!/bin/sh\n", encoding="utf-8")
+
+        def fake_which(name: str) -> str | None:
+            if name == str(explicit):
+                return str(explicit)
+            if name == "pi":
+                return str(on_path)
+            return None
+
+        with patch("shutil.which", side_effect=fake_which):
+            runtimes = setup_cmd._detect_runtimes()
+
+        assert runtimes["pi"] == str(explicit)
+
+    def test_setup_pi_writes_runtime_without_switching_llm_backend(self, tmp_path: Path) -> None:
+        """Pi setup preserves the existing LLM backend unless explicitly changed."""
+        config_dir = tmp_path / ".ouroboros"
+        config_dir.mkdir()
+        (config_dir / "config.yaml").write_text(
+            yaml.safe_dump(
+                {
+                    "orchestrator": {"runtime_backend": "claude"},
+                    "llm": {"backend": "codex"},
+                },
+                sort_keys=False,
+            ),
+            encoding="utf-8",
+        )
+
+        with patch("pathlib.Path.home", return_value=tmp_path):
+            setup_cmd._setup_pi("/opt/bin/pi")
+
+        config_path = tmp_path / ".ouroboros" / "config.yaml"
+        config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        bridge_path = tmp_path / ".pi" / "agent" / "extensions" / "ouroboros-ooo-bridge.ts"
+
+        assert config["orchestrator"]["runtime_backend"] == "pi"
+        assert config["orchestrator"]["pi_cli_path"] == "/opt/bin/pi"
+        assert config["llm"]["backend"] == "codex"
+        assert bridge_path.exists()
+        bridge_source = bridge_path.read_text(encoding="utf-8")
+        assert 'pi.registerCommand("ooo"' in bridge_source
+        assert 'pi.on("input"' in bridge_source
+        assert (
+            '[...entry.args, "dispatch", "--runtime", "pi", "--cwd", ctx.cwd, text]'
+            in bridge_source
+        )
+        assert "UNSUPPORTED_DISPATCH_EXIT_CODE = 78" in bridge_source
+        assert 'return { action: handled ? "handled" : "continue" }' in bridge_source
+
+    def test_install_pi_ooo_bridge_is_idempotent(self, tmp_path: Path) -> None:
+        """The managed Pi bridge should not rewrite an already-current extension."""
+        bridge_path = tmp_path / ".pi" / "agent" / "extensions" / "ouroboros-ooo-bridge.ts"
+
+        with patch("pathlib.Path.home", return_value=tmp_path):
+            assert setup_cmd._install_pi_ooo_bridge() is True
+            first_mtime = bridge_path.stat().st_mtime_ns
+            assert setup_cmd._install_pi_ooo_bridge() is True
+
+        assert bridge_path.stat().st_mtime_ns == first_mtime
+
+    def test_setup_cli_with_runtime_pi_flag(self, tmp_path: Path) -> None:
+        """`ouroboros setup --runtime pi --non-interactive` runs the Pi setup path."""
+        runner = CliRunner()
+        with (
+            patch("pathlib.Path.home", return_value=tmp_path),
+            patch(
+                "ouroboros.cli.commands.setup._detect_runtimes",
+                return_value={
+                    "claude": None,
+                    "codex": None,
+                    "opencode": None,
+                    "hermes": None,
+                    "gemini": None,
+                    "kiro": None,
+                    "copilot": None,
+                    "pi": "/opt/bin/pi",
+                },
+            ),
+            patch("ouroboros.cli.commands.setup._setup_pi") as mock_setup,
+        ):
+            result = runner.invoke(
+                setup_cmd.app,
+                ["--runtime", "pi", "--non-interactive"],
+            )
+
+        assert result.exit_code == 0, result.output
+        mock_setup.assert_called_once_with("/opt/bin/pi")
+
+    def test_setup_cli_pi_missing_binary_errors_cleanly(self, tmp_path: Path) -> None:
+        """Explicit --runtime pi with no pi binary should exit non-zero."""
+        runner = CliRunner()
+        with (
+            patch("pathlib.Path.home", return_value=tmp_path),
+            patch(
+                "ouroboros.cli.commands.setup._detect_runtimes",
+                return_value={
+                    "claude": None,
+                    "codex": None,
+                    "opencode": None,
+                    "hermes": None,
+                    "gemini": None,
+                    "kiro": None,
+                    "copilot": None,
+                    "pi": None,
+                },
+            ),
+        ):
+            result = runner.invoke(
+                setup_cmd.app,
+                ["--runtime", "pi", "--non-interactive"],
+            )
+
+        assert result.exit_code != 0
+        assert "Pi CLI not found" in result.output
 
     def test_setup_cli_with_runtime_copilot_flag(self, tmp_path: Path) -> None:
         """`ouroboros setup --runtime copilot --non-interactive` runs the

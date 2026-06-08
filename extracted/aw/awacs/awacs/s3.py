@@ -94,6 +94,7 @@ GetAccessPointPolicyStatusForObjectLambda = Action(
 )
 GetAccountPublicAccessBlock = Action("GetAccountPublicAccessBlock")
 GetAnalyticsConfiguration = Action("GetAnalyticsConfiguration")
+GetBucketAbac = Action("GetBucketAbac")
 GetBucketAcl = Action("GetBucketAcl")
 GetBucketCORS = Action("GetBucketCORS")
 GetBucketLocation = Action("GetBucketLocation")
@@ -171,6 +172,7 @@ PutAccessPointPolicyForObjectLambda = Action("PutAccessPointPolicyForObjectLambd
 PutAccessPointPublicAccessBlock = Action("PutAccessPointPublicAccessBlock")
 PutAccountPublicAccessBlock = Action("PutAccountPublicAccessBlock")
 PutAnalyticsConfiguration = Action("PutAnalyticsConfiguration")
+PutBucketAbac = Action("PutBucketAbac")
 PutBucketAcl = Action("PutBucketAcl")
 PutBucketCORS = Action("PutBucketCORS")
 PutBucketLogging = Action("PutBucketLogging")
@@ -209,6 +211,13 @@ SubmitMultiRegionAccessPointRoutes = Action("SubmitMultiRegionAccessPointRoutes"
 TagResource = Action("TagResource")
 UntagResource = Action("UntagResource")
 UpdateAccessGrantsLocation = Action("UpdateAccessGrantsLocation")
+UpdateBucketMetadataInventoryTableConfiguration = Action(
+    "UpdateBucketMetadataInventoryTableConfiguration"
+)
+UpdateBucketMetadataJournalTableConfiguration = Action(
+    "UpdateBucketMetadataJournalTableConfiguration"
+)
 UpdateJobPriority = Action("UpdateJobPriority")
 UpdateJobStatus = Action("UpdateJobStatus")
+UpdateObjectEncryption = Action("UpdateObjectEncryption")
 UpdateStorageLensGroup = Action("UpdateStorageLensGroup")

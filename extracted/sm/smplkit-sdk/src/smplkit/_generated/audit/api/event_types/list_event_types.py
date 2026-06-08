@@ -14,6 +14,7 @@ from ...types import Unset
 
 def _get_kwargs(
     *,
+    filterenvironment: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     sort: ListEventTypesSort | Unset = "key",
     pagenumber: int | Unset = 1,
@@ -22,6 +23,13 @@ def _get_kwargs(
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
+
+    json_filterenvironment: None | str | Unset
+    if isinstance(filterenvironment, Unset):
+        json_filterenvironment = UNSET
+    else:
+        json_filterenvironment = filterenvironment
+    params["filter[environment]"] = json_filterenvironment
 
     json_filterresource_type: None | str | Unset
     if isinstance(filterresource_type, Unset):
@@ -79,6 +87,7 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
+    filterenvironment: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     sort: ListEventTypesSort | Unset = "key",
     pagenumber: int | Unset = 1,
@@ -90,11 +99,18 @@ def sync_detailed(
      List the distinct `event_type` slugs recorded for this account.
 
     Default sort is `key` ascending; pass `sort=-key` for descending.
-    Scoped to the resolved environment. Without `filter[resource_type]`,
-    returns one row per distinct event_type. With `filter[resource_type]`,
-    returns the event_types recorded for that specific resource type.
+    Scoped to the selected environments (see `filter[environment]`).
+    Without `filter[resource_type]`, returns one row per distinct
+    event_type. With `filter[resource_type]`, returns the event_types
+    recorded for that specific resource type.
 
     Args:
+        filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
+            results to (e.g. `production,staging`). When omitted, results are scoped to your single
+            accessible environment; send the `X-Smplkit-Environment` header instead if you can access
+            more than one. The reserved value `smplkit` selects platform change events that smplkit
+            records about your own resources (flags, configuration, and so on); these are not tied to
+            a deployment environment and are readable regardless of which environments you manage.
         filterresource_type (None | str | Unset):
         sort (ListEventTypesSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `key`, `-key`. Default: 'key'.
@@ -118,6 +134,7 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
+        filterenvironment=filterenvironment,
         filterresource_type=filterresource_type,
         sort=sort,
         pagenumber=pagenumber,
@@ -135,6 +152,7 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
+    filterenvironment: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     sort: ListEventTypesSort | Unset = "key",
     pagenumber: int | Unset = 1,
@@ -146,11 +164,18 @@ def sync(
      List the distinct `event_type` slugs recorded for this account.
 
     Default sort is `key` ascending; pass `sort=-key` for descending.
-    Scoped to the resolved environment. Without `filter[resource_type]`,
-    returns one row per distinct event_type. With `filter[resource_type]`,
-    returns the event_types recorded for that specific resource type.
+    Scoped to the selected environments (see `filter[environment]`).
+    Without `filter[resource_type]`, returns one row per distinct
+    event_type. With `filter[resource_type]`, returns the event_types
+    recorded for that specific resource type.
 
     Args:
+        filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
+            results to (e.g. `production,staging`). When omitted, results are scoped to your single
+            accessible environment; send the `X-Smplkit-Environment` header instead if you can access
+            more than one. The reserved value `smplkit` selects platform change events that smplkit
+            records about your own resources (flags, configuration, and so on); these are not tied to
+            a deployment environment and are readable regardless of which environments you manage.
         filterresource_type (None | str | Unset):
         sort (ListEventTypesSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `key`, `-key`. Default: 'key'.
@@ -175,6 +200,7 @@ def sync(
 
     return sync_detailed(
         client=client,
+        filterenvironment=filterenvironment,
         filterresource_type=filterresource_type,
         sort=sort,
         pagenumber=pagenumber,
@@ -186,6 +212,7 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
+    filterenvironment: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     sort: ListEventTypesSort | Unset = "key",
     pagenumber: int | Unset = 1,
@@ -197,11 +224,18 @@ async def asyncio_detailed(
      List the distinct `event_type` slugs recorded for this account.
 
     Default sort is `key` ascending; pass `sort=-key` for descending.
-    Scoped to the resolved environment. Without `filter[resource_type]`,
-    returns one row per distinct event_type. With `filter[resource_type]`,
-    returns the event_types recorded for that specific resource type.
+    Scoped to the selected environments (see `filter[environment]`).
+    Without `filter[resource_type]`, returns one row per distinct
+    event_type. With `filter[resource_type]`, returns the event_types
+    recorded for that specific resource type.
 
     Args:
+        filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
+            results to (e.g. `production,staging`). When omitted, results are scoped to your single
+            accessible environment; send the `X-Smplkit-Environment` header instead if you can access
+            more than one. The reserved value `smplkit` selects platform change events that smplkit
+            records about your own resources (flags, configuration, and so on); these are not tied to
+            a deployment environment and are readable regardless of which environments you manage.
         filterresource_type (None | str | Unset):
         sort (ListEventTypesSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `key`, `-key`. Default: 'key'.
@@ -225,6 +259,7 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
+        filterenvironment=filterenvironment,
         filterresource_type=filterresource_type,
         sort=sort,
         pagenumber=pagenumber,
@@ -240,6 +275,7 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
+    filterenvironment: None | str | Unset = UNSET,
     filterresource_type: None | str | Unset = UNSET,
     sort: ListEventTypesSort | Unset = "key",
     pagenumber: int | Unset = 1,
@@ -251,11 +287,18 @@ async def asyncio(
      List the distinct `event_type` slugs recorded for this account.
 
     Default sort is `key` ascending; pass `sort=-key` for descending.
-    Scoped to the resolved environment. Without `filter[resource_type]`,
-    returns one row per distinct event_type. With `filter[resource_type]`,
-    returns the event_types recorded for that specific resource type.
+    Scoped to the selected environments (see `filter[environment]`).
+    Without `filter[resource_type]`, returns one row per distinct
+    event_type. With `filter[resource_type]`, returns the event_types
+    recorded for that specific resource type.
 
     Args:
+        filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
+            results to (e.g. `production,staging`). When omitted, results are scoped to your single
+            accessible environment; send the `X-Smplkit-Environment` header instead if you can access
+            more than one. The reserved value `smplkit` selects platform change events that smplkit
+            records about your own resources (flags, configuration, and so on); these are not tied to
+            a deployment environment and are readable regardless of which environments you manage.
         filterresource_type (None | str | Unset):
         sort (ListEventTypesSort | Unset): Field to sort by. Prefix with `-` for descending order.
             Default: `key`. Allowed values: `key`, `-key`. Default: 'key'.
@@ -281,6 +324,7 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
+            filterenvironment=filterenvironment,
             filterresource_type=filterresource_type,
             sort=sort,
             pagenumber=pagenumber,

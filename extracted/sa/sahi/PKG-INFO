@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sahi
-Version: 0.12.0
+Version: 0.12.1
 Summary: A vision library for performing sliced inference on large images/small objects
 Project-URL: Homepage, https://github.com/obss/sahi
 Project-URL: Source, https://github.com/obss/sahi
@@ -62,11 +62,6 @@ Requires-Dist: torchvision==0.23.0; (python_version >= '3.9' and platform_system
 Requires-Dist: torchvision==0.23.0; (python_version >= '3.9' and platform_system == 'Darwin') and extra == 'ci'
 Requires-Dist: transformers>=4.49.0; (python_version >= '3.9') and extra == 'ci'
 Requires-Dist: ultralytics>=8.3.161; extra == 'ci'
-Provides-Extra: mmdet
-Requires-Dist: mmcv==2.2.0; (python_version == '3.11' and (platform_system != 'Darwin' or platform_machine != 'arm64')) and extra == 'mmdet'
-Requires-Dist: mmdet==3.3.0; (python_version == '3.11' and (platform_system != 'Darwin' or platform_machine != 'arm64')) and extra == 'mmdet'
-Requires-Dist: mmengine; (python_version == '3.11' and (platform_system != 'Darwin' or platform_machine != 'arm64')) and extra == 'mmdet'
-Requires-Dist: numpy<3.0; (python_version == '3.11') and extra == 'mmdet'
 Provides-Extra: numba
 Requires-Dist: numba>=0.59.0; (python_version >= '3.10') and extra == 'numba'
 Provides-Extra: onnx
@@ -89,6 +84,7 @@ Requires-Dist: yolov5<8.0.0,>=6.0.0; extra == 'yolov5'
 Description-Content-Type: text/markdown
 
 <div align="center">
+<img width="90" alt="SAHI logo" src="https://raw.githubusercontent.com/obss/sahi/main/docs/images/sahi-logo.svg">
 <h1>
   SAHI: Slicing Aided Hyper Inference
 </h1>
@@ -206,7 +202,7 @@ pip install transformers>=4.49.0 timm
 - Install your desired detection framework (yolov5):
 
 ```console
-pip install yolov5==7.0.14 sahi==0.11.21
+pip install yolov5==7.0.14 sahi==0.12.1
 ```
 
 - Install your desired detection framework (mmdet):

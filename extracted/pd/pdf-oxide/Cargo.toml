@@ -57,7 +57,7 @@ manual_checked_ops = "allow"
 
 [package]
 name = "pdf_oxide"
-version = "0.3.60"
+version = "0.3.61"
 # MSRV — driven up from 1.82 for v0.3.38. Transitive deps pulled in
 # this release push the floor to 1.88:
 #   - hybrid-array 0.4.10 (via RustCrypto) → edition 2024 → 1.85
@@ -232,7 +232,7 @@ ort = { version = "=2.0.0-rc.11", optional = true, default-features = false, fea
     "ndarray",
     "load-dynamic",
 ] }
-imageproc = { version = "0.26.2", optional = true }
+imageproc = { version = "0.27.0", optional = true }
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -300,6 +300,7 @@ tempfile = "3.27"
 crc32fast = "1.3"
 wasm-bindgen-test = "0.3"
 hex-literal = "1.1.0"
+jpeg-encoder = "0.7.0"
 
 # `criterion` pulls `rayon`, which cannot target wasm32. Benches only
 # ever run natively, so keep criterion out of the wasm32 dev-dep graph
@@ -393,6 +394,15 @@ wasm-ml = ["wasm-ocr"]
 
 # Debug feature for span merging analysis
 debug-span-merging = []
+
+# Test-support hooks for integration tests. Currently exposes
+# `PageRenderer::icc_transform_cache_build_count()`, backed by an
+# instance-local `Cell<usize>` on the `IccTransformCache`, so the
+# per-page qcms transform-cache test can assert exact build counts
+# without resorting to noisy wall-clock measurement. Production builds
+# never enable this feature — the counter increment pays zero overhead
+# when the feature is off.
+test-support = []
 
 # Page rendering to images (pure Rust via tiny-skia)
 rendering = ["dep:tiny-skia", "dep:fast_image_resize", "system-fonts", "dep:hayro-jbig2"]

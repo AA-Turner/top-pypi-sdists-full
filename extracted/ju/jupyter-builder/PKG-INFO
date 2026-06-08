@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyter_builder
-Version: 1.0.0
+Version: 1.0.1
 Summary: JupyterLab build tools
 Project-URL: Homepage, https://jupyter.org
 Project-URL: Source, https://github.com/jupyterlab/jupyter-builder

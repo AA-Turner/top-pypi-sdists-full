@@ -13,7 +13,6 @@ import tempfile
 import tomllib
 from pathlib import Path
 
-import pytest
 import tomli_w
 
 

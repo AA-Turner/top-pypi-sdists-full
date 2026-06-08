@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import subprocess
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from pathlib import Path
 
 from drydock.admiral import history, persistence
@@ -50,7 +50,7 @@ def stage(proposal: Proposal, validation: ValidationResult) -> StagedProposal | 
     if not validation.ok:
         raise ValueError("refusing to stage a proposal that didn't pass validation")
 
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    ts = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     branch = f"admiral/{ts}-{_safe_code(proposal.code)}"
 
     # Invariant: we ALWAYS branch from main.

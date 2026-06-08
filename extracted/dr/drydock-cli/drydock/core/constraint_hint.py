@@ -21,7 +21,6 @@ Disabled via DRYDOCK_CONSTRAINT_HINT=0.
 from __future__ import annotations
 
 import logging
-import os
 import re
 
 logger = logging.getLogger("drydock.constraint_hint")

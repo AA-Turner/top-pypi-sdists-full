@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-mysql
-Version: 6.6.0
+Version: 6.6.1
 Summary: Provider package apache-airflow-providers-mysql for Apache Airflow
 Keywords: airflow-provider,mysql,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -30,14 +30,15 @@ Requires-Dist: mysqlclient>=2.2.5; sys_platform != "darwin"
 Requires-Dist: mysql-connector-python>=9.1.0; python_version < "3.12"
 Requires-Dist: mysql-connector-python>=9.1.0, !=9.7.0; python_version >= "3.12"
 Requires-Dist: aiomysql>=0.2.0
+Requires-Dist: pymysql>=1.0.3,<1.2
 Requires-Dist: apache-airflow-providers-amazon ; extra == "amazon"
 Requires-Dist: apache-airflow-providers-openlineage ; extra == "openlineage"
 Requires-Dist: apache-airflow-providers-presto ; extra == "presto"
 Requires-Dist: apache-airflow-providers-trino ; extra == "trino"
 Requires-Dist: apache-airflow-providers-vertica ; extra == "vertica"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-mysql/6.6.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-mysql/6.6.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-mysql/6.6.1/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-mysql/6.6.1
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -74,7 +75,7 @@ Provides-Extra: vertica
 
 Package ``apache-airflow-providers-mysql``
 
-Release: ``6.6.0``
+Release: ``6.6.1``
 
 
 `MySQL <https://www.mysql.com/>`__
@@ -87,7 +88,7 @@ This is a provider package for ``mysql`` provider. All classes for this provider
 are in ``airflow.providers.mysql`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-mysql/6.6.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-mysql/6.6.1/>`_.
 
 Installation
 ------------
@@ -111,6 +112,7 @@ PIP package                                 Version required
 ``mysql-connector-python``                  ``>=9.1.0; python_version < "3.12"``
 ``mysql-connector-python``                  ``>=9.1.0,!=9.7.0; python_version >= "3.12"``
 ``aiomysql``                                ``>=0.2.0``
+``pymysql``                                 ``>=1.0.3,<1.2``
 ==========================================  =============================================
 
 Cross provider package dependencies
@@ -153,5 +155,5 @@ Extra                       Dependencies
 ==========================  ========================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-mysql/6.6.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-mysql/6.6.1/changelog.html>`_.
 

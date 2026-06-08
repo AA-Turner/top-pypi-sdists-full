@@ -375,7 +375,7 @@ class LinearAlgebra(
         return ToolCallDisplay(summary=f"linear_algebra[{args.op}]: {m}")
 
     @classmethod
-    def get_result_display(cls, event: "ToolResultEvent") -> ToolResultDisplay:
+    def get_result_display(cls, event: ToolResultEvent) -> ToolResultDisplay:
         if isinstance(event.result, LinearAlgebraResult):
             if not event.result.ok:
                 return ToolResultDisplay(
@@ -396,8 +396,8 @@ class LinearAlgebra(
 
     @final
     async def run(
-        self, args: LinearAlgebraArgs, ctx: "InvokeContext | None" = None
-    ) -> AsyncGenerator["ToolStreamEvent | LinearAlgebraResult", None]:
+        self, args: LinearAlgebraArgs, ctx: InvokeContext | None = None
+    ) -> AsyncGenerator[ToolStreamEvent | LinearAlgebraResult, None]:
         handler = _DISPATCH.get(args.op)
         if handler is None:
             yield LinearAlgebraResult(

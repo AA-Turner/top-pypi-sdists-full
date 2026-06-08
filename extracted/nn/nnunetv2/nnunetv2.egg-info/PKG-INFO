@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nnunetv2
-Version: 2.7.0
+Version: 2.8.0
 Summary: nnU-Net is a framework for out-of-the box image segmentation.
 Author: Helmholtz Imaging Applied Computer Vision Lab
 Author-email: Fabian Isensee <f.isensee@dkfz-heidelberg.de>
@@ -205,6 +205,7 @@ License:                                  Apache License
            WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
            See the License for the specific language governing permissions and
            limitations under the License.
+        
 Project-URL: homepage, https://github.com/MIC-DKFZ/nnUNet
 Project-URL: repository, https://github.com/MIC-DKFZ/nnUNet
 Keywords: deep learning,image segmentation,semantic segmentation,medical image analysis,medical image segmentation,nnU-Net,nnunet
@@ -222,7 +223,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: torch!=2.9.*,>=2.1.2
 Requires-Dist: acvl-utils<0.3,>=0.2.6
-Requires-Dist: dynamic-network-architectures<0.5,>=0.4.1
+Requires-Dist: dynamic-network-architectures<0.5,>=0.4.4
 Requires-Dist: tqdm
 Requires-Dist: scipy
 Requires-Dist: batchgenerators>=0.25.1
@@ -241,11 +242,12 @@ Requires-Dist: imagecodecs
 Requires-Dist: yacs
 Requires-Dist: batchgeneratorsv2>=0.3.2
 Requires-Dist: einops
-Requires-Dist: blosc2>=3.0.0b1
+Requires-Dist: blosc2>=3.3.2
 Provides-Extra: dev
-Requires-Dist: black; extra == "dev"
-Requires-Dist: ruff; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
+Provides-Extra: intel-macos
+Requires-Dist: torch<2.3; extra == "intel-macos"
+Requires-Dist: numpy<2; extra == "intel-macos"
 Dynamic: license-file
 
 # nnU-Net
@@ -322,6 +324,6 @@ Additional recent work on residual encoder presets and benchmarking:
 
 <img src="documentation/assets/dkfz_logo.png" height="100px" />
 
-nnU-Net is developed and maintained by the Applied Computer Vision Lab (ACVL) of [Helmholtz Imaging](http://helmholtz-imaging.de) 
-and the [Division of Medical Image Computing](https://www.dkfz.de/en/mic/index.php) at the 
+nnU-Net is developed and maintained by the Applied Computer Vision Lab (ACVL) of [Helmholtz Imaging](http://helmholtz-imaging.de)
+and the [Division of Medical Image Computing](https://www.dkfz.de/en/mic/index.php) at the
 [German Cancer Research Center (DKFZ)](https://www.dkfz.de/en/index.html).

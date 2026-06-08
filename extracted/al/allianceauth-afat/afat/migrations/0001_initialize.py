@@ -11,38 +11,6 @@ import afat.models.afat
 
 
 class Migration(migrations.Migration):
-
-    replaces = [
-        ("afat", "0001_initial"),
-        ("afat", "0002_manualfat"),
-        ("afat", "0003_auto_20180911_0831"),
-        ("afat", "0004_clickfatduration"),
-        ("afat", "0005_auto_20200816_2042"),
-        ("afat", "0006_auto_20200820_2013"),
-        ("afat", "0007_auto_20200826_1537"),
-        ("afat", "0008_auto_20200912_1116"),
-        ("afat", "0009_auto_20200925_2206"),
-        ("afat", "0010_permissoins_update_20201002_1909"),
-        ("afat", "0011_change_meta_options_on_manualafat_20201003_2222"),
-        ("afat", "0012_manualafat_created_at"),
-        ("afat", "0013_basic_module_access_permissions"),
-        ("afat", "0014_auto_20201224_0930"),
-        ("afat", "0015_afatlink_character"),
-        ("afat", "0016_permissions_overhaul"),
-        ("afat", "0017_remove_soft_deletion"),
-        ("afat", "0018_auto_20210420_2016"),
-        ("afat", "0019_add_several_indices"),
-        ("afat", "0020_auto_20210617_1037"),
-        ("afat", "0021_alter_afatlink_fleet"),
-        ("afat", "0022_afatlink_esi_error_count"),
-        ("afat", "0023_the_big_rename"),
-        ("afat", "0024_setting_doctrine_and_fleet_type"),
-        ("afat", "0025_fat_alliance_eve_id_fat_corporation_eve_id"),
-        ("afat", "0026_fatsintimefilter"),
-        ("afat", "0027_alter_fatlink_last_esi_error"),
-        ("afat", "0028_alter_fatsintimefilter_ship_classes"),
-    ]
-
     initial = True
 
     dependencies = [

@@ -44,6 +44,7 @@ CreateDataPrepperPipeline = Action("CreateDataPrepperPipeline")
 CreateDomain = Action("CreateDomain")
 CreateElasticsearchDomain = Action("CreateElasticsearchDomain")
 CreateElasticsearchServiceRole = Action("CreateElasticsearchServiceRole")
+CreateIndex = Action("CreateIndex")
 CreateOutboundConnection = Action("CreateOutboundConnection")
 CreateOutboundCrossClusterSearchConnection = Action(
     "CreateOutboundCrossClusterSearchConnection"
@@ -62,12 +63,14 @@ DeleteInboundConnection = Action("DeleteInboundConnection")
 DeleteInboundCrossClusterSearchConnection = Action(
     "DeleteInboundCrossClusterSearchConnection"
 )
+DeleteIndex = Action("DeleteIndex")
 DeleteOutboundConnection = Action("DeleteOutboundConnection")
 DeleteOutboundCrossClusterSearchConnection = Action(
     "DeleteOutboundCrossClusterSearchConnection"
 )
 DeletePackage = Action("DeletePackage")
 DeleteVpcEndpoint = Action("DeleteVpcEndpoint")
+DeregisterCapability = Action("DeregisterCapability")
 DescribeDataPrepperPipeline = Action("DescribeDataPrepperPipeline")
 DescribeDomain = Action("DescribeDomain")
 DescribeDomainAutoTunes = Action("DescribeDomainAutoTunes")
@@ -87,6 +90,7 @@ DescribeInboundConnections = Action("DescribeInboundConnections")
 DescribeInboundCrossClusterSearchConnections = Action(
     "DescribeInboundCrossClusterSearchConnections"
 )
+DescribeInsightDetails = Action("DescribeInsightDetails")
 DescribeInstanceTypeLimits = Action("DescribeInstanceTypeLimits")
 DescribeOutboundConnections = Action("DescribeOutboundConnections")
 DescribeOutboundCrossClusterSearchConnections = Action(
@@ -112,11 +116,14 @@ ESHttpPatch = Action("ESHttpPatch")
 ESHttpPost = Action("ESHttpPost")
 ESHttpPut = Action("ESHttpPut")
 GetApplication = Action("GetApplication")
+GetCapability = Action("GetCapability")
 GetCompatibleElasticsearchVersions = Action("GetCompatibleElasticsearchVersions")
 GetCompatibleVersions = Action("GetCompatibleVersions")
 GetDataSource = Action("GetDataSource")
+GetDefaultApplicationSetting = Action("GetDefaultApplicationSetting")
 GetDirectQueryDataSource = Action("GetDirectQueryDataSource")
 GetDomainMaintenanceStatus = Action("GetDomainMaintenanceStatus")
+GetIndex = Action("GetIndex")
 GetPackageVersionHistory = Action("GetPackageVersionHistory")
 GetUpgradeHistory = Action("GetUpgradeHistory")
 GetUpgradeStatus = Action("GetUpgradeStatus")
@@ -131,6 +138,7 @@ ListDomainsForPackage = Action("ListDomainsForPackage")
 ListElasticsearchInstanceTypeDetails = Action("ListElasticsearchInstanceTypeDetails")
 ListElasticsearchInstanceTypes = Action("ListElasticsearchInstanceTypes")
 ListElasticsearchVersions = Action("ListElasticsearchVersions")
+ListInsights = Action("ListInsights")
 ListInstanceTypeDetails = Action("ListInstanceTypeDetails")
 ListInstanceTypes = Action("ListInstanceTypes")
 ListPackagesForDomain = Action("ListPackagesForDomain")
@@ -145,12 +153,18 @@ PurchaseReservedElasticsearchInstanceOffering = Action(
     "PurchaseReservedElasticsearchInstanceOffering"
 )
 PurchaseReservedInstanceOffering = Action("PurchaseReservedInstanceOffering")
+PutDefaultApplicationSetting = Action("PutDefaultApplicationSetting")
+RegisterCapability = Action("RegisterCapability")
 RejectInboundConnection = Action("RejectInboundConnection")
 RejectInboundCrossClusterSearchConnection = Action(
     "RejectInboundCrossClusterSearchConnection"
 )
 RemoveTags = Action("RemoveTags")
 RevokeVpcEndpointAccess = Action("RevokeVpcEndpointAccess")
+RollbackElasticsearchServiceSoftwareUpdate = Action(
+    "RollbackElasticsearchServiceSoftwareUpdate"
+)
+RollbackServiceSoftwareUpdate = Action("RollbackServiceSoftwareUpdate")
 StartDomainMaintenance = Action("StartDomainMaintenance")
 StartElasticsearchServiceSoftwareUpdate = Action(
     "StartElasticsearchServiceSoftwareUpdate"
@@ -162,6 +176,7 @@ UpdateDataSource = Action("UpdateDataSource")
 UpdateDirectQueryDataSource = Action("UpdateDirectQueryDataSource")
 UpdateDomainConfig = Action("UpdateDomainConfig")
 UpdateElasticsearchDomainConfig = Action("UpdateElasticsearchDomainConfig")
+UpdateIndex = Action("UpdateIndex")
 UpdatePackage = Action("UpdatePackage")
 UpdatePackageScope = Action("UpdatePackageScope")
 UpdateScheduledAction = Action("UpdateScheduledAction")

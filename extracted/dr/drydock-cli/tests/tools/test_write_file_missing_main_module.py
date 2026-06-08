@@ -8,7 +8,6 @@ dir that has __init__.py but lacks __main__.py.
 """
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 import pytest
 

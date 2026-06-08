@@ -4,10 +4,10 @@ from crowdin_api.api_resources.ai.enums import (
     AIPromptAction,
     AIPromptOperation,
     AIProviderType,
+    AiToolType,
+    EditAiCustomPlaceholderPatchPath,
     EditAIPromptPath,
     EditAIProviderPath,
-    EditAiCustomPlaceholderPatchPath,
-    AiToolType,
     EditAiSettingsPatchPath,
 )
 from crowdin_api.api_resources.enums import PatchOperation
@@ -287,3 +287,32 @@ class EditAiSettingsPatch(TypedDict):
     op: PatchOperation
     path: EditAiSettingsPatchPath
     value: Any
+
+
+class AiFileTranslationRequest(TypedDict):
+    storageId: int
+    targetLanguageId: str
+    sourceLanguageId: Optional[str]
+    type: Optional[str]
+    parserVersion: Optional[int]
+    tmIds: Optional[Iterable[int]]
+    glossaryIds: Optional[Iterable[int]]
+    aiPromptId: Optional[int]
+    aiProviderId: Optional[int]
+    aiModelId: Optional[str]
+    instructions: Optional[Iterable[str]]
+    attachmentIds: Optional[Iterable[int]]
+
+
+class AiTranslateStringsRequest(TypedDict):
+    strings: Iterable[str]
+    targetLanguageId: str
+    sourceLanguageId: Optional[str]
+    tmIds: Optional[Iterable[int]]
+    glossaryIds: Optional[Iterable[int]]
+    styleGuideIds: Optional[Iterable[int]]
+    aiPromptId: Optional[int]
+    aiProviderId: Optional[int]
+    aiModelId: Optional[str]
+    instructions: Optional[Iterable[str]]
+    attachmentIds: Optional[Iterable[int]]

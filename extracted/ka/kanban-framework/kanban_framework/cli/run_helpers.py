@@ -162,7 +162,7 @@ def _move_to_archive(fs: Filesystem, task_id: str) -> None:
 
 
 def _knowledge_health_on_archive(task_id: str) -> None:
-    """Run knowledge health check on archive — mark stale, report gaps.
+    """Run knowledge health check on archive — mark stale, cleanup zombies, report gaps.
 
     Archive also migrates any task-level knowledge-log.md into DB (#166).
     Tracks knowledge effectiveness based on task evaluation scores.
@@ -186,6 +186,12 @@ def _knowledge_health_on_archive(task_id: str) -> None:
             import sys
             print(f"KNOWLEDGE HEALTH: knowledge gaps detected for {task_id}: {list(gaps.keys())}", file=sys.stderr)
 
+        # Zombie cleanup: remove entries never referenced in 60+ days (#543)
+        zombie_ids = km.cleanup_zombies(min_age_days=60)
+        if zombie_ids:
+            import sys
+            print(f"KNOWLEDGE CLEANUP: {len(zombie_ids)} zombie entries removed for {task_id}", file=sys.stderr)
+
         # Knowledge effectiveness tracking: correlate knowledge_used.json with eval scores
         _track_knowledge_effectiveness(fs, km, task_id)
 
@@ -203,19 +209,27 @@ def _knowledge_health_on_archive(task_id: str) -> None:
 
 
 def _track_knowledge_effectiveness(fs: Filesystem, km, task_id: str) -> None:
-    """Correlate knowledge_used.json with evaluation scores and update effectiveness."""
+    """Correlate knowledge_used.json with evaluation scores and update effectiveness.
+
+    Falls back to scanning task artifacts (spec.md, plan/*.md) for K-NNN references
+    when knowledge_used.json is missing — agent doesn't always produce this file (#575).
+    """
     import json as _json
     task_dir = fs.task_dir(task_id)
     ku_path = task_dir / "plan" / "knowledge_used.json"
-    if not ku_path.is_file():
-        return
 
-    try:
-        ku = _json.loads(ku_path.read_text(encoding="utf-8"))
-    except Exception:
-        return
+    matched = []
+    if ku_path.is_file():
+        try:
+            ku = _json.loads(ku_path.read_text(encoding="utf-8"))
+        except Exception:
+            ku = {}
+        from kanban_framework.domain.guard_checks import _extract_matched_entries
+        matched = _extract_matched_entries(ku)
 
-    matched = ku.get("matched", [])
+    if not matched:
+        matched = _extract_knowledge_refs_from_artifacts(fs, km, task_dir)
+
     if not matched:
         return
 
@@ -244,6 +258,50 @@ def _track_knowledge_effectiveness(fs: Filesystem, km, task_id: str) -> None:
             km.update_effectiveness(eid, task_id, avg_score)
         except Exception:
             pass
+
+
+def _extract_knowledge_refs_from_artifacts(fs, km, task_dir) -> list[dict]:
+    """Scan task artifacts for K-NNN / scope-NNN references as fallback.
+
+    Used when plan/knowledge_used.json is not produced by the agent (#575).
+    Only returns IDs that actually exist in the knowledge base.
+    """
+    import re
+    import sys
+
+    found: set[str] = set()
+    # Match K001, K042, alice001, scope-NNN patterns
+    pattern = re.compile(r'\b(?:K|[a-z][a-z0-9]{0,14})(\d{3,})\b', re.IGNORECASE)
+
+    for glob_pat in ['spec.md', 'plan/*.md', 'execution_summary.md']:
+        for f in task_dir.glob(glob_pat):
+            try:
+                text = f.read_text(encoding='utf-8')
+                for m in pattern.finditer(text):
+                    found.add(m.group(0))
+            except Exception:
+                pass
+
+    if not found:
+        return []
+
+    # Validate against actual KB entries
+    result = []
+    for ref_id in sorted(found):
+        try:
+            entry = km.get_entry(ref_id)
+            if entry:
+                result.append({"id": ref_id, "title": entry.get("title", ""), "source": "artifact_scan"})
+        except Exception:
+            pass
+
+    if result:
+        print(
+            f"KNOWLEDGE FALLBACK: {len(result)} KB ref(s) extracted from "
+            f"task artifacts for {task_dir.name} (knowledge_used.json missing)",
+            file=sys.stderr,
+        )
+    return result
 
 
 def _fmt_duration(seconds: float) -> str:

@@ -84,7 +84,7 @@ def check_content_for_injection(content: str, file_path: str = "") -> str | None
             decoded = base64.b64decode(match.group()).decode('utf-8', errors='ignore')
             # Check if the decoded content looks like instructions
             if any(kw in decoded.lower() for kw in ['ignore', 'override', 'system', 'instruction', 'you are']):
-                warnings.append(f"Base64 encoded block may contain hidden instructions")
+                warnings.append("Base64 encoded block may contain hidden instructions")
                 break
         except Exception:
             pass

@@ -5,7 +5,7 @@ use crate::custom_family::{
 use crate::estimate::{
     AdaptiveRegularizationOptions, EstimationError, FitOptions, FittedLinkState, UnifiedFitResult,
 };
-use crate::families::bernoulli_marginal_slope::{
+use crate::families::bms::{
     BernoulliMarginalSlopeFitResult, BernoulliMarginalSlopeTermSpec, DeviationBlockConfig,
     fit_bernoulli_marginal_slope_terms,
 };
@@ -3532,6 +3532,12 @@ fn crossfit_score_calibration(
             p_cov,
             response_full.view(),
         );
+    // Pin the resolved knot count: each fold's CTN refit must use exactly this
+    // value, not re-derive it from its own response subsample. Without this the
+    // data-driven complexity cap rounds to different counts per fold, so p_resp
+    // (and p₁ = p_resp · p_cov) drifts across folds and the OOF Jacobian
+    // assembly fails the fold-alignment check below ("cross-fit fold p₁ mismatch").
+    fold_config.response_num_internal_knots_pinned = true;
 
     let mut z_oof = Array1::<f64>::zeros(n);
     let mut jac_oof: Option<Array2<f64>> = None;
@@ -3865,10 +3871,6 @@ pub struct FitConfig {
     /// large workloads, `Off` pins execution to CPU kernels, and `Force` fails
     /// loudly when a requested GPU kernel has no compiled backend.
     pub gpu_policy: crate::gpu::GpuPolicy,
-    /// Solver device. `Cpu` is the default; `Cuda` routes solver kernels
-    /// through the cudarc cuBLAS/cuSOLVER path when the `cuda` feature is built.
-    pub device: crate::solver::gpu::Device,
-
     /// Optional override of the [`crate::resource::ResourcePolicy`] used when
     /// planning spatial bases (TPS / Matern / Duchon) during term construction.
     /// When `None`, the default-library policy is used.
@@ -3955,7 +3957,6 @@ impl Default for FitConfig {
             firth: false,
             outer_max_iter: None,
             gpu_policy: crate::gpu::GpuPolicy::Auto,
-            device: crate::solver::gpu::Device::Cpu,
             resource_policy: None,
             group_metadata: None,
             coefficient_groups: Vec::new(),
@@ -4026,7 +4027,6 @@ pub fn materialize<'a>(
     config: &FitConfig,
 ) -> Result<MaterializedModel<'a>, WorkflowError> {
     crate::gpu::configure_global_policy(config.gpu_policy);
-    crate::solver::gpu::configure_device(config.device);
     let parsed = parse_formula(formula)?;
     let col_map = data.column_map();
 
@@ -6344,20 +6344,27 @@ fn materialize_survival<'a>(
     }
 
     let survival_mode = parse_survival_likelihood_mode(&config.survival_likelihood)?;
-    // Fail fast on all-censored (zero-event) survival data in the marginal-slope
-    // path (#789B). The single-hazard / marginal-slope likelihood has no event
-    // score when no row is an event, so the inner/outer solve cannot identify the
-    // hazard and the optimizer spins without termination. The standard survival
-    // engine rejects this inside `WorkingModelSurvival`, but the marginal-slope
-    // construction does not necessarily build that working model, so the
-    // degenerate config must be caught here before any heavy construction.
-    if matches!(survival_mode, SurvivalLikelihoodMode::MarginalSlope)
-        && !event_codes.iter().any(|&code| code > 0)
-    {
+    // Fail fast on all-censored (zero-event) survival data for every survival
+    // likelihood (#789B / construction-time fittability split). With no row
+    // marking a target event, the survival likelihood has no event score: the
+    // hazard direction is unidentified and the inner/outer solve either spins
+    // on a flat landscape (marginal-slope) or returns a numerically degenerate
+    // fit (other modes). This is the single chokepoint every survival fit
+    // dispatcher routes through (Surv(...) responses + all FitConfig survival
+    // modes), so catching it here keeps every downstream constructor —
+    // `WorkingModelSurvival`, the Royston-Parmar wrapper, the marginal-slope
+    // builders — free to materialize models on censored fixtures (which the
+    // engine's structural unit tests rely on) without losing the user-facing
+    // safety on real fits.
+    if !event_codes.iter().any(|&code| code > 0) {
+        let mode_label = match survival_mode {
+            SurvivalLikelihoodMode::MarginalSlope => "survival marginal-slope",
+            _ => "survival fit",
+        };
         return Err(WorkflowError::InvalidConfig {
-            reason: "survival marginal-slope requires at least one target event; all rows are \
-                     censored, so the likelihood has no event score and cannot identify the hazard"
-                .to_string(),
+            reason: format!(
+                "{mode_label} requires at least one target event; all rows are censored, so the likelihood has no event score and cannot identify the hazard"
+            ),
         });
     }
     let cause_count =

@@ -44,6 +44,18 @@ from kanban_framework.domain.context import (  # noqa: F401
     _get_context_files,
     _build_worker_context,
 )
+# Framework issue collection instruction injected into auto-mode execute spawns
+_FRAMEWORK_ISSUES_INSTRUCTION = (
+    "\n\n## 框架问题收集\n"
+    "如果在执行过程中遇到 kanban 框架本身的问题（非业务代码问题），请记录：\n"
+    "- CLI 命令报错或行为异常\n"
+    "- spawn_prompt 指令不清晰或矛盾\n"
+    "- guard/checkpoint 误判\n"
+    "- 工作流步骤顺序不合理\n"
+    "将发现写入 $task_dir/framework_issues.md，格式：\n"
+    "### [问题标题]\n- 现象: ...\n- 复现步骤: ...\n- 建议修复: ..."
+)
+
 from kanban_framework.domain.state_machine_subtask import (  # noqa: F401
     _step_depends_on,
     _interactive_prompts,
@@ -192,6 +204,29 @@ def _try_subtask_step(fs, config, task):
 def _build_step_result(fs, config, task, step, i, phase_steps, phase_value):
     context_files = _get_context_files(fs, task, phase_value)
     prompt = step.spawn_prompt
+    # Auto-generate basic prompt when use_subagent=true but spawn_prompt missing
+    if not prompt and step.use_subagent is True:
+        import sys
+        print(
+            f"WARNING: {step.id} has use_subagent=true but no spawn_prompt. "
+            f"Auto-generating prompt from step metadata + knowledge base. "
+            f"Fix: add 'spawn_prompt' field to step definition.",
+            file=sys.stderr,
+        )
+        # Derive search keywords from step id and description
+        step_keywords = step.id.replace(".", " ").replace("_", " ") + " " + step.description
+        prompt = (
+            f"你是 kanban 任务 $task_id 的执行 Agent。\n"
+            f"步骤: {step.id}\n"
+            f"目标: {step.description}\n\n"
+            f"开始前先查询知识库获取相关经验和规范：\n"
+            f"1. kanban knowledge hybrid \"{step_keywords[:80]}\" --biz $biz_tag --json --summary-only\n"
+            f"2. kanban knowledge search \"{step_keywords[:60]} 踩坑 规范\" --biz $biz_tag --intent pitfall_check --json --summary-only\n"
+            f"3. 如 $task_dir/plan/knowledge_used.json 存在，读取其中相关条目\n\n"
+            f"$knowledge_protocol\n\n"
+            f"参考文件：$task_dir/spec.md、$task_dir/task_breakdown.json\n"
+            f"完成后立即停止，不要调用任何 kanban CLI 命令。"
+        )
     if prompt:
         td = fs.task_dir(task.id)
         iter_dir = td / f"iteration-{task.iteration}"
@@ -255,7 +290,15 @@ def _build_step_result(fs, config, task, step, i, phase_steps, phase_value):
             and phase_value == "execute" and step.spawn_prompt):
         prompt += _FRAMEWORK_ISSUES_INSTRUCTION
 
-    stype = "spawn" if step.spawn_prompt else ("interactive" if step.interactive else "action")
+    # use_subagent takes priority; fall back to field-combination inference
+    if step.use_subagent is True:
+        stype = "spawn"
+    elif step.use_subagent is False:
+        stype = "action"
+    elif step.interactive:
+        stype = "interactive"
+    else:
+        stype = "spawn" if step.spawn_prompt else ("interactive" if step.interactive else "action")
 
     return NextStepResult(
         task_id=task.id, phase=phase_value,

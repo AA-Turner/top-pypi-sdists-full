@@ -19,7 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-from ouroboros.orchestrator.verifier import Attempt
+from ouroboros.orchestrator.verifier import Attempt, RetryAdmission
 
 
 class FailureClass(StrEnum):
@@ -28,6 +28,9 @@ class FailureClass(StrEnum):
     Members:
         EVIDENCE_MISSING: Leaf could not emit a parseable / validated
             evidence record (covers both parse errors and H2 rejections).
+        EVIDENCE_FORM_MISMATCH: Leaf executed related work, but the evidence
+            shape cannot prove it under the contract (for example an
+            unprotected output-filter pipeline for a test command).
         FABRICATION_SUSPECTED: Verifier flagged claims about files,
             symbols, or sources that do not exist. Verifier sets this
             via VerifierVerdict.failure_class.
@@ -43,6 +46,7 @@ class FailureClass(StrEnum):
     """
 
     EVIDENCE_MISSING = "EVIDENCE_MISSING"
+    EVIDENCE_FORM_MISMATCH = "EVIDENCE_FORM_MISMATCH"
     FABRICATION_SUSPECTED = "FABRICATION_SUSPECTED"
     SCOPE_CREEP = "SCOPE_CREEP"
     STALL = "STALL"
@@ -72,6 +76,14 @@ _POLICY_TABLE: dict[FailureClass, RecoveryPolicy] = {
         rationale=(
             "Leaf failed to emit a parseable evidence record; the "
             "verifier feedback already names the missing/rejected fields."
+        ),
+    ),
+    FailureClass.EVIDENCE_FORM_MISMATCH: RecoveryPolicy(
+        action=RecoveryAction.RETRY,
+        rationale=(
+            "Leaf ran related work, but its evidence shape cannot prove the "
+            "claim; retry with contract-compliant evidence such as pipefail "
+            "for output-filtered test commands."
         ),
     ),
     FailureClass.FABRICATION_SUSPECTED: RecoveryPolicy(
@@ -112,6 +124,59 @@ def policy_for(failure: FailureClass) -> RecoveryPolicy:
     except KeyError as exc:  # defensive — StrEnum makes this nearly unreachable.
         msg = f"No recovery policy registered for {failure!r}"
         raise ValueError(msg) from exc
+
+
+def policy_for_attempt(attempt: Attempt) -> RecoveryPolicy | None:
+    """Return the recovery policy for an Attempt.
+
+    Prefer explicit verifier ``retry_admission`` when present. ``failure_class``
+    remains a useful taxonomy label, but deliver-gate routes can intentionally
+    diverge from the old class-to-policy table (for example fabricated evidence
+    that should redispatch before model escalation). Callers that need an action
+    should use this helper rather than classifying and then calling
+    :func:`policy_for` themselves.
+    """
+    if attempt.accepted:
+        return None
+    if attempt.verdict is not None:
+        policy = _policy_for_retry_admission(attempt.verdict.retry_admission)
+        if policy is not None:
+            return policy
+    failure = classify(attempt)
+    return policy_for(failure) if failure is not None else None
+
+
+def _policy_for_retry_admission(
+    retry_admission: RetryAdmission,
+) -> RecoveryPolicy | None:
+    if retry_admission is RetryAdmission.ACCEPT:
+        return None
+    if retry_admission is RetryAdmission.RETRY:
+        return RecoveryPolicy(
+            action=RecoveryAction.RETRY,
+            rationale="Verifier retry_admission explicitly requested same-leaf retry.",
+        )
+    if retry_admission is RetryAdmission.REDISPATCH:
+        return RecoveryPolicy(
+            action=RecoveryAction.REDISPATCH,
+            rationale="Verifier retry_admission explicitly requested redispatch.",
+        )
+    if retry_admission is RetryAdmission.ESCALATE_MODEL:
+        return RecoveryPolicy(
+            action=RecoveryAction.ESCALATE_MODEL,
+            rationale="Verifier retry_admission explicitly requested model escalation.",
+        )
+    if retry_admission is RetryAdmission.ESCALATE_HUMAN:
+        return RecoveryPolicy(
+            action=RecoveryAction.ESCALATE_HUMAN,
+            rationale="Verifier retry_admission explicitly requested human escalation.",
+        )
+    if retry_admission is RetryAdmission.BLOCK:
+        return RecoveryPolicy(
+            action=RecoveryAction.ESCALATE_HUMAN,
+            rationale="Verifier retry_admission reported a hard block.",
+        )
+    return None
 
 
 def classify(attempt: Attempt) -> FailureClass | None:
@@ -157,4 +222,5 @@ __all__ = [
     "RecoveryPolicy",
     "classify",
     "policy_for",
+    "policy_for_attempt",
 ]

@@ -9,7 +9,6 @@ so the model knows to paginate rather than re-read.
 from __future__ import annotations
 
 import pytest
-from pathlib import Path
 from unittest.mock import MagicMock
 
 from drydock.core.tools.base import BaseToolState

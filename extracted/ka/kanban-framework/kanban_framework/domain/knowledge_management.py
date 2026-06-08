@@ -233,6 +233,35 @@ def scan_stale_candidates(km):
     return {"stale_days_threshold": STALE_DAYS, "candidates": candidates}
 
 
+def cleanup_zombies(km, min_age_days=60):
+    """Remove zombie entries (never referenced + older than threshold).
+
+    Returns list of deleted entry IDs. Called during archive to keep knowledge
+    base healthy. min_age_days defaults to 60 to avoid deleting fresh entries.
+    """
+    threshold = (datetime.now(timezone.utc) - timedelta(days=min_age_days)).isoformat()
+    rows = km._conn.execute(
+        """SELECT id FROM entries WHERE status='active'
+           AND (referenced_count IS NULL OR referenced_count=0)
+           AND created_at < ?""",
+        (threshold,),
+    ).fetchall()
+    zombie_ids = [r[0] for r in rows]
+    if not zombie_ids:
+        return []
+    # Delete FTS records first (subquery depends on entries table)
+    for eid in zombie_ids:
+        km._conn.execute(
+            "DELETE FROM entries_fts WHERE rowid=(SELECT rowid FROM entries WHERE id=?)",
+            (eid,),
+        )
+    placeholders = ",".join("?" * len(zombie_ids))
+    km._conn.execute(f"DELETE FROM usage_log WHERE entry_id IN ({placeholders})", zombie_ids)
+    km._conn.execute(f"DELETE FROM entries WHERE id IN ({placeholders})", zombie_ids)
+    km._conn.commit()
+    return zombie_ids
+
+
 def vacuum_database(km):
     """Optimize SQLite storage: VACUUM + rebuild FTS5 index."""
     results = {}

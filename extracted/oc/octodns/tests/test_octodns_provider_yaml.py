@@ -16,8 +16,7 @@ from octodns.provider import ProviderException
 from octodns.provider.yaml import SplitYamlProvider, YamlProvider
 from octodns.record import Create, NsValue, Record, ValuesMixin
 from octodns.record.exception import ValidationError
-from octodns.zone import Zone
-from octodns.zone.exception import ValidationError as ZoneValidationError
+from octodns.zone import SubzoneRecordException, Zone
 
 
 def touch(filename):
@@ -325,16 +324,15 @@ www:
 
         # If we add `sub` as a sub-zone we'll reject `www.sub`
         zone = Zone('unit.tests.', ['sub'])
-        source.populate(zone)
-        with self.assertRaises(ZoneValidationError) as ctx:
-            zone.validate()
+        with self.assertRaises(SubzoneRecordException) as ctx:
+            source.populate(zone)
         msg = str(ctx.exception)
-        self.assertIn(
-            'Record www.sub.unit.tests. is under a managed subzone', msg
+        self.assertTrue(
+            msg.startswith(
+                'Record www.sub.unit.tests. is under a managed subzone'
+            )
         )
-        self.assertIn('unit.tests.yaml', msg)
-        self.assertIn('line 201', msg)
-        self.assertIn('column 3', msg)
+        self.assertTrue(msg.endswith('unit.tests.yaml, line 201, column 3'))
 
     def test_SUPPORTS(self):
         source = YamlProvider('test', join(dirname(__file__), 'config'))
@@ -608,6 +606,56 @@ www:
                 ['missing value(s)', 'missing value(s)'], ctx.exception.reasons
             )
 
+    def test_escaped_semicolons_deprecation(self):
+        import warnings
+
+        # Case 1: escaped_semicolons is not provided, should raise DeprecationWarning
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always')
+            provider = YamlProvider('test', 'tests/config')
+            self.assertTrue(provider.escaped_semicolons)
+
+        self.assertTrue(
+            any(
+                'escaped_semicolons currently defaults to True, default value is DEPRECATED'
+                in str(warning.message)
+                for warning in w
+                if issubclass(warning.category, DeprecationWarning)
+            )
+        )
+
+        # Case 2: escaped_semicolons=True is explicitly provided, should NOT raise DeprecationWarning
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always')
+            provider = YamlProvider(
+                'test', 'tests/config', escaped_semicolons=True
+            )
+            self.assertTrue(provider.escaped_semicolons)
+
+        self.assertFalse(
+            any(
+                'escaped_semicolons' in str(warning.message)
+                for warning in w
+                if issubclass(warning.category, DeprecationWarning)
+            )
+        )
+
+        # Case 3: escaped_semicolons=False is explicitly provided, should NOT raise DeprecationWarning
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always')
+            provider = YamlProvider(
+                'test', 'tests/config', escaped_semicolons=False
+            )
+            self.assertFalse(provider.escaped_semicolons)
+
+        self.assertFalse(
+            any(
+                'escaped_semicolons' in str(warning.message)
+                for warning in w
+                if issubclass(warning.category, DeprecationWarning)
+            )
+        )
+
 
 class TestSplitYamlProvider(TestCase):
     def test_list_all_yaml_files(self):
@@ -837,16 +885,15 @@ class TestSplitYamlProvider(TestCase):
 
         # If we add `sub` as a sub-zone we'll reject `www.sub`
         zone = Zone('unit.tests.', ['sub'])
-        source.populate(zone)
-        with self.assertRaises(ZoneValidationError) as ctx:
-            zone.validate()
+        with self.assertRaises(SubzoneRecordException) as ctx:
+            source.populate(zone)
         msg = str(ctx.exception)
-        self.assertIn(
-            'Record www.sub.unit.tests. is under a managed subzone', msg
+        self.assertTrue(
+            msg.startswith(
+                'Record www.sub.unit.tests. is under a managed subzone'
+            )
         )
-        self.assertIn('www.sub.yaml', msg)
-        self.assertIn('line 3', msg)
-        self.assertIn('column 3', msg)
+        self.assertTrue(msg.endswith('www.sub.yaml, line 3, column 3'))
 
     def test_copy(self):
         # going to put some sentinal values in here to ensure, these aren't

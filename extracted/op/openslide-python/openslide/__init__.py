@@ -35,30 +35,27 @@ from PIL import Image, ImageCms
 from openslide import lowlevel
 
 # Re-exports for the benefit of library users
-from openslide._version import (  # noqa: F401  module-imported-but-unused
-    __version__ as __version__,
-)
+from openslide._version import __version__ as __version__
+from openslide.lowlevel import OpenSlideError as OpenSlideError
 from openslide.lowlevel import (
     OpenSlideUnsupportedFormatError as OpenSlideUnsupportedFormatError,
 )
-from openslide.lowlevel import (  # noqa: F401  module-imported-but-unused
-    OpenSlideVersionError as OpenSlideVersionError,
-)
-from openslide.lowlevel import OpenSlideError as OpenSlideError
+from openslide.lowlevel import OpenSlideVersionError as OpenSlideVersionError
 
 __library_version__ = lowlevel.get_version()
 
-PROPERTY_NAME_COMMENT = 'openslide.comment'
-PROPERTY_NAME_VENDOR = 'openslide.vendor'
-PROPERTY_NAME_QUICKHASH1 = 'openslide.quickhash-1'
 PROPERTY_NAME_BACKGROUND_COLOR = 'openslide.background-color'
-PROPERTY_NAME_OBJECTIVE_POWER = 'openslide.objective-power'
-PROPERTY_NAME_MPP_X = 'openslide.mpp-x'
-PROPERTY_NAME_MPP_Y = 'openslide.mpp-y'
+PROPERTY_NAME_BARCODE = 'openslide.barcode'
+PROPERTY_NAME_BOUNDS_HEIGHT = 'openslide.bounds-height'
+PROPERTY_NAME_BOUNDS_WIDTH = 'openslide.bounds-width'
 PROPERTY_NAME_BOUNDS_X = 'openslide.bounds-x'
 PROPERTY_NAME_BOUNDS_Y = 'openslide.bounds-y'
-PROPERTY_NAME_BOUNDS_WIDTH = 'openslide.bounds-width'
-PROPERTY_NAME_BOUNDS_HEIGHT = 'openslide.bounds-height'
+PROPERTY_NAME_COMMENT = 'openslide.comment'
+PROPERTY_NAME_MPP_X = 'openslide.mpp-x'
+PROPERTY_NAME_MPP_Y = 'openslide.mpp-y'
+PROPERTY_NAME_OBJECTIVE_POWER = 'openslide.objective-power'
+PROPERTY_NAME_QUICKHASH1 = 'openslide.quickhash-1'
+PROPERTY_NAME_VENDOR = 'openslide.vendor'
 
 _T = TypeVar('_T')
 
@@ -173,7 +170,9 @@ class AbstractSlide(metaclass=ABCMeta):
         """Return a PIL.Image containing an RGB thumbnail of the image.
 
         size:     the maximum size of the thumbnail."""
-        downsample = max(dim / thumb for dim, thumb in zip(self.dimensions, size))
+        downsample = max(
+            dim / thumb for dim, thumb in zip(self.dimensions, size, strict=True)
+        )
         level = self.get_best_level_for_downsample(downsample)
         tile = self.read_region((0, 0), level, self.level_dimensions[level])
         # Apply on solid background
@@ -394,9 +393,7 @@ class ImageSlide(AbstractSlide):
         If the file format is not recognized, return None."""
         try:
             with Image.open(filename) as img:
-                # img currently resolves as Any
-                # https://github.com/python-pillow/Pillow/pull/8362
-                return img.format  # type: ignore[no-any-return]
+                return img.format
         except OSError:
             return None
 
@@ -459,27 +456,32 @@ class ImageSlide(AbstractSlide):
         if self._image is None:
             raise ValueError('Cannot read from a closed slide')
         if level != 0:
-            raise OpenSlideError("Invalid level")
+            raise OpenSlideError('Invalid level')
         if ['fail' for s in size if s < 0]:
-            raise OpenSlideError(f"Size {size} must be non-negative")
+            raise OpenSlideError(f'Size {size} must be non-negative')
         # Any corner of the requested region may be outside the bounds of
         # the image.  Create a transparent tile of the correct size and
         # paste the valid part of the region into the correct location.
         image_topleft = [
-            max(0, min(l, limit - 1)) for l, limit in zip(location, self._image.size)
+            max(0, min(l, limit - 1))
+            for l, limit in zip(location, self._image.size, strict=True)
         ]
         image_bottomright = [
             max(0, min(l + s - 1, limit - 1))
-            for l, s, limit in zip(location, size, self._image.size)
+            for l, s, limit in zip(location, size, self._image.size, strict=True)
         ]
-        tile = Image.new("RGBA", size, (0,) * 4)
+        tile = Image.new('RGBA', size, (0,) * 4)
         if not [
-            'fail' for tl, br in zip(image_topleft, image_bottomright) if br - tl < 0
+            'fail'
+            for tl, br in zip(image_topleft, image_bottomright, strict=True)
+            if br - tl < 0
         ]:  # "< 0" not a typo
             # Crop size is greater than zero in both dimensions.
             # PIL thinks the bottom right is the first *excluded* pixel
             crop_box = tuple(image_topleft + [d + 1 for d in image_bottomright])
-            tile_offset = tuple(il - l for il, l in zip(image_topleft, location))
+            tile_offset = tuple(
+                il - l for il, l in zip(image_topleft, location, strict=True)
+            )
             assert len(crop_box) == 4 and len(tile_offset) == 2
             crop = self._image.crop(crop_box)
             tile.paste(crop, tile_offset)
@@ -502,12 +504,12 @@ def open_slide(filename: lowlevel.Filename) -> OpenSlide | ImageSlide:
 if __name__ == '__main__':
     import sys
 
-    print("OpenSlide vendor:", OpenSlide.detect_format(sys.argv[1]))
-    print("PIL format:", ImageSlide.detect_format(sys.argv[1]))
+    print('OpenSlide vendor:', OpenSlide.detect_format(sys.argv[1]))
+    print('PIL format:', ImageSlide.detect_format(sys.argv[1]))
     with open_slide(sys.argv[1]) as _slide:
-        print("Dimensions:", _slide.dimensions)
-        print("Levels:", _slide.level_count)
-        print("Level dimensions:", _slide.level_dimensions)
-        print("Level downsamples:", _slide.level_downsamples)
-        print("Properties:", _slide.properties)
-        print("Associated images:", _slide.associated_images)
+        print('Dimensions:', _slide.dimensions)
+        print('Levels:', _slide.level_count)
+        print('Level dimensions:', _slide.level_dimensions)
+        print('Level downsamples:', _slide.level_downsamples)
+        print('Properties:', _slide.properties)
+        print('Associated images:', _slide.associated_images)

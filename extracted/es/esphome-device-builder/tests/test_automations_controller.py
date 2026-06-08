@@ -295,6 +295,48 @@ async def test_get_available_skips_idless_subentity(tmp_path: Path) -> None:
     assert "aht20_humidity" not in ids
 
 
+async def test_get_available_surfaces_idless_binary_sensor_leaf(tmp_path: Path) -> None:
+    """An id-less binary_sensor leaf is targetable via its positional synthetic id."""
+    config = tmp_path / "bs.yaml"
+    config.write_text(
+        "esphome:\n  name: d\n"
+        "binary_sensor:\n"
+        "  - platform: status\n    name: Status\n"
+        '  - platform: gpio\n    pin: GPIO9\n    name: "Button"\n'
+        "  - platform: gpio\n    pin: GPIO3\n    name: Pir Sensor\n    id: pir\n",
+        encoding="utf-8",
+    )
+    controller = _make_controller(tmp_path)
+    result = await controller.get_available(configuration="bs.yaml")
+    devices = {(d["component_id"], d["id"]): d for d in result["devices"]}
+    button = devices[("binary_sensor.gpio", "binary_sensor_1")]
+    assert button["name"] == "Button"
+    assert button["is_entity_container"] is False
+    assert ("binary_sensor.status", "binary_sensor_0") in devices
+    assert ("binary_sensor.gpio", "pir") in devices
+    trigger_ids = {t["id"] for t in result["triggers"]}
+    assert {"binary_sensor.on_press", "binary_sensor.on_multi_click"} <= trigger_ids
+
+
+async def test_get_available_surfaces_idless_sensor_leaves(tmp_path: Path) -> None:
+    """Named id-less sensor leaves (uptime / template) become positional targets."""
+    config = tmp_path / "sensor.yaml"
+    config.write_text(
+        "esphome:\n  name: d\n"
+        "sensor:\n"
+        "  - platform: uptime\n    name: Uptime\n"
+        "  - platform: template\n    name: Free Memory\n"
+        "    lambda: return 0;\n",
+        encoding="utf-8",
+    )
+    controller = _make_controller(tmp_path)
+    result = await controller.get_available(configuration="sensor.yaml")
+    devices = {(d["component_id"], d["id"]): d for d in result["devices"]}
+    assert devices[("sensor.uptime", "sensor_0")]["name"] == "Uptime"
+    assert devices[("sensor.template", "sensor_1")]["name"] == "Free Memory"
+    assert "sensor.on_value" in {t["id"] for t in result["triggers"]}
+
+
 async def test_get_available_ignores_non_platform_nested_blocks(tmp_path: Path) -> None:
     """Nested groups without a ``platform_type`` (``availability:``) aren't sub-entities."""
     config = tmp_path / "aht.yaml"
@@ -377,11 +419,8 @@ async def test_get_available_scopes_to_configured_platform(tmp_path: Path) -> No
     """Platform-specific catalog entries only surface for the matching platform.
 
     A switch with ``platform: gpio`` gets ``switch.turn_on`` but
-    NOT ``template.switch.publish`` (no template switch); adding a
-    template switch pulls the publish action in. Same shape on the
-    trigger side: ``template.switch.turn_on`` (the trigger fired
-    on a template switch's state-change automation) appears only
-    when ``platform: template`` is configured.
+    NOT ``switch.template.publish`` (no template switch); adding a
+    template switch pulls the publish action in.
     """
     gpio_only = tmp_path / "gpio.yaml"
     gpio_only.write_text(
@@ -392,7 +431,7 @@ async def test_get_available_scopes_to_configured_platform(tmp_path: Path) -> No
     gpio = await controller.get_available(configuration="gpio.yaml")
     gpio_actions = {a["id"] for a in gpio["actions"]}
     assert "switch.turn_on" in gpio_actions
-    assert "template.switch.publish" not in gpio_actions
+    assert "switch.template.publish" not in gpio_actions
 
     with_template = tmp_path / "tpl.yaml"
     with_template.write_text(
@@ -405,7 +444,7 @@ async def test_get_available_scopes_to_configured_platform(tmp_path: Path) -> No
     tpl = await controller.get_available(configuration="tpl.yaml")
     tpl_actions = {a["id"] for a in tpl["actions"]}
     assert "switch.turn_on" in tpl_actions
-    assert "template.switch.publish" in tpl_actions
+    assert "switch.template.publish" in tpl_actions
 
 
 async def test_get_available_tolerates_non_dict_items_in_component_lists(
@@ -442,11 +481,12 @@ async def test_get_available_surfaces_namespace_actions_on_base_domain(
     (``template.switch`` ⇒ ``switch.template``) with organisational
     namespaces (``page.display`` — no ``display.page`` component;
     ``date.datetime`` — no ``datetime.date`` component). The sync
-    flattens the latter to bare ``<base>`` so they surface for
-    any matching base domain. Configuring a display with
-    ``platform: ssd1306_i2c`` should expose ``page.display.show``
-    (display-page actions, sub-feature of any display) but
-    nothing platform-locked to a different platform.
+    flattens the latter's *domain* to bare ``<base>`` so they surface
+    for any matching base domain, while the *id* still flips to
+    ESPHome's wire form (``display.page.show``). Configuring a display
+    with ``platform: ssd1306_i2c`` should expose the display-page
+    actions (a sub-feature of any display) but nothing platform-locked
+    to a different platform.
     """
     config = tmp_path / "screen.yaml"
     config.write_text(
@@ -459,10 +499,10 @@ async def test_get_available_surfaces_namespace_actions_on_base_domain(
     controller = _make_controller(tmp_path)
     result = await controller.get_available(configuration="screen.yaml")
     action_ids = {a["id"] for a in result["actions"]}
-    assert "page.display.show" in action_ids
-    assert "page.display.show_next" in action_ids
+    assert "display.page.show" in action_ids
+    assert "display.page.show_next" in action_ids
     # Platform-locked display action stays out (we have ssd1306_i2c, not nextion).
-    assert "nextion.display.set_brightness" not in action_ids
+    assert "display.nextion.set_brightness" not in action_ids
 
 
 # ---------------------------------------------------------------------------

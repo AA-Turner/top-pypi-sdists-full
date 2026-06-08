@@ -16,13 +16,10 @@ Run: pytest tests/test_bank_multiagent.py -v -s --timeout=1800
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 
 import pytest
 
 from tests.testbank_helpers import (
-    check_files_exist,
     check_runs,
     check_syntax_all,
     count_python_files,
@@ -220,8 +217,7 @@ class TestMultiAgentDelegation:
             ''',
         })
         agent = make_agent(tmp_path, max_turns=30)
-        r = await run_workload(agent, max_events=300, prompt=
-            "This is a multi-module application with auth, database, models, "
+        r = await run_workload(agent, max_events=300, prompt="This is a multi-module application with auth, database, models, "
             "and API layers. I need you to:\n"
             "1. First explore and understand the project structure\n"
             "2. Add a DELETE /users/<username> endpoint to the API\n"
@@ -354,8 +350,7 @@ class TestMultiAgentDelegation:
             ''',
         })
         agent = make_agent(tmp_path, max_turns=30)
-        r = await run_workload(agent, max_events=300, prompt=
-            "There's a bug in this e-commerce system: placing an order doesn't "
+        r = await run_workload(agent, max_events=300, prompt="There's a bug in this e-commerce system: placing an order doesn't "
             "reduce product stock. The project has 8+ files across models/ and services/. "
             "Find and fix the bug. Verify by running python3 -m shop.main"
         )
@@ -545,8 +540,7 @@ class TestMultiAgentDelegation:
             ''',
         })
         agent = make_agent(tmp_path, max_turns=35)
-        r = await run_workload(agent, max_events=400, prompt=
-            "I need to add several features to this notes app. This is a complex "
+        r = await run_workload(agent, max_events=400, prompt="I need to add several features to this notes app. This is a complex "
             "change so please plan first:\n\n"
             "1. Add JSON persistence (save/load from notes.json)\n"
             "2. Add a CLI interface with commands: add, list, search, tag\n"
@@ -667,7 +661,7 @@ class TestToolUsagePatterns:
             f"Agent used {r.total_tool_calls} tool calls for a simple task. " \
             f"Tools: {r.tool_counts}"
         assert r.circuit_breaker_fires == 0, \
-            f"Circuit breaker fired on a simple task"
+            "Circuit breaker fired on a simple task"
 
     async def test_efficient_bug_fix(self, tmp_path):
         """Agent should fix a simple bug in few tool calls."""

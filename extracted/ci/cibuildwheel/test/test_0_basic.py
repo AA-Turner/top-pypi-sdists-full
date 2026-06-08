@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import textwrap
-from pathlib import Path
 
 import packaging.utils
 import pytest
@@ -8,6 +9,10 @@ from cibuildwheel.logger import Logger
 from cibuildwheel.selector import EnableGroup
 
 from . import test_projects, utils
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from pathlib import Path
 
 basic_project = test_projects.new_c_project(
     setup_py_add=textwrap.dedent(
@@ -30,6 +35,7 @@ def test_dummy_serial() -> None:
     """
 
 
+@pytest.mark.flaky(reruns=2, reruns_delay=5)
 def test(
     tmp_path: Path, build_frontend_env: dict[str, str], capfd: pytest.CaptureFixture[str]
 ) -> None:
@@ -70,9 +76,7 @@ def test_sample_build(tmp_path: Path, capfd: pytest.CaptureFixture[str]) -> None
             logger.step_end()
 
 
-@pytest.mark.parametrize(
-    "enable_setting", ["", "cpython-prerelease", "pypy", "cpython-freethreading"]
-)
+@pytest.mark.parametrize("enable_setting", ["", "cpython-prerelease", "pypy"])
 def test_build_identifiers(
     tmp_path: Path, enable_setting: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:

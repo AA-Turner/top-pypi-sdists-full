@@ -8,7 +8,7 @@ from typing import Optional
 from .aws import Action as BaseAction
 from .aws import BaseARN
 
-service_name = "Amazon GameLift"
+service_name = "Amazon GameLift Servers"
 prefix = "gamelift"
 
 
@@ -65,6 +65,7 @@ DescribeBuild = Action("DescribeBuild")
 DescribeCompute = Action("DescribeCompute")
 DescribeContainerFleet = Action("DescribeContainerFleet")
 DescribeContainerGroupDefinition = Action("DescribeContainerGroupDefinition")
+DescribeContainerGroupPortMappings = Action("DescribeContainerGroupPortMappings")
 DescribeEC2InstanceLimits = Action("DescribeEC2InstanceLimits")
 DescribeFleetAttributes = Action("DescribeFleetAttributes")
 DescribeFleetCapacity = Action("DescribeFleetCapacity")
@@ -96,6 +97,7 @@ GetComputeAccess = Action("GetComputeAccess")
 GetComputeAuthToken = Action("GetComputeAuthToken")
 GetGameSessionLogUrl = Action("GetGameSessionLogUrl")
 GetInstanceAccess = Action("GetInstanceAccess")
+GetPlayerConnectionDetails = Action("GetPlayerConnectionDetails")
 ListAliases = Action("ListAliases")
 ListBuilds = Action("ListBuilds")
 ListCompute = Action("ListCompute")

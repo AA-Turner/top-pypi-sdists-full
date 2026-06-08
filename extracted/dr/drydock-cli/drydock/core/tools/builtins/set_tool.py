@@ -295,7 +295,7 @@ class Set(
         )
 
     @classmethod
-    def get_result_display(cls, event: "ToolResultEvent") -> ToolResultDisplay:
+    def get_result_display(cls, event: ToolResultEvent) -> ToolResultDisplay:
         if isinstance(event.result, SetResult):
             if not event.result.ok:
                 return ToolResultDisplay(
@@ -316,8 +316,8 @@ class Set(
 
     @final
     async def run(
-        self, args: SetArgs, ctx: "InvokeContext | None" = None
-    ) -> AsyncGenerator["ToolStreamEvent | SetResult", None]:
+        self, args: SetArgs, ctx: InvokeContext | None = None
+    ) -> AsyncGenerator[ToolStreamEvent | SetResult, None]:
         handler = _DISPATCH.get(args.op)
         if handler is None:
             yield SetResult(

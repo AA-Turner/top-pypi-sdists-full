@@ -1,26 +1,32 @@
+from __future__ import annotations
+
 import contextlib
 import dataclasses
+import shutil
 import subprocess
 import sys
 import textwrap
 from collections import OrderedDict
-from collections.abc import Iterable, Iterator, Sequence, Set
 from pathlib import Path, PurePath, PurePosixPath
-from typing import TYPE_CHECKING, assert_never
+from typing import assert_never
 
 from cibuildwheel import errors
 from cibuildwheel.architecture import Architecture
-from cibuildwheel.frontend import get_build_frontend_extra_flags
+from cibuildwheel.audit import needs_audit, run_audit
+from cibuildwheel.frontend import get_build_frontend_extra_flags, prepare_config_settings
 from cibuildwheel.logger import log
 from cibuildwheel.oci_container import OCIContainer, OCIContainerEngineConfig, OCIPlatform
-from cibuildwheel.options import BuildOptions, Options
-from cibuildwheel.selector import BuildSelector
 from cibuildwheel.util import resources
 from cibuildwheel.util.file import copy_test_sources
 from cibuildwheel.util.helpers import prepare_command, unwrap
 from cibuildwheel.util.packaging import find_compatible_wheel
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator, Sequence, Set
+
+    from cibuildwheel.options import BuildOptions, Options
+    from cibuildwheel.selector import BuildSelector
     from cibuildwheel.typing import PathOrStr
 
 ARCHITECTURE_OCI_PLATFORM_MAP = {
@@ -231,12 +237,14 @@ def build_in_container(
         env["PATH"] = f"{python_bin}:{env['PATH']}"
 
         env = build_options.environment.as_dictionary(env, executor=container.environment_executor)
+        env["CIBUILDWHEEL_BUILD_IDENTIFIER"] = config.identifier
 
         # check config python is still on PATH
         which_python = container.call(["which", "python"], env=env, capture_output=True).strip()
         if PurePosixPath(which_python) != python_bin / "python":
             msg = "python available on PATH doesn't match our installed instance. If you have modified PATH, ensure that you don't overwrite cibuildwheel's entry or insert python above it."
             raise errors.FatalError(msg)
+        container.call(["python", "-V", "-V"], env=env)
 
         if use_uv:
             which_uv = container.call(["which", "uv"], env=env, capture_output=True).strip()
@@ -264,7 +272,16 @@ def build_in_container(
                     project=container_project_path,
                     package=container_package_dir,
                 )
-                container.call(["sh", "-c", before_build_prepared], env=env)
+                before_build_env = env.copy()
+                if use_uv:
+                    # On Linux, no virtualenv is created for the build environment
+                    # (unlike macOS/Windows, where one is set up before before_build
+                    # runs). uv requires either an active venv or an explicit Python
+                    # target to install packages. Pin UV_PYTHON to the exact interpreter
+                    # for this build so that `uv pip install` works in before_build
+                    # without requiring users to pass --system.
+                    before_build_env["UV_PYTHON"] = str(python_bin / "python")
+                container.call(["sh", "-c", before_build_prepared], env=before_build_env)
 
             log.step("Building wheel...")
 
@@ -276,8 +293,11 @@ def build_in_container(
             extra_flags = get_build_frontend_extra_flags(
                 build_frontend,
                 build_options.build_verbosity,
-                build_options.config_settings,
-                py38=config.identifier[1:].startswith("p38"),
+                prepare_config_settings(
+                    build_options.config_settings,
+                    project=container_project_path,
+                    package=container_package_dir,
+                ),
             )
 
             match build_frontend.name:
@@ -358,6 +378,18 @@ def build_in_container(
 
             if repaired_wheel.name in {wheel.name for wheel in built_wheels}:
                 raise errors.AlreadyBuiltWheelError(repaired_wheel.name)
+
+            log.step_end()
+
+            if needs_audit(build_options.audit_command, repaired_wheel.name):
+                local_abi3audit_dir = local_identifier_tmp_dir / "audit"
+                local_abi3audit_dir.mkdir(parents=True, exist_ok=True)
+                try:
+                    container.copy_out(repaired_wheel_dir, local_abi3audit_dir)
+                    local_wheel = local_abi3audit_dir / repaired_wheel.name
+                    run_audit(tmp_dir=local_tmp_dir, build_options=build_options, wheel=local_wheel)
+                finally:
+                    shutil.rmtree(local_abi3audit_dir, ignore_errors=True)
 
         if build_options.test_command and build_options.test_selector(config.identifier):
             log.step("Testing wheel...")
@@ -461,7 +493,7 @@ def build(options: Options, tmp_path: Path) -> None:
     abs_package_dir = options.globals.package_dir.resolve()
     if cwd != abs_package_dir and cwd not in abs_package_dir.parents:
         msg = "package_dir must be inside the working directory"
-        raise Exception(msg)
+        raise errors.ConfigurationError(msg)
 
     container_project_path = PurePosixPath("/project")
     container_package_dir = container_project_path / abs_package_dir.relative_to(cwd)
@@ -481,8 +513,7 @@ def build(options: Options, tmp_path: Path) -> None:
                 Docker or Podman is required to run Linux builds. If you're
                 building on Travis CI, add `services: [docker]` to your
                 .travis.yml. If you're building on Circle CI in Linux, add a
-                `setup_remote_docker` step to your .circleci/config.yml. If
-                you're building on Cirrus CI, use `docker_builder` task.
+                `setup_remote_docker` step to your .circleci/config.yml.
                 """
             )
             raise errors.ConfigurationError(msg) from error

@@ -14,23 +14,18 @@ dependencies = [
     "jsonschema>=4.21.0,<5.0.0",
     "pydantic>=2.0.0,<3.0.0",
     "prompt-toolkit>=3.0.0,<4.0.0",
-    "questionary>=2.0.0,<3.0.0",
     "pyyaml>=6.0.0,<7.0.0",
     "rich>=13.0.0,<15.0.0",
     "sqlalchemy[asyncio]>=2.0.0,<3.0.0",
     "structlog>=24.0.0,<26.0.0",
-    "typer>=0.12.0,<1.0.0",
+    "typer>=0.12.0,<0.26.0",
 ]
 
 [project.optional-dependencies]
 claude = ["claude-agent-sdk>=0.1.0,<1.0.0", "anthropic>=0.52.0,<1.0.0"]
 copilot = []
 litellm = ["litellm>=1.80.0,<=1.82.6"]
-dashboard = [
-    "streamlit>=1.40.0,<2.0.0",
-    "plotly>=5.24.0,<7.0.0",
-    "pandas>=2.2.0,<3.0.0",
-]
+dashboard = []
 mcp = ["mcp>=1.26.0,<2.0.0"]
 tui = ["textual>=1.0.0,<9.0.0"]
 all = ["ouroboros-ai[claude,copilot,litellm,mcp,tui,dashboard]"]
@@ -56,6 +51,14 @@ version-file = "src/ouroboros/_version.py"
 exclude = [
     "/.smoke-home",
     "**/node_modules",
+    "**/target",
+    "**/__pycache__",
+    "/.mypy_cache",
+    "/.pytest_cache",
+    "/.ruff_cache",
+    "/.venv",
+    "/coverage.xml",
+    "/.coverage",
 ]
 
 [tool.hatch.build.targets.wheel]

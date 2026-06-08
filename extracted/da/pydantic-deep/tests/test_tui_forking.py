@@ -120,6 +120,26 @@ async def _drain_tasks(session: CLIForkSession) -> None:
                 await asyncio.wait_for(asyncio.shield(runtime.task), timeout=1.0)
 
 
+def _quiesce_fork_poll(app: DeepApp) -> None:
+    """Stop the screen's fork poll loop so it can't replay into a panel that a
+    unit test drives by hand.
+
+    The live ``_poll_fork_state`` timer calls ``mark_status`` / ``replay_messages``
+    on the branch panels every tick. Tests in :class:`TestIncrementalReplay`
+    reset ``_last_replayed_len`` and assert exact watermark/child counts, so a
+    poll tick landing mid-test bumps the watermark nondeterministically (flaky
+    under full-suite ordering). Stopping the timer isolates the panel.
+    """
+    import contextlib
+
+    screen: Any = app.screen
+    timer = getattr(screen, "_poll_timer", None)
+    if timer is not None:
+        with contextlib.suppress(Exception):
+            timer.stop()
+        screen._poll_timer = None
+
+
 def _capture_notifications(app: DeepApp) -> list[str]:
     """Monkey-patch `app.notify` to capture messages into a returned list."""
     captured: list[str] = []
@@ -463,12 +483,21 @@ class TestForkTabsCostRender:
             # watch_statuses mounts chips async while watch_branch_costs is sync.
             tabs.statuses = statuses
             tabs.branch_costs = costs
-            await pilot.pause()
-            await pilot.pause()
 
+            # The chip mounts asynchronously and the cost is re-applied once it
+            # exists, so poll until it lands rather than guessing a fixed pause
+            # count — the fixed-count version flaked under full-suite load.
             sid = statuses[0].id
-            chip = tabs.query_one(f"#fork-tab-{sid}", Static)
-            text = str(getattr(chip, "content", ""))
+            text = ""
+            for _ in range(50):
+                await pilot.pause()
+                try:
+                    chip = tabs.query_one(f"#fork-tab-{sid}", Static)
+                except Exception:
+                    continue
+                text = str(getattr(chip, "content", ""))
+                if "$0.42" in text:
+                    break
             assert "$0.42" in text, f"cost missing from chip text: {text!r}"
 
             await session.abort()
@@ -1589,6 +1618,7 @@ class TestIncrementalReplay:
             await pilot.pause()
 
             panel = list(fork_app.screen.query(BranchPanelWidget))[0]
+            _quiesce_fork_poll(fork_app)
             panel._last_replayed_len = 0
 
             msg1 = [ModelResponse(parts=[TextPart(content="hello")])]
@@ -1613,6 +1643,7 @@ class TestIncrementalReplay:
             await pilot.pause()
 
             panel = list(fork_app.screen.query(BranchPanelWidget))[0]
+            _quiesce_fork_poll(fork_app)
             panel._last_replayed_len = 0
 
             streamed = [
@@ -1647,6 +1678,7 @@ class TestIncrementalReplay:
             await pilot.pause()
 
             panel = list(fork_app.screen.query(BranchPanelWidget))[0]
+            _quiesce_fork_poll(fork_app)
             panel._last_replayed_len = 0
             panel._rendered_call_ids = set()
 
@@ -1688,6 +1720,7 @@ class TestIncrementalReplay:
             await pilot.pause()
 
             panel = list(fork_app.screen.query(BranchPanelWidget))[0]
+            _quiesce_fork_poll(fork_app)
             panel._last_replayed_len = 0
             panel._rendered_call_ids = set()
 
@@ -1739,6 +1772,7 @@ class TestIncrementalReplay:
             await pilot.pause()
 
             panel = list(fork_app.screen.query(BranchPanelWidget))[0]
+            _quiesce_fork_poll(fork_app)
             msg_list = panel.query_one(MessageList)
             # Start from a clean panel (the fork setup pre-populates it).
             msg_list.clear_messages()
@@ -1779,6 +1813,7 @@ class TestIncrementalReplay:
             await pilot.pause()
 
             panel = list(fork_app.screen.query(BranchPanelWidget))[0]
+            _quiesce_fork_poll(fork_app)
             panel._last_replayed_len = 0
 
             msgs = [
@@ -1815,6 +1850,7 @@ class TestIncrementalReplay:
             await pilot.pause()
 
             panel = list(fork_app.screen.query(BranchPanelWidget))[0]
+            _quiesce_fork_poll(fork_app)
 
             messages = [
                 ModelResponse(
@@ -1853,6 +1889,7 @@ class TestIncrementalReplay:
             await pilot.pause()
 
             panel = list(fork_app.screen.query(BranchPanelWidget))[0]
+            _quiesce_fork_poll(fork_app)
             panel._last_replayed_len = 0
 
             msgs = [

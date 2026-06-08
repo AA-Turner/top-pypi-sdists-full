@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sh
-Version: 2.2.5
+Version: 2.2.6
 Summary: Python subprocess replacement
 Project-URL: Homepage, https://sh.readthedocs.io/
 Project-URL: Repository, https://github.com/amoffat/sh

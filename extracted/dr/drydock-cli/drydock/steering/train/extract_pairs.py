@@ -46,7 +46,8 @@ import logging
 import random
 import sys
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any
+from collections.abc import Iterable
 
 logger = logging.getLogger("drydock.steering.train.extract_pairs")
 
@@ -134,7 +135,7 @@ def _build_meta_map(roots: list[Path]) -> dict[str, Path]:
     return mapping
 
 
-def _find_session_dir(session_id: str, roots: list[Path]) -> Optional[Path]:
+def _find_session_dir(session_id: str, roots: list[Path]) -> Path | None:
     """Resolve a session_id to its directory across multiple roots.
 
     Three resolution strategies in order of fidelity:
@@ -194,7 +195,7 @@ def _read_messages(session_dir: Path) -> list[dict[str, Any]]:
 
 def _last_user_assistant_pair(
     msgs: list[dict[str, Any]],
-) -> Optional[tuple[str, str]]:
+) -> tuple[str, str] | None:
     """Return the LAST (user_text, assistant_text) pair where the
     assistant message has non-empty text content. Returns None if no
     usable pair exists.
@@ -204,8 +205,8 @@ def _last_user_assistant_pair(
     pairs them. Subsequent matches overwrite, so the result is the
     LAST matched pair (closest to the failure or to session end).
     """
-    last_user: Optional[str] = None
-    matched: Optional[tuple[str, str]] = None
+    last_user: str | None = None
+    matched: tuple[str, str] | None = None
     for m in msgs:
         role = m.get("role")
         content = m.get("content")

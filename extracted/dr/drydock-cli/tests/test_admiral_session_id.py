@@ -12,11 +12,9 @@ from __future__ import annotations
 import asyncio
 import inspect
 from dataclasses import dataclass
-from typing import Any
 
-import pytest
 
-from drydock.admiral import history, interventions, llm_analyzer, persistence, worker
+from drydock.admiral import history, interventions, persistence, worker
 from drydock.admiral.detectors import Finding
 
 

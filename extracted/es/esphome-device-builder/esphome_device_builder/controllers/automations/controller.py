@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from ruamel.yaml import YAMLError
@@ -378,15 +379,17 @@ def _scope_component_instances(
         catalog_id = parsing.catalog_id(domain, item.get("platform"))
         subs = list(parsing.iter_subentities(domain, item))
         comp_id = item.get("id")
-        if comp_id:
-            # Mark a container only when it actually surfaces ided sub-entities;
-            # a multi-entity platform whose readings carry no id keeps its plain
-            # instance (the frontend hides containers, and would otherwise leave
-            # the user nothing to target).
-            out.append(_component_instance(catalog_id, str(comp_id), item, is_container=bool(subs)))
-        parent_id = str(comp_id) if comp_id else f"{domain}_{idx}"
+        instance_id = str(comp_id) if comp_id else f"{domain}_{idx}"
+        # Surface the instance as a target unless it's an id-less container —
+        # an id-less leaf (a gpio binary_sensor, an uptime sensor) keys on the
+        # same f"{domain}_{idx}" synthetic id the parser and writer use, so it
+        # round-trips. Mark a container only when it surfaces ided sub-entities;
+        # the frontend hides containers and redirects to those sub-entities, so
+        # an id-less container has nothing to redirect to and is left out.
+        if comp_id or not subs:
+            out.append(_component_instance(catalog_id, instance_id, item, is_container=bool(subs)))
         for sub_domain, sub, sub_id, _sub_key in subs:
-            out.append(_component_instance(sub_domain, sub_id, sub, parent_id=parent_id))
+            out.append(_component_instance(sub_domain, sub_id, sub, parent_id=instance_id))
     return out
 
 
@@ -416,28 +419,26 @@ def _component_instance(
     )
 
 
-def _decode_location(raw: dict) -> AutomationLocation:  # noqa: PLR0911 — one return per kind
+# Each value's covariant return (a concrete subclass) keeps the dict
+# typed as ``AutomationLocation`` without widening to ``Any``.
+_LOCATION_DECODERS: dict[str, Callable[[dict], AutomationLocation]] = {
+    "script": ScriptLocation.from_dict,
+    "interval": IntervalLocation.from_dict,
+    "component_on": ComponentOnLocation.from_dict,
+    "component_action": ComponentActionFieldLocation.from_dict,
+    "device_on": DeviceOnLocation.from_dict,
+    "light_effect": LightEffectLocation.from_dict,
+    "api_action": ApiActionLocation.from_dict,
+}
+
+
+def _decode_location(raw: dict) -> AutomationLocation:
     """Convert a wire-shape ``{kind: ...}`` dict into a typed location."""
     if not isinstance(raw, dict) or "kind" not in raw:
         msg = f"location must carry a 'kind' discriminator; got {raw!r}"
         raise CommandError(ErrorCode.INVALID_ARGS, msg)
-    kind = raw.get("kind")
-    # The discriminator narrowing is by-string so mypy can pin the
-    # concrete type per branch — a single dict mapping would widen
-    # the return to ``Any`` (every value is a different subclass).
-    if kind == "script":
-        return ScriptLocation.from_dict(raw)
-    if kind == "interval":
-        return IntervalLocation.from_dict(raw)
-    if kind == "component_on":
-        return ComponentOnLocation.from_dict(raw)
-    if kind == "component_action":
-        return ComponentActionFieldLocation.from_dict(raw)
-    if kind == "device_on":
-        return DeviceOnLocation.from_dict(raw)
-    if kind == "light_effect":
-        return LightEffectLocation.from_dict(raw)
-    if kind == "api_action":
-        return ApiActionLocation.from_dict(raw)
-    msg = f"Unknown location kind: {kind!r}"
-    raise CommandError(ErrorCode.INVALID_ARGS, msg)
+    kind = raw["kind"]
+    if not isinstance(kind, str) or (decoder := _LOCATION_DECODERS.get(kind)) is None:
+        msg = f"Unknown location kind: {kind!r}"
+        raise CommandError(ErrorCode.INVALID_ARGS, msg)
+    return decoder(raw)

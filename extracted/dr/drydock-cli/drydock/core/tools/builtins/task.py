@@ -165,7 +165,7 @@ class Task(
             import asyncio
             from drydock.core.tools.builtins.task_manager import _TASKS
 
-            task_id = f"bg-{args.agent}-{len(_TASKS)+1}"
+            task_id = f"bg-{args.agent}-{len(_TASKS) + 1}"
             _TASKS[task_id] = {
                 "id": task_id,
                 "title": f"[background] {args.task[:60]}",

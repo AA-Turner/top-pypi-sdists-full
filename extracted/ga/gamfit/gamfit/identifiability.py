@@ -24,10 +24,10 @@ The runner is:
 (N, 3)
 >>> result.evidence  # higher = better (Laplace-style log marginal-likelihood proxy)
 
-If any precondition of the theorem fails, the corresponding warning is added
-to ``result.warnings`` and emitted via :mod:`warnings.warn` as
-``UserWarning``. The fit always completes — the warnings are informational
-about which guarantee no longer formally holds.
+If any precondition of the theorem fails, the corresponding warning is emitted
+via :mod:`warnings.warn` as ``UserWarning`` and recorded in
+``result.report.as_warnings()``. The fit always completes — the warnings are
+informational about which guarantee no longer formally holds.
 """
 
 from __future__ import annotations
@@ -100,7 +100,7 @@ _IVAE_AUX_SCALE_LOG_AMPLITUDE = 0.4
 # transform iff the conditional prior `p(t | u)` spans a 2k-dimensional set
 # of natural parameters. For the diagonal Gaussian iVAE prior the natural
 # parameters are `(η_1, η_2) = (μ(u) / σ(u)², −1 / (2 σ(u)²))`, which the
-# constructor in ``src/identifiability.rs`` checks via the column rank of the
+# constructor in ``src/sae_identifiability.rs`` checks via the column rank of the
 # stacked signature ``[μ(u) ‖ log σ(u)]`` (an invertible reparameterisation).
 # A *constant* scale collapses the ``log σ`` half of that signature to zero,
 # leaving rank ≤ k < 2k — that is exactly the supervised-path failure mode of
@@ -173,7 +173,7 @@ class IdentifiabilityReport:
     The report's overall status is the worst of its theorem statuses
     (``fail`` > ``warn`` > ``pass``). Iterate ``report.theorems`` for
     per-theorem detail or call :meth:`as_warnings` to format the warn/fail
-    entries as plain strings (suitable for ``result.warnings``).
+    entries as plain strings.
     """
 
     theorems: list[IdentifiabilityTheoremResult]
@@ -220,7 +220,7 @@ def _gather_fit_summary(
 
     The only operation here is ``np.ndarray.tolist()`` reshaping — every
     statistic (std, rank, zero-fraction, variance) is computed in
-    ``src/inference/identifiability.rs``. This function is therefore a
+    ``src/inference/identifiability_diagnostics.rs``. This function is therefore a
     pure marshalling layer per Principle (f).
     """
 
@@ -328,7 +328,7 @@ def check(
 
     All numerical work — min-std, faer-SVD column-rank, decoder
     zero-fraction, latent variance bounds — happens in
-    ``gam::inference::identifiability``. This function is the Python
+    ``gam::inference::identifiability_diagnostics``. This function is the Python
     marshalling layer: it gathers the relevant tensors off the fit, ships
     them as JSON to Rust, and rehydrates the resulting
     :class:`IdentifiabilityReport`.
@@ -416,11 +416,6 @@ class IdentifiableFactorFitResult:
     encoder_state : dict[str, np.ndarray]
         ``state_dict``-style snapshot of the encoder. Useful for
         out-of-sample prediction.
-    warnings : list[str]
-        Human-readable preconditions of the iVAE+mech-sparsity theorem that
-        do *not* hold for this fit. An empty list means all preconditions
-        are satisfied within numerical tolerance. Mirror of
-        ``report.as_warnings()`` for backward compatibility.
     aux : np.ndarray
         Auxiliary covariates used at fit time. Stored on the result so
         downstream :func:`check` calls can re-verify the iVAE preconditions
@@ -438,7 +433,6 @@ class IdentifiableFactorFitResult:
     aux_prior_weight: float
     mech_sparsity_weight: float
     encoder_state: dict[str, np.ndarray]
-    warnings: list[str] = field(default_factory=list)
     aux: np.ndarray | None = None
     report: "IdentifiabilityReport | None" = None
 
@@ -855,7 +849,7 @@ def identifiable_factor_fit(
     )
     # Route the single-pair evidence through the Rust primitive used by
     # Rust-side weight-selection tests so the Laplace evidence formula has a
-    # single source of truth in ``src/identifiability.rs``.
+    # single source of truth in ``src/sae_identifiability.rs``.
     selection = rust_module().identifiable_factor_select_weights_array(
         np.ascontiguousarray(np.array([[rss_val]], dtype=np.float64)),
         np.ascontiguousarray(np.array([[pen_val]], dtype=np.float64)),
@@ -897,7 +891,6 @@ def identifiable_factor_fit(
         aux_prior_weight=float(aux_w),
         mech_sparsity_weight=float(mech_w),
         encoder_state=encoder_state,
-        warnings=[],
         aux=aux_np,
         report=None,
     )
@@ -905,12 +898,7 @@ def identifiable_factor_fit(
     if bool(check_identifiability):
         report = check(result)
         result.report = report
-        # Structured per-theorem warning channel — single source of truth.
-        # The legacy free-form precondition list has been removed; every
-        # warning now comes from the Rust check.
-        structured = report.as_warnings()
-        result.warnings = list(structured)
-        for msg in structured:
+        for msg in report.as_warnings():
             warnings.warn(msg, UserWarning, stacklevel=2)
 
     return result

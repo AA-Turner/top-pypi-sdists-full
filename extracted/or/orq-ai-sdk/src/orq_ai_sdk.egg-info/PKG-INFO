@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: orq-ai-sdk
-Version: 4.10.7
+Version: 4.10.8
 Summary: Python Client SDK for the Orq API.
 Author: Orq
 Project-URL: repository, https://github.com/orq-ai/orq-python.git
@@ -144,9 +144,10 @@ with Orq(
     api_key=os.getenv("ORQ_API_KEY", ""),
 ) as orq:
 
-    orq.post_v2_feedback_evaluation_remove()
+    res = orq.evals.all(limit=10)
 
-    # Use the SDK ...
+    # Handle response
+    print(res)
 ```
 
 </br>
@@ -165,9 +166,10 @@ async def main():
         api_key=os.getenv("ORQ_API_KEY", ""),
     ) as orq:
 
-        await orq.post_v2_feedback_evaluation_remove_async()
+        res = await orq.evals.all_async(limit=10)
 
-        # Use the SDK ...
+        # Handle response
+        print(res)
 
 asyncio.run(main())
 ```
@@ -194,9 +196,10 @@ with Orq(
     api_key=os.getenv("ORQ_API_KEY", ""),
 ) as orq:
 
-    orq.post_v2_feedback_evaluation_remove()
+    res = orq.evals.all(limit=10)
 
-    # Use the SDK ...
+    # Handle response
+    print(res)
 
 ```
 <!-- End Authentication [security] -->
@@ -206,11 +209,6 @@ with Orq(
 
 <details open>
 <summary>Available methods</summary>
-
-### [Orq SDK](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/orq/README.md)
-
-* [post_v2_feedback_evaluation_remove](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/orq/README.md#post_v2_feedback_evaluation_remove)
-* [post_v2_feedback_evaluation](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/orq/README.md#post_v2_feedback_evaluation)
 
 ### [Agents](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/agents/README.md)
 
@@ -223,7 +221,7 @@ with Orq(
 * [~~run~~](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/agents/README.md#run) - Run an agent with configuration :warning: **Deprecated**
 * [~~stream_run~~](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/agents/README.md#stream_run) - Run agent with streaming response :warning: **Deprecated**
 * [~~stream~~](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/agents/README.md#stream) - Stream agent execution in real-time :warning: **Deprecated**
-* [post_v2_agents_key_card_refresh](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/agents/README.md#post_v2_agents_key_card_refresh) - Refresh A2A agent card
+* [refresh_key_card](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/agents/README.md#refresh_key_card) - Refresh A2A agent card
 
 #### [Agents.Responses](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/orqresponses/README.md)
 
@@ -276,12 +274,14 @@ with Orq(
 * [update](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/evals/README.md#update) - Update an Evaluator
 * [delete](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/evals/README.md#delete) - Delete an Evaluator
 * [invoke](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/evals/README.md#invoke) - Invoke a Custom Evaluator
-* [get_v2_evaluators_id_versions](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/evals/README.md#get_v2_evaluators_id_versions) - List evaluator versions
+* [list_versions](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/evals/README.md#list_versions) - List evaluator versions
 
 ### [Feedback](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/feedback/README.md)
 
-* [post_v2_feedback_remove](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/feedback/README.md#post_v2_feedback_remove)
-* [post_v2_feedback](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/feedback/README.md#post_v2_feedback)
+* [remove_evaluation](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/feedback/README.md#remove_evaluation)
+* [create_evaluation](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/feedback/README.md#create_evaluation)
+* [remove](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/feedback/README.md#remove)
+* [create](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/feedback/README.md#create)
 
 ### [Files](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/files/README.md)
 
@@ -302,11 +302,11 @@ with Orq(
 
 ### [HumanReviewSets](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/humanreviewsets/README.md)
 
-* [get_v2_human_eval_sets](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/humanreviewsets/README.md#get_v2_human_eval_sets) - Get all human review sets
-* [post_v2_human_eval_sets](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/humanreviewsets/README.md#post_v2_human_eval_sets) - Create a human review set
-* [get_v2_human_eval_sets_id_](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/humanreviewsets/README.md#get_v2_human_eval_sets_id_) - Get a human review set by ID
-* [patch_v2_human_eval_sets_id_](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/humanreviewsets/README.md#patch_v2_human_eval_sets_id_) - Update a human review set
-* [delete_v2_human_eval_sets_id_](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/humanreviewsets/README.md#delete_v2_human_eval_sets_id_) - Delete a human review set
+* [list](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/humanreviewsets/README.md#list) - Get all human review sets
+* [create](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/humanreviewsets/README.md#create) - Create a human review set
+* [get](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/humanreviewsets/README.md#get) - Get a human review set by ID
+* [update](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/humanreviewsets/README.md#update) - Update a human review set
+* [delete](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/humanreviewsets/README.md#delete) - Delete a human review set
 
 ### [Identities](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/identities/README.md)
 
@@ -498,8 +498,8 @@ with Orq(
 * [update](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/tools/README.md#update) - Update tool
 * [delete](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/tools/README.md#delete) - Delete tool
 * [retrieve](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/tools/README.md#retrieve) - Retrieve tool
-* [get_v2_tools_tool_id_versions](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/tools/README.md#get_v2_tools_tool_id_versions) - List tool versions
-* [get_v2_tools_tool_id_versions_version_id_](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/tools/README.md#get_v2_tools_tool_id_versions_version_id_) - Get tool version
+* [list_versions](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/tools/README.md#list_versions) - List tool versions
+* [get_version](https://github.com/orq-ai/orq-python/blob/master/docs/sdks/tools/README.md#get_version) - Get tool version
 
 </details>
 <!-- End Available Resources and Operations [operations] -->
@@ -681,10 +681,11 @@ with Orq(
     api_key=os.getenv("ORQ_API_KEY", ""),
 ) as orq:
 
-    orq.post_v2_feedback_evaluation_remove(,
+    res = orq.evals.all(limit=10,
         RetryConfig("backoff", BackoffStrategy(1, 50, 1.1, 100), False))
 
-    # Use the SDK ...
+    # Handle response
+    print(res)
 
 ```
 
@@ -700,9 +701,10 @@ with Orq(
     api_key=os.getenv("ORQ_API_KEY", ""),
 ) as orq:
 
-    orq.post_v2_feedback_evaluation_remove()
+    res = orq.evals.all(limit=10)
 
-    # Use the SDK ...
+    # Handle response
+    print(res)
 
 ```
 <!-- End Retries [retries] -->
@@ -826,9 +828,10 @@ with Orq(
     api_key=os.getenv("ORQ_API_KEY", ""),
 ) as orq:
 
-    orq.post_v2_feedback_evaluation_remove()
+    res = orq.evals.all(limit=10)
 
-    # Use the SDK ...
+    # Handle response
+    print(res)
 
 ```
 <!-- End Server Selection [server] -->

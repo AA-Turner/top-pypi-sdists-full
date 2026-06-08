@@ -108,6 +108,59 @@ def test_build_automations_captures_value_and_absent_shorthand_keys(tmp_path: Pa
     assert actions["logger.set_level"]["scalar_shorthand_key"] is None
 
 
+def test_build_automations_inherits_shorthand_key_through_extends(tmp_path: Path) -> None:
+    """An extended base's ``maybe`` becomes ``scalar_shorthand_key``; a bare id stays ``None``."""
+    schema_dir = _write_schema(
+        tmp_path,
+        "switch.json",
+        {
+            "switch": {
+                "action": {
+                    "toggle": {
+                        "schema": {"extends": ["switch.SWITCH_ACTION_SCHEMA"]},
+                        "type": "schema",
+                        "docs": "Toggle the switch.",
+                    },
+                },
+                "schemas": {
+                    "SWITCH_ACTION_SCHEMA": {
+                        "maybe": "id",
+                        "schema": {
+                            "config_vars": {
+                                "id": {"key": "Required", "type": "use_id"},
+                            },
+                        },
+                        "type": "schema",
+                    },
+                },
+            },
+        },
+    )
+    _write_schema(
+        tmp_path,
+        "time.json",
+        {
+            "time": {
+                "condition": {
+                    "has_time": {
+                        "schema": {
+                            "config_vars": {"id": {"key": "GeneratedID", "type": "use_id"}},
+                        },
+                        "type": "schema",
+                        "docs": "Check time is valid.",
+                    },
+                },
+                "schemas": {},
+            },
+        },
+    )
+    result = sync_components.build_automations(schema_dir=schema_dir, component_ids=set())
+    actions = {a["id"]: a for a in result["actions"]}
+    conditions = {c["id"]: c for c in result["conditions"]}
+    assert actions["switch.toggle"]["scalar_shorthand_key"] == "id"
+    assert conditions["time.has_time"]["scalar_shorthand_key"] is None
+
+
 def test_build_automations_strips_then_from_control_flow_action_params(
     tmp_path: Path,
 ) -> None:
@@ -209,6 +262,88 @@ def test_build_automations_not_accepts_condition_list_without_is_list(tmp_path: 
     assert not_cond["accepts_condition_list"] is True
 
 
+def test_build_automations_flips_platform_scoped_action_id(tmp_path: Path) -> None:
+    """Platform-scoped action id flips to ESPHome's ``<domain>.<platform>`` wire form."""
+    schema_dir = _write_schema(
+        tmp_path,
+        "template.json",
+        {
+            "template.sensor": {
+                "action": {
+                    "publish": {
+                        "schema": {
+                            "config_vars": {
+                                "id": {"key": "Required", "type": "use_id"},
+                                "state": {"key": "Required", "templatable": True},
+                            },
+                        },
+                        "type": "schema",
+                        "docs": "Publish a state to a template sensor.",
+                    },
+                },
+            },
+        },
+    )
+    result = sync_components.build_automations(
+        schema_dir=schema_dir, component_ids={"sensor.template"}
+    )
+    ids = {a["id"] for a in result["actions"]}
+    assert "sensor.template.publish" in ids
+    assert "template.sensor.publish" not in ids
+    publish = next(a for a in result["actions"] if a["id"] == "sensor.template.publish")
+    assert publish["domain"] == "sensor.template"
+
+
+def test_build_automations_flips_platform_scoped_condition_id(tmp_path: Path) -> None:
+    """Platform-scoped condition id flips to the same ``<domain>.<platform>`` wire form."""
+    schema_dir = _write_schema(
+        tmp_path,
+        "duty_time.json",
+        {
+            "duty_time.sensor": {
+                "condition": {
+                    "is_running": {
+                        "schema": {"config_vars": {"id": {"key": "Required", "type": "use_id"}}},
+                        "type": "schema",
+                        "docs": "Check whether the duty-time sensor is running.",
+                    },
+                },
+            },
+        },
+    )
+    result = sync_components.build_automations(
+        schema_dir=schema_dir, component_ids={"sensor.duty_time"}
+    )
+    ids = {c["id"] for c in result["conditions"]}
+    assert "sensor.duty_time.is_running" in ids
+    assert "duty_time.sensor.is_running" not in ids
+
+
+def test_build_automations_keeps_in_component_namespace_action_id_verbatim(
+    tmp_path: Path,
+) -> None:
+    """A dotted prefix whose base isn't a platform domain stays verbatim (``espnow.peer``)."""
+    schema_dir = _write_schema(
+        tmp_path,
+        "espnow.json",
+        {
+            "espnow.peer": {
+                "action": {
+                    "add": {
+                        "schema": {"config_vars": {"peer": {"key": "Required"}}},
+                        "type": "schema",
+                        "docs": "Add an ESP-NOW peer.",
+                    },
+                },
+            },
+        },
+    )
+    result = sync_components.build_automations(schema_dir=schema_dir, component_ids=set())
+    ids = {a["id"] for a in result["actions"]}
+    assert "espnow.peer.add" in ids
+    assert "peer.espnow.add" not in ids
+
+
 def test_build_automations_extracts_component_trigger_with_nested_params(
     tmp_path: Path,
 ) -> None:
@@ -254,8 +389,6 @@ def test_build_automations_extracts_component_trigger_with_nested_params(
     on_click = next(t for t in result["triggers"] if t["id"] == "binary_sensor.on_click")
     assert on_click["applies_to"] == ["binary_sensor"]
     assert on_click["is_device_level"] is False
-    # Carries per-entry params (min_length) -> repeatable.
-    assert on_click["repeatable"] is True
     cfg_keys = {e["key"] for e in on_click["config_entries"]}
     assert "min_length" in cfg_keys
     assert "then" not in cfg_keys  # placeholder stripped
@@ -358,33 +491,9 @@ def test_build_automations_skips_non_dict_schema_bodies_and_non_trigger_vars(
     assert all(t["id"] != "x.foo" for t in result["triggers"])
 
 
-def test_build_automations_derives_repeatable_from_per_entry_params(tmp_path: Path) -> None:
-    """Per-entry params mark a component trigger repeatable; paramless and device-level don't."""
+def test_build_automations_supports_list_from_live_single(tmp_path: Path) -> None:
+    """supports_list comes from ESPHome's live single flag, not the schema params."""
     _params = {"config_vars": {"seconds": {"key": "Optional"}, "then": {"type": "trigger"}}}
-    _bare = {"config_vars": {"then": {"type": "trigger"}}}
-    schema_dir = _write_schema(
-        tmp_path,
-        "demo.json",
-        {
-            "demo": {
-                "schemas": {
-                    "DEMO_SCHEMA": {
-                        "schema": {
-                            "config_vars": {
-                                "on_schedule": {
-                                    "key": "Optional",
-                                    "schema": _params,
-                                    "type": "trigger",
-                                },
-                                "on_press": {"key": "Optional", "schema": _bare, "type": "trigger"},
-                            },
-                        },
-                    },
-                },
-            },
-        },
-    )
-    # Device-level section (``esphome``) with a params trigger.
     _write_schema(
         tmp_path,
         "esphome.json",
@@ -406,17 +515,40 @@ def test_build_automations_derives_repeatable_from_per_entry_params(tmp_path: Pa
             },
         },
     )
+    # A component trigger absent from real esphome: introspection can't read its
+    # single flag, so it stays the conservative supports_list=False despite params.
+    schema_dir = _write_schema(
+        tmp_path,
+        "demo.json",
+        {
+            "demo": {
+                "schemas": {
+                    "DEMO_SCHEMA": {
+                        "schema": {
+                            "config_vars": {
+                                "on_made_up_zzz": {
+                                    "key": "Optional",
+                                    "schema": _params,
+                                    "type": "trigger",
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    )
     triggers = {
         t["id"]: t
         for t in sync_components.build_automations(schema_dir=schema_dir, component_ids=set())[
             "triggers"
         ]
     }
-    assert triggers["demo.on_schedule"]["repeatable"] is True
-    assert triggers["demo.on_press"]["repeatable"] is False
-    # Device-level handlers carry params but grow inline, never stacked by index.
+    # Device-level on_boot is single=False in core config -> list-capable.
     assert triggers["on_boot"]["is_device_level"] is True
-    assert triggers["on_boot"]["repeatable"] is False
+    assert triggers["on_boot"]["supports_list"] is True
+    # Unknown component trigger with params -> conservative False (no heuristic).
+    assert triggers["demo.on_made_up_zzz"]["supports_list"] is False
 
 
 def test_build_automations_extracts_light_effect(tmp_path: Path) -> None:
@@ -495,6 +627,7 @@ def test_core_lambda_action_synthesizes_lambda_field() -> None:
     action = sync_components._convert_automation_action(
         top_key="core",
         domain="core",
+        wire_prefix="core",
         name="lambda",
         body={"docs": "Run C++."},
         schema_dir=Path("/unused"),
@@ -518,6 +651,7 @@ def test_core_lambda_condition_synthesizes_lambda_field() -> None:
     condition = sync_components._convert_automation_condition(
         top_key="core",
         domain="core",
+        wire_prefix="core",
         name="lambda",
         body={"docs": "Return a bool."},
         schema_dir=Path("/unused"),

@@ -7,7 +7,6 @@ import re
 import shutil
 from typing import ClassVar, NamedTuple, final
 
-import anyio
 from pydantic import BaseModel, Field
 
 from drydock.core.tools.base import (
@@ -116,7 +115,7 @@ class SearchReplace(
             all_noop = (
                 event.result.lines_changed == 0
                 and warns
-                and all(w.startswith(f"Block {i+1}: ALREADY")
+                and all(w.startswith(f"Block {i + 1}: ALREADY")
                         for i, w in enumerate(warns[:event.result.blocks_applied]))
             )
             if all_noop:
@@ -187,7 +186,7 @@ class SearchReplace(
                             f"Stop retrying. Current .py files in project:\n"
                             + "\n".join(f"  {f}" for f in py_files)
                             + "\nUse write_file to create a file, or read_file to "
-                            f"see file contents before editing.]"
+                            "see file contents before editing.]"
                         )
                     except Exception:
                         extra = (
@@ -624,8 +623,8 @@ class SearchReplace(
                     )
             else:
                 extra = (
-                    f" Re-read the file with read_file, identify what you actually need "
-                    f"to change, and send a corrected SEARCH/REPLACE block."
+                    " Re-read the file with read_file, identify what you actually need "
+                    "to change, and send a corrected SEARCH/REPLACE block."
                 )
             yield SearchReplaceResult(
                 file=str(file_path),
@@ -1082,7 +1081,7 @@ class SearchReplace(
             lines_changed == 0
             and block_result.applied > 0
             and _warns
-            and all(w.startswith(f"Block {i+1}: ALREADY")
+            and all(w.startswith(f"Block {i + 1}: ALREADY")
                     for i, w in enumerate(_warns[:block_result.applied]))
         )
         if _all_noop:
@@ -1287,7 +1286,7 @@ class SearchReplace(
             return await asyncio.wait_for(
                 loop.run_in_executor(None, _sync_read), timeout=30,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise ToolError(
                 f"Timed out reading {file_path} after 30s. "
                 f"The file may be very large or the system is under load. "
@@ -1316,7 +1315,7 @@ class SearchReplace(
             await asyncio.wait_for(
                 loop.run_in_executor(None, _sync_write), timeout=30,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise ToolError(f"Timed out writing {file_path} after 30s.")
         except PermissionError:
             raise ToolError(f"Permission denied writing to file: {file_path}")
@@ -1501,14 +1500,14 @@ class SearchReplace(
                     f"APPLIED: auto-renamed `{best_token}` → `{new_name}` "
                     f"across {len(files_changed)} file(s): "
                     f"{', '.join(files_changed[:8])}"
-                    + (f" (+{len(files_changed)-8} more)" if len(files_changed) > 8 else "")
+                    + (f" (+{len(files_changed) - 8} more)" if len(files_changed) > 8 else "")
                     + ". Run pytest to verify."
                 )
 
         other_files_summary = ", ".join(
             str(fp.relative_to(pkg_root.parent)) for fp in best_files[:5]
         )
-        more = f" (+{best_count-5} more)" if best_count > 5 else ""
+        more = f" (+{best_count - 5} more)" if best_count > 5 else ""
         added_hint = (
             f" (rename target is ambiguous — multiple new tokens: "
             f"{', '.join(sorted(added_candidates)[:4])})"
@@ -1520,14 +1519,14 @@ class SearchReplace(
             file_lines = filepath.read_text(errors="replace").splitlines()
             head_lines = file_lines[:20]
             file_head = "\n".join(
-                f"{i+1}: {l}" for i, l in enumerate(head_lines)
+                f"{i + 1}: {l}" for i, l in enumerate(head_lines)
             )
             file_hint = f"\n\nCurrent {filepath.name} (first 20 lines):\n{file_head}"
         except OSError:
             file_hint = ""
         return (
             f"REFUSED: this search_replace removes the identifier "
-            f"`{best_token}`, which appears in {best_count+1} files across "
+            f"`{best_token}`, which appears in {best_count + 1} files across "
             f"the `{pkg_root.name}` package ({filepath.name}, "
             f"{other_files_summary}{more}).{added_hint} That's a multi-file "
             f"identifier rename — use `mechanical_rename` with explicit "

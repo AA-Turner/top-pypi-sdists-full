@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from drydock.core.tools.base import BaseToolState, InvokeContext, ToolError
+from drydock.core.tools.base import BaseToolState, InvokeContext
 from drydock.core.tools.builtins.search_replace import (
     SearchReplace,
     SearchReplaceArgs,

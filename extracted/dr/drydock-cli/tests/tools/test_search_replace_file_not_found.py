@@ -13,11 +13,10 @@ same path, include a project-wide .py file listing.
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 import pytest
 
-from drydock.core.tools.base import BaseToolState, InvokeContext
+from drydock.core.tools.base import BaseToolState
 from drydock.core.tools.builtins.search_replace import (
     SearchReplace,
     SearchReplaceArgs,

@@ -221,7 +221,6 @@ def _op_evaluate(args: UnitsArgs) -> tuple[str, str]:
 
 
 def _op_dimension(args: UnitsArgs) -> tuple[str, str]:
-    import sympy.physics.units as U
     from sympy.physics.units.systems import SI
     dim = SI.get_dimensional_expr(_parse(args.expression))
     return (str(dim), "dimension")
@@ -235,7 +234,6 @@ def _op_to_si(args: UnitsArgs) -> tuple[str, str]:
 
 
 def _op_consistent(args: UnitsArgs) -> tuple[str, str]:
-    import sympy
     from sympy.physics.units.systems import SI
     if not args.expression2:
         raise ToolError("consistent needs `expression2=`")
@@ -294,7 +292,7 @@ class Units(
         return ToolCallDisplay(summary=f"units[{args.op}]: {e}")
 
     @classmethod
-    def get_result_display(cls, event: "ToolResultEvent") -> ToolResultDisplay:
+    def get_result_display(cls, event: ToolResultEvent) -> ToolResultDisplay:
         if isinstance(event.result, UnitsResult):
             if not event.result.ok:
                 return ToolResultDisplay(
@@ -315,8 +313,8 @@ class Units(
 
     @final
     async def run(
-        self, args: UnitsArgs, ctx: "InvokeContext | None" = None
-    ) -> AsyncGenerator["ToolStreamEvent | UnitsResult", None]:
+        self, args: UnitsArgs, ctx: InvokeContext | None = None
+    ) -> AsyncGenerator[ToolStreamEvent | UnitsResult, None]:
         handler = _DISPATCH.get(args.op)
         if handler is None:
             yield UnitsResult(

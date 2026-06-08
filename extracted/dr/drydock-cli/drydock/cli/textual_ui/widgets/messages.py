@@ -380,7 +380,8 @@ class AssistantMessage(StreamingMessageBase):
                 self._content = rescued
                 await self._markdown.update("")
                 stream = self._ensure_stream()
-                await stream.write(rescued)
+                if stream is not None:
+                    await stream.write(rescued)
         await super().stop_stream()
 
     def compose(self) -> ComposeResult:
@@ -494,7 +495,8 @@ class ReasoningMessage(SpinnerMixin, StreamingMessageBase):
                     self._stream = None
                 await self._markdown.update("")
                 stream = self._ensure_stream()
-                await stream.write(self._content)
+                if stream is not None:
+                    await stream.write(self._content)
 
 
 class UserCommandMessage(Static):

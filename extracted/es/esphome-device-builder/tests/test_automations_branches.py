@@ -143,13 +143,13 @@ def test_scope_skips_non_dict_component_instances() -> None:
     assert [d.id for d in scoped.devices] == ["real"]
 
 
-def test_scope_skips_component_instance_without_id() -> None:
-    """A configured component without an ``id`` doesn't surface in the picker."""
+def test_scope_surfaces_idless_component_instance() -> None:
+    """An id-less leaf surfaces under its positional synthetic id beside ided ones."""
     scoped = _scope_from_yaml(
         "binary_sensor:\n  - platform: gpio\n    pin: GPIO0\n"
         "  - platform: gpio\n    id: real\n    pin: GPIO1\n",
     )
-    assert [d.id for d in scoped.devices] == ["real"]
+    assert [d.id for d in scoped.devices] == ["binary_sensor_0", "real"]
 
 
 @pytest.mark.parametrize(
@@ -227,6 +227,13 @@ def test_decode_location_unknown_kind_raises_invalid_args() -> None:
     """A payload with an unknown ``kind`` raises INVALID_ARGS."""
     with pytest.raises(CommandError) as err:
         _decode_location({"kind": "bogus"})
+    assert err.value.code == ErrorCode.INVALID_ARGS
+
+
+def test_decode_location_unhashable_kind_raises_invalid_args() -> None:
+    """A non-string ``kind`` raises INVALID_ARGS, not TypeError."""
+    with pytest.raises(CommandError) as err:
+        _decode_location({"kind": []})
     assert err.value.code == ErrorCode.INVALID_ARGS
 
 
@@ -361,6 +368,26 @@ def test_emit_action_single_value_param_collapses_to_shorthand() -> None:
     """A lone shorthand-keyed param re-collapses to the bare-scalar form."""
     node = ActionNode(action_id="logger.log", params={"format": "hi"})
     assert dump([emit_action_node(node)]).strip() == "- logger.log: hi"
+
+
+def test_emit_action_id_shorthand_collapses() -> None:
+    """A maybe_simple_id action (``switch.toggle``) collapses ``id`` to a scalar."""
+    node = ActionNode(action_id="switch.toggle", params={"id": "relay"})
+    assert dump([emit_action_node(node)]).strip() == "- switch.toggle: relay"
+
+
+def test_emit_action_bare_scalar_action_collapses_synthetic_id() -> None:
+    """``delay`` has no ``id`` field; its synthetic ``id`` param round-trips as a scalar."""
+    node = ActionNode(action_id="delay", params={"id": "1s"})
+    assert dump([emit_action_node(node)]).strip() == "- delay: 1s"
+
+
+def test_emit_action_unknown_id_does_not_collapse() -> None:
+    """An id absent from the catalog has no known shorthand, so it stays a mapping."""
+    node = ActionNode(action_id="not.a_real_action", params={"id": "x"})
+    out = dump([emit_action_node(node)])
+    assert "id: x" in out
+    assert "not.a_real_action: x" not in out
 
 
 def test_decompose_action_with_children_and_conditions() -> None:
@@ -569,6 +596,20 @@ def test_emit_condition_node_bare_condition() -> None:
     """A condition with no params and no children renders as a bare key."""
     out = emit_condition_node(ConditionNode(condition_id="some_condition"))
     assert out["some_condition"] is None
+
+
+def test_emit_condition_node_id_mapping_field_stays_mapping() -> None:
+    """A condition whose sole field is a real ``id`` mapping emits ``id:``, not a scalar."""
+    node = ConditionNode(condition_id="time.has_time", params={"id": "id_time"})
+    out = dump([emit_condition_node(node)])
+    assert "id: id_time" in out
+    assert "time.has_time: id_time" not in out
+
+
+def test_emit_condition_node_value_shorthand_collapses() -> None:
+    """A value-shorthand condition still collapses to its bare scalar."""
+    node = ConditionNode(condition_id="display.is_displaying_page", params={"page_id": "home"})
+    assert dump([emit_condition_node(node)]).strip() == "- display.is_displaying_page: home"
 
 
 def test_emit_condition_node_with_multi_param_body() -> None:

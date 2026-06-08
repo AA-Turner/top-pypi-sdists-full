@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 
 import pytest
@@ -5,10 +7,14 @@ import pytest
 from cibuildwheel.__main__ import main
 from cibuildwheel.architecture import Architecture
 from cibuildwheel.selector import EnableGroup
-from cibuildwheel.typing import PlatformName
 
 from ..conftest import MOCK_PACKAGE_DIR
-from .conftest import ArgsInterceptor
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from cibuildwheel.typing import PlatformName
+
+    from .conftest import ArgsInterceptor
 
 
 @pytest.mark.parametrize("option_value", [None, "auto", ""])
@@ -308,7 +314,7 @@ def test_pyodide_on_windows(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setattr(sys, "platform", "win32")
-    monkeypatch.setattr(sys, "argv", [*sys.argv, "--only", "cp312-pyodide_wasm32"])
+    monkeypatch.setattr(sys, "argv", [*sys.argv, "--only", "cp314-pyodide_wasm32"])
 
     with pytest.raises(SystemExit) as exit:
         main()

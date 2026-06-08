@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-http
-Version: 6.0.2
+Version: 6.0.3
 Summary: Provider package apache-airflow-providers-http for Apache Airflow
 Keywords: airflow-provider,http,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -31,8 +31,8 @@ Requires-Dist: aiohttp>=3.12.14
 Requires-Dist: asgiref>=2.3.0; python_version < '3.14'
 Requires-Dist: asgiref>=3.11.1; python_version >= '3.14'
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-http/6.0.2/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-http/6.0.2
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-http/6.0.3/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-http/6.0.3
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -63,7 +63,7 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-http``
 
-Release: ``6.0.2``
+Release: ``6.0.3``
 
 
 `Hypertext Transfer Protocol (HTTP) <https://www.w3.org/Protocols/>`__
@@ -76,7 +76,7 @@ This is a provider package for ``http`` provider. All classes for this provider 
 are in ``airflow.providers.http`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-http/6.0.2/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-http/6.0.3/>`_.
 
 Installation
 ------------
@@ -122,5 +122,5 @@ Dependent package                                                               
 ==================================================================================================================  =================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-http/6.0.2/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-http/6.0.3/changelog.html>`_.
 

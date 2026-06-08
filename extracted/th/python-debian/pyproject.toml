@@ -16,7 +16,7 @@ dynamic = [
 description = "Modules to read and manipulate many file formats related to Debian packages and repositories"
 readme = "README.rst"
 requires-python = ">=3.7"
-license = { text = "GPL-2.0-or-later" }
+license = "GPL-2.0-or-later"
 authors = [
     {name = "Debian python-debian Maintainers", email = "pkg-python-debian-maint@lists.alioth.debian.org"},
 ]
@@ -24,13 +24,10 @@ classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Programming Language :: Python",
   "Intended Audience :: Developers",
-  "License :: DFSG approved",
-  "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
   "Operating System :: POSIX",
 ]
 keywords = ["debian", "linux", "metadata", "packages", "packaging"]
 dependencies = [
-    "charset-normalizer",
 ]
 
 [project.urls]
@@ -38,6 +35,9 @@ homepage = "https://salsa.debian.org/python-debian-team/python-debian"
 
 # https://peps.python.org/pep-0621/#dependencies-optional-dependencies
 [project.optional-dependencies]
+encodings = [
+    "charset-normalizer",
+]
 test = [
     "pytest",
     "pytest-cov",
@@ -73,6 +73,7 @@ namespaces = false
 write_to = "src/debian/_version.py"
 # needs setuptools_scm > 8
 # version_file = "debian/_version.py"
+tag_regex = "^(?:[\\w-]+[/-])?(?P<version>[vV]?\\d+(?:\\.\\d+){0,2}[^\\+]*)(?:\\+.*)?$"
 
 
 # https://docs.pytest.org/en/6.2.x/customize.html

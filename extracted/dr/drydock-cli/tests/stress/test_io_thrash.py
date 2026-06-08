@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import json
 import time
-from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -65,7 +64,7 @@ def _make_agent() -> AgentLoop:
 def _make_tool_call(tool_name: str, args: dict[str, Any], call_id: str = "") -> ToolCall:
     """Build a ToolCall payload like the LLM would emit."""
     return ToolCall(
-        id=call_id or f"call_{int(time.time()*1000000) % 1000000}",
+        id=call_id or f"call_{int(time.time() * 1000000) % 1000000}",
         function=FunctionCall(
             name=tool_name,
             arguments=json.dumps(args),
@@ -215,6 +214,7 @@ class TestLoopSurgery:
         # Surgery operates on the existing context; simulate the check.
         before_count = len(al.messages)
         # Use the real method (set up resolved-call shape it expects)
+
         class _MockResolved:
             tool_name = "write_file"
             args_dict = {"content": "x"}
@@ -265,8 +265,8 @@ class TestContextWindowBreakingPoint:
         # Report (with -s flag) where each scale point lands
         print(
             f"\n[CTX-SCALE] msgs={target_msgs:>5} chars={total_chars:>10,d} "
-            f"elapsed={elapsed*1000:>7.1f}ms "
-            f"per_msg={elapsed*1000/target_msgs:.3f}ms"
+            f"elapsed={elapsed * 1000:>7.1f}ms "
+            f"per_msg={elapsed * 1000 / target_msgs:.3f}ms"
         )
 
     def test_messages_reset_is_atomic_at_scale(self):
@@ -319,6 +319,7 @@ class TestContextWindowBreakingPoint:
             f"write_file:{args_str}".encode()
         ).hexdigest()
         al._tool_call_history[sig] = (50, "<tool_error>")
+
         class _MockResolved:
             tool_name = "write_file"
             args_dict = {"content": "x"}
@@ -328,7 +329,7 @@ class TestContextWindowBreakingPoint:
         after = len(al.messages)
         print(
             f"\n[SURGERY-SCALE] before={before} after={after} "
-            f"pruned={before-after} elapsed={elapsed*1000:.1f}ms"
+            f"pruned={before - after} elapsed={elapsed * 1000:.1f}ms"
         )
         assert after < before, "Surgery didn't prune at 1000-message scale"
         # System + first user must survive
@@ -402,8 +403,8 @@ class TestMixedThroughput:
             _push_assistant_with_tool_call(al, tool_name, args, f"op_{i}")
             _push_tool_result(al, tool_name, f"result {i}", f"op_{i}")
         elapsed = time.perf_counter() - start
-        print(f"\n[THROUGHPUT] 1000 mixed ops in {elapsed*1000:.1f}ms "
-              f"({elapsed*1000/1000:.3f}ms/op)")
+        print(f"\n[THROUGHPUT] 1000 mixed ops in {elapsed * 1000:.1f}ms "
+              f"({elapsed * 1000 / 1000:.3f}ms/op)")
         assert elapsed < 5.0, f"1000 ops took {elapsed:.2f}s (limit 5s)"
         assert len(al.messages) == 2002  # 2 setup + 2*1000 ops
 
@@ -676,6 +677,7 @@ class TestLLMBoundaryFaultInjection:
             f'write_file:{json.dumps({"content": "x"}, sort_keys=True)}'.encode()
         ).hexdigest()
         al._tool_call_history[sig] = (6, "<tool_error>")
+
         class _Mock:
             tool_name = "write_file"
             args_dict = {"content": "x"}
@@ -715,6 +717,7 @@ class TestLLMBoundaryFaultInjection:
             f'write_file:{json.dumps({"content": "x"}, sort_keys=True)}'.encode()
         ).hexdigest()
         al._tool_call_history[sig] = (6, "<tool_error>")
+
         class _Mock:
             tool_name = "write_file"
             args_dict = {"content": "x"}

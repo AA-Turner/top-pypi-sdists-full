@@ -7,6 +7,7 @@ import {
   GUARD_RISK_SIGNAL_V2_SEVERITIES,
   CODEX_RESUME_STATUSES
 } from "./guard-types";
+import { computeTrendBuckets } from "./evidence/evidence-metrics";
 import type {
   GuardActionEnvelope,
   GuardActionType,
@@ -39,12 +40,19 @@ import type {
   GuardQueueResolutionResult,
   GuardQueueSummary,
   GuardReceipt,
+  GuardReceiptAnalytics,
+  GuardInsightsShareResult,
+  GuardReceiptAnalyticsBucket,
+  GuardReceiptArtifactStat,
+  GuardReceiptDailyActivity,
+  GuardReceiptHarnessStat,
   GuardRuntimeSnapshot,
   SupplyChainSnapshot,
   GuardSettingsPayload,
   GuardSettingsExport,
   GuardSettings,
   GuardUpdateScheduleResult,
+  GuardUpdateReconnectOptions,
   GuardUpdateStatus,
   GuardUpdateVersionCheck,
   DecisionScope,
@@ -65,6 +73,11 @@ import {
 const GUARD_TOKEN_PARAM = "guard-token";
 const GUARD_DAEMON_PARAM = "guardDaemon";
 const GUARD_SURFACE_PROTOCOL_VERSIONS = ["1.1", "1.0"] as const;
+const DEFAULT_GUARD_DAEMON_PORT = 4781;
+const GUARD_DAEMON_PORT_RANGE = 1000;
+const GUARD_DAEMON_DISCOVERY_PROBE_COUNT = 25;
+const GUARD_DAEMON_DISCOVERY_PROBE_BATCH_SIZE = 5;
+const GUARD_DAEMON_PROBE_TIMEOUT_MS = 800;
 let guardTokenOverride: string | null = null;
 let guardTokenLocationKey: string | null = null;
 
@@ -159,7 +172,7 @@ function guardParam(name: string): string | null {
   return guardParams().get(name);
 }
 
-function readGuardToken(): string | null {
+export function readGuardToken(): string | null {
   const locationKey = `${window.location.origin}${window.location.pathname}${window.location.search}${window.location.hash}`;
   if (guardTokenLocationKey !== locationKey) {
     guardTokenOverride = null;
@@ -179,6 +192,213 @@ function readGuardToken(): string | null {
 function saveGuardToken(guardToken: string): void {
   guardTokenOverride = guardToken;
   window.sessionStorage.setItem(GUARD_TOKEN_PARAM, guardToken);
+}
+
+function saveGuardDaemonOrigin(daemonOrigin: string): void {
+  window.sessionStorage.setItem(GUARD_DAEMON_PARAM, daemonOrigin);
+}
+
+function preferredGuardDaemonPort(): number {
+  const fromOrigin = readGuardDaemonOrigin();
+  if (fromOrigin) {
+    try {
+      const port = Number(new URL(fromOrigin).port);
+      if (Number.isInteger(port) && port > 0) {
+        return port;
+      }
+    } catch {
+      // fall through
+    }
+  }
+  const port = Number(window.location.port);
+  if (Number.isInteger(port) && port > 0) {
+    return port;
+  }
+  return DEFAULT_GUARD_DAEMON_PORT;
+}
+
+export function buildGuardDaemonCandidatePorts(preferredPort: number): number[] {
+  const ports: number[] = [];
+  const inStandardRange =
+    preferredPort >= DEFAULT_GUARD_DAEMON_PORT &&
+    preferredPort < DEFAULT_GUARD_DAEMON_PORT + GUARD_DAEMON_PORT_RANGE;
+  for (let step = 0; step < GUARD_DAEMON_DISCOVERY_PROBE_COUNT; step += 1) {
+    if (inStandardRange) {
+      const offset = preferredPort - DEFAULT_GUARD_DAEMON_PORT;
+      const candidateOffset =
+        ((offset + step) % GUARD_DAEMON_PORT_RANGE + GUARD_DAEMON_PORT_RANGE) % GUARD_DAEMON_PORT_RANGE;
+      ports.push(DEFAULT_GUARD_DAEMON_PORT + candidateOffset);
+    } else {
+      ports.push(preferredPort + step);
+    }
+  }
+  return ports;
+}
+
+async function probeGuardDaemonHealth(origin: string): Promise<boolean> {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), GUARD_DAEMON_PROBE_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${origin}/healthz`, { signal: controller.signal });
+    if (!response.ok) {
+      return false;
+    }
+    const payload: unknown = await response.json();
+    if (!isRecord(payload)) {
+      return false;
+    }
+    return payload.ok === true && payload.compatibility_version === 2;
+  } catch {
+    return false;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+async function probeGuardDaemonCandidatePortsInBatches(
+  ports: number[],
+  probe: (port: number, origin: string) => Promise<boolean>,
+): Promise<string | null> {
+  for (let index = 0; index < ports.length; index += GUARD_DAEMON_DISCOVERY_PROBE_BATCH_SIZE) {
+    const batch = ports.slice(index, index + GUARD_DAEMON_DISCOVERY_PROBE_BATCH_SIZE);
+    const results = await Promise.all(
+      batch.map(async (port) => {
+        const origin = `http://127.0.0.1:${port}`;
+        const ok = await probe(port, origin);
+        return { port, origin, ok };
+      }),
+    );
+    const active = results.find((result) => result.ok);
+    if (active) {
+      return active.origin;
+    }
+  }
+  return null;
+}
+
+export async function discoverGuardDaemonOrigin(preferredPort = preferredGuardDaemonPort()): Promise<string | null> {
+  const ports = buildGuardDaemonCandidatePorts(preferredPort);
+  return probeGuardDaemonCandidatePortsInBatches(ports, async (_port, origin) => probeGuardDaemonHealth(origin));
+}
+
+function updateReconnectSucceeded(
+  status: GuardUpdateStatus,
+  options: GuardUpdateReconnectOptions,
+): boolean {
+  if (!options.expectedPreviousVersion) {
+    return true;
+  }
+  if (status.update_available !== true) {
+    return true;
+  }
+  if (
+    options.expectedLatestVersion &&
+    status.current_version === options.expectedLatestVersion
+  ) {
+    return true;
+  }
+  return status.current_version !== options.expectedPreviousVersion;
+}
+
+async function initializeGuardDashboardSessionAtOrigin(
+  origin: string,
+  guardToken: string | null,
+): Promise<string | null> {
+  try {
+    const response = await fetch(`${origin}/v1/initialize`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(guardToken ? { "X-Guard-Dashboard-Session": guardToken } : {}),
+      },
+      body: JSON.stringify({
+        client_name: "guard-dashboard-web",
+        surface: "dashboard",
+        supported_protocol_versions: [...GUARD_SURFACE_PROTOCOL_VERSIONS],
+      }),
+    });
+    if (!response.ok) {
+      return null;
+    }
+    return parseDashboardSessionToken(await response.json());
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchGuardUpdateStatusAtOrigin(
+  origin: string,
+  guardToken: string | null,
+): Promise<GuardUpdateStatus> {
+  const response = await fetch(`${origin}/v1/update/status`, {
+    headers: guardToken ? { "X-Guard-Dashboard-Session": guardToken } : {},
+  });
+  if (!response.ok) {
+    throw new Error(`Update status failed with ${response.status}`);
+  }
+  return normalizeGuardUpdateStatus(await response.json());
+}
+
+export function redirectToGuardDaemonOrigin(
+  origin: string,
+  guardToken: string | null,
+): void {
+  const url = new URL(origin);
+  url.pathname = window.location.pathname;
+  url.search = window.location.search;
+  const fragmentPairs: string[] = [];
+  if (guardToken) {
+    fragmentPairs.push(`${GUARD_TOKEN_PARAM}=${encodeURIComponent(guardToken)}`);
+  }
+  fragmentPairs.push(`${GUARD_DAEMON_PARAM}=${encodeURIComponent(origin)}`);
+  url.hash = fragmentPairs.join("&");
+  window.location.replace(url.toString());
+}
+
+export async function reconnectGuardDaemonAfterUpdate(
+  options?: GuardUpdateReconnectOptions,
+): Promise<string | null> {
+  const guardToken = readGuardToken();
+  const reconnectOptions = options ?? {};
+  const awaitingVersionChange = Boolean(reconnectOptions.expectedPreviousVersion);
+  const ports = buildGuardDaemonCandidatePorts(preferredGuardDaemonPort());
+
+  for (let index = 0; index < ports.length; index += GUARD_DAEMON_DISCOVERY_PROBE_BATCH_SIZE) {
+    const batch = ports.slice(index, index + GUARD_DAEMON_DISCOVERY_PROBE_BATCH_SIZE);
+    const results = await Promise.all(
+      batch.map(async (port) => {
+        const origin = `http://127.0.0.1:${port}`;
+        if (!(await probeGuardDaemonHealth(origin))) {
+          return null;
+        }
+        try {
+          const status = await fetchGuardUpdateStatusAtOrigin(origin, guardToken);
+          if (awaitingVersionChange && !updateReconnectSucceeded(status, reconnectOptions)) {
+            return null;
+          }
+          return { origin, status };
+        } catch {
+          return null;
+        }
+      }),
+    );
+
+    const active = results.find((result) => result !== null);
+    if (!active) {
+      continue;
+    }
+
+    const { origin } = active;
+    saveGuardDaemonOrigin(origin);
+    const refreshedToken = await initializeGuardDashboardSessionAtOrigin(origin, guardToken);
+    if (refreshedToken) {
+      saveGuardToken(refreshedToken);
+    }
+
+    return origin;
+  }
+
+  return null;
 }
 
 function readGuardDaemonOrigin(): string | null {
@@ -1073,6 +1293,195 @@ export async function fetchReceipts(): Promise<GuardReceipt[]> {
   return normalizeReceipts(payload.items);
 }
 
+function normalizeReceiptAnalyticsBucket(raw: unknown): GuardReceiptAnalyticsBucket | null {
+  if (!isRecord(raw)) return null;
+  const dateKey = raw["date_key"];
+  const label = raw["label"];
+  if (typeof dateKey !== "string" || typeof label !== "string") return null;
+  return {
+    date_key: dateKey,
+    label: label,
+    allowed: isNonNegativeNumber(raw["allowed"]) ? raw["allowed"] : 0,
+    blocked: isNonNegativeNumber(raw["blocked"]) ? raw["blocked"] : 0,
+    reviewed: isNonNegativeNumber(raw["reviewed"]) ? raw["reviewed"] : 0,
+  };
+}
+
+export function normalizeReceiptAnalytics(raw: unknown): GuardReceiptAnalytics | null {
+  if (!isRecord(raw)) return null;
+  const dailyRaw = raw["daily_activity"];
+  const trendRaw = raw["trend_buckets"];
+  const harnessRaw = raw["by_harness"];
+  const artifactRaw = raw["top_artifacts"];
+  const daily_activity = Array.isArray(dailyRaw)
+    ? dailyRaw
+        .map((entry) => {
+          if (!isRecord(entry) || typeof entry["date_key"] !== "string") return null;
+          return {
+            date_key: entry["date_key"],
+            total: isNonNegativeNumber(entry["total"]) ? entry["total"] : 0,
+          };
+        })
+        .filter((entry): entry is GuardReceiptDailyActivity => entry !== null)
+    : [];
+  const trend_buckets = Array.isArray(trendRaw)
+    ? trendRaw.map(normalizeReceiptAnalyticsBucket).filter((entry): entry is GuardReceiptAnalyticsBucket => entry !== null)
+    : [];
+  const by_harness = Array.isArray(harnessRaw)
+    ? harnessRaw
+        .map((entry) => {
+          if (!isRecord(entry) || typeof entry["harness"] !== "string") return null;
+          return {
+            harness: entry["harness"],
+            total: isNonNegativeNumber(entry["total"]) ? entry["total"] : 0,
+            allowed: isNonNegativeNumber(entry["allowed"]) ? entry["allowed"] : 0,
+            blocked: isNonNegativeNumber(entry["blocked"]) ? entry["blocked"] : 0,
+          };
+        })
+        .filter((entry): entry is GuardReceiptHarnessStat => entry !== null)
+    : [];
+  const top_artifacts = Array.isArray(artifactRaw)
+    ? artifactRaw
+        .map((entry) => {
+          if (!isRecord(entry) || typeof entry["name"] !== "string") return null;
+          return {
+            name: entry["name"],
+            total: isNonNegativeNumber(entry["total"]) ? entry["total"] : 0,
+            allowed: isNonNegativeNumber(entry["allowed"]) ? entry["allowed"] : 0,
+            blocked: isNonNegativeNumber(entry["blocked"]) ? entry["blocked"] : 0,
+          };
+        })
+        .filter((entry): entry is GuardReceiptArtifactStat => entry !== null)
+    : [];
+
+  return {
+    total: isNonNegativeNumber(raw["total"]) ? raw["total"] : 0,
+    allowed: isNonNegativeNumber(raw["allowed"]) ? raw["allowed"] : 0,
+    blocked: isNonNegativeNumber(raw["blocked"]) ? raw["blocked"] : 0,
+    reviewed: isNonNegativeNumber(raw["reviewed"]) ? raw["reviewed"] : 0,
+    first_activity_at: isStringOrNull(raw["first_activity_at"]) ? raw["first_activity_at"] : null,
+    last_activity_at: isStringOrNull(raw["last_activity_at"]) ? raw["last_activity_at"] : null,
+    active_day_streak: isNonNegativeNumber(raw["active_day_streak"]) ? raw["active_day_streak"] : 0,
+    peak_day_total: isNonNegativeNumber(raw["peak_day_total"]) ? raw["peak_day_total"] : 0,
+    daily_activity,
+    trend_buckets,
+    by_harness,
+    top_artifacts,
+    loaded_sample_limit: isNonNegativeNumber(raw["loaded_sample_limit"]) ? raw["loaded_sample_limit"] : 200,
+  };
+}
+
+function buildReceiptAnalyticsFromSample(receipts: GuardReceipt[]): GuardReceiptAnalytics {
+  const allowed = receipts.filter((r) => r.policy_decision === "allow").length;
+  const blocked = receipts.filter((r) => r.policy_decision === "block").length;
+  const reviewed = receipts.length - allowed - blocked;
+  const timestamps = receipts.map((r) => r.timestamp).sort();
+  const trend_buckets: GuardReceiptAnalyticsBucket[] = computeTrendBuckets(receipts, 7).map((bucket) => ({
+    date_key: bucket.dateKey,
+    label: bucket.label,
+    allowed: bucket.allowed,
+    blocked: bucket.blocked,
+    reviewed: bucket.reviewed,
+  }));
+  const dailyMap = new Map<string, number>();
+  for (const receipt of receipts) {
+    const d = new Date(receipt.timestamp);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    dailyMap.set(key, (dailyMap.get(key) ?? 0) + 1);
+  }
+  const daily_activity: GuardReceiptDailyActivity[] = [];
+  const oneDay = 24 * 60 * 60 * 1000;
+  const nowMs = Date.now();
+  for (let offset = 89; offset >= 0; offset -= 1) {
+    const d = new Date(nowMs - offset * oneDay);
+    const date_key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    daily_activity.push({ date_key, total: dailyMap.get(date_key) ?? 0 });
+  }
+  let active_day_streak = 0;
+  const streakEntries = [...daily_activity].reverse();
+  if (streakEntries[0]?.total === 0) {
+    streakEntries.shift();
+  }
+  for (const entry of streakEntries) {
+    if (entry.total > 0) active_day_streak += 1;
+    else break;
+  }
+  return {
+    total: receipts.length,
+    allowed,
+    blocked,
+    reviewed,
+    first_activity_at: timestamps[0] ?? null,
+    last_activity_at: timestamps[timestamps.length - 1] ?? null,
+    active_day_streak,
+    peak_day_total: Math.max(...daily_activity.map((entry) => entry.total), 0),
+    daily_activity,
+    trend_buckets,
+    by_harness: [],
+    top_artifacts: [],
+    loaded_sample_limit: receipts.length,
+  };
+}
+
+export async function fetchReceiptAnalytics(): Promise<GuardReceiptAnalytics> {
+  if (isGuardDemoMode()) {
+    return buildReceiptAnalyticsFromSample(getDemoReceipts());
+  }
+  const payload = await readJson<unknown>("/v1/receipts/analytics?activity_days=90&trend_days=7&top_limit=8");
+  const normalized = normalizeReceiptAnalytics(payload);
+  if (!normalized) {
+    throw new Error("Invalid receipt analytics payload");
+  }
+  return normalized;
+}
+
+export async function publishInsightsShare(input: {
+  includeTopArtifacts?: boolean;
+  showDisplayName?: boolean;
+  displayName?: string;
+}): Promise<GuardInsightsShareResult> {
+  if (isGuardDemoMode()) {
+    return {
+      slug: "demo-share",
+      publicUrl: "https://hol.org/guard/insights/demo-share",
+      ogImageUrl: "https://hol.org/api/og/guard/insights/demo-share",
+      expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+    };
+  }
+  const payload = await readJson<unknown>("/v1/insights/share", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      includeTopArtifacts: input.includeTopArtifacts ?? false,
+      showDisplayName: input.showDisplayName ?? false,
+      displayName: input.displayName,
+    }),
+  });
+  if (!payload || typeof payload !== "object") {
+    throw new Error("Invalid insights share response");
+  }
+  const record = payload as Record<string, unknown>;
+  const slug = record.slug;
+  const publicUrl = record.publicUrl;
+  const ogImageUrl = record.ogImageUrl;
+  const expiresAt = record.expiresAt;
+  if (
+    typeof slug === "string" &&
+    typeof publicUrl === "string" &&
+    typeof ogImageUrl === "string" &&
+    typeof expiresAt === "string"
+  ) {
+    return { slug, publicUrl, ogImageUrl, expiresAt };
+  }
+  if (typeof record.message === "string" && record.message.trim()) {
+    throw new Error(record.message);
+  }
+  if (typeof record.error === "string" && record.error.trim()) {
+    throw new Error(record.error);
+  }
+  throw new Error("Invalid insights share response");
+}
+
 export async function fetchLatestReceipt(
   artifactId: string,
   harness: string
@@ -1482,6 +1891,8 @@ export function normalizeGuardUpdateStatus(raw: unknown): GuardUpdateStatus {
     auto_updatable: booleanValue(value.auto_updatable),
     update_available: booleanValue(value.update_available),
     blocked_reason: stringValue(value.blocked_reason),
+    update_in_progress:
+      typeof value.update_in_progress === "boolean" ? value.update_in_progress : undefined,
   };
 }
 
@@ -1876,6 +2287,18 @@ export async function startPackageFirewallConnect(): Promise<PackageFirewallStat
       body: JSON.stringify({}),
     }),
   );
+}
+
+export async function fetchSupplyChainBundle(): Promise<SupplyChainBundle | null> {
+  const wrapper = await readJson<unknown>("/v1/supply-chain/bundle");
+  if (!wrapper || typeof wrapper !== "object") {
+    return null;
+  }
+  const bundle = (wrapper as Record<string, unknown>).bundle;
+  if (bundle === null || bundle === undefined) {
+    return null;
+  }
+  return bundle as SupplyChainBundle;
 }
 
 export async function runPackageFirewallAction(

@@ -11,6 +11,9 @@ the single-handler / top-level splice paths.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
+from functools import partial
 from typing import Any
 
 from ...helpers.api import CommandError
@@ -29,6 +32,9 @@ from . import catalog
 from .emitter import dump, emit_effect_item, emit_trigger_list_item
 from .parsing import make_yaml
 
+# The YAML field naming a component instance's id.
+_ID_KEY = "id"
+
 
 def wrap_handler_list_block(handler_key: str, rendered_list: str) -> str:
     """Prefix a rendered dashed list with its ``<handler_key>:`` header."""
@@ -37,7 +43,7 @@ def wrap_handler_list_block(handler_key: str, rendered_list: str) -> str:
     return f"{handler_key}:\n" + rendered_list.rstrip() + "\n"
 
 
-def _drop_after_block_comment(entries: list) -> None:
+def drop_after_block_comment(entries: list) -> None:
     """
     Strip the comments ruamel bound to the last list entry.
 
@@ -70,11 +76,11 @@ def _strip_comments(node: Any) -> None:
 
 def _resplice_list_block(
     yaml_text: str,
+    handler_key: str,
+    entries: list,
     *,
     domain: str,
     component_id: str,
-    handler_key: str,
-    entries: list,
 ) -> tuple[str, YamlDiff]:
     """
     Re-emit a component's list handler from *entries* and return the diff.
@@ -110,6 +116,94 @@ def _resplice_list_block(
     return new_text, YamlDiff(fromLine=from_line, toLine=to_line, replacement="")
 
 
+def apply_list_entry_upsert(entries: list, item: Any, index: int, *, label: str) -> None:
+    """Append (``index == len``), replace (in range), or raise (out of range).
+
+    The shared insert-or-replace-at-index step for every list-shaped handler
+    (component ``on_*``, light effects, device ``on_*``); mutates *entries*.
+    """
+    if index == len(entries):
+        entries.append(item)
+    elif 0 <= index < len(entries):
+        entries[index] = item
+    else:
+        msg = f"{label}[{index}] out of range (have {len(entries)})"
+        raise CommandError(ErrorCode.INVALID_ARGS, msg)
+
+
+@dataclass(frozen=True)
+class ListContainerStrategy:
+    """How to find the dict holding a handler list and how to re-emit it.
+
+    ``locate`` returns ``None`` only when an absent container should be
+    auto-created on resplice (device ``esphome:``); it raises with the
+    passed ``error_code`` when the container is a hard prerequisite
+    (a configured component instance). ``not_present_msg`` builds the
+    delete error.
+    """
+
+    locate: Callable[[str, ErrorCode], dict | None]
+    resplice: Callable[[str, str, list], tuple[str, YamlDiff]]
+    not_present_msg: Callable[[str, int], str]
+
+
+def upsert_list_entry(
+    yaml_text: str,
+    *,
+    key: str,
+    item: Any,
+    index: int,
+    strategy: ListContainerStrategy,
+) -> tuple[str, YamlDiff]:
+    """
+    Insert or replace one entry of a list-shaped handler at *index*.
+
+    ``index == len(entries)`` appends; an in-range index replaces. Refuses
+    when the existing handler is a single mapping rather than a list — the
+    user picked that shape, so don't silently rewrite it.
+    """
+    container = strategy.locate(yaml_text, ErrorCode.INVALID_ARGS)
+    existing = container.get(key) if container is not None else None
+    if existing is not None and not isinstance(existing, list):
+        msg = f"{key}: is a single mapping, not a list; convert it to a list first"
+        raise CommandError(ErrorCode.INVALID_ARGS, msg)
+    entries = existing if isinstance(existing, list) else []
+    drop_after_block_comment(entries)
+    apply_list_entry_upsert(entries, item, index, label=key)
+    return strategy.resplice(yaml_text, key, entries)
+
+
+def delete_list_entry_for(
+    yaml_text: str,
+    *,
+    key: str,
+    index: int,
+    strategy: ListContainerStrategy,
+) -> tuple[str, YamlDiff]:
+    """Drop entry *index* from a ``<key>:`` list and re-emit the block."""
+    container = strategy.locate(yaml_text, ErrorCode.NOT_FOUND)
+    entries = container.get(key) if container is not None else None
+    if not isinstance(entries, list) or not 0 <= index < len(entries):
+        raise CommandError(ErrorCode.NOT_FOUND, strategy.not_present_msg(key, index))
+    drop_after_block_comment(entries)
+    del entries[index]
+    return strategy.resplice(yaml_text, key, entries)
+
+
+def _component_not_present_msg(component_id: str, key: str, index: int) -> str:
+    """Delete not-found message for a component-nested list handler."""
+    return f"{key}[{index}] not present on component id={component_id!r}"
+
+
+def _component_strategy(domain: str, component_id: str) -> ListContainerStrategy:
+    """Strategy for a list handler nested under a configured component instance."""
+    return ListContainerStrategy(
+        locate=partial(_require_instance, domain=domain, component_id=component_id),
+        resplice=partial(_resplice_list_block, domain=domain, component_id=component_id),
+        not_present_msg=partial(_component_not_present_msg, component_id),
+    )
+
+
 def upsert_component_on_entry(
     yaml_text: str,
     *,
@@ -119,41 +213,18 @@ def upsert_component_on_entry(
     trigger_key: str,
     index: int,
 ) -> tuple[str, YamlDiff]:
-    """
-    Insert or replace one entry of a list-shaped trigger (``time.on_time``).
-
-    ``index == len(entries)`` appends; an in-range index replaces. Refuses
-    when the existing handler is a single mapping rather than a list — the
-    user picked that shape, so don't silently rewrite it.
-    """
-    instance = _require_instance(
-        yaml_text, domain=domain, component_id=component_id, error_code=ErrorCode.INVALID_ARGS
-    )
-    existing = instance.get(trigger_key)
-    if existing is not None and not isinstance(existing, list):
-        msg = f"{trigger_key}: is a single mapping, not a list; convert it to a list first"
-        raise CommandError(ErrorCode.INVALID_ARGS, msg)
-    entries = existing if isinstance(existing, list) else []
-    _drop_after_block_comment(entries)
-    new_item = emit_trigger_list_item(tree)
-    if index == len(entries):
-        entries.append(new_item)
-    elif 0 <= index < len(entries):
-        entries[index] = new_item
-    else:
-        msg = f"{trigger_key}[{index}] out of range (have {len(entries)})"
-        raise CommandError(ErrorCode.INVALID_ARGS, msg)
-    return _resplice_list_block(
+    """Insert or replace one entry of a list-shaped trigger (``time.on_time``)."""
+    return upsert_list_entry(
         yaml_text,
-        domain=domain,
-        component_id=component_id,
-        handler_key=trigger_key,
-        entries=entries,
+        key=trigger_key,
+        item=emit_trigger_list_item(tree),
+        index=index,
+        strategy=_component_strategy(domain, component_id),
     )
 
 
 def _require_instance(
-    yaml_text: str, *, domain: str, component_id: str, error_code: ErrorCode
+    yaml_text: str, error_code: ErrorCode, *, domain: str, component_id: str
 ) -> dict:
     """
     Return the ``<domain>:`` list item whose ``id`` matches *component_id*.
@@ -165,15 +236,26 @@ def _require_instance(
     section = data.get(domain) if isinstance(data, dict) else None
     if isinstance(section, list):
         for instance in section:
-            if isinstance(instance, dict) and str(instance.get("id", "")) == component_id:
+            if isinstance(instance, dict) and str(instance.get(_ID_KEY, "")) == component_id:
                 return instance
         # Fall back to the parser's positional ``<domain>_<idx>`` label for
         # an id-less instance (only when that instance is genuinely id-less).
         idx = synthetic_instance_index(domain, component_id)
         if idx is not None and idx < len(section):
             candidate = section[idx]
-            if isinstance(candidate, dict) and "id" not in candidate:
+            if isinstance(candidate, dict) and _ID_KEY not in candidate:
                 return candidate
+    elif isinstance(section, dict):
+        # Flat singleton block (``logger:`` / ``mqtt:`` / ``sun:``): the block
+        # is the instance. Match its declared ``id``, else the domain name when
+        # the ``id`` key is absent (key presence, not value, so ``id: null``
+        # isn't treated as id-less; mirrors the list branch and the text-layer
+        # ``_locate_singleton_instance``).
+        if _ID_KEY in section:
+            if str(section[_ID_KEY]) == component_id:
+                return section
+        elif component_id == domain:
+            return section
     msg = f"Component instance id={component_id!r} not found under {domain!r}"
     raise CommandError(error_code, msg)
 
@@ -182,21 +264,11 @@ def delete_list_entry(
     yaml_text: str, *, domain: str, component_id: str, handler_key: str, index: int
 ) -> tuple[str, YamlDiff]:
     """Drop entry *index* from a component's ``<handler_key>:`` list; re-splice."""
-    instance = _require_instance(
-        yaml_text, domain=domain, component_id=component_id, error_code=ErrorCode.NOT_FOUND
-    )
-    entries = instance.get(handler_key)
-    if not isinstance(entries, list) or not 0 <= index < len(entries):
-        msg = f"{handler_key}[{index}] not present on component id={component_id!r}"
-        raise CommandError(ErrorCode.NOT_FOUND, msg)
-    _drop_after_block_comment(entries)
-    del entries[index]
-    return _resplice_list_block(
+    return delete_list_entry_for(
         yaml_text,
-        domain=domain,
-        component_id=component_id,
-        handler_key=handler_key,
-        entries=entries,
+        key=handler_key,
+        index=index,
+        strategy=_component_strategy(domain, component_id),
     )
 
 
@@ -221,32 +293,13 @@ def upsert_light_effect(
     if catalog_entry is None:
         msg = f"Unknown light effect id: {effect_id!r}"
         raise CommandError(ErrorCode.INVALID_ARGS, msg)
-    instance = _require_instance(
-        yaml_text,
-        domain="light",
-        component_id=location.component_id,
-        error_code=ErrorCode.INVALID_ARGS,
-    )
     item = emit_effect_item(catalog_entry, str(effect_id), params or {})
-    existing = instance.get("effects")
-    if existing is not None and not isinstance(existing, list):
-        msg = "effects: is a single mapping, not a list; convert it to a list first"
-        raise CommandError(ErrorCode.INVALID_ARGS, msg)
-    entries = existing if isinstance(existing, list) else []
-    _drop_after_block_comment(entries)
-    if location.index == len(entries):
-        entries.append(item)
-    elif 0 <= location.index < len(entries):
-        entries[location.index] = item
-    else:
-        msg = f"effects[{location.index}] out of range (have {len(entries)})"
-        raise CommandError(ErrorCode.INVALID_ARGS, msg)
-    return _resplice_list_block(
+    return upsert_list_entry(
         yaml_text,
-        domain="light",
-        component_id=location.component_id,
-        handler_key="effects",
-        entries=entries,
+        key="effects",
+        item=item,
+        index=location.index,
+        strategy=_component_strategy("light", location.component_id),
     )
 
 

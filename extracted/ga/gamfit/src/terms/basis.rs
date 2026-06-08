@@ -1446,73 +1446,67 @@ fn bspline_raw_row_chunk(
     }
 }
 
-fn is_effectively_uniform_knot_geometry(knot_vector: &Array1<f64>, degree: usize) -> bool {
-    if knot_vector.len() <= degree + 2 {
-        return true;
-    }
-
-    let min_k = knot_vector[0];
-    let max_k = knot_vector[knot_vector.len() - 1];
-    let scale = (max_k - min_k).abs().max(1.0);
-    let tol = 1e-10 * scale;
-
-    // Any repeated interior knot (beyond clamped boundaries) implies irregular geometry.
-    let mut left = 0usize;
-    while left + 1 < knot_vector.len() && (knot_vector[left + 1] - min_k).abs() <= tol {
-        left += 1;
-    }
-    let mut right = knot_vector.len() - 1;
-    while right > 0 && (knot_vector[right - 1] - max_k).abs() <= tol {
-        right -= 1;
-    }
-    if right > left + 1 {
-        for i in (left + 1)..=right {
-            if (knot_vector[i] - knot_vector[i - 1]).abs() <= tol {
-                return false;
-            }
-        }
-    }
-
-    let mut breakpoints = Vec::<f64>::with_capacity(knot_vector.len());
-    for &k in knot_vector {
-        if breakpoints
-            .last()
-            .map(|last| (k - *last).abs() > tol)
-            .unwrap_or(true)
-        {
-            breakpoints.push(k);
-        }
-    }
-
-    if breakpoints.len() <= 2 {
-        return true;
-    }
-
-    let h0 = breakpoints[1] - breakpoints[0];
-    for i in 2..breakpoints.len() {
-        let hi = breakpoints[i] - breakpoints[i - 1];
-        if (hi - h0).abs() > 1e-8 * scale {
-            return false;
-        }
-    }
-    true
-}
-
-/// Selects Greville abscissae for difference-penalty scaling when knot geometry is non-uniform.
+/// Selects Greville abscissae for difference-penalty scaling.
 ///
-/// For regular, uniformly spaced breakpoint grids this returns `None` to preserve
-/// classical P-spline integer-difference penalties. For irregular grids (including
-/// repeated interior knots), this returns `Some(Greville)` so divided-difference
-/// scaling is applied by [`create_difference_penalty_matrix`].
+/// The classical P-spline integer-difference penalty `D'D` penalizes the squared
+/// `m`-th differences of the *coefficients*. Those differences represent the
+/// squared `m`-th derivative of the *function* — with the correct polynomial null
+/// space `{1, x, …, x^{m-1}}` — only when the basis has *evenly spaced Greville
+/// abscissae*, because a coefficient sequence that is linear in its index then
+/// reproduces a function linear in `x` (B-spline linear precision, `Σ ξ_i B_i(x)
+/// = x`).
+///
+/// Equally spaced *breakpoints* are **not** sufficient. gam's B-splines are
+/// clamped (boundary knots repeated `degree + 1` times), so even on a uniform
+/// interior grid the Greville abscissae `ξ_i = (1/m)·Σ_{k=1}^{degree} t_{i+k}`
+/// cluster toward the ends. With such a basis the integer-difference null space
+/// is a *rotated approximation* of the polynomial space rather than the exact
+/// `{1, x, …}`. That tilts the direction REML shrinks toward as `λ → ∞`, so the
+/// recovered surface is biased and the selected smoothing parameters land off
+/// the true optimum (e.g. anisotropic tensor `te`/`ti` recovery degrades).
+///
+/// We therefore gate the integer-difference fast path on uniformity of the
+/// **Greville abscissae** and otherwise return them, so divided-difference
+/// scaling in [`create_difference_penalty_matrix`] restores the exact polynomial
+/// null space for any knot geometry (clamped, quantile, or otherwise). When the
+/// abscissae are already uniform (e.g. a non-clamped Eilers–Marx grid), the
+/// divided differences reduce to the integer differences up to an overall scale,
+/// so returning `None` there is exact and cheaper.
 pub fn penalty_greville_abscissae_for_knots(
     knot_vector: &Array1<f64>,
     degree: usize,
 ) -> Result<Option<Array1<f64>>, BasisError> {
-    if is_effectively_uniform_knot_geometry(knot_vector, degree) {
+    // Degenerate / too-short knot vectors have no meaningful divided-difference
+    // scaling (and `compute_greville_abscissae` rejects them); fall back to the
+    // plain integer-difference penalty exactly as before.
+    let greville = match compute_greville_abscissae(knot_vector, degree) {
+        Ok(g) => g,
+        Err(_) => return Ok(None),
+    };
+    if is_uniformly_spaced_sequence(greville.view()) {
         Ok(None)
     } else {
-        Ok(Some(compute_greville_abscissae(knot_vector, degree)?))
+        Ok(Some(greville))
     }
+}
+
+/// True when the entries of `values` are (numerically) evenly spaced. Used to
+/// decide whether classical integer-difference penalties coincide with the
+/// geometry-correct divided-difference penalty for a basis.
+fn is_uniformly_spaced_sequence(values: ArrayView1<'_, f64>) -> bool {
+    let n = values.len();
+    if n <= 2 {
+        return true;
+    }
+    let span = (values[n - 1] - values[0]).abs().max(1.0);
+    let h0 = values[1] - values[0];
+    for i in 2..n {
+        let hi = values[i] - values[i - 1];
+        if (hi - h0).abs() > 1e-8 * span {
+            return false;
+        }
+    }
+    true
 }
 
 /// Thin-plate regression spline basis and penalty (order m=2).
@@ -8001,7 +7995,6 @@ pub fn build_bspline_basis_1d(
                     data,
                     &knots,
                     spec.degree,
-                    spec.boundary_conditions,
                     Some((start, end - start, num_basis)),
                     &spec.identifiability,
                     penalties_raw,
@@ -8152,7 +8145,6 @@ pub fn build_bspline_basis_1d(
                 data,
                 &knots,
                 spec.degree,
-                spec.boundary_conditions,
                 None,
                 &spec.identifiability,
                 penalties_raw,
@@ -8179,10 +8171,13 @@ pub fn build_bspline_basis_1d(
             joint_null_rotation: None,
         });
     }
-    // The sparse branch below routes only through `apply_bspline_identifiability_policy`
-    // and never threads `apply_bspline_boundary_conditions`, so taking it for non-free
-    // endpoints silently drops the user's Clamped/Anchored constraint and lets a
-    // non-zero anchor through unchecked.  Require free endpoints to use the sparse path.
+    // Boundary conditions are emitted by the smooth-level paired
+    // linear-constraint path (`bspline_boundary_linear_constraints` in
+    // smooth.rs), and `build_local_smooth_term` clears `spec.boundary_conditions`
+    // before reaching this builder, so the basis builder no longer bakes them.
+    // The `is_free` guard is retained defensively: any direct caller that still
+    // supplies non-free endpoints must take the dense identifiability path
+    // rather than the sparse branch, which never threaded boundary handling.
     let prefer_sparse_design = spec.boundary_conditions.is_free()
         && matches!(
             spec.identifiability,
@@ -8412,35 +8407,20 @@ pub fn build_bspline_basis_1d(
             }
         }
     } else {
-        if !spec.boundary_conditions.is_free()
-            && matches!(
-                spec.identifiability,
-                BSplineIdentifiability::RemoveLinearTrend
-            )
-        {
-            crate::bail_invalid_basis!("B-spline boundary conditions cannot currently be combined with RemoveLinearTrend identifiability"
-                    .to_string(),);
-        }
-        let (design_bc, penalties_bc, boundary_transform) = apply_bspline_boundary_conditions(
+        // Boundary conditions are no longer baked into the basis null space:
+        // they are emitted by the smooth-level paired linear-constraint path
+        // (`bspline_boundary_linear_constraints` in smooth.rs), which supports
+        // non-zero anchors and composes with the frozen identifiability
+        // transform. `build_local_smooth_term` clears `boundary_conditions`
+        // before calling this builder, so the basis-level boundary path is no
+        // longer reached.
+        let (design, penalties, identifiability_transform) = apply_bspline_identifiability_policy(
             design_dense_opt.expect("dense B-spline basis should be present"),
             penalties_raw_mats,
             &knots,
             spec.degree,
-            spec.boundary_conditions,
-        )?;
-        let (design, penalties, ident_transform_local) = apply_bspline_identifiability_policy(
-            design_bc,
-            penalties_bc,
-            &knots,
-            spec.degree,
             &spec.identifiability,
         )?;
-        let identifiability_transform = match (boundary_transform, ident_transform_local) {
-            (Some(zb), Some(zi)) => Some(fast_ab(&zb, &zi)),
-            (Some(zb), None) => Some(zb),
-            (None, Some(zi)) => Some(zi),
-            (None, None) => None,
-        };
         let transformed_candidates = penalties
             .into_iter()
             .zip(penalties_raw.into_iter())
@@ -8482,171 +8462,6 @@ pub fn build_bspline_basis_1d(
         null_eigenvectors,
         joint_null_rotation: None,
     })
-}
-
-fn bspline_boundary_value_row(
-    x: f64,
-    knots: &Array1<f64>,
-    degree: usize,
-) -> Result<Vec<f64>, BasisError> {
-    let xs = Array1::from_vec(vec![x]);
-    let (basis, _) = create_basis::<Dense>(
-        xs.view(),
-        KnotSource::Provided(knots.view()),
-        degree,
-        BasisOptions::value(),
-    )?;
-    Ok(basis.row(0).to_vec())
-}
-
-fn bspline_boundary_derivative_row(
-    x: f64,
-    knots: &Array1<f64>,
-    degree: usize,
-) -> Result<Vec<f64>, BasisError> {
-    let p = knots.len().checked_sub(degree + 1).ok_or_else(|| {
-        BasisError::InvalidInput("invalid B-spline knot/degree combination".to_string())
-    })?;
-    let mut row = vec![0.0; p];
-    evaluate_bspline_derivative_scalar(x, knots.view(), degree, &mut row)?;
-    Ok(row)
-}
-
-fn bspline_boundary_constraint_rows(
-    knots: &Array1<f64>,
-    degree: usize,
-    boundary_conditions: BSplineBoundaryConditions,
-) -> Result<Array2<f64>, BasisError> {
-    let p = knots.len().checked_sub(degree + 1).ok_or_else(|| {
-        BasisError::InvalidInput("invalid B-spline knot/degree combination".to_string())
-    })?;
-    let left_x = knots[degree];
-    let right_x = knots[knots.len() - degree - 1];
-    let mut rows: Vec<Vec<f64>> = Vec::new();
-
-    // For `Anchored` we pin BOTH the value AND the first derivative at the
-    // endpoint (Hermite-style). The value-only pin (the original semantic) is
-    // numerically unstable when training data is sparse near the anchored
-    // endpoint: the basis is free to swing arbitrarily steeply between the
-    // pinned point and the next data point, since only curvature is
-    // penalized. A `bc=clamped`-only fit on the same data has no oscillation
-    // because the slope is also pinned. Combining both constraints removes
-    // exactly the swing-direction DoF that produced the COLLAPSED fits in
-    // `sparse_dense_imbalance` (rmse_sparse 0.33 → 0.04, max_dev 1.78 → 0.20
-    // on the cycle-18 diagnostic).
-    match boundary_conditions.left {
-        BSplineEndpointBoundaryCondition::Free => {}
-        BSplineEndpointBoundaryCondition::Clamped => {
-            rows.push(bspline_boundary_derivative_row(left_x, knots, degree)?);
-        }
-        BSplineEndpointBoundaryCondition::Anchored { value } => {
-            if value.abs() > 1e-12 {
-                crate::bail_invalid_basis!(
-                    "non-zero B-spline left anchor {value} requires an affine term offset; currently only anchored value 0 is supported"
-                );
-            }
-            rows.push(bspline_boundary_value_row(left_x, knots, degree)?);
-            rows.push(bspline_boundary_derivative_row(left_x, knots, degree)?);
-        }
-    }
-    match boundary_conditions.right {
-        BSplineEndpointBoundaryCondition::Free => {}
-        BSplineEndpointBoundaryCondition::Clamped => {
-            rows.push(bspline_boundary_derivative_row(right_x, knots, degree)?);
-        }
-        BSplineEndpointBoundaryCondition::Anchored { value } => {
-            if value.abs() > 1e-12 {
-                crate::bail_invalid_basis!(
-                    "non-zero B-spline right anchor {value} requires an affine term offset; currently only anchored value 0 is supported"
-                );
-            }
-            rows.push(bspline_boundary_value_row(right_x, knots, degree)?);
-            rows.push(bspline_boundary_derivative_row(right_x, knots, degree)?);
-        }
-    }
-
-    let q = rows.len();
-    let mut c = Array2::<f64>::zeros((q, p));
-    for (i, row) in rows.iter().enumerate() {
-        let norm = row.iter().map(|v| v * v).sum::<f64>().sqrt().max(1.0);
-        for (j, &v) in row.iter().enumerate() {
-            c[[i, j]] = v / norm;
-        }
-    }
-    Ok(c)
-}
-
-fn apply_bspline_boundary_conditions(
-    design: Array2<f64>,
-    penalties: Vec<Array2<f64>>,
-    knots: &Array1<f64>,
-    degree: usize,
-    boundary_conditions: BSplineBoundaryConditions,
-) -> Result<(Array2<f64>, Vec<Array2<f64>>, Option<Array2<f64>>), BasisError> {
-    if boundary_conditions.is_free() {
-        return Ok((design, penalties, None));
-    }
-    let c = bspline_boundary_constraint_rows(knots, degree, boundary_conditions)?;
-    if c.nrows() == 0 {
-        return Ok((design, penalties, None));
-    }
-    if c.ncols() != design.ncols() {
-        crate::bail_dim_basis!(
-            "B-spline boundary constraint width {} does not match design width {}",
-            c.ncols(),
-            design.ncols()
-        );
-    }
-    let (z, rank) =
-        rrqr_nullspace_basis(&c.t(), default_rrqr_rank_alpha()).map_err(BasisError::LinalgError)?;
-    if z.ncols() == 0 || rank >= c.ncols() {
-        return Err(BasisError::ConstraintNullspaceCollapsed {
-            site: "apply_bspline_boundary_conditions",
-            cross_rank: rank,
-            coeff_dim: c.ncols(),
-            cross_frobenius: c.iter().map(|v| v * v).sum::<f64>().sqrt(),
-            constrained_gram_max_eigenvalue: f64::NAN,
-            constrained_gram_min_eigenvalue: f64::NAN,
-            spectral_tolerance: f64::NAN,
-        });
-    }
-    let design_c = fast_ab(&design, &z);
-    let penalties_c = penalties
-        .into_iter()
-        .map(|s| {
-            let zt_s = fast_atb(&z, &s);
-            fast_ab(&zt_s, &z)
-        })
-        .collect();
-    Ok((design_c, penalties_c, Some(z)))
-}
-
-fn bspline_boundary_transform(
-    knots: &Array1<f64>,
-    degree: usize,
-    boundary_conditions: BSplineBoundaryConditions,
-) -> Result<Option<Array2<f64>>, BasisError> {
-    if boundary_conditions.is_free() {
-        return Ok(None);
-    }
-    let c = bspline_boundary_constraint_rows(knots, degree, boundary_conditions)?;
-    if c.nrows() == 0 {
-        return Ok(None);
-    }
-    let (z, rank) =
-        rrqr_nullspace_basis(&c.t(), default_rrqr_rank_alpha()).map_err(BasisError::LinalgError)?;
-    if z.ncols() == 0 || rank >= c.ncols() {
-        return Err(BasisError::ConstraintNullspaceCollapsed {
-            site: "bspline_boundary_transform",
-            cross_rank: rank,
-            coeff_dim: c.ncols(),
-            cross_frobenius: c.iter().map(|v| v * v).sum::<f64>().sqrt(),
-            constrained_gram_max_eigenvalue: f64::NAN,
-            constrained_gram_min_eigenvalue: f64::NAN,
-            spectral_tolerance: f64::NAN,
-        });
-    }
-    Ok(Some(z))
 }
 
 fn project_bspline_penalties(
@@ -8815,7 +8630,6 @@ fn build_streaming_bspline_design_and_candidates(
     data: ArrayView1<'_, f64>,
     knots: &Array1<f64>,
     degree: usize,
-    boundary_conditions: BSplineBoundaryConditions,
     periodic: Option<(f64, f64, usize)>,
     identifiability: &BSplineIdentifiability,
     penalties_raw: Vec<PenaltyCandidate>,
@@ -8823,20 +8637,10 @@ fn build_streaming_bspline_design_and_candidates(
     chunk_size: Option<usize>,
 ) -> Result<(DesignMatrix, Vec<PenaltyCandidate>, Option<Array2<f64>>), BasisError> {
     let chunk = chunk_size.unwrap_or(2048).max(1);
-    if !boundary_conditions.is_free()
-        && matches!(identifiability, BSplineIdentifiability::RemoveLinearTrend)
-    {
-        crate::bail_invalid_basis!("B-spline boundary conditions cannot currently be combined with RemoveLinearTrend identifiability"
-                .to_string(),);
-    }
-    let mut transform_opt = if periodic.is_none() {
-        bspline_boundary_transform(knots, degree, boundary_conditions)?
-    } else {
-        None
-    };
-    if let Some(z) = transform_opt.as_ref() {
-        penalty_mats = project_bspline_penalties(penalty_mats, z);
-    }
+    // Boundary conditions are emitted by the smooth-level paired
+    // linear-constraint path; the basis builder no longer bakes them, so this
+    // streaming path starts from no boundary transform.
+    let mut transform_opt: Option<Array2<f64>> = None;
 
     match identifiability {
         BSplineIdentifiability::None => {}
@@ -15819,12 +15623,14 @@ fn try_build_truncated_sphere_design_gpu(
     radians: bool,
 ) -> Option<Array2<f64>> {
     let (lmax_u16, kind) = match kernel {
-        SphereWahbaKernel::SobolevTruncated { lmax } => {
-            (lmax, crate::gpu::sphere::SphereSpectralKernelKind::Sobolev)
-        }
-        SphereWahbaKernel::PseudoTruncated { lmax } => {
-            (lmax, crate::gpu::sphere::SphereSpectralKernelKind::Pseudo)
-        }
+        SphereWahbaKernel::SobolevTruncated { lmax } => (
+            lmax,
+            crate::terms::sphere_gpu::SphereSpectralKernelKind::Sobolev,
+        ),
+        SphereWahbaKernel::PseudoTruncated { lmax } => (
+            lmax,
+            crate::terms::sphere_gpu::SphereSpectralKernelKind::Pseudo,
+        ),
         SphereWahbaKernel::Sobolev | SphereWahbaKernel::Pseudo => return None,
     };
     let lmax = lmax_u16 as usize;
@@ -15833,14 +15639,14 @@ fn try_build_truncated_sphere_design_gpu(
     }
     let n = data.nrows();
     let m = centers.nrows();
-    let decision = crate::gpu::sphere::sphere_kernel_decision(n, m, lmax);
+    let decision = crate::terms::sphere_gpu::sphere_kernel_decision(n, m, lmax);
     if !decision.use_gpu {
         return None;
     }
-    let data_xyz = crate::gpu::sphere::latlon_to_xyz_host(data, radians).ok()?;
-    let centers_xyz = crate::gpu::sphere::latlon_to_xyz_host(centers, radians).ok()?;
+    let data_xyz = crate::terms::sphere_gpu::latlon_to_xyz_host(data, radians).ok()?;
+    let centers_xyz = crate::terms::sphere_gpu::latlon_to_xyz_host(centers, radians).ok()?;
     let coeffs = kind.coefficients(lmax, penalty_order);
-    let inputs = crate::gpu::sphere::S2KernelBuildInputs {
+    let inputs = crate::terms::sphere_gpu::S2KernelBuildInputs {
         n,
         m,
         lmax,
@@ -15848,9 +15654,9 @@ fn try_build_truncated_sphere_design_gpu(
         centers_xyz: &centers_xyz,
         coeffs: &coeffs,
         kind,
-        layout: crate::gpu::sphere::DeviceMatrixLayout::ColumnMajor,
+        layout: crate::terms::sphere_gpu::DeviceMatrixLayout::ColumnMajor,
     };
-    let dev = match crate::gpu::sphere::build_kernel_matrix_device(inputs) {
+    let dev = match crate::terms::sphere_gpu::build_kernel_matrix_device(inputs) {
         Ok(d) => d,
         Err(err) => {
             log::warn!(
@@ -17003,8 +16809,15 @@ fn build_matern_operator_penalty_psi_derivatives(
         d0.column_mut(kernel_cols).fill(1.0);
     }
 
+    // The forward Matérn operator-penalty path
+    // (`operator_penalty_candidates_from_collocation`) builds the Mass block
+    // as the RAW (un-centered) Gram `S0 = D0ᵀ D0`; only the Duchon runtime
+    // overlay centers the mass rows. The analytic ∂S/∂ψ must mirror the forward
+    // construction exactly, so the S0 derivative also uses the un-centered Gram
+    // — centering here desynced the derivative from the forward penalty
+    // (FD-mismatch ~3e-2, #839).
     let (s0, s0_psi, s0_psi_psi) =
-        centered_operator_gram_and_psi_derivatives(&d0, &d0_psi, &d0_psi_psi);
+        gram_and_psi_derivatives_from_operator(&d0, &d0_psi, &d0_psi_psi);
     let (s1, s1_psi, s1_psi_psi) =
         gram_and_psi_derivatives_from_operator(&d1, &d1_psi, &d1_psi_psi);
     let (s2, s2_psi, s2_psi_psi) =
@@ -31015,8 +30828,15 @@ mod tests {
 
     #[test]
     fn test_build_thin_plate_basis_switches_to_lazy_design_for_large_blocks() {
+        // The lazy switch fires when the projected dense materialization would
+        // exceed `ResourcePolicy::max_single_materialization_bytes` (1 GiB on
+        // `default_library`). For n × p × 8 to cross that bound we need
+        // n·p > 2^27, so the smaller (17_000 × 2_000) pin used previously
+        // landed at ~272 MiB and never triggered the lazy path. Size the
+        // test so the dense allocation alone would be ~1.01 GiB — comfortably
+        // over the cap, while still allocating only ~200 KiB of inputs.
         let n = 17_000usize;
-        let k = 2_000usize;
+        let k = 8_000usize;
         let mut data = Array2::<f64>::zeros((n, 1));
         let mut centers = Array2::<f64>::zeros((k, 1));
         for i in 0..n {
@@ -31249,124 +31069,13 @@ mod tests {
         assert_eq!(result.design.nrows(), x.len());
     }
 
-    fn bspline_transform_from_result(result: &BasisBuildResult) -> Array2<f64> {
-        match &result.metadata {
-            BasisMetadata::BSpline1D {
-                identifiability_transform: Some(z),
-                ..
-            } => z.clone(),
-            _ => panic!("expected constrained B-spline metadata"),
-        }
-    }
-
-    #[test]
-    fn test_bspline_half_open_left_clamped_boundary_condition() {
-        let x = Array::linspace(0.0, 1.0, 25);
-        let spec = BSplineBasisSpec {
-            degree: 3,
-            penalty_order: 2,
-            knotspec: BSplineKnotSpec::Generate {
-                data_range: (0.0, 1.0),
-                num_internal_knots: 5,
-            },
-            double_penalty: false,
-            identifiability: BSplineIdentifiability::None,
-            boundary_conditions: BSplineBoundaryConditions {
-                left: BSplineEndpointBoundaryCondition::Clamped,
-                right: BSplineEndpointBoundaryCondition::Free,
-            },
-            boundary: OneDimensionalBoundary::Open,
-        };
-        let result = build_bspline_basis_1d(x.view(), &spec).unwrap();
-        let z = bspline_transform_from_result(&result);
-        assert_eq!(result.design.ncols(), z.nrows() - 1);
-
-        let knots = match &result.metadata {
-            BasisMetadata::BSpline1D { knots, .. } => knots.clone(),
-            _ => panic!("expected B-spline metadata"),
-        };
-        let mut d_left = vec![0.0; z.nrows()];
-        evaluate_bspline_derivative_scalar(0.0, knots.view(), spec.degree, &mut d_left).unwrap();
-        let left_projected = Array1::from_vec(d_left).dot(&z);
-        assert!(left_projected.iter().all(|v| v.abs() < 1e-10));
-
-        let mut d_right = vec![0.0; z.nrows()];
-        evaluate_bspline_derivative_scalar(1.0, knots.view(), spec.degree, &mut d_right).unwrap();
-        let right_projected = Array1::from_vec(d_right).dot(&z);
-        assert!(
-            right_projected.iter().any(|v| v.abs() > 1e-6),
-            "right endpoint should remain free for a half-open left-clamped smooth"
-        );
-    }
-
-    #[test]
-    fn test_bspline_anchored_and_clamped_boundary_conditions_compose() {
-        let x = Array::linspace(-2.0, 3.0, 40);
-        let spec = BSplineBasisSpec {
-            degree: 3,
-            penalty_order: 2,
-            knotspec: BSplineKnotSpec::Generate {
-                data_range: (-2.0, 3.0),
-                num_internal_knots: 6,
-            },
-            double_penalty: true,
-            identifiability: BSplineIdentifiability::WeightedSumToZero { weights: None },
-            boundary_conditions: BSplineBoundaryConditions {
-                left: BSplineEndpointBoundaryCondition::Anchored { value: 0.0 },
-                right: BSplineEndpointBoundaryCondition::Clamped,
-            },
-            boundary: OneDimensionalBoundary::Open,
-        };
-        let result = build_bspline_basis_1d(x.view(), &spec).unwrap();
-        assert_eq!(
-            result.penalties.len(),
-            2,
-            "double penalty survives projection"
-        );
-        let z = bspline_transform_from_result(&result);
-        let knots = match &result.metadata {
-            BasisMetadata::BSpline1D { knots, .. } => knots.clone(),
-            _ => panic!("expected B-spline metadata"),
-        };
-
-        let left_row = create_basis::<Dense>(
-            array![-2.0].view(),
-            KnotSource::Provided(knots.view()),
-            spec.degree,
-            BasisOptions::value(),
-        )
-        .unwrap()
-        .0;
-        let left_projected = left_row.row(0).to_owned().dot(&z);
-        assert!(left_projected.iter().all(|v| v.abs() < 1e-10));
-
-        let mut d_right = vec![0.0; z.nrows()];
-        evaluate_bspline_derivative_scalar(3.0, knots.view(), spec.degree, &mut d_right).unwrap();
-        let right_projected = Array1::from_vec(d_right).dot(&z);
-        assert!(right_projected.iter().all(|v| v.abs() < 1e-10));
-    }
-
-    #[test]
-    fn test_bspline_nonzero_anchor_is_rejected_until_affine_offsets_exist() {
-        let x = Array::linspace(0.0, 1.0, 12);
-        let spec = BSplineBasisSpec {
-            degree: 3,
-            penalty_order: 2,
-            knotspec: BSplineKnotSpec::Generate {
-                data_range: (0.0, 1.0),
-                num_internal_knots: 3,
-            },
-            double_penalty: false,
-            identifiability: BSplineIdentifiability::None,
-            boundary_conditions: BSplineBoundaryConditions {
-                left: BSplineEndpointBoundaryCondition::Anchored { value: 2.5 },
-                right: BSplineEndpointBoundaryCondition::Free,
-            },
-            boundary: OneDimensionalBoundary::Open,
-        };
-        let err = build_bspline_basis_1d(x.view(), &spec).unwrap_err();
-        assert!(err.to_string().contains("non-zero B-spline left anchor"));
-    }
+    // Boundary-condition emission moved from the basis builder to the
+    // smooth-level paired linear-constraint path (see smooth.rs
+    // `bspline_boundary_conditions_emit_paired_equality_constraints` and
+    // `bspline_boundary_conditions_follow_frozen_identifiability_transform`).
+    // The basis builder no longer bakes boundary conditions into the null
+    // space (#823), so the former basis-level boundary-projection tests were
+    // removed along with that legacy path.
 
     #[test]
     fn test_build_bspline_basis_1d_automatic_uniform_uses_data_range() {
@@ -31426,11 +31135,115 @@ mod tests {
     }
 
     #[test]
-    fn test_penalty_greville_selectornone_for_uniform_breakpoints() {
+    fn test_penalty_greville_selected_for_clamped_uniform_breakpoints() {
+        // A clamped B-spline with a *uniform interior breakpoint grid* still has
+        // non-uniform Greville abscissae (they cluster toward the clamped ends),
+        // so the geometry-correct divided-difference penalty must be selected.
+        // Selecting the classical integer-difference penalty here would give the
+        // curvature penalty a null space that is only an approximation of
+        // {1, x}, biasing every shrink-toward-linear and the REML smoothing
+        // selection (root cause of the tensor te/ti over-smoothing regression).
         let degree = 3usize;
         let knots = internal::generate_full_knot_vector((0.0, 1.0), 5, degree).unwrap();
-        let g = penalty_greville_abscissae_for_knots(&knots, degree).unwrap();
-        assert!(g.is_none());
+        let g = penalty_greville_abscissae_for_knots(&knots, degree)
+            .unwrap()
+            .expect("clamped uniform breakpoints have non-uniform Greville abscissae");
+        // Sanity: the abscissae really are non-uniform (clustered at the ends).
+        let gaps: Vec<f64> = g.windows(2).into_iter().map(|w| w[1] - w[0]).collect();
+        let max_gap = gaps.iter().cloned().fold(f64::MIN, f64::max);
+        let min_gap = gaps.iter().cloned().fold(f64::MAX, f64::min);
+        assert!(
+            max_gap - min_gap > 1e-6,
+            "Greville abscissae for a clamped basis should be non-uniform: gaps={gaps:?}"
+        );
+    }
+
+    #[test]
+    fn test_penalty_greville_none_for_uniform_greville() {
+        // When the abscissae are genuinely uniform (a non-clamped, evenly spaced
+        // grid), integer differences coincide with divided differences up to an
+        // overall scale, so the cheaper integer-difference path is selected.
+        let degree = 3usize;
+        let n_basis = 8usize;
+        let knots: Array1<f64> = Array1::from_iter((0..(n_basis + degree + 1)).map(|i| i as f64));
+        let g = compute_greville_abscissae(&knots, degree).unwrap();
+        assert!(
+            is_uniformly_spaced_sequence(g.view()),
+            "evenly spaced knot vector should yield uniform Greville abscissae: {g:?}"
+        );
+        assert!(
+            penalty_greville_abscissae_for_knots(&knots, degree)
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn test_clamped_bspline_curvature_penalty_null_space_is_exactly_linear() {
+        // End-to-end guard on the root cause: the curvature penalty of a clamped
+        // uniform B-spline must annihilate exactly the functions linear in x.
+        // Build the (unconstrained) marginal basis + penalty the way a tensor
+        // margin does, then verify every null-space coefficient vector maps to a
+        // function with zero deviation from its best linear-in-x fit.
+        let x = Array1::<f64>::linspace(0.0, 1.0, 50);
+        let spec = BSplineBasisSpec {
+            degree: 3,
+            penalty_order: 2,
+            knotspec: BSplineKnotSpec::Generate {
+                data_range: (0.0, 1.0),
+                num_internal_knots: 4,
+            },
+            double_penalty: false,
+            identifiability: BSplineIdentifiability::None,
+            boundary: OneDimensionalBoundary::Open,
+            boundary_conditions: BSplineBoundaryConditions::default(),
+        };
+        let built = build_bspline_basis_1d(x.view(), &spec).unwrap();
+        let design = built.design.to_dense();
+        let s = &built.penalties[0];
+        // Null space of S (curvature penalty): eigenvectors with ~zero eigenvalue.
+        let (evals, evecs) = FaerEigh::eigh(s, Side::Lower).unwrap();
+        let max_ev = evals.iter().cloned().fold(f64::MIN, f64::max);
+        let mut worst_rel_dev = 0.0_f64;
+        let n = x.len();
+        // Least-squares onto span{1, x} via the 2x2 normal equations.
+        let sx: f64 = x.sum();
+        let sxx: f64 = x.iter().map(|v| v * v).sum();
+        let nn = n as f64;
+        let det = nn * sxx - sx * sx;
+        let mut null_count = 0usize;
+        for (idx, &ev) in evals.iter().enumerate() {
+            if ev > 1e-9 * max_ev {
+                continue;
+            }
+            null_count += 1;
+            let coef = evecs.column(idx).to_owned();
+            let f = design.dot(&coef);
+            let sf: f64 = f.sum();
+            let sxf: f64 = x.iter().zip(f.iter()).map(|(xi, fi)| xi * fi).sum();
+            // beta = (A'A)^{-1} A'f for A = [1, x]
+            let b0 = (sxx * sf - sx * sxf) / det;
+            let b1 = (nn * sxf - sx * sf) / det;
+            let mut resid = 0.0_f64;
+            let mut amp = 0.0_f64;
+            for i in 0..n {
+                let fit = b0 + b1 * x[i];
+                resid += (f[i] - fit) * (f[i] - fit);
+                amp += f[i] * f[i];
+            }
+            let rel = (resid.sqrt()) / amp.sqrt().max(1e-30);
+            worst_rel_dev = worst_rel_dev.max(rel);
+        }
+        assert!(
+            null_count >= 2,
+            "curvature penalty should have a 2-D (const+linear) null space, found {null_count}"
+        );
+        assert!(
+            worst_rel_dev < 1e-8,
+            "clamped B-spline curvature penalty null space deviates from linear-in-x \
+             by rel {worst_rel_dev:.3e} (must be ~0; integer-difference penalties on a \
+             clamped basis contaminate the null space)"
+        );
     }
 
     #[test]
@@ -31499,7 +31312,15 @@ mod tests {
     }
 
     #[test]
-    fn test_build_bspline_basis_1d_default_identifiability_prefers_sparse_design() {
+    fn test_build_bspline_basis_1d_default_identifiability_densifies_via_orthonormal_centering() {
+        // The default (`WeightedSumToZero`) identifiability multiplies the
+        // sparse B-spline by the orthonormal null-space basis Z of c = Bᵀw.
+        // Z is dense in general (rrqr_nullspace_basis yields an orthonormal,
+        // not sparsity-preserving, factor), so B·Z is mathematically dense —
+        // the cost of having ZZᵀ act as a true projector, called out in the
+        // matching comment inside `build_bspline_basis_1d`. Pin that the
+        // densification is exposed at the API: a downstream caller that
+        // assumes sparse storage for the default-centered basis is wrong.
         let x = Array::linspace(0.0, 1.0, 32);
         let spec = BSplineBasisSpec {
             degree: 3,
@@ -31514,8 +31335,8 @@ mod tests {
             boundary_conditions: BSplineBoundaryConditions::default(),
         };
 
-        let built = build_bspline_basis_1d(x.view(), &spec).expect("build centered sparse bspline");
-        assert!(matches!(built.design, DesignMatrix::Sparse(_)));
+        let built = build_bspline_basis_1d(x.view(), &spec).expect("build centered bspline");
+        assert!(matches!(built.design, DesignMatrix::Dense(_)));
     }
 
     #[test]
@@ -31625,7 +31446,11 @@ mod tests {
     }
 
     #[test]
-    fn test_bspline_identifiability_weighted_sum_tozero_respects_weights_with_sparse_design() {
+    fn test_bspline_identifiability_weighted_sum_tozero_respects_weights() {
+        // Pin the centering identity itself: every column of the constrained
+        // basis is orthogonal to the supplied weight vector. Storage type is
+        // a separate concern (covered by
+        // `..._default_identifiability_densifies_via_orthonormal_centering`).
         let x = Array::linspace(0.0, 1.0, 30);
         let weights = Array1::from_iter((0..x.len()).map(|idx| 1.0 + idx as f64 / 10.0));
         let spec = BSplineBasisSpec {
@@ -31644,7 +31469,6 @@ mod tests {
         };
 
         let built = build_bspline_basis_1d(x.view(), &spec).unwrap();
-        assert!(matches!(built.design, DesignMatrix::Sparse(_)));
         let built_design = built.design.to_dense();
         for j in 0..built_design.ncols() {
             let weighted_sum = built_design.column(j).dot(&weights);

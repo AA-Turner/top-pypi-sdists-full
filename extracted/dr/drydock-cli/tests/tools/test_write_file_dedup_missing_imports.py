@@ -11,7 +11,6 @@ missing imports to the advisory so the model knows exactly what to write.
 """
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 import pytest
 

@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: trafilatura
-Version: 2.0.0
+Version: 2.1.0
 Summary: Python & Command-line tool to gather text and metadata on the Web: Crawling, scraping, extraction, output as CSV, JSON, HTML, MD, TXT, XML.
-Author-email: Adrien Barbaresi <barbaresi@bbaw.de>
-License: Apache 2.0
+Author: Adrien Barbaresi
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://trafilatura.readthedocs.io
 Project-URL: Source, https://github.com/adbar/trafilatura
 Project-URL: Blog, https://adrien.barbaresi.eu/blog/tag/trafilatura.html
@@ -15,18 +15,16 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Security
@@ -36,33 +34,52 @@ Classifier: Topic :: Text Processing :: Markup :: HTML
 Classifier: Topic :: Text Processing :: Markup :: Markdown
 Classifier: Topic :: Text Processing :: Markup :: XML
 Classifier: Topic :: Utilities
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: certifi
 Requires-Dist: charset_normalizer>=3.4.0
-Requires-Dist: courlan>=1.3.2
-Requires-Dist: htmldate>=1.9.2
-Requires-Dist: justext>=3.0.1
-Requires-Dist: lxml==4.9.2; platform_system == "Darwin" and python_version <= "3.8"
-Requires-Dist: lxml>=5.3.0; platform_system != "Darwin" or python_version > "3.8"
+Requires-Dist: courlan>=1.4.0
+Requires-Dist: htmldate>=1.10.0
+Requires-Dist: justext>=3.0.2
+Requires-Dist: lxml>=6.1.1
 Requires-Dist: urllib3<3,>=1.26
 Provides-Extra: dev
-Requires-Dist: flake8; extra == "dev"
-Requires-Dist: mypy; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: types-lxml; extra == "dev"
-Requires-Dist: types-urllib3; extra == "dev"
+Requires-Dist: ruff>=0.15; extra == "dev"
+Requires-Dist: mypy>=2.1.0; extra == "dev"
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: pytest-cov>=5.0; extra == "dev"
+Requires-Dist: types-lxml>=2026.2.16; extra == "dev"
+Requires-Dist: types-pycurl>=7.46.0.20260509; extra == "dev"
+Requires-Dist: types-urllib3>=1.26.25.14; extra == "dev"
 Provides-Extra: all
 Requires-Dist: brotli; extra == "all"
-Requires-Dist: cchardet>=2.1.7; python_version < "3.11" and extra == "all"
-Requires-Dist: faust-cchardet>=2.1.19; python_version >= "3.11" and extra == "all"
-Requires-Dist: htmldate[speed]>=1.9.2; extra == "all"
+Requires-Dist: faust-cchardet>=2.1.19; extra == "all"
+Requires-Dist: htmldate[speed]>=1.10.0; extra == "all"
 Requires-Dist: py3langid>=0.3.0; extra == "all"
-Requires-Dist: pycurl>=7.45.3; extra == "all"
+Requires-Dist: pycurl>=7.46.0; extra == "all"
 Requires-Dist: urllib3[socks]; extra == "all"
 Requires-Dist: zstandard>=0.23.0; extra == "all"
+Provides-Extra: eval
+Requires-Dist: pandas; extra == "eval"
+Requires-Dist: tabulate; extra == "eval"
+Requires-Dist: tqdm; extra == "eval"
+Requires-Dist: beautifulsoup4; extra == "eval"
+Requires-Dist: boilerpy3; extra == "eval"
+Requires-Dist: goose3; extra == "eval"
+Requires-Dist: html2text; extra == "eval"
+Requires-Dist: html-text; extra == "eval"
+Requires-Dist: inscriptis; extra == "eval"
+Requires-Dist: newspaper3k; extra == "eval"
+Requires-Dist: news-please; extra == "eval"
+Requires-Dist: readability-lxml; extra == "eval"
+Requires-Dist: resiliparse; extra == "eval"
+Provides-Extra: docs
+Requires-Dist: sphinx>=8.1; extra == "docs"
+Requires-Dist: pydata-sphinx-theme>=0.18.0; extra == "docs"
+Requires-Dist: docutils>=0.21; extra == "docs"
+Requires-Dist: sphinx-sitemap>=2.9.0; extra == "docs"
+Dynamic: license-file
 
 # Trafilatura: Discover and Extract Text Data on the Web
 
@@ -104,7 +121,7 @@ The extractor strikes a balance between limiting noise (precision) and
 including all valid parts (recall). It is **robust and reasonably fast**.
 
 Trafilatura is [widely used](https://trafilatura.readthedocs.io/en/latest/used-by.html)
-and integrated into [thousands of projects](https://github.com/adbar/trafilatura/network/dependents>)
+and integrated into [thousands of projects](https://github.com/adbar/trafilatura/network/dependents)
 by companies like HuggingFace, IBM, and Microsoft Research as well as institutions like
 the Allen Institute, Stanford, the Tokyo Institute of Technology, and
 the University of Munich.
@@ -207,13 +224,12 @@ This work started as a PhD project at the crossroads of linguistics and
 NLP, this expertise has been instrumental in shaping Trafilatura over
 the years. Initially launched to create text databases for research purposes
 at the Berlin-Brandenburg Academy of Sciences (DWDS and ZDL units),
-this package continues to be maintained but its future development
-depends on community support.
+this package continues to be maintained but its future depends on community support.
 
 **If you value this software or depend on it for your product, consider
-sponsoring it and contributing to its codebase**. Your support will
-help maintain and enhance this popular package, ensuring its growth,
-robustness, and accessibility for developers and users around the world.
+sponsoring it and contributing to its codebase**. Your support
+[on GitHub](https://github.com/sponsors/adbar) or [ko-fi.com](https://ko-fi.com/adbarbaresi)
+will help maintain and enhance this popular package.
 
 *Trafilatura* is an Italian word for [wire
 drawing](https://en.wikipedia.org/wiki/Wire_drawing) symbolizing the

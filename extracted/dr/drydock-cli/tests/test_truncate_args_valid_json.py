@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
 
 from drydock.core.types import (
     FunctionCall,
@@ -76,7 +75,7 @@ def _build_history(num_old: int) -> list[LLMMessage]:
         msgs.append(
             LLMMessage(
                 role=Role.tool,
-                tool_call_id=f"tc_{100+i}",
+                tool_call_id=f"tc_{100 + i}",
                 name="read_file",
                 content="ok",
             )

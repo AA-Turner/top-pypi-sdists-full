@@ -34,20 +34,16 @@ from pathlib import Path
 import re
 import shutil
 import sys
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, TypeAlias
 from unicodedata import normalize
 import zlib
 
 from PIL import Image, ImageCms
 
-if TYPE_CHECKING:
-    # Python 3.10+
-    from typing import TypeAlias
-
 if os.name == 'nt':
     _dll_path = os.getenv('OPENSLIDE_PATH')
     if _dll_path is not None:
-        with os.add_dll_directory(_dll_path):  # type: ignore[attr-defined,unused-ignore]  # noqa: E501
+        with os.add_dll_directory(_dll_path):  # type: ignore[attr-defined,unused-ignore]
             import openslide
     else:
         import openslide
@@ -76,20 +72,21 @@ SRGB_PROFILE_BYTES = zlib.decompress(
 )
 SRGB_PROFILE = ImageCms.getOpenProfile(BytesIO(SRGB_PROFILE_BYTES))
 
+ColorMode: TypeAlias = Literal[
+    'default',
+    'absolute-colorimetric',
+    'perceptual',
+    'relative-colorimetric',
+    'saturation',
+    'embed',
+    'ignore',
+]
+Transform: TypeAlias = Callable[[Image.Image], None]
 if TYPE_CHECKING:
-    ColorMode: TypeAlias = Literal[
-        'default',
-        'absolute-colorimetric',
-        'perceptual',
-        'relative-colorimetric',
-        'saturation',
-        'embed',
-        'ignore',
-    ]
+    # Python 3.12+
     TileQueue: TypeAlias = multiprocessing.queues.JoinableQueue[
         tuple[str | None, int, tuple[int, int], Path] | None
     ]
-    Transform: TypeAlias = Callable[[Image.Image], None]
 
 
 class TileWorker(Process):
@@ -231,8 +228,7 @@ class DeepZoomImageTiler:
         count, total = self._processed, self._dz.tile_count
         if count % 100 == 0 or count == total:
             print(
-                "Tiling %s: wrote %d/%d tiles"
-                % (self._associated or 'slide', count, total),
+                f'Tiling {self._associated or "slide"}: wrote {count}/{total} tiles',
                 end='\r',
                 file=sys.stderr,
             )
@@ -320,7 +316,7 @@ class DeepZoomStaticTiler:
             base = VIEWER_SLIDE_NAME
         else:
             base = self._slugify(associated)
-        return '%s.dzi' % base
+        return f'{base}.dzi'
 
     def _write_html(self) -> None:
         import jinja2

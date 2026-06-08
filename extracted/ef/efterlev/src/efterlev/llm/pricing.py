@@ -34,6 +34,15 @@ from dataclasses import dataclass
 # dashes) and so don't match this pattern.
 _OPENAI_SNAPSHOT_DATE_SUFFIX = re.compile(r"-\d{4}-\d{2}-\d{2}$")
 
+# AWS Bedrock cross-region inference profiles are invocable WITH or WITHOUT
+# the trailing `-v1:0` version segment — `us.anthropic.claude-sonnet-4-6` and
+# `us.anthropic.claude-sonnet-4-6-v1:0` both resolve at the API. The table
+# keys the versioned form; `lookup` strips this suffix and retries against a
+# version-stripped index so the bare form prices too. (govnotes-demo
+# validation 2026-06-07 ran `--llm-model us.anthropic.claude-sonnet-4-6` and
+# got NO cost line because the bare ID missed the table.)
+_BEDROCK_VERSION_SUFFIX = re.compile(r"-v\d+:\d+$")
+
 
 @dataclass(frozen=True)
 class ModelPrice:
@@ -197,6 +206,16 @@ _PRICING: dict[str, ModelPrice] = {
 }
 
 
+# Version-stripped index: maps each table key's bare (no `-v1:0`) form to its
+# ModelPrice, so the unversioned Bedrock inference-profile ID resolves. Built
+# once at import. Bare forms that collide (none today) take the first entry.
+_PRICING_BY_BARE_BEDROCK_ID: dict[str, ModelPrice] = {}
+for _key, _price in _PRICING.items():
+    _bare = _BEDROCK_VERSION_SUFFIX.sub("", _key)
+    if _bare != _key:
+        _PRICING_BY_BARE_BEDROCK_ID.setdefault(_bare, _price)
+
+
 def lookup(model_id: str) -> ModelPrice | None:
     """Return the pricing entry for `model_id`, or None if unregistered.
 
@@ -214,7 +233,9 @@ def lookup(model_id: str) -> ModelPrice | None:
     base = _OPENAI_SNAPSHOT_DATE_SUFFIX.sub("", model_id)
     if base != model_id:
         return _PRICING.get(base)
-    return None
+    # Fall back to the version-stripped Bedrock index so the bare
+    # inference-profile ID (no `-v1:0`) prices the same as the versioned form.
+    return _PRICING_BY_BARE_BEDROCK_ID.get(model_id)
 
 
 def estimate_cost_usd(

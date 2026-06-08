@@ -7,9 +7,9 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'Beautiful Soup'
-copyright = '2004-2025 Leonard Richardson'
+copyright = '2004-2026 Leonard Richardson'
 author = 'Leonard Richardson'
-release = '4.13.0'
+release = '4.14.3'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

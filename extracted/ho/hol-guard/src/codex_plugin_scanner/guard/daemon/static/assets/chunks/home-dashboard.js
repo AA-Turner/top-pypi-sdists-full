@@ -1,5 +1,4 @@
-import { r as reactExports, j as jsxRuntimeExports, H as HiMiniShieldCheck, a as HiMiniInformationCircle, b as HiMiniExclamationTriangle, S as SectionLabel, A as ActionButton, c as HiMiniArrowRight, T as Tag, f as formatRelativeTime, d as HiMiniChevronUp, e as HiMiniChevronDown, g as HiMiniCheckCircle, h as HiMiniXCircle, i as harnessDisplayName, k as isDisplayableHarness, E as EmptyState, G as GuardHero, P as ProofStrip, l as formatNumber, m as HiMiniSparkles, n as HiMiniXMark, o as HiMiniCloud, p as HiMiniQuestionMarkCircle, q as HiMiniBolt, B as Badge, s as HiMiniChevronRight, t as HiMiniMinusCircle } from "../guard-dashboard.js";
-import { u as useFocusTrap } from "./use-focus-trap.js";
+import { r as reactExports, j as jsxRuntimeExports, H as HiMiniShieldCheck, a as HiMiniInformationCircle, b as HiMiniExclamationTriangle, S as SectionLabel, A as ActionButton, c as HiMiniArrowRight, T as Tag, f as formatRelativeTime, d as HiMiniChevronUp, e as HiMiniChevronDown, g as HiMiniCheckCircle, h as HiMiniXCircle, E as EvidenceInsightsHeadlineBento, i as fetchReceiptAnalytics, k as harnessDisplayName, l as isDisplayableHarness, m as EmptyState, n as EvidenceInsightsShareModal, G as GuardHero, o as formatNumber, p as HiMiniSparkles, q as HiMiniXMark, s as HiMiniCloud, t as HiMiniQuestionMarkCircle, u as useFocusTrap, v as HiMiniBolt, B as Badge, w as HiMiniChevronRight, x as HiMiniMinusCircle } from "../guard-dashboard.js";
 import { D as DeviceProofCard, r as resolveCloudIntelCopy } from "./runtime-overview.js";
 function resolveHomeProtectionStatus(snapshot) {
   const protection = snapshot.supply_chain?.package_manager_protection;
@@ -208,6 +207,115 @@ function HomeProtectionModule({
     }
   );
 }
+function overviewValueClass(tone) {
+  switch (tone) {
+    case "blue":
+      return "text-brand-blue";
+    case "green":
+      return "text-emerald-600";
+    case "purple":
+      return "text-brand-purple";
+    default:
+      return "text-brand-dark";
+  }
+}
+function HomeOverviewStatsRow({ items }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-3 gap-px bg-slate-100", children: items.map((item, index) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      className: "bg-white px-4 py-3.5 sm:py-4 evidence-metric-enter",
+      style: { animationDelay: `${index * 40}ms` },
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500", children: item.label }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: `mt-1 text-lg font-semibold tabular-nums tracking-tight ${overviewValueClass(item.tone)}`, children: item.value })
+      ]
+    },
+    item.label
+  )) });
+}
+function EvidenceInsightsHomePreview({
+  overviewStats,
+  analytics,
+  analyticsLoading = false,
+  runtime,
+  onOpenInsights,
+  onShare
+}) {
+  const cloudConnected = runtime?.cloud_state === "paired_active";
+  const insightsAvailable = analytics !== null && analytics.total > 0;
+  const showInsightsSection = analyticsLoading || insightsAvailable;
+  const showInsightsFooter = Boolean(onOpenInsights) && (analyticsLoading || insightsAvailable);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { className: "overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "min-w-0 flex-1", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(SectionLabel, { children: "Your Guard stats" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 text-sm text-slate-500", children: "Queue, apps, and insights from this machine." })
+      ] }),
+      cloudConnected && onShare && insightsAvailable ? /* @__PURE__ */ jsxRuntimeExports.jsx(ActionButton, { variant: "outline", onClick: onShare, className: "shrink-0", children: "Share stats" }) : null
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(HomeOverviewStatsRow, { items: overviewStats }),
+    showInsightsSection ? analyticsLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "border-t border-slate-100 px-5 py-5", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-2 gap-3 sm:grid-cols-4", children: Array.from({ length: 4 }, (_, index) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "guard-skeleton h-3 w-16 rounded" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "guard-skeleton h-6 w-20 rounded" })
+    ] }, index)) }) }) : insightsAvailable ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "border-t border-slate-100", children: /* @__PURE__ */ jsxRuntimeExports.jsx(EvidenceInsightsHeadlineBento, { analytics, variant: "compact" }) }) : null : null,
+    showInsightsFooter ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "border-t border-slate-100 px-5 py-4", children: insightsAvailable && onOpenInsights ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        type: "button",
+        onClick: onOpenInsights,
+        className: "text-sm font-semibold text-brand-blue transition-colors hover:text-brand-blue/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue/30 focus-visible:ring-offset-2",
+        children: "See all insights →"
+      }
+    ) : analyticsLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "guard-skeleton h-4 w-36 rounded" }) : null }) : null
+  ] });
+}
+const ANALYTICS_CACHE_TTL_MS = 6e4;
+let analyticsCache = null;
+let analyticsInflight = null;
+async function loadReceiptAnalyticsCached(force = false) {
+  if (!force && analyticsCache && analyticsCache.expiresAt > Date.now()) {
+    return analyticsCache.data;
+  }
+  if (!force && analyticsInflight) {
+    return analyticsInflight;
+  }
+  analyticsInflight = fetchReceiptAnalytics().then((data) => {
+    analyticsCache = { data, expiresAt: Date.now() + ANALYTICS_CACHE_TTL_MS };
+    return data;
+  }).finally(() => {
+    analyticsInflight = null;
+  });
+  return analyticsInflight;
+}
+function useReceiptAnalytics(enabled) {
+  const [state, setState] = reactExports.useState(
+    () => enabled ? { kind: "loading" } : { kind: "idle" }
+  );
+  reactExports.useEffect(() => {
+    if (!enabled) {
+      setState({ kind: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setState({ kind: "loading" });
+    loadReceiptAnalyticsCached().then((data) => {
+      if (!cancelled) {
+        setState({ kind: "ready", data });
+      }
+    }).catch((error) => {
+      if (!cancelled) {
+        setState({
+          kind: "error",
+          message: error instanceof Error ? error.message : "Unable to load analytics."
+        });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
+  return state;
+}
 const safeLocalStorage = {
   getItem(key) {
     try {
@@ -270,7 +378,10 @@ function HomeWorkspace(props) {
   const [clearTotpCode, setClearTotpCode] = reactExports.useState("");
   const [clearError, setClearError] = reactExports.useState(null);
   const [clearSubmitting, setClearSubmitting] = reactExports.useState(false);
+  const [shareOpen, setShareOpen] = reactExports.useState(false);
   const toastTimerRef = reactExports.useRef(null);
+  const analyticsEnabled = props.runtime.kind === "ready" && (props.runtime.snapshot?.receipt_count ?? 0) > 0;
+  const analyticsState = useReceiptAnalytics(analyticsEnabled);
   reactExports.useEffect(() => {
     return () => {
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -341,7 +452,12 @@ function HomeWorkspace(props) {
     () => snapshot ? buildDailyStory(snapshot.latest_receipts, queuedCount) : null,
     [snapshot, queuedCount]
   );
-  const streak = reactExports.useMemo(() => snapshot ? computeStreak(snapshot.latest_receipts) : 0, [snapshot]);
+  const streak = reactExports.useMemo(() => {
+    if (analyticsState.kind === "ready") {
+      return analyticsState.data.active_day_streak;
+    }
+    return snapshot ? computeStreak(snapshot.latest_receipts) : 0;
+  }, [analyticsState, snapshot]);
   const cloudUpsellVisible = reactExports.useMemo(
     () => snapshot ? resolveCloudUpsellVisible(queuedCount, snapshot.cloud_state) : false,
     [snapshot, queuedCount]
@@ -370,6 +486,14 @@ function HomeWorkspace(props) {
   }
   if (!snapshot) return null;
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-6", children: [
+    shareOpen && analyticsState.kind === "ready" ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+      EvidenceInsightsShareModal,
+      {
+        analytics: analyticsState.data,
+        runtime: snapshot,
+        onClose: () => setShareOpen(false)
+      }
+    ) : null,
     toastMessage && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "guard-fade-in fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-xl border border-brand-green/25 bg-brand-green-bg/90 px-4 py-3 shadow-lg backdrop-blur", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniCheckCircle, { className: "h-4 w-4 shrink-0 text-brand-green", "aria-hidden": "true" }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm font-medium text-brand-green-text", children: toastMessage })
@@ -384,13 +508,18 @@ function HomeWorkspace(props) {
       }
     ),
     /* @__PURE__ */ jsxRuntimeExports.jsx(
-      ProofStrip,
+      EvidenceInsightsHomePreview,
       {
-        items: [
+        overviewStats: [
           { label: "Pending", value: formatNumber(queuedCount), tone: queuedCount > 0 ? "blue" : "slate" },
           { label: "Apps", value: formatNumber(watchedAppsCount), tone: watchedAppsCount > 0 ? "green" : "slate" },
-          { label: "History", value: formatNumber(snapshot?.receipt_count ?? 0), tone: "purple" }
-        ]
+          { label: "History", value: formatNumber(snapshot.receipt_count ?? 0), tone: "purple" }
+        ],
+        analytics: analyticsState.kind === "ready" ? analyticsState.data : null,
+        analyticsLoading: analyticsState.kind === "loading" && analyticsEnabled,
+        runtime: snapshot,
+        onOpenInsights: props.onOpenInsights,
+        onShare: () => setShareOpen(true)
       }
     ),
     /* @__PURE__ */ jsxRuntimeExports.jsx(StreakMilestoneBanner, { streak }),

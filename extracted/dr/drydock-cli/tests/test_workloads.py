@@ -16,7 +16,6 @@ Expected: 30-90 minutes total
 from __future__ import annotations
 
 import ast
-import asyncio
 import os
 from pathlib import Path
 
@@ -40,6 +39,7 @@ def _vllm_ok():
         return httpx.get("http://localhost:8000/v1/models", timeout=3).status_code == 200
     except Exception:
         return False
+
 
 pytestmark = pytest.mark.skipif(not _vllm_ok(), reason="vLLM not running")
 

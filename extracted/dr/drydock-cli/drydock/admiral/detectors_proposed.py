@@ -27,7 +27,6 @@ a clean "I have ..." / "The ... has been ..." summary.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Optional
 
 from drydock.core.types import LLMMessage, Role
 from drydock.admiral.detectors import Finding, _tool_sig
@@ -78,7 +77,7 @@ def _is_hallucinated_tool_result(m: LLMMessage) -> bool:
 
 def detect_empty_after_tool(
     messages: Sequence[LLMMessage],
-) -> Optional[Finding]:
+) -> Finding | None:
     """Fires when the last assistant turn had no content AND no tool_calls,
     immediately following a tool result.
 
@@ -102,7 +101,7 @@ def detect_empty_after_tool(
     """
     # Walk backwards to find the last assistant message; look at the one
     # before it.
-    last_assistant_idx: Optional[int] = None
+    last_assistant_idx: int | None = None
     for i in range(len(messages) - 1, -1, -1):
         if messages[i].role is Role.assistant:
             last_assistant_idx = i
@@ -148,7 +147,7 @@ def detect_empty_after_tool(
 
 def detect_retry_after_error(
     messages: Sequence[LLMMessage],
-) -> Optional[Finding]:
+) -> Finding | None:
     """Fires when an identical tool call follows an errored tool result.
 
     In 400 sessions this fired 45 times (0.11/session). High-signal because

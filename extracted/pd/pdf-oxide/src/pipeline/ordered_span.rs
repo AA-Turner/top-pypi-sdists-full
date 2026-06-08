@@ -4,6 +4,7 @@
 //! with reading order information.
 
 use crate::layout::TextSpan;
+use std::sync::Arc;
 
 /// Source of reading order assignment.
 ///
@@ -19,6 +20,11 @@ pub enum ReadingOrderSource {
     ///
     /// Confidence: 0.90 (robust for multi-column layouts).
     XYCut,
+    /// Order from article threads (`/Threads`, ISO 32000-1:2008 §12.4.3).
+    ///
+    /// Confidence: 0.95 (author-supplied explicit reading order; ranks below
+    /// the structure tree but above geometric inference).
+    ArticleThread,
     /// Order from geometric column analysis.
     ///
     /// Confidence: 0.85 (good for standard column layouts).
@@ -43,6 +49,7 @@ impl ReadingOrderSource {
     pub fn default_confidence(&self) -> f32 {
         match self {
             ReadingOrderSource::StructureTree => 1.0,
+            ReadingOrderSource::ArticleThread => 0.95,
             ReadingOrderSource::XYCut => 0.90,
             ReadingOrderSource::Geometric => 0.85,
             ReadingOrderSource::Simple => 0.75,
@@ -55,6 +62,7 @@ impl ReadingOrderSource {
     pub fn name(&self) -> &'static str {
         match self {
             ReadingOrderSource::StructureTree => "StructureTree",
+            ReadingOrderSource::ArticleThread => "ArticleThread",
             ReadingOrderSource::XYCut => "XYCut",
             ReadingOrderSource::Geometric => "Geometric",
             ReadingOrderSource::Simple => "Simple",
@@ -101,6 +109,11 @@ impl ReadingOrderInfo {
     /// Create for XY-Cut source.
     pub fn xycut() -> Self {
         Self::from_source(ReadingOrderSource::XYCut)
+    }
+
+    /// Create for article-thread source (`/Threads`, §12.4.3).
+    pub fn article_thread() -> Self {
+        Self::from_source(ReadingOrderSource::ArticleThread)
     }
 
     /// Create for geometric source.
@@ -170,6 +183,22 @@ pub struct OrderedTextSpan {
     /// (issue #377 D5 — pdfa_049-style tight inter-paragraph layout).
     /// None for untagged documents.
     pub block_id: Option<u32>,
+
+    /// Struct-tree-scope `/ActualText` replacement (ISO 32000-1:2008
+    /// §14.9.4).
+    ///
+    /// When `Some(text)`, output converters emit `text` instead of
+    /// `span.text` for this span. The span's bbox/font are still used
+    /// for layout decisions (paragraph breaks, headings, list
+    /// markers) so the replacement participates in the same reading
+    /// flow as the underlying glyphs would have.
+    ///
+    /// When `Some("")`, the span is fully suppressed: its raw glyphs
+    /// were covered by an ancestor ActualText scope whose replacement
+    /// is emitted on a different span (the scope's anchor). Used to
+    /// drop the non-anchor spans of a multi-MCID subtree without
+    /// disturbing the reading-order vector's indexing.
+    pub actualtext_replacement: Option<Arc<str>>,
 }
 
 impl OrderedTextSpan {
@@ -183,6 +212,7 @@ impl OrderedTextSpan {
             order_info: ReadingOrderInfo::default(),
             struct_role: None,
             block_id: None,
+            actualtext_replacement: None,
         }
     }
 
@@ -195,7 +225,19 @@ impl OrderedTextSpan {
             order_info,
             struct_role: None,
             block_id: None,
+            actualtext_replacement: None,
         }
+    }
+
+    /// Returns true when the span has been suppressed by a struct-tree
+    /// ActualText emission attached to a sibling (or by the non-first-
+    /// page coverage of a multi-page scope).
+    ///
+    /// Suppressed spans are dropped from the output vector by the
+    /// applier in `document.rs`; this predicate is the single source
+    /// of truth for "drop me".
+    pub fn is_suppressed(&self) -> bool {
+        matches!(self.actualtext_replacement.as_deref(), Some(""))
     }
 
     /// Set the structure-tree role propagated from the source PDF's
@@ -338,6 +380,7 @@ mod tests {
             is_monospace: false,
             color: Color::new(0.0, 0.0, 0.0),
             mcid: None,
+            mcid_scope: None,
             sequence: 0,
             split_boundary_before: false,
             offset_semantic: false,
@@ -348,6 +391,7 @@ mod tests {
             char_widths: vec![],
             heading_level: None,
             rotation_degrees: 0.0,
+            wmode: 0,
         }
     }
 

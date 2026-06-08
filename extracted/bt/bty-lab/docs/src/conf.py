@@ -32,8 +32,20 @@ exclude_patterns: list[str] = ["_build", "Thumbs.db", ".DS_Store"]
 
 # HTML output
 html_theme = "furo"
-html_title = "bty - flash images onto target disks, offline or networked with and without PXE"
+# Furo renders html_logo in the sidebar header where html_title would
+# otherwise sit. Leaving html_title empty suppresses the long-form
+# wordmark there, since the index.md H1 already carries it on the
+# landing page and the sidebar logo identifies the project elsewhere.
+html_title = ""
+html_logo = "_static/bty-mascot.png"
 html_static_path = ["_static"]
+# Furo otherwise falls back to ``project`` for the brand-text span
+# next to the logo. The logo's alt text identifies the project for
+# screen readers / no-image fallbacks; no need for a duplicate
+# wordmark next to it.
+html_theme_options = {
+    "sidebar_hide_name": True,
+}
 
 # LaTeX / PDF output - pdflatex with sane UTF-8 (inputenc utf8). Avoid
 # exotic Unicode (arrows, box-drawing, em-dashes) in docs sources;

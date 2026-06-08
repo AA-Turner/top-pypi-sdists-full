@@ -738,6 +738,27 @@ fn parse_numeric_expr(raw: &str) -> Result<f64, String> {
     Ok(acc)
 }
 
+/// Read an endpoint/period option as a numeric *expression* (`2*pi`, `tau`,
+/// `0.5*tau`, `6.283185307179586`, ...) — the same grammar that `period=` and
+/// `origin=` already accept via [`parse_numeric_expr`].
+///
+/// Returns `Ok(None)` when the key is absent, `Ok(Some(v))` when it parses, and
+/// a hard `Err` when the key is *present but unparseable*. The crucial contrast
+/// is with the lenient [`option_f64`], which collapses an unparseable value to
+/// `None` and lets the caller silently substitute the data range — wrapping a
+/// cyclic smooth at the wrong period with no diagnostic (the #815 failure mode).
+fn option_numeric_expr(
+    options: &BTreeMap<String, String>,
+    key: &str,
+) -> Result<Option<f64>, String> {
+    match options.get(key) {
+        None => Ok(None),
+        Some(raw) => parse_numeric_expr(raw)
+            .map(Some)
+            .map_err(|err| format!("option `{key}={raw}` is not a valid numeric value: {err}")),
+    }
+}
+
 fn parse_periods_option(
     options: &BTreeMap<String, String>,
     dim: usize,
@@ -1472,6 +1493,36 @@ pub fn build_smooth_basis(
 
     match type_opt.as_str() {
         "cyclic" | "cc" | "cp" | "cyclic-ps" => {
+            validate_known_options(
+                "cyclic",
+                options,
+                &[
+                    "type",
+                    "bs",
+                    "by",
+                    "k",
+                    "basis_dim",
+                    "basis-dim",
+                    "basisdim",
+                    "degree",
+                    "penalty_order",
+                    "period",
+                    "periods",
+                    "period_start",
+                    "period_end",
+                    "start",
+                    "end",
+                    "origin",
+                    "origins",
+                    "period_origin",
+                    "period-origin",
+                    "domain_origin",
+                    "double_penalty",
+                    "id",
+                    "__by_col",
+                    "identifiability",
+                ],
+            )?;
             if cols.len() != 1 {
                 return Err(format!(
                     "periodic smooth expects one variable, got {}",
@@ -1496,7 +1547,24 @@ pub fn build_smooth_basis(
                     degree + 1
                 ));
             }
-            let (domain_start, period) = parse_periodic_domain_1d(options, minv, maxv)?;
+            // The cyclic arm is periodic on its single axis by construction, so
+            // resolve the period exactly the way the `s()`/`ps` arm does: honour
+            // `period=`/`periods=` first (with `origin=` setting the domain
+            // start), and fall back to the `period_start`/`period_end` endpoint
+            // form only when `period=` is absent. Previously this arm jumped
+            // straight to `parse_periodic_domain_1d`, so a `period=<v>`
+            // declaration was silently dropped and the smooth wrapped at the
+            // data range (#816). All three helpers route through
+            // `parse_numeric_expr`, so `period=2*pi` and `period_end=2*pi` parse
+            // identically (#815).
+            let periodic_axes = [true];
+            let periods = parse_periods(options, &periodic_axes)?;
+            let origins = parse_period_origins(options, &periodic_axes)?;
+            let (domain_start, period) = if let Some(p) = periods[0] {
+                (origins[0].unwrap_or(minv), p)
+            } else {
+                parse_periodic_domain_1d(options, minv, maxv)?
+            };
             Ok(SmoothBasisSpec::BSpline1D {
                 feature_col: c,
                 spec: BSplineBasisSpec {
@@ -2906,12 +2974,14 @@ pub fn parse_cyclic_boundary(
     if !cyclic {
         return Ok(OneDimensionalBoundary::Open);
     }
-    let start = option_f64(options, "period_start")
-        .or_else(|| option_f64(options, "start"))
-        .unwrap_or(minv);
-    let end = option_f64(options, "period_end")
-        .or_else(|| option_f64(options, "end"))
-        .unwrap_or(maxv);
+    let start = match option_numeric_expr(options, "period_start")? {
+        Some(v) => v,
+        None => option_numeric_expr(options, "start")?.unwrap_or(minv),
+    };
+    let end = match option_numeric_expr(options, "period_end")? {
+        Some(v) => v,
+        None => option_numeric_expr(options, "end")?.unwrap_or(maxv),
+    };
     if end <= start {
         return Err(format!(
             "cyclic smooth requires period_end/end ({end}) > period_start/start ({start})"
@@ -2931,12 +3001,14 @@ pub fn parse_periodic_domain_1d(
     minv: f64,
     maxv: f64,
 ) -> Result<(f64, f64), String> {
-    let start = option_f64(options, "period_start")
-        .or_else(|| option_f64(options, "start"))
-        .unwrap_or(minv);
-    let end = option_f64(options, "period_end")
-        .or_else(|| option_f64(options, "end"))
-        .unwrap_or(maxv);
+    let start = match option_numeric_expr(options, "period_start")? {
+        Some(v) => v,
+        None => option_numeric_expr(options, "start")?.unwrap_or(minv),
+    };
+    let end = match option_numeric_expr(options, "period_end")? {
+        Some(v) => v,
+        None => option_numeric_expr(options, "end")?.unwrap_or(maxv),
+    };
     if !(start.is_finite() && end.is_finite()) {
         return Err(format!(
             "periodic smooth domain requires finite endpoints, got ({start}, {end})"

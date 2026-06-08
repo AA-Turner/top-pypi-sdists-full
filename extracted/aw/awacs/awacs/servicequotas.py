@@ -25,12 +25,15 @@ class ARN(BaseARN):
 
 
 AssociateServiceQuotaTemplate = Action("AssociateServiceQuotaTemplate")
+CreateSupportCase = Action("CreateSupportCase")
 DeleteServiceQuotaIncreaseRequestFromTemplate = Action(
     "DeleteServiceQuotaIncreaseRequestFromTemplate"
 )
 DisassociateServiceQuotaTemplate = Action("DisassociateServiceQuotaTemplate")
 GetAWSDefaultServiceQuota = Action("GetAWSDefaultServiceQuota")
 GetAssociationForServiceQuotaTemplate = Action("GetAssociationForServiceQuotaTemplate")
+GetAutoManagementConfiguration = Action("GetAutoManagementConfiguration")
+GetQuotaUtilizationReport = Action("GetQuotaUtilizationReport")
 GetRequestedServiceQuotaChange = Action("GetRequestedServiceQuotaChange")
 GetServiceQuota = Action("GetServiceQuota")
 GetServiceQuotaIncreaseRequestFromTemplate = Action(
@@ -53,5 +56,9 @@ PutServiceQuotaIncreaseRequestIntoTemplate = Action(
     "PutServiceQuotaIncreaseRequestIntoTemplate"
 )
 RequestServiceQuotaIncrease = Action("RequestServiceQuotaIncrease")
+StartAutoManagement = Action("StartAutoManagement")
+StartQuotaUtilizationReport = Action("StartQuotaUtilizationReport")
+StopAutoManagement = Action("StopAutoManagement")
 TagResource = Action("TagResource")
 UntagResource = Action("UntagResource")
+UpdateAutoManagement = Action("UpdateAutoManagement")

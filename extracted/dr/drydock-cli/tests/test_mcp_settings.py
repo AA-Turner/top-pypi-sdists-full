@@ -1,5 +1,4 @@
 """Regression test: MCPHttp/MCPStdio expose startup_timeout_sec (not _seconds)."""
-import pytest
 from drydock.core.config._settings import MCPHttp, MCPStdio
 
 

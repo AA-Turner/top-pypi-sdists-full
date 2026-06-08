@@ -13,8 +13,8 @@ K/L/M/N/O/P tracks) hooks into the symbols this module exposes:
     Policy                — wave-transition gating policy
     parse_cli()           — argparse over the §5.1 flag surface
     resolve_policy()      — Config → Policy (carries --strict-deps)
-    build_plan            — re-export from orchestrate
-    compute_waves         — re-export from orchestrate (per §0.2 absorption)
+    build_plan            — re-export from wave_planning
+    compute_waves         — re-export from wave_planning
     run()                 — main entry point
 
 Spec references: atdd-coach-spec-v9.md §4.1 (per-issue states),
@@ -46,9 +46,9 @@ from typing import Callable, Iterable, Optional, Sequence
 
 _logger = logging.getLogger("atdd.coach")
 
-# Per spec §0.2 absorption discipline: reuse, do not redefine.
-# P5 (#531): orchestrate.py archived; import from _archived.
-from atdd.coach.commands._archived.orchestrate import build_plan, compute_waves
+# Wave planning + worktree primitives live in wave_planning; the durable coach
+# owns them first-class.
+from atdd.coach.commands.wave_planning import build_plan, compute_waves
 
 # State-machine types extracted to handlers package (#591 split).
 # Re-exported here so all existing importers continue to work unchanged.
@@ -1281,6 +1281,16 @@ def run_cli(argv: list[str]) -> int:
         return run_watch(argv[1:])
     if argv and argv[0] == "gc":
         return run_gc(argv[1:])
+    # #998 — coach runtime: start the workspace-scoped feed_daemon and surface
+    # its escalations back to the session (closes the autonomous loop). The
+    # wait/cursor logic lives in the mediate-worker-decisions coach_runtime
+    # feature; this is a thin verb dispatch.
+    if argv and argv[0] in ("start", "wait", "next", "stop", "daemons"):
+        from atdd.mediate_worker_decisions.coach_runtime.src.presentation.coach_runtime_cli import (
+            run as run_coach_runtime,
+        )
+
+        return run_coach_runtime(argv)
     cfg = parse_cli(argv)
     if should_prompt_for_models(cfg):
         known = sorted(ADAPTER_REGISTRY)

@@ -375,7 +375,7 @@ class NumberTheory(
         return ToolCallDisplay(summary=f"number_theory[{args.op}]: {summ[:50]}")
 
     @classmethod
-    def get_result_display(cls, event: "ToolResultEvent") -> ToolResultDisplay:
+    def get_result_display(cls, event: ToolResultEvent) -> ToolResultDisplay:
         if isinstance(event.result, NumberTheoryResult):
             if not event.result.ok:
                 return ToolResultDisplay(
@@ -396,8 +396,8 @@ class NumberTheory(
 
     @final
     async def run(
-        self, args: NumberTheoryArgs, ctx: "InvokeContext | None" = None
-    ) -> AsyncGenerator["ToolStreamEvent | NumberTheoryResult", None]:
+        self, args: NumberTheoryArgs, ctx: InvokeContext | None = None
+    ) -> AsyncGenerator[ToolStreamEvent | NumberTheoryResult, None]:
         handler = _DISPATCH.get(args.op)
         if handler is None:
             yield NumberTheoryResult(

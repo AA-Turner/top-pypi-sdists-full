@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openslide-python
-Version: 1.4.3
+Version: 1.4.6
 Summary: Python interface to OpenSlide
 Maintainer-email: OpenSlide project <openslide-users@lists.andrew.cmu.edu>
 License-Expression: LGPL-2.1-only AND BSD-3-Clause AND MIT AND LicenseRef-Public-Domain
@@ -51,8 +51,10 @@ closest to a desired zoom level.
 OpenSlide can read virtual slides in several formats:
 
 * [Aperio][] (`.svs`, `.tif`)
+* [ARGOS][] (`.avs`)
 * [DICOM][] (`.dcm`)
 * [Hamamatsu][] (`.ndpi`, `.vms`, `.vmu`)
+* [Huron][] (`.tif`)
 * [Leica][] (`.scn`)
 * [MIRAX][] (`.mrxs`)
 * [Philips][] (`.tiff`)
@@ -64,8 +66,10 @@ OpenSlide can read virtual slides in several formats:
 
 [OpenSlide]: https://openslide.org/
 [Aperio]: https://openslide.org/formats/aperio/
+[ARGOS]: https://openslide.org/formats/argos/
 [DICOM]: https://openslide.org/formats/dicom/
 [Hamamatsu]: https://openslide.org/formats/hamamatsu/
+[Huron]: https://openslide.org/formats/huron/
 [Leica]: https://openslide.org/formats/leica/
 [MIRAX]: https://openslide.org/formats/mirax/
 [Philips]: https://openslide.org/formats/philips/

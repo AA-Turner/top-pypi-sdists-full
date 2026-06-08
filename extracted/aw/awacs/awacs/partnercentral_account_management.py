@@ -24,6 +24,9 @@ class ARN(BaseARN):
         )
 
 
+AccessLegacyPartnerCentral = Action("AccessLegacyPartnerCentral")
+AccessMarketingCentral = Action("AccessMarketingCentral")
+AccessProServeTools = Action("AccessProServeTools")
 AssociatePartnerAccount = Action("AssociatePartnerAccount")
 AssociatePartnerUser = Action("AssociatePartnerUser")
 DisassociatePartnerUser = Action("DisassociatePartnerUser")

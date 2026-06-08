@@ -5,7 +5,7 @@ import pytest
 
 from pipenv.patched.pip._internal.resolution.resolvelib.provider import PipProvider
 from pipenv.patched.pip._vendor.resolvelib.structs import RequirementInformation
-from pipenv.utils.resolver import Resolver
+from pipenv.utils.resolver import Resolver, _get_cool_down_timedelta
 
 
 def _conflict_info(name, parent=None):
@@ -373,3 +373,71 @@ def test_process_resolver_results_does_not_scan_reverse_dependencies():
 
     assert processed == [{"name": "requests", "version": "==2.32.0"}]
     project.environment.reverse_dependencies.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# cool-down-period / --uploaded-prior-to tests
+# ---------------------------------------------------------------------------
+
+def _make_project(cool_down_period):
+    """Return a mock project whose [pipenv] section contains cool-down-period."""
+    project = mock.MagicMock()
+    settings = {}
+    if cool_down_period is not None:
+        settings["cool-down-period"] = cool_down_period
+    project.settings = settings
+    return project
+
+
+@pytest.mark.utils
+@pytest.mark.parametrize("value,expected_days", [
+    ("30d",  30),
+    ("1d",   1),
+    ("365d", 365),
+])
+def test_get_cool_down_timedelta_valid(value, expected_days):
+    import datetime
+    project = _make_project(value)
+    result = _get_cool_down_timedelta(project)
+    assert result == datetime.timedelta(days=expected_days)
+
+
+@pytest.mark.utils
+@pytest.mark.parametrize("value", [None, "", "30days", "30h", "P30D", "1 d", "d"])
+def test_get_cool_down_timedelta_invalid_or_absent(value):
+    project = _make_project(value)
+    assert _get_cool_down_timedelta(project) is None
+
+
+@pytest.mark.utils
+def test_pip_options_sets_uploaded_prior_to_from_cool_down_period(monkeypatch):
+    """Resolver.pip_options sets uploaded_prior_to when cool-down-period is configured."""
+    import datetime
+
+    project = _make_project("30d")
+    project.s.PIPENV_CACHE_DIR = "/tmp/cache"
+    project.s.PIPENV_KEYRING_PROVIDER = None
+    project.settings = {"cool-down-period": "30d"}
+
+    # Stub parse_args to return a bare namespace so we don't need a real pip command.
+    fake_options = SimpleNamespace(pre=False, force_reinstall=False)
+    pip_cmd = mock.MagicMock()
+    pip_cmd.parser.parse_args.return_value = (fake_options, [])
+
+    resolver = Resolver.__new__(Resolver)
+    resolver.project = project
+    resolver.pre = False
+
+    monkeypatch.setattr(Resolver, "pip_command", property(lambda self: pip_cmd))
+    monkeypatch.setattr(Resolver, "pip_args", property(lambda self: []))
+    monkeypatch.setattr(
+        "pipenv.utils.resolver.check_release_control_exclusive", lambda opts: None
+    )
+
+    before = datetime.datetime.now(datetime.timezone.utc)
+    pip_options = resolver.pip_options
+    after = datetime.datetime.now(datetime.timezone.utc)
+
+    assert hasattr(pip_options, "uploaded_prior_to"), "uploaded_prior_to not set on pip_options"
+    cutoff = pip_options.uploaded_prior_to
+    assert before - datetime.timedelta(days=30, seconds=1) < cutoff < after - datetime.timedelta(days=30) + datetime.timedelta(seconds=1)

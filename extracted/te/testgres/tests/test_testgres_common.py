@@ -95,7 +95,7 @@ class TestTestgresCommon:
         # Author: Mark G.
         assert v.major == 1
         assert v.minor == 14
-        assert v.micro == 0
+        assert v.micro == 1
 
         assert str(v) == testgres_version
         return
@@ -132,7 +132,53 @@ class TestTestgresCommon:
             assert (isinstance(node.version, PgVer))
             assert (node.version == PgVer(version))
 
+    def test_node_constructor__default(self):
+        node = PostgresNode()
+        assert node._os_ops is not None
+        assert isinstance(node._os_ops, OsOperations)
+        assert node._port_manager is not None
+        assert isinstance(node._port_manager, PortManager)
+        assert node._name is not None
+        assert type(node._name) is str
+        assert node._name != ""
+        assert node._base_dir is None
+        return
+
+    def test_node_constructor__host(self):
+        C_HOST = "AbCdE"
+
+        unique_id = uuid.uuid4().hex
+
+        with PostgresNode(host=C_HOST) as node:
+            assert node._host == C_HOST
+            assert node.host == C_HOST
+            assert isinstance(node.os_ops, OsOperations)
+
+            tmpdir = node.os_ops.get_tempdir()
+            nodedir2 = node.os_ops.build_path(tmpdir, "node2--" + unique_id)
+
+            C_NODE2_NAME = "node2"
+
+            with node.clone_with_new_name_and_base_dir(
+                name=C_NODE2_NAME,
+                base_dir=nodedir2,
+            ) as node2:
+                assert node2 is not None
+                assert node2 is not node
+
+                assert node2._host == C_HOST
+                assert node2.host == C_HOST
+
+                assert node2._name == C_NODE2_NAME
+                assert node2._base_dir == nodedir2
+                assert node2._port != node._port
+                assert node2._os_ops is node._os_ops
+                assert node2._port_manager is node._port_manager
+        return
+
     def test_node_repr(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+
         with __class__.helper__get_node(node_svc).init() as node:
             pattern = r"PostgresNode\(name='.+', port=.+, base_dir='.+'\)"
             assert re.match(pattern, str(node)) is not None

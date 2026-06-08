@@ -216,6 +216,100 @@ def test_resolve_cli_project_dir_uses_parent_when_context_reference_is_file(
     )
 
 
+def test_resolve_cli_project_dir_global_seed_store_without_hints_does_not_return_home(
+    tmp_path: Path,
+) -> None:
+    """A global seed store path must not become the runtime project cwd (#1312)."""
+    fake_home = tmp_path / "home"
+    global_seed_dir = fake_home / ".ouroboros" / "seeds" / "demo"
+    global_seed_dir.mkdir(parents=True)
+    seed_file = global_seed_dir / "seed.yaml"
+    seed_file.write_text("goal: ignored\n", encoding="utf-8")
+    seed = Seed.from_dict(VALID_SEED_DATA)
+
+    with patch.object(Path, "home", return_value=fake_home):
+        resolved = _resolve_cli_project_dir(seed, seed_file, seed_data=VALID_SEED_DATA)
+
+    assert resolved == global_seed_dir.resolve()
+    assert resolved != fake_home.resolve()
+
+
+def test_resolve_cli_project_dir_global_seed_store_still_prefers_explicit_project_dir(
+    tmp_path: Path,
+) -> None:
+    """--project-dir remains the highest-priority boundary for global seeds."""
+    fake_home = tmp_path / "home"
+    global_seed_dir = fake_home / ".ouroboros" / "seeds" / "demo"
+    global_seed_dir.mkdir(parents=True)
+    seed_file = global_seed_dir / "seed.yaml"
+    seed_file.write_text("goal: ignored\n", encoding="utf-8")
+    explicit_project = tmp_path / "actual-project"
+    explicit_project.mkdir()
+    seed = Seed.from_dict(VALID_SEED_DATA)
+
+    with patch.object(Path, "home", return_value=fake_home):
+        resolved = _resolve_cli_project_dir(
+            seed,
+            seed_file,
+            seed_data=VALID_SEED_DATA,
+            project_dir=explicit_project,
+        )
+
+    assert resolved == explicit_project.resolve()
+
+
+def test_resolve_cli_project_dir_global_seed_store_still_uses_raw_metadata_project_dir(
+    tmp_path: Path,
+) -> None:
+    """Raw metadata project_dir keeps #1160/#1161 precedence for global seeds."""
+    fake_home = tmp_path / "home"
+    global_seed_dir = fake_home / ".ouroboros" / "seeds" / "demo"
+    repo_root = global_seed_dir / "repo-root"
+    repo_root.mkdir(parents=True)
+    seed_file = global_seed_dir / "seed.yaml"
+    seed_file.write_text("goal: ignored\n", encoding="utf-8")
+    seed_data = {
+        **VALID_SEED_DATA,
+        "metadata": {**VALID_SEED_DATA["metadata"], "project_dir": "repo-root"},
+    }
+    seed = Seed.from_dict(seed_data)
+
+    with patch.object(Path, "home", return_value=fake_home):
+        resolved = _resolve_cli_project_dir(seed, seed_file, seed_data=seed_data)
+
+    assert resolved == repo_root.resolve()
+
+
+def test_resolve_cli_project_dir_global_seed_store_still_uses_brownfield_target_dir(
+    tmp_path: Path,
+) -> None:
+    """brownfield_context.target_dir remains preferred over global seed fallback."""
+    fake_home = tmp_path / "home"
+    global_seed_dir = fake_home / ".ouroboros" / "seeds" / "demo"
+    global_seed_dir.mkdir(parents=True)
+    seed_file = global_seed_dir / "seed.yaml"
+    seed_file.write_text("goal: ignored\n", encoding="utf-8")
+    target_dir = tmp_path / "actual-project"
+    target_dir.mkdir()
+    seed_data = {
+        **VALID_SEED_DATA,
+        "brownfield_context": {
+            "project_type": "brownfield",
+            "target_dir": str(target_dir),
+            "context_references": [
+                {"path": "main.py", "role": "primary", "summary": "target file"},
+            ],
+        },
+    }
+    (target_dir / "main.py").write_text("print('hi')\n", encoding="utf-8")
+    seed = Seed.from_dict(seed_data)
+
+    with patch.object(Path, "home", return_value=fake_home):
+        resolved = _resolve_cli_project_dir(seed, seed_file, seed_data=seed_data)
+
+    assert resolved == target_dir.resolve()
+
+
 def test_resolve_fat_harness_mode_defaults_to_disabled() -> None:
     """Fresh runs use the default runner unless the seed opts into fat-harness."""
     assert _resolve_fat_harness_mode(VALID_SEED_DATA) is False
@@ -635,12 +729,58 @@ async def test_run_orchestrator_uses_seed_relative_project_dir_for_runtime_and_q
         mock_event_store_cls.return_value.initialize = AsyncMock()
         await _run_orchestrator(seed_file)
 
-    mock_runtime.assert_called_once_with(backend=None, cwd=expected_project_dir)
+    mock_runtime.assert_called_once_with(backend=None, model=None, cwd=expected_project_dir)
     mock_verification.assert_awaited_once_with(
         "exec-test",
         "Parallel Execution Verification Report",
         expected_project_dir,
     )
+
+
+@pytest.mark.asyncio
+async def test_run_orchestrator_passes_execution_model_to_runtime(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CLI workflow execution honors OUROBOROS_EXECUTION_MODEL runtime pins."""
+    seed_file = tmp_path / "seed.yaml"
+    seed_file.write_text("goal: ignored\n", encoding="utf-8")
+
+    fake_exec = SimpleNamespace(
+        success=True,
+        session_id="sess-test",
+        messages_processed=5,
+        duration_seconds=1.0,
+        execution_id="exec-test",
+        summary={"verification_report": "Parallel Execution Verification Report"},
+        final_message="fallback final message",
+    )
+    mock_runner = MagicMock()
+    mock_runner.execute_seed = AsyncMock(return_value=Result.ok(fake_exec))
+    mock_runner.resume_session = AsyncMock()
+    monkeypatch.setenv("OUROBOROS_EXECUTION_MODEL", "openai-codex/gpt-5.4-mini")
+
+    with (
+        patch("ouroboros.cli.commands.run._load_seed_from_yaml", return_value=VALID_SEED_DATA),
+        patch("ouroboros.orchestrator.create_agent_runtime") as mock_runtime,
+        patch("ouroboros.orchestrator.OrchestratorRunner", return_value=mock_runner),
+        patch("ouroboros.persistence.event_store.EventStore") as mock_event_store_cls,
+        patch(
+            "ouroboros.cli.commands.run.build_verification_artifacts",
+            new_callable=AsyncMock,
+            return_value=FAKE_VERIFICATION_ARTIFACTS,
+        ),
+        patch(
+            "ouroboros.mcp.tools.qa.QAHandler.handle",
+            new_callable=AsyncMock,
+            return_value=FAKE_QA_RESULT,
+        ),
+    ):
+        mock_event_store_cls.return_value.initialize = AsyncMock()
+        await _run_orchestrator(seed_file, runtime_backend="pi")
+
+    assert mock_runtime.call_args.kwargs["backend"] == "pi"
+    assert mock_runtime.call_args.kwargs["model"] == "openai-codex/gpt-5.4-mini"
 
 
 @pytest.mark.asyncio
@@ -693,6 +833,24 @@ async def test_run_orchestrator_falls_back_when_artifact_generation_fails(tmp_pa
 
 class TestDetectProjectRootFromSeedPath:
     """Tests for ouroboros.cli.commands.run._detect_project_root_from_seed_path."""
+
+    def test_returns_none_when_candidate_is_home_dir(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Seeds in ~/.ouroboros/seeds/ must not yield home dir as project root (issue #1312)."""
+        from ouroboros.cli.commands.run import _detect_project_root_from_seed_path
+
+        fake_home = tmp_path / "home"
+        global_seeds = fake_home / ".ouroboros" / "seeds" / "myfeat"
+        global_seeds.mkdir(parents=True)
+        seed_file = global_seeds / "seed.yaml"
+        seed_file.write_text("goal: x")
+
+        with patch.object(Path, "home", return_value=fake_home):
+            result = _detect_project_root_from_seed_path(seed_file)
+
+        assert result is None
 
     def test_returns_root_when_seed_lives_under_dot_ouroboros_seeds(
         self,

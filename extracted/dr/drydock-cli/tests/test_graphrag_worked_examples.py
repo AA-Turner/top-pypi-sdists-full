@@ -5,9 +5,6 @@ path, and TF-IDF retrieval scored on problem-text similarity.
 """
 from __future__ import annotations
 
-import json
-
-import pytest
 
 from drydock.graphrag.retriever import RetrievalResult, WorkedExampleHit
 from drydock.graphrag.storage import Index

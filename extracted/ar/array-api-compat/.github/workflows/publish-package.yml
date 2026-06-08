@@ -4,8 +4,8 @@ on:
     branches:
     - main
     tags:
-    - '[0-9]+.[0-9]+'
-    - '[0-9]+.[0-9]+.[0-9]+'
+    - '*.*'
+    - '*.*.*'
   pull_request:
     branches:
     - main
@@ -41,7 +41,7 @@ jobs:
 
     - name: Install python-build and twine
       run: |
-        python -m pip install --upgrade pip "setuptools<=67"
+        python -m pip install --upgrade pip meson-python
         python -m pip install build twine
         python -m pip list
 
@@ -60,7 +60,7 @@ jobs:
       run: python -m zipfile --list dist/array_api_compat-*.whl
 
     - name: Upload distribution artifact
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: dist-artifact
         path: dist
@@ -81,7 +81,7 @@ jobs:
 
     steps:
     - name: Download distribution artifact
-      uses: actions/download-artifact@v7
+      uses: actions/download-artifact@v8
       with:
         name: dist-artifact
         path: dist
@@ -95,19 +95,19 @@ jobs:
    #   if: >-
    #     (github.event_name == 'push' && startsWith(github.ref, 'refs/tags'))
    #     || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true')
-   #   uses: pypa/gh-action-pypi-publish@v1.13.0
+   #   uses: pypa/gh-action-pypi-publish@v1.14.0
    #   with:
    #     repository-url: https://test.pypi.org/legacy/
    #     print-hash: true
 
     - name: Publish distribution 📦 to PyPI
       if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
-      uses: pypa/gh-action-pypi-publish@v1.13.0
+      uses: pypa/gh-action-pypi-publish@v1.14.0
       with:
         print-hash: true
 
     - name: Create GitHub Release from a Tag
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       if: startsWith(github.ref, 'refs/tags/')
       with:
           files: dist/*

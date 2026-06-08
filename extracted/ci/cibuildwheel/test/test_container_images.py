@@ -1,10 +1,15 @@
+from __future__ import annotations
+
 import platform
 import textwrap
-from pathlib import Path
 
 import pytest
 
 from . import test_projects, utils
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from pathlib import Path
 
 dockcross_only_project = test_projects.new_c_project(
     setup_py_add=textwrap.dedent(
@@ -50,6 +55,6 @@ def test(tmp_path: Path) -> None:
         for w in utils.expected_wheels(
             "spam", "0.1.0", manylinux_versions=manylinux_versions, musllinux_versions=[]
         )
-        if "-cp38-" in w or "-cp39-" in w
+        if "-cp39-" in w
     ]
     assert set(actual_wheels) == set(expected_wheels)

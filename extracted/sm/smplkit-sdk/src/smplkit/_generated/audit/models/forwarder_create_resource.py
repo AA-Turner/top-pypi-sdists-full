@@ -27,9 +27,9 @@ class ForwarderCreateResource:
             'DD-API-KEY', 'value': 'dd-api-key-plaintext'}], 'method': 'POST', 'success_status': '2xx', 'url':
             'https://http-intake.logs.datadoghq.com/api/v2/logs'}, 'description': 'Forwards user.* events to the prod
             Datadog tenant.', 'environments': {'production': {'enabled': True}}, 'filter': {'==': [{'var': 'event_type'},
-            'user.created']}, 'forwarder_type': 'datadog', 'name': 'Datadog production', 'transform': '{ "message":
-            event_type & \' on \' & resource_type }', 'transform_type': 'JSONATA'}, 'id': 'datadog-prod', 'type':
-            'forwarder'}
+            'user.created']}, 'forward_smplkit_events': False, 'forwarder_type': 'datadog', 'name': 'Datadog production',
+            'transform': '{ "message": event_type & \' on \' & resource_type }', 'transform_type': 'JSONATA'}, 'id':
+            'datadog-prod', 'type': 'forwarder'}
 
     Attributes:
         id (str): Client-supplied resource id.

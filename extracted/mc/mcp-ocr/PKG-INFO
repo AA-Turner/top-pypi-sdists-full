@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcp-ocr
-Version: 0.1.4
+Version: 0.2.0
 Summary: MCP server for OCR functionality using Tesseract
 Project-URL: Homepage, https://github.com/yourusername/mcp-ocr
 Project-URL: Documentation, https://github.com/yourusername/mcp-ocr#readme

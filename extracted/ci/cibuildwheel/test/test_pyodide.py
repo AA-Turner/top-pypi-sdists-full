@@ -1,15 +1,20 @@
+from __future__ import annotations
+
 import contextlib
 import os
 import subprocess
 import sys
 import textwrap
-from pathlib import Path
 
 import pytest
 
 from cibuildwheel.util.file import CIBW_CACHE_PATH
 
 from . import test_projects, utils
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from pathlib import Path
 
 pytestmark = pytest.mark.pyodide
 
@@ -79,8 +84,8 @@ def test_pyodide_build(tmp_path: Path, use_pyproject_toml: bool) -> None:
 
     # check that the expected wheels are produced
     expected_wheels = [
-        "spam-0.1.0-cp312-cp312-pyodide_2024_0_wasm32.whl",
-        "spam-0.1.0-cp313-cp313-pyodide_2025_0_wasm32.whl",
+        "spam-0.1.0-cp313-cp313-pyemscripten_2025_0_wasm32.whl",
+        "spam-0.1.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl",
     ]
 
     print("actual_wheels", actual_wheels)
@@ -144,8 +149,8 @@ def test_pyodide_build_and_test(tmp_path: Path, expect_failure: bool) -> None:
         )
         # check that the expected wheels are produced
         expected_wheels = [
-            "spam-0.1.0-cp312-cp312-pyodide_2024_0_wasm32.whl",
-            "spam-0.1.0-cp313-cp313-pyodide_2025_0_wasm32.whl",
+            "spam-0.1.0-cp313-cp313-pyemscripten_2025_0_wasm32.whl",
+            "spam-0.1.0-cp314-cp314-pyemscripten_2026_0_wasm32.whl",
         ]
         assert set(actual_wheels) == set(expected_wheels)
 
@@ -170,6 +175,6 @@ def test_pyodide_repair_wheel(tmp_path: Path) -> None:
 
     # check that the expected wheels are produced
     expected_wheels = [
-        "spam-0.1.0-cp312-cp312-pyodide_2024_0_wasm32.whl",
+        "spam-0.1.0-cp313-cp313-pyemscripten_2025_0_wasm32.whl",
     ]
     assert set(actual_wheels) == set(expected_wheels)

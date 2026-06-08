@@ -33,6 +33,79 @@ _HEAVY_SIGNALS = [
     "实时", "realtime", "websocket", "dashboard", "web",
 ]
 
+# Biz domain inference: keyword → biz_tag mapping.
+# Scans task text + project src/ structure to infer the business domain.
+_BIZ_DOMAIN_KEYWORDS = {
+    "rpg": ["rpg", "角色", "战斗", "combat", "技能", "skill", "怪物", "enemy",
+            "装备", "equipment", "回合制", "turn-based", "character", "职业"],
+    "web": ["web", "前端", "frontend", "dashboard", "页面", "page", "ui",
+            "html", "css", "react", "vue", "api", "rest", "接口"],
+    "game": ["game", "游戏", "pygame", "unity", "渲染", "render", "sprite",
+             "动画", "animation", "帧", "frame"],
+    "data": ["数据", "data", "数据库", "database", "sql", "etl", "分析",
+             "analytics", "报表", "report", "csv", "json"],
+    "cli": ["cli", "命令行", "command", "脚本", "script", "终端", "terminal",
+            "shell", "bash"],
+    "security": ["安全", "security", "认证", "auth", "加密", "encrypt",
+                 "权限", "permission", "漏洞", "vulnerability"],
+}
+
+
+def _scan_project_domains(src_dir: str | None = None) -> list[str]:
+    """Scan project src/ directory to detect business domains from file structure."""
+    from pathlib import Path
+    if src_dir is None:
+        try:
+            from kanban_framework.infra.filesystem import Filesystem
+            root = Filesystem.find_project_root()
+            src_dir = str(root / "src")
+        except Exception:
+            return []
+
+    src = Path(src_dir)
+    if not src.is_dir():
+        return []
+
+    domains = []
+    for child in sorted(src.iterdir()):
+        if child.is_dir() and not child.name.startswith((".", "_", "__")):
+            domains.append(child.name.lower())
+    return domains
+
+
+def _infer_biz_tag(title: str, desc: str = "", src_dir: str | None = None) -> str | None:
+    """Infer biz_tag from task text and project structure.
+
+    Returns None when no clear domain signal is found — caller should
+    leave biz_tag unset rather than guessing.
+    """
+    text = f"{title} {desc}".lower()
+
+    # 1. Check explicit keyword matches
+    scores: dict[str, int] = {}
+    for tag, keywords in _BIZ_DOMAIN_KEYWORDS.items():
+        score = 0
+        for kw in keywords:
+            if kw in text:
+                score += 1
+        if score > 0:
+            scores[tag] = score
+
+    # 2. Boost with project structure domains (only amplifies existing signals)
+    if scores:
+        project_domains = _scan_project_domains(src_dir)
+        for d in project_domains:
+            for tag in scores:
+                keywords = _BIZ_DOMAIN_KEYWORDS.get(tag, [])
+                if d in keywords or any(kw in d for kw in keywords):
+                    scores[tag] += 2
+
+    if not scores:
+        return None
+
+    return max(scores, key=scores.get)
+
+
 # Keywords that signal "lightweight is fine"
 _LIGHT_SIGNALS = [
     "脚本", "script", "工具函数", "utility", "单文件", "single file",
@@ -101,6 +174,8 @@ def assess_task(title: str, description: str) -> dict:
     if any(kw in text for kw in ["性能", "performance", "优化", "optimize"]):
         risk_factors.append("性能要求")
 
+    biz_tag = _infer_biz_tag(title, description)
+
     return {
         "recommended_mode": mode,
         "reason": reason,
@@ -108,6 +183,7 @@ def assess_task(title: str, description: str) -> dict:
         "quick_signals": quick,
         "heavy_signals": heavy,
         "risk_factors": risk_factors,
+        "biz_tag": biz_tag,
         "quick_requires": {
             "target_file": None,
             "change_type": None,

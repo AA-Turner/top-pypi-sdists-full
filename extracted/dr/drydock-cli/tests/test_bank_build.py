@@ -15,12 +15,10 @@ Run: pytest tests/test_bank_build.py -v -s --timeout=1800
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
 from tests.testbank_helpers import (
-    check_content_contains,
     check_files_exist,
     check_runs,
     check_syntax_all,
@@ -439,8 +437,7 @@ class TestBuildHard:
     async def test_rest_api_framework(self, tmp_path):
         """Build a REST API framework from scratch."""
         agent = make_agent(tmp_path, max_turns=40)
-        r = await run_workload(agent, max_events=400, prompt=
-            "Build a REST API framework 'picoapi' (like Flask but minimal):\n\n"
+        r = await run_workload(agent, max_events=400, prompt="Build a REST API framework 'picoapi' (like Flask but minimal):\n\n"
             "Core modules:\n"
             "- picoapi/app.py: App class with @get, @post, @put, @delete decorators\n"
             "- picoapi/router.py: URL routing with path parameters (/users/<id>)\n"
@@ -465,8 +462,7 @@ class TestBuildHard:
     async def test_testing_framework(self, tmp_path):
         """Build a testing framework (mini pytest)."""
         agent = make_agent(tmp_path, max_turns=40)
-        r = await run_workload(agent, max_events=400, prompt=
-            "Build a testing framework 'minitest':\n\n"
+        r = await run_workload(agent, max_events=400, prompt="Build a testing framework 'minitest':\n\n"
             "- minitest/__init__.py\n"
             "- minitest/runner.py: Discovers test_*.py files, runs test_ functions\n"
             "- minitest/assertions.py: assert_equal, assert_raises, assert_true, assert_in\n"
@@ -493,8 +489,7 @@ class TestBuildHard:
             "---\ntitle: About\n---\n# About\nThis is the about page.\n"
         )
         agent = make_agent(tmp_path, max_turns=40)
-        r = await run_workload(agent, max_events=400, prompt=
-            "Build a static site generator 'sitegen':\n\n"
+        r = await run_workload(agent, max_events=400, prompt="Build a static site generator 'sitegen':\n\n"
             "- sitegen/__init__.py\n"
             "- sitegen/parser.py: Parse markdown files with YAML frontmatter\n"
             "- sitegen/renderer.py: Convert markdown to HTML (headers, bold, italic, lists, links)\n"
@@ -513,8 +508,7 @@ class TestBuildHard:
     async def test_chat_protocol(self, tmp_path):
         """Build a chat system with message protocol."""
         agent = make_agent(tmp_path, max_turns=40)
-        r = await run_workload(agent, max_events=400, prompt=
-            "Build a chat system 'chatlib':\n\n"
+        r = await run_workload(agent, max_events=400, prompt="Build a chat system 'chatlib':\n\n"
             "- chatlib/__init__.py\n"
             "- chatlib/message.py: Message class (sender, text, timestamp, type: TEXT/JOIN/LEAVE)\n"
             "- chatlib/protocol.py: Encode/decode messages to JSON wire format\n"
@@ -558,8 +552,7 @@ class TestBuildHard:
             "- Input validation\n"
         )
         agent = make_agent(tmp_path, max_turns=50)
-        r = await run_workload(agent, max_events=500, prompt=
-            "Read the PRD.md and build the Expense Tracker CLI. "
+        r = await run_workload(agent, max_events=500, prompt="Read the PRD.md and build the Expense Tracker CLI. "
             "Create all necessary files. Test the basic add and list commands."
         )
 

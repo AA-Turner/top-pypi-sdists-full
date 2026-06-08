@@ -15,6 +15,7 @@ from ...types import Unset
 
 def _get_kwargs(
     *,
+    filterenvironment: None | str | Unset = UNSET,
     filteroccurred_at: None | str | Unset = UNSET,
     filteractor_type: None | str | Unset = UNSET,
     filteractor_id: None | str | Unset = UNSET,
@@ -32,6 +33,13 @@ def _get_kwargs(
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
+
+    json_filterenvironment: None | str | Unset
+    if isinstance(filterenvironment, Unset):
+        json_filterenvironment = UNSET
+    else:
+        json_filterenvironment = filterenvironment
+    params["filter[environment]"] = json_filterenvironment
 
     json_filteroccurred_at: None | str | Unset
     if isinstance(filteroccurred_at, Unset):
@@ -167,6 +175,7 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     *,
     client: AuthenticatedClient,
+    filterenvironment: None | str | Unset = UNSET,
     filteroccurred_at: None | str | Unset = UNSET,
     filteractor_type: None | str | Unset = UNSET,
     filteractor_id: None | str | Unset = UNSET,
@@ -215,6 +224,12 @@ def sync_detailed(
     `page[after]`.
 
     Args:
+        filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
+            results to (e.g. `production,staging`). When omitted, results are scoped to your single
+            accessible environment; send the `X-Smplkit-Environment` header instead if you can access
+            more than one. The reserved value `smplkit` selects platform change events that smplkit
+            records about your own resources (flags, configuration, and so on); these are not tied to
+            a deployment environment and are readable regardless of which environments you manage.
         filteroccurred_at (None | str | Unset):
         filteractor_type (None | str | Unset):
         filteractor_id (None | str | Unset):
@@ -252,6 +267,7 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
+        filterenvironment=filterenvironment,
         filteroccurred_at=filteroccurred_at,
         filteractor_type=filteractor_type,
         filteractor_id=filteractor_id,
@@ -278,6 +294,7 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
+    filterenvironment: None | str | Unset = UNSET,
     filteroccurred_at: None | str | Unset = UNSET,
     filteractor_type: None | str | Unset = UNSET,
     filteractor_id: None | str | Unset = UNSET,
@@ -326,6 +343,12 @@ def sync(
     `page[after]`.
 
     Args:
+        filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
+            results to (e.g. `production,staging`). When omitted, results are scoped to your single
+            accessible environment; send the `X-Smplkit-Environment` header instead if you can access
+            more than one. The reserved value `smplkit` selects platform change events that smplkit
+            records about your own resources (flags, configuration, and so on); these are not tied to
+            a deployment environment and are readable regardless of which environments you manage.
         filteroccurred_at (None | str | Unset):
         filteractor_type (None | str | Unset):
         filteractor_id (None | str | Unset):
@@ -364,6 +387,7 @@ def sync(
 
     return sync_detailed(
         client=client,
+        filterenvironment=filterenvironment,
         filteroccurred_at=filteroccurred_at,
         filteractor_type=filteractor_type,
         filteractor_id=filteractor_id,
@@ -384,6 +408,7 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
+    filterenvironment: None | str | Unset = UNSET,
     filteroccurred_at: None | str | Unset = UNSET,
     filteractor_type: None | str | Unset = UNSET,
     filteractor_id: None | str | Unset = UNSET,
@@ -432,6 +457,12 @@ async def asyncio_detailed(
     `page[after]`.
 
     Args:
+        filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
+            results to (e.g. `production,staging`). When omitted, results are scoped to your single
+            accessible environment; send the `X-Smplkit-Environment` header instead if you can access
+            more than one. The reserved value `smplkit` selects platform change events that smplkit
+            records about your own resources (flags, configuration, and so on); these are not tied to
+            a deployment environment and are readable regardless of which environments you manage.
         filteroccurred_at (None | str | Unset):
         filteractor_type (None | str | Unset):
         filteractor_id (None | str | Unset):
@@ -469,6 +500,7 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
+        filterenvironment=filterenvironment,
         filteroccurred_at=filteroccurred_at,
         filteractor_type=filteractor_type,
         filteractor_id=filteractor_id,
@@ -493,6 +525,7 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
+    filterenvironment: None | str | Unset = UNSET,
     filteroccurred_at: None | str | Unset = UNSET,
     filteractor_type: None | str | Unset = UNSET,
     filteractor_id: None | str | Unset = UNSET,
@@ -541,6 +574,12 @@ async def asyncio(
     `page[after]`.
 
     Args:
+        filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
+            results to (e.g. `production,staging`). When omitted, results are scoped to your single
+            accessible environment; send the `X-Smplkit-Environment` header instead if you can access
+            more than one. The reserved value `smplkit` selects platform change events that smplkit
+            records about your own resources (flags, configuration, and so on); these are not tied to
+            a deployment environment and are readable regardless of which environments you manage.
         filteroccurred_at (None | str | Unset):
         filteractor_type (None | str | Unset):
         filteractor_id (None | str | Unset):
@@ -580,6 +619,7 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
+            filterenvironment=filterenvironment,
             filteroccurred_at=filteroccurred_at,
             filteractor_type=filteractor_type,
             filteractor_id=filteractor_id,

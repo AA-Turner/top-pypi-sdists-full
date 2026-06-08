@@ -41,6 +41,7 @@ from kanban_framework.domain.knowledge_search import (
 from kanban_framework.domain.knowledge_management import (
     record_usage as _record_usage_impl,
     mark_stale_entries as _mark_stale_entries_impl,
+    cleanup_zombies as _cleanup_zombies_impl,
     get_domains as _get_domains_impl,
     match_domain as _match_domain_impl,
     find_similar_pitfalls as _find_similar_pitfalls_impl,
@@ -331,16 +332,17 @@ class KnowledgeManager:
         return self.get_entry(entry_id)
 
     def delete_entry(self, entry_id):
-        # Delete FTS first (needs rowid from entries table)
-        self._conn.execute("DELETE FROM entries_fts WHERE rowid=(SELECT rowid FROM entries WHERE id=?)", (entry_id,))
+        # FTS5 external content triggers (entries_ad) fire on DELETE FROM entries
+        # and sync entries_fts automatically — no manual FTS delete needed.
         self._conn.execute("DELETE FROM entries WHERE id=?", (entry_id,))
         self._conn.commit()
-        # Synchronous ChromaDB delete to avoid inconsistency window (#480)
-        try:
-            _ensure_chroma_impl(self)
-            _chroma_delete_entry_impl(self, entry_id)
-        except Exception:
-            pass
+        # ChromaDB delete: only if already initialized. Skip otherwise to avoid
+        # paying ~2s import + init cost on every delete (#573).
+        if self._chroma_collection is not None:
+            try:
+                _chroma_delete_entry_impl(self, entry_id)
+            except Exception:
+                pass
 
     def update_benchmark_evaluation(self, entry_id: str, evaluation: dict) -> dict:
         """Append evaluation result to benchmark.evaluations array. (#397)"""
@@ -558,6 +560,9 @@ class KnowledgeManager:
 
     def mark_stale_entries(self):
         return _mark_stale_entries_impl(self)
+
+    def cleanup_zombies(self, min_age_days=60):
+        return _cleanup_zombies_impl(self, min_age_days)
 
     def get_domains(self):
         return _get_domains_impl(self)

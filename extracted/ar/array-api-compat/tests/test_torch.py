@@ -115,7 +115,7 @@ def test_clip_vmap():
 
 
 def test_meshgrid():
-    """Verify that array_api_compat.torch.meshgrid defaults to indexing='xy'."""
+    """Verify that array_api_compat.torch.meshgrid defaults to indexing='xy', and supports passing no arrays."""
 
     x, y = xp.asarray([1, 2]), xp.asarray([4])
 
@@ -142,6 +142,8 @@ def test_meshgrid():
     assert Y.shape == Y_ij.shape
     assert xp.all(Y == Y_ij)
 
+    assert not xp.meshgrid()
+
 
 def test_argsort_stable():
     """Verify that argsort defaults to a stable sort."""
@@ -152,3 +154,27 @@ def test_argsort_stable():
 
     t = xp.zeros(50)    # should be >16
     assert xp.all(xp.argsort(t) == xp.arange(50))
+
+
+def test_round():
+    """Verify the out= argument of xp.round with complex inputs."""
+    x = torch.as_tensor([1.23456786]*3) + 3.456789j
+    o = torch.empty(3, dtype=torch.complex64)
+    r = xp.round(x, decimals=1, out=o)
+    assert xp.all(r == o)
+    assert r is o
+
+
+def test_dynamo_array_namespace():
+    """Check that torch.compiling array_namespace does not incur graph breaks."""
+    from array_api_compat import array_namespace
+
+    def foo(x):
+        xp = array_namespace(x)
+        return xp.multiply(x, x)
+
+    bar = torch.compile(fullgraph=True)(foo)
+
+    x = torch.arange(3)
+    y = bar(x)
+    assert xp.all(y == x**2)

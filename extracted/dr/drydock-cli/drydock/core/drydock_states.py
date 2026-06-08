@@ -6,13 +6,12 @@ thematic status messages for the TUI and CLI output.
 
 import random
 from collections import deque
-from typing import Dict, List
 
 # ---------------------------------------------------------------------------
 # State categories – each list is drawn from drydock_terms.md
 # ---------------------------------------------------------------------------
 
-STATE_CATEGORIES: Dict[str, List[str]] = {
+STATE_CATEGORIES: dict[str, list[str]] = {
     "plan": [
         "Planning",
         "Drafting",

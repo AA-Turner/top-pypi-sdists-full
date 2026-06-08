@@ -4,7 +4,6 @@ from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, NamedTuple, final
 
-import anyio
 from pydantic import BaseModel, Field
 
 from drydock.core.tools.base import (
@@ -305,7 +304,7 @@ class ReadFile(
             for i, page in enumerate(reader.pages[:20]):  # Max 20 pages
                 text = page.extract_text()
                 if text:
-                    pages.append(f"--- Page {i+1} ---\n{text}")
+                    pages.append(f"--- Page {i + 1} ---\n{text}")
             return "\n\n".join(pages) if pages else "[PDF has no extractable text]"
         except ImportError:
             return "[PDF reading requires pypdf: pip install pypdf]"
@@ -366,7 +365,7 @@ class ReadFile(
             return await asyncio.wait_for(
                 loop.run_in_executor(None, _sync_read), timeout=10,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise ToolError(f"Timed out reading {file_path} after 10s.")
         except OSError as exc:
             raise ToolError(f"Error reading {file_path}: {exc}") from exc

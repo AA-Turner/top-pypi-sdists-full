@@ -2,6 +2,5 @@ import pytest
 from sage.tests.rubric_checker import verify_sms_with_rubric
 
 def test_sms_bridge_task_02(tmp_path):
-    """Verify exhaustive task creation via SMS: Create a python script that prints 'hello world'...."""
-    prompt = "Create a python script that prints 'hello world'."
+    prompt = "Build a basic HTML landing page with a header and footer."
     verify_sms_with_rubric(prompt, tmp_path)

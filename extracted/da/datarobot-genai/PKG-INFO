@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.15.114
+Version: 0.15.115
 Summary: Generic helpers for GenAI
 Author: DataRobot, Inc.
 License: Apache-2.0
@@ -142,12 +142,14 @@ Requires-Dist: fastmcp<4.0.0,>=3.2.0; extra == "drmcpbase"
 Requires-Dist: aiohttp<4.0.0,>=3.13.3; extra == "drmcpbase"
 Requires-Dist: aiohttp-retry<3.0.0,>=2.8.3; extra == "drmcpbase"
 Requires-Dist: datarobot<4.0.0,>=3.10.0; extra == "drmcpbase"
+Requires-Dist: cachetools<8.0.0,>=5.0.0; extra == "drmcpbase"
 Provides-Extra: drmcp
 Requires-Dist: starlette>=1.0.1; extra == "drmcp"
 Requires-Dist: fastmcp<4.0.0,>=3.2.0; extra == "drmcp"
 Requires-Dist: aiohttp<4.0.0,>=3.13.3; extra == "drmcp"
 Requires-Dist: aiohttp-retry<3.0.0,>=2.8.3; extra == "drmcp"
 Requires-Dist: datarobot<4.0.0,>=3.10.0; extra == "drmcp"
+Requires-Dist: cachetools<8.0.0,>=5.0.0; extra == "drmcp"
 Requires-Dist: datarobot[auth]<4.0.0,>=3.10.0; extra == "drmcp"
 Requires-Dist: aiohttp<4.0.0,>=3.13.3; extra == "drmcp"
 Requires-Dist: pydantic<3.0.0,>=2.6.1; extra == "drmcp"

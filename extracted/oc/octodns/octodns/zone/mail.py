@@ -13,11 +13,15 @@ class MailZoneValidator(ZoneValidator):
     Comprehensive best-practice validator for mail records (MX, SPF, DMARC).
 
     Can operate in two modes: 'mail' and 'no-mail'. In 'auto' mode (default),
-    it detects the apex mode based on the presence of mail-related records (MX
-    anywhere in the zone, SPF at the apex, or DMARC at _dmarc). If no
-    mail-related records are found, it is a no-op for the apex. If any are
-    found, it detects the mode based on the presence of non-null MX records at
-    the apex.
+    it detects the apex mode based on the presence of an apex MX record or an
+    apex SPF record. If neither is present, it is a no-op for the apex (a lone
+    DMARC record is not treated as a mail-mode signal). Mode is determined
+    MX-first: if an apex MX record exists, Null MX (0 .) means 'no-mail',
+    any other MX means 'mail'. If there is no apex MX, strict SPF
+    'v=spf1 -all' at the apex means 'no-mail'; any other SPF means 'mail'.
+    DMARC policy (p=) is never used for mode detection because p=reject is
+    the recommended best practice for domains that DO send mail (RFC 7489)
+    and therefore cannot discriminate between mail and no-mail zones.
 
     Every non-apex sub-domain that has MX records is also validated (redundancy
     + SPF). In 'auto' mode each sub-domain's mode is detected independently:
@@ -25,6 +29,7 @@ class MailZoneValidator(ZoneValidator):
     mode, the configured mode propagates to sub-domains.
 
     'mail' mode enforces:
+
     - Multiple MX records for redundancy (at apex and throughout the zone).
     - Presence of an SPF record at the apex.
     - SPF record terminates with ~all or -all.
@@ -32,6 +37,7 @@ class MailZoneValidator(ZoneValidator):
     - Each sub-domain with MX has an SPF record terminating with ~all or -all.
 
     'no-mail' mode enforces:
+
     - Presence of a single Null MX record (0 .) at the apex.
     - SPF record at the apex is exactly 'v=spf1 -all'.
     - DMARC record at _dmarc has p=reject.
@@ -337,11 +343,13 @@ class MailZoneValidator(ZoneValidator):
                 )
             dmarc_value = dmarc_value[0]
 
-        dmarc_tags = self._parse_dmarc_tags(dmarc_value)
-
         if mode == 'auto':
-            # update mode to main/no-mail based on detection
-            if apex_mx_record or apex_spf_value or dmarc_value:
+            # Update mode to mail/no-mail based on detection.
+            # MX is the primary signal; SPF is the fallback. DMARC policy is
+            # never used for detection: p=reject is the recommended practice
+            # for domains that DO send mail and therefore cannot distinguish
+            # mail from no-mail zones (issue #1422).
+            if apex_mx_record or apex_spf_value:
                 self.log.debug(
                     'validate: zone=%s, has mail related records/values, apex_mx_record=%s, apex_spf_value=%s, dmarc_value=%s',
                     zone.decoded_name,
@@ -349,30 +357,28 @@ class MailZoneValidator(ZoneValidator):
                     apex_spf_value,
                     dmarc_value,
                 )
-                if apex_spf_value and apex_spf_value == 'v=spf1 -all':
+                if apex_mx_record:
+                    if self._is_null_mx(apex_mx_record):
+                        self.log.debug(
+                            'validate: zone=%s, apex_mx_record (Null MX) indicates no-mail',
+                            zone.decoded_name,
+                        )
+                        mode = 'no-mail'
+                    else:
+                        self.log.debug(
+                            'validate: zone=%s, apex_mx_record indicates mail handling',
+                            zone.decoded_name,
+                        )
+                        mode = 'mail'
+                elif apex_spf_value == 'v=spf1 -all':
                     self.log.debug(
                         'validate: zone=%s, apex_spf_value indicates no-mail',
                         zone.decoded_name,
                     )
                     mode = 'no-mail'
-                elif (
-                    dmarc_tags.get('v') == 'dmarc1'
-                    and dmarc_tags.get('p') == 'reject'
-                ):
-                    self.log.debug(
-                        'validate: zone=%s, dmarc_value indicates no-mail',
-                        zone.decoded_name,
-                    )
-                    mode = 'no-mail'
-                elif apex_mx_record and self._is_null_mx(apex_mx_record):
-                    self.log.debug(
-                        'validate: zone=%s, apex_mx_record indicates no-mail',
-                        zone.decoded_name,
-                    )
-                    mode = 'no-mail'
                 else:
                     self.log.debug(
-                        'validate: zone=%s, assuming mail handling',
+                        'validate: zone=%s, apex_spf_value indicates mail handling',
                         zone.decoded_name,
                     )
                     mode = 'mail'

@@ -90,6 +90,33 @@ def test_lookup_dated_snapshot_of_unregistered_base_still_none() -> None:
     assert lookup("gpt-99-future-2026-03-17") is None
 
 
+def test_lookup_resolves_bare_bedrock_id_without_version_suffix() -> None:
+    """AWS Bedrock cross-region inference profiles invoke WITH or WITHOUT the
+    trailing `-v1:0` version segment. The table keys the versioned form; the
+    bare form must price the same. Regression for the govnotes-demo validation
+    (2026-06-07) where `--llm-model us.anthropic.claude-sonnet-4-6` (no
+    `-v1:0`) produced NO cost line because the bare ID missed the table."""
+    versioned = lookup("us.anthropic.claude-sonnet-4-6-v1:0")
+    bare = lookup("us.anthropic.claude-sonnet-4-6")
+    assert versioned is not None
+    assert bare is not None
+    assert bare.input_per_mtok_usd == versioned.input_per_mtok_usd
+    assert bare.output_per_mtok_usd == versioned.output_per_mtok_usd
+    # Opus + Haiku bare forms resolve too.
+    assert lookup("us.anthropic.claude-opus-4-7") is not None
+    assert lookup("us.anthropic.claude-haiku-4-5-20251001") is not None
+    # estimate_cost_usd works through the same path — a real 613K/127K gap run
+    # on bare-ID Sonnet prices to several dollars, not nothing.
+    cost = estimate_cost_usd("us.anthropic.claude-sonnet-4-6", 613_330, 126_760)
+    assert cost is not None
+    assert cost > 1.0
+
+
+def test_lookup_bare_bedrock_id_of_unregistered_model_still_none() -> None:
+    """Version-stripping must not invent a price for an unregistered Bedrock ID."""
+    assert lookup("us.anthropic.claude-future-9-9") is None
+
+
 def test_bedrock_openai_models_registered_and_treated_as_bedrock() -> None:
     """The Mantle model IDs (`openai.gpt-5.4` / `openai.gpt-5.5`) have pricing
     and are recognized as Bedrock-served (for the `via bedrock` cost suffix)."""

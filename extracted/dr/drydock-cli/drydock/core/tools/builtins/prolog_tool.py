@@ -213,7 +213,7 @@ async def _op_query(args: PrologArgs) -> PrologResult:
 
     try:
         bindings, summary = await asyncio.wait_for(_go(), timeout=args.timeout_sec)
-    except asyncio.TimeoutError as e:
+    except TimeoutError as e:
         raise ToolError(
             f"query timeout after {args.timeout_sec}s — narrow the "
             f"query, add more constraints, or check for cyclic rules"
@@ -273,7 +273,7 @@ class Prolog(
         )
 
     @classmethod
-    def get_result_display(cls, event: "ToolResultEvent") -> ToolResultDisplay:
+    def get_result_display(cls, event: ToolResultEvent) -> ToolResultDisplay:
         if isinstance(event.result, PrologResult):
             if not event.result.ok:
                 return ToolResultDisplay(
@@ -294,8 +294,8 @@ class Prolog(
 
     @final
     async def run(
-        self, args: PrologArgs, ctx: "InvokeContext | None" = None
-    ) -> AsyncGenerator["ToolStreamEvent | PrologResult", None]:
+        self, args: PrologArgs, ctx: InvokeContext | None = None
+    ) -> AsyncGenerator[ToolStreamEvent | PrologResult, None]:
         handler = _DISPATCH.get(args.op)
         if handler is None:
             yield PrologResult(

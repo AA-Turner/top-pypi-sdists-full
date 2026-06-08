@@ -1,0 +1,409 @@
+# -*- coding: utf-8 -*-
+"""
+Background threads that drive the heavy PyMemoryEditor calls.
+
+Two workers live here:
+
+* :class:`FirstScanWorker` — wraps ``search_by_value`` and
+  ``search_by_value_between`` for the very first scan over the entire address
+  space.
+* :class:`RefineScanWorker` — wraps ``search_by_addresses`` and discards
+  addresses whose current value no longer matches the user's filter (this is
+  Cheat Engine's "Next Scan").
+
+Both expose ``progress`` / ``found`` / ``finished`` signals so the UI never
+blocks on a long scan.
+"""
+import logging
+from dataclasses import dataclass
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, cast
+
+from PySide6.QtCore import QThread, Signal
+
+from PyMemoryEditor import AbstractProcess, MemoryRegion, ScanTypesEnum
+
+from .scan_types import NextScanType, NO_VALUE_SCAN_TYPES, ScanType
+from .value_types import parse_value, ValueTypeSpec
+
+
+_LOG = logging.getLogger(__name__)
+
+
+# Map of ScanTypesEnum → comparison used by the refine step. These compare the
+# freshly-read value (cur) against the user-supplied target (exp).
+COMPARATORS = {
+    ScanTypesEnum.EXACT_VALUE: lambda cur, exp: cur == exp,
+    ScanTypesEnum.NOT_EXACT_VALUE: lambda cur, exp: cur != exp,
+    ScanTypesEnum.BIGGER_THAN: lambda cur, exp: cur > exp,
+    ScanTypesEnum.SMALLER_THAN: lambda cur, exp: cur < exp,
+    ScanTypesEnum.BIGGER_THAN_OR_EXACT_VALUE: lambda cur, exp: cur >= exp,
+    ScanTypesEnum.SMALLER_THAN_OR_EXACT_VALUE: lambda cur, exp: cur <= exp,
+    ScanTypesEnum.VALUE_BETWEEN: lambda cur, exp: exp[0] <= cur <= exp[1],
+    ScanTypesEnum.NOT_VALUE_BETWEEN: lambda cur, exp: cur < exp[0] or cur > exp[1],
+}
+
+# Cheat Engine's "Next Scan" comparisons (app-only — see scan_types.py). These
+# compare the freshly-read value (cur) against the value recorded at that
+# address by the previous scan (prev). ``exp`` carries the delta for the *_BY
+# variants and is ignored otherwise.
+PREVIOUS_COMPARATORS = {
+    NextScanType.INCREASED_VALUE: lambda cur, prev, exp: cur > prev,
+    NextScanType.INCREASED_VALUE_BY: lambda cur, prev, exp: cur == prev + exp,
+    NextScanType.DECREASED_VALUE: lambda cur, prev, exp: cur < prev,
+    NextScanType.DECREASED_VALUE_BY: lambda cur, prev, exp: cur == prev - exp,
+    NextScanType.CHANGED_VALUE: lambda cur, prev, exp: cur != prev,
+    NextScanType.UNCHANGED_VALUE: lambda cur, prev, exp: cur == prev,
+}
+
+# Refresh the UI at most every N matches during a scan.
+UI_REFRESH_STEP = 750
+
+
+@dataclass
+class ScanRequest:
+    """User-facing description of a scan, packaged for a worker."""
+
+    spec: ValueTypeSpec
+    length: int
+    scan_type: ScanType  # ScanTypesEnum, or app-only NextScanType for refines
+    value: Any  # parsed primary value, or (a, b) for ranges
+    writeable_only: bool = False
+    # Optional cached snapshot of memory regions, reused across scans to skip
+    # the region enumeration step. Pass None to let the backend enumerate.
+    memory_regions: Optional[Sequence[MemoryRegion]] = None
+    # When True and no snapshot is supplied, FirstScanWorker builds one itself
+    # (off the UI thread) and emits it via ``snapshot_ready`` so the caller can
+    # cache it for later scans. Building it here keeps the (potentially slow)
+    # region enumeration off the UI thread.
+    build_snapshot: bool = False
+
+
+def build_scan_request(
+    spec: ValueTypeSpec,
+    scan_type: ScanType,
+    *,
+    value_text: str,
+    second_value_text: str = "",
+    length_spin_value: Optional[int] = None,
+    writeable_only: bool = False,
+    with_value: bool = True,
+) -> ScanRequest:
+    """
+    Assemble a :class:`ScanRequest` from raw field values, with no Qt.
+
+    This is the pure core of ``ScannerPanel._build_request`` lifted out of the
+    widget so the request-assembly rules (pattern short-circuit, the
+    str-ignores-length override, range parsing, the no-value scan types) can be
+    unit-tested without a ``QApplication``. The widget keeps only the bits that
+    are genuinely UI: reading the fields and showing a ``QMessageBox`` on the
+    ``ValueError`` raised here.
+
+    :raises ValueError: if a value/pattern fails to parse (message is
+        user-facing — the caller picks the dialog title from ``spec.is_pattern``).
+    """
+    # Pattern path — value is the pattern, scan_type is always EXACT. For an
+    # IDA pattern the length is irrelevant (derived from the pattern); for a
+    # regex it carries byte_length (the match width) from the Length field.
+    if spec.is_pattern:
+        value, length = parse_value(
+            spec, value_text, length_spin_value if spec.is_regex else None
+        )
+        return ScanRequest(
+            spec=spec,
+            length=int(length),
+            scan_type=ScanTypesEnum.EXACT_VALUE,
+            value=None if not with_value else value,
+            writeable_only=writeable_only,
+        )
+
+    # String (UTF-8) ignores the length field: pass None so parse_value derives
+    # the buffer width from the typed text's UTF-8 byte length. Byte Array still
+    # honours the user-set override.
+    length_override = (
+        length_spin_value
+        if spec.accepts_length_override and spec.pytype is not str
+        else None
+    )
+
+    # Increased/Decreased/Changed/Unchanged compare current vs previous and need
+    # no target value — just the value shape (type + length).
+    if scan_type in NO_VALUE_SCAN_TYPES:
+        length = length_override if length_override is not None else spec.length
+        return ScanRequest(
+            spec=spec,
+            length=int(length),
+            scan_type=scan_type,
+            value=None,
+            writeable_only=writeable_only,
+        )
+
+    value: Any
+    if scan_type in (ScanTypesEnum.VALUE_BETWEEN, ScanTypesEnum.NOT_VALUE_BETWEEN):
+        lo, lo_len = parse_value(spec, value_text, length_override)
+        hi, hi_len = parse_value(spec, second_value_text, length_override)
+        length = max(lo_len, hi_len)
+        value = (lo, hi)
+    else:
+        value, length = parse_value(spec, value_text, length_override)
+
+    if not with_value:
+        value = None  # Used by callers that only need spec/length/scan_type.
+
+    return ScanRequest(
+        spec=spec,
+        length=int(length),
+        scan_type=scan_type,
+        value=value,
+        writeable_only=writeable_only,
+    )
+
+
+class _BaseWorker(QThread):
+    progress = Signal(float)  # 0.0 … 100.0
+    status = Signal(str)  # human status line
+    error = Signal(str)
+    chunk_ready = Signal(list)  # list[tuple[int, Any]]
+    finished_ok = Signal(int)  # final match count
+
+    def __init__(self, process: AbstractProcess, parent=None):
+        super().__init__(parent)
+        self._process = process
+        self._cancelled = False
+
+    def cancel(self) -> None:
+        self._cancelled = True
+
+
+class FirstScanWorker(_BaseWorker):
+    """Performs the very first scan, finding every address that matches."""
+
+    # Emitted (off the UI thread) with the freshly built MemoryRegionSnapshot
+    # when ``request.build_snapshot`` was set, so the owner can cache it.
+    snapshot_ready = Signal(object)
+
+    def __init__(self, process: AbstractProcess, request: ScanRequest, parent=None):
+        super().__init__(process, parent)
+        self._request = request
+
+    def run(self) -> None:
+        req = self._request
+        try:
+            # Build the region snapshot here rather than on the UI thread: the
+            # enumeration can be slow on a large target and would otherwise
+            # stall the scan dialog. Emit it so the owner can cache it for the
+            # refine/update scans that follow.
+            if req.memory_regions is None and req.build_snapshot:
+                try:
+                    req.memory_regions = self._process.snapshot_memory_regions()
+                    self.snapshot_ready.emit(req.memory_regions)
+                except Exception as exc:  # noqa: BLE001
+                    # Snapshot is an optimization; fall back to per-scan
+                    # enumeration rather than failing the whole scan.
+                    _LOG.warning(
+                        "Region snapshot failed; scanning without cache: %s: %s",
+                        type(exc).__name__,
+                        exc,
+                    )
+                    req.memory_regions = None
+            # Pattern path: req.value is the IDA-style string or a bytes regex,
+            # routed through search_by_pattern. req.length carries byte_length —
+            # ignored for IDA strings (inferred from the token count), required
+            # for a regex (its match width). writeable_only doesn't apply
+            # (pattern scan filters by readability internally; restricting to
+            # writable-only would silently miss code-section signatures, which
+            # is the most common AOB use case).
+            if req.spec.is_pattern:
+                generator = self._process.search_by_pattern(
+                    req.value,
+                    byte_length=req.length,
+                    progress_information=True,
+                    memory_regions=req.memory_regions,
+                )
+            elif req.scan_type in (
+                ScanTypesEnum.VALUE_BETWEEN,
+                ScanTypesEnum.NOT_VALUE_BETWEEN,
+            ):
+                start, end = req.value
+                generator = self._process.search_by_value_between(
+                    req.spec.pytype,
+                    req.length,
+                    start,
+                    end,
+                    not_between=req.scan_type is ScanTypesEnum.NOT_VALUE_BETWEEN,
+                    progress_information=True,
+                    writeable_only=req.writeable_only,
+                    memory_regions=req.memory_regions,
+                )
+            else:
+                generator = self._process.search_by_value(
+                    req.spec.pytype,
+                    req.length,
+                    req.value,
+                    req.scan_type,
+                    progress_information=True,
+                    writeable_only=req.writeable_only,
+                    memory_regions=req.memory_regions,
+                )
+
+            chunk: List = []
+            count = 0
+            # progress_information=True makes the generator yield (address, info)
+            # tuples; the declared Union[int, Tuple[int, dict]] return type is
+            # for the no-progress case. Cast so tuple-unpacking is well-typed.
+            for address, info in cast(
+                "Iterable[Tuple[int, Dict[str, Any]]]", generator
+            ):
+                if self._cancelled:
+                    self.status.emit("Scan cancelled.")
+                    break
+
+                # The value field is filled in later via search_by_addresses;
+                # the scan generator doesn't materialise the current value.
+                chunk.append((address, None))
+                count += 1
+
+                if len(chunk) >= UI_REFRESH_STEP:
+                    self.chunk_ready.emit(chunk)
+                    chunk = []
+                    progress = float(info.get("progress", 0.0)) * 100.0
+                    self.progress.emit(progress)
+                    self.status.emit(f"Found {count:,} addresses…")
+
+            if chunk:
+                self.chunk_ready.emit(chunk)
+
+            self.progress.emit(100.0)
+            self.finished_ok.emit(count)
+        except Exception as exc:  # noqa: BLE001 — surface every backend error to the UI
+            _LOG.warning("First scan failed: %s: %s", type(exc).__name__, exc)
+            self.error.emit(f"{type(exc).__name__}: {exc}")
+
+
+class RefineScanWorker(_BaseWorker):
+    """
+    Performs the "Next Scan" — i.e. re-reads every already-found address with
+    ``search_by_addresses`` and keeps only those whose current value still
+    satisfies the user's filter.
+
+    Set ``filter_only=False`` to just refresh the values without dropping any
+    addresses (this is what the "Update Values" button does).
+    """
+
+    def __init__(
+        self,
+        process: AbstractProcess,
+        request: ScanRequest,
+        addresses: Sequence[int],
+        *,
+        filter_only: bool = True,
+        previous_values: Optional[Mapping[int, Any]] = None,
+        parent=None,
+    ):
+        super().__init__(process, parent)
+        self._request = request
+        self._addresses = list(addresses)
+        self._filter_only = filter_only
+        # Snapshot of {address: value} from the previous scan, needed by the
+        # Increased/Decreased/Changed/Unchanged comparisons.
+        self._previous_values: Mapping[int, Any] = previous_values or {}
+
+    def run(self) -> None:
+        req = self._request
+        compare = COMPARATORS.get(req.scan_type)
+        prev_compare = PREVIOUS_COMPARATORS.get(req.scan_type)
+
+        try:
+            generator = self._process.search_by_addresses(
+                req.spec.pytype,
+                req.length,
+                self._addresses,
+                memory_regions=req.memory_regions,
+            )
+
+            chunk: List = []
+            total = len(self._addresses)
+            seen = 0
+            kept = 0
+
+            for address, current in generator:
+                if self._cancelled:
+                    self.status.emit("Scan cancelled.")
+                    break
+
+                seen += 1
+                # Drop dead addresses outright. For a refine pass we also drop
+                # addresses whose value no longer matches the filter. Either
+                # way the address is appended to the chunk, so the receiver
+                # observes a single batched update instead of one signal per
+                # unreadable page (which on macOS can be most of the heap).
+                if current is None:
+                    chunk.append((address, None, False))
+                    continue
+
+                keeps = True
+                if self._filter_only and prev_compare is not None:
+                    # Increased/Decreased/Changed/Unchanged: compare against the
+                    # value recorded at this address by the previous scan. With
+                    # no baseline (address discovered without a value), keep it
+                    # rather than guessing.
+                    previous = self._previous_values.get(address)
+                    try:
+                        keeps = previous is not None and bool(
+                            prev_compare(current, previous, req.value)
+                        )
+                    except TypeError as exc:
+                        _LOG.debug(
+                            "refine comparator raised TypeError at 0x%X "
+                            "(scan_type=%s, current=%r, previous=%r, target=%r): %s",
+                            address,
+                            req.scan_type,
+                            current,
+                            previous,
+                            req.value,
+                            exc,
+                        )
+                        keeps = False
+                elif self._filter_only and compare is not None:
+                    try:
+                        keeps = bool(compare(current, req.value))
+                    except TypeError as exc:
+                        # The comparator received incompatible types — usually
+                        # a spec/value mismatch in the user's scan request.
+                        # Surfacing this to the log lets us spot a real bug
+                        # without aborting the whole refine pass.
+                        _LOG.debug(
+                            "refine comparator raised TypeError at 0x%X "
+                            "(scan_type=%s, current=%r, target=%r): %s",
+                            address,
+                            req.scan_type,
+                            current,
+                            req.value,
+                            exc,
+                        )
+                        keeps = False
+
+                chunk.append((address, current, keeps))
+                if keeps:
+                    kept += 1
+
+                if len(chunk) >= UI_REFRESH_STEP:
+                    self.chunk_ready.emit(chunk)
+                    chunk = []
+                    if total:
+                        self.progress.emit((seen / total) * 100.0)
+                    self.status.emit(f"Checked {seen:,}/{total:,}, kept {kept:,}…")
+
+            if chunk:
+                self.chunk_ready.emit(chunk)
+
+            # Emit a final tally so the status always ends on the complete
+            # numbers — the in-loop status only fires every UI_REFRESH_STEP
+            # rows, so a small set (or the last partial chunk) would otherwise
+            # leave a stale "Updating values…" / mid-progress count behind.
+            if not self._cancelled:
+                self.status.emit(f"Checked {seen:,}/{total:,}, kept {kept:,}…")
+            self.progress.emit(100.0)
+            self.finished_ok.emit(kept)
+        except Exception as exc:  # noqa: BLE001 — surface every backend error to the UI
+            _LOG.warning("Refine scan failed: %s: %s", type(exc).__name__, exc)
+            self.error.emit(f"{type(exc).__name__}: {exc}")

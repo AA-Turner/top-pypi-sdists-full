@@ -156,6 +156,7 @@ impl From<TextContent> for TextSpan {
             is_monospace: false,
             color: content.style.color,
             mcid: None,
+            mcid_scope: None,
             sequence: content.reading_order.unwrap_or(0),
             split_boundary_before: false,
             offset_semantic: false,
@@ -167,6 +168,7 @@ impl From<TextContent> for TextSpan {
             char_widths: vec![],
             heading_level: None,
             rotation_degrees: 0.0,
+            wmode: 0,
         }
     }
 }
@@ -323,6 +325,7 @@ mod tests {
             is_monospace: false,
             color: Color::black(),
             mcid: None,
+            mcid_scope: None,
             sequence: 3,
             split_boundary_before: false,
             offset_semantic: false,
@@ -333,6 +336,7 @@ mod tests {
             char_widths: vec![],
             heading_level: None,
             rotation_degrees: 0.0,
+            wmode: 0,
         };
 
         let content: TextContent = span.into();

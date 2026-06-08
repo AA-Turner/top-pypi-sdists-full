@@ -76,7 +76,53 @@ def _resolve_repo_vsix(repo_root: Path, ide: str, version: str | None) -> Path |
     return vsix_files[0] if vsix_files else None
 
 
-def manual_vsix_unpack(*, ide: str, repo_root: Path) -> RepairAttempt:
+def _get_installed_version(ide: str) -> str | None:
+    installed_dir = _installed_extension_dir(ide)
+    if installed_dir is None:
+        return None
+    pkg = installed_dir / "package.json"
+    if not pkg.is_file():
+        return None
+    try:
+        return (
+            str(json.loads(pkg.read_text(encoding="utf-8")).get("version") or "").strip()
+            or None
+        )
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _read_vsix_version(vsix: Path) -> str | None:
+    try:
+        with zipfile.ZipFile(vsix) as archive:
+            pkg = json.loads(archive.read("extension/package.json"))
+            return str(pkg.get("version") or "0.0.0")
+    except (OSError, KeyError, zipfile.BadZipFile, json.JSONDecodeError):
+        return None
+
+
+def _unpack_vsix_archive(vsix: Path, target: Path, tmp: Path) -> str | None:
+    """Unpacks vsix zip archive to tmp and moves 'extension' to target.
+    Returns error message if any, or None if successful.
+    """
+    if target.exists():
+        shutil.rmtree(target)
+    if tmp.exists():
+        shutil.rmtree(tmp)
+    tmp.mkdir(parents=True, exist_ok=True)
+    try:
+        with zipfile.ZipFile(vsix) as archive:
+            archive.extractall(tmp)
+        extracted = tmp / "extension"
+        if not extracted.is_dir():
+            return f"VSIX layout missing extension/ in {vsix}"
+        shutil.move(str(extracted), str(target))
+        return None
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _vsix_unpack_layout(ide: str) -> tuple[Path, str, str] | RepairAttempt:
     layout = _EXTENSION_LAYOUT.get(ide)
     if layout is None:
         return RepairAttempt(
@@ -88,19 +134,11 @@ def manual_vsix_unpack(*, ide: str, repo_root: Path) -> RepairAttempt:
     rel_root, ext_prefix = layout
     ext_root = Path.home() / rel_root
     ext_root.mkdir(parents=True, exist_ok=True)
+    return ext_root, ext_prefix, ide
 
-    version = None
-    installed_dir = _installed_extension_dir(ide)
-    if installed_dir is not None:
-        pkg = installed_dir / "package.json"
-        if pkg.is_file():
-            try:
-                version = (
-                    str(json.loads(pkg.read_text(encoding="utf-8")).get("version") or "").strip()
-                    or None
-                )
-            except (OSError, json.JSONDecodeError):
-                version = None
+
+def _vsix_source(ide: str, repo_root: Path) -> Path | RepairAttempt:
+    version = _get_installed_version(ide)
     vsix = _resolve_repo_vsix(repo_root, ide, version)
     if vsix is None:
         return RepairAttempt(
@@ -109,11 +147,16 @@ def manual_vsix_unpack(*, ide: str, repo_root: Path) -> RepairAttempt:
             ok=False,
             message=f"no VSIX found under {repo_root}/plugins for ide={ide}",
         )
+    return vsix
 
-    try:
-        with zipfile.ZipFile(vsix) as archive:
-            pkg = json.loads(archive.read("extension/package.json"))
-    except (OSError, KeyError, zipfile.BadZipFile, json.JSONDecodeError):
+
+def _vsix_unpack_result(
+    ext_root: Path,
+    ext_prefix: str,
+    vsix: Path,
+) -> RepairAttempt:
+    vsix_version = _read_vsix_version(vsix)
+    if vsix_version is None:
         return RepairAttempt(
             action_id="manual_vsix_unpack",
             mode="auto",
@@ -121,28 +164,17 @@ def manual_vsix_unpack(*, ide: str, repo_root: Path) -> RepairAttempt:
             message=f"cannot read VSIX package.json from {vsix}",
         )
 
-    version = str(pkg.get("version") or "0.0.0")
-    target = ext_root / f"{ext_prefix}-{version}"
-    if target.exists():
-        shutil.rmtree(target)
-    tmp = ext_root / f".{ext_prefix}-{version}.tmp"
-    if tmp.exists():
-        shutil.rmtree(tmp)
-    tmp.mkdir(parents=True, exist_ok=True)
-    try:
-        with zipfile.ZipFile(vsix) as archive:
-            archive.extractall(tmp)
-        extracted = tmp / "extension"
-        if not extracted.is_dir():
-            return RepairAttempt(
-                action_id="manual_vsix_unpack",
-                mode="auto",
-                ok=False,
-                message=f"VSIX layout missing extension/ in {vsix}",
-            )
-        shutil.move(str(extracted), str(target))
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+    target = ext_root / f"{ext_prefix}-{vsix_version}"
+    tmp = ext_root / f".{ext_prefix}-{vsix_version}.tmp"
+
+    err = _unpack_vsix_archive(vsix, target, tmp)
+    if err:
+        return RepairAttempt(
+            action_id="manual_vsix_unpack",
+            mode="auto",
+            ok=False,
+            message=err,
+        )
 
     build_sha = _read_package_build_sha(target / "package.json")
     return RepairAttempt(
@@ -154,6 +186,20 @@ def manual_vsix_unpack(*, ide: str, repo_root: Path) -> RepairAttempt:
             f"from {vsix.name}; reload IDE window required"
         ),
     )
+
+
+def manual_vsix_unpack(*, ide: str, repo_root: Path) -> RepairAttempt:
+    layout = _vsix_unpack_layout(ide)
+    if isinstance(layout, RepairAttempt):
+        return layout
+    ext_root, ext_prefix, _ = layout
+
+    vsix = _vsix_source(ide, repo_root)
+    if isinstance(vsix, RepairAttempt):
+        return vsix
+
+    return _vsix_unpack_result(ext_root, ext_prefix, vsix)
+
 
 
 def plugin_build_aligned(

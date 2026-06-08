@@ -1,21 +1,20 @@
 Metadata-Version: 2.4
 Name: python-debian
-Version: 1.1.0
+Version: 1.1.1
 Summary: Modules to read and manipulate many file formats related to Debian packages and repositories
 Author-email: Debian python-debian Maintainers <pkg-python-debian-maint@lists.alioth.debian.org>
-License: GPL-2.0-or-later
+License-Expression: GPL-2.0-or-later
 Project-URL: homepage, https://salsa.debian.org/python-debian-team/python-debian
 Keywords: debian,linux,metadata,packages,packaging
 Platform: any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Intended Audience :: Developers
-Classifier: License :: DFSG approved
-Classifier: License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)
 Classifier: Operating System :: POSIX
 Requires-Python: >=3.7
 Description-Content-Type: text/x-rst
-Requires-Dist: charset-normalizer
+Provides-Extra: encodings
+Requires-Dist: charset-normalizer; extra == "encodings"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"

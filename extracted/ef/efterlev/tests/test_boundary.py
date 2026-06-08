@@ -301,3 +301,46 @@ def test_boundary_config_rejects_unknown_field() -> None:
 
     with pytest.raises(ValidationError):
         BoundaryConfig(includes=["x"])  # type: ignore[call-arg]
+
+
+# --- in_scope_evidence (gap-agent boundary enforcement, v0.1.219) -----------
+
+
+def _ev_with_boundary(state: str, name: str) -> Evidence:
+    return Evidence.create(
+        detector_id="aws.encryption_s3_at_rest",
+        source_ref=SourceRef(file=Path(f"{name}.tf"), line_start=1, line_end=3),
+        ksis_evidenced=["KSI-SVC-PRR"],
+        controls_evidenced=["SC-28"],
+        content={"resource_name": name, "encryption_state": "present"},
+        timestamp=datetime(2026, 6, 7, tzinfo=UTC),
+        boundary_state=state,  # type: ignore[arg-type]
+    )
+
+
+def test_in_scope_evidence_drops_only_out_of_boundary() -> None:
+    """Regression for the govnotes-demo gap #27 boundary leak (2026-06-07):
+    the Gap Agent must not be fed out_of_boundary evidence. in_boundary and
+    boundary_undeclared are kept; out_of_boundary is dropped."""
+    from efterlev.agents.gap import in_scope_evidence
+
+    keep_in = _ev_with_boundary("in_boundary", "prod_db")
+    keep_undeclared = _ev_with_boundary("boundary_undeclared", "app")
+    drop_out = _ev_with_boundary("out_of_boundary", "dev_scratch")
+
+    result = in_scope_evidence([keep_in, drop_out, keep_undeclared])
+
+    ids = {ev.evidence_id for ev in result}
+    assert keep_in.evidence_id in ids
+    assert keep_undeclared.evidence_id in ids
+    assert drop_out.evidence_id not in ids
+
+
+def test_in_scope_evidence_noop_when_nothing_out_of_boundary() -> None:
+    """Boundary-free workspaces (every validated eval fixture) are unaffected —
+    all records are boundary_undeclared, so the filter is a no-op. This is why
+    the fix carries zero regression risk to the maintainer-validated baselines."""
+    from efterlev.agents.gap import in_scope_evidence
+
+    evs = [_ev_with_boundary("boundary_undeclared", f"r{i}") for i in range(3)]
+    assert in_scope_evidence(evs) == evs

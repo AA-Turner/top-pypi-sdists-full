@@ -10,6 +10,7 @@ use crate::custom_family::{
 };
 use crate::estimate::UnifiedFitResult;
 use crate::estimate::reml::unified::{DenseSpectralOperator, HessianOperator, HyperOperator};
+use crate::families::cubic_cell_kernel as exact_kernel;
 use crate::families::gamlss::{ParameterBlockInput, initialize_monotone_wiggle_knots_from_seed};
 use crate::families::jet_partitions::MultiDirJet;
 use crate::families::lognormal_kernel::FrailtySpec;
@@ -48,7 +49,7 @@ use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
 pub mod deviation_runtime;
-pub(crate) mod exact_kernel;
+pub mod gpu;
 pub use deviation_runtime::DeviationRuntime;
 pub use deviation_runtime::ParametricAnchorBlock;
 
@@ -1088,7 +1089,6 @@ pub(super) const BERNOULLI_MARGSLOPE_LINE_SEARCH_EARLY_EXIT_CHUNK_ROWS: usize = 
 // ---------------------------------------------------------------------------
 // Submodule declarations
 // ---------------------------------------------------------------------------
-pub mod audit_jacobian;
 pub(crate) mod block_specs;
 pub(crate) mod exact_eval_cache;
 pub(crate) mod family;
@@ -1097,12 +1097,10 @@ pub(crate) mod hessian_paths;
 pub(crate) mod install_flex;
 pub(crate) mod row_kernel;
 #[cfg(test)]
-mod tests_inline;
+#[path = "../../../tests/src_modules/families_bms_tests.rs"]
+mod tests;
 pub(crate) mod workspace;
 
-// ---------------------------------------------------------------------------
-// Public re-exports — preserve the original module path's public surface.
-// ---------------------------------------------------------------------------
 pub use block_specs::fit_bernoulli_marginal_slope_terms;
 pub use gradient_paths::{
     MarginalSlopeCovariance, MarginalSlopeCovarianceShape, marginal_slope_covariance_from_scores,

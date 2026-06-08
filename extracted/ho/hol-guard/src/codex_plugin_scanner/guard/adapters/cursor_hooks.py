@@ -12,17 +12,17 @@ from hashlib import sha256
 from pathlib import Path
 
 from .base import HarnessContext
+from .cursor_native_approval import ensure_cursor_hook_attestation_secret
 
 HOOK_SCRIPT_NAME = "hol-guard-cursor-hook.py"
-_MANAGED_HOOK_EVENTS = (
+_BLOCKING_MANAGED_HOOK_EVENTS = (
     "beforeShellExecution",
     "beforeMCPExecution",
-    "preToolUse",
     "beforeReadFile",
 )
-_PRETOOL_MATCHER = r"Shell|MCP|mcp__.*|Bash|Read"
-_HOOK_ARGV_ENV = "HOL_GUARD_HOOK_ARGV"
-_MANAGED_HOOK_TIMEOUT_SECONDS = 35
+_OBSERVER_MANAGED_HOOK_EVENTS = ("afterShellExecution",)
+_MANAGED_HOOK_EVENTS = _BLOCKING_MANAGED_HOOK_EVENTS + _OBSERVER_MANAGED_HOOK_EVENTS
+_MANAGED_HOOK_TIMEOUT_SECONDS = 45
 _LEGACY_MANAGED_COMMAND_MARKERS = (
     "hol-guard-cursor-hook.py",
     "HOL_GUARD_HOOK_ARGV",
@@ -31,23 +31,47 @@ _LEGACY_MANAGED_COMMAND_MARKERS = (
 )
 
 
+def _infer_cursor_hook_event_name(payload: Mapping[str, object]) -> dict[str, object]:
+    normalized = dict(payload)
+    if _raw_hook_event_name(normalized):
+        return normalized
+    file_path = normalized.get("file_path")
+    if isinstance(file_path, str) and file_path.strip():
+        normalized["hook_event_name"] = "beforeReadFile"
+        return normalized
+    command = normalized.get("command")
+    if isinstance(command, str) and command.strip():
+        normalized["hook_event_name"] = "beforeShellExecution"
+        return normalized
+    if normalized.get("tool_name") is not None or normalized.get("tool_input") is not None:
+        normalized["hook_event_name"] = "preToolUse"
+    return normalized
+
+
+def _cursor_shell_hook_payload(normalized: dict[str, object], *, hook_event_name: str) -> dict[str, object]:
+    payload = dict(normalized)
+    payload["hook_event_name"] = hook_event_name
+    payload.setdefault("tool_name", "Shell")
+    tool_input = _tool_input_dict(payload.get("tool_input"))
+    command = payload.get("command")
+    if isinstance(command, str) and command.strip():
+        tool_input.setdefault("command", command.strip())
+    cwd = payload.get("cwd")
+    if isinstance(cwd, str) and cwd.strip():
+        tool_input.setdefault("working_directory", cwd.strip())
+    payload["tool_input"] = tool_input
+    return payload
+
+
 def prepare_cursor_hook_payload(payload: Mapping[str, object]) -> dict[str, object]:
     """Map Cursor hook stdin JSON into Guard hook normalization shape."""
 
-    normalized = dict(payload)
+    normalized = _infer_cursor_hook_event_name(payload)
     raw_event = _raw_hook_event_name(normalized)
+    if raw_event == "aftershellexecution":
+        return _cursor_shell_hook_payload(normalized, hook_event_name="afterShellExecution")
     if raw_event == "beforeshellexecution":
-        normalized["hook_event_name"] = "PreToolUse"
-        normalized.setdefault("tool_name", "Shell")
-        tool_input = _tool_input_dict(normalized.get("tool_input"))
-        command = normalized.get("command")
-        if isinstance(command, str) and command.strip():
-            tool_input.setdefault("command", command.strip())
-        cwd = normalized.get("cwd")
-        if isinstance(cwd, str) and cwd.strip():
-            tool_input.setdefault("working_directory", cwd.strip())
-        normalized["tool_input"] = tool_input
-        return normalized
+        return _cursor_shell_hook_payload(normalized, hook_event_name="PreToolUse")
     if raw_event == "beforemcpexecution":
         normalized["hook_event_name"] = "PreToolUse"
         tool_name = normalized.get("tool_name")
@@ -75,6 +99,38 @@ def prepare_cursor_hook_payload(payload: Mapping[str, object]) -> dict[str, obje
     if raw_event == "pretooluse":
         normalized["hook_event_name"] = "PreToolUse"
     return normalized
+
+
+def _validated_hol_guard_src_path(path_str: str) -> str | None:
+    """Accept only directories that look like a hol-guard source tree."""
+
+    try:
+        if not isinstance(path_str, str) or not path_str.strip():
+            return None
+        candidate = Path(path_str.strip()).expanduser().resolve()
+    except (OSError, RuntimeError, ValueError, TypeError):
+        return None
+    if not candidate.is_dir():
+        return None
+    if not (candidate / "codex_plugin_scanner").is_dir():
+        return None
+    return str(candidate)
+
+
+def cursor_hook_would_prompt_user(
+    *,
+    policy_action: str,
+    guard_payload: Mapping[str, object] | None = None,
+) -> bool:
+    """Return True when Guard maps this hook result to Cursor permission ask."""
+
+    if policy_action in {"require-reapproval", "review"}:
+        return True
+    return (
+        policy_action == "warn"
+        and guard_payload is not None
+        and _guard_payload_has_actionable_risk_for_policy(guard_payload)
+    )
 
 
 def cursor_hook_response_from_guard(
@@ -140,6 +196,7 @@ def install_cursor_hooks(context: HarnessContext) -> dict[str, object]:
     script_path.parent.mkdir(parents=True, exist_ok=True)
     script_path.write_text(script_source, encoding="utf-8")
     _make_executable(script_path)
+    ensure_cursor_hook_attestation_secret(context.guard_home)
 
     original_text = hooks_path.read_text(encoding="utf-8") if hooks_path.is_file() else None
     backup_path = _hooks_backup_path(hooks_path, context)
@@ -171,6 +228,13 @@ def install_cursor_hooks(context: HarnessContext) -> dict[str, object]:
     for event_name in _MANAGED_HOOK_EVENTS:
         entry = _managed_hook_entry(context, script_path=script_path, event_name=event_name)
         hooks[event_name] = _merge_hook_entries(hooks.get(event_name), entry, event_name=event_name)
+    pre_tool_use = hooks.get("preToolUse")
+    if pre_tool_use is not None:
+        stripped = _strip_managed_hook_entries(pre_tool_use, script_path=script_path)
+        if stripped:
+            hooks["preToolUse"] = stripped
+        else:
+            hooks.pop("preToolUse", None)
     payload["hooks"] = hooks
     hooks_path.parent.mkdir(parents=True, exist_ok=True)
     hooks_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -392,7 +456,7 @@ def cursor_hook_script_source(context: HarnessContext) -> str:
         )
         .replace(
             "__GUARD_HOOK_TIMEOUT_SECONDS__",
-            str(max(_MANAGED_HOOK_TIMEOUT_SECONDS - 5, 1)),
+            str(max(_MANAGED_HOOK_TIMEOUT_SECONDS - 3, 1)),
         )
     )
 
@@ -412,14 +476,18 @@ _INHERIT_ENV_KEYS = (
     "CURSOR_TRACE_ID",
     "CURSOR_SESSION_ID",
     "CURSOR_TRANSCRIPT_PATH",
+    "HOL_GUARD_SRC",
 )
 
 _HOOK_SCRIPT_TEMPLATE = '''#!/usr/bin/env python3
 """Managed by HOL Guard. Re-run `hol-guard install cursor` after moving Guard home."""
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import os
+import shlex
 import subprocess
 import sys
 from collections.abc import Mapping
@@ -438,22 +506,149 @@ def _hook_process_env() -> dict[str, str]:
         value = os.environ.get(key)
         if isinstance(value, str) and value:
             env[key] = value
+    dev_src = os.environ.get("HOL_GUARD_SRC")
+    validated = _validated_hol_guard_src_path(dev_src) if isinstance(dev_src, str) else None
+    if validated is not None:
+        env["PYTHONPATH"] = validated
+    else:
+        dev_src_file = Path(GUARD_HOME) / "cursor-dev-src"
+        if dev_src_file.is_file():
+            try:
+                configured_src = dev_src_file.read_text(encoding="utf-8").strip()
+            except OSError:
+                configured_src = ""
+            validated = _validated_hol_guard_src_path(configured_src)
+            if validated is not None:
+                env["PYTHONPATH"] = validated
     return env
+
+
+def _validated_hol_guard_src_path(path_str: str) -> str | None:
+    try:
+        if not isinstance(path_str, str) or not path_str.strip():
+            return None
+        candidate = Path(path_str.strip()).expanduser().resolve()
+    except (OSError, RuntimeError, ValueError, TypeError):
+        return None
+    if not candidate.is_dir():
+        return None
+    if not (candidate / "codex_plugin_scanner").is_dir():
+        return None
+    return str(candidate)
 
 
 def _workspace_from_cursor_input(payload: dict[str, object]) -> str | None:
     project_dir = os.environ.get("CURSOR_PROJECT_DIR")
     if isinstance(project_dir, str) and project_dir.strip():
-        return project_dir.strip()
+        candidate = project_dir.strip()
+        if Path(candidate).is_dir():
+            return candidate
     roots = payload.get("workspace_roots") or payload.get("workspaceRoots")
     if isinstance(roots, list):
         for item in roots:
             if isinstance(item, str) and item.strip():
-                return item.strip()
+                candidate = item.strip()
+                if Path(candidate).is_dir():
+                    return candidate
     cwd = payload.get("cwd")
     if isinstance(cwd, str) and cwd.strip():
-        return cwd.strip()
+        candidate = cwd.strip()
+        if Path(candidate).is_dir():
+            return candidate
     return None
+
+
+def _tool_input_dict(value: object) -> dict[str, object]:
+    if isinstance(value, dict):
+        return dict(value)
+    if isinstance(value, list):
+        return {"arguments": list(value)}
+    if isinstance(value, str) and value.strip():
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return {"raw": value.strip()}
+        if isinstance(parsed, dict):
+            return dict(parsed)
+        if isinstance(parsed, list):
+            return {"arguments": list(parsed)}
+    return {}
+
+
+def _raw_hook_event_name(payload: dict[str, object]) -> str:
+    for key in ("hook_event_name", "hookEventName", "hook_name", "hookName", "event", "eventName"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip().lower()
+    return ""
+
+
+def _infer_cursor_hook_event_name(payload: dict[str, object]) -> dict[str, object]:
+    normalized = dict(payload)
+    if _raw_hook_event_name(normalized):
+        return normalized
+    file_path = normalized.get("file_path")
+    if isinstance(file_path, str) and file_path.strip():
+        normalized["hook_event_name"] = "beforeReadFile"
+        return normalized
+    command = normalized.get("command")
+    if isinstance(command, str) and command.strip():
+        normalized["hook_event_name"] = "beforeShellExecution"
+        return normalized
+    if normalized.get("tool_name") is not None or normalized.get("tool_input") is not None:
+        normalized["hook_event_name"] = "preToolUse"
+    return normalized
+
+
+def _cursor_shell_hook_payload(normalized: dict[str, object], hook_event_name: str) -> dict[str, object]:
+    payload = dict(normalized)
+    payload["hook_event_name"] = hook_event_name
+    payload.setdefault("tool_name", "Shell")
+    tool_input = _tool_input_dict(payload.get("tool_input"))
+    command = payload.get("command")
+    if isinstance(command, str) and command.strip():
+        tool_input.setdefault("command", command.strip())
+    cwd = payload.get("cwd")
+    if isinstance(cwd, str) and cwd.strip():
+        tool_input.setdefault("working_directory", cwd.strip())
+    payload["tool_input"] = tool_input
+    return payload
+
+
+def _prepare_cursor_hook_payload(payload: dict[str, object]) -> dict[str, object]:
+    normalized = _infer_cursor_hook_event_name(payload)
+    raw_event = _raw_hook_event_name(normalized)
+    if raw_event == "aftershellexecution":
+        return _cursor_shell_hook_payload(normalized, "afterShellExecution")
+    if raw_event == "beforeshellexecution":
+        return _cursor_shell_hook_payload(normalized, "PreToolUse")
+    if raw_event == "beforemcpexecution":
+        normalized["hook_event_name"] = "PreToolUse"
+        tool_name = normalized.get("tool_name")
+        if isinstance(tool_name, str) and tool_name.strip():
+            normalized["tool_name"] = tool_name.strip()
+        else:
+            normalized.setdefault("tool_name", "MCP")
+        tool_input = _tool_input_dict(normalized.get("tool_input"))
+        for key in ("url", "command"):
+            value = normalized.get(key)
+            if isinstance(value, str) and value.strip():
+                tool_input.setdefault(key, value.strip())
+        normalized["tool_input"] = tool_input
+        return normalized
+    if raw_event == "beforereadfile":
+        normalized["hook_event_name"] = "PreToolUse"
+        normalized.setdefault("tool_name", "Read")
+        tool_input = _tool_input_dict(normalized.get("tool_input"))
+        file_path = normalized.get("file_path")
+        if isinstance(file_path, str) and file_path.strip():
+            tool_input.setdefault("file_path", file_path.strip())
+            tool_input.setdefault("path", file_path.strip())
+        normalized["tool_input"] = tool_input
+        return normalized
+    if raw_event == "pretooluse":
+        normalized["hook_event_name"] = "PreToolUse"
+    return normalized
 
 
 def _guard_payload_has_actionable_risk(guard_payload: dict[str, object]) -> bool:
@@ -543,6 +738,137 @@ def _emit_cursor_response(
     return response, exit_code
 
 
+def _cursor_generation_id(payload: Mapping[str, object]) -> str | None:
+    for key in ("generation_id", "generationId"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _cursor_conversation_id(payload: Mapping[str, object]) -> str | None:
+    for key in ("conversation_id", "conversationId", "session_id", "sessionId"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    session_id = os.environ.get("CURSOR_SESSION_ID")
+    if isinstance(session_id, str) and session_id.strip():
+        return session_id.strip()
+    return None
+
+
+def _normalize_cursor_shell_command(command: str) -> str:
+    stripped = command.strip()
+    if not stripped or len(stripped) > 8192:
+        return stripped
+    lowered = stripped.lower()
+    needle = "lean-ctx"
+    start = 0
+    while True:
+        idx = lowered.find(needle, start)
+        if idx == -1:
+            return stripped
+        if idx == 0 or stripped[idx - 1] == "/":
+            tail = stripped[idx + len(needle) :].lstrip()
+            if tail.startswith("-c"):
+                rest = tail[2:].lstrip()
+                try:
+                    tokens = shlex.split(rest, posix=True, comments=False)
+                except ValueError:
+                    tokens = None
+                if tokens:
+                    inner = tokens[0]
+                    suffix = tokens[1:]
+                    return " ".join((inner, *suffix)) if suffix else inner
+                if rest.startswith("'"):
+                    parts = []
+                    index = 1
+                    while index < len(rest):
+                        character = rest[index]
+                        if character != "'":
+                            parts.append(character)
+                            index += 1
+                            continue
+                        if index + 3 < len(rest) and rest[index : index + 4] == "'\\''":
+                            parts.append("'")
+                            index += 4
+                            continue
+                        inner = "".join(parts)
+                        suffix = rest[index + 1 :].lstrip()
+                        return " ".join((inner, suffix)) if suffix else inner
+                return stripped
+        start = idx + 1
+    return stripped
+
+
+def _cursor_shell_command(payload: Mapping[str, object]) -> str | None:
+    command = payload.get("command")
+    if isinstance(command, str) and command.strip():
+        return _normalize_cursor_shell_command(command)
+    tool_input = payload.get("tool_input")
+    if isinstance(tool_input, dict):
+        nested = tool_input.get("command")
+        if isinstance(nested, str) and nested.strip():
+            return _normalize_cursor_shell_command(nested)
+    return None
+
+
+def _cursor_shell_binding_path(conversation_id: str, command: str) -> Path:
+    cleaned = conversation_id.strip()
+    if not cleaned or "/" in cleaned or "\\\\" in cleaned or cleaned in {".", ".."}:
+        segment = hashlib.sha256(cleaned.encode("utf-8")).hexdigest()[:32] if cleaned else "missing-conversation"
+    else:
+        segment = cleaned
+    normalized_command = _normalize_cursor_shell_command(command)
+    fingerprint = hashlib.sha256(normalized_command.encode("utf-8")).hexdigest()[:24]
+    return Path(GUARD_HOME) / "cursor-shell-bindings" / segment / fingerprint
+
+
+def _read_cursor_shell_binding_file(conversation_id: str, command: str) -> str | None:
+    binding_path = _cursor_shell_binding_path(conversation_id, command)
+    try:
+        binding = binding_path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    return binding or None
+
+
+def _resolve_approval_binding(payload: Mapping[str, object]) -> str | None:
+    binding = _cursor_generation_id(payload)
+    if binding is not None:
+        return binding
+    conversation_id = _cursor_conversation_id(payload)
+    command = _cursor_shell_command(payload)
+    if conversation_id is None or command is None:
+        return None
+    return _read_cursor_shell_binding_file(conversation_id, command)
+
+
+def _load_cursor_hook_attestation_secret() -> bytes | None:
+    secret_path = Path(GUARD_HOME) / "secrets" / "cursor-hook-attestation.key"
+    try:
+        secret = secret_path.read_bytes()
+    except OSError:
+        return None
+    return secret or None
+
+
+def _compute_cursor_after_shell_proof(
+    payload: Mapping[str, object],
+    approval_binding: str | None = None,
+) -> str | None:
+    conversation_id = _cursor_conversation_id(payload)
+    command = _cursor_shell_command(payload)
+    resolved_binding = approval_binding or _resolve_approval_binding(payload)
+    secret = _load_cursor_hook_attestation_secret()
+    if conversation_id is None or command is None or resolved_binding is None or secret is None:
+        return None
+    message = chr(0).join(
+        (conversation_id, command, resolved_binding, "afterShellExecution")
+    ).encode("utf-8")
+    return hmac.new(secret, message, hashlib.sha256).hexdigest()
+
+
 def main() -> int:
     raw = sys.stdin.read()
     if not raw.strip():
@@ -556,7 +882,10 @@ def main() -> int:
     if not isinstance(payload, dict):
         print(json.dumps({"permission": "deny", "user_message": "HOL Guard received invalid Cursor hook input."}))
         return 2
-    workspace = _workspace_from_cursor_input(payload)
+    inferred = _infer_cursor_hook_event_name(payload)
+    hook_event_name = str(inferred.get("hook_event_name") or inferred.get("hookEventName") or "preToolUse")
+    prepared = _prepare_cursor_hook_payload(inferred)
+    workspace = _workspace_from_cursor_input(prepared)
     guard_argv = list(GUARD_HOOK_ARGV)
     if workspace:
         if "--workspace" in guard_argv:
@@ -565,16 +894,38 @@ def main() -> int:
                 guard_argv[workspace_index + 1] = workspace
         else:
             guard_argv.extend(["--workspace", workspace])
+    guard_env = _hook_process_env()
+    guard_env["HOL_GUARD_MANAGED_CURSOR_HOOK"] = "1"
+    if hook_event_name.strip().lower() == "aftershellexecution":
+        approval_binding = _resolve_approval_binding(prepared)
+        proof = _compute_cursor_after_shell_proof(prepared, approval_binding)
+        if approval_binding:
+            guard_env["HOL_GUARD_CURSOR_APPROVAL_BINDING"] = approval_binding
+        if proof:
+            guard_env["HOL_GUARD_CURSOR_AFTER_SHELL_PROOF"] = proof
     try:
         proc = subprocess.run(
             [*GUARD_CLI, *guard_argv],
-            input=json.dumps(payload),
+            input=json.dumps(prepared),
             capture_output=True,
             text=True,
             cwd=GUARD_HOME,
-            env=_hook_process_env(),
+            env=guard_env,
             timeout=GUARD_HOOK_TIMEOUT_SECONDS,
         )
+    except subprocess.TimeoutExpired:
+        print(
+            json.dumps(
+                {
+                    "permission": "deny",
+                    "user_message": (
+                        f"HOL Guard hook timed out after {GUARD_HOOK_TIMEOUT_SECONDS}s. "
+                        "Run `hol-guard status`, approve pending requests, then retry."
+                    ),
+                }
+            )
+        )
+        return 2
     except Exception as exc:
         print(
             json.dumps(
@@ -594,7 +945,9 @@ def main() -> int:
         except json.JSONDecodeError:
             guard_payload = {}
     policy_action = str(guard_payload.get("policy_action") or "allow")
-    hook_event_name = str(payload.get("hook_event_name") or payload.get("hookEventName") or "preToolUse")
+    if hook_event_name.strip().lower() == "aftershellexecution":
+        print("{}")
+        return 0
     if proc.returncode != 0 and not guard_payload:
         print(
             json.dumps(
@@ -630,11 +983,16 @@ def _managed_hook_entry(
     entry: dict[str, object] = {
         "command": str(script_path.resolve()),
         "timeout": _MANAGED_HOOK_TIMEOUT_SECONDS,
-        "failClosed": event_name in _MANAGED_HOOK_EVENTS,
+        "failClosed": event_name in _BLOCKING_MANAGED_HOOK_EVENTS,
     }
-    if event_name == "preToolUse":
-        entry["matcher"] = _PRETOOL_MATCHER
     return entry
+
+
+def _strip_managed_hook_entries(entries: object, *, script_path: Path) -> list[object]:
+    if not isinstance(entries, list):
+        return []
+    command = str(script_path.resolve())
+    return [entry for entry in entries if not _is_managed_hook_entry(entry, command=command)]
 
 
 def _merge_hook_entries(entries: object, hook_entry: dict[str, object], *, event_name: str) -> list[object]:
@@ -658,6 +1016,8 @@ def _is_managed_hook_command(command: object) -> bool:
     if not isinstance(command, str):
         return False
     lowered = command.lower()
+    if "hol-guard-cursor-hook" in lowered:
+        return True
     if HOOK_SCRIPT_NAME.lower() in lowered:
         return True
     if "hol_guard_hook_argv" not in lowered.replace("-", "_"):

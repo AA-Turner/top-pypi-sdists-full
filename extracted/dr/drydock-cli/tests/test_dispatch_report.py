@@ -9,7 +9,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 from pathlib import Path
 
 import pytest
@@ -27,7 +27,7 @@ def report_mod():
 
 
 def _now_iso(offset_hours: float = 0.0) -> str:
-    t = datetime.now(timezone.utc) + timedelta(hours=offset_hours)
+    t = datetime.now(UTC) + timedelta(hours=offset_hours)
     return t.isoformat()
 
 

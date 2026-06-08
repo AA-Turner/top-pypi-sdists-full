@@ -120,8 +120,8 @@ class SparsityConfig:
         if isinstance(sched, str):
             kind, start, end = cls._parse_tau_schedule(sched)
             data["tau_schedule"] = kind
-            data.setdefault("tau_start", start)
-            data.setdefault("tau_min", end)
+            data["tau_start"] = start
+            data["tau_min"] = end
         elif sched is not None:
             data["tau_schedule"] = str(sched)
         return cls(**data)
@@ -173,10 +173,7 @@ class DecoderConfig:
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "DecoderConfig":
-        data = dict(payload)
-        # Legacy field kept for backward compatibility with earlier dict payloads.
-        data.pop("monotonicity_supported", None)
-        return cls(**data)
+        return cls(**dict(payload))
 
 
 @dataclass(frozen=True, slots=True)

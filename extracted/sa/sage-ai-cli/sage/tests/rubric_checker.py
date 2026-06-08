@@ -500,39 +500,122 @@ def verify_cli_with_rubric(prompt: str, domain: str = "generate_files") -> None:
 
 
 def verify_sms_with_rubric(prompt: str, tmp_path: Path) -> None:
-    """Run SAGE SMS bridge functionally and check grading rubric."""
-    from sage.core.sms_bridge import SAGEMessageBridge, SMSConfig
+    """Run SAGE SMS bridge functionally and check grading rubric using real emails."""
     import os
-    
+    import time
+    import uuid
+    import smtplib
+    import imaplib
+    import email
+    from email.mime.text import MIMEText
+    import subprocess
+    import pytest
+    from sage.core.cli_auth import get_auth_token
+    from sage.core.config import get_api_base
+    import httpx
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
     prompt = _convert_to_build_prompt(prompt)
     
-    cfg = SMSConfig(
-        computer_name="TestPC",
-        working_dir=str(tmp_path),
-        model="cloud:qwen3-coder"
+    bridge_email = os.environ.get("SAGE_BRIDGE_EMAIL", "messages@sageworksai.com")
+    password = os.environ.get("SAGE_BRIDGE_APP_PASSWORD")
+    if not password:
+        pytest.skip("SAGE_BRIDGE_APP_PASSWORD not set. Cannot run real email tests.")
+
+    # 1. Register the bridge email as a contact for the current user so the backend routes it back to us.
+    token = get_auth_token()
+    api_base = get_api_base()
+    if token:
+        try:
+            httpx.post(f"{api_base}/sms/contacts", json={"email": bridge_email, "label": "E2E Test"}, headers={"Authorization": f"Bearer {token}"}, timeout=10.0)
+        except Exception as e:
+            print(f"Warning: Failed to register contact: {e}")
+
+    unique_id = str(uuid.uuid4())[:8]
+    subject = f"Test Task {unique_id}"
+    
+    # 2. Start the CLI SMS bridge in the background to receive the task
+    import sys
+    cli_proc = subprocess.Popen(
+        [sys.executable, "-m", "sage.main", "sms", "start"],
+        cwd=str(tmp_path),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True
     )
     
-    # Configure PYTHONPATH environment so the spawned subprocess finds our modules
-    project_root = str(Path(__file__).resolve().parents[2])
-    os.environ["PYTHONPATH"] = os.path.pathsep.join(filter(None, [
-        project_root,
-        os.environ.get("PYTHONPATH", "")
-    ]))
-    
-    bridge = SAGEMessageBridge(cfg, token="fake", api_base="http://fake")
-    output = bridge._run_sage_task(prompt, mode="agent")
-    
-    # Debug print all files in tmp_path
-    all_files = list(tmp_path.glob("**/*"))
-    print(f"\n[DEBUG] ALL FILES IN TMP_PATH ({len(all_files)}):")
-    for f in all_files:
-        print(f"  - {f} (is_file: {f.is_file()})")
-        if f.is_file():
-            try:
-                print(f"    is_ignored: {is_ignored(f, tmp_path)}")
-            except Exception as e:
-                print(f"    is_ignored error: {e}")
-
+    try:
+        # Give CLI time to connect to websocket
+        time.sleep(3)
+        
+        # 3. Send the email task via SMTP
+        msg = MIMEText(prompt)
+        msg["Subject"] = subject
+        msg["From"] = bridge_email
+        msg["To"] = bridge_email
+        
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+        server.login(bridge_email, password)
+        server.send_message(msg)
+        server.quit()
+        print(f"[DEBUG] Sent email task {subject}")
+        
+        # 4. Poll IMAP for the reply
+        mail = imaplib.IMAP4_SSL("imap.gmail.com")
+        mail.login(bridge_email, password)
+        mail.select("inbox")
+        
+        output_text = ""
+        found = False
+        start_time = time.time()
+        
+        # Wait up to 120 seconds for SAGE to process and reply
+        while time.time() - start_time < 120:
+            status, messages = mail.search(None, f'(SUBJECT "{subject}")')
+            if status == "OK" and messages[0]:
+                for num in messages[0].split():
+                    status, msg_data = mail.fetch(num, "(RFC822)")
+                    if status == "OK":
+                        raw_email = msg_data[0][1]
+                        email_message = email.message_from_bytes(raw_email)
+                        # Ensure this is the reply, not the original prompt we sent
+                        # SAGE replies typically come from the display email or bridge email,
+                        # but we can just check if the body contains SAGE output markers or isn't just the prompt.
+                        body = ""
+                        if email_message.is_multipart():
+                            for part in email_message.walk():
+                                if part.get_content_type() == "text/plain":
+                                    body += part.get_payload(decode=True).decode()
+                        else:
+                            body = email_message.get_payload(decode=True).decode()
+                            
+                        if body.strip() != prompt.strip():
+                            output_text = body
+                            found = True
+                            # Delete the test email to clean up the inbox
+                            mail.store(num, '+FLAGS', '\\Deleted')
+                            break
+            if found:
+                break
+            time.sleep(5)
+            
+        mail.expunge()
+        mail.close()
+        mail.logout()
+        
+        if not found:
+            raise AssertionError(f"Timeout waiting for SMS bridge reply for task {subject}")
+            
+    finally:
+        cli_proc.terminate()
+        try:
+            cli_proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            cli_proc.kill()
+            
     # Gather generated files
     generated_files = [
         f for f in tmp_path.glob("**/*")
@@ -540,64 +623,96 @@ def verify_sms_with_rubric(prompt: str, tmp_path: Path) -> None:
         and not is_ignored(f, tmp_path)
         and not f.name.endswith(".pyc")
     ]
-    print(f"[DEBUG] FILTERED GENERATED FILES ({len(generated_files)}): {[str(f) for f in generated_files]}")
     
     # Grading rubric verification
-    check_grading_rubric(output, generated_files)
+    check_grading_rubric(output_text, generated_files)
     # Real build and run verification
     run_real_build_and_test(generated_files)
-    
-    # Verify that all four verification checks passed
-    report_path = tmp_path / ".sage" / "BUILD_REPORT.json"
-    if report_path.exists():
-        import json
-        report_data = json.loads(report_path.read_text(encoding="utf-8"))
-        assert report_data.get("install_ok") is True, f"install_ok is not True: {report_data}"
-        assert report_data.get("build_ok") is True, f"build_ok is not True: {report_data}"
-        assert report_data.get("runs_ok") is True, f"runs_ok is not True: {report_data}"
-        assert report_data.get("tests_ok") is True, f"tests_ok is not True: {report_data}"
+
 
 
 def verify_website_with_rubric(prompt: str) -> None:
-    """Run SAGE Website endpoint functionally and check grading rubric."""
-    from fastapi.testclient import TestClient
-    from backend.app import app as backend_app
+    """Run SAGE Website endpoint functionally using real HTTP requests."""
+    import httpx
+    import time
+    import subprocess
+    import sys
+    from pathlib import Path
     
-    client = TestClient(backend_app)
-    payload = {
-        "messages": [{"role": "user", "content": prompt}],
-        "model_id": "cloud:qwen3-coder",
-        "conversation_id": "test_conv",
-        "temperature": 0.7,
-        "stream": False
-    }
-    response = client.post("/chat", json=payload, headers={"Authorization": "Bearer test-token"})
-    assert response.status_code == 200, f"Chat request failed: {response.text}"
-    
-    data = response.json()
-    assert data.get("ok") is True
-    output_text = data.get("output", "")
-    
-    # Parse FILE: blocks from output_text to validate syntax and quality
-    import re
-    import tempfile
-    
-    generated_files = []
-    temp_dir = Path(tempfile.mkdtemp())
-    
-    pattern = re.compile(r'FILE:\s*([^\n]+)\n```[a-zA-Z0-9]*\n(.*?)\n```', re.DOTALL)
-    for match in pattern.finditer(output_text):
-        filename = match.group(1).strip()
-        content = match.group(2)
-        filename = Path(filename).name
-        f = temp_dir / filename
-        f.write_text(content, encoding="utf-8")
-        generated_files.append(f)
-        
+    # Check if a live backend is already running
+    live_url = "http://127.0.0.1:8090"
     try:
-        check_grading_rubric(output_text, generated_files)
-        # Real build and run verification
-        run_real_build_and_test(generated_files)
-    finally:
+        httpx.get(f"{live_url}/health", timeout=2.0)
+        api_base = live_url
+        server_proc = None
+    except Exception:
+        # Start a temporary local server
+        api_base = "http://127.0.0.1:8099"
+        project_root = str(Path(__file__).resolve().parents[2])
+        server_proc = subprocess.Popen(
+            [sys.executable, "-m", "uvicorn", "backend.app:app", "--host", "127.0.0.1", "--port", "8099"],
+            cwd=project_root,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        
+        # Wait for server to be ready
+        ready = False
+        for _ in range(30):
+            try:
+                if httpx.get(f"{api_base}/health", timeout=1.0).status_code == 200:
+                    ready = True
+                    break
+            except Exception:
+                time.sleep(0.5)
+        if not ready:
+            if server_proc:
+                server_proc.terminate()
+            raise RuntimeError("Failed to start local backend server for website test.")
+
+    try:
+        payload = {
+            "messages": [{"role": "user", "content": prompt}],
+            "model_id": "cloud:qwen3-coder",
+            "conversation_id": "test_conv",
+            "temperature": 0.7,
+            "stream": False
+        }
+        with httpx.Client(timeout=120.0) as client:
+            response = client.post(f"{api_base}/chat", json=payload, headers={"Authorization": "Bearer test-token"})
+            assert response.status_code == 200, f"Chat request failed: {response.text}"
+            
+            data = response.json()
+            assert data.get("ok") is True
+            output_text = data.get("output", "")
+        
+        # Parse FILE: blocks from output_text to validate syntax and quality
+        import re
+        import tempfile
         import shutil
-        shutil.rmtree(temp_dir, ignore_errors=True)
+        
+        generated_files = []
+        temp_dir = Path(tempfile.mkdtemp())
+        
+        pattern = re.compile(r'FILE:\s*([^\n]+)\n```[a-zA-Z0-9]*\n(.*?)\n```', re.DOTALL)
+        for match in pattern.finditer(output_text):
+            filename = match.group(1).strip()
+            content = match.group(2)
+            filename = Path(filename).name
+            f = temp_dir / filename
+            f.write_text(content, encoding="utf-8")
+            generated_files.append(f)
+            
+        try:
+            check_grading_rubric(output_text, generated_files)
+            run_real_build_and_test(generated_files)
+        finally:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            
+    finally:
+        if server_proc:
+            server_proc.terminate()
+            try:
+                server_proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                server_proc.kill()

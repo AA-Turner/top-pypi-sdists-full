@@ -12,7 +12,6 @@ from drydock.core.tools.builtins.solve_tool import (
     SolveConfig,
     SolveResult,
     _declare_variables,
-    _parse_expr,
 )
 
 

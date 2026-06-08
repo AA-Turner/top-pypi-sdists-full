@@ -306,6 +306,21 @@ def _family_session_limit() -> int:
     except (TypeError, ValueError):
         return 50
 
+# Per-session event read depth for family runtimes. The reader adapters return a
+# session's events OLDEST-first, capped at ``limit`` -- so a SMALL cap silently
+# drops the NEWEST events once a session passes it. A real 6,381-event Claude
+# Code session read at the old cap of 2000 froze the live feed ~70h in the past
+# (the device showed "no recent activity" while the agent was mid-turn). The cap
+# must comfortably exceed a long-running session's event count so the freshest
+# activity is always read; a high-water mark (below) keeps the per-cycle ingest
+# bounded to genuinely-new events so the big cap costs nothing on idle sessions.
+# Raise via CLAWMETRY_FAMILY_EVENT_CAP for pathologically long sessions.
+def _family_event_read_cap() -> int:
+    try:
+        return max(2000, int(os.environ.get("CLAWMETRY_FAMILY_EVENT_CAP", "20000")))
+    except (TypeError, ValueError):
+        return 20000
+
 # On-demand backfill (founder 2026-06-03): the default sync is the most-recent
 # 50, but the local DuckDB can hold as much history as the user wants. When the
 # cloud UI requests older sessions (a `runtime_backfill` pending action), we
@@ -5851,6 +5866,496 @@ def _detect_runtimes_lite() -> list:
     return [{"id": rid, "label": _LITE_RT_LABELS.get(rid, rid), "sessions": n} for rid, n in out.items()]
 
 
+# ── Billing-mode detection (docs/BILLING_MODE_DETECTION.md) ──────────────────
+# Classify each runtime as flat-fee `subscription`, pay-per-token `metered`,
+# self-hosted `local`, or `unknown` — WITHOUT ever reading a secret value or
+# triggering an OS keychain/keyring prompt. See the spec's per-runtime ordered
+# checks + cross-OS path table. Every branch falls through to `unknown`; this
+# code NEVER raises and NEVER reads `key`/`token`/`access`/`refresh` *values*.
+
+# usd_month per detected plan tier. None ⇒ no flat fee we can price (metered,
+# local, unknown, or enterprise/team where the seat price isn't user-visible).
+PLAN_PRICING = {
+    # tier-key                  : (label,            usd_month)
+    "default_claude_pro":         ("Claude Pro",         20.0),
+    "default_claude_max_5x":      ("Claude Max 5x",     100.0),
+    "default_claude_max_20x":     ("Claude Max 20x",    200.0),
+    "default_chatgpt_plus":       ("ChatGPT Plus",       20.0),
+    "default_chatgpt_pro":        ("ChatGPT Pro",       200.0),
+    "default_cursor_pro":         ("Cursor Pro",         20.0),
+    # tiers we recognise but can't put a single user-visible price on:
+    "default_claude_team":        ("Claude Team",        None),
+    "default_claude_enterprise":  ("Claude Enterprise",  None),
+    "default_chatgpt_business":   ("ChatGPT Business",   None),
+    "default_chatgpt_enterprise": ("ChatGPT Enterprise", None),
+    "default_cursor_pro_plus":    ("Cursor Pro+",        None),
+    "default_cursor_business":    ("Cursor Business",    None),
+    "default_gemini_oauth":       ("Gemini (Google)",    None),
+    "default_qwen_oauth":         ("Qwen OAuth",         None),
+    "default_qwen_coding_plan":   ("Qwen Coding Plan",   None),
+    "default_copilot":            ("GitHub Copilot",     None),
+    "default_codex_subscription": ("ChatGPT (Codex)",    None),
+    "default_subscription":       ("Subscription",       None),
+}
+
+
+def _bm(mode, tier_key=None, label=None):
+    """Build the `{mode,label,usd_month}` result. `tier_key` indexes
+    PLAN_PRICING for label+price; `label` overrides when no priced tier."""
+    if tier_key and tier_key in PLAN_PRICING:
+        plabel, usd = PLAN_PRICING[tier_key]
+        return {"mode": mode, "label": label or plabel, "usd_month": usd}
+    return {"mode": mode, "label": label or mode.capitalize(), "usd_month": None}
+
+
+def _bm_home(home) -> Path:
+    try:
+        return Path(home) if home is not None else Path.home()
+    except Exception:
+        return Path(os.path.expanduser("~"))
+
+
+def _bm_env(name) -> str:
+    """Non-empty env var value (presence test only — we read the var NAME we
+    care about, not arbitrary secrets; the value is checked for non-emptiness
+    and discarded)."""
+    try:
+        v = os.environ.get(name)
+        return v.strip() if isinstance(v, str) else ""
+    except Exception:
+        return ""
+
+
+def _bm_read_json(path: Path):
+    try:
+        if path.is_file():
+            with open(path, "r", encoding="utf-8", errors="ignore") as fh:
+                return json.load(fh)
+    except Exception:
+        pass
+    return None
+
+
+def _bm_env_has_keyname(names, *extra_files) -> bool:
+    """True if any of `names` is set in the daemon env OR appears as a
+    line-prefix `NAME=` in any of the given .env files. Reads KEY NAMES
+    only — never the value bytes (issue #9 in the spec: daemon env != shell)."""
+    for n in names:
+        if _bm_env(n):
+            return True
+    for f in extra_files:
+        try:
+            p = Path(f)
+            if not p.is_file():
+                continue
+            with open(p, "r", encoding="utf-8", errors="ignore") as fh:
+                for line in fh:
+                    s = line.strip()
+                    if s.startswith("#") or "=" not in s:
+                        continue
+                    key = s.split("=", 1)[0].strip().lstrip("export").strip()
+                    if key in names:
+                        return True
+        except Exception:
+            continue
+    return False
+
+
+def _bm_keychain_item_exists(service: str, account: str | None = None) -> bool:
+    """macOS existence-only probe — `security find-generic-password -s <svc>`
+    with NO `-g`/`-w` so it returns metadata only and never unlocks/prompts.
+    Hard 2s timeout; swallows errSecInteractionNotAllowed (exit 36) on
+    headless/SSH. Returns False on every non-macOS platform / any error."""
+    try:
+        if platform.system() != "Darwin":
+            return False
+        cmd = ["security", "find-generic-password", "-s", service]
+        if account:
+            cmd += ["-a", account]
+        res = subprocess.run(
+            cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            timeout=2,
+        )
+        return res.returncode == 0
+    except Exception:
+        return False
+
+
+def _detect_billing_claude_code(home: Path) -> dict:
+    """claude_code per spec §2.1. Precedence: cloud-routing env > API-key env >
+    apiKeyHelper/env-key in settings.json > customApiKeyResponses.approved >
+    oauthAccount subscription marker > token-blob existence > unknown."""
+    cfg_dir = Path(_bm_env("CLAUDE_CONFIG_DIR")) if _bm_env("CLAUDE_CONFIG_DIR") else home
+    # STEP 1 — cloud-provider routing env outranks everything.
+    for v in ("CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY"):
+        if _bm_env(v):
+            return _bm("metered", label="Bedrock/Vertex" if "BEDROCK" in v or "VERTEX" in v else "Cloud-routed")
+    # STEP 2 — explicit API key / auth token env.
+    if _bm_env("ANTHROPIC_AUTH_TOKEN") or _bm_env("ANTHROPIC_API_KEY"):
+        return _bm("metered", label="API key (env)")
+    # STEP 3 — apiKeyHelper / env.ANTHROPIC_* in settings.json (READ KEY ONLY).
+    for sp in (
+        cfg_dir / ".claude" / "settings.json",
+        cfg_dir / ".claude" / "settings.local.json",
+    ):
+        s = _bm_read_json(sp)
+        if isinstance(s, dict):
+            if s.get("apiKeyHelper"):
+                return _bm("metered", label="apiKeyHelper")
+            env_blk = s.get("env") if isinstance(s.get("env"), dict) else {}
+            if env_blk.get("ANTHROPIC_API_KEY") or env_blk.get("ANTHROPIC_AUTH_TOKEN"):
+                return _bm("metered", label="API key (settings)")
+    # STEP 4 — ~/.claude.json (non-secret read).
+    data = _bm_read_json(cfg_dir / ".claude.json")
+    if isinstance(data, dict):
+        approved = data.get("customApiKeyResponses", {})
+        if isinstance(approved, dict):
+            arr = approved.get("approved")
+            if isinstance(arr, list) and len(arr) > 0:
+                return _bm("metered", label="Console API key (approved)")
+        oauth = data.get("oauthAccount")
+        if isinstance(oauth, dict):
+            billing = str(oauth.get("billingType") or "").lower()
+            org_type = str(oauth.get("organizationType") or "").lower()
+            tier_str = str(oauth.get("organizationRateLimitTier") or "").lower()
+            blob = (org_type + " " + tier_str)
+            if billing.endswith("_subscription") or "max" in blob or "pro" in blob or "team" in blob or "enterprise" in blob:
+                if "max" in blob:
+                    tk = "default_claude_max_20x" if "20" in blob else "default_claude_max_5x"
+                elif "team" in blob:
+                    tk = "default_claude_team"
+                elif "enterprise" in blob:
+                    tk = "default_claude_enterprise"
+                elif "pro" in blob or billing.endswith("_subscription"):
+                    tk = "default_claude_pro"
+                else:
+                    tk = "default_subscription"
+                return _bm("subscription", tier_key=tk)
+            # oauthAccount present but looks like a console/api-usage org.
+            return _bm("metered", label="Console org")
+    # STEP 5 — token-blob existence (low confidence; only if no override above).
+    if _bm_keychain_item_exists("Claude Code-credentials") or (cfg_dir / ".claude" / ".credentials.json").exists():
+        return _bm("subscription", tier_key="default_subscription")
+    return _bm("unknown")
+
+
+def _detect_billing_codex(home: Path) -> dict:
+    """codex per spec §2.2."""
+    codex_home = Path(_bm_env("CODEX_HOME")) if _bm_env("CODEX_HOME") else home / ".codex"
+    # STEP 1 — env key wins over file.
+    if _bm_env("OPENAI_API_KEY") or _bm_env("CODEX_API_KEY"):
+        return _bm("metered", label="OpenAI API key (env)")
+    # STEP 2 — auth.json top-level keys only.
+    auth = _bm_read_json(codex_home / "auth.json")
+    if isinstance(auth, dict):
+        if auth.get("OPENAI_API_KEY") or auth.get("personal_access_token") or str(auth.get("auth_mode") or "").lower() == "apikey":
+            return _bm("metered", label="OpenAI API key")
+        if isinstance(auth.get("tokens"), dict):
+            return _bm("subscription", tier_key="default_codex_subscription")
+    elif codex_home.exists():
+        # STEP 3 — keyring-store mode: existence-only probe.
+        if _bm_keychain_item_exists("Codex Auth"):
+            return _bm("subscription", tier_key="default_codex_subscription")
+    return _bm("unknown")
+
+
+def _detect_billing_cursor(home: Path) -> dict:
+    """cursor per spec §2.3 — read-only/immutable SQLite, never decrypt."""
+    if platform.system() == "Darwin":
+        db = home / "Library" / "Application Support" / "Cursor" / "User" / "globalStorage" / "state.vscdb"
+    elif platform.system() == "Windows":
+        appdata = _bm_env("APPDATA") or str(home / "AppData" / "Roaming")
+        db = Path(appdata) / "Cursor" / "User" / "globalStorage" / "state.vscdb"
+    else:
+        db = home / ".config" / "Cursor" / "User" / "globalStorage" / "state.vscdb"
+    try:
+        if not db.is_file():
+            return _bm("unknown")
+        import sqlite3
+        uri = f"file:{db}?mode=ro&immutable=1"
+        conn = sqlite3.connect(uri, uri=True, timeout=2)
+        try:
+            cur = conn.execute(
+                "SELECT key,value FROM ItemTable WHERE key IN "
+                "('cursorAuth/stripeMembershipType','cursorAuth/accessToken',"
+                "'cursorAuth/openAIKey','cursorAuth/claudeKey','cursorAuth/googleKey')"
+            )
+            rows = {k: v for k, v in cur.fetchall()}
+        finally:
+            conn.close()
+    except Exception:
+        return _bm("unknown")
+    # BYO key present (existence/non-empty only — value discarded) → metered.
+    for k in ("cursorAuth/openAIKey", "cursorAuth/claudeKey", "cursorAuth/googleKey"):
+        v = rows.get(k)
+        if isinstance(v, str) and v.strip():
+            return _bm("metered", label="BYO API key")
+    member = str(rows.get("cursorAuth/stripeMembershipType") or "").lower()
+    if member in ("pro", "pro_plus", "business", "team", "enterprise", "free_trial"):
+        tk = {"pro": "default_cursor_pro", "pro_plus": "default_cursor_pro_plus",
+              "business": "default_cursor_business", "team": "default_cursor_business",
+              "enterprise": "default_cursor_business", "free_trial": "default_cursor_pro"}[member]
+        return _bm("subscription", tier_key=tk)
+    if rows.get("cursorAuth/accessToken"):
+        return _bm("subscription", label="Cursor Free")
+    return _bm("unknown")
+
+
+def _detect_billing_gemini(home: Path) -> dict:
+    """gemini per spec §2.4 — dir name '.gemini' on all OSes (no XDG)."""
+    gdir = home / ".gemini"
+    # STEP 1 — metered env (no file reads).
+    if str(_bm_env("GOOGLE_GENAI_USE_VERTEXAI")).lower() == "true" or _bm_env("GOOGLE_APPLICATION_CREDENTIALS"):
+        return _bm("metered", label="Vertex AI")
+    if _bm_env("GEMINI_API_KEY") or _bm_env("GOOGLE_API_KEY"):
+        return _bm("metered", label="Gemini API key (env)")
+    # STEP 2 — settings.json selectedType.
+    s = _bm_read_json(gdir / "settings.json")
+    sel = ""
+    if isinstance(s, dict):
+        try:
+            sel = str(((s.get("security") or {}).get("auth") or {}).get("selectedType") or s.get("selectedAuthType") or "").lower()
+        except Exception:
+            sel = str(s.get("selectedAuthType") or "").lower()
+    if sel in ("oauth-personal", "oauth", "cloud-shell"):
+        return _bm("subscription", tier_key="default_gemini_oauth")
+    if sel in ("gemini-api-key", "api-key"):
+        return _bm("metered", label="Gemini API key")
+    if sel == "vertex-ai":
+        return _bm("metered", label="Vertex AI")
+    # STEP 3 — existence of OAuth creds.
+    if (gdir / "oauth_creds.json").exists() or (gdir / "google_accounts.json").exists():
+        return _bm("subscription", tier_key="default_gemini_oauth")
+    # STEP 4 — .env key-name scan.
+    if _bm_env_has_keyname(("GEMINI_API_KEY", "GOOGLE_API_KEY"), gdir / ".env", home / ".env"):
+        return _bm("metered", label="Gemini API key (.env)")
+    return _bm("unknown")
+
+
+def _detect_billing_qwen(home: Path) -> dict:
+    """qwen_code per spec §2.5 — Coding-Plan trap handled via base-URL."""
+    qdir = home / ".qwen"
+    s = _bm_read_json(qdir / "settings.json")
+    sel = ""
+    base_urls = ""
+    if isinstance(s, dict):
+        try:
+            sel = str(((s.get("security") or {}).get("auth") or {}).get("selectedType") or "").lower()
+        except Exception:
+            sel = ""
+        try:
+            base_urls = json.dumps(s.get("modelProviders") or s).lower()
+        except Exception:
+            base_urls = ""
+    if "coding.dashscope.aliyuncs.com" in base_urls or "coding.dashscope.aliyuncs.com" in str(_bm_env("OPENAI_BASE_URL")).lower():
+        return _bm("subscription", tier_key="default_qwen_coding_plan")
+    if sel == "qwen-oauth":
+        return _bm("subscription", tier_key="default_qwen_oauth")
+    if sel in ("openai", "anthropic", "gemini", "vertex-ai"):
+        return _bm("metered", label="API key")
+    if (qdir / "oauth_creds.json").exists():
+        return _bm("subscription", tier_key="default_qwen_oauth")
+    if _bm_env_has_keyname(
+        ("DASHSCOPE_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY"),
+        qdir / ".env", home / ".env", Path(".env"),
+    ):
+        return _bm("metered", label="API key (.env)")
+    return _bm("unknown")
+
+
+def _detect_billing_aider(home: Path) -> dict:
+    """aider per spec §2.6 — no subscription concept; metered-BYO or local."""
+    # LOCAL override first (model/base-URL pointing at localhost).
+    base = (str(_bm_env("OPENAI_API_BASE")) + " " + str(_bm_env("OLLAMA_API_BASE"))).lower()
+    if "localhost" in base or "127.0.0.1" in base:
+        return _bm("local", label="Local model")
+    # Any *_API_KEY in env → metered.
+    try:
+        for k in os.environ.keys():
+            if k.endswith("_API_KEY") and _bm_env(k):
+                return _bm("metered", label="BYO API key (env)")
+    except Exception:
+        pass
+    # .aider.conf.yml *-api-key: keys (NAME presence only).
+    for cf in (home / ".aider.conf.yml", Path(".aider.conf.yml")):
+        try:
+            if cf.is_file():
+                with open(cf, "r", encoding="utf-8", errors="ignore") as fh:
+                    for line in fh:
+                        ls = line.strip().lower()
+                        if ls.startswith("#"):
+                            continue
+                        if ("api-key" in ls or "api_key" in ls) and ":" in ls:
+                            return _bm("metered", label="BYO API key (conf)")
+                        if ls.startswith("model:") and "ollama/" in ls:
+                            return _bm("local", label="Local model")
+        except Exception:
+            continue
+    if _bm_env_has_keyname(
+        ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "DEEPSEEK_API_KEY", "OPENROUTER_API_KEY", "GROQ_API_KEY"),
+        home / ".env", Path(".env"), home / ".aider" / ".env",
+    ):
+        return _bm("metered", label="BYO API key (.env)")
+    return _bm("unknown")
+
+
+def _detect_billing_goose(home: Path) -> dict:
+    """goose per spec §2.7 — provider-driven; no single-user subscription tier."""
+    if platform.system() == "Windows":
+        appdata = _bm_env("APPDATA") or str(home / "AppData" / "Roaming")
+        cfg = Path(appdata) / "Block" / "goose" / "config" / "config.yaml"
+    else:
+        cfg = home / ".config" / "goose" / "config.yaml"
+    provider = str(_bm_env("GOOSE_PROVIDER")).lower()
+    if not provider:
+        try:
+            if cfg.is_file():
+                with open(cfg, "r", encoding="utf-8", errors="ignore") as fh:
+                    for line in fh:
+                        ls = line.strip().lower()
+                        if ls.startswith("goose_provider:") or ls.startswith("provider:"):
+                            provider = ls.split(":", 1)[1].strip().strip('"\'')
+                            break
+        except Exception:
+            pass
+    if provider in ("github_copilot", "databricks", "gcp_vertex_ai", "azure_openai"):
+        if provider == "github_copilot" or (home / ".config" / "goose" / "githubcopilot" / "info.json").exists():
+            return _bm("subscription", tier_key="default_copilot")
+        return _bm("metered", label="Cloud-billed (" + provider + ")")
+    if (provider in ("ollama", "lmstudio", "llama_cpp", "llamacpp", "localai",
+                     "vllm", "local") or "localhost" in provider
+            or "127.0.0.1" in provider):
+        return _bm("local", label=provider.capitalize() + " (local)")
+    if provider:
+        return _bm("metered", label=provider.capitalize() + " API key")
+    return _bm("unknown")
+
+
+def _detect_billing_opencode(home: Path) -> dict:
+    """opencode per spec §2.8 — explicit `type` discriminant; read type only."""
+    xdg = _bm_env("XDG_DATA_HOME")
+    data_dir = Path(xdg) / "opencode" if xdg else home / ".local" / "share" / "opencode"
+    auth = _bm_read_json(data_dir / "auth.json")
+    has_oauth = False
+    has_api = False
+    if isinstance(auth, dict):
+        for _pid, entry in auth.items():
+            if not isinstance(entry, dict):
+                continue
+            t = str(entry.get("type") or "").lower()
+            if t == "oauth":
+                has_oauth = True
+            elif t in ("api", "wellknown"):
+                has_api = True
+    # Env API key for any provider overrides at runtime → metered.
+    try:
+        for k in os.environ.keys():
+            if k.endswith("_API_KEY") and _bm_env(k):
+                has_api = True
+                break
+    except Exception:
+        pass
+    if has_oauth and not has_api:
+        return _bm("subscription", tier_key="default_subscription")
+    if has_api:
+        return _bm("metered", label="API key")
+    if has_oauth:
+        return _bm("subscription", tier_key="default_subscription")
+    return _bm("unknown")
+
+
+_BILLING_DETECTORS = {
+    "claude_code": _detect_billing_claude_code,
+    "codex":       _detect_billing_codex,
+    "cursor":      _detect_billing_cursor,
+    "gemini":      _detect_billing_gemini,
+    "qwen_code":   _detect_billing_qwen,
+    "aider":       _detect_billing_aider,
+    "goose":       _detect_billing_goose,
+    "opencode":    _detect_billing_opencode,
+}
+
+
+def detect_billing_mode(runtime: str, home=None) -> dict:
+    """Classify a runtime's billing path → {mode, label, usd_month}.
+
+    mode ∈ subscription|metered|local|unknown. Honors the spec's precedence
+    (cloud-routing env > API-key env/file > subscription marker > token-blob
+    existence > unknown). NEVER reads a secret value, NEVER prompts a keychain,
+    NEVER raises — any failure falls through to `unknown`.
+    """
+    try:
+        h = _bm_home(home)
+        fn = _BILLING_DETECTORS.get((runtime or "").lower())
+        if fn is None:
+            return _bm("unknown")
+        result = fn(h)
+        if isinstance(result, dict) and result.get("mode") in ("subscription", "metered", "local", "unknown"):
+            return result
+        return _bm("unknown")
+    except Exception:
+        return _bm("unknown")
+
+
+# Cache the per-cycle billing roll-up for ~5 min so we don't re-stat / re-probe
+# every heartbeat tick (spec §5.2).
+_BILLING_CACHE: dict = {"at": 0.0, "value": None}
+_BILLING_CACHE_TTL_SEC = 300
+
+
+def _build_billing_payload(config: dict) -> dict | None:
+    """Roll up per-runtime billing modes into the heartbeat `billing` object:
+    { node_id, account_plan, runtimes: {<rt>: {mode,label,usd_month}} }.
+
+    account_plan = claude_code's result when present, else the dominant
+    subscription across detected runtimes (highest usd_month, else any). All
+    best-effort — returns None on any failure so the heartbeat never blocks."""
+    try:
+        now = time.time()
+        if _BILLING_CACHE["value"] is not None and (now - _BILLING_CACHE["at"]) < _BILLING_CACHE_TTL_SEC:
+            cached = dict(_BILLING_CACHE["value"])
+            cached["node_id"] = config.get("node_id")
+            return cached
+        # Only classify runtimes that actually have data on this machine.
+        try:
+            detected = [r["id"] for r in (_detect_runtimes_for_heartbeat() or [])]
+        except Exception:
+            detected = []
+        # Always attempt claude_code (it anchors account_plan) even if 0-session.
+        rt_ids = list(dict.fromkeys(["claude_code"] + detected))
+        runtimes: dict = {}
+        for rid in rt_ids:
+            if rid not in _BILLING_DETECTORS:
+                continue
+            res = detect_billing_mode(rid)
+            # Skip pure unknowns from non-claude runtimes to keep the slice lean.
+            if res.get("mode") == "unknown" and rid != "claude_code":
+                continue
+            runtimes[rid] = res
+        # account_plan: prefer claude_code if it's a real subscription, else the
+        # dominant subscription (highest priced) among detected runtimes.
+        account_plan = None
+        cc = runtimes.get("claude_code")
+        if cc and cc.get("mode") == "subscription":
+            account_plan = cc
+        else:
+            subs = [r for r in runtimes.values() if r.get("mode") == "subscription"]
+            if subs:
+                account_plan = max(subs, key=lambda r: (r.get("usd_month") or 0.0))
+            elif cc:
+                account_plan = cc
+        billing = {
+            "node_id": config.get("node_id"),
+            "account_plan": account_plan,
+            "runtimes": runtimes,
+        }
+        _BILLING_CACHE["at"] = now
+        _BILLING_CACHE["value"] = {k: v for k, v in billing.items() if k != "node_id"}
+        return billing
+    except Exception:
+        return None
+
+
 def _detect_runtimes_for_heartbeat() -> list:
     """Detected runtimes to report to the cloud Fleet. Merges the authoritative
     clawmetry-pro adapter counts (when installed) with the free lite detector,
@@ -5900,6 +6405,39 @@ def _detect_runtimes_for_heartbeat() -> list:
     return out
 
 
+def _heartbeat_stuck_payload(now: float | None = None) -> list:
+    """The stuck list to ride the next heartbeat, or ``[]``.
+
+    Reads the module-level ``_LATEST_STUCK`` cache (refreshed by
+    ``_emit_stuck_signals`` each detector tick) and returns its items ONLY when
+    the cache is FRESH (refreshed within ``_STUCK_HEARTBEAT_FRESH_SECONDS``).
+    A stale cache → ``[]`` so a wedged/stopped detector can never pin a banner
+    on the device; the cloud's device_summary also has its own recency gate, so
+    this is belt-and-suspenders. Empty-but-fresh → ``[]`` (self-clear). Each
+    item is kept tiny (capped count, ``message`` truncated). Never raises."""
+    try:
+        ts = float(_LATEST_STUCK.get("ts") or 0.0)
+        if ts <= 0:
+            return []
+        ref = time.time() if now is None else now
+        if (ref - ts) > _STUCK_HEARTBEAT_FRESH_SECONDS:
+            return []
+        items = _LATEST_STUCK.get("items") or []
+        out = []
+        for it in items[:_STUCK_HEARTBEAT_MAX_ITEMS]:
+            if not isinstance(it, dict):
+                continue
+            out.append({
+                "runtime": str(it.get("runtime") or "openclaw"),
+                "tool_calls": int(it.get("tool_calls") or 0),
+                "since_seconds": int(it.get("since_seconds") or 0),
+                "message": str(it.get("message") or "")[:_STUCK_HEARTBEAT_MAX_MSG],
+            })
+        return out
+    except Exception:
+        return []
+
+
 def send_heartbeat(config: dict) -> bool:
     """Send heartbeat to cloud. Returns True on success, False on failure.
 
@@ -5932,6 +6470,19 @@ def send_heartbeat(config: dict) -> bool:
         # accounts without the clawmetry-pro adapters too.
         "detected_runtimes": _detect_runtimes_for_heartbeat(),
     }
+    # Stuck-agent signal (clawmetry-hardware#15). The WiFi desk device fetches
+    # the CLOUD device_summary (built from Postgres), NOT the local dashboard or
+    # the legacy E2E snapshot, so the daemon's loop_signals never reached it.
+    # Ride the cached stuck list on the plaintext, regularly-sent, self-clearing
+    # heartbeat instead. ONLY attach when fresh+non-empty (helper enforces the
+    # 5-min freshness gate) so a stale cache can't pin a banner. Best-effort —
+    # heartbeat MUST still send if this fails.
+    try:
+        _stuck = _heartbeat_stuck_payload()
+        if _stuck:
+            payload["stuck"] = _stuck
+    except Exception as _st_e:
+        log.debug("stuck heartbeat payload build failed (continuing): %s", _st_e)
     # Agent-install self-report (cloud bug fix 2026-05-18). Cloud Run pods
     # can't stat the user's home directory, so the daemon tells cloud what
     # agents exist locally and cloud aggregates across the user's fleet.
@@ -5940,6 +6491,17 @@ def send_heartbeat(config: dict) -> bool:
         payload["agent_install"] = _detect_agent_install_for_heartbeat()
     except Exception as _ai_e:
         log.debug("agent_install detection failed (continuing): %s", _ai_e)
+    # Billing-mode roll-up (docs/BILLING_MODE_DETECTION.md): classify each
+    # detected runtime as subscription|metered|local|unknown so cloud/UI/device
+    # can label API-equivalent cost as "covered by your <plan>" vs actual spend.
+    # Non-secret, non-prompting detection. Best-effort — NEVER blocks the
+    # heartbeat (returns None on any failure, and we only attach when truthy).
+    try:
+        _billing = _build_billing_payload(config)
+        if _billing:
+            payload["billing"] = _billing
+    except Exception as _bm_e:
+        log.debug("billing-mode detection failed (continuing): %s", _bm_e)
     # Daemon-collected snapshots (see _collect_security_posture docstring)
     sec = _collect_security_posture()
     if sec is not None:
@@ -6204,6 +6766,67 @@ def _channel_enrichment_from_row(r: dict) -> dict:
     return out
 
 
+# Cap long strings in a brain-cache event so the E2E blob stays small. The desk
+# device fetches the blob into a FIXED 128 KB buffer; a burst of big tool outputs
+# / full command strings spiked the blob past it -> truncated download -> AES-GCM
+# auth-tag mismatch -> the device showed "feed locked" (and a slow connect). A
+# brain FEED only needs a PREVIEW on both surfaces (the device caps labels at 160
+# chars; the cloud Brain feed shows a short detail) -- full content lives in the
+# transcript view. Shape-preserving + depth-bounded so the cloud's
+# ``transformEvents`` still walks ``message.content[]`` blocks. Raise the cap via
+# CLAWMETRY_BRAIN_FIELD_CAP.
+try:
+    _BRAIN_FIELD_CAP = max(160, int(os.environ.get("CLAWMETRY_BRAIN_FIELD_CAP", "600")))
+except (TypeError, ValueError):
+    _BRAIN_FIELD_CAP = 600
+
+# Hard per-event ceiling. With BRAIN_CACHE_LIMIT=50 events this bounds the whole
+# blob to ~75 KB plaintext (~103 KB base64) -- safely under the device's 128 KB
+# receive buffer even if every event is a giant multi-field tool burst (the case
+# that spiked the blob to 256 KB and caused "feed locked"). Field-level capping
+# alone isn't enough because one event can carry many capped fields.
+try:
+    _BRAIN_EVENT_CAP = max(400, int(os.environ.get("CLAWMETRY_BRAIN_EVENT_CAP", "1500")))
+except (TypeError, ValueError):
+    _BRAIN_EVENT_CAP = 1500
+
+
+def _truncate_brain_payload(obj, depth: int = 0, cap: int | None = None):
+    """Recursively cap long strings (and over-long lists) in a brain event so the
+    serialized blob can't balloon past the device's receive buffer. Preserves
+    keys/structure; only trims leaf strings and very long arrays."""
+    c = cap or _BRAIN_FIELD_CAP
+    if isinstance(obj, str):
+        return obj if len(obj) <= c else (obj[:c] + "…")
+    if depth >= 5:
+        return obj
+    if isinstance(obj, list):
+        return [_truncate_brain_payload(x, depth + 1, cap) for x in obj[:40]]
+    if isinstance(obj, dict):
+        return {k: _truncate_brain_payload(v, depth + 1, cap) for k, v in obj.items()}
+    return obj
+
+
+def _cap_brain_event_size(ev):
+    """Enforce the hard per-event byte ceiling (_BRAIN_EVENT_CAP). Tightens the
+    string cap progressively until the serialized event fits; short essential
+    fields (sessionId/timestamp/type) survive every pass. Guarantees the total
+    blob stays under the device buffer regardless of how big the source event was."""
+    try:
+        if len(json.dumps(ev, separators=(",", ":"))) <= _BRAIN_EVENT_CAP:
+            return ev
+    except (TypeError, ValueError):
+        return ev
+    for limit in (400, 250, 150, 80):
+        ev = _truncate_brain_payload(ev, cap=limit)
+        try:
+            if len(json.dumps(ev, separators=(",", ":"))) <= _BRAIN_EVENT_CAP:
+                break
+        except (TypeError, ValueError):
+            break
+    return ev
+
+
 def _rows_to_brain_events(rows: list) -> list:
     """Return raw OpenClaw event payloads ready for the cloud browser's
     ``transformEvents`` to unwrap.
@@ -6272,13 +6895,32 @@ def _rows_to_brain_events(rows: list) -> list:
                 # dashboard.py) can show "CHANNEL.IN" / "CHANNEL.OUT"
                 # rather than guessing from a missing role.
                 data.setdefault("type", r.get("event_type"))
-            out.append(data)
+            # Bound the per-event size so a burst of big tool outputs can't push
+            # the blob past the device's 128 KB buffer (the "feed locked" cause).
+            data = _truncate_brain_payload(data)
+            # Stamp the CANONICAL session id from the row's top-level session_id
+            # column (the BARE uuid, dropping the ``runtime:`` namespace) so
+            # per-session feeds (desk device + cloud Brain filtering) attribute
+            # each event to the session the device shows. We OVERWRITE any
+            # ``sessionId`` already inside ``data``: an OpenClaw session that runs
+            # Claude Code under the hood embeds the INNER Claude-CLI sessionId in
+            # its event payload (e.g. data.sessionId=<claude uuid> while the row
+            # belongs to the OpenClaw session) -- trusting that inner id filed the
+            # events under the wrong session, so tapping the OpenClaw session on
+            # the device showed "no activity". The row's session_id is the same
+            # id the device-agent + sessions table use, so it's authoritative.
+            _sid = r.get("session_id")
+            if _sid:
+                data = {**data, "sessionId": _sid.rsplit(":", 1)[-1]}
+            out.append(_cap_brain_event_size(data))
         elif isinstance(data, str):
+            _sid = r.get("session_id")
             out.append({
                 **enrich,
                 "type":      r.get("event_type") or "raw",
                 "timestamp": r.get("ts", ""),
-                "detail":    data[:2000],
+                "detail":    data[:_BRAIN_FIELD_CAP],
+                **({"sessionId": _sid.rsplit(":", 1)[-1]} if _sid else {}),
             })
     return out
 
@@ -6300,6 +6942,64 @@ def _rows_to_brain_events(rows: list) -> list:
 # that stale data doesn't linger after a node is decommissioned.
 BRAIN_CACHE_TTL_SEC = 21600
 BRAIN_CACHE_LIMIT = 50
+# Per-session fairness for the brain blob (the device "no activity for this
+# session" fix): guarantee each of the most-recently-active sessions at least
+# BRAIN_PER_SESSION renderable events, across up to BRAIN_SESSION_FANOUT
+# sessions, before filling the rest with the freshest node-wide events. Without
+# this a single very active session floods the newest-N window and crowds out a
+# session the user just messaged. 8×5=40 guaranteed + 10 fill = BRAIN_CACHE_LIMIT,
+# which (with the per-event size cap) keeps the blob inside the device buffer.
+BRAIN_PER_SESSION = 5
+BRAIN_SESSION_FANOUT = 8
+# How deep to scan per session to find BRAIN_PER_SESSION *renderable* events. Far
+# larger than BRAIN_PER_SESSION because a session can end with a long tail of
+# non-renderable plumbing; the scan must reach past it to the real messages.
+BRAIN_PER_SESSION_SCAN = 200
+# Opt-in fanout debug (CLAWMETRY_BRAIN_DEBUG=1) -- logs per-session pick counts so
+# a "session shows no activity" report can be diagnosed from the daemon log.
+_BRAIN_DEBUG = os.environ.get("CLAWMETRY_BRAIN_DEBUG", "") not in ("", "0", "false")
+
+# Event types that are internal plumbing, NOT real activity -- the device parser
+# (summary_parse.c brain_event_to_row) drops them, so including them in the blob
+# just wastes its limited slots (a session whose only in-window events were
+# ``prompt.submitted`` showed "no activity" even though it had real messages).
+_BRAIN_SKIP_TYPES = {
+    "prompt.submitted", "queue-operation", "queue_operation", "compaction",
+    "session.ended", "sessionended", "session_end", "permission-mode",
+    "file-history-snapshot", "ai-title", "last-prompt",
+}
+
+
+def _brain_row_renderable(r: dict) -> bool:
+    """True if the event row would render as a real message / tool event on the
+    device + cloud Brain feed (mirrors ``summary_parse.c brain_event_to_row``).
+    Skips internal plumbing so the blob's limited slots hold real activity."""
+    if not isinstance(r, dict):
+        return False
+    if (r.get("event_type") or "").lower() in _BRAIN_SKIP_TYPES:
+        return False
+    data = r.get("data")
+    if isinstance(data, str):
+        try:
+            data = json.loads(data)
+        except Exception:
+            return bool(data.strip())
+    if not isinstance(data, dict):
+        return False
+    if (data.get("type") or "").lower() in _BRAIN_SKIP_TYPES:
+        return False
+    msg = data.get("message") if isinstance(data.get("message"), dict) else None
+    src = msg or data
+    content = src.get("content")
+    if isinstance(content, str) and content.strip():
+        return True
+    if isinstance(content, list) and content:
+        return True
+    if data.get("text"):
+        return True
+    if src.get("tool_calls") or data.get("tool_calls") or data.get("tool_name"):
+        return True
+    return False
 
 
 def _owner_hash_for_token(api_key: str) -> str:
@@ -6308,6 +7008,100 @@ def _owner_hash_for_token(api_key: str) -> str:
     exactly what the cloud derives from the same token on read."""
     import hashlib
     return hashlib.sha256((api_key or "").encode("utf-8")).hexdigest()
+
+
+def _build_brain_events() -> list:
+    """Build the per-session-fair, renderable, sessionId-stamped brain event list
+    — the SINGLE source of truth for the brain blob. Used by BOTH the heartbeat
+    cache push (``_build_brain_cache_pushes``) AND the on-demand q_brain_refresh
+    path (``_dispatch_pending_queries``) so the two writers of the
+    ``brain:*:recent`` key can never diverge: the refresh path used to rebuild it
+    node-wide and overwrite the heartbeat's fair blob, hiding a just-messaged
+    session behind a flooding one. Returns ``[]`` on any failure.
+    """
+    try:
+        from clawmetry import local_store
+    except Exception:
+        return []
+    try:
+        store = local_store.get_store(read_only=True)
+        # Newest node-wide events (headroom: drops helper sessions + non-render
+        # plumbing below, so over-fetch to still land BRAIN_CACHE_LIMIT real ones).
+        nw_rows = store.query_events(limit=BRAIN_CACHE_LIMIT * 4)
+    except Exception:
+        return []
+    if not nw_rows:
+        return []
+
+    # Per-session fairness: guarantee each recently-active session its newest
+    # renderable events before filling with the freshest node-wide events, so a
+    # flooding session can't crowd out one the user just messaged. Dedup by id.
+    seen_ids: set = set()
+    picked: list = []
+    per_session: dict = {}
+
+    def _consider(r, cap=None):
+        rid = r.get("id")
+        sid = r.get("session_id") or ""
+        if not rid or rid in seen_ids:
+            return
+        if cap is not None and per_session.get(sid, 0) >= cap:
+            return
+        if not _brain_row_renderable(r):
+            return
+        seen_ids.add(rid)
+        per_session[sid] = per_session.get(sid, 0) + 1
+        picked.append(r)
+
+    # Most-recently-active sessions, from the typed sessions table (one row per
+    # session, ordered by last activity) -- NOT the event stream, which a
+    # flooding session dominates. Same source the device-agent session list uses,
+    # so every session the user can TAP on the device is covered.
+    recent_sids: list = []
+    try:
+        for s in store.query_sessions_table(limit=BRAIN_SESSION_FANOUT * 3):
+            sid = s.get("session_id")
+            if sid and sid not in recent_sids:
+                recent_sids.append(sid)
+            if len(recent_sids) >= BRAIN_SESSION_FANOUT:
+                break
+    except Exception:
+        recent_sids = []
+    # Supplement with any session in the newest events not yet in the table.
+    for r in nw_rows:
+        if len(recent_sids) >= BRAIN_SESSION_FANOUT:
+            break
+        sid = r.get("session_id")
+        if sid and sid not in recent_sids:
+            recent_sids.append(sid)
+    # (a) each recent session's newest renderable events (capped per session).
+    # Fetch GENEROUSLY (not just BRAIN_PER_SESSION) because a session can end with
+    # a burst of non-renderable plumbing (queue-operation/prompt.submitted) -- a
+    # tight limit returns only that tail and the renderable filter then picks
+    # nothing, so the session vanishes from its own feed. A wide window lets the
+    # filter always reach its quota of real messages.
+    for sid in recent_sids:
+        try:
+            srows = store.query_events(session_id=sid, limit=BRAIN_PER_SESSION_SCAN)
+        except Exception:
+            srows = []
+        before = len(picked)
+        for r in srows:
+            _consider(r, cap=BRAIN_PER_SESSION)
+        if _BRAIN_DEBUG:
+            log.info("brain fanout: %s -> %d picked (scanned %d)",
+                     (sid or "")[:24], len(picked) - before, len(srows))
+    # (b) fill the rest with the freshest node-wide renderable events.
+    for r in nw_rows:
+        if len(picked) >= BRAIN_CACHE_LIMIT:
+            break
+        _consider(r)
+
+    picked.sort(key=lambda r: r.get("ts") or "", reverse=True)
+    picked = picked[:BRAIN_CACHE_LIMIT]
+    # Same translation as routes/brain.py:_try_local_store_brain (incl. the
+    # hide_clawmetry_session filter + sessionId stamp + size cap).
+    return _rows_to_brain_events(picked)[:BRAIN_CACHE_LIMIT]
 
 
 def _build_brain_cache_pushes(config: dict) -> list:
@@ -6330,25 +7124,9 @@ def _build_brain_cache_pushes(config: dict) -> list:
     node_id = config.get("node_id", "")
     if not (api_key and node_id):
         return []
-    try:
-        from clawmetry import local_store
-    except Exception:
+    events = _build_brain_events()
+    if not events:
         return []
-    try:
-        store = local_store.get_store(read_only=True)
-        # Fetch headroom: _rows_to_brain_events drops ClawMetry's own helper
-        # sessions (selfevolve/fix/…), so query extra rows to still land
-        # ~BRAIN_CACHE_LIMIT real events after filtering.
-        rows = store.query_events(limit=BRAIN_CACHE_LIMIT * 3)
-    except Exception:
-        return []
-    if not rows:
-        return []
-    # Same translation as routes/brain.py:_try_local_store_brain (incl. the
-    # hide_clawmetry_session filter) so the browser sees an identical event
-    # shape AND set regardless of which path served the data (cache hit vs.
-    # relay subscribe vs. JSONL fallback).
-    events = _rows_to_brain_events(rows)[:BRAIN_CACHE_LIMIT]
     payload = {
         "events":  events,
         "count":   len(events),
@@ -7803,32 +8581,31 @@ def _dispatch_pending_queries(config: dict, pending: list) -> None:
             qid = q.get("id")
             cache_key = q.get("cache_key")
             args = q.get("args") or {}
-            result = _local_dispatch(shape, args)
             if not enc_key:
                 log.debug("pending_query %s: no encryption key; skipping", qid)
                 continue
-            # Bug 2026-05-13 (real MOAT fix): when this pending_query targets
-            # the Brain cache key (`brain:*:recent`), the cloud's browser-side
-            # `_cm_decryptBrain` reads `dec.events` from the decrypted blob.
-            # `_local_dispatch('events', ...)` returns the raw shape
-            # `{rows: [...], count, _shape, _via}` though — so the browser
-            # sees `dec.events || []` = empty and shows "No brain activity
-            # events found" even with hundreds of events in DuckDB. Translate
-            # to the dashboard-display shape via `_rows_to_brain_events` so
-            # both this writer and `_build_brain_cache_pushes` produce
-            # identical blobs (one shouldn't silently overwrite the other
-            # with a wrong-shape payload).
-            payload = result
+            # When this pending_query targets the Brain cache key
+            # (`brain:*:recent`), build the blob from the SAME per-session-fair
+            # builder the heartbeat uses (``_build_brain_events``) instead of a
+            # node-wide ``_local_dispatch('events', …)``. Two reasons:
+            #   1. Divergence: the old node-wide rebuild OVERWROTE the heartbeat's
+            #      fair blob, hiding a just-messaged session behind a flooding one
+            #      (device "no activity for this session").
+            #   2. Robustness: it sidesteps the ``_local_dispatch('events')``
+            #      decode that was failing here ("Expecting value: line 1 col 1").
+            # The browser's `_cm_decryptBrain` reads `dec.events`, which this
+            # shape provides directly.
             if shape == "events" and isinstance(cache_key, str) \
                     and cache_key.startswith("brain:"):
-                rows = (result or {}).get("rows") if isinstance(result, dict) else None
-                events = _rows_to_brain_events(rows or [])
+                events = _build_brain_events()
                 payload = {
                     "events":  events,
                     "count":   len(events),
                     "_source": "local_store",
                     "_shape":  "brain_history",
                 }
+            else:
+                payload = _local_dispatch(shape, args)
             blob = encrypt_payload(payload, enc_key)
             _post("/ingest/cache", {
                 "node_id": node_id,
@@ -7934,6 +8711,21 @@ def _apply_approval_decision(q: dict) -> None:
     if n:
         log.info("[approval] %s relayed decision=%s by %s (status flipped)",
                  approval_id, decision, resolver)
+        # Enterprise audit-log producer — record the cloud-relayed approval
+        # decision (who decided, on which approval). Only when a row actually
+        # flipped, so duplicate relays don't double-log. Never raises.
+        try:
+            from clawmetry import audit as _audit
+            _audit.audit_event(
+                "approval.decision",
+                actor=resolver,
+                target=approval_id,
+                result=decision,
+                source="cloud-relay",
+                metadata={"reason": reason} if reason else None,
+            )
+        except Exception:
+            pass
     else:
         # Either unknown id or already decided — both safe to ignore.
         log.debug("[approval] %s relayed decision=%s — no-op (row missing or "
@@ -9368,6 +10160,106 @@ def _session_tool_health(events) -> dict:
     }
 
 
+# Compression-potential heuristics (Headroom-inspired, #2838). These are the
+# rough share of a content type that is recoverable without changing answers
+# (repeated JSON keys, log boilerplate, diff context). Measurement only; the
+# actual compression is a separate, optional layer we never run here.
+_COMPRESS_RATIO = {"json": 0.85, "log": 0.90, "diff": 0.65, "text": 0.0}
+
+
+def _classify_compressible(text: str) -> str:
+    """Cheap content-type guess for the compression-potential meter. No parsing
+    of secrets, no storage of content — just a label. Never raises."""
+    try:
+        t = (text or "").lstrip()
+        if not t:
+            return "text"
+        if t[0] in "[{":
+            return "json"
+        if t.startswith(("diff --git", "@@ ", "--- ", "+++ ", "Index: ")):
+            return "diff"
+        lines = t.split("\n")
+        if len(lines) >= 8:
+            import re as _re
+            hits = 0
+            for ln in lines[:60]:
+                if _re.search(r"\b(INFO|WARN|WARNING|ERROR|DEBUG|TRACE)\b", ln) or \
+                   _re.match(r"\s*\d{4}-\d\d-\d\d[ T]\d\d:\d\d", ln):
+                    hits += 1
+            if hits >= 3:
+                return "log"
+    except Exception:
+        return "text"
+    return "text"
+
+
+def _session_compression_potential(events, model: str = "", min_chars: int = 400) -> dict:
+    """Estimate how much of this session's TOOL-OUTPUT context is compressible
+    without changing answers (JSON arrays, logs, diffs). The meter for
+    recoverable token waste (Headroom-inspired, #2838): scan tool-result text at
+    ingest, classify by cheap heuristics, and store ONLY aggregate token
+    estimates + a percentage + a $ figure — never the raw content. Compressible
+    tool output re-enters context as INPUT tokens, so the $ uses the input rate.
+    Returns {} when there is no sizeable tool output. Never raises."""
+    try:
+        from clawmetry import error_signal as _es
+    except Exception:
+        _es = None
+    by_type: dict = {}
+    total_tok = 0
+    comp_tok = 0.0
+    try:
+        for e in events or []:
+            et = (getattr(e, "type", "") or "").lower()
+            if "result" not in et and not getattr(e, "tool_name", ""):
+                continue
+            extra = getattr(e, "extra", None)
+            extra = extra if isinstance(extra, dict) else {}
+            txt = ""
+            if _es is not None:
+                try:
+                    txt = _es.extract_tool_result_text(
+                        {"content": getattr(e, "content", ""), "extra": extra}
+                    ) or ""
+                except Exception:
+                    txt = ""
+            if not txt:
+                txt = getattr(e, "content", "") or ""
+            if not isinstance(txt, str) or len(txt) < min_chars:
+                continue
+            ctype = _classify_compressible(txt)
+            tok = max(1, len(txt) // 4)  # rough chars -> tokens
+            total_tok += tok
+            ratio = _COMPRESS_RATIO.get(ctype, 0.0)
+            ct = tok * ratio
+            comp_tok += ct
+            d = by_type.setdefault(ctype, {"tokens": 0, "compressible": 0.0})
+            d["tokens"] += tok
+            d["compressible"] += ct
+    except Exception:
+        return {}
+    if total_tok <= 0 or comp_tok < 1:
+        return {}
+    out: dict = {
+        "toolOutputTokens": total_tok,
+        "compressibleToolTokens": int(round(comp_tok)),
+        "compressionPotentialPct": round(comp_tok / total_tok * 100, 1),
+        "compressionByType": {
+            k: int(round(v["compressible"]))
+            for k, v in by_type.items() if v["compressible"] >= 1
+        },
+    }
+    if model:
+        try:
+            from clawmetry.providers_pricing import estimate_event_cost_usd as _ec
+            _rc = _ec(model, input_tokens=int(round(comp_tok)))
+            if _rc and _rc > 0:
+                out["compressionRecoverableUsd"] = round(float(_rc), 6)
+        except Exception:
+            pass
+    return out
+
+
 def _session_idle_gaps(events, ttl_sec: int = 300) -> dict:
     """Count idle gaps that crossed the prompt-cache TTL. Anthropic's cache
     expires after ~5 minutes, so every consecutive-event gap longer than that
@@ -9467,6 +10359,17 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                 ns_id = f"{runtime}:{s.id}"
                 started = _epoch_to_iso(s.started_at)
                 ended = _epoch_to_iso(s.ended_at)
+                # High-water mark = newest event ts we've already ingested for
+                # this session. Skip sessions that haven't advanced since: the
+                # adapter would re-read the whole file (potentially thousands of
+                # events) only to ingest nothing. Active sessions advance their
+                # ``ended`` (the adapter sets it to the last event ts) every turn,
+                # so they're never wrongly skipped; idle/ended sessions cost ~0.
+                _evt_hw = state.setdefault("family_event_high_water", {})
+                _hw_ts = _evt_hw.get(ns_id)
+                _activity = ended or started
+                if _hw_ts and _activity and _activity <= _hw_ts:
+                    continue
                 metadata = {
                     "runtime": runtime,
                     "displayName": s.display_name or "",
@@ -9487,11 +10390,31 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                 metadata.update(_intel)
                 # Pre-fetch the events once (the transcript loop below reuses
                 # them) so we can also derive the per-session tool failure-rate.
-                _events = list(adapter.list_events(s.id, limit=2000))
+                # Read deep enough to reach the NEWEST events (the adapter returns
+                # oldest-first, so a low cap drops the freshest activity); the
+                # high-water filter below keeps the actual ingest to new events.
+                _events = list(adapter.list_events(s.id, limit=_family_event_read_cap()))
                 _thealth = _session_tool_health(_events)
                 metadata.update(_thealth)
                 _idle = _session_idle_gaps(_events)
                 metadata.update(_idle)
+                # Compression-potential meter (#2838): how much tool-output
+                # context is recoverable without changing answers. Aggregates
+                # only; raw content never leaves the daemon.
+                _compress = _session_compression_potential(
+                    _events, model=getattr(s, "model", "") or "")
+                metadata.update(_compress)
+                # Readable title: a raw UUID is unreadable on the dashboard/device.
+                # When the adapter gives no display_name (Claude Code, Codex, ...),
+                # derive a human title from the first real user message.
+                _ftitle = (s.display_name or s.title or "").strip()
+                if not _ftitle:
+                    for _e in _events:
+                        _txt = (getattr(_e, "content", "") or getattr(_e, "text", "") or "").strip()
+                        if _txt and not _txt.startswith("<") and len(_txt) > 3:
+                            _ftitle = _txt[:80]
+                            break
+                _ftitle = _ftitle or s.id
                 # Compaction count: each auto-compaction silently re-summarises
                 # (and re-bills) the context. A session that compacted N times
                 # is thrashing its context window — a glanceable waste signal.
@@ -9508,7 +10431,7 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                         "session_id": ns_id,
                         "node_id": node_id,
                         "agent_id": "main",
-                        "title": s.display_name or s.title or s.id,
+                        "title": _ftitle,
                         "started_at": started,
                         "last_active_at": ended or started,
                         "ended_at": ended,
@@ -9527,7 +10450,7 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                     "session_id": ns_id,
                     "node_id": node_id,
                     "agent_id": "main",
-                    "title": s.display_name or s.title or s.id,
+                    "title": _ftitle,
                     "started_at": started,
                     "last_active_at": ended or started,
                     "ended_at": ended,
@@ -9547,8 +10470,18 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                     "cache_expiry_count": _idle.get("cacheExpiryCount"),
                     "tool_error_pct": _thealth.get("toolErrorPct"),
                     "compaction_count": _compactions or None,
+                    # Compression-potential meter (#2838) carried to the cloud so
+                    # the recoverable-spend roll-up renders from the snapshot too.
+                    "compression_potential_pct": _compress.get("compressionPotentialPct"),
+                    "compressible_tool_tokens": _compress.get("compressibleToolTokens"),
+                    "compression_recoverable_usd": _compress.get("compressionRecoverableUsd"),
                 })
                 # Events → transcript (rides the existing _build_transcripts path).
+                # Re-ingest the full event set for sessions that advanced (the
+                # PK upsert makes re-ingest idempotent) so the per-event cost
+                # spread below stays correct -- it apportions the WHOLE session
+                # cost across ALL events, so it must see all of them, not a tail.
+                # The session-level skip above keeps this off idle sessions.
                 rows = []
                 for e in _events:
                     ets = _epoch_to_iso(e.ts)
@@ -9600,8 +10533,18 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                     try:
                         store.ingest_many(rows)
                         total_events += len(rows)
+                        # Advance the high-water mark to this session's newest
+                        # activity so the next cycle skips it until it grows
+                        # again. Only on a clean ingest -- a failure leaves the
+                        # mark behind so we retry the session next cycle.
+                        if _activity:
+                            _evt_hw[ns_id] = _activity
                     except Exception as _ee:
                         log.warning("family event ingest failed (%s): %s", ns_id, _ee)
+                elif _activity:
+                    # No event rows (e.g. an empty/metadata-only session): still
+                    # mark it seen so we don't re-scan it every cycle forever.
+                    _evt_hw[ns_id] = _activity
         except Exception as exc:
             log.warning(
                 "family runtime ingest failed for %s: %s",
@@ -9624,6 +10567,15 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
             )
         except Exception as _pe:
             log.debug("family sessions cloud push failed (continuing): %s", _pe)
+    # Bound the high-water map so a long-lived node that has seen thousands of
+    # sessions doesn't grow sync-state.json without limit. Keep the most-recent
+    # 1000 by watermark (we only ever re-touch the most-recent _family_session_limit
+    # sessions anyway, so evicting older marks is safe — a re-seen old session just
+    # re-ingests once, which the PK dedups).
+    _hw_map = state.get("family_event_high_water")
+    if isinstance(_hw_map, dict) and len(_hw_map) > 1000:
+        _keep = dict(sorted(_hw_map.items(), key=lambda kv: kv[1] or "", reverse=True)[:1000])
+        state["family_event_high_water"] = _keep
     return total_events
 
 
@@ -9869,9 +10821,10 @@ def _build_runtime_summary(limit: int = 20000):
         store = _ls.get_store()
         if store is None:
             return {}
-        evs = store.query_events(limit=int(limit))
-        if not evs:
-            return {}
+        evs = store.query_events(limit=int(limit)) or []
+        # NOTE: we no longer early-return on empty events — a node that ONLY ever
+        # sent OTLP traces (a pure OpenLLMetry app, no OpenClaw sessions) has no
+        # events but DOES have foreign-app spans to surface below.
         agg: dict = {}
         sess_models = defaultdict(list)  # (rt, sid) -> ordered model list
         for ev in sorted(evs, key=lambda e: (e.get("session_id") or "", e.get("ts") or "")):
@@ -9922,10 +10875,248 @@ def _build_runtime_summary(limit: int = 20000):
                 "models": models_out,
                 "switch_count": rt_switches[rt],
             }
+        # Fold in foreign OTLP / OpenLLMetry apps (#2822/#2853 follow-up). These
+        # derive ``agent_type`` from the resource ``service.name`` and have NO
+        # session-id prefix, so they appear in NONE of the buckets above. One
+        # cheap GROUP BY agent_type over the spans table (daemon snapshot timer,
+        # NOT per request — FLYWHEEL 1e) surfaces them as first-class runtimes so
+        # the switcher dropdown + the inventory roster can scope to them.
+        try:
+            _merge_otlp_apps_into_summary(out, store)
+        except Exception as _eo:
+            log.debug("otlp app summary merge failed: %s", _eo)
         return out
     except Exception as _e:
         log.debug("runtime summary snapshot build failed: %s", _e)
         return {}
+
+
+# Defensive cap on how many distinct OTLP/custom apps we surface in the shared
+# snapshot (top-N by recent activity). A misconfigured fleet could otherwise emit
+# hundreds of service.names; we keep the snapshot tiny and log when we truncate
+# (no SILENT cap — FLYWHEEL). Override with CLAWMETRY_OTLP_APP_CAP.
+_OTLP_APP_CAP = int(os.environ.get("CLAWMETRY_OTLP_APP_CAP", "50") or "50")
+
+
+def _humanize_service_name(service_name: str, agent_type: str) -> str:
+    """Friendly display label for a foreign OTLP app row.
+
+    ``agent_type`` is the slugified service.name (#2822: lowercased, non-alnum
+    -> '_'); the original ``service.name`` is the better label when present.
+    'custom' (the #2822 fallback when service.name was absent) reads as
+    'Custom (OTel)' so it never looks like a real product name. Otherwise we
+    title-case the slug ('my_app' -> 'My App'). Always tagged '(OTel)' so a
+    bring-your-own-agent app is visibly distinct from a native runtime.
+    """
+    at = (agent_type or "").strip().lower()
+    if at == "custom":
+        return "Custom (OTel)"
+    base = (service_name or "").strip()
+    if not base:
+        base = (agent_type or "").replace("_", " ").replace("-", " ").strip()
+        base = " ".join(w.capitalize() for w in base.split()) or (agent_type or "app")
+    return f"{base} (OTel)"
+
+
+def _merge_otlp_apps_into_summary(out: dict, store) -> None:
+    """Add one ``runtimeSummary`` entry per foreign OTLP/custom app.
+
+    Mutates ``out`` in place. Each entry mirrors the session-prefix runtime
+    shape (so every existing consumer — Models interceptor, inventory builder,
+    Overview headline — reads it verbatim) PLUS:
+      - ``otlp = True`` so the frontend knows this runtime is filtered by
+        ``agent_type`` (no session-id prefix) rather than the prefix path.
+      - ``display_name`` (a humanized service name) so the dropdown/roster reads
+        'My App (OTel)', never the raw slug.
+    Excludes the 12 known session-prefix runtimes + ``openclaw`` so a native
+    runtime can NEVER be re-bucketed here (the pre-#2822 mis-bucket bug).
+    """
+    if store is None:
+        return
+    exclude = set(_RUNTIME_PREFIXES) | {"openclaw", "nemoclaw"}
+    rows = store.query_otlp_app_rollup(
+        exclude_agent_types=exclude, limit=_OTLP_APP_CAP + 1,
+    )
+    if not rows:
+        return
+    if len(rows) > _OTLP_APP_CAP:
+        log.warning(
+            "otlp app rollup truncated: %d apps observed, surfacing top %d by "
+            "recent activity (raise CLAWMETRY_OTLP_APP_CAP)",
+            len(rows), _OTLP_APP_CAP,
+        )
+        rows = rows[:_OTLP_APP_CAP]
+    for r in rows:
+        at = (r.get("agent_type") or "").strip()
+        if not at:
+            continue
+        # Never clobber a real session-prefix runtime that happens to share a key
+        # (belt-and-braces; the query already excludes them).
+        if at.lower() in exclude or at in out:
+            continue
+        primary = r.get("primary_model") or ""
+        out[at] = {
+            "sessions": int(r.get("sessions") or 0),
+            "turns": int(r.get("turns") or 0),
+            "tokens": int(r.get("tokens") or 0),
+            "cost_usd": round(float(r.get("cost_usd") or 0.0), 4),
+            "primary_model": primary,
+            "total_turns": int(r.get("turns") or 0),
+            "models": (
+                [{"model": primary, "turns": int(r.get("turns") or 0),
+                  "sessions": int(r.get("sessions") or 0), "share_pct": 100}]
+                if primary else []
+            ),
+            "switch_count": 0,
+            # Markers the inventory builder + frontend use to treat this as an
+            # OTLP app (agent_type filter, not session-prefix).
+            "otlp": True,
+            "display_name": _humanize_service_name(r.get("service_name") or "", at),
+            "traces": int(r.get("traces") or 0),
+            "spans": int(r.get("spans") or 0),
+        }
+
+
+# Friendly per-runtime label map for the Agent Inventory roster. Mirrors the
+# frontend ``_CM_RT_LABEL`` (app.js) + ``_LITE_RT_LABELS`` so a row reads
+# "Claude Code", never "claude_code". OpenClaw is always present (the default
+# session bucket).
+_INV_RT_LABELS = dict(_LITE_RT_LABELS)
+_INV_RT_LABELS.setdefault("openclaw", "OpenClaw")
+_INV_RT_LABELS.setdefault("nemoclaw", "NVIDIA NemoClaw")
+
+
+def _build_agent_inventory(
+    runtime_summary,
+    outcomes_by_rt,
+    activity_by_rt,
+    tool_groups,
+    eval_summary,
+    detected_runtimes,
+    agent_meta,
+    node_id,
+):
+    """Compose the Agent-Inventory roster from ALREADY-computed rollups.
+
+    Authoritative roster source = ``runtime_summary`` KEYS (each is a
+    ``_runtime_of_session`` prefix; ``openclaw`` is always present as the
+    default bucket). Each key becomes ONE row, enriched with ``detectedRuntimes``
+    (display name / running / workspace) and the local ``agent_meta`` owner
+    label. This is the inverse of joining on detect_all() adapter names, which
+    would orphan OpenClaw (not a family adapter) and any bare-UUID session.
+
+    Returns ``(node_wide, by_runtime)``:
+    - ``node_wide``: ``{nodeId, agents:[...], nodeWideToolGroups, nodeWideEval,
+      total}`` — the whole roster (the cloud serves this when no runtime is
+      selected).
+    - ``by_runtime``: ``{rt: {nodeId, agents:[<single row>], total:1}}`` — one
+      slice per runtime so the cloud interceptor can answer ``?runtime=<rt>``
+      with ONLY that runtime's row (the per-runtime no-leak contract). An absent
+      runtime is simply not a key, so the interceptor returns ZERO for it.
+
+    Foreign OTLP / OpenLLMetry apps (post #2822) derive ``agent_type`` from the
+    resource ``service.name`` with NO session-id prefix. ``_build_runtime_summary``
+    now folds them in (one cheap GROUP BY agent_type on the daemon snapshot timer,
+    NOT a request-path scan — FLYWHEEL 1e), tagged ``otlp=True`` + ``display_name``.
+    They flow through here automatically and get their own roster row, identified
+    by ``agent_type`` (the per-runtime no-leak slice scopes them by agent_type,
+    not session prefix). The 12 session-prefix runtimes are unaffected.
+
+    Best-effort: never raises (any failure yields empty slices).
+    """
+    try:
+        rs = runtime_summary if isinstance(runtime_summary, dict) else {}
+        det = detected_runtimes if isinstance(detected_runtimes, list) else []
+        det_by_name = {d.get("name"): d for d in det if isinstance(d, dict) and d.get("name")}
+        meta = agent_meta if isinstance(agent_meta, dict) else {}
+
+        # OpenClaw is the default bucket: present whenever it has data, even
+        # though _detect_family_runtimes never returns it (family-only).
+        oc_present = "openclaw" in rs
+
+        agents = []
+        for rt, summ in rs.items():
+            if not isinstance(summ, dict):
+                continue
+            d = det_by_name.get(rt) or {}
+            is_otlp = bool(summ.get("otlp"))
+            label = (
+                # OTLP apps carry their own humanized 'My App (OTel)' label;
+                # they have no _INV_RT_LABELS / detected-runtime entry.
+                (summ.get("display_name") if is_otlp else None)
+                or _INV_RT_LABELS.get(rt)
+                or d.get("displayName")
+                or rt
+            )
+            if rt == "openclaw":
+                detected = bool(oc_present)
+            elif is_otlp:
+                # An OTLP app is "detected" iff it has emitted spans (it has, or
+                # it wouldn't be in runtime_summary). It is not a local process
+                # we can heartbeat, so ``running`` stays False, labeled honestly.
+                detected = True
+            else:
+                detected = rt in det_by_name
+            mrow = meta.get(rt) or {}
+            agents.append({
+                "agentKey": rt,
+                "displayName": label,
+                "detected": detected,
+                # Foreign OpenLLMetry/OTLP app (no session-id prefix): the
+                # frontend scopes it by agent_type, not the prefix path, and the
+                # roster labels it as a bring-your-own-agent app.
+                "otlp": is_otlp,
+                # process-presence for family runtimes (only OpenClaw/NemoClaw
+                # emit a real heartbeat); labeled honestly in the UI tooltip.
+                "running": bool(d.get("running", False)),
+                "workspace": d.get("workspace", "") or "",
+                "sessions": summ.get("sessions", 0),
+                "turns": summ.get("turns", 0),
+                "tokens": summ.get("tokens", 0),
+                "costUsd": round(float(summ.get("cost_usd", 0.0) or 0.0), 4),
+                "primaryModel": summ.get("primary_model", "") or "",
+                # already bounded to 15 in runtime_summary; trim to 5 for size.
+                "models": (summ.get("models") or [])[:5],
+                "switchCount": summ.get("switch_count", 0),
+                "outcome": (outcomes_by_rt or {}).get(rt),
+                "activityToday": (activity_by_rt or {}).get(rt),
+                "owner": mrow.get("owner"),
+                "notes": mrow.get("notes"),
+                "ownerUpdatedAt": mrow.get("updated_at"),
+            })
+
+        # Stable order: openclaw first, then by cost desc, then name.
+        agents.sort(key=lambda a: (
+            0 if a["agentKey"] == "openclaw" else 1,
+            -float(a.get("costUsd") or 0.0),
+            a.get("displayName") or "",
+        ))
+
+        node_wide = {
+            "nodeId": node_id,
+            "agents": agents,
+            # NODE-WIDE (not per-agent): tool provenance counts + eval summary
+            # are cross-runtime (query_eval_summary has no runtime param; the
+            # tool_catalog groups are cross-runtime). They live in the header
+            # strip labeled "node tools" / "node eval", never as a per-row
+            # column that would imply a per-agent number it cannot back.
+            "nodeWideToolGroups": tool_groups if isinstance(tool_groups, dict) else {},
+            "nodeWideEval": eval_summary if isinstance(eval_summary, dict) else {},
+            "total": len(agents),
+        }
+        by_runtime = {}
+        for a in agents:
+            rt = a["agentKey"]
+            by_runtime[rt] = {
+                "nodeId": node_id,
+                "agents": [a],
+                "total": 1,
+            }
+        return node_wide, by_runtime
+    except Exception as _e:
+        log.debug("agent inventory snapshot build failed: %s", _e)
+        return {"nodeId": node_id, "agents": [], "nodeWideToolGroups": {},
+                "nodeWideEval": {}, "total": 0}, {}
 
 
 # #1911: bound the tool deep-dive detail before it rides the shared ~170 KB
@@ -10165,6 +11356,50 @@ def _build_approvals_audit_snapshot():
         return _approvals_audit_payload(limit=100)
     except Exception:
         return {}
+
+
+def _build_security_integrity_snapshot():
+    """Tamper-evident hash-chain verify slice (mirrors /api/security/integrity).
+
+    Cloud has no local DuckDB, so without this slice the Security tab's
+    Integrity card would render blank on the hosted dashboard. Built on the
+    daemon's OWN store handle (the daemon owns the writer lock; never re-open
+    read_only here — that bricks the writer). Returns the same
+    ``{ok, status, chain_length, pre_chain, first_break}`` shape the route
+    serves. Never raises."""
+    try:
+        from clawmetry import local_store
+        raw = local_store.get_store().verify_integrity()
+    except Exception:
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    status = raw.get("status") or "unknown"
+    return {
+        "ok": True if status == "valid" else (False if status == "invalid" else None),
+        "status": status,
+        "chain_length": int(raw.get("checked") or 0),
+        "pre_chain": int(raw.get("pre_chain") or 0),
+        "first_break": raw.get("broken_at"),
+    }
+
+
+def _build_audit_log_snapshot(limit=25):
+    """Recent Enterprise audit-log slice (mirrors /api/security/audit).
+
+    The append-only audit store is SQLite at ``~/.clawmetry/audit.db`` on the
+    local node; cloud can't read it, so it ships here for the Security tab's
+    recent-activity feed on the hosted dashboard. Never raises."""
+    try:
+        from clawmetry import audit as _audit
+        entries = _audit.read_audit_log(limit=limit)
+        return {
+            "entries": entries,
+            "event_types": _audit.event_types(),
+            "count": len(entries),
+        }
+    except Exception:
+        return {"entries": [], "event_types": [], "count": 0}
 
 
 def _build_harness_snapshot():
@@ -12210,6 +13445,400 @@ def _seconds_since(ts) -> int:
         return 0
 
 
+# ── Daemon-side STUCK-agent detection (issue clawmetry-hardware#15) ──────────
+# The desk device promises a "<runtime> stuck: N tool calls, no progress"
+# banner. Until now the ONLY stuck/loop signal came from the enforcement PROXY
+# (clawmetry.proxy.LoopDetector.ingest_loop_signal), so anyone NOT running the
+# proxy never saw it. This detector reconstructs the same signal from the event
+# stream the daemon already ingests into DuckDB, so it works for EVERYONE,
+# proxy-independent. It is strictly read-only (it only READS events and WRITES a
+# loop_signals row — it never touches the agent), so it can default ON.
+#
+# Definition of "stuck": a recently-active, non-ended session whose newest
+# events are a long CONSECUTIVE run of tool activity with NO progress marker
+# since the streak began. A progress marker is what a healthy agent emits
+# between tool batches: an assistant message carrying TEXT content (a reply /
+# reasoning, not just tool_use), a user message, or a session end. A normal
+# agent doing real work breaks its tool streak with text replies and hits
+# results, so only a true no-progress streak that is BOTH long (>= threshold
+# tool calls) AND slow (spanning >= min-seconds wall-clock) trips it. Both
+# bounds must hold so a fast burst of tool calls (legitimate parallel work)
+# and a small streak are both excused.
+STUCK_TOOL_THRESHOLD = int(os.environ.get("CLAWMETRY_STUCK_TOOLS", "25"))
+STUCK_MIN_SECONDS = int(os.environ.get("CLAWMETRY_STUCK_SECONDS", "180"))
+# How recently a session must have been active to be a candidate. A truly idle
+# session (last active hours ago) is not "stuck right now" — it just stopped.
+STUCK_RECENT_MINUTES = int(os.environ.get("CLAWMETRY_STUCK_RECENT_MINUTES", "15"))
+
+# Latest stuck-detection result, cached so the (plaintext, self-clearing)
+# HEARTBEAT can carry it to the cloud's device_summary — the WiFi desk device
+# fetches the CLOUD summary (built from Postgres), NOT the local dashboard or
+# the legacy E2E snapshot, so loop_signals alone never reached it. ``ts`` is the
+# wall-clock the result was last refreshed; ``items`` is the (possibly empty)
+# top-few stuck list, each already carrying the built banner ``message``. An
+# EMPTY items with a fresh ts means "checked, none stuck" → the device self-
+# clears. The heartbeat treats a STALE ts (>5 min) as "no signal" so a wedged
+# detector can't pin a banner forever.
+_LATEST_STUCK: dict = {"ts": 0.0, "items": []}
+# Heartbeat only trusts a stuck cache refreshed within this window (seconds).
+_STUCK_HEARTBEAT_FRESH_SECONDS = 300
+# Cap how much stuck rides each heartbeat (keep the plaintext payload tiny).
+_STUCK_HEARTBEAT_MAX_ITEMS = 5
+_STUCK_HEARTBEAT_MAX_MSG = 200
+# How many newest events to inspect per candidate session. 120 comfortably
+# covers a streak well past the threshold plus the preceding progress marker.
+_STUCK_EVENT_WINDOW = 120
+
+# Event types that count as a TOOL action in the streak. Covers every ingest
+# variant (Anthropic-style, OpenClaw v3 dotted, camelCase, hyphenated) so the
+# streak counts the same tool turns the transcript renders. Mirrors
+# local_store._TOOL_CALL_TOPLEVEL_EVENT_TYPES + the result/dotted forms.
+# Top-level tool-CALL events (family adapters emit these directly). Tool RESULT
+# events are deliberately EXCLUDED — a result is not a new invocation, and
+# counting it double-counts each round-trip (~2x inflation).
+_STUCK_TOPLEVEL_TOOL_CALL_TYPES = frozenset({
+    "tool_call", "tool_use", "toolcall", "tool.call", "tool.invoked",
+})
+# Assistant/model turn envelopes that may HOST tool calls inside the message
+# (OpenClaw v3 ``model.completed`` + ``data.toolMetas``; Claude Code ``assistant``
+# + ``message.content`` tool_use blocks). Counted via the canonical
+# ``_iter_tool_invocation_names`` so the streak counts the same tool turns the
+# rest of the app counts — top-level ``tool_call`` is rare on the real runtimes.
+_STUCK_ASSISTANT_EVENT_TYPES = frozenset({
+    "assistant", "message", "model.completed", "subagent:assistant",
+})
+# Event types that are unambiguously a PROGRESS marker on their own (no need to
+# inspect content). A user prompt or a session end breaks any streak.
+_STUCK_PROGRESS_EVENT_TYPES = frozenset({
+    "user", "prompt.submitted",
+    "session.ended", "session.end", "session.completed", "session.stopped",
+})
+
+
+def _stuck_tool_call_count(et: str, data: Any) -> int:
+    """Number of tool CALLS an event represents (0 if none). Handles all three
+    real shapes: a top-level ``tool_call``/``tool_use`` event (1), OpenClaw v3
+    ``model.completed`` with ``data.toolMetas`` (N), and Claude Code ``assistant``
+    with ``message.content`` tool_use blocks (N). Mirrors the app-wide
+    ``_iter_tool_invocation_names`` so the streak counts what everything else
+    counts — and counts CALLS only, never tool_result. Never raises."""
+    if et in _STUCK_TOPLEVEL_TOOL_CALL_TYPES:
+        return 1
+    if isinstance(data, str):
+        try:
+            data = json.loads(data)
+        except Exception:
+            return 0
+    if not isinstance(data, dict):
+        return 0
+    try:
+        from clawmetry.local_store import _iter_tool_invocation_names
+        return sum(1 for _ in _iter_tool_invocation_names(et, data))
+    except Exception:
+        return 0
+
+
+def _stuck_event_role(data: Any) -> str:
+    """Best-effort role for an event payload. ``data`` may be a dict, a JSON
+    string, or junk — mirror _row_to_event/_brain_row_renderable defensiveness
+    and never raise. Returns a lowercase role ('assistant'/'user'/'system'/…)
+    or '' when none is discernible."""
+    if isinstance(data, str):
+        try:
+            data = json.loads(data)
+        except Exception:
+            return ""
+    if not isinstance(data, dict):
+        return ""
+    role = data.get("role")
+    if not role and isinstance(data.get("message"), dict):
+        role = data["message"].get("role")
+    return str(role or "").strip().lower()
+
+
+def _stuck_assistant_has_text(data: Any) -> bool:
+    """True if an assistant event carries real TEXT content (a reply / visible
+    reasoning), as opposed to a tool-call-only turn. Walks the common content
+    shapes: a plain string, or a list of blocks where a ``text`` block has
+    non-empty text. ``tool_use``/``toolCall`` blocks do NOT count as text —
+    those ARE the streak. Never raises."""
+    if isinstance(data, str):
+        try:
+            data = json.loads(data)
+        except Exception:
+            # A non-JSON string body is itself text content.
+            return bool(data.strip())
+    if not isinstance(data, dict):
+        return False
+    msg = data.get("message") if isinstance(data.get("message"), dict) else data
+    content = msg.get("content")
+    if isinstance(content, str):
+        return bool(content.strip())
+    if isinstance(content, list):
+        for blk in content:
+            if not isinstance(blk, dict):
+                # A bare string block counts as text.
+                if isinstance(blk, str) and blk.strip():
+                    return True
+                continue
+            btype = str(blk.get("type") or "").lower()
+            if btype in ("text", "output_text") and str(blk.get("text") or "").strip():
+                return True
+            # Some shapes omit ``type`` but carry ``text`` directly.
+            if not btype and str(blk.get("text") or "").strip():
+                return True
+    # Anthropic SDK also surfaces a top-level ``text`` on some assistant rows.
+    if isinstance(msg.get("text"), str) and msg["text"].strip():
+        return True
+    # OpenClaw v3 ``model.completed`` turns carry the reply under different keys
+    # (a string ``completionText``/``completion`` or a list ``assistantTexts``);
+    # a real text reply there is progress too, so a v3 narration breaks the streak.
+    for k in ("completionText", "completion"):
+        if isinstance(data.get(k), str) and data[k].strip():
+            return True
+    at = data.get("assistantTexts")
+    if isinstance(at, list) and any(isinstance(t, str) and t.strip() for t in at):
+        return True
+    return False
+
+
+def _detect_stuck_sessions(store) -> list[dict]:
+    """Reconstruct the proxy's stuck/loop signal from the DuckDB event stream.
+
+    For each recently-active, NON-ended session, walk its newest events
+    newest->older counting the CONSECUTIVE tool streak since the last progress
+    marker. A streak that is BOTH long (>= STUCK_TOOL_THRESHOLD tool calls) AND
+    slow (>= STUCK_MIN_SECONDS wall-clock span) marks the session STUCK.
+
+    Returns a list of ``{session_id, runtime, tool_calls, since_seconds}``,
+    most-stuck (longest streak) first. Read-only and never raises — any store
+    error logs a warning and yields ``[]`` so the daemon loop is never taken
+    down by detection.
+    """
+    try:
+        from clawmetry import waste_flags as _wf
+    except Exception:
+        _wf = None
+
+    try:
+        sessions = store.query_sessions_table(limit=300) or []
+    except Exception as e:  # noqa: BLE001
+        log.warning("stuck-detect: query_sessions_table failed: %s", e)
+        return []
+
+    out: list[dict] = []
+    for s in sessions:
+        if not isinstance(s, dict):
+            continue
+        # Skip ended sessions outright — a finished agent is not "stuck".
+        if s.get("ended_at"):
+            continue
+        status = str(s.get("status") or "").lower()
+        if status in ("ended", "completed", "stopped", "failed"):
+            continue
+        sid = s.get("session_id") or ""
+        if not sid:
+            continue
+        # Recency gate: only sessions active in the last STUCK_RECENT_MINUTES
+        # are candidates. query_sessions_table is ordered most-recent-active
+        # first, so the first stale row lets us stop scanning the tail.
+        last_active = s.get("last_active_at") or s.get("started_at")
+        idle_s = _seconds_since(last_active)
+        if last_active and idle_s > STUCK_RECENT_MINUTES * 60:
+            break
+
+        try:
+            events = store.query_events(
+                session_id=sid, limit=_STUCK_EVENT_WINDOW,
+            ) or []
+        except Exception as e:  # noqa: BLE001
+            log.warning("stuck-detect: query_events failed for %s: %s", sid, e)
+            continue
+        # query_events returns newest-first (ORDER BY ts DESC). Walk it in that
+        # order, counting the consecutive tool streak until the first progress
+        # marker. ``newest_ts``/``oldest_ts`` bound the streak's wall-clock span.
+        tool_calls = 0
+        newest_ts = None
+        oldest_ts = None
+        for ev in events:
+            if not isinstance(ev, dict):
+                continue
+            et = str(ev.get("event_type") or "").strip().lower()
+            data = ev.get("data")
+            ts = ev.get("ts")
+
+            if et in _STUCK_PROGRESS_EVENT_TYPES:
+                break  # user prompt / session end → progress, streak ends.
+            # An assistant / model.completed turn carrying TEXT is a reply →
+            # progress. A user message is progress regardless of et. A tool-only
+            # assistant/model turn is NOT progress — its hosted tools are counted.
+            role = _stuck_event_role(data)
+            if role == "user":
+                break
+            if et in _STUCK_ASSISTANT_EVENT_TYPES or role == "assistant":
+                if _stuck_assistant_has_text(data):
+                    break  # text reply → progress.
+
+            # Count tool CALLS for this event — top-level tool_call OR tool calls
+            # hosted inside an assistant/model envelope (toolMetas / content
+            # blocks). Counts calls only (never tool_result), so the threshold +
+            # the reported number mean real invocations.
+            n = _stuck_tool_call_count(et, data)
+            if n:
+                tool_calls += n
+                if newest_ts is None:
+                    newest_ts = ts
+                oldest_ts = ts
+            # Any other event (tool_result, heartbeat, model.changed, system, …)
+            # is neither a new tool call nor progress — skip without breaking.
+            continue
+
+        if tool_calls < STUCK_TOOL_THRESHOLD:
+            continue
+        # Wall-clock span of the streak (oldest..newest tool call). _seconds_since
+        # on the OLDEST streak event is the streak duration only if the newest
+        # is ~now; compute the explicit span instead to be precise.
+        span = _stuck_streak_span_seconds(oldest_ts, newest_ts)
+        if span < STUCK_MIN_SECONDS:
+            continue
+        runtime = "openclaw"
+        if _wf is not None:
+            try:
+                runtime = _wf.runtime_from_session_id(sid) or "openclaw"
+            except Exception:
+                runtime = "openclaw"
+        out.append({
+            "session_id": sid,
+            "runtime": runtime,
+            "tool_calls": tool_calls,
+            "since_seconds": span,
+        })
+
+    out.sort(key=lambda r: r.get("tool_calls", 0), reverse=True)
+    return out
+
+
+def _stuck_streak_span_seconds(oldest_ts, newest_ts) -> int:
+    """Wall-clock seconds between the oldest and newest tool-call in a streak.
+    Both are ISO-ish naive local strings (the store's convention). Falls back to
+    'seconds since oldest' when newest is unparseable, and 0 on total failure."""
+    try:
+        from datetime import datetime as _dt
+
+        def _parse(x):
+            s = str(x).strip().replace("Z", "")
+            try:
+                return _dt.fromisoformat(s)
+            except ValueError:
+                return _dt.fromisoformat(s.split(".")[0].split("+")[0])
+
+        if oldest_ts and newest_ts:
+            o, n = _parse(oldest_ts), _parse(newest_ts)
+            return max(0, int((n - o).total_seconds()))
+    except Exception:
+        pass
+    # Fallback: treat the streak as running until now.
+    return _seconds_since(oldest_ts)
+
+
+def _emit_stuck_signals(store, state: dict) -> int:
+    """Run stuck detection and emit each as a loop_signals row so the EXISTING
+    device-alert path (``_build_device_summary`` → ``query_recent_loop_signals``)
+    fires the "<runtime> stuck" banner WITHOUT a new alert source. Dedupes per
+    session within STUCK_REEMIT_SECONDS so we don't re-write every tick; the
+    30-minute ``last_seen`` window in the snapshot auto-clears the banner once a
+    session stops being stuck (we simply stop re-emitting). Returns the count of
+    sessions detected as stuck this tick. Never raises into the daemon loop."""
+    try:
+        stuck = _detect_stuck_sessions(store)
+    except Exception as e:  # noqa: BLE001
+        log.warning("stuck-detect: detector errored: %s", e)
+        # Detector errored — do NOT touch _LATEST_STUCK here: leaving the old
+        # value is harmless because the heartbeat staleness gate (5 min) will
+        # drop it; clearing it on a transient error would suppress a real,
+        # still-stuck banner mid-incident. (When detection SUCCEEDS with no
+        # stuck below, we DO refresh ts with items=[] to self-clear.)
+        return 0
+
+    # Refresh the heartbeat cache every tick the detector RAN — including the
+    # no-stuck case (items=[], fresh ts) so the cloud/device self-clears. Build
+    # the same banner messages the loop_signals path emits, capped tiny for the
+    # plaintext heartbeat. Never let cache bookkeeping take down the loop.
+    try:
+        items = []
+        for st in stuck[:_STUCK_HEARTBEAT_MAX_ITEMS]:
+            n = int(st.get("tool_calls") or 0)
+            mins = max(1, int(st.get("since_seconds") or 0) // 60)
+            rt = str(st.get("runtime") or "openclaw")
+            msg = f"{rt} stuck: {n} tool calls, no progress for {mins}m"
+            items.append({
+                "runtime": rt,
+                "tool_calls": n,
+                "since_seconds": int(st.get("since_seconds") or 0),
+                "message": msg[:_STUCK_HEARTBEAT_MAX_MSG],
+            })
+        _LATEST_STUCK["items"] = items
+        _LATEST_STUCK["ts"] = time.time()
+    except Exception as _ce:  # noqa: BLE001
+        log.debug("stuck-detect: cache refresh failed (continuing): %s", _ce)
+
+    if not stuck:
+        return 0
+
+    memo = state.setdefault("stuck_emit_memo", {})
+    if not isinstance(memo, dict):
+        memo = {}
+        state["stuck_emit_memo"] = memo
+    now = time.time()
+    # Don't re-write a session's signal more than once per re-emit window, but
+    # DO re-emit periodically so ``last_seen`` stays fresh inside the snapshot's
+    # 30-min window while the session remains stuck.
+    reemit = max(30, STUCK_MIN_SECONDS // 2)
+
+    emitted = 0
+    for st in stuck:
+        sid = st["session_id"]
+        last = memo.get(sid)
+        if isinstance(last, (int, float)) and (now - last) < reemit:
+            continue
+        n = int(st["tool_calls"])
+        mins = max(1, st["since_seconds"] // 60)
+        rt = st["runtime"]
+        msg = f"{rt} stuck: {n} tool calls, no progress for {mins}m"
+        try:
+            store.ingest_loop_signal(
+                session_id=sid,
+                # Stable signature per session so a re-emit UPSERTs the same row
+                # (GREATEST bumps repeat_count, refreshes last_seen) instead of
+                # piling up rows — matches the proxy's (session_id, signature) PK.
+                signature="daemon_stuck",
+                repeat_count=n,
+                severity="warning",
+                agent_type=rt,
+                details={
+                    "source": "daemon_stuck_detector",
+                    "message": msg,
+                    "tool_calls": n,
+                    "since_seconds": st["since_seconds"],
+                },
+            )
+            memo[sid] = now
+            emitted += 1
+            log.info("stuck-detect: %s", msg)
+        except Exception as e:  # noqa: BLE001
+            log.warning("stuck-detect: ingest_loop_signal failed for %s: %s",
+                        sid, e)
+            continue
+    # Bound memo growth: drop entries we haven't touched in an hour.
+    try:
+        for k in [k for k, v in memo.items()
+                  if not (isinstance(v, (int, float)) and (now - v) < 3600)]:
+            memo.pop(k, None)
+    except Exception:
+        pass
+    return emitted
+
+
 def _build_device_summary(spending, daily_usage):
     """Compact, all-runtime payload for a WiFi hardware companion.
 
@@ -12326,17 +13955,32 @@ def _build_device_summary(spending, daily_usage):
         pass
     # Surface a "something is stuck" alert from the daemon's loop-detection
     # signals so the device alert card can fire. It was always null while the
-    # alert source lived only in the dashboard process (#contract-drift).
+    # alert source lived only in the dashboard process (#contract-drift). The
+    # signals come from BOTH the enforcement proxy's LoopDetector AND (issue
+    # clawmetry-hardware#15) the daemon's proxy-independent _emit_stuck_signals,
+    # so the banner now fires for everyone, not just proxy users.
     try:
         from clawmetry import waste_flags as _wf
         sigs = store.query_recent_loop_signals(limit=5, since_minutes=30) or []
         hot = next((s for s in sigs if isinstance(s, dict)
                     and int(s.get("repeat_count") or 0) >= 5), None)
         if hot:
-            rt = (_wf.runtime_from_session_id(hot.get("session_id") or "")
-                  or hot.get("agent_type") or "an agent")
-            n = int(hot.get("repeat_count") or 0)
-            summary["alert"] = {"message": f"{rt} looping, {n} repeats, no progress"}
+            # Prefer the precise message the daemon stuck-detector stashed in
+            # ``details`` ("<rt> stuck: N tool calls, no progress for Mm");
+            # fall back to the generic looping wording for proxy-only signals.
+            det = hot.get("details")
+            if isinstance(det, str):
+                try:
+                    det = json.loads(det)
+                except Exception:
+                    det = None
+            msg = det.get("message") if isinstance(det, dict) else None
+            if not msg:
+                rt = (_wf.runtime_from_session_id(hot.get("session_id") or "")
+                      or hot.get("agent_type") or "an agent")
+                n = int(hot.get("repeat_count") or 0)
+                msg = f"{rt} looping, {n} repeats, no progress"
+            summary["alert"] = {"message": str(msg)[:200]}
     except Exception:
         pass
     # A waiting approval or a stuck/looping agent is what needs a human.
@@ -12915,6 +14559,38 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
     except Exception as _e_rtb:
         log.debug("snapshot: per-runtime breakdown failed: %s", _e_rtb)
 
+    # Agent Inventory roster (single-pane control-tower view). Built ENTIRELY
+    # from rollups already computed above (runtime_summary / outcomes / activity
+    # / tool-catalog groups / eval summary / detectedRuntimes) plus ONE cheap
+    # ``query_agent_meta`` read for the owner labels — NO new request-path full
+    # scan (FLYWHEEL 1e CPU budget). ``query_agent_meta`` is called standalone
+    # (NOT inside any lock — _fetch self-locks, memory
+    # feedback_local_store_fetch_takes_writelock).
+    _detected_runtimes = _detect_family_runtimes()
+    _agent_meta = {}
+    _inv_node_id = ""
+    try:
+        from clawmetry import local_store as _ls_am
+        _am_store = _ls_am.get_store()
+        if _am_store is not None:
+            _agent_meta = _am_store.query_agent_meta() or {}
+            try:
+                _inv_node_id = _am_store._node_id()
+            except Exception:
+                _inv_node_id = ""
+    except Exception as _e_am:
+        log.debug("snapshot: agent_meta read failed: %s", _e_am)
+    _inv_node_wide, _inv_by_rt = _build_agent_inventory(
+        _runtime_summary,
+        _outcomes_by_rt,
+        _activity_by_rt,
+        (tool_catalog_slice or {}).get("groups", {}),
+        (evals_slice or {}).get("summary", {}),
+        _detected_runtimes,
+        _agent_meta,
+        _inv_node_id,
+    )
+
     from clawmetry.providers_pricing import provider_for_model as _pfm
     payload = {
         "system": system,
@@ -12953,6 +14629,11 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
         "activityTodayByRuntime": _activity_by_rt,
         "outcomes": _outcomes_slice_for_snapshot(),
         "outcomesByRuntime": _outcomes_by_rt,
+        # Agent Inventory roster: node-wide roster (one row per runtime) + a
+        # per-runtime slice the cloud cm-cloud-inventory interceptor returns for
+        # ?runtime=<rt> (only that runtime's row — the no-leak contract).
+        "agentInventory": _inv_node_wide,
+        "agentInventoryByRuntime": _inv_by_rt,
         "spending": spending,
         # Compact all-runtime slice a WiFi hardware companion decrypts + renders
         # (the device GETs the snapshot, decrypts with the user's key, reads
@@ -12963,6 +14644,13 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
         "harness": _build_harness_snapshot(),
         "usage": _build_usage_snapshot(),
         "approvalsAudit": _build_approvals_audit_snapshot(),
+        # Security tab: tamper-evident hash-chain verify + Enterprise audit
+        # feed. Both are local-only data (DuckDB chain / SQLite audit.db) so
+        # they ride the snapshot for cloud parity; a follow-up cm-cloud
+        # interceptor serves /api/security/integrity + /api/security/audit
+        # from these slices.
+        "securityIntegrity": _build_security_integrity_snapshot(),
+        "auditLog": _build_audit_log_snapshot(),
         "channels": _build_channel_data(config),
         "toolStats": _build_tool_stats(),
         "externalCalls": _build_external_calls(),
@@ -12972,7 +14660,7 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
         # OpenClaw-family runtimes (PicoClaw, NanoClaw) detected on this host,
         # tiny by design ({name, displayName, sessionCount, workspace}) so the
         # cloud can show a runtime chip without bloating the snapshot.
-        "detectedRuntimes": _detect_family_runtimes(),
+        "detectedRuntimes": _detected_runtimes,
         "machineInfo": _build_machine_info(),
         "channelList": _build_channel_list(config),
         "ollamaInfo": _detect_ollama_for_heartbeat(),
@@ -13962,6 +15650,11 @@ def run_daemon() -> None:
     # ENABLED=0 disables cleanly. 0 = fire on first cycle so a daemon
     # restart scores the backlog without waiting 5 min.
     last_evals_run = 0.0
+    # Stuck-agent detector (issue clawmetry-hardware#15). Proxy-independent;
+    # reads the event stream and emits a loop_signals row that the device-alert
+    # path already reads. 0 = run on first cycle so a stuck agent at daemon
+    # start surfaces immediately.
+    last_stuck_eval = 0.0
 
     while True:
         try:
@@ -14187,6 +15880,34 @@ def run_daemon() -> None:
                     save_state(state)
                 except Exception:
                     pass
+
+            # ── Stuck-agent detector (issue clawmetry-hardware#15) ──
+            # Proxy-independent: reads the event stream from DuckDB, finds
+            # sessions in a long no-progress tool streak, and emits a
+            # loop_signals row so the device's "<runtime> stuck" banner fires
+            # for EVERYONE (not just users running the enforcement proxy).
+            # Strictly read-only w.r.t. the agent, throttled, and best-effort —
+            # a failure logs but never raises into the sync cycle.
+            if os.environ.get("CLAWMETRY_STUCK_DETECT", "1") != "0":
+                now_stuck = time.time()
+                if (now_stuck - last_stuck_eval) >= STUCK_EVAL_INTERVAL_SEC:
+                    try:
+                        from clawmetry import local_store as _ls_stuck
+                        store_for_stuck = _ls_stuck.get_store()
+                        n_stuck = _emit_stuck_signals(store_for_stuck, state)
+                        if n_stuck:
+                            log.info(
+                                f"stuck-detect: {n_stuck} stuck session(s)"
+                            )
+                    except Exception as _se:
+                        log.warning(
+                            f"stuck-detect: tick errored: {_se}"
+                        )
+                    last_stuck_eval = now_stuck
+                    try:
+                        save_state(state)
+                    except Exception:
+                        pass
 
             # ── Eval scheduler (issue #1619 Phase 1) ──
             # Sister of the alerts evaluator. Picks unscored completed
@@ -15253,6 +16974,11 @@ def sync_autonomy(config, state, paths):
 
 ALERTS_EVAL_INTERVAL_SEC = 60  # Re-evaluate alerts every 60s (PRD #779)
 
+# Stuck-agent detector cadence (issue clawmetry-hardware#15). 60s keeps the
+# device banner fresh without re-scanning every tight sync tick; env override
+# for tests / tuning.
+STUCK_EVAL_INTERVAL_SEC = int(os.environ.get("CLAWMETRY_STUCK_INTERVAL_SEC", "60"))
+
 # Issue #1619 Phase 1 — LLM-as-judge eval scheduler cadence. 300s (5 min)
 # matches the PRD: every 5 min, pick up to EVAL_BATCH unscored completed
 # sessions and persist their scores. Lower bound is the rate limiter
@@ -15275,6 +17001,47 @@ def _iso_now() -> str:
 def _iso_now_minus(seconds: int) -> str:
     from datetime import timedelta as _td
     return (datetime.now(timezone.utc) - _td(seconds=seconds)).isoformat()
+
+
+def _alerts_quality_window_minutes(rules: list) -> int:
+    """Return the widest window (minutes) any enabled quality rule needs, or 0
+    when no quality rule (eval_score_below / outcome_failure_rate) is present.
+
+    Lets ``evaluate_alerts`` skip the per-session quality query entirely on
+    the common case where the user only has cost/error rules. Reads the rule
+    body the same way ``alert_evaluator._normalise_rule`` does (``type`` or
+    legacy ``alert_type``)."""
+    try:
+        from clawmetry import alert_evaluator
+    except Exception:
+        return 0
+    quality_types = getattr(alert_evaluator, "QUALITY_RULE_TYPES", frozenset())
+    default_window = getattr(
+        alert_evaluator, "DEFAULT_QUALITY_WINDOW_MINUTES", 60,
+    )
+    widest = 0
+    for raw in (rules or []):
+        try:
+            cond = raw.get("condition_json")
+            if isinstance(cond, str):
+                import json as _json
+                cond = _json.loads(cond)
+            if not isinstance(cond, dict):
+                continue
+            rtype = cond.get("type") or cond.get("alert_type")
+            if rtype not in quality_types:
+                continue
+            wm = cond.get("window_minutes")
+            if wm is None and cond.get("window_sec") is not None:
+                wm = int(cond.get("window_sec")) // 60
+            try:
+                wm = int(wm) if wm is not None else default_window
+            except (TypeError, ValueError):
+                wm = default_window
+            widest = max(widest, max(1, wm))
+        except Exception:
+            continue
+    return widest
 
 
 def evaluate_alerts(config: dict, state: dict) -> int:
@@ -15350,8 +17117,26 @@ def evaluate_alerts(config: dict, state: dict) -> int:
         last_eval_state = {}
         state["alerts_eval_memo"] = last_eval_state
 
+    # Eval->monitor loop: the quality rule types (eval_score_below,
+    # outcome_failure_rate) read the per-session eval-score / outcome slice,
+    # not the event stream. Only pay for that DuckDB query when at least one
+    # such rule is enabled (otherwise it's wasted work every tick).
+    quality = None
     try:
-        matches = alert_evaluator.evaluate(rules, events, last_eval_state)
+        quality_window = _alerts_quality_window_minutes(rules)
+    except Exception:
+        quality_window = 0
+    if quality_window > 0:
+        try:
+            quality = store.query_session_quality_window(
+                window_minutes=quality_window,
+            )
+        except Exception as e:
+            log.warning("alerts: query_session_quality_window failed: %s", e)
+            quality = None
+
+    try:
+        matches = alert_evaluator.evaluate(rules, events, last_eval_state, quality)
     except Exception as e:
         log.warning("alerts: evaluator errored: %s", e)
         state["alerts_last_eval_ts"] = _iso_now()

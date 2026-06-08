@@ -315,28 +315,15 @@ import abc
 import builtins
 import datetime
 import enum
+import importlib as _importlib
 import typing
 
 import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ._jsii import *
 
@@ -13160,24 +13147,58 @@ __all__ = [
     "web",
 ]
 
+# Type-checking-only imports for static analyzers (pyright/mypy).
+# At runtime TYPE_CHECKING is False, preserving lazy loading.
+if typing.TYPE_CHECKING:
+    from . import awscdk as awscdk
+    from . import build as build
+    from . import cdk as cdk
+    from . import cdk8s as cdk8s
+    from . import cdktf as cdktf
+    from . import circleci as circleci
+    from . import github as github
+    from . import gitlab as gitlab
+    from . import java as java
+    from . import javascript as javascript
+    from . import python as python
+    from . import release as release
+    from . import typescript as typescript
+    from . import vscode as vscode
+    from . import web as web
+
 publication.publish()
 
-# Loading modules to ensure their types are registered with the jsii runtime library
-from . import awscdk
-from . import build
-from . import cdk
-from . import cdk8s
-from . import cdktf
-from . import circleci
-from . import github
-from . import gitlab
-from . import java
-from . import javascript
-from . import python
-from . import release
-from . import typescript
-from . import vscode
-from . import web
+_SUBMODULES = {
+    "awscdk",
+    "build",
+    "cdk",
+    "cdk8s",
+    "cdktf",
+    "circleci",
+    "github",
+    "gitlab",
+    "java",
+    "javascript",
+    "python",
+    "release",
+    "typescript",
+    "vscode",
+    "web",
+}
+
+def __getattr__(name: str) -> object:
+    if name in _SUBMODULES:
+        mod = _importlib.import_module(f".{name}", __name__)
+        globals()[name] = mod
+        return mod
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+def __dir__() -> "list[str]":
+    return [*__all__, *_SUBMODULES]
+
+import sys as _sys
+setattr(_sys.modules[__name__], "__getattr__", __getattr__)
+setattr(_sys.modules[__name__], "__dir__", __dir__)
 
 def _typecheckingstub__5bf7714efdf83cf2031e4ef3aa1d0cb9511cb921777751c76a0f501c0c56e247(
     *,

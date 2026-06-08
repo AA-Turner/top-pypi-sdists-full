@@ -629,21 +629,21 @@ class Bash(
             )
             if has_write and mentions_source:
                 return (
-                    f"REFUSED: bash inplace file edit (python -c "
-                    f"'open(...).write(...)') blocked.\n"
-                    f"  Reason: bash file edits bypass every safety net on "
-                    f"the file-edit path (pre-write syntax gate, fuzzy "
-                    f"match, already-applied detection, dedup, validation "
-                    f"scrub, multifile-rename intercept). Months of operator "
-                    f"sessions have hit corrupted writes / silent loops via "
-                    f"this exact pattern. Wrapping the edit in `python -c` "
-                    f"does NOT change that — drydock still can't see the "
-                    f"resulting content.\n"
-                    f"  Action: use `search_replace` for targeted line "
-                    f"changes, or `write_file` for a full rewrite. Both "
-                    f"validate the result before committing to disk.\n"
-                    f"  To disable this guard set "
-                    f"DRYDOCK_BASH_INPLACE_REDIRECT=0."
+                    "REFUSED: bash inplace file edit (python -c "
+                    "'open(...).write(...)') blocked.\n"
+                    "  Reason: bash file edits bypass every safety net on "
+                    "the file-edit path (pre-write syntax gate, fuzzy "
+                    "match, already-applied detection, dedup, validation "
+                    "scrub, multifile-rename intercept). Months of operator "
+                    "sessions have hit corrupted writes / silent loops via "
+                    "this exact pattern. Wrapping the edit in `python -c` "
+                    "does NOT change that — drydock still can't see the "
+                    "resulting content.\n"
+                    "  Action: use `search_replace` for targeted line "
+                    "changes, or `write_file` for a full rewrite. Both "
+                    "validate the result before committing to disk.\n"
+                    "  To disable this guard set "
+                    "DRYDOCK_BASH_INPLACE_REDIRECT=0."
                 )
 
         # Special-case fast reject: shell heredocs / "EOF" forms that
@@ -741,11 +741,7 @@ class Bash(
         # when OLD is a Python identifier. Allow `,` as separator too.
         # Also handle quoted forms: 's/.../.../', "s/.../.../",
         # and unquoted (e.g., sed -e s/foo/bar/g).
-        # Match: word-bound s, then 3 fields separated by / (or , or |).
-        sub_pat = _re.compile(
-            r"\bs([/,|])(?P<old>[^\1]+?)\1(?P<new>[^\1]*?)\1([gIimsxe]*)",
-        )
-        # Simpler: just match s/X/Y/ where X is a Python identifier.
+        # Just match s/X/Y/ where X is a Python identifier.
         ident_sub = _re.compile(
             r"\bs/(?P<old>[A-Za-z_][A-Za-z0-9_]*)/(?P<new>[A-Za-z_][A-Za-z0-9_]*)/[gIm]*"
         )
@@ -819,7 +815,7 @@ class Bash(
         other_files = ", ".join(
             str(fp.relative_to(pkg_root.parent)) for fp in matching_files[:5]
         )
-        more = f" (+{len(matching_files)-5} more)" if len(matching_files) > 5 else ""
+        more = f" (+{len(matching_files) - 5} more)" if len(matching_files) > 5 else ""
 
         return (
             f"REFUSED: this bash command runs `sed -i s/{old_name}/{new_name}/...` "
@@ -1084,7 +1080,7 @@ class Bash(
                     _hd_size = _os_hd.path.getsize(_hd_path)
                     _hd_lines = 0
                     try:
-                        with open(_hd_path, "r", errors="replace") as _hdf:
+                        with open(_hd_path, errors="replace") as _hdf:
                             _hd_lines = sum(1 for _ in _hdf)
                     except Exception:
                         pass
@@ -1269,7 +1265,7 @@ class Bash(
                 if _port_match:
                     _port = next((g for g in _port_match.groups() if g), "")
                 _hint = (
-                    f"\n[PORT CONFLICT: the server failed to bind"
+                    "\n[PORT CONFLICT: the server failed to bind"
                     + (f" port {_port}" if _port else "")
                     + ". Another process (likely a prior run of the "
                     "same server still in background) is already on "

@@ -27,13 +27,14 @@ classifiers = [
 dependencies = [
     "arrow",
     "authlib>=1.2.1",
+    "joserfc>=1.0.0",
     "click",
     "pandas>=2.3.3;python_version>='3.14'",
     "pandas;python_version<'3.14'",
     "prometheus_client",
     "psutil >= 6.0.0",
     "py-cpuinfo",
-    "pydantic",
+    "pydantic>=2.0.0,<3.0.0",
     "nvidia-ml-py",
     "rapidfuzz",
     "requests",
@@ -119,10 +120,6 @@ viz-legacy = [
     "dash_bootstrap_components > 1.0.0",
     "fire",
 ]
-# To support AMD GPU
-amdsmi = [
-    "amdsmi>=6.0.0"
-]
 
 [project.scripts]
 carbonboard = "codecarbon.viz.carbonboard:main"
@@ -154,7 +151,7 @@ docs-check-drift = "python scripts/check-docs-drift.py"
 carbonboard = "python codecarbon/viz/carbonboard.py"
 
 [tool.bumpver]
-current_version = "3.2.7"
+current_version = "3.2.8"
 version_pattern = "MAJOR.MINOR.PATCH[_TAGNUM]"
 
 [tool.bumpver.file_patterns]

@@ -12,7 +12,6 @@ Real-world trigger (operator session, 2026-05-25, slides PRD):
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest

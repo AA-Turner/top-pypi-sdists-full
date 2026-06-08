@@ -133,7 +133,8 @@ class Scheduler:
         roles = []
         for s in evaluate_steps:
             if s.id.endswith((".complete", ".collect_score", ".collect_scores",
-                              ".check_score", ".commit", ".e2e_run")):
+                              ".check_score", ".commit", ".e2e_run",
+                              ".collect_issues", ".capture_knowledge")):
                 continue
             # Agent steps: have spawn_prompt or agent_type
             if s.spawn_prompt or s.agent_type:

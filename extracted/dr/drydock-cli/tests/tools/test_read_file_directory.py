@@ -9,7 +9,6 @@ in the error so the model can pick the right file on its next call.
 from __future__ import annotations
 
 import pytest
-from pathlib import Path
 from unittest.mock import MagicMock
 
 from drydock.core.tools.base import BaseToolState, ToolError

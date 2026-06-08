@@ -14,7 +14,6 @@ The fix has two parts:
 """
 from __future__ import annotations
 
-import os
 from unittest.mock import MagicMock
 
 

@@ -7,9 +7,6 @@ without using the task tool for subagent delegation.
 
 from __future__ import annotations
 
-import asyncio
-import os
-from pathlib import Path
 
 import httpx
 import pytest
@@ -23,7 +20,7 @@ except RuntimeError:
 from drydock.core.agent_loop import AgentLoop
 from drydock.core.agents.models import BuiltinAgentName
 from drydock.core.config import Backend, ModelConfig, ProviderConfig, DrydockConfig
-from drydock.core.types import AssistantEvent, BaseEvent, ToolCallEvent, ToolResultEvent
+from drydock.core.types import ToolCallEvent
 
 
 def _vllm_ok():
@@ -31,6 +28,7 @@ def _vllm_ok():
         return httpx.get("http://localhost:8000/v1/models", timeout=3).status_code == 200
     except Exception:
         return False
+
 
 pytestmark = pytest.mark.skipif(not _vllm_ok(), reason="vLLM not running")
 
@@ -44,8 +42,10 @@ def _config(tmp_path):
         session_logging={"enabled": False, "save_dir": str(tmp_path / "logs")},
     )
 
+
 def _agent(tmp_path, max_turns=12):
     return AgentLoop(config=_config(tmp_path), agent_name=BuiltinAgentName.AUTO_APPROVE, max_turns=max_turns)
+
 
 async def _run(agent, prompt, max_events=80):
     events = []

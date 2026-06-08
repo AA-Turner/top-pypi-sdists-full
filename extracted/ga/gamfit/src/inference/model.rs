@@ -1,6 +1,6 @@
 use crate::basis::BasisOptions;
 use crate::estimate::{BlockRole, FittedLinkState, UnifiedFitResult};
-use crate::families::bernoulli_marginal_slope::{LatentMeasureKind, LatentZRankIntCalibration};
+use crate::families::bms::{LatentMeasureKind, LatentZRankIntCalibration};
 use crate::families::gamlss::{
     monotone_wiggle_basis_with_derivative_order, validate_monotone_wiggle_beta_nonnegative,
 };
@@ -10,7 +10,8 @@ use crate::families::survival_construction::{
 };
 use crate::families::survival_location_scale::ResidualDistribution;
 use crate::inference::formula_dsl::{
-    inverse_link_supports_joint_wiggle, joint_wiggle_unsupported_link_message,
+    inverse_link_supports_joint_wiggle, joint_wiggle_unsupported_link_message, parse_formula,
+    parse_surv_response, parsed_term_column_names,
 };
 use crate::inference::predict::{
     BernoulliMarginalSlopePredictor, BinomialLocationScalePredictor,
@@ -275,7 +276,7 @@ pub struct FittedModelPayload {
     pub noise_non_intercept_start: Option<usize>,
     /// Tikhonov ridge alpha used by `solve_scale_projection` when fitting
     /// `noise_projection`.  Persisted so prediction-time replay is identical
-    /// to fit-time projection.  `None` for legacy payloads (interpreted as 0).
+    /// to fit-time projection.
     #[serde(default)]
     pub noise_projection_ridge_alpha: Option<f64>,
     #[serde(default)]
@@ -385,8 +386,7 @@ pub struct FittedModelPayload {
     #[serde(default)]
     pub survival_noise_non_intercept_start: Option<usize>,
     /// Survival analog of `noise_projection_ridge_alpha`: the Tikhonov ridge
-    /// used when fitting the survival log-sigma projection.  See doc comment
-    /// on `noise_projection_ridge_alpha`.
+    /// used when fitting the survival log-sigma projection.
     #[serde(default)]
     pub survival_noise_projection_ridge_alpha: Option<f64>,
     #[serde(default)]
@@ -839,7 +839,7 @@ pub struct SavedBaselineTimeWiggleRuntime {
 
 // Re-export so saved-model consumers can refer to the anchor-block tag
 // without reaching across module boundaries.
-pub use crate::families::bernoulli_marginal_slope::deviation_runtime::ParametricAnchorBlock;
+pub use crate::families::bms::deviation_runtime::ParametricAnchorBlock;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SavedCompiledFlexBlock {
@@ -1287,14 +1287,12 @@ impl SavedCompiledFlexBlock {
                     .to_string(),
             });
         }
-        if self.kernel
-            != crate::families::bernoulli_marginal_slope::exact_kernel::ANCHORED_DEVIATION_KERNEL
-        {
+        if self.kernel != crate::families::cubic_cell_kernel::ANCHORED_DEVIATION_KERNEL {
             return Err(FittedModelError::IncompatibleConfig {
                 reason: format!(
                     "saved anchored deviation runtime uses unsupported kernel '{}'; expected {}",
                     self.kernel,
-                    crate::families::bernoulli_marginal_slope::exact_kernel::ANCHORED_DEVIATION_KERNEL
+                    crate::families::cubic_cell_kernel::ANCHORED_DEVIATION_KERNEL
                 ),
             });
         }
@@ -1567,10 +1565,7 @@ impl SavedCompiledFlexBlock {
         &self,
         beta: &Array1<f64>,
         span_idx: usize,
-    ) -> Result<
-        crate::families::bernoulli_marginal_slope::exact_kernel::LocalSpanCubic,
-        FittedModelError,
-    > {
+    ) -> Result<crate::families::cubic_cell_kernel::LocalSpanCubic, FittedModelError> {
         self.validate_exact_replay_contract()?;
         if beta.len() != self.basis_dim {
             return Err(FittedModelError::SchemaMismatch {
@@ -1588,10 +1583,7 @@ impl SavedCompiledFlexBlock {
         &self,
         beta: &Array1<f64>,
         span_idx: usize,
-    ) -> Result<
-        crate::families::bernoulli_marginal_slope::exact_kernel::LocalSpanCubic,
-        FittedModelError,
-    > {
+    ) -> Result<crate::families::cubic_cell_kernel::LocalSpanCubic, FittedModelError> {
         let points = &self.breakpoints;
         if span_idx + 1 >= points.len() {
             return Err(FittedModelError::SchemaMismatch {
@@ -1604,42 +1596,37 @@ impl SavedCompiledFlexBlock {
         }
         let left = points[span_idx];
         let right = points[span_idx + 1];
-        Ok(
-            crate::families::bernoulli_marginal_slope::exact_kernel::LocalSpanCubic {
-                left,
-                right,
-                c0: self.span_c0[span_idx]
-                    .iter()
-                    .zip(beta.iter())
-                    .map(|(coeff, weight)| coeff * weight)
-                    .sum(),
-                c1: self.span_c1[span_idx]
-                    .iter()
-                    .zip(beta.iter())
-                    .map(|(coeff, weight)| coeff * weight)
-                    .sum(),
-                c2: self.span_c2[span_idx]
-                    .iter()
-                    .zip(beta.iter())
-                    .map(|(coeff, weight)| coeff * weight)
-                    .sum(),
-                c3: self.span_c3[span_idx]
-                    .iter()
-                    .zip(beta.iter())
-                    .map(|(coeff, weight)| coeff * weight)
-                    .sum(),
-            },
-        )
+        Ok(crate::families::cubic_cell_kernel::LocalSpanCubic {
+            left,
+            right,
+            c0: self.span_c0[span_idx]
+                .iter()
+                .zip(beta.iter())
+                .map(|(coeff, weight)| coeff * weight)
+                .sum(),
+            c1: self.span_c1[span_idx]
+                .iter()
+                .zip(beta.iter())
+                .map(|(coeff, weight)| coeff * weight)
+                .sum(),
+            c2: self.span_c2[span_idx]
+                .iter()
+                .zip(beta.iter())
+                .map(|(coeff, weight)| coeff * weight)
+                .sum(),
+            c3: self.span_c3[span_idx]
+                .iter()
+                .zip(beta.iter())
+                .map(|(coeff, weight)| coeff * weight)
+                .sum(),
+        })
     }
 
     pub fn basis_span_cubic(
         &self,
         span_idx: usize,
         basis_idx: usize,
-    ) -> Result<
-        crate::families::bernoulli_marginal_slope::exact_kernel::LocalSpanCubic,
-        FittedModelError,
-    > {
+    ) -> Result<crate::families::cubic_cell_kernel::LocalSpanCubic, FittedModelError> {
         self.validate_exact_replay_contract()?;
         if basis_idx >= self.basis_dim {
             return Err(FittedModelError::SchemaMismatch {
@@ -1656,10 +1643,7 @@ impl SavedCompiledFlexBlock {
         &self,
         span_idx: usize,
         basis_idx: usize,
-    ) -> Result<
-        crate::families::bernoulli_marginal_slope::exact_kernel::LocalSpanCubic,
-        FittedModelError,
-    > {
+    ) -> Result<crate::families::cubic_cell_kernel::LocalSpanCubic, FittedModelError> {
         let points = &self.breakpoints;
         if span_idx + 1 >= points.len() {
             return Err(FittedModelError::SchemaMismatch {
@@ -1670,26 +1654,21 @@ impl SavedCompiledFlexBlock {
                 ),
             });
         }
-        Ok(
-            crate::families::bernoulli_marginal_slope::exact_kernel::LocalSpanCubic {
-                left: points[span_idx],
-                right: points[span_idx + 1],
-                c0: self.span_c0[span_idx][basis_idx],
-                c1: self.span_c1[span_idx][basis_idx],
-                c2: self.span_c2[span_idx][basis_idx],
-                c3: self.span_c3[span_idx][basis_idx],
-            },
-        )
+        Ok(crate::families::cubic_cell_kernel::LocalSpanCubic {
+            left: points[span_idx],
+            right: points[span_idx + 1],
+            c0: self.span_c0[span_idx][basis_idx],
+            c1: self.span_c1[span_idx][basis_idx],
+            c2: self.span_c2[span_idx][basis_idx],
+            c3: self.span_c3[span_idx][basis_idx],
+        })
     }
 
     pub fn basis_cubic_at(
         &self,
         basis_idx: usize,
         value: f64,
-    ) -> Result<
-        crate::families::bernoulli_marginal_slope::exact_kernel::LocalSpanCubic,
-        FittedModelError,
-    > {
+    ) -> Result<crate::families::cubic_cell_kernel::LocalSpanCubic, FittedModelError> {
         self.validate_exact_replay_contract()?;
         if basis_idx >= self.basis_dim {
             return Err(FittedModelError::SchemaMismatch {
@@ -1701,28 +1680,24 @@ impl SavedCompiledFlexBlock {
         }
         let (left_ep, right_ep) = self.support_interval()?;
         if value < left_ep {
-            return Ok(
-                crate::families::bernoulli_marginal_slope::exact_kernel::LocalSpanCubic {
-                    left: left_ep,
-                    right: left_ep + 1.0,
-                    c0: self.span_c0[0][basis_idx],
-                    c1: 0.0,
-                    c2: 0.0,
-                    c3: 0.0,
-                },
-            );
+            return Ok(crate::families::cubic_cell_kernel::LocalSpanCubic {
+                left: left_ep,
+                right: left_ep + 1.0,
+                c0: self.span_c0[0][basis_idx],
+                c1: 0.0,
+                c2: 0.0,
+                c3: 0.0,
+            });
         }
         if value > right_ep {
-            return Ok(
-                crate::families::bernoulli_marginal_slope::exact_kernel::LocalSpanCubic {
-                    left: right_ep,
-                    right: right_ep + 1.0,
-                    c0: self.right_boundary_basis_value(basis_idx),
-                    c1: 0.0,
-                    c2: 0.0,
-                    c3: 0.0,
-                },
-            );
+            return Ok(crate::families::cubic_cell_kernel::LocalSpanCubic {
+                left: right_ep,
+                right: right_ep + 1.0,
+                c0: self.right_boundary_basis_value(basis_idx),
+                c1: 0.0,
+                c2: 0.0,
+                c3: 0.0,
+            });
         }
         let span_idx = self.left_biased_span_index_for(value)?;
         self.basis_span_cubic_validated(span_idx, basis_idx)
@@ -1732,10 +1707,7 @@ impl SavedCompiledFlexBlock {
         &self,
         beta: &Array1<f64>,
         value: f64,
-    ) -> Result<
-        crate::families::bernoulli_marginal_slope::exact_kernel::LocalSpanCubic,
-        FittedModelError,
-    > {
+    ) -> Result<crate::families::cubic_cell_kernel::LocalSpanCubic, FittedModelError> {
         self.validate_exact_replay_contract()?;
         if beta.len() != self.basis_dim {
             return Err(FittedModelError::SchemaMismatch {
@@ -1748,36 +1720,30 @@ impl SavedCompiledFlexBlock {
         }
         let (left_ep, right_ep) = self.support_interval()?;
         if value < left_ep {
-            return Ok(
-                crate::families::bernoulli_marginal_slope::exact_kernel::LocalSpanCubic {
-                    left: left_ep,
-                    right: left_ep + 1.0,
-                    c0: self.span_c0[0]
-                        .iter()
-                        .zip(beta.iter())
-                        .map(|(coeff, weight)| coeff * weight)
-                        .sum(),
-                    c1: 0.0,
-                    c2: 0.0,
-                    c3: 0.0,
-                },
-            );
+            return Ok(crate::families::cubic_cell_kernel::LocalSpanCubic {
+                left: left_ep,
+                right: left_ep + 1.0,
+                c0: self.span_c0[0]
+                    .iter()
+                    .zip(beta.iter())
+                    .map(|(coeff, weight)| coeff * weight)
+                    .sum(),
+                c1: 0.0,
+                c2: 0.0,
+                c3: 0.0,
+            });
         }
         if value > right_ep {
-            return Ok(
-                crate::families::bernoulli_marginal_slope::exact_kernel::LocalSpanCubic {
-                    left: right_ep,
-                    right: right_ep + 1.0,
-                    c0: (0..self.basis_dim)
-                        .map(|basis_idx| {
-                            self.right_boundary_basis_value(basis_idx) * beta[basis_idx]
-                        })
-                        .sum(),
-                    c1: 0.0,
-                    c2: 0.0,
-                    c3: 0.0,
-                },
-            );
+            return Ok(crate::families::cubic_cell_kernel::LocalSpanCubic {
+                left: right_ep,
+                right: right_ep + 1.0,
+                c0: (0..self.basis_dim)
+                    .map(|basis_idx| self.right_boundary_basis_value(basis_idx) * beta[basis_idx])
+                    .sum(),
+                c1: 0.0,
+                c2: 0.0,
+                c3: 0.0,
+            });
         }
         let span_idx = self.left_biased_span_index_for(value)?;
         self.local_cubic_on_span_validated(beta, span_idx)
@@ -2496,6 +2462,104 @@ impl FittedModel {
     #[inline]
     pub fn likelihood(&self) -> LikelihoodSpec {
         self.payload().family_state.likelihood()
+    }
+
+    /// Columns this model consumes from a prediction frame — its *input
+    /// contract*.
+    ///
+    /// Every variable named by the main formula (features, interaction margins,
+    /// random-effect groups, and a smooth's `by=` column), the survival
+    /// entry/exit columns or the transformation-normal response, the auxiliary
+    /// noise / logslope formula columns, and the offset / noise-offset /
+    /// latent-`z` columns. The event-indicator and the plain response of a
+    /// standard model are deliberately excluded: they are not needed to *form*
+    /// a prediction (the conformal-calibration fold layers the response back on
+    /// separately).
+    ///
+    /// This is the single authority shared by the CLI and PyFFI predict paths.
+    /// A prediction frame column that is *not* in this set is irrelevant to the
+    /// model and must be ignored rather than strict-encoded against the
+    /// training schema — otherwise an unrelated ID/label column with a held-out
+    /// categorical level aborts predict (#840).
+    pub fn prediction_required_columns(
+        &self,
+    ) -> Result<std::collections::BTreeSet<String>, String> {
+        let payload = self.payload();
+        let parsed = parse_formula(payload.formula.as_str()).map_err(|e| e.to_string())?;
+        let mut required = std::collections::BTreeSet::<String>::new();
+        parsed_term_column_names(&parsed.terms, &mut required);
+
+        if let Some((entry, exit, _event)) =
+            parse_surv_response(parsed.response.as_str()).map_err(|e| e.to_string())?
+        {
+            if let Some(entry) = entry {
+                required.insert(entry);
+            }
+            required.insert(exit);
+        } else if matches!(
+            self.predict_model_class(),
+            PredictModelClass::TransformationNormal
+        ) {
+            let response = parsed.response.trim();
+            if !response.is_empty() && !response.starts_with("Surv(") {
+                required.insert(response.to_string());
+            }
+        }
+
+        if let Some(offset) = payload.offset_column.as_ref() {
+            required.insert(offset.clone());
+        }
+        if let Some(noise_offset) = payload.noise_offset_column.as_ref() {
+            required.insert(noise_offset.clone());
+        }
+        if matches!(
+            self.predict_model_class(),
+            PredictModelClass::BernoulliMarginalSlope | PredictModelClass::Survival
+        ) {
+            if let Some(z_column) = payload.z_column.as_ref() {
+                required.remove("z");
+                required.insert(z_column.clone());
+            }
+        }
+        if let Some(noise_formula) = payload.formula_noise.as_ref() {
+            self.add_auxiliary_formula_columns(
+                &mut required,
+                noise_formula,
+                parsed.response.as_str(),
+            )?;
+        }
+        if let Some(logslope_formula) = payload.formula_logslope.as_ref() {
+            if logslope_formula != "same-as-main" {
+                self.add_auxiliary_formula_columns(
+                    &mut required,
+                    logslope_formula,
+                    parsed.response.as_str(),
+                )?;
+            }
+        }
+        Ok(required)
+    }
+
+    /// Add the columns referenced by an auxiliary (noise / logslope) formula,
+    /// which may be supplied as a full `lhs ~ rhs` formula or as a bare RHS.
+    fn add_auxiliary_formula_columns(
+        &self,
+        required: &mut std::collections::BTreeSet<String>,
+        formula_or_rhs: &str,
+        response: &str,
+    ) -> Result<(), String> {
+        let trimmed = formula_or_rhs.trim();
+        if trimmed.is_empty() || trimmed == "1" {
+            return Ok(());
+        }
+        let formula = if trimmed.contains('~') {
+            trimmed.to_string()
+        } else {
+            format!("{response} ~ {trimmed}")
+        };
+        let parsed = parse_formula(formula.as_str()).map_err(|e| e.to_string())?;
+        parsed_term_column_names(&parsed.terms, required);
+        Ok(())
     }
 
     #[inline]
@@ -3661,6 +3725,13 @@ impl FittedModel {
         if let Some(v) = self.noise_projection.as_ref() {
             validate_all_finite("noise_projection", v.iter().flatten().copied())
                 .map_err(corrupt)?;
+            if self.noise_projection_ridge_alpha.is_none() {
+                return Err(FittedModelError::MissingField {
+                    reason:
+                        "model has noise_projection but is missing noise_projection_ridge_alpha; refit"
+                            .to_string(),
+                });
+            }
         }
         if let Some(v) = self.noise_center.as_ref() {
             validate_all_finite("noise_center", v.iter().copied()).map_err(corrupt)?;
@@ -3710,6 +3781,13 @@ impl FittedModel {
         if let Some(v) = self.survival_noise_projection.as_ref() {
             validate_all_finite("survival_noise_projection", v.iter().flatten().copied())
                 .map_err(corrupt)?;
+            if self.survival_noise_projection_ridge_alpha.is_none() {
+                return Err(FittedModelError::MissingField {
+                    reason:
+                        "model has survival_noise_projection but is missing survival_noise_projection_ridge_alpha; refit"
+                            .to_string(),
+                });
+            }
         }
         if let Some(v) = self.survival_noise_center.as_ref() {
             validate_all_finite("survival_noise_center", v.iter().copied()).map_err(corrupt)?;
@@ -3867,7 +3945,7 @@ pub fn load_survival_time_basis_config_from_model(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::families::bernoulli_marginal_slope::exact_kernel::ANCHORED_DEVIATION_KERNEL;
+    use crate::families::cubic_cell_kernel::ANCHORED_DEVIATION_KERNEL;
     use crate::families::lognormal_kernel::FrailtySpec;
     use crate::pirls::PirlsStatus;
     use crate::solver::estimate::{FitArtifacts, FittedBlock, FittedLinkState};

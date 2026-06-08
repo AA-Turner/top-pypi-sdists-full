@@ -297,6 +297,15 @@ class Forwarder:
             environment must exist and be managed for the account.
         configuration (HttpConfiguration): Destination request configuration.
         description (str | None): Optional free-text description.
+        forward_smplkit_events (bool): When ``True``, this forwarder also
+            receives platform change events that smplkit records about your
+            own resources (flag, configuration, and similar changes). Each
+            such event is delivered through every environment this forwarder
+            is enabled in, using that environment's resolved configuration.
+            Independent of the per-environment :attr:`environments` settings,
+            since platform change events are not tied to a deployment
+            environment. Defaults to ``False`` — platform change events are
+            not forwarded unless you opt in.
         filter (dict[str, Any] | None): Optional JSON Logic expression
             evaluated per event. When set, events that don't match are recorded
             as ``filtered_out`` deliveries instead of being POSTed to the
@@ -327,6 +336,7 @@ class Forwarder:
         enabled: bool = False,
         environments: dict[str, ForwarderEnvironment] | None = None,
         description: str | None = None,
+        forward_smplkit_events: bool = False,
         filter: dict[str, Any] | None = None,
         transform: Any = None,
         transform_type: TransformType | None = None,
@@ -345,6 +355,7 @@ class Forwarder:
         self.enabled = enabled
         self.environments: dict[str, ForwarderEnvironment] = environments if environments is not None else {}
         self.description = description
+        self.forward_smplkit_events = forward_smplkit_events
         self.filter = filter
         self.transform = transform
         self.transform_type = transform_type
@@ -390,6 +401,7 @@ class Forwarder:
         self.enabled = other.enabled
         self.environments = other.environments
         self.description = other.description
+        self.forward_smplkit_events = other.forward_smplkit_events
         self.filter = other.filter
         self.transform = other.transform
         self.transform_type = other.transform_type
@@ -420,6 +432,9 @@ class Forwarder:
             enabled=bool(attrs.get("enabled", False)),
             environments=environments,
             description=attrs.get("description"),
+            # Absent on the wire (a forwarder persisted before the field
+            # landed) reads back as false — the additive default.
+            forward_smplkit_events=bool(attrs.get("forward_smplkit_events", False)),
             filter=attrs.get("filter"),
             transform=attrs.get("transform"),
             transform_type=TransformType(tt_raw) if tt_raw is not None else None,

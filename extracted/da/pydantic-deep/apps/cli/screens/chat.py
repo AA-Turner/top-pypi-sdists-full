@@ -1068,7 +1068,13 @@ class ChatScreen(Screen):
 
                 self._sync_status_from_history()
 
-                if _deferred and isinstance(result.output, DeferredToolRequests):
+                # Loop, not a single pass: a resumed run can itself end on
+                # another DeferredToolRequests — e.g. the model's first command
+                # fails (`rm` on Windows) and it immediately tries another that
+                # also needs approval (`rd`, then `rmdir`). Handling only the
+                # first round left every later call deferred-but-unsurfaced, so
+                # its tool-call spinner ran forever (issue #136).
+                while isinstance(result.output, DeferredToolRequests) and result.output.approvals:
                     from pydantic_ai.tools import (
                         DeferredToolResults,
                         ToolApproved,
@@ -1201,6 +1207,13 @@ class ChatScreen(Screen):
                         "Agent run completed (after approval)",
                         total_messages=len(app.message_history),  # type: ignore[arg-type]
                     )
+
+                    # Advance the loop: if this resumed run ended on yet another
+                    # DeferredToolRequests, the `while` re-enters and surfaces the
+                    # next approval round instead of leaving its call hanging.
+                    if cont_result is None:
+                        break
+                    result = cont_result
 
                 from apps.cli.forking import reconcile_active_fork
 

@@ -86,6 +86,7 @@ from ..desktop_notifications import (
     ensure_desktop_notification_setup,
     macos_notification_guidance,
 )
+from ..insights_share import publish_insights_share
 from ..local_dashboard_session import LOCAL_DASHBOARD_SESSION_AUDIENCE, build_local_dashboard_session_token
 from ..local_supply_chain import (
     build_local_supply_chain_posture,
@@ -129,7 +130,7 @@ from ..store_evidence import (
     export_evidence_json,
     list_evidence,
 )
-from .dashboard_update import schedule_guard_dashboard_update
+from .dashboard_update import merge_dashboard_update_progress, schedule_guard_dashboard_update
 from .manager import (
     GUARD_DAEMON_COMPATIBILITY_VERSION,
     clear_guard_daemon_state,
@@ -869,6 +870,9 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         if parsed.path == "/v1/supply-chain/entitlement":
             self._write_json(self._supply_chain_entitlement())
             return
+        if parsed.path == "/v1/supply-chain/bundle":
+            self._handle_get_supply_chain_bundle()
+            return
         if len(path_parts) == 4 and path_parts[:2] == ["v1", "apps"] and path_parts[3] == "cloud":
             self._handle_cloud_app_handoff(path_parts[2], parsed.query)
             return
@@ -913,7 +917,12 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             self._write_json(_settings_response_payload(store.guard_home, editable_guard_settings(config)))
             return
         if parsed.path == "/v1/update/status":
-            self._write_json(build_guard_update_status_payload())
+            self._write_json(
+                merge_dashboard_update_progress(
+                    store.guard_home,
+                    build_guard_update_status_payload(),
+                )
+            )
             return
         if len(path_parts) == 4 and path_parts[:2] == ["v1", "sessions"] and path_parts[3] == "resume":
             self._handle_session_resume(path_parts[2])
@@ -964,6 +973,31 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/v1/receipts":
             self._write_json({"items": store.list_receipts(limit=200)})
+            return
+        if parsed.path == "/v1/receipts/analytics":
+            query = parse_qs(parsed.query)
+            activity_days_q = query.get("activity_days", ["90"])[-1]
+            trend_days_q = query.get("trend_days", ["7"])[-1]
+            top_limit_q = query.get("top_limit", ["10"])[-1]
+            try:
+                activity_days = min(max(int(activity_days_q), 1), 366)
+            except (ValueError, TypeError):
+                activity_days = 90
+            try:
+                trend_days = min(max(int(trend_days_q), 1), activity_days)
+            except (ValueError, TypeError):
+                trend_days = 7
+            try:
+                top_limit = min(max(int(top_limit_q), 1), 50)
+            except (ValueError, TypeError):
+                top_limit = 10
+            self._write_json(
+                store.receipt_analytics(
+                    activity_days=activity_days,
+                    trend_days=trend_days,
+                    top_limit=top_limit,
+                )
+            )
             return
         if parsed.path == "/v1/receipts/latest":
             query = parse_qs(parsed.query)
@@ -1191,6 +1225,9 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         if parsed.path == "/v1/daemon/repair":
             result = repair_approval_center_locator(self.server.store.guard_home)  # type: ignore[attr-defined]
             self._write_json(result)
+            return
+        if parsed.path == "/v1/insights/share":
+            self._handle_insights_share_publish(payload)
             return
         if parsed.path == "/v1/update":
             status_payload = build_guard_update_status_payload()
@@ -1990,6 +2027,13 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
     def _supply_chain_entitlement(self) -> dict[str, object]:
         return resolve_package_firewall_entitlement_with_refresh(self.server.store)  # type: ignore[attr-defined]
 
+    def _handle_get_supply_chain_bundle(self) -> None:
+        store = self.server.store  # type: ignore[attr-defined]
+        workspace_id = store.get_cloud_workspace_id()
+        wrapper = store.get_cached_supply_chain_bundle(workspace_id) if workspace_id is not None else None
+        bundle = wrapper.get("bundle") if isinstance(wrapper, dict) else None
+        self._write_json({"bundle": bundle})
+
     def _supply_chain_connect_flow(self, entitlement: dict[str, object]) -> dict[str, object] | None:
         return _resolve_package_firewall_connect_flow(server=self.server, entitlement=entitlement)  # type: ignore[arg-type]
 
@@ -2542,6 +2586,25 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         if resolved is not None:
             payload["resolved"] = resolved
         self._write_json(payload, status=error.status)
+
+    def _handle_insights_share_publish(self, payload: dict[str, object]) -> None:
+        include_top_artifacts = self._optional_bool(payload.get("includeTopArtifacts"), default=False)
+        show_display_name = self._optional_bool(payload.get("showDisplayName"), default=False)
+        display_name_value = payload.get("displayName")
+        display_name = display_name_value.strip()[:120] if isinstance(display_name_value, str) else None
+        store = self.server.store  # type: ignore[attr-defined]
+        try:
+            result = publish_insights_share(
+                store,
+                include_top_artifacts=include_top_artifacts,
+                show_display_name=show_display_name,
+                display_name=display_name,
+            )
+        except Exception as error:
+            message = str(error).strip() or "Unable to publish Guard insights share."
+            self._write_json({"error": "insights_share_failed", "message": message}, status=502)
+            return
+        self._write_json(result)
 
     def _handle_settings_update(self, payload: dict[str, object]) -> None:
         settings = payload.get("settings")
@@ -3270,6 +3333,8 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             "/v1/events/stream",
             "/v1/requests",
             "/v1/receipts",
+            "/v1/receipts/analytics",
+            "/v1/insights/share",
             "/v1/receipts/latest",
             "/v1/policy",
             "/v1/evidence",
@@ -3350,7 +3415,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         if supply_chain_action != action_path and supply_chain_action not in allowed_actions:
             return False
         if payload is None:
-            return supply_chain_action == "package_shims_status"
+            return supply_chain_action in {"package_shims_status", "supply_chain_bundle"}
         workspace_id = self._optional_string(claims.get("workspace_id")) or ""
         payload_workspace_id = self._optional_string(payload.get("workspace_id")) or ""
         if workspace_id and payload_workspace_id != workspace_id:
@@ -3372,6 +3437,8 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             return "package_shims_status"
         if path == "/v1/supply-chain/entitlement":
             return "supply_chain_entitlement"
+        if path == "/v1/supply-chain/bundle":
+            return "supply_chain_bundle"
         if len(path_parts) == 4 and path_parts[:3] == ["v1", "supply-chain", "package-shims"]:
             action = "remove" if path_parts[3] == "uninstall" else path_parts[3]
             if action in {"install", "repair", "test", "remove", "open-shell"}:
@@ -3473,6 +3540,8 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             "/v1/policy/clear",
             "/v1/policy/sync",
             "/v1/receipts",
+            "/v1/receipts/analytics",
+            "/v1/insights/share",
             "/v1/receipts/latest",
             "/v1/requests",
             "/v1/requests/clear",
@@ -3836,6 +3905,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             "/v1/approval-gate/totp/verify",
             "/v1/approval-gate/totp/disable",
             "/v1/daemon/repair",
+            "/v1/insights/share",
             "/v1/notifications/setup",
             "/v1/update",
         }:
@@ -3977,6 +4047,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             "/policy",
             "/feed-health",
             "/settings",
+            "/about",
             "/requests",
             "/approvals",
         }:

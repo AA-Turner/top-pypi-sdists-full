@@ -346,7 +346,7 @@ class Algebra(
         return ToolCallDisplay(summary=f"algebra[{args.op}]: {e}")
 
     @classmethod
-    def get_result_display(cls, event: "ToolResultEvent") -> ToolResultDisplay:
+    def get_result_display(cls, event: ToolResultEvent) -> ToolResultDisplay:
         if isinstance(event.result, AlgebraResult):
             if not event.result.ok:
                 return ToolResultDisplay(
@@ -367,8 +367,8 @@ class Algebra(
 
     @final
     async def run(
-        self, args: AlgebraArgs, ctx: "InvokeContext | None" = None
-    ) -> AsyncGenerator["ToolStreamEvent | AlgebraResult", None]:
+        self, args: AlgebraArgs, ctx: InvokeContext | None = None
+    ) -> AsyncGenerator[ToolStreamEvent | AlgebraResult, None]:
         handler = _DISPATCH.get(args.op)
         if handler is None:
             yield AlgebraResult(

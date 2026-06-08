@@ -56,7 +56,7 @@ from testgres.operations.os_ops import OsOperations, ConnectionParams
 from testgres.operations.local_ops import LocalOperations
 from testgres.operations.remote_ops import RemoteOperations
 
-__version__ = "1.14.0"
+__version__ = "1.14.1"
 
 __all__ = [
     "get_new_node",
@@ -65,12 +65,12 @@ __all__ = [
     "TestgresConfig", "configure_testgres", "scoped_config", "push_config", "pop_config",
     "NodeConnection", "DatabaseError", "InternalError", "ProgrammingError", "OperationalError",
     "TestgresException", "ExecUtilException", "QueryException",
-    QueryTimeoutException.__name__,
+    "QueryTimeoutException",
     "TimeoutException", "CatchUpException", "StartNodeException", "InitNodeException", "BackupException", "InvalidOperationException",
     "XLogMethod", "IsolationLevel", "NodeStatus", "ProcessType", "DumpFormat",
-    NodeApp.__name__,
-    PostgresNode.__name__,
-    PortManager.__name__,
+    "NodeApp",
+    "PostgresNode",
+    "PortManager",
     "reserve_port", "release_port", "bound_ports", "get_bin_path", "get_pg_config", "get_pg_version",
     "First", "Any",
     "OsOperations", "LocalOperations", "RemoteOperations", "ConnectionParams"

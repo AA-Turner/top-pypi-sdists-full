@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-segment
-Version: 3.9.4
+Version: 3.9.5
 Summary: Provider package apache-airflow-providers-segment for Apache Airflow
 Keywords: airflow-provider,segment,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -27,8 +27,8 @@ Requires-Dist: apache-airflow>=2.11.0
 Requires-Dist: apache-airflow-providers-common-compat>=1.10.1
 Requires-Dist: segment-analytics-python>=2.3.0
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-segment/3.9.4/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-segment/3.9.4
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-segment/3.9.5/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-segment/3.9.5
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -59,7 +59,7 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-segment``
 
-Release: ``3.9.4``
+Release: ``3.9.5``
 
 
 `Segment <https://segment.com/>`__
@@ -72,7 +72,7 @@ This is a provider package for ``segment`` provider. All classes for this provid
 are in ``airflow.providers.segment`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-segment/3.9.4/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-segment/3.9.5/>`_.
 
 Installation
 ------------
@@ -114,5 +114,5 @@ Dependent package                                                               
 ==================================================================================================================  =================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-segment/3.9.4/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-segment/3.9.5/changelog.html>`_.
 

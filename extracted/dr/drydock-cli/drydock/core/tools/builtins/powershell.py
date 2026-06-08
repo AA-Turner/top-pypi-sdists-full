@@ -7,7 +7,6 @@ On non-Windows systems, falls back to pwsh if available.
 from __future__ import annotations
 
 import asyncio
-import os
 import sys
 from collections.abc import AsyncGenerator
 from typing import ClassVar, final
@@ -108,7 +107,7 @@ class PowerShell(
                 stderr=stderr_str,
                 returncode=proc.returncode or 0,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise ToolError(f"PowerShell timed out after {timeout}s: {args.command}")
         except ToolError:
             raise

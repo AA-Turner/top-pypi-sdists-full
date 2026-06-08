@@ -1307,7 +1307,8 @@ def init(
     )
     typer.echo(
         "  efterlev report run   full pipeline: scan → agent gap → agent document "
-        "→ poam → oscal (~$0.30 on Sonnet; OSCAL emit is deterministic + free)"
+        "→ poam → oscal (LLM cost scales with repo size — cents on a small boundary, "
+        "a few dollars on a large one; OSCAL emit is deterministic + free)"
     )
     typer.echo("  efterlev scan         deterministic detector evidence only (no LLM, no API key)")
     typer.echo("")
@@ -2948,7 +2949,7 @@ def agent_gap(
     from datetime import UTC
     from datetime import datetime as _dt
 
-    from efterlev.agents import GapAgent, GapAgentInput
+    from efterlev.agents import GapAgent, GapAgentInput, in_scope_evidence
     from efterlev.agents.cost_summary import summarize_run_cost
     from efterlev.agents.dry_run import DryRunSession, active_dry_run
     from efterlev.config import load_config
@@ -3009,7 +3010,13 @@ def agent_gap(
 
     try:
         with ProvenanceStore(root) as store:
-            evidence = [Evidence.model_validate(p) for _rid, p in store.iter_evidence()]
+            # Boundary enforcement at the agent-input layer (v0.1.219): drop
+            # out_of_boundary evidence so the Gap Agent never reasons over or
+            # cites out-of-scope resources (govnotes-demo gap #27 regression).
+            # No-op when no boundary is declared. See gap.in_scope_evidence.
+            evidence = in_scope_evidence(
+                [Evidence.model_validate(p) for _rid, p in store.iter_evidence()]
+            )
             if not evidence:
                 typer.echo(
                     "error: 0 evidence records in the store. The scan either hasn't run "

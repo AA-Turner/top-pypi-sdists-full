@@ -1,14 +1,20 @@
+from __future__ import annotations
+
 import shlex
-from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path, PurePath
-from typing import Literal, Self, TypeVar
+from typing import TypeVar
 
 from packaging.utils import parse_wheel_filename
 
 from cibuildwheel.util import resources
 from cibuildwheel.util.cmd import call
 from cibuildwheel.util.helpers import parse_key_value_string, unwrap
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+    from typing import Literal, Self
 
 
 @dataclass(kw_only=True)
@@ -177,3 +183,9 @@ def find_compatible_wheel(wheels: Sequence[T], identifier: str) -> T | None:
             return wheel
 
     return None
+
+
+def is_abi3_wheel(wheel_name: str) -> bool:
+    """Check if a wheel uses the abi3 stable ABI based on its filename."""
+    _, _, _, tags = parse_wheel_filename(wheel_name)
+    return any(tag.abi == "abi3" for tag in tags)

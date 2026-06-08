@@ -402,7 +402,7 @@ class Solve(
         )
 
     @classmethod
-    def get_result_display(cls, event: "ToolResultEvent") -> ToolResultDisplay:
+    def get_result_display(cls, event: ToolResultEvent) -> ToolResultDisplay:
         if isinstance(event.result, SolveResult):
             if not event.result.ok:
                 return ToolResultDisplay(
@@ -427,8 +427,8 @@ class Solve(
 
     @final
     async def run(
-        self, args: SolveArgs, ctx: "InvokeContext | None" = None
-    ) -> AsyncGenerator["ToolStreamEvent | SolveResult", None]:
+        self, args: SolveArgs, ctx: InvokeContext | None = None
+    ) -> AsyncGenerator[ToolStreamEvent | SolveResult, None]:
         handler = _DISPATCH.get(args.op)
         if handler is None:
             yield SolveResult(

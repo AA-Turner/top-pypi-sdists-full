@@ -43,6 +43,11 @@ class EventSearchRequest:
                 row after column filters narrow the candidate set. Null, absent, or an empty object disables JSON Logic
                 filtering. When present, the search is silently capped to the last 30 days by `occurred_at` (intersected with
                 any explicit `filter[occurred_at]` the caller supplied).
+            filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope results to (e.g.
+                `production,staging`). When omitted, results are scoped to your single accessible environment; send the
+                `X-Smplkit-Environment` header instead if you can access more than one. The reserved value `smplkit` selects
+                platform change events that smplkit records about your own resources (flags, configuration, and so on); these
+                are not tied to a deployment environment and are readable regardless of which environments you manage.
             filterevent_type (None | str | Unset): Exact match on the event's `event_type` field.
             filterresource_type (None | str | Unset): Exact match on the event's `resource_type` field.
             filterresource_id (None | str | Unset): Exact match on the event's `resource_id` field. Must be accompanied by
@@ -70,6 +75,7 @@ class EventSearchRequest:
     """
 
     filter_: EventSearchRequestFilterType0 | None | Unset = UNSET
+    filterenvironment: None | str | Unset = UNSET
     filterevent_type: None | str | Unset = UNSET
     filterresource_type: None | str | Unset = UNSET
     filterresource_id: None | str | Unset = UNSET
@@ -94,6 +100,12 @@ class EventSearchRequest:
             filter_ = self.filter_.to_dict()
         else:
             filter_ = self.filter_
+
+        filterenvironment: None | str | Unset
+        if isinstance(self.filterenvironment, Unset):
+            filterenvironment = UNSET
+        else:
+            filterenvironment = self.filterenvironment
 
         filterevent_type: None | str | Unset
         if isinstance(self.filterevent_type, Unset):
@@ -170,6 +182,8 @@ class EventSearchRequest:
         field_dict.update({})
         if filter_ is not UNSET:
             field_dict["filter"] = filter_
+        if filterenvironment is not UNSET:
+            field_dict["filter[environment]"] = filterenvironment
         if filterevent_type is not UNSET:
             field_dict["filter[event_type]"] = filterevent_type
         if filterresource_type is not UNSET:
@@ -221,6 +235,15 @@ class EventSearchRequest:
             return cast(EventSearchRequestFilterType0 | None | Unset, data)
 
         filter_ = _parse_filter_(d.pop("filter", UNSET))
+
+        def _parse_filterenvironment(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        filterenvironment = _parse_filterenvironment(d.pop("filter[environment]", UNSET))
 
         def _parse_filterevent_type(data: object) -> None | str | Unset:
             if data is None:
@@ -327,6 +350,7 @@ class EventSearchRequest:
 
         event_search_request = cls(
             filter_=filter_,
+            filterenvironment=filterenvironment,
             filterevent_type=filterevent_type,
             filterresource_type=filterresource_type,
             filterresource_id=filterresource_id,

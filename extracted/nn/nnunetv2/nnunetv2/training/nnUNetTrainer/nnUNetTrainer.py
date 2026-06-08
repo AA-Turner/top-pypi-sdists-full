@@ -128,14 +128,15 @@ class nnUNetTrainer(object):
         ### Setting all the folder names. We need to make sure things don't crash in case we are just running
         # inference and some of the folders may not be defined!
         self.preprocessed_dataset_folder_base = join(nnUNet_preprocessed, self.plans_manager.dataset_name) \
-            if nnUNet_preprocessed is not None else None
+            if nnUNet_preprocessed.is_set() else None
         self.output_folder_base = join(nnUNet_results, self.plans_manager.dataset_name,
                                        self.__class__.__name__ + '__' + self.plans_manager.plans_name + "__" + configuration) \
-            if nnUNet_results is not None else None
-        self.output_folder = join(self.output_folder_base, f'fold_{fold}')
+            if nnUNet_results.is_set() else None
+        self.output_folder = join(self.output_folder_base, f'fold_{fold}') if self.output_folder_base is not None else None
 
         self.preprocessed_dataset_folder = join(self.preprocessed_dataset_folder_base,
-                                                self.configuration_manager.data_identifier)
+                                                self.configuration_manager.data_identifier) \
+            if self.preprocessed_dataset_folder_base is not None else None
         self.dataset_class = None  # -> initialize
         # unlike the previous nnunet folder_with_segs_from_previous_stage is now part of the plans. For now it has to
         # be a different configuration in the same plans
@@ -968,8 +969,8 @@ class nnUNetTrainer(object):
         save_json(self.dataset_json, join(self.output_folder_base, 'dataset.json'), sort_keys=False)
 
         # we don't really need the fingerprint but its still handy to have it with the others
-        shutil.copy(join(self.preprocessed_dataset_folder_base, 'dataset_fingerprint.json'),
-                    join(self.output_folder_base, 'dataset_fingerprint.json'))
+        shutil.copyfile(join(self.preprocessed_dataset_folder_base, 'dataset_fingerprint.json'),
+                        join(self.output_folder_base, 'dataset_fingerprint.json'))
 
         # produces a pdf in output folder
         self.plot_network_architecture()

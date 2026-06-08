@@ -9,12 +9,21 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from ..cli.update_commands import build_guard_update_status_payload
+
 _DASHBOARD_UPDATE_LOCK = "dashboard-update.lock"
 _DASHBOARD_UPDATE_STALE_SECONDS = 15 * 60
 
 
 def dashboard_update_lock_path(guard_home: Path) -> Path:
     return guard_home / _DASHBOARD_UPDATE_LOCK
+
+
+def read_dashboard_update_lock(guard_home: Path) -> dict[str, object] | None:
+    lock_path = dashboard_update_lock_path(guard_home)
+    if not lock_path.is_file():
+        return None
+    return _read_update_lock(lock_path)
 
 
 def dashboard_update_in_progress(guard_home: Path) -> bool:
@@ -44,6 +53,70 @@ def dashboard_update_in_progress(guard_home: Path) -> bool:
     return True
 
 
+def merge_dashboard_update_progress(
+    guard_home: Path,
+    status_payload: dict[str, object],
+) -> dict[str, object]:
+    payload = dict(status_payload)
+    if not dashboard_update_in_progress(guard_home):
+        payload["update_in_progress"] = False
+        return payload
+    lock_payload = read_dashboard_update_lock(guard_home)
+    if lock_payload is None:
+        payload["update_in_progress"] = False
+        return payload
+    payload["update_in_progress"] = True
+    for key in ("previous_version", "target_version", "daemon_port", "started_at"):
+        value = lock_payload.get(key)
+        if value is not None:
+            payload[key] = value
+    return payload
+
+
+def dashboard_update_runner_script() -> Path:
+    """Return the installed runner script path (never resolve via cwd or -m imports)."""
+    return Path(__file__).resolve().with_name("dashboard_update_runner.py")
+
+
+def build_dashboard_update_runner_command(
+    guard_home: Path,
+    *,
+    daemon_pid: int,
+    daemon_port: int,
+) -> list[str]:
+    resolved_home = guard_home.expanduser().resolve()
+    runner_script = dashboard_update_runner_script()
+    command = [sys.executable]
+    if sys.version_info >= (3, 11):
+        command.append("-P")
+    command.extend(
+        [
+            str(runner_script),
+            "--guard-home",
+            str(resolved_home),
+            "--daemon-pid",
+            str(daemon_pid),
+            "--daemon-port",
+            str(daemon_port),
+        ]
+    )
+    return command
+
+
+def build_dashboard_update_runner_popen_kwargs(guard_home: Path) -> dict[str, object]:
+    resolved_home = guard_home.expanduser().resolve()
+    resolved_home.mkdir(parents=True, exist_ok=True)
+    log_path = resolved_home / "dashboard-update.log"
+    log_handle = log_path.open("a", encoding="utf-8")
+    return {
+        "stdin": subprocess.DEVNULL,
+        "stdout": subprocess.DEVNULL,
+        "stderr": log_handle,
+        "cwd": str(resolved_home),
+        "env": _runner_env(),
+    }
+
+
 def schedule_guard_dashboard_update(
     guard_home: Path,
     daemon_pid: int,
@@ -56,30 +129,23 @@ def schedule_guard_dashboard_update(
             "error": "update_in_progress",
             "message": "Guard is already updating on this machine.",
         }
+    status_payload = build_guard_update_status_payload()
     lock_path = dashboard_update_lock_path(guard_home)
     lock_path.parent.mkdir(parents=True, exist_ok=True)
-    command = [
-        sys.executable,
-        "-m",
-        "codex_plugin_scanner.guard.daemon.dashboard_update_runner",
-        "--guard-home",
-        str(guard_home),
-        "--daemon-pid",
-        str(daemon_pid),
-        "--daemon-port",
-        str(daemon_port),
-    ]
-    kwargs: dict[str, object] = {
-        "stdin": subprocess.DEVNULL,
-        "stdout": subprocess.DEVNULL,
-        "stderr": subprocess.DEVNULL,
-        "env": _runner_env(),
-    }
+    command = build_dashboard_update_runner_command(
+        guard_home,
+        daemon_pid=daemon_pid,
+        daemon_port=daemon_port,
+    )
+    kwargs = build_dashboard_update_runner_popen_kwargs(guard_home)
     if os.name == "nt":
         kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
     else:
         kwargs["start_new_session"] = True
+    stderr_target = kwargs.get("stderr")
     process = subprocess.Popen(command, **kwargs)
+    if stderr_target is not None and hasattr(stderr_target, "close"):
+        stderr_target.close()
     _write_update_lock(
         lock_path,
         {
@@ -87,6 +153,8 @@ def schedule_guard_dashboard_update(
             "daemon_pid": daemon_pid,
             "daemon_port": daemon_port,
             "runner_pid": process.pid,
+            "previous_version": status_payload.get("current_version"),
+            "target_version": status_payload.get("latest_version"),
             "started_at": datetime.now(timezone.utc).isoformat(),
         },
     )
@@ -94,6 +162,8 @@ def schedule_guard_dashboard_update(
         "scheduled": True,
         "message": "Guard will update, restart briefly, and reload this dashboard.",
         "runner_pid": process.pid,
+        "previous_version": status_payload.get("current_version"),
+        "target_version": status_payload.get("latest_version"),
     }
 
 
@@ -104,14 +174,9 @@ def clear_dashboard_update_lock(guard_home: Path) -> None:
 def _runner_env() -> dict[str, str]:
     env = dict(os.environ)
     source_root = str(Path(__file__).resolve().parents[3])
-    pythonpath_entries: list[str] = []
-    for raw_value in (source_root, env.get("PYTHONPATH", "")):
-        for entry in raw_value.split(os.pathsep):
-            normalized = entry.strip()
-            if normalized and normalized not in pythonpath_entries:
-                pythonpath_entries.append(normalized)
-    if pythonpath_entries:
-        env["PYTHONPATH"] = os.pathsep.join(pythonpath_entries)
+    env["PYTHONPATH"] = source_root
+    if sys.version_info >= (3, 11):
+        env["PYTHONSAFEPATH"] = "1"
     return env
 
 

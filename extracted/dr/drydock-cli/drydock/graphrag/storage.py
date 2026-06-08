@@ -31,19 +31,19 @@ import sqlite3
 from collections import Counter
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterable, Iterator
+from collections.abc import Iterator
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
-from drydock.graphrag.code_indexer import SymbolRecord, index_path as index_code
+from drydock.graphrag.code_indexer import index_path as index_code
 from drydock.graphrag.retriever import (
     RetrievalResult,
     SymbolHit,
     TextHit,
     WorkedExampleHit,
 )
-from drydock.graphrag.text_indexer import TextChunk, index_path as index_text
+from drydock.graphrag.text_indexer import index_path as index_text
 
 
 _SCHEMA = """
@@ -457,7 +457,6 @@ class Index:
                 tuple(cid for cid, _ in top),
             ).fetchall()
 
-        score_by_id = dict(top)
         chunk_by_id = {r[0]: r for r in chunk_rows}
         out: list[TextHit] = []
         for cid, score in top:
@@ -499,7 +498,7 @@ class Index:
             raise ValueError("problem_text cannot be empty")
         if not isinstance(reasoning_steps, list):
             raise TypeError("reasoning_steps must be a list[str]")
-        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        now = datetime.now(UTC).isoformat(timespec="seconds")
         with self._connect() as cx:
             cur = cx.execute(
                 """INSERT OR IGNORE INTO worked_examples

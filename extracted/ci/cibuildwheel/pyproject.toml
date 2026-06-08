@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cibuildwheel"
-version = "3.4.1"
+version = "4.0.0"
 description = "Build Python wheels on CI with minimal configuration."
 readme = "README.md"
 license = "BSD-2-Clause"
@@ -32,6 +32,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Software Development :: Build Tools",
 ]
@@ -44,11 +45,7 @@ dependencies = [
     "filelock",
     "humanize",
     "packaging>=20.9",
-    # patchelf is used for Android
-    "patchelf; (sys_platform == 'linux' or sys_platform == 'darwin') and (platform_machine == 'x86_64' or platform_machine == 'arm64' or platform_machine == 'aarch64')",
     "platformdirs",
-    "pyelftools>=0.29",
-    "wheel>=0.33.6",
 ]
 
 [project.optional-dependencies]
@@ -66,18 +63,10 @@ Documentation = "https://cibuildwheel.pypa.io"
 Homepage = "https://github.com/pypa/cibuildwheel"
 
 [dependency-groups]
-bin = [
-    "click",
-    "packaging>=21.0",
-    "pip-tools",
-    "pygithub",
-    "pyyaml",
-    "requests",
-    "rich>=9.6",
-]
 docs = [
     "jinja2>=3.1.2",
-    "mkdocs-include-markdown-plugin==6.2.2",
+    "mkdocs-include-markdown-plugin==7.1.8",
+    "mkdocs-intersphinx>=0.1.1; python_version >= '3.12'",
     "mkdocs-macros-plugin>=1.4.1",
     "mkdocs==1.6.1",
     "pymdown-extensions",
@@ -97,7 +86,6 @@ test = [
     "xdoctest",
 ]
 dev = [
-    {include-group = "bin"},
     {include-group = "docs"},
     {include-group = "test"},
 ]
@@ -138,7 +126,6 @@ module = [
     "setuptools._distutils.util",
     "bashlex",
     "bashlex.*",
-    "importlib_resources",
 ]
 ignore_missing_imports = true
 
@@ -234,6 +221,7 @@ flake8-unused-arguments.ignore-variadic-names = true
 flake8-tidy-imports.ban-relative-imports = "all"
 flake8-annotations.allow-star-arg-any = true
 flake8-annotations.mypy-init-return = true
+future-annotations = true
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "typing.Mapping".msg = "Use collections.abc.Mapping instead."
@@ -241,6 +229,7 @@ flake8-annotations.mypy-init-return = true
 "typing.Iterator".msg = "Use collections.abc.Iterator instead."
 "typing.Sequence".msg = "Use collections.abc.Sequence instead."
 "typing.Set".msg = "Use collections.abc.Set instead."
+"typing.TYPE_CHECKING".msg = "Use TYPE_CHECKING=False instead"
 
 [tool.ruff.lint.per-file-ignores]
 "unit_test/*" = ["PLC1901", "TID252"]
@@ -252,12 +241,16 @@ flake8-annotations.mypy-init-return = true
 ignore = ["PC170", "PP303"]
 
 [tool.check-wheel-contents]
-ignore = ["W002"]  # constraints-*.txt are allowed to be duplicates of one another
+ignore = [
+  "W002",  # constraints-*.txt are allowed to be duplicates of one another
+  "W004",  # "-" is fine for our iOS support files for now
+]
 
 [tool.codespell]
 ignore-words-list = [
     "sur",
     "assertin",
+    "Fo",
 ]
 skip = [
     '^docs/working-examples\.md',

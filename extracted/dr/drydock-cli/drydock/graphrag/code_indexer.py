@@ -20,7 +20,7 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterator
+from collections.abc import Iterator
 
 
 # Files we never index (vendored, generated, junk).

@@ -42,7 +42,7 @@ import json
 import os
 import subprocess
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from pathlib import Path
 
 # Files we never include in a checkpoint. Mirrors common .gitignore.
@@ -181,7 +181,7 @@ class CheckpointStore:
             msg_index=msg_index,
             commit=commit_sha,
             label=label[:200],
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             agent_state=snapshot_state,
         )
         self.checkpoints.append(cp)
@@ -373,7 +373,7 @@ class CheckpointStore:
             tree = self._git("write-tree", check=False).strip()
             if not tree:
                 return
-            stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+            stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
             commit = self._git(
                 "commit-tree", tree, "-m", f"safety {stamp}", check=False
             ).strip()

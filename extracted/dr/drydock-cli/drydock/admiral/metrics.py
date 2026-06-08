@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from typing import TYPE_CHECKING
 
 from drydock.admiral import persistence, task_classifier
@@ -75,7 +75,7 @@ def collect(agent_loop: AgentLoop, session_id: str, outcome: str = "unknown") ->
     total, writes = _count_tool_calls(msgs)
     tcpw = (total / writes) if writes else float(total)
     return SessionMetrics(
-        ts=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        ts=datetime.now(UTC).isoformat(timespec="seconds"),
         model=model_name,
         task_type=task_classifier.classify(msgs),
         session_id=session_id,

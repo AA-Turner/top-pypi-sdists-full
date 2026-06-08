@@ -1,7 +1,6 @@
 import pytest
 from sage.tests.rubric_checker import verify_website_with_rubric
 
-def test_website_task_18():
-    """Verify exhaustive task creation via Website: Generate a basic GitHub Actions workflow...."""
-    prompt = "Generate a basic GitHub Actions workflow."
-    verify_website_with_rubric(prompt)
+def test_website_task_18(tmp_path):
+    prompt = "Write a basic Flask application with one route."
+    verify_website_with_rubric(prompt, tmp_path)

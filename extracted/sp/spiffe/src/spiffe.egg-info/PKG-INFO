@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spiffe
-Version: 0.2.9
+Version: 0.2.10
 Summary: Python library for SPIFFE support
 Author-email: Max Lambrecht <maxlambrecht@gmail.com>
 License-Expression: Apache-2.0
@@ -10,7 +10,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: grpcio<2,>=1.78.0
 Requires-Dist: cryptography>=46
-Requires-Dist: pyjwt[crypto]<2.13,>=2
+Requires-Dist: pyjwt[crypto]<2.14,>=2
 Requires-Dist: pyasn1<0.7.0,>=0.6.0
 Requires-Dist: pyasn1-modules<0.5.0,>=0.4.0
 Requires-Dist: pem<24,>=23
@@ -60,6 +60,20 @@ with WorkloadApiClient() as client:
     jwt_svid = client.fetch_jwt_svid(audience={"test"})
     print(f'SPIFFE ID: {jwt_svid.spiffe_id}')
 ```
+
+By default, blocking Workload API calls wait without a deadline. To avoid
+indefinitely blocking a calling thread when the Workload API is unresponsive,
+set `default_timeout` on the client or pass a per-call `timeout` in seconds:
+
+```python
+with WorkloadApiClient(default_timeout=5.0) as client:
+    jwt_svid = client.fetch_jwt_svid(audience={"test"})
+    jwt_svid = client.fetch_jwt_svid(audience={"test"}, timeout=1.0)
+```
+
+Per-call timeouts override `default_timeout`. Deadline expiry is reported as
+the SPIFFE-specific error for the call, such as `FetchJwtSvidError`. Timeouts do
+not apply to long-lived streaming methods.
 
 ### X509Source
 

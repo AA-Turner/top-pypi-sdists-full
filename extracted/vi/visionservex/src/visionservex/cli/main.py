@@ -50,10 +50,13 @@ from visionservex.cli import (
     florence2_commands,
     gateway_commands,
     gpu_commands,
+    hf_commands,
+    interactive_commands,
     libreyolo_commands,
     license_commands,
     license_registry_commands,
     live_commands,
+    locateanything_commands,
     maskdino_commands,
     medical_commands,
     model_card_commands,
@@ -71,6 +74,7 @@ from visionservex.cli import (
     sam3_commands,
     sam_family_commands,
     security_commands,
+    segment_instances_commands,
     segmentation_commands,
     sidecar_commands,
     suite_commands,
@@ -156,6 +160,7 @@ app.add_typer(capabilities_commands.app, name="capabilities")
 app.add_typer(model_card_commands.app, name="model-card")
 app.add_typer(replacement_map_commands.app, name="replacement-map")
 app.add_typer(model_lifecycle_commands.app, name="model")
+app.add_typer(hf_commands.app, name="hf")
 app.add_typer(training_commands.training_app, name="training")
 app.add_typer(training_commands.export_app, name="export-cmd")
 app.add_typer(training_commands.video_app, name="video")
@@ -178,6 +183,9 @@ app.add_typer(embedding_commands.app, name="feature")
 app.add_typer(dev_commands.app, name="dev")
 app.add_typer(model_health_commands.app, name="models")
 app.add_typer(readiness_commands.app, name="readiness")
+app.add_typer(locateanything_commands.app, name="locate-anything")
+app.add_typer(interactive_commands.app, name="interactive")
+app.add_typer(segment_instances_commands.app, name="segment-instances")
 app.add_typer(sam3_commands.app, name="sam3")
 app.add_typer(expert_commands.app, name="expert")
 app.add_typer(maskdino_commands.app, name="maskdino")

@@ -58,6 +58,17 @@ def _build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("stats", help="Show DB counts")
 
+    sub.add_parser(
+        "setup",
+        help=(
+            "First-time / fresh-install GraphRAG bootstrap. Detects the "
+            "bundled cookbook (drydock/data/cookbook/), the operator's "
+            "local cookbook at /data3/drydock_cookbook, and the current "
+            "working directory as candidate corpora; ingests whichever it "
+            "finds. No-op safe to re-run."
+        ),
+    )
+
     sp_we = sub.add_parser(
         "worked_example",
         help="Manage worked examples (problem + reasoning chain + answer)",
@@ -124,6 +135,50 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{indent}{arrow}{h.format()}")
         return 0
 
+    if args.cmd == "setup":
+        # Try a sequence of candidate locations; ingest the first that exists.
+        # Drydock's job here is to make GraphRAG work without the user
+        # having to know about cookbook paths or manual ingest invocation.
+        # Designed so the AI agent can invoke this as a bash tool when a
+        # user asks "set up GraphRAG" — no slash command needed.
+        import drydock as _drydock
+        candidates: list[Path] = []
+        # 1. bundled cookbook (ships with the wheel)
+        candidates.append(Path(_drydock.__file__).parent / "data" / "cookbook")
+        # 2. operator's local cookbook (most up-to-date for this host)
+        candidates.append(Path("/data3/drydock_cookbook"))
+        # 3. cwd if it looks like a project (has pyproject.toml or README)
+        cwd = Path.cwd()
+        if (cwd / "pyproject.toml").exists() or (cwd / "README.md").exists():
+            candidates.append(cwd)
+
+        ingested = []
+        for c in candidates:
+            if not c.exists():
+                print(f"  - {c}  (skip: not found)")
+                continue
+            try:
+                counts = idx.ingest_path(c)
+                ingested.append((c, counts))
+                print(
+                    f"  - {c}  -> {counts['files']} files / "
+                    f"{counts['symbols']} symbols / {counts['chunks']} chunks"
+                )
+            except Exception as e:
+                print(f"  - {c}  ERROR: {e}")
+        if not ingested:
+            print("\nNo cookbook found at any candidate location.")
+            print("Provide one explicitly: python -m drydock.graphrag ingest <path>")
+            return 1
+        # Final state
+        s = idx.stats()
+        print(
+            f"\nGraphRAG ready: {s['symbols']} symbols, {s['chunks']} chunks, "
+            f"{s['unique_terms']} unique terms."
+        )
+        print(f"DB: {args.db}")
+        return 0
+
     if args.cmd == "stats":
         s = idx.stats()
         print(
@@ -154,7 +209,7 @@ def main(argv: list[str] | None = None) -> int:
                 subject=payload.get("subject", ""),
                 source=payload.get("source", "manual"),
             )
-            print(f"Ingested worked example id={eid} (source={payload.get('source','manual')})")
+            print(f"Ingested worked example id={eid} (source={payload.get('source', 'manual')})")
             return 0
         if args.we_cmd == "list":
             hits = idx.list_worked_examples(limit=args.limit)

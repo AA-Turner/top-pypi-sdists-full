@@ -335,7 +335,7 @@ Store in todos.json. Each todo: id, text, done (bool), created_at, due_date (opt
                     ok, _ = _run(tmp_path, f"python3 {f} add 'Test task'")
                     if ok:
                         break
-        assert ok, f"Todo app doesn't run"
+        assert ok, "Todo app doesn't run"
 
     async def test_log_analyzer(self, tmp_path):
         """Build a log analyzer from PRD — THE scenario the user keeps testing."""
@@ -469,8 +469,7 @@ python3 -m sitegen build --clean     # delete output/ first
             "---\ntitle: About\n---\n# About\nBuilt with Python.\n- Feature 1\n- Feature 2\n"
         )
         agent = make_agent(tmp_path, max_turns=35)
-        r = await run_workload(agent, max_events=400, prompt=
-            "Review the PRD and build the static site generator. "
+        r = await run_workload(agent, max_events=400, prompt="Review the PRD and build the static site generator. "
             "Run the build command and verify HTML files are created in output/.")
 
         assert r.ok, f"Crash: {r.summary()}"
@@ -580,8 +579,7 @@ tasks:
             "    description: Say goodbye\n"
         )
         agent = make_agent(tmp_path, max_turns=35)
-        r = await run_workload(agent, max_events=400, prompt=
-            "Review the PRD and build the task runner. Test by running the 'goodbye' task "
+        r = await run_workload(agent, max_events=400, prompt="Review the PRD and build the task runner. Test by running the 'goodbye' task "
             "(which depends on 'greet').")
 
         assert r.ok, f"Crash: {r.summary()}"
@@ -632,8 +630,7 @@ if __name__ == "__main__":
 - Response helpers: .json(), .text(), .html(), .not_found()
 """)
         agent = make_agent(tmp_path, max_turns=40)
-        r = await run_workload(agent, max_events=400, prompt=
-            "Review the PRD and build the miniapi framework. Create the example_api.py too. "
+        r = await run_workload(agent, max_events=400, prompt="Review the PRD and build the miniapi framework. Create the example_api.py too. "
             "Verify all files have valid syntax.")
 
         assert r.ok, f"Crash: {r.summary()}"
@@ -683,8 +680,7 @@ def test_division_by_zero():
 - Python stdlib only
 """)
         agent = make_agent(tmp_path, max_turns=40)
-        r = await run_workload(agent, max_events=400, prompt=
-            "Review the PRD and build the test framework. Create a sample test file "
+        r = await run_workload(agent, max_events=400, prompt="Review the PRD and build the test framework. Create a sample test file "
             "and run the framework on it to verify it works.")
 
         assert r.ok, f"Crash: {r.summary()}"
@@ -730,8 +726,7 @@ python3 -m datapipe convert sales.csv -o sales.json  # CSV to JSON
             "Eve,Engineering,105000\n"
         )
         agent = make_agent(tmp_path, max_turns=35)
-        r = await run_workload(agent, max_events=400, prompt=
-            "Review the PRD and build the data pipeline. "
+        r = await run_workload(agent, max_events=400, prompt="Review the PRD and build the data pipeline. "
             "Test: show info about employees.csv, then process it to get average salary by department.")
 
         assert r.ok, f"Crash: {r.summary()}"
@@ -767,8 +762,7 @@ Create demo.py that:
 - Messages have types: TEXT, JOIN, LEAVE
 """)
         agent = make_agent(tmp_path, max_turns=35)
-        r = await run_workload(agent, max_events=400, prompt=
-            "Review the PRD and build the chat system. Run the demo to verify it works.")
+        r = await run_workload(agent, max_events=400, prompt="Review the PRD and build the chat system. Run the demo to verify it works.")
 
         assert r.ok, f"Crash: {r.summary()}"
         assert count_python_files(tmp_path) >= 4

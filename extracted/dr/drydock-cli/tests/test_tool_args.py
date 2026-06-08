@@ -7,10 +7,7 @@ Gemma 4 quirks:
 - Sends file_path as "path" or vice versa
 - Sends content in wrong field for search_replace
 """
-import json
 import pytest
-from pathlib import Path
-from unittest.mock import MagicMock
 
 
 def try_validate(args_class, data: dict) -> tuple[bool, str]:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-Flask-Cors
-Version: 6.0.0.20260518
+Version: 6.0.3.20260608
 Summary: Typing stubs for Flask-Cors
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -22,7 +22,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`Flask-Cors`](https://github.com/corydolphin/flask-cors) package. It can be used by type checkers
 to check code that uses `Flask-Cors`. This version of
 `types-Flask-Cors` aims to provide accurate annotations for
-`Flask-Cors==6.0.*`.
+`Flask-Cors~=6.0.3`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -33,7 +33,7 @@ directory.
 
 This package was tested with the following type checkers:
 * [mypy](https://github.com/python/mypy/) 2.1.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.409
+* [pyright](https://github.com/microsoft/pyright) 1.1.410
 
 It was generated from typeshed commit
-[`3402466d17144ed7edfc92940c6973167ba285af`](https://github.com/python/typeshed/commit/3402466d17144ed7edfc92940c6973167ba285af).
+[`64869a290645cfcca73abb82b0aa03a731dd934f`](https://github.com/python/typeshed/commit/64869a290645cfcca73abb82b0aa03a731dd934f).

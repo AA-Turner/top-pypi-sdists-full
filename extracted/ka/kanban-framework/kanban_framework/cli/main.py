@@ -35,6 +35,7 @@ from kanban_framework.cli.main_version import get_version as _get_version  # noq
 
 _CMD_MAP: dict[str, tuple[str, str]] = {
     "check-env":  ("kanban_framework.cli.main", "_cmd_check_env"),
+    "benchmark":  ("kanban_framework.cli.benchmark", "dispatch"),
     "init":       ("kanban_framework.cli.task", "cmd_init"),
     "scan":       ("kanban_framework.cli.task", "cmd_scan"),
     "create":     ("kanban_framework.cli.task", "cmd_create"),
@@ -79,6 +80,11 @@ _CMD_MAP: dict[str, tuple[str, str]] = {
 
 _USE_JSON = True
 _start_time = time.time()
+
+# Commands that prefer human-readable text output by default.
+# These are primarily interactive / visual / setup commands where JSON
+# provides no value to either human or agent.
+_TEXT_DEFAULT_COMMANDS: set[str] = {"dashboard", "init", "help", "hook"}
 
 
 def _ensure_utf8_stdout() -> None:
@@ -126,11 +132,20 @@ def main() -> None:
     _start_time = time.time()
     args = sys.argv[1:]
 
-    if "--text" in args:
+    explicit_json = "--json" in args or "-o" in args
+    explicit_text = "--text" in args
+
+    if explicit_text:
         _USE_JSON = False
         args = [a for a in args if a != "--text"]
-    # --json is now default; keep flag for backward compat (no-op)
+    # --json flag: force JSON mode (overrides text-default commands)
     args = [a for a in args if a not in ("--json", "-o")]
+
+    # Commands that prefer human-readable output default to text mode
+    # unless --json is explicitly passed.
+    cmd = args[0] if args else ""
+    if not explicit_json and not explicit_text and cmd in _TEXT_DEFAULT_COMMANDS:
+        _USE_JSON = False
 
     _setup_logging()
 

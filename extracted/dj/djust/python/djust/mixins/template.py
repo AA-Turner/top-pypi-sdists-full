@@ -158,9 +158,23 @@ class TemplateMixin:
                     # the dj-root block directly without base template surrounding HTML,
                     # making extraction simpler and immune to Issue #365 miscount.
                     # Fall back to resolved if dj-root is only in the base template.
+                    #
+                    # Use the anchored-attribute regexes (NOT a naive substring): a
+                    # naive ``"dj-root" in template_source`` matches the token ANYWHERE
+                    # — including documentation/example code that merely *displays*
+                    # ``dj-root``/``dj-view`` as text, or another word containing it as
+                    # a substring (``adj-view``). When the real ``<div dj-root>`` lives
+                    # in the BASE template and the child only mentions the tokens in
+                    # text, the substring check wrongly picks the child as the VDOM
+                    # source → extraction finds no real dj-root → render_full_template
+                    # nests the whole page (two <!DOCTYPE>/two <footer>). The regexes
+                    # require a REAL ``<div ... dj-root/dj-view ...>`` tag (#1746).
                     vdom_source = (
                         template_source
-                        if ("dj-root" in template_source or "dj-view" in template_source)
+                        if (
+                            _DJ_ROOT_RE.search(template_source)
+                            or _DJ_VIEW_RE.search(template_source)
+                        )
                         else resolved
                     )
                     vdom_template = self._extract_liveview_root_with_wrapper(vdom_source)
@@ -787,7 +801,12 @@ Object.assign(window.handlerMetadata, {json.dumps(metadata)});
 
         while depth > 0 and pos < len(template):
             open_match = re.search(r"<div\b", template[pos:], re.IGNORECASE)
-            close_match = re.search(r"</div>", template[pos:], re.IGNORECASE)
+            # Tolerate whitespace before '>' (``</div >`` / ``</div\n>``). A
+            # plain ``</div>`` missed those, over-counting depth so the close
+            # was never found — the close-side twin of the #1749 open-side
+            # under-count. ``close_match.end()`` consumes the full tag incl.
+            # trailing whitespace, so splice points stay correct. (#1751)
+            close_match = re.search(r"</div\s*>", template[pos:], re.IGNORECASE)
 
             if close_match is None:
                 break
@@ -961,22 +980,22 @@ Object.assign(window.handlerMetadata, {json.dumps(metadata)});
                 tag_start = dj_root_match.start()
                 # End of the opening tag (past the >)
                 after_open = dj_root_match.end()
-                # Find the matching </div> by counting depth
-                depth = 1
-                i = after_open
-                while i < len(shell_html) and depth > 0:
-                    if shell_html[i : i + 5] == "<div " or shell_html[i : i + 5] == "<div>":
-                        depth += 1
-                    elif shell_html[i : i + 6] == "</div>":
-                        depth -= 1
-                        if depth == 0:
-                            # i points to the '<' of '</div>'
-                            # Replace from tag_start through '</div>' (6 chars)
-                            close_end = i + 6
-                            result = shell_html[:tag_start] + liveview_html + shell_html[close_end:]
-                            result = self._inject_handler_metadata(result, request=request)
-                            return result
-                    i += 1
+                # Find the matching </div> via the shared scanner instead of a
+                # duplicate hand-rolled depth loop. _find_closing_div_pos is
+                # multi-line-safe on the open side (``<div\b`` — subsumes the
+                # #1750 open-tag fix) and whitespace-tolerant on the close side
+                # (``</div\s*>`` — #1751). The rendered shell carries no
+                # ``{% %}`` tags, so the helper's if/else branch handling is
+                # inert here; this is purely the balanced-div scan. Removing the
+                # second scanner closes the parallel-path-drift gap (#1646) that
+                # let the open-side bug exist in one copy and not the other.
+                _close_start, close_end = TemplateMixin._find_closing_div_pos(
+                    shell_html, after_open
+                )
+                if close_end is not None:
+                    result = shell_html[:tag_start] + liveview_html + shell_html[close_end:]
+                    result = self._inject_handler_metadata(result, request=request)
+                    return result
 
             # Fallback: dj-root not found in shell (shouldn't happen)
             shell_html = self._inject_handler_metadata(shell_html, request=request)

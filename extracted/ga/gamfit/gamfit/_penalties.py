@@ -507,20 +507,15 @@ def _temperature_schedule_descriptor(schedule: Any) -> dict[str, Any] | None:
             )
         raw = {
             "tau_start": getattr(schedule, "tau_start"),
-            "tau_min": getattr(schedule, "tau_min", getattr(schedule, "tau_end", None)),
+            "tau_min": getattr(schedule, "tau_min"),
             "decay": getattr(schedule, "decay"),
             "rate": getattr(schedule, "rate", None),
             "steps": getattr(schedule, "steps", None),
             "iter_count": getattr(schedule, "iter_count", 0),
         }
     decay = str(raw.get("decay", "geometric")).lower().replace("-", "_")
-    if decay == "exponential":
-        decay = "geometric"
     tau_start = float(raw["tau_start"])
-    raw_tau_min = raw.get("tau_min", raw.get("tau_end"))
-    if raw_tau_min is None:
-        raise ValueError("temperature_schedule requires tau_min or tau_end")
-    tau_min = float(raw_tau_min)
+    tau_min = float(raw["tau_min"])
     if not np.isfinite(tau_start) or tau_start <= 0.0:
         raise ValueError("temperature_schedule.tau_start must be finite and > 0")
     if not np.isfinite(tau_min) or tau_min <= 0.0:
@@ -547,7 +542,7 @@ def _temperature_schedule_descriptor(schedule: Any) -> dict[str, Any] | None:
         out["steps"] = int(steps)
     elif decay != "reciprocal_iter":
         raise ValueError(
-            "temperature_schedule.decay must be 'geometric', 'exponential', 'linear', or 'reciprocal_iter'"
+            "temperature_schedule.decay must be 'geometric', 'linear', or 'reciprocal_iter'"
         )
     return out
 
@@ -647,8 +642,8 @@ serializes to ``kind="topk_activation"``. Direct evaluation uses the same Rust
     "JumpReLUPenalty": """Analytic JumpReLU SAE sparsity penalty descriptor.
 
 Represents the hard-threshold SAE assignment family exposed by
-``sae_manifold_fit(..., assignment="jumprelu")`` and the gated alias. The
-Python wrapper forwards constructor arguments to the Rust descriptor and
+``sae_manifold_fit(..., assignment="jumprelu")``. The Python wrapper forwards
+constructor arguments to the Rust descriptor and
 supports ``value_grad(t)`` / ``hvp(t, v)`` in NumPy, Torch, and JAX frames.
 """,
     "SparsityPenalty": """Smoothed element-wise sparsity penalty descriptor.

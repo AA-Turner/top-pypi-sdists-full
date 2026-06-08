@@ -23,8 +23,7 @@ from drydock.core.logger import logger
 from drydock.core.paths import HISTORY_FILE
 from drydock.core.programmatic import run_programmatic
 from drydock.core.session.session_loader import SessionLoader
-from drydock.core.types import EntrypointMetadata, LLMMessage, OutputFormat, Role
-from drydock.core.utils import ConversationLimitException
+from drydock.core.types import EntrypointMetadata, LLMMessage, Role
 from drydock.setup.onboarding import run_onboarding
 
 
@@ -254,6 +253,7 @@ def run_cli(args: argparse.Namespace) -> None:
     # adding more prints.
     import time as _t
     _t0 = _t.perf_counter()
+
     def _phase(name: str, start: float) -> float:
         now = _t.perf_counter()
         logger.warning("[TIMING:startup] %s=%.2fs", name, now - start)

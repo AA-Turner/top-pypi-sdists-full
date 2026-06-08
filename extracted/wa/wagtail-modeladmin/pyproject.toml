@@ -7,11 +7,10 @@ name = "wagtail-modeladmin"
 authors = [{name = "Wagtail Core Team", email = "hello@wagtail.org"}]
 description = "Add any model in your project to the Wagtail admin. Formerly wagtail.contrib.modeladmin."
 readme = "README.md"
-license = {file = "LICENSE"}
+license = "BSD-3-Clause"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
@@ -47,7 +46,10 @@ docs = [
 ]
 
 [project.urls]
-Home = "https://github.com/wagtail-nest/wagtail-modeladmin"
+"Source" = "https://github.com/wagtail-nest/wagtail-modeladmin"
+"Changelog" = "https://github.com/wagtail-nest/wagtail-modeladmin/blob/main/CHANGELOG.md"
+"Issue Tracker" = "https://github.com/wagtail-nest/wagtail-modeladmin/issues"
+"Discussions" = "https://github.com/orgs/wagtail-nest/discussions"
 
 [tool.flit.module]
 name = "wagtail_modeladmin"

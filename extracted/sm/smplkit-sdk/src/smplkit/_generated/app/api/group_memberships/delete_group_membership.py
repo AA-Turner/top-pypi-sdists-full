@@ -73,8 +73,8 @@ def sync_detailed(
 ) -> Response[Any | ErrorResponse]:
     """Delete Group Membership
 
-     Remove a user from a group. Returns `409` when the membership is the user's `default` membership —
-    every user must remain in the `default` group per ADR-055 §4.
+     Remove a user from a group. Returns `409` when removing the membership would leave the user with no
+    group memberships in this account — every user must belong to at least one group.
 
     Args:
         id (UUID):
@@ -105,8 +105,8 @@ def sync(
 ) -> Any | ErrorResponse | None:
     """Delete Group Membership
 
-     Remove a user from a group. Returns `409` when the membership is the user's `default` membership —
-    every user must remain in the `default` group per ADR-055 §4.
+     Remove a user from a group. Returns `409` when removing the membership would leave the user with no
+    group memberships in this account — every user must belong to at least one group.
 
     Args:
         id (UUID):
@@ -132,8 +132,8 @@ async def asyncio_detailed(
 ) -> Response[Any | ErrorResponse]:
     """Delete Group Membership
 
-     Remove a user from a group. Returns `409` when the membership is the user's `default` membership —
-    every user must remain in the `default` group per ADR-055 §4.
+     Remove a user from a group. Returns `409` when removing the membership would leave the user with no
+    group memberships in this account — every user must belong to at least one group.
 
     Args:
         id (UUID):
@@ -162,8 +162,8 @@ async def asyncio(
 ) -> Any | ErrorResponse | None:
     """Delete Group Membership
 
-     Remove a user from a group. Returns `409` when the membership is the user's `default` membership —
-    every user must remain in the `default` group per ADR-055 §4.
+     Remove a user from a group. Returns `409` when removing the membership would leave the user with no
+    group memberships in this account — every user must belong to at least one group.
 
     Args:
         id (UUID):

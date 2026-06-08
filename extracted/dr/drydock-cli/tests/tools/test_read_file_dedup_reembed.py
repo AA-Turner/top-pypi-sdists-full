@@ -13,7 +13,6 @@ rather than pointing at the prior (possibly absent) tool_result.
 from __future__ import annotations
 
 import pytest
-from pathlib import Path
 from unittest.mock import MagicMock
 
 from drydock.core.tools.base import BaseToolState

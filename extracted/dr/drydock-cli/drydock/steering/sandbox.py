@@ -18,9 +18,9 @@ patterns). Customers add their own rules at the call site.
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Sequence
+from collections.abc import Callable, Sequence
 
 from drydock.steering.applier import (
     SteeringApplier,

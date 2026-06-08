@@ -196,17 +196,19 @@ class GuardChecks:
                     "Fix: ensure the file contains valid JSON, e.g. "
                     '{\"matched\": [{\"id\": \"K001\", \"title\": \"...\"}]}')
 
-        # 2. spec.md or plan/*.md must contain K-NNN references
+        # 2. spec.md or plan/*.md must contain K-NNN or scope-NNN references
         #    Skip this check when knowledge_used.json reports no matches with a reason
         #    (e.g., empty knowledge base on new projects)
         skip_ref_check = warnings and "no matches" in warnings[-1]
         if not skip_ref_check:
-            # Match K-NNN in various formats: [K001], K001, K001-K003, **K001**
+            # Match knowledge entry IDs: K001, K001-K003, alice001, test011, etc.
+            # Scope IDs: 1-15 lowercase alphanumeric prefix + 3+ digits
+            # K IDs: K + 3+ digits
             ref_pattern = re.compile(
-                r'(?:知识库参考|knowledge refs?)[^]]*\[K(\d{3,})\]'  # 知识库参考: [K001]
-                r'|\[K(\d{3,})\]'                                     # [K001]
-                r'|\*\*K(\d{3,})\*\*'                                 # **K001**
-                r'|(?<![a-zA-Z])K(\d{3,})(?:-\d{3,})*(?![a-zA-Z\d])'  # K001, K001-K003
+                r'(?:知识库参考|knowledge refs?)\s*[：:]\s*\[?([^\]]+)\]?|'  # 知识库参考: [K001, alice002]
+                r'\[([A-Za-z][A-Za-z0-9]{0,14}\d{3,})\]|'                  # [K001] or [alice001]
+                r'\*\*([A-Za-z][A-Za-z0-9]{0,14}\d{3,})\*\*|'              # **K001**
+                r'\b([A-Za-z][A-Za-z0-9]{0,14}\d{3,})\b'                   # bare K001 or alice001
             )
             files_to_check = [td / "spec.md"]
             plan_dir = td / "plan"
@@ -218,16 +220,24 @@ class GuardChecks:
                 if not self._fs.file_exists(f):
                     continue
                 text = f.read_text(encoding="utf-8", errors="replace")
-                found_refs.update(f"K{m}" for groups in ref_pattern.findall(text) for m in groups if m)
+                for m in ref_pattern.finditer(text):
+                    for g in m.groups():
+                        if not g:
+                            continue
+                        # Split comma/space separated refs from 知识库参考: header
+                        for part in re.split(r'[,，\s]+', g.strip()):
+                            part = part.strip().strip('[]')
+                            if re.match(r'^[A-Za-z][A-Za-z0-9]{0,14}\d{3,}$', part):
+                                found_refs.add(part)
 
             if found_refs:
                 warnings.append(f"Knowledge refs in artifacts: {sorted(found_refs)}")
             else:
                 failures.append(
-                    "No knowledge references (K-NNN) found in spec.md or plan/*.md — "
+                    "No knowledge references (K-NNN or scope-NNN) found in spec.md or plan/*.md — "
                     "the agent must document which knowledge entries were applied. "
                     "Fix: add a '知识库参考' section to spec.md or plan files with "
-                    "references like [K001], e.g. '知识库参考: [K001] 避免 XX 问题'")
+                    "references like [K001], [alice001], e.g. '知识库参考: K001 避免 XX 问题'")
 
         return CheckResult(passed=len(failures) == 0, failures=failures, warnings=warnings)
 
@@ -479,11 +489,12 @@ class GuardChecks:
             List of absolute file paths matching the scope criteria.
             Empty list when worktree_path is not set.
         """
-        if not task.worktree_path:
-            return []
-        wt = Path(task.worktree_path)
-        if not wt.is_dir():
-            return []
+        wt = Path(task.worktree_path) if task.worktree_path else None
+        if wt is None or not wt.is_dir():
+            # Fall back to project root when no worktree (direct task execution)
+            wt = self._fs.root
+            if not wt.is_dir():
+                return []
 
         if scope == "worktree":
             return sorted(str(f) for f in wt.glob(self._WORKTREE_GLOB))

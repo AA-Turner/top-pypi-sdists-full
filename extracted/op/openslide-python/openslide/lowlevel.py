@@ -50,16 +50,13 @@ from ctypes import (
 from itertools import count
 import os
 import platform
-from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast
+from typing import TYPE_CHECKING, Any, ParamSpec, Protocol, TypeAlias, TypeVar, cast
 
 from PIL import Image
 
 from . import _convert
 
 if TYPE_CHECKING:
-    # Python 3.10+
-    from typing import ParamSpec, TypeAlias
-
     from _convert import _Buffer
 
 
@@ -89,10 +86,10 @@ def _load_library() -> CDLL:
         except FileNotFoundError as exc:
             raise ModuleNotFoundError(
                 "Couldn't locate OpenSlide DLL. "
-                "Try `pip install openslide-bin`, "
+                'Try `pip install openslide-bin`, '
                 "or if you're using an OpenSlide binary package, "
                 "ensure you've called os.add_dll_directory(). "
-                "https://openslide.org/api/python/#installing"
+                'https://openslide.org/api/python/#installing'
             ) from exc
     elif platform.system() == 'Darwin':
         try:
@@ -107,8 +104,8 @@ def _load_library() -> CDLL:
             if lib is None:
                 raise ModuleNotFoundError(
                     "Couldn't locate OpenSlide dylib. "
-                    "Try `pip install openslide-bin`. "
-                    "https://openslide.org/api/python/#installing"
+                    'Try `pip install openslide-bin`. '
+                    'https://openslide.org/api/python/#installing'
                 ) from exc
             return cdll.LoadLibrary(lib)
     else:
@@ -117,8 +114,8 @@ def _load_library() -> CDLL:
         except OSError as exc:
             raise ModuleNotFoundError(
                 "Couldn't locate OpenSlide shared library. "
-                "Try `pip install openslide-bin`. "
-                "https://openslide.org/api/python/#installing"
+                'Try `pip install openslide-bin`. '
+                'https://openslide.org/api/python/#installing'
             ) from exc
 
 
@@ -170,11 +167,11 @@ class _OpenSlide:
     @classmethod
     def from_param(cls, obj: _OpenSlide) -> _OpenSlide:
         if obj.__class__ != cls:
-            raise ValueError("Not an OpenSlide reference")
+            raise ValueError('Not an OpenSlide reference')
         if not obj._as_parameter_:
-            raise ValueError("Passing undefined slide object")
+            raise ValueError('Passing undefined slide object')
         if not obj._valid:
-            raise ValueError("Passing closed slide object")
+            raise ValueError('Passing closed slide object')
         return obj
 
 
@@ -193,15 +190,13 @@ class _OpenSlideCache:
     @classmethod
     def from_param(cls, obj: _OpenSlideCache) -> _OpenSlideCache:
         if obj.__class__ != cls:
-            raise ValueError("Not an OpenSlide cache reference")
+            raise ValueError('Not an OpenSlide cache reference')
         if not obj._as_parameter_:
-            raise ValueError("Passing undefined cache object")
+            raise ValueError('Passing undefined cache object')
         return obj
 
 
-if TYPE_CHECKING:
-    # Python 3.10+
-    Filename: TypeAlias = str | bytes | os.PathLike[Any]
+Filename: TypeAlias = str | bytes | os.PathLike[Any]
 
 
 class _filename_p:
@@ -247,7 +242,7 @@ class _size_t:
 
 
 def _load_image(buf: _Buffer, size: tuple[int, int]) -> Image.Image:
-    '''buf must be a mutable buffer.'''
+    """buf must be a mutable buffer."""
     _convert.argb2rgba(buf)
     return Image.frombuffer('RGBA', size, buf, 'raw', 'RGBA', 0, 1)
 
@@ -255,7 +250,7 @@ def _load_image(buf: _Buffer, size: tuple[int, int]) -> Image.Image:
 # check for errors opening an image file and wrap the resulting handle
 def _check_open(result: int | None, _func: Any, _args: Any) -> _OpenSlide:
     if result is None:
-        raise OpenSlideUnsupportedFormatError("Unsupported or missing image file")
+        raise OpenSlideUnsupportedFormatError('Unsupported or missing image file')
     slide = _OpenSlide(c_void_p(result))
     err = get_error(slide)
     if err is not None:
@@ -303,7 +298,7 @@ def _check_name_list(result: _Pointer[c_char_p], func: Any, args: Any) -> list[s
 
 
 class _FunctionUnavailable:
-    '''Standin for a missing optional function.  Fails when called.'''
+    """Standin for a missing optional function.  Fails when called."""
 
     def __init__(self, minimum_version: str):
         self._minimum_version = minimum_version
@@ -314,24 +309,25 @@ class _FunctionUnavailable:
         raise OpenSlideVersionError(self._minimum_version)
 
 
-# gate runtime code that requires ParamSpec, Python 3.10+
-if TYPE_CHECKING:
-    _P = ParamSpec('_P')
-    _T = TypeVar('_T', covariant=True)
+_P = ParamSpec('_P')
+_T = TypeVar('_T', covariant=True)
 
-    class _Func(Protocol[_P, _T]):
-        available: bool
 
-        def __call__(self, *args: _P.args) -> _T: ...  # type: ignore[valid-type]
+class _Func(Protocol[_P, _T]):
+    available: bool
 
-    class _CTypesFunc(_Func[_P, _T]):
-        restype: type | None
-        argtypes: list[type]
-        errcheck: _ErrCheck
+    def __call__(self, *args: _P.args) -> _T: ...  # type: ignore[valid-type]
 
-    _ErrCheck: TypeAlias = (
-        Callable[[Any, _CTypesFunc[..., Any], tuple[Any, ...]], Any] | None
-    )
+
+class _CTypesFunc(_Func[_P, _T]):
+    restype: type | None
+    argtypes: list[type]
+    errcheck: _ErrCheck
+
+
+_ErrCheck: TypeAlias = (
+    Callable[[Any, _CTypesFunc[..., Any], tuple[Any, ...]], Any] | None
+)
 
 
 # resolve and return an OpenSlide function with the specified properties
@@ -361,11 +357,7 @@ def _wraps_funcs(
     wrapped: list[_Func[..., Any]],
 ) -> Callable[[Callable[_P, _T]], _Func[_P, _T]]:
     def decorator(fn: Callable[_P, _T]) -> _Func[_P, _T]:
-        if TYPE_CHECKING:
-            # requires ParamSpec, Python 3.10+
-            f = cast(_Func[_P, _T], fn)
-        else:
-            f = fn
+        f = cast('_Func[_P, _T]', fn)
         f.available = True
         for w in wrapped:
             f.available = f.available and w.available
@@ -379,7 +371,7 @@ try:
         'openslide_detect_vendor', c_char_p, [_filename_p], _check_string
     )
 except AttributeError:
-    raise OpenSlideVersionError('3.4.0')
+    raise OpenSlideVersionError('3.4.0') from None
 
 open: _Func[[Filename], _OpenSlide] = _func(
     'openslide_open', c_void_p, [_filename_p], _check_open
@@ -434,7 +426,7 @@ def read_region(
         # OpenSlide would catch this, but not before we tried to allocate
         # a negative-size buffer
         raise OpenSlideError(
-            "negative width (%d) or negative height (%d) not allowed" % (w, h)
+            f'negative width ({w}) or negative height ({h}) not allowed'
         )
     if w == 0 or h == 0:
         # Image.frombuffer() would raise an exception

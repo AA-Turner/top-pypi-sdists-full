@@ -24,7 +24,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Iterable, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
+from collections.abc import Iterable
 
 from drydock.steering.config import SteeringConfig
 from drydock.steering.registry import SteeringRegistry
@@ -171,7 +172,7 @@ class LogitBiasSteeringApplier:
 
 
 def accumulate_logit_bias(
-    decision: "SteeringDecision",
+    decision: SteeringDecision,
     *,
     tokenizer=None,
     max_bias: float = 12.0,

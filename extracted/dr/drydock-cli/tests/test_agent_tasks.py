@@ -6,8 +6,6 @@ and verifying the agent produces the right events and behavior.
 
 from __future__ import annotations
 
-import asyncio
-import json
 
 import pytest
 
@@ -16,17 +14,11 @@ from tests.mock.utils import mock_llm_chunk
 from tests.stubs.fake_backend import FakeBackend
 from drydock.core.agent_loop import AgentLoop
 from drydock.core.agents.models import BuiltinAgentName
-from drydock.core.tools.base import BaseToolConfig, ToolPermission
 from drydock.core.types import (
     AssistantEvent,
     BaseEvent,
-    FunctionCall,
-    LLMMessage,
     MessageList,
     Role,
-    ToolCall,
-    ToolCallEvent,
-    ToolResultEvent,
     UserMessageEvent,
 )
 

@@ -97,7 +97,6 @@ class TestUnknownToolHandling:
     def test_error_lists_available_tools(self):
         """The error message for unknown tools should list valid alternatives."""
         # Verify the error message template includes tool names
-        from drydock.core.agent_loop import AgentLoop
 
         # The error is generated in _process_one_tool_call when tool_manager.get() fails
         # We just verify the expected tools are mentioned in the pattern

@@ -15,12 +15,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import os
-import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 from pathlib import Path
-
-import pytest
 
 
 SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "consume_retrieval_queue.py"
@@ -113,10 +109,10 @@ def test_idempotent_within_reingest_window(tmp_path, monkeypatch):
 
     mod = _load_consumer(monkeypatch, dispatch, sessions)
 
-    state = {str(project): datetime.now(timezone.utc).isoformat()}
+    state = {str(project): datetime.now(UTC).isoformat()}
     assert mod._stale(state, project) is False, "fresh ingest must NOT re-trigger"
 
-    state[str(project)] = (datetime.now(timezone.utc) - timedelta(days=8)).isoformat()
+    state[str(project)] = (datetime.now(UTC) - timedelta(days=8)).isoformat()
     assert mod._stale(state, project) is True, "8-day-old ingest must re-trigger"
 
 

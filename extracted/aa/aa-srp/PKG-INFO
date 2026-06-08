@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aa-srp
-Version: 4.4.0
+Version: 5.0.0
 Summary: Improved SRP Module for Alliance Auth
 Project-URL: Changelog, https://github.com/ppfeufer/aa-srp/blob/master/CHANGELOG.md
 Project-URL: Codecov, https://codecov.io/gh/ppfeufer/aa-srp
@@ -689,7 +689,6 @@ License-File: LICENSE
 Keywords: allianceauth,eveonline,ship_replacement
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
@@ -703,8 +702,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Requires-Python: <3.14,>=3.10
-Requires-Dist: allianceauth>=4.12
-Requires-Dist: django-esi>=8.3.1
+Requires-Dist: allianceauth<6,>=5
 Requires-Dist: django-eveonline-sde>=0.0.1b9
 Provides-Extra: tests-allianceauth-latest
 Requires-Dist: aa-discordnotify; extra == 'tests-allianceauth-latest'
@@ -731,7 +729,7 @@ Description-Content-Type: text/markdown
 [![Badge: Translation Status]][weblate engage]
 [![Badge: Contributor Covenant]][code of conduct]
 [![Discord](https://img.shields.io/discord/399006117012832262?label=discord)](https://discord.gg/fjnHAmk)
-[![Alliance Auth Compatibility](https://img.shields.io/badge/Alliance_Auth-v4_%7C_v5-brightgreen)](https://gitlab.com/allianceauth/allianceauth)
+[![Alliance Auth Compatibility](https://img.shields.io/badge/Alliance_Auth-v5-brightgreen)](https://gitlab.com/allianceauth/allianceauth)
 
 [![Badge: Buy me a coffee]][ppfeufer on ko-fi]
 
@@ -839,7 +837,7 @@ Make sure you're in the virtual environment (venv) of your Alliance Auth
 installation Then install the latest release directly from PyPi.
 
 ```shell
-pip install aa-srp==4.4.0
+pip install aa-srp==5.0.0
 ```
 
 #### Step 2: Configure Alliance Auth<a name="step-2-configure-alliance-auth"></a>
@@ -902,7 +900,7 @@ Restart your supervisor services for Auth
 Add the app to your `conf/requirements.txt`
 
 ```requirements
-aa-srp==4.4.0
+aa-srp==5.0.0
 ```
 
 #### Step 2: Update Your AA Settings<a name="step-2-update-your-aa-settings"></a>
@@ -1028,7 +1026,7 @@ To update your existing installation of AA SRP, first enable your virtual enviro
 Then run the following command to update AA SRP to the latest version.
 
 ```shell
-pip install aa-srp==4.4.0
+pip install aa-srp==5.0.0
 
 python manage.py collectstatic
 python manage.py migrate
@@ -1044,7 +1042,7 @@ To update your existing installation of AA SRP, first update the version in your
 `conf/requirements.txt` to the latest version.
 
 ```requirements
-aa-srp==4.4.0
+aa-srp==5.0.0
 ```
 
 Then build your Auth container and restart your containers.
